@@ -20,7 +20,7 @@
       ],
       "type": "string"
     },
-    "CapturedStudyRowForStudyCohortMemberOutput": {
+    "CapturedStudyRowForStudyCohortMember": {
       "additionalProperties": false,
       "description": "A stable capture position distinct from an occurrence's within-study ordinal.",
       "properties": {
@@ -31,7 +31,7 @@
           "type": "integer"
         },
         "value": {
-          "$ref": "#/$defs/StudyCohortMemberOutput",
+          "$ref": "#/$defs/StudyCohortMember",
           "description": "Original captured facts."
         }
       },
@@ -69,7 +69,7 @@
       ],
       "type": "string"
     },
-    "EventSourceOutput": {
+    "EventSource": {
       "additionalProperties": false,
       "description": "Owner-supplied semantics and pre-loss identity of a native checkpoint.",
       "properties": {
@@ -184,7 +184,7 @@
       ],
       "type": "string"
     },
-    "IncumbentDocumentOutput": {
+    "IncumbentDocument": {
       "additionalProperties": false,
       "description": "An incumbent in original objective units and its retained native search evidence.",
       "properties": {
@@ -508,7 +508,7 @@
       ],
       "type": "object"
     },
-    "PointFactsOutput": {
+    "PointFacts": {
       "additionalProperties": false,
       "description": "Current operational and scientific facts for one occurrence.",
       "properties": {
@@ -564,7 +564,7 @@
           "type": "integer"
         },
         "scientific": {
-          "$ref": "#/$defs/ScientificFactsOutput",
+          "$ref": "#/$defs/ScientificFacts",
           "description": "Operation-owned aggregate assessment."
         },
         "seed": {
@@ -659,14 +659,14 @@
         }
       ]
     },
-    "ProgressCheckpointDocumentOutput": {
+    "ProgressCheckpointDocument": {
       "additionalProperties": false,
       "description": "Current source checkpoint and independent issued-event coverage. Reading it never\nretains a run's cancellation lease or reconstructs a numerical event from metrics.",
       "properties": {
         "current": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ProgressEventDocumentOutput"
+              "$ref": "#/$defs/ProgressEventDocument"
             },
             {
               "type": "null"
@@ -786,7 +786,7 @@
         }
       ]
     },
-    "ProgressEventDocumentOutput": {
+    "ProgressEventDocument": {
       "additionalProperties": false,
       "description": "An owned event from memory or from a durable attempt's selected stream.",
       "properties": {
@@ -806,7 +806,7 @@
         "incumbent": {
           "anyOf": [
             {
-              "$ref": "#/$defs/IncumbentDocumentOutput"
+              "$ref": "#/$defs/IncumbentDocument"
             },
             {
               "type": "null"
@@ -829,7 +829,7 @@
         "source": {
           "anyOf": [
             {
-              "$ref": "#/$defs/EventSourceOutput"
+              "$ref": "#/$defs/EventSource"
             },
             {
               "type": "null"
@@ -1136,7 +1136,7 @@
         }
       ]
     },
-    "ScientificFactsOutput": {
+    "ScientificFacts": {
       "additionalProperties": false,
       "description": "E supplies aggregate decisions; the study never counts result tables to infer these.",
       "properties": {
@@ -1294,7 +1294,7 @@
       ],
       "type": "object"
     },
-    "StudyCohortMemberOutput": {
+    "StudyCohortMember": {
       "additionalProperties": false,
       "description": "One frozen point's compact original facts; no operation, report or payload is decoded.",
       "properties": {
@@ -1306,7 +1306,7 @@
           ]
         },
         "facts": {
-          "$ref": "#/$defs/PointFactsOutput",
+          "$ref": "#/$defs/PointFacts",
           "description": "Original lifecycle, scientific availability, attempt count and effect facts."
         },
         "key": {
@@ -1358,14 +1358,14 @@
       ],
       "type": "object"
     },
-    "StudyCohortMemberPageBodyOutput": {
+    "StudyCohortMemberPageBody": {
       "additionalProperties": false,
       "description": "One bounded immutable occurrence prefix, including original unavailable facts.",
       "properties": {
         "members": {
           "description": "Original occurrences; global positions differ from within-study ordinals.",
           "items": {
-            "$ref": "#/$defs/CapturedStudyRowForStudyCohortMemberOutput"
+            "$ref": "#/$defs/CapturedStudyRowForStudyCohortMember"
           },
           "type": "array"
         },
@@ -1387,7 +1387,7 @@
       ],
       "type": "object"
     },
-    "StudyCohortReceiptBodyOutput": {
+    "StudyCohortReceiptBody": {
       "additionalProperties": false,
       "description": "Historical acknowledgement of a complete native cut. Identifiers grant no read permission.",
       "properties": {
@@ -1416,7 +1416,7 @@
           "type": "integer"
         },
         "request": {
-          "$ref": "#/$defs/StudyCohortRequestBodyOutput",
+          "$ref": "#/$defs/StudyCohortRequestBody",
           "description": "Original immutable selection."
         }
       },
@@ -1430,12 +1430,12 @@
       ],
       "type": "object"
     },
-    "StudyCohortRequestBodyOutput": {
+    "StudyCohortRequestBody": {
       "additionalProperties": false,
       "description": "One complete bounded population selected before any analytical payload work.",
       "properties": {
         "filter": {
-          "$ref": "#/$defs/StudyWorkbenchFilterOutput",
+          "$ref": "#/$defs/StudyWorkbenchFilter",
           "description": "Exact native predicates."
         },
         "maximum_members": {
@@ -1467,7 +1467,7 @@
       ],
       "type": "string"
     },
-    "StudyObservationContextOutput": {
+    "StudyObservationContext": {
       "additionalProperties": false,
       "description": "Original immutable selection binds a cursor independently from mutable metadata revisions.",
       "properties": {
@@ -1535,12 +1535,12 @@
         }
       ]
     },
-    "StudyObservationCursorBodyOutput": {
+    "StudyObservationCursorBody": {
       "additionalProperties": false,
       "description": "Portable reconnect coordinates; decoding grants no result or cancellation authority.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/StudyObservationContextOutput",
+          "$ref": "#/$defs/StudyObservationContext",
           "description": "Exact scientific and engineering context."
         },
         "issuing_store": {
@@ -1554,7 +1554,7 @@
         "sources": {
           "description": "Original parent and retry sources; older attempts remain present.",
           "items": {
-            "$ref": "#/$defs/StudyObservationPositionOutput"
+            "$ref": "#/$defs/StudyObservationPosition"
           },
           "type": "array"
         }
@@ -1567,7 +1567,7 @@
       ],
       "type": "object"
     },
-    "StudyObservationPositionOutput": {
+    "StudyObservationPosition": {
       "additionalProperties": false,
       "description": "Position in one exact attempt, with separate native source and durable batch clocks.",
       "properties": {
@@ -1676,20 +1676,20 @@
       ],
       "type": "object"
     },
-    "StudyObservationStatusOutput": {
+    "StudyObservationStatus": {
       "additionalProperties": false,
       "description": "One explicitly bounded observer status page; never a complete analytical document.",
       "properties": {
         "header": {
-          "$ref": "#/$defs/StudyWorkbenchHeaderOutput",
+          "$ref": "#/$defs/StudyWorkbenchHeader",
           "description": "The one explicitly selected study header."
         },
         "members": {
-          "$ref": "#/$defs/StudyCohortMemberPageBodyOutput",
+          "$ref": "#/$defs/StudyCohortMemberPageBody",
           "description": "One bounded original member page (observer admission remains at64)."
         },
         "receipt": {
-          "$ref": "#/$defs/StudyCohortReceiptBodyOutput",
+          "$ref": "#/$defs/StudyCohortReceiptBody",
           "description": "Exact historical native cut and counts."
         }
       },
@@ -1700,14 +1700,14 @@
       ],
       "type": "object"
     },
-    "StudyObservedSourceOutput": {
+    "StudyObservedSource": {
       "additionalProperties": false,
       "description": "A source-local page; ordering across sources has no global causal interpretation.",
       "properties": {
         "checkpoint": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ProgressCheckpointDocumentOutput"
+              "$ref": "#/$defs/ProgressCheckpointDocument"
             },
             {
               "type": "null"
@@ -1733,7 +1733,7 @@
         "events": {
           "description": "Original whole numerical observations in their original source order.",
           "items": {
-            "$ref": "#/$defs/ProgressEventDocumentOutput"
+            "$ref": "#/$defs/ProgressEventDocument"
           },
           "type": "array"
         },
@@ -1745,7 +1745,7 @@
           ]
         },
         "position": {
-          "$ref": "#/$defs/StudyObservationPositionOutput",
+          "$ref": "#/$defs/StudyObservationPosition",
           "description": "Exact original run/attempt position after this page."
         }
       },
@@ -1793,7 +1793,7 @@
       ],
       "type": "string"
     },
-    "StudyWorkbenchFilterOutput": {
+    "StudyWorkbenchFilter": {
       "additionalProperties": false,
       "description": "Indexed predicates over actual original scientific and engineering owners.",
       "properties": {
@@ -1870,7 +1870,7 @@
       ],
       "type": "object"
     },
-    "StudyWorkbenchHeaderOutput": {
+    "StudyWorkbenchHeader": {
       "additionalProperties": false,
       "description": "Compact immutable attribution and current header facts. No definitions or trajectories.",
       "properties": {
@@ -1978,7 +1978,7 @@
   "description": "One bounded read-only poll and its exact reconnect position.",
   "properties": {
     "cursor": {
-      "$ref": "#/$defs/StudyObservationCursorBodyOutput",
+      "$ref": "#/$defs/StudyObservationCursorBody",
       "description": "Exact next reconnect position."
     },
     "document_version": {
@@ -1989,12 +1989,12 @@
     "sources": {
       "description": "Bounded selected owner observations.",
       "items": {
-        "$ref": "#/$defs/StudyObservedSourceOutput"
+        "$ref": "#/$defs/StudyObservedSource"
       },
       "type": "array"
     },
     "status": {
-      "$ref": "#/$defs/StudyObservationStatusOutput",
+      "$ref": "#/$defs/StudyObservationStatus",
       "description": "Canonical compact status with actual point metadata revisions."
     }
   },
@@ -2004,6 +2004,6 @@
     "cursor",
     "document_version"
   ],
-  "title": "StudyObservationPageOutput",
+  "title": "StudyObservationPage",
   "type": "object"
 }

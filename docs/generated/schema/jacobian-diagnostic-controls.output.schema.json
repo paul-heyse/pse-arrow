@@ -69,6 +69,6 @@
     "maximum_nodes",
     "document_version"
   ],
-  "title": "JacobianDiagnosticControlsOutput",
+  "title": "JacobianDiagnosticControls",
   "type": "object"
 }

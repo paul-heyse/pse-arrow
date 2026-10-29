@@ -48,6 +48,6 @@
     "constant",
     "document_version"
   ],
-  "title": "RouteDocumentOutput",
+  "title": "RouteDocument",
   "type": "object"
 }

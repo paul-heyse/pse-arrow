@@ -52,16 +52,13 @@ code you chose to run". In scope:
 - **FFI and native code.** `crates/pse-ipopt-sys` and `crates/pse-backend-native` bind
   Ipopt through C. Memory unsafety, missing `catch_unwind` across an FFI callback
   boundary, or an unsound `unsafe` block anywhere is in scope — `unsafe_code` is denied
-  outside a four-crate allowlist, so any escape is a finding. So are unsound blocks in
-  `pse-kernels-ext` and `pse-py`.
+  outside the declared Cargo unsafe allowlist, so any escape is a finding. So are unsound blocks in
+  `pse-kernels-ext`.
 - **Untrusted documents and data.** Parsing a model, manifest, relation store, Arrow IPC
   or Parquet file, or a golden store from an untrusted source must not cause memory
   unsafety, an uncontrolled allocation, an infinite loop, or code execution. Panics on
   malformed input are bugs, but report them as ordinary issues unless they are reachable
   from a library API that documents a `Result`.
-- **The Python boundary.** Anything in `pse._native` that can be made to violate a Rust
-  invariant from pure Python — buffer lifetimes, extension-type round trips, zero-copy
-  claims that are not actually safe.
 - **The supply chain of what we ship.** A compromised or malicious pinned dependency, a
   wheel that does not match its attestation, a release workflow that can be made to
   publish something it should not, or a CI workflow that leaks a token or can be

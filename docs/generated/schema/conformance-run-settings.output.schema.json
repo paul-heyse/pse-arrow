@@ -110,7 +110,7 @@
         }
       ]
     },
-    "LimitsOutput": {
+    "Limits": {
       "additionalProperties": false,
       "description": "Explicit limits checked before expansion/allocation.",
       "properties": {
@@ -216,7 +216,7 @@
       ],
       "type": "object"
     },
-    "PreparationSettingsBodyOutput": {
+    "PreparationSettingsBody": {
       "additionalProperties": false,
       "description": "Serialization of the existing compiler/expansion controls, with no second defaults.",
       "properties": {
@@ -225,7 +225,7 @@
           "description": "Existing evaluator profile, encoded through its complete remote projection."
         },
         "limits": {
-          "$ref": "#/$defs/LimitsOutput",
+          "$ref": "#/$defs/Limits",
           "description": "Existing expansion admission limits."
         }
       },
@@ -414,7 +414,7 @@
     "preparation": {
       "anyOf": [
         {
-          "$ref": "#/$defs/PreparationSettingsBodyOutput"
+          "$ref": "#/$defs/PreparationSettingsBody"
         },
         {
           "type": "null"
@@ -472,6 +472,6 @@
     "derivative_tolerance",
     "diagnostics"
   ],
-  "title": "RunSettingsOutput",
+  "title": "RunSettings",
   "type": "object"
 }

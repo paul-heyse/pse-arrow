@@ -37,12 +37,12 @@
       ],
       "type": "object"
     },
-    "ContextSelectionBodyOutput": {
+    "ContextSelectionBody": {
       "additionalProperties": false,
       "description": "Complete frozen selection. Deserializing this document grants no source authority.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/ProjectContextBodyOutput",
+          "$ref": "#/$defs/ProjectContextBody",
           "description": "Original immutable selected source descriptor."
         },
         "cut": {
@@ -62,7 +62,7 @@
       ],
       "type": "object"
     },
-    "ProjectContextBodyOutput": {
+    "ProjectContextBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -186,7 +186,7 @@
       ],
       "type": "object"
     },
-    "ResearchDataObjectOutput": {
+    "ResearchDataObject": {
       "additionalProperties": false,
       "description": "Exact attribute selection into the original typed measurement owner.",
       "properties": {
@@ -254,7 +254,7 @@
       ],
       "type": "object"
     },
-    "ResearchDatasetBodyOutput": {
+    "ResearchDatasetBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -393,12 +393,12 @@
       ],
       "type": "object"
     },
-    "ResearchSelectionRequestBodyOutput": {
+    "ResearchSelectionRequestBody": {
       "additionalProperties": false,
       "description": "Freeze an already authored fit's complete selection; no fitting shortcut is introduced.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/ContextSelectionBodyOutput",
+          "$ref": "#/$defs/ContextSelectionBody",
           "description": "Exact recorded context."
         },
         "dataset": {
@@ -457,7 +457,7 @@
         "rows": {
           "description": "Original immutable versions.",
           "items": {
-            "$ref": "#/$defs/ResearchDatasetBodyOutput"
+            "$ref": "#/$defs/ResearchDatasetBody"
           },
           "type": "array"
         }
@@ -485,7 +485,7 @@
         "members": {
           "description": "Decoded original typed object selections, without measurement payloads.",
           "items": {
-            "$ref": "#/$defs/ResearchDataObjectOutput"
+            "$ref": "#/$defs/ResearchDataObject"
           },
           "type": [
             "array",
@@ -495,7 +495,7 @@
         "row": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ResearchDatasetBodyOutput"
+              "$ref": "#/$defs/ResearchDatasetBody"
             },
             {
               "type": "null"
@@ -539,7 +539,7 @@
         "selection": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ResearchSelectionRequestBodyOutput"
+              "$ref": "#/$defs/ResearchSelectionRequestBody"
             },
             {
               "type": "null"
@@ -567,5 +567,5 @@
   "required": [
     "document_version"
   ],
-  "title": "ResearchReadResultOutput"
+  "title": "ResearchReadResult"
 }

@@ -6,7 +6,7 @@ This is a real file so the shared import survives a Windows checkout without sym
 
 `.claude/settings.json` configures permissions, the edit hook and the SessionStart hook;
 [the agent environment guide](docs/dev/agent-environment.md) describes which permission layers
-survive an unprompted session. Both Claude and Codex call `scripts/agent-hooks.py`, whose
+survive an unprompted session. Both Claude and Codex call `scripts/pse-host agent-hook`, whose
 pre-edit checks protect generated files and decided documents; in Claude its `session-env`
 action also gives every Bash command the checkout environment (`scripts/pse-env --print`).
 There are no end-of-turn hooks (ADR-0161): run `just turn-end` at the end of a

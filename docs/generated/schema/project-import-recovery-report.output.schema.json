@@ -121,7 +121,7 @@
         }
       ]
     },
-    "ProjectImportReportBodyOutput": {
+    "ProjectImportReportBody": {
       "additionalProperties": false,
       "description": "Receiving placement and preserved origin, without imported historical execution receipts.",
       "properties": {
@@ -300,7 +300,7 @@
       "type": "integer"
     },
     "import": {
-      "$ref": "#/$defs/ProjectImportReportBodyOutput",
+      "$ref": "#/$defs/ProjectImportReportBody",
       "description": "Current original import checkpoint and availability."
     },
     "state": {
@@ -313,6 +313,6 @@
     "state",
     "document_version"
   ],
-  "title": "ProjectImportRecoveryReportOutput",
+  "title": "ProjectImportRecoveryReport",
   "type": "object"
 }

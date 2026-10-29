@@ -60,7 +60,7 @@
         }
       ]
     },
-    "AdviceObservationOutput": {
+    "AdviceObservation": {
       "additionalProperties": false,
       "description": "One actual observation in a declared matched exposure.",
       "properties": {
@@ -189,7 +189,7 @@
         }
       ]
     },
-    "BranchPolicyOutput": {
+    "BranchPolicy": {
       "additionalProperties": false,
       "description": "Root-selection meaning retained by every proposal and correction.",
       "properties": {
@@ -252,7 +252,7 @@
       ],
       "type": "object"
     },
-    "FrozenAdviceBodyOutput": {
+    "FrozenAdviceBody": {
       "additionalProperties": false,
       "description": "Full immutable body retained with effective settings, including all excluded outcomes.",
       "properties": {
@@ -270,7 +270,7 @@
           "description": "Exact admitted comparison premises."
         },
         "limits": {
-          "$ref": "#/$defs/WorkLimitsOutput",
+          "$ref": "#/$defs/WorkLimits",
           "description": "Original allowances for applicability checking; advice never widens them."
         },
         "metric": {
@@ -280,7 +280,7 @@
         "observations": {
           "description": "Actual retained observations, including exclusions.",
           "items": {
-            "$ref": "#/$defs/AdviceObservationOutput"
+            "$ref": "#/$defs/AdviceObservation"
           },
           "type": "array"
         },
@@ -336,7 +336,7 @@
       ],
       "type": "string"
     },
-    "WorkLimitsOutput": {
+    "WorkLimits": {
       "additionalProperties": false,
       "description": "Additional finite work allowances. None imposes no additional counter cap under the\nenclosing finite ExecutionScope; it never denotes an observed zero or a new deadline.\nEvery supplied counter is finite; Some(0) expressly prohibits that operation.",
       "properties": {
@@ -400,7 +400,7 @@
     "advice": {
       "anyOf": [
         {
-          "$ref": "#/$defs/FrozenAdviceBodyOutput"
+          "$ref": "#/$defs/FrozenAdviceBody"
         },
         {
           "type": "null"
@@ -409,7 +409,7 @@
       "description": "Full frozen descriptive body; absent leaves the complete baseline policy."
     },
     "branch": {
-      "$ref": "#/$defs/BranchPolicyOutput",
+      "$ref": "#/$defs/BranchPolicy",
       "description": "Original root-selection contract."
     },
     "document_version": {
@@ -420,7 +420,7 @@
     "limits": {
       "anyOf": [
         {
-          "$ref": "#/$defs/WorkLimitsOutput"
+          "$ref": "#/$defs/WorkLimits"
         },
         {
           "type": "null"
@@ -447,6 +447,6 @@
     "recovery",
     "document_version"
   ],
-  "title": "CompositionRequestOutput",
+  "title": "CompositionRequest",
   "type": "object"
 }

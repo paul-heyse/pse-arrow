@@ -79,6 +79,6 @@
     "output",
     "output_bytes"
   ],
-  "title": "SourceRecordingLaunchRequestOutput",
+  "title": "SourceRecordingLaunchRequest",
   "type": "object"
 }

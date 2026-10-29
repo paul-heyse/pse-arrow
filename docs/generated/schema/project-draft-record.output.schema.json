@@ -11,7 +11,7 @@
       },
       "type": "array"
     },
-    "ProjectDraftVersionBodyOutput": {
+    "ProjectDraftVersionBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -126,7 +126,7 @@
       "description": "Selected mutable editing head."
     },
     "version": {
-      "$ref": "#/$defs/ProjectDraftVersionBodyOutput",
+      "$ref": "#/$defs/ProjectDraftVersionBody",
       "description": "Original immutable raw version."
     }
   },
@@ -135,6 +135,6 @@
     "version",
     "document_version"
   ],
-  "title": "ProjectDraftRecordOutput",
+  "title": "ProjectDraftRecord",
   "type": "object"
 }

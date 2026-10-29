@@ -105,6 +105,6 @@
     "request",
     "document_version"
   ],
-  "title": "ProjectContextOutput",
+  "title": "ProjectContext",
   "type": "object"
 }

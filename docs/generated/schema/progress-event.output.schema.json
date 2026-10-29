@@ -29,7 +29,7 @@
       ],
       "type": "string"
     },
-    "EventSourceOutput": {
+    "EventSource": {
       "additionalProperties": false,
       "description": "Owner-supplied semantics and pre-loss identity of a native checkpoint.",
       "properties": {
@@ -144,7 +144,7 @@
       ],
       "type": "string"
     },
-    "IncumbentDocumentOutput": {
+    "IncumbentDocument": {
       "additionalProperties": false,
       "description": "An incumbent in original objective units and its retained native search evidence.",
       "properties": {
@@ -645,7 +645,7 @@
     "incumbent": {
       "anyOf": [
         {
-          "$ref": "#/$defs/IncumbentDocumentOutput"
+          "$ref": "#/$defs/IncumbentDocument"
         },
         {
           "type": "null"
@@ -668,7 +668,7 @@
     "source": {
       "anyOf": [
         {
-          "$ref": "#/$defs/EventSourceOutput"
+          "$ref": "#/$defs/EventSource"
         },
         {
           "type": "null"
@@ -709,6 +709,6 @@
     "sequence",
     "at"
   ],
-  "title": "ProgressEventDocumentOutput",
+  "title": "ProgressEventDocument",
   "type": "object"
 }

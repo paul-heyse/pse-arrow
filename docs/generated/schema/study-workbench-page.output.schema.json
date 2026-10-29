@@ -10,7 +10,7 @@
       ],
       "type": "string"
     },
-    "StudyWorkbenchCursorBodyOutput": {
+    "StudyWorkbenchCursorBody": {
       "additionalProperties": false,
       "description": "Authority-bound continuation for live browsing, never a frozen analysis population.",
       "properties": {
@@ -19,7 +19,7 @@
           "type": "string"
         },
         "filter": {
-          "$ref": "#/$defs/StudyWorkbenchFilterOutput",
+          "$ref": "#/$defs/StudyWorkbenchFilter",
           "description": "Exact original predicates."
         },
         "issuing_store": {
@@ -34,7 +34,7 @@
       ],
       "type": "object"
     },
-    "StudyWorkbenchFilterOutput": {
+    "StudyWorkbenchFilter": {
       "additionalProperties": false,
       "description": "Indexed predicates over actual original scientific and engineering owners.",
       "properties": {
@@ -111,7 +111,7 @@
       ],
       "type": "object"
     },
-    "StudyWorkbenchHeaderOutput": {
+    "StudyWorkbenchHeader": {
       "additionalProperties": false,
       "description": "Compact immutable attribution and current header facts. No definitions or trajectories.",
       "properties": {
@@ -226,14 +226,14 @@
     "headers": {
       "description": "Compact actual metadata; payloads are unopened.",
       "items": {
-        "$ref": "#/$defs/StudyWorkbenchHeaderOutput"
+        "$ref": "#/$defs/StudyWorkbenchHeader"
       },
       "type": "array"
     },
     "next": {
       "anyOf": [
         {
-          "$ref": "#/$defs/StudyWorkbenchCursorBodyOutput"
+          "$ref": "#/$defs/StudyWorkbenchCursorBody"
         },
         {
           "type": "null"
@@ -247,6 +247,6 @@
     "next",
     "document_version"
   ],
-  "title": "StudyWorkbenchPageOutput",
+  "title": "StudyWorkbenchPage",
   "type": "object"
 }

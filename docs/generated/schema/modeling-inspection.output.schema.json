@@ -67,12 +67,12 @@
       ],
       "type": "object"
     },
-    "ContextSelectionBodyOutput": {
+    "ContextSelectionBody": {
       "additionalProperties": false,
       "description": "Complete frozen selection. Deserializing this document grants no source authority.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/ProjectContextBodyOutput",
+          "$ref": "#/$defs/ProjectContextBody",
           "description": "Original immutable selected source descriptor."
         },
         "cut": {
@@ -164,7 +164,7 @@
         }
       ]
     },
-    "InspectionConnectionOutput": {
+    "InspectionConnection": {
       "additionalProperties": false,
       "description": "One selected declared connection.",
       "properties": {
@@ -181,7 +181,7 @@
           "x-pse-identity": "SemanticId"
         },
         "lineage": {
-          "$ref": "#/$defs/InspectionLineageOutput",
+          "$ref": "#/$defs/InspectionLineage",
           "description": "Provenance of this selected member."
         },
         "to": {
@@ -223,7 +223,7 @@
       ],
       "type": "object"
     },
-    "InspectionInstanceOutput": {
+    "InspectionInstance": {
       "additionalProperties": false,
       "description": "One selected instantiated definition.",
       "properties": {
@@ -271,7 +271,7 @@
       ],
       "type": "object"
     },
-    "InspectionLineageOutput": {
+    "InspectionLineage": {
       "additionalProperties": false,
       "description": "Retained authored provenance of an instantiated member.",
       "properties": {
@@ -334,7 +334,7 @@
       ],
       "type": "object"
     },
-    "InspectionMemberOutput": {
+    "InspectionMember": {
       "additionalProperties": false,
       "description": "One selected model member.",
       "properties": {
@@ -345,7 +345,7 @@
           "x-pse-identity": "SemanticId"
         },
         "lineage": {
-          "$ref": "#/$defs/InspectionLineageOutput",
+          "$ref": "#/$defs/InspectionLineage",
           "description": "Provenance of this selected member."
         },
         "role": {
@@ -397,7 +397,7 @@
       ],
       "type": "object"
     },
-    "InspectionPortOutput": {
+    "InspectionPort": {
       "additionalProperties": false,
       "description": "One selected declared port.",
       "properties": {
@@ -408,7 +408,7 @@
           "x-pse-identity": "SemanticId"
         },
         "lineage": {
-          "$ref": "#/$defs/InspectionLineageOutput",
+          "$ref": "#/$defs/InspectionLineage",
           "description": "Provenance of this selected member."
         },
         "symbol": {
@@ -425,7 +425,7 @@
       ],
       "type": "object"
     },
-    "LimitsOutput": {
+    "Limits": {
       "additionalProperties": false,
       "description": "Explicit limits checked before expansion/allocation.",
       "properties": {
@@ -572,14 +572,14 @@
       ],
       "type": "string"
     },
-    "OperationSourceBodyOutput": {
+    "OperationSourceBody": {
       "additionalProperties": false,
       "description": "Exact source/context required when reconstructing an operation from stored bundles.",
       "properties": {
         "context": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ContextSelectionBodyOutput"
+              "$ref": "#/$defs/ContextSelectionBody"
             },
             {
               "type": "null"
@@ -596,7 +596,7 @@
         "research": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ResearchSourceOutput"
+              "$ref": "#/$defs/ResearchSource"
             },
             {
               "type": "null"
@@ -649,7 +649,7 @@
       ],
       "type": "object"
     },
-    "PreparationSettingsBodyOutput": {
+    "PreparationSettingsBody": {
       "additionalProperties": false,
       "description": "Serialization of the existing compiler/expansion controls, with no second defaults.",
       "properties": {
@@ -658,7 +658,7 @@
           "description": "Existing evaluator profile, encoded through its complete remote projection."
         },
         "limits": {
-          "$ref": "#/$defs/LimitsOutput",
+          "$ref": "#/$defs/Limits",
           "description": "Existing expansion admission limits."
         }
       },
@@ -668,7 +668,7 @@
       ],
       "type": "object"
     },
-    "ProjectContextBodyOutput": {
+    "ProjectContextBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -761,7 +761,7 @@
       "description": "An opaque canonical lookup key; never a scientific semantic identity.",
       "type": "string"
     },
-    "ResearchSourceOutput": {
+    "ResearchSource": {
       "additionalProperties": false,
       "description": "Authenticated original research ancestry carried by actual operation inputs.",
       "properties": {
@@ -839,7 +839,7 @@
     "connections": {
       "description": "Selected authored connections.",
       "items": {
-        "$ref": "#/$defs/InspectionConnectionOutput"
+        "$ref": "#/$defs/InspectionConnection"
       },
       "type": "array"
     },
@@ -855,14 +855,14 @@
     "instances": {
       "description": "Instantiated authored definitions.",
       "items": {
-        "$ref": "#/$defs/InspectionInstanceOutput"
+        "$ref": "#/$defs/InspectionInstance"
       },
       "type": "array"
     },
     "members": {
       "description": "Instantiated model members and their provenance.",
       "items": {
-        "$ref": "#/$defs/InspectionMemberOutput"
+        "$ref": "#/$defs/InspectionMember"
       },
       "type": "array"
     },
@@ -888,16 +888,16 @@
     "ports": {
       "description": "Selected authored ports.",
       "items": {
-        "$ref": "#/$defs/InspectionPortOutput"
+        "$ref": "#/$defs/InspectionPort"
       },
       "type": "array"
     },
     "preparation": {
-      "$ref": "#/$defs/PreparationSettingsBodyOutput",
+      "$ref": "#/$defs/PreparationSettingsBody",
       "description": "Complete native preparation policy that admitted the observed case."
     },
     "source": {
-      "$ref": "#/$defs/OperationSourceBodyOutput",
+      "$ref": "#/$defs/OperationSourceBody",
       "description": "Exact source and physical context of this observation."
     }
   },
@@ -914,6 +914,6 @@
     "connections",
     "document_version"
   ],
-  "title": "ModelingInspectionOutput",
+  "title": "ModelingInspection",
   "type": "object"
 }

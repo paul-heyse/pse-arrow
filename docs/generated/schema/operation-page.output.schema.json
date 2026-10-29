@@ -123,7 +123,7 @@
       ],
       "type": "string"
     },
-    "OperationSummaryOutput": {
+    "OperationSummary": {
       "additionalProperties": false,
       "description": "Small copied catalogue entry without metric or scientific ownership.",
       "properties": {
@@ -164,7 +164,7 @@
         "summary": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SummaryPublicationOutput"
+              "$ref": "#/$defs/SummaryPublication"
             },
             {
               "type": "null"
@@ -213,7 +213,7 @@
       ],
       "type": "object"
     },
-    "SummaryPublicationOutput": {
+    "SummaryPublication": {
       "additionalProperties": false,
       "description": "Generic producer-owned compact explanation; it grants no execution ownership.",
       "properties": {
@@ -265,7 +265,7 @@
     "operations": {
       "description": "Bounded current-catalogue page.",
       "items": {
-        "$ref": "#/$defs/OperationSummaryOutput"
+        "$ref": "#/$defs/OperationSummary"
       },
       "type": "array"
     },
@@ -281,6 +281,6 @@
     "coverage",
     "document_version"
   ],
-  "title": "OperationPageOutput",
+  "title": "OperationPage",
   "type": "object"
 }

@@ -25,9 +25,10 @@ rules:
   self-repository:
     ignore:
       - rust.yml
-      - python.yml
-      - wheels.yml
-      - release.yml
+      - docs.yml
+      - governance.yml
+      - register-review.yml
+      - solvers-image.yml
       - rust-scheduled.yml
 
   # `.github/actions/setup-rust` appends to GITHUB_PATH so that a rustup installed in the

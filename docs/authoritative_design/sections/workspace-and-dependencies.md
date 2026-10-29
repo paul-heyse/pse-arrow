@@ -7,23 +7,23 @@ status: current
 
 This page explains how the Cargo workspace is divided into crates, which third-party
 libraries own which operations, and which rules keep the dependency graph reproducible.
-Exact versions live in the manifests, not here: `Cargo.toml`, `Cargo.lock`,
-`pyproject.toml`, `uv.lock` and `rust-toolchain.toml`. Workspace membership is
+Rust versions live in `Cargo.toml`, `Cargo.lock` and `rust-toolchain.toml`, not here.
+`pyproject.toml`/`uv.lock` own the isolated scientific-reference and third-party tooling
+environment, without a Python product or release-version authority. Workspace membership is
 declared by Cargo metadata. Dependency ceilings and pinned families live in
 `[workspace.metadata.pse]`, and `xtask` enforces them.
 
 ## 3. Workspace, crates and library boundaries
 
 > Decision: [ADR-0233](../../adr/0233-rust-owned-host-and-execution-boundaries.md) (proposed;
-> authorized Plan58 remaining B–G target). The first-party target is a callable Rust system;
-> the current `pse-py` crate and Python packaging retire with their final consumers, unused
-> boundary dependencies and Python-only generation. Heavy native developer composition stays
-> under xtask, outside the independent host. An optional future binding has no implementation
-> or compulsory ABI until a named consumer justifies it. The inventory below records current
-> implementation until those integrated cuts land; their scheduled acceptance belongs to Plan58.
+> maintainer-authorized Plan58 native cutover). The first-party product is callable linked Rust.
+> The `pse-py` crate, Python product packaging and Python-only generation are retired. Heavy
+> native developer composition stays under xtask, outside the independent host. A future optional
+> binding needs a named consumer; no mandatory PyO3, full CLI, RMCP or cdylib follows. This source
+> cut does not establish whole-series acceptance or H qualification (§24.2).
 
-The workspace is a Rust core with a thin Python package on top. It uses `pse-*` crate
-names under [ADR-0002](../../adr/0002-project-name-license-and-distribution.md). Crate
+The workspace composes native scientific, canonical and protected-data libraries. It uses
+`pse-*` crate names under [ADR-0002](../../adr/0002-project-name-license-and-distribution.md). Crate
 boundaries are part of the architecture: adding or removing a `pse-*` crate needs an ADR
 ([§24.4](design-change-workflow.md#section-24-4)). Adding a third-party library does not
 ([§3.3.2](#section-3-3-2)). Library choices follow the responsibilities in
@@ -80,17 +80,17 @@ that every hold has a reason and names a declared, pinned dependency. No prose t
 version from the lockfile (`Cargo.lock`, `uv.lock`), and read the
 [capability maps](../../capability-maps/README.md) for what their extraction version exposes.
 
-**One type universe.** Arrow, Parquet, `object_store`, DataFusion and PyO3 must each
+**One type universe.** Arrow, Parquet, `object_store` and DataFusion must each
 resolve to exactly one version. If two Arrow majors coexist, `downcast_ref` returns `None`
 with no compile error. An exact pin constrains only a direct dependency, and
 `cargo tree -d` does not report a split family because each package name appears once.
 `[workspace.metadata.pse.families]` therefore groups the crates by family: `arrow-*` with
 `parquet-*`, and `datafusion-*` without its separately released tracing adapter.
-`object_store` forms its own family. PyO3 is matched by minor version. `just family-check`
+`object_store` forms its own family. `just family-check`
 compares the resolved graph with those declarations. Family members keep exact `=`
 requirements; the header comment of `Cargo.toml` explains why exact pins alone are not
 enough. Upgrading any family member moves the whole
-family, and a major upgrade of one of the four families needs an ADR. Dependabot groups
+family, and a major upgrade of one of the declared families needs an ADR. Dependabot groups
 updates by family ([ADR-0035](../../adr/0035-dependabot-with-family-groups.md)).
 
 **Dependency ceilings.** `[workspace.metadata.pse.dependency-ceilings]` lists roots
@@ -112,8 +112,8 @@ are cited by the decision that owns them rather than by this page:
 - Ipopt is built from pinned sources in a digest-pinned solver image, and the committed
   bindgen output follows its C ABI
   ([ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md), superseding ADR-0028).
-- The Python platform targets CPython 3.11 or later. The `parity` dependency group is
-  limited to the interpreters that IDAES classifies.
+- The isolated reference environment declares its own interpreter compatibility. IDAES
+  comparisons remain limited to the interpreters supported by that reference.
 
 External reading copies under `external/` are fetched rather than vendored
 ([ADR-0032](../../adr/0032-external-checkouts-are-not-vendored.md)). A reading copy is not
@@ -134,8 +134,8 @@ provenance and exact source-qualified review remain separate obligations.
 > Plan56e owns the selected qualification and its limits.
 
 Private development evidence/knowledge storage, queries and catalogue contributions belong to
-existing xtask composition. Normal product operations/runtime/Python closure does not require this
-backend. Product observability, scientific inspection and shared bounded IPC/contained-copy
+existing xtask composition. The normal native product operations/runtime closure does not require
+this backend. Product observability, scientific inspection and shared bounded IPC/contained-copy
 operations remain product responsibilities. The shared exchange primitives live beneath diagnostic
 and project consumers, independently of development review policy. No new crate is introduced.
 
@@ -155,7 +155,7 @@ without math/compiler/operations/native-solver dependencies. It retains actual b
 engine validation, source and finite allocation ownership. Runtime owns scientific
 preparation/publication and its surrogate library integration. Generator capabilities
 have actual dependency roots for registry bootstrap, physical admission, full product
-schemas and native ABI; full schemas still derive actual product DTOs. Plan 36e owns
+schemas and native producer identity; full schemas still derive actual product DTOs. Plan 36e owns
 the migration and actual closure qualification. The supported pinned nightly retains
 workspace feature unification; ADR-0122's stable-Cargo workspace-hack fallback retires
 only after the selected target/host/dev/native feature and validation controls pass.
@@ -196,14 +196,14 @@ register crates.
 | `pse-operations` | Authenticated remote SurrealDB client, generated native schema/codecs and bounded canonical revision, product, execution, result, analysis and retention operations ([§20.6](identity-and-publication.md#section-20-6)) |
 | `pse-runtime` | Composition root: canonical source admission, selected compilation, bounded physical reuse, class-specific native attempts, durable workflows and connected exact results ([§19](workflows-and-results.md#section-19)) |
 | `pse-buildinfo` | Role-specific linked build-input identity and actual deployed artifact association; complete dirty source/build observation is retained at deployment/run admission, separately from scientific eligibility |
-| `pse-py` | The PyO3 extension `pse._native`, which is the whole Rust/Python boundary ([§21](workflows-and-results.md#section-21)) |
 | `pse-testkit` | Development-only fixtures that use production engine factories; never a production dependency |
 
 The product `pse-canonical-recovery` binary belongs to existing `pse-operations` under
 [ADR-0228](../../adr/0228-canonical-placement-and-recovery-authority.md) (proposed). It owns
-bounded native offline file observations and copy/restore operations; Python retains service,
-manager/cgroup and maintenance authority. The separate xtask recovery fixture has no product
-role. Worker/project root relocation remains separate decision work.
+bounded native offline file observations and copy/restore operations. The independent native host
+owns authentic process/service/cgroup effects; canonical maintenance retains its product owner.
+The separate xtask recovery fixture has no product role. Production worker/project roots remain
+existing runtime binary targets.
 
 | Non-product member | Role |
 |---|---|
@@ -211,7 +211,8 @@ role. Worker/project root relocation remains separate decision work.
 | `pse-tests-engine` | Engine and catalog inspection, pushdown truthfulness and unified sources |
 | `pse-tests-conformance` | Canonical encoding properties and scientific/native boundary journeys; independent integrity mechanisms live with their production owners |
 | `pse-tests-lifecycle` | Canonical lifecycle and memory-budget behavior |
-| `xtask` | Code generation, governance and tooling; current worker composition, recovery fixture/signal controls, controlled producer capture and inspection fixtures |
+| `pse-host` | Independent developer/operator host: environment and command selection, authenticated OS process/service/cgroup effects and passive observations; no scientific, Arrow/DataFusion, database-client or product-schema closure |
+| `xtask` | Heavy native developer composition, code generation, documentation/lifecycle/site interpretation, governance, typed fixtures and source/evidence/knowledge consumers |
 | `pse-benches` | Criterion groups for native cache, consolidation, process cases and modeling preparation |
 
 Dependencies point one way. The semantic foundations (`pse-diagnostics`, `pse-ids`,
@@ -228,19 +229,19 @@ engine or a columnar payload decoder. Semantic and numerical roots remain indepe
 `pse-admission` joins source/physical domain admission with the bound engine, without
 scientific compilation or canonical storage. `pse-runtime` joins scientific/native
 execution with the canonical substrate. It owns compilation, native attempts, durable
-execution and exact result admission. `pse-py` depends on the
-runtime and the inspection crates.
+execution and exact result admission. Retained-data services and canonical controls also expose
+independent native access without constructing scientific Runtime services (§19.2/§20.6).
 `pse-codegen` runs outside the product's normal dependency graph and never depends on
 generated values. Generated code is placed in its consumers: see
 [§4.2](schema-and-relations.md#section-4-2).
 
-Workspace metadata owns the unsafe-code allowlist. It admits the named native/CPython
+Workspace metadata owns the unsafe-code allowlist. It admits the named native
 FFI boundaries, immutable GMP/MPFR version reads, and the explicit sealed scientific
 reconstruction, publication and deployment assertions introduced by
 [ADR-0164](../../adr/0164-unify-simulation-substrate.md). An assertion is made only by
 its designated admission owner; it does not grant a general reconstruction API.
-Every profile keeps `panic = "unwind"` because the Python and native callback
-boundaries contain unwinds.
+Every profile keeps `panic = "unwind"` so native callback boundaries can contain
+unwinds; an unwinding failure cannot cross a foreign ABI.
 
 ### 3.3 Supporting libraries and their boundaries
 
@@ -300,12 +301,11 @@ units, identity, schemas or canonical encoding merely because it is present.
 | Salsa | `pse-compiler` | Synchronous semantic reuse over admitted values | No I/O, native state or effects in tracked queries |
 | rustworkx-core, petgraph | `pse-structural` | Deterministic ordering, acyclicity and graph projections | Graph indices never cross the projection boundary |
 | BLAKE3 | `pse-ids` only | Content hashing and derived identity | Each named identity/payload owner defines coverage; hashing alone does not |
-| `serde-saphyr`, `toml`, `winnow`, `sqlparser` | `pse-admission`, `pse-runtime`, `pse-authoring`, `pse-schema` | YAML/TOML loading with spans, the expression DSL, declared SQL predicates | Parsing evaluates nothing; budgets bound hostile input ([ADR-0021](../../adr/0021-serde-saphyr-replaces-serde-yaml.md)) |
+| `serde-saphyr`, `toml`, `winnow`, `sqlparser` | `pse-admission`, `pse-runtime`, `pse-authoring`, `pse-schema`, native tooling | YAML/TOML loading with spans, the expression DSL, declared SQL predicates | Parsing evaluates nothing; budgets bound hostile input ([ADR-0021](../../adr/0021-serde-saphyr-replaces-serde-yaml.md)) |
+| `serde-saphyr`, `pulldown-cmark` | `xtask` documentation owners | Strict document metadata and Markdown interpretation | Existing metadata, ADR/lifecycle and site policies retain authority; parser success alone grants no lifecycle or publication permission |
 | `syn`, `quote`, `prettyplease` | `pse-codegen`, `xtask` | Deterministic registry and bindgen rendering | Output is committed and checked by regeneration |
 | Tokio, Rayon, tracing | runtime, engine, native | One process executor, admitted native pools and structured observation | Observation never changes results ([§23](operations-and-validation.md#section-23)) |
-| PyO3, `pyo3-arrow`, `pyo3-async-runtimes` | `pse-py` | Extension module, PyCapsule streams and async jobs | [ADR-0024](../../adr/0024-pyo3-arrow-over-arrow-pyarrow.md) |
-| `pyarrow`, `attrs`/`cattrs`, `msgspec`, optional NumPy | `python/pse` | Arrow boundary, generated contract classes, codecs and array boundary | A contract lives in exactly one class system |
-| `idaes-pse`, Pyomo (parity group); `teqp` (thermo-reference group) | Python test groups | Reference behavior and independent thermodynamic references | Never production dependencies |
+| `idaes-pse`, Pyomo (parity group); `teqp` (thermo-reference group) | Isolated reference groups | Reference behavior and independent thermodynamic references | Never production dependencies |
 
 A library's presence does not grant capability. A feature that is compiled in still
 needs an admitted operation, profile and test before a workflow advertises it
@@ -384,7 +384,8 @@ Admission is relaxed. These rules are not:
 
 `deny.toml` is configured to report. `just deps-report` is advisory and `just policy` is
 the strict audit; both run on demand. The licensing question for distributed artifacts
-is deferred, not answered. Its trigger is the first publishable crate or PyPI release. The
+is deferred, not answered. Its trigger is the first publishable crate or other distributed
+artifact. The
 [dependency policy](../../dev/dependency-policy.md) owns the procedure and that deferral.
 
 #### 3.3.3 Computation placement

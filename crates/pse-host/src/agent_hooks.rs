@@ -71,9 +71,9 @@ pub fn protected(root: &Path, path: &Path, design_edit: bool) -> Result<Option<S
         return Ok(Some("VCS state, build output and reading copies are protected".into()));
     }
     let name = relative.to_string_lossy().replace('\\', "/");
-    if ["docs/generated/", "scripts/generated/", "xtask/src/generated/", "python/pse/contracts/", "python/pse/generated/", "crates/pse-operations-queries/"].iter().any(|prefix| name.starts_with(prefix))
+    if ["docs/generated/", "scripts/generated/", "xtask/src/generated/"].iter().any(|prefix| name.starts_with(prefix))
         || parts[0] == OsStr::new("crates") && parts.contains(&OsStr::new("generated"))
-        || ["crates/pse-ipopt-sys/src/bindings.rs", "python/pse/_native.pyi"].contains(&name.as_str()) {
+        || name == "crates/pse-ipopt-sys/src/bindings.rs" {
         return Ok(Some("generator output is protected; fix the generator".into()));
     }
     if !design_edit {

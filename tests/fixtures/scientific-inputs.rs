@@ -28,7 +28,7 @@ fn capsule() -> &'static Capsule {
     static CAPTURE: OnceLock<Capsule> = OnceLock::new();
     CAPTURE.get_or_init(|| {
         let path = std::env::var_os("PSE_SCIENTIFIC_INPUTS").expect(
-            "scientific inputs require explicit preparation: scripts/pse-env -- python scripts/scientific_inputs.py capture <output>; bind PSE_SCIENTIFIC_INPUTS to that capsule",
+            "scientific inputs require explicit preparation: scripts/pse-env -- cargo xtask scientific-inputs capture <output>; bind PSE_SCIENTIFIC_INPUTS to that capsule",
         );
         let bytes = std::fs::read(path).expect("read captured scientific inputs");
         let input: Capsule = serde_json::from_slice(&bytes).expect("decode scientific capsule");

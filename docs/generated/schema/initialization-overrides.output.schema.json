@@ -207,6 +207,6 @@
     "discrete",
     "document_version"
   ],
-  "title": "InitializationOverridesOutput",
+  "title": "InitializationOverrides",
   "type": "object"
 }

@@ -82,12 +82,6 @@ pub struct ExpectedProducerTarget {
     pub kind: &'static str,
 }
 impl ExpectedProducerTarget {
-    /// The native extension imported by Python.
-    pub const PYTHON: Self = Self {
-        package: "pse-py",
-        target: "_native",
-        kind: "cdylib",
-    };
     /// The supervised native worker executable.
     pub const WORKER: Self = Self {
         package: "pse-runtime",
@@ -239,6 +233,8 @@ impl QualifiedProducer {
         {
             return Ok(None);
         }
+        // Receipt validation retains historical extension captures. This generic
+        // decoder does not select a current process-local composition root.
         if matches!(
             (
                 expected_target.package,
@@ -276,8 +272,8 @@ impl QualifiedProducer {
     }
 }
 /// Additional effective configuration observed by the actual composition root.
-/// It is called outside the loader scope, so Python can acquire the GIL without
-/// holding glibc's loader lock. The controlled root excludes concurrent mutation.
+/// It is called outside the loader scope so configuration callbacks cannot invert
+/// glibc's loader lock. The controlled root excludes concurrent mutation.
 /// The root bounds construction, not just the returned length, by
 /// `pse_buildinfo::identity::MAX_CONFIGURATION_BYTES` and observes the complete
 /// supported configuration. An opaque/unbounded embedding must omit local replay.
@@ -380,7 +376,6 @@ fn local_role(
 ) -> Result<pse_buildinfo::LocalRuntimeRole, PortableError> {
     match (target.package, target.target, target.kind) {
         ("pse-runtime", "pse-worker", "bin") => Ok(pse_buildinfo::LocalRuntimeRole::Worker),
-        ("pse-py", "_native", "cdylib") => Ok(pse_buildinfo::LocalRuntimeRole::Python),
         _ => Err(PortableError::Qualification(
             "unsupported local reconstruction role".into(),
         )),
@@ -457,15 +452,15 @@ impl ReplayAdmission {
             Self::QualifiedProducer(_) => C::LibraryMathematics,
         }
     }
-    /// Original finite observation clock used by the worker and Python startup roots.
+    /// Original finite observation clock used by native composition roots.
     pub const STARTUP_OBSERVATION_LIMIT: std::time::Duration = std::time::Duration::from_secs(60);
 
-    /// Independently observe the receiving executable/imported module and mint the
+    /// Independently observe the receiving native executable and mint the
     /// local guarantee only within the supported bounded glibc reconstruction owner.
     /// # Safety
-    /// The actual worker/Python composition root supplies its own code anchor and
+    /// The actual native composition root supplies its own code anchor and
     /// reads actual effective configuration. The supported reconstruction path must
-    /// contain only immutable native mathematical construction: no Python imports,
+    /// contain only immutable native mathematical construction: no module loading,
     /// provider/plugin callbacks, JIT/direct executable mappings, runtime mutation,
     /// or concurrent current-environment mutation, including foreign libc writers,
     /// or work which waits for another thread to acquire the loader lock. Existing
@@ -603,7 +598,7 @@ impl ReplayAdmission {
             let checkpoint = || observation_checkpoint(cancelled, deadline);
             let result = pse_buildinfo::with_local_runtime_scope(|| {
                 // SAFETY: LocalReplay comes from the actual controlled root. Its
-                // newly observed environment is owned, so ordinary Python writers
+                // newly observed environment is owned, so ordinary environment writers
                 // cannot race a borrowed libc vector inside this loader scope.
                 unsafe {
                     local
@@ -1801,7 +1796,6 @@ mod portable_frame_tests {
         // SAFETY: actual owned snapshot under the same no-writers test lifetime.
         let complete =
             unsafe { observed_test_configuration(b"charged-candidate-control".to_vec()) }.unwrap();
-        assert!(candidate(pse_buildinfo::LocalRuntimeRole::Python, anchor, &complete).is_none());
         assert!(
             candidate(
                 pse_buildinfo::LocalRuntimeRole::Worker,
@@ -1855,7 +1849,7 @@ mod portable_frame_tests {
             local_service.observe_deployment_runtime(
                 artifact.clone(),
                 None,
-                ExpectedProducerTarget::PYTHON,
+                ExpectedProducerTarget::WORKER,
                 deadline,
                 &driver,
             )
@@ -1874,7 +1868,7 @@ mod portable_frame_tests {
                 local_service.observe_deployment_runtime(
                     artifact.clone(),
                     Some(receipt.clone()),
-                    ExpectedProducerTarget::PYTHON,
+                    ExpectedProducerTarget::WORKER,
                     deadline,
                     &driver,
                 )
@@ -1892,7 +1886,7 @@ mod portable_frame_tests {
             service.observe_deployment_runtime(
                 artifact.clone(),
                 Some(receipt.clone()),
-                ExpectedProducerTarget::PYTHON,
+                ExpectedProducerTarget::WORKER,
                 deadline,
                 &driver,
             )
@@ -1917,7 +1911,7 @@ mod portable_frame_tests {
                 service.observe_deployment_runtime(
                     artifact,
                     Some(receipt),
-                    ExpectedProducerTarget::PYTHON,
+                    ExpectedProducerTarget::WORKER,
                     deadline,
                     &driver,
                 )
@@ -2542,7 +2536,9 @@ mod portable_frame_tests {
                 .is_none()
         );
         assert!(
-            mint(&value, &artifact, ExpectedProducerTarget::PYTHON)
+            mint(&value, &artifact, ExpectedProducerTarget {
+                package: "another-native-owner", target: "another-native-root", kind: "bin",
+            })
                 .unwrap()
                 .is_none()
         );
@@ -2626,58 +2622,30 @@ mod canonical_deployment_tests {
         unsafe_code,
         reason = "actual controlled deployment captures qualified against independently observed role artifacts"
     )]
-    fn canonical_deployment_actual_receipts_enforce_selected_role() {
-        for (path, target, other) in [
-            (
-                "PSE_PYTHON_PRODUCER_RECEIPT",
-                ExpectedProducerTarget::PYTHON,
-                ExpectedProducerTarget::WORKER,
-            ),
-            (
-                "PSE_WORKER_PRODUCER_RECEIPT",
-                ExpectedProducerTarget::WORKER,
-                ExpectedProducerTarget::PYTHON,
-            ),
-        ] {
-            let bytes =
-                std::fs::read(std::env::var_os(path).expect("actual producer capture")).unwrap();
-            let receipt: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-            assert_eq!(receipt["persistent_reuse_eligible"], true);
-            assert!(receipt["reasons"].as_array().unwrap().is_empty());
-            // Each role is observed independently; no outer-context equality
-            // participates in scientific producer qualification.
-            let role = if target.package == "pse-py" {
-                "python"
-            } else {
-                "worker"
-            };
-            let observation: serde_json::Value = serde_json::from_slice(
-                &std::fs::read(
-                    std::env::var_os("PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS")
-                        .expect("independent role observations"),
-                )
-                .unwrap(),
-            )
-            .unwrap();
-            let artifact = observation[role]["sha256"].as_str().unwrap();
-            // SAFETY: the qualification runner supplies current actual controlled
-            // captures and independently records actual worker/imported Python
-            // artifact bytes, with native loaded association checked at each
-            // composition root. No receipt chooses its own expected artifact.
-            let qualified =
-                unsafe { QualifiedProducer::from_deployment_receipt(&bytes, artifact, target) }
-                    .unwrap()
-                    .expect("actual capture qualifies for its selected deployment role");
-            assert_eq!(qualified.identity().to_hex(), receipt["identity"]);
-            assert!(
-                // SAFETY: these actual controlled captures and independently observed
-                // artifact bytes differ only in the expected receiving executable role.
-                unsafe { QualifiedProducer::from_deployment_receipt(&bytes, artifact, other) }
-                    .unwrap()
-                    .is_none()
-            );
-        }
+    fn canonical_deployment_actual_worker_receipt_enforces_selected_role() {
+        let bytes = std::fs::read(std::env::var_os("PSE_WORKER_PRODUCER_RECEIPT")
+            .expect("actual worker producer capture")).unwrap();
+        let receipt: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(receipt["persistent_reuse_eligible"], true);
+        assert!(receipt["reasons"].as_array().unwrap().is_empty());
+        // Artifact observations remain independent of the receipt's own claims.
+        let observations: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(std::env::var_os("PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS")
+                .expect("independent native worker artifact observation")).unwrap(),
+        ).unwrap();
+        let artifact = observations["worker"]["sha256"].as_str().unwrap();
+        // SAFETY: the qualification runner supplies the actual controlled capture
+        // and independently verifies its native executable at the composition root.
+        let qualified = unsafe { QualifiedProducer::from_deployment_receipt(
+            &bytes, artifact, ExpectedProducerTarget::WORKER,
+        ) }.unwrap().expect("actual native worker capture qualifies");
+        assert_eq!(qualified.identity().to_hex(), receipt["identity"]);
+        // SAFETY: the same independent observations cannot qualify a different root.
+        assert!(unsafe { QualifiedProducer::from_deployment_receipt(&bytes, artifact,
+            ExpectedProducerTarget { package: "another-native-owner", target: "another-native-root", kind: "bin" },
+        ) }.unwrap().is_none());
     }
+
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]

@@ -11,8 +11,8 @@ hook, permission, worktree or capability question comes up.
 `pse-arrow` is a process systems engineering core in Rust. Typed process definitions
 in authored relations are the model authority. Library-owned mathematics (Symbolica/
 Numerica) and class-specific native solvers execute authored scientific knowledge;
-Arrow/DataFusion/Delta serve data-boundary, relational and publication roles. Rust and
-Python workflows, dynamics and fitting are implemented and qualified locally on Linux;
+Arrow/DataFusion/Delta serve data-boundary, relational and publication roles. Native
+workflows, dynamics and fitting are implemented and qualified locally on Linux;
 the architecture sections record the supported scope and its limits.
 
 It is a **clean-room re-implementation** of core IDAES-PSE capabilities. The current parity
@@ -21,8 +21,9 @@ for *behaviour*; never copy its code, docstrings or comments. The parity harness
 only sanctioned coupling; scientific vocabularies have local meaning rather than a
 historical spelling obligation (blueprint §6.14, ADR-0160). See `docs/relationship-to-idaes.md`.
 
-Crates are `pse-*` under `crates/`. The Python package is imported as `pse` and lives in
-`python/pse`; the PyPI distribution is `pse-arrow`.
+Crates are `pse-*` under `crates/`. Product workflows and first-party operating policy
+are Rust-owned. Python is an isolated independent scientific-reference/tool dependency;
+there is no required Python product package or extension.
 
 ## Current implementation direction
 
@@ -38,11 +39,10 @@ packets and reviews are not a backlog and authorize nothing.
 decision work. The active Plan58 ordinary command, activation and generic Cargo
 correctness routes now use the independent native host. Prepare it explicitly with
 `scripts/bootstrap-host`; help/read/launch never builds it. This wave supports configured
-unbounded ordinary work, existing docs environments and explicit compiler/KLU preparation.
-`--native=compiler,klu` selects that prepared profile; bare `--native`, `--store`, explicit finite
-or scientific placement, and reference/timing admission currently refuse while their Plan58
-owners are unfinished. Do not bypass that refusal through the retiring Python controllers.
-The environment guide records supported placement and unfinished consumer cutovers. New work
+unbounded ordinary work, explicit finite/scientific placement and explicitly prepared native
+provider profiles. Canonical test fixtures are source-built Rust owners; connection-only clients
+never start a configured database. The environment guide records supported placement,
+preparation and the separate H qualification obligations. New work
 starts only when the maintainer authorizes it. Build a target directly and remove replaced code/callers/tests without compatibility APIs or a second
 production path. Correctness tests retain explicit force-validation. Full library
 eligibility remains in force.
@@ -116,14 +116,11 @@ never an arbitrary command.
 Direnv and Claude
 sessions load the same environment, and Codex commands prefix `scripts/pse-env --`.
 
-For Python, `just py-sync` refreshes the interactive editable extension (`just py-sync-native` the
-linked one), without force-validation. `just py-unit` and `just py-test` first build the explicitly
-validated correctness extension; `just py-sync-correctness` selects that build directly. `just py-unit`
-routes to the right environment for whichever is installed, and
-`just py-test` runs unit and component tests against the canonical store at
-`$PSE_SURREAL_STATE`. `just parity` runs the IDAES comparisons on this machine. Full wheel
-builds are manual (`just wheels-check <ref>`). Git hooks are not installed by bootstrap, and
-GitHub check workflows run only when manually dispatched.
+Independent scientific references use explicitly selected environments and Rust candidate
+exchange files (`just parity` and the narrower reference recipes). `just reference-unit`
+checks their isolated drivers; product tests use native correctness and fixture routes.
+Git hooks are not installed by bootstrap, and GitHub check workflows run only when manually
+dispatched.
 
 ## Prime directives
 
@@ -133,9 +130,8 @@ GitHub check workflows run only when manually dispatched.
    become a commit, push or merge gate (see *Execution rhythm*).
 2. **Never edit a generated directory. Fix the generator, then `just codegen`.** The
    generated paths are `docs/generated/`, `scripts/generated/`, `xtask/src/generated/`, `crates/*/src/generated/` (the operational
-   store's `crates/pse-operations/src/generated/` included), `crates/pse-operations-queries/`,
-   `crates/pse-ipopt-sys/src/bindings.rs`, `python/pse/contracts/`, `python/pse/generated/` and
-   `python/pse/_native.pyi`. `just codegen-check` covers every generated
+   store's `crates/pse-operations/src/generated/` included) and
+   `crates/pse-ipopt-sys/src/bindings.rs`. `just codegen-check` covers every generated
    output; a hand edit there is a red diff, not a fix.
 3. **One authoritative declaration per meaning.** A dependency is declared once, in
    `Cargo.toml` (`[workspace.dependencies]`) or `pyproject.toml`, and a pin's reason once
@@ -192,19 +188,16 @@ authority.
 - **One feature set per dependency, whatever `-p` selects** (ADR-0122). Cargo's workspace
   feature unification on the supported pinned nightly keeps it; only opt-in
   features (`force-validate`, `native-solvers`) change a dependency's build.
-- **`panic = "unwind"`** in every profile. PyO3 turns unwinds into Python exceptions and
-  the Ipopt callbacks `catch_unwind`; `abort` would take the interpreter down.
+- **`panic = "unwind"`** in every profile. Native solver callbacks use `catch_unwind`;
+  `abort` would prevent the owning runtime from settling the operation.
 - **Never `target-cpu=native`.** It lets LLVM contract `a*b + c` into an FMA and changes
   floating-point results between your machine and CI.
 - **Every `pub enum *Error` derives `thiserror::Error` and implements `miette::Diagnostic`** with a
   blueprint §23.2 code. No `anyhow` in `crates/*`.
-- **`typing.Any` is banned in Python.** `from __future__ import annotations` is allowed:
-  `pse.governance` and the codec resolve postponed annotations before inspecting them.
+- **`typing.Any` is banned in retained Python reference/tool code.**
 - **No library or licence is refused** through phases 0–1. Admission is advisory; the one
   type universe, locked resolution, exact pins and the import boundaries are not
   (§3.3.2, ADR-0066, ADR-0165).
-- **Exactly one of `unit`/`component`/`integration`/`performance`** per Python test;
-  `conftest.py` hard-fails at collection otherwise.
 - **The parity suite fails, it never skips.** A missing solver or a wrong IDAES version
   is a failure, not a skip.
 
@@ -229,7 +222,7 @@ Each of these is a real incident, not a hypothetical.
   `just family-check` exists for exactly this.
 - **A rustdoc extraction whose scratch project was deleted made every `[rustdoc:]` marker
   in the capability maps unreproducible.** The evidence lockfiles are committed for that
-  reason; `just evidence-regen` rebuilds from them.
+  reason; their independent README reproduction uses those original lockfiles.
 - **PyPI `pse` is taken.** The distribution is `pse-arrow`; the import name stays `pse`.
 - **Tooling that hard-coded `/home/paul/...` broke on the first move.** Resolve the repo
   root from `git rev-parse --show-toplevel` (shell) or `Path(__file__).parents[N]` (Python).
@@ -319,9 +312,10 @@ why (remove it afterwards), or launch with `PSE_DESIGN_EDIT=1` — and say why i
 ## Personal-project checkout workflow
 
 Use the existing checkout on `main` for ordinary development and GitHub updates. Use a
-worktree only when concurrent agents genuinely need isolation — `just worktree <name>`
-creates one correctly — coordinate file ownership, preserve other agents' uncommitted
-changes, and remove fully merged worktrees. Never set `CARGO_TARGET_DIR` or point two
+worktree only when concurrent agents genuinely need isolation — `just worktree <git-add-args>`
+passes literal arguments to Git. Copy the maintainer-selected `.envrc.local` into the new
+checkout before starting work, and explicitly prepare its own native host. Coordinate file
+ownership, preserve other agents' uncommitted changes, and remove fully merged worktrees. Never set `CARGO_TARGET_DIR` or point two
 checkouts at one target directory (ADR-0122); the sccache cache is shared. Details:
 [agent environment guide](docs/dev/agent-environment.md#worktrees).
 

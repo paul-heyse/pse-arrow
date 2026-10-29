@@ -44,7 +44,7 @@
       ],
       "type": "string"
     },
-    "FeralSettingsOutput": {
+    "FeralSettings": {
       "additionalProperties": false,
       "properties": {
         "bounded_storage_max_dimension": {
@@ -160,7 +160,7 @@
       "format": "double",
       "type": "number"
     },
-    "FiniteDifferenceSettingsOutput": {
+    "FiniteDifferenceSettings": {
       "additionalProperties": false,
       "description": "Typed finite-difference pattern, coloring and native reuse controls.",
       "properties": {
@@ -195,7 +195,7 @@
       "maximum": 1.0,
       "type": "number"
     },
-    "HighsDiagnosticsOutput": {
+    "HighsDiagnostics": {
       "additionalProperties": false,
       "description": "Requested native diagnostic work, bounded by the original attempt's deadline.",
       "properties": {
@@ -245,7 +245,7 @@
         "relaxation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/HighsPenaltiesOutput"
+              "$ref": "#/$defs/HighsPenalties"
             },
             {
               "type": "null"
@@ -276,7 +276,7 @@
       ],
       "type": "string"
     },
-    "HighsPenaltiesOutput": {
+    "HighsPenalties": {
       "additionalProperties": false,
       "description": "Complete physical penalty declarations for native feasibility relaxation.",
       "properties": {
@@ -706,7 +706,7 @@
       ],
       "type": "string"
     },
-    "PartitionedSettingsOutput": {
+    "PartitionedSettings": {
       "additionalProperties": false,
       "description": "Typed partitioned update controls. An absent formula preserves the library's\nmode-dependent default and its option set-ness.",
       "properties": {
@@ -879,7 +879,7 @@
       "format": "double",
       "type": "number"
     },
-    "TrustRegionOutput": {
+    "TrustRegion": {
       "additionalProperties": false,
       "description": "Normalized radius bounds consumed by the native trust-region method.",
       "properties": {
@@ -909,7 +909,7 @@
       ],
       "type": "object"
     },
-    "WarmRestartOutput": {
+    "WarmRestart": {
       "additionalProperties": false,
       "description": "How an interior-point method re-centres a complete primal-dual seed (L-N3). With the\ncold-start defaults a seeded restart is pushed back towards the analytic centre and loses\nmost of its benefit, so a restart states its barrier and its pushes. Absent fields take\nthese defaults across the Python boundary (ADR-0113).",
       "properties": {
@@ -1001,7 +1001,7 @@
           "description": "Barrier-parameter update strategy (`mu_strategy`)."
         },
         "restart": {
-          "$ref": "#/$defs/WarmRestartOutput",
+          "$ref": "#/$defs/WarmRestart",
           "default": {
             "barrier": {
               "kind": "seed"
@@ -1024,7 +1024,7 @@
         "restart",
         "document_version"
       ],
-      "title": "IpoptSettingsDocumentOutput",
+      "title": "IpoptSettingsDocument",
       "type": "object"
     },
     {
@@ -1041,7 +1041,7 @@
           "type": "integer"
         },
         "finite_difference": {
-          "$ref": "#/$defs/FiniteDifferenceSettingsOutput",
+          "$ref": "#/$defs/FiniteDifferenceSettings",
           "default": {
             "coloring": "cpr",
             "pattern": "declared",
@@ -1050,7 +1050,7 @@
           "description": "Library-owned finite-difference curvature settings."
         },
         "linear": {
-          "$ref": "#/$defs/FeralSettingsOutput",
+          "$ref": "#/$defs/FeralSettings",
           "default": {
             "bounded_storage_max_dimension": null,
             "cascade_break": null,
@@ -1076,7 +1076,7 @@
           "description": "NLP method."
         },
         "partitioned": {
-          "$ref": "#/$defs/PartitionedSettingsOutput",
+          "$ref": "#/$defs/PartitionedSettings",
           "default": {
             "block_size": 64,
             "curvature_cap": null,
@@ -1087,7 +1087,7 @@
           "description": "Library-owned partitioned curvature settings."
         },
         "restart": {
-          "$ref": "#/$defs/WarmRestartOutput",
+          "$ref": "#/$defs/WarmRestart",
           "default": {
             "barrier": {
               "kind": "seed"
@@ -1110,7 +1110,7 @@
         "finite_difference",
         "document_version"
       ],
-      "title": "PounceSettingsDocumentOutput",
+      "title": "PounceSettingsDocument",
       "type": "object"
     },
     {
@@ -1205,7 +1205,7 @@
         "anderson_delay",
         "document_version"
       ],
-      "title": "KinsolSettingsDocumentOutput",
+      "title": "KinsolSettingsDocument",
       "type": "object"
     },
     {
@@ -1217,7 +1217,7 @@
           "type": "string"
         },
         "diagnostics": {
-          "$ref": "#/$defs/HighsDiagnosticsOutput",
+          "$ref": "#/$defs/HighsDiagnostics",
           "default": {
             "basis_inverse": null,
             "cut_pool": false,
@@ -1279,7 +1279,7 @@
         "sparse_start",
         "document_version"
       ],
-      "title": "HighsSettingsDocumentOutput",
+      "title": "HighsSettingsDocument",
       "type": "object"
     },
     {
@@ -1515,7 +1515,7 @@
         "chordal_decomposition_complete_dual",
         "document_version"
       ],
-      "title": "ClarabelSettingsDocumentOutput",
+      "title": "ClarabelSettingsDocument",
       "type": "object"
     },
     {
@@ -1589,7 +1589,7 @@
         "reoptimize",
         "document_version"
       ],
-      "title": "ScipSettingsDocumentOutput",
+      "title": "ScipSettingsDocument",
       "type": "object"
     },
     {
@@ -1616,7 +1616,7 @@
           "type": "boolean"
         },
         "linear": {
-          "$ref": "#/$defs/FeralSettingsOutput",
+          "$ref": "#/$defs/FeralSettings",
           "default": {
             "bounded_storage_max_dimension": null,
             "cascade_break": null,
@@ -1650,7 +1650,7 @@
         "linear",
         "document_version"
       ],
-      "title": "PounceConvexSettingsDocumentOutput",
+      "title": "PounceConvexSettingsDocument",
       "type": "object"
     },
     {
@@ -1692,7 +1692,7 @@
         "limited_memory",
         "document_version"
       ],
-      "title": "UnoSettingsDocumentOutput",
+      "title": "UnoSettingsDocument",
       "type": "object"
     },
     {
@@ -1724,7 +1724,7 @@
           "description": "Selected native PC method."
         },
         "trust": {
-          "$ref": "#/$defs/TrustRegionOutput",
+          "$ref": "#/$defs/TrustRegion",
           "default": {
             "initial": 1.0,
             "maximum": 100000000.0,
@@ -1741,7 +1741,7 @@
         "trust",
         "document_version"
       ],
-      "title": "PetscSettingsDocumentOutput",
+      "title": "PetscSettingsDocument",
       "type": "object"
     }
   ],
@@ -1755,5 +1755,5 @@
   "required": [
     "document_version"
   ],
-  "title": "BackendSettingsOutput"
+  "title": "BackendSettings"
 }

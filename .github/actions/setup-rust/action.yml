@@ -16,7 +16,8 @@
 name: Set up Rust
 description: >-
   Install rustup if absent, materialise the toolchain pinned in rust-toolchain.toml,
-  restore the cargo/target cache, and install the requested cargo tools.
+  restore the cargo/target cache, prepare the native Cargo adapter, and install tools
+  on Linux. The external runner owns placement; this does not qualify user-systemd lifecycles.
 
 inputs:
   shared-key:
@@ -114,6 +115,10 @@ runs:
         cache-all-crates: "true"
         cache-on-failure: "true"
 
+    - name: Prepare native host and Cargo tools explicitly
+      shell: bash
+      run: scripts/bootstrap-host
+
     - name: Resolve Cargo tool selections
       id: cargo-tools
       if: inputs.tools != ''
@@ -121,7 +126,11 @@ runs:
       env:
         REQUESTED_CARGO_TOOLS: ${{ inputs.tools }}
       run: |
-        python3 -m scripts.cargo_tools "$REQUESTED_CARGO_TOOLS" > /tmp/pse-cargo-tools.txt
+        set -euo pipefail
+        mapfile -t requested < <(printf '%s\n' "$REQUESTED_CARGO_TOOLS" | tr '[:space:],' '\n' | sed '/^$/d')
+        ((${#requested[@]})) || { echo '::error::no Cargo tool names were selected'; exit 1; }
+        # Cargo's exact requirement uses @=; install-action selects that same release with @.
+        scripts/pse-host cargo-tools "${requested[@]}" | sed 's/@=/@/' > /tmp/pse-cargo-tools.txt
         { echo 'tools<<PSE_CARGO_TOOLS'; cat /tmp/pse-cargo-tools.txt; echo 'PSE_CARGO_TOOLS'; } >> "$GITHUB_OUTPUT"
 
     - name: Install cargo tools

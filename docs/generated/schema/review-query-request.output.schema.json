@@ -97,6 +97,6 @@
     "timeout_seconds",
     "output_bytes"
   ],
-  "title": "ReviewQueryRequestOutput",
+  "title": "ReviewQueryRequest",
   "type": "object"
 }

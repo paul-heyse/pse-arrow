@@ -68,6 +68,6 @@
     "generation",
     "document_version"
   ],
-  "title": "ProjectAcknowledgementOutput",
+  "title": "ProjectAcknowledgement",
   "type": "object"
 }

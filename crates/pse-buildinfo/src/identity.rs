@@ -18,7 +18,7 @@ const SOURCE_METADATA_BYTES: usize = 16 << 20;
 pub const MAX_CONFIGURATION_BYTES: usize = 64 << 10;
 const METADATA_BYTES: usize = 1 << 20;
 const PATH_BYTES: usize = 4096;
-// Scientific Python imports many file-backed extensions before composing a runtime.
+// Native processes can map many executable-backed library images.
 // Two mapping buffers can coexist while resolving and verifying the actual module;
 // reserve both above, independently of the small kernel/environment input limits.
 const MAPPING_BYTES: usize = 1 << 20;
@@ -843,8 +843,8 @@ pub fn observe_deployment_scoped(
     }
 }
 
-/// Verify that the imported path is the currently mapped Linux module, rather
-/// than a replacement at the same path or a Python metadata-only association.
+/// Verify that the supplied path is the currently mapped Linux native module,
+/// rather than a replacement at the same path or a metadata-only association.
 pub fn verify_loaded_module(path: &Path) -> std::io::Result<()> {
     #[cfg(target_os = "linux")]
     {
@@ -872,7 +872,7 @@ pub fn verify_loaded_module(path: &Path) -> std::io::Result<()> {
         });
         if !mapped {
             return Err(std::io::Error::other(
-                "imported module is not the actual currently mapped artifact",
+                "native module is not the actual currently mapped artifact",
             ));
         }
         Ok(())
@@ -887,7 +887,7 @@ pub fn verify_loaded_module(path: &Path) -> std::io::Result<()> {
 }
 
 /// Resolve the mapping containing an actual code address supplied by the module's
-/// composition root. Python metadata alone cannot select this artifact.
+/// composition root. Claimed filenames alone cannot select this artifact.
 pub fn loaded_module_path(anchor: usize) -> std::io::Result<std::path::PathBuf> {
     #[cfg(target_os = "linux")]
     {
@@ -938,8 +938,6 @@ pub const LOCAL_RUNTIME_VERSION: u32 = 1;
 pub enum LocalRuntimeRole {
     /// Native supervised worker: the anchor must belong to the running executable.
     Worker,
-    /// Imported native extension, with the actual running interpreter observed as well.
-    Python,
 }
 
 /// Independently observed Linux executable/native context. This is observation, not
@@ -1052,7 +1050,7 @@ impl LocalRuntimeObservation {
             let artifact = observe(&loaded_module_path(anchor)?)?;
             let executable = observe(&std::env::current_exe()?)?;
             verify_loaded_module(&executable.canonical)?;
-            if role == LocalRuntimeRole::Worker && artifact.canonical != executable.canonical {
+            if artifact.canonical != executable.canonical {
                 return Err(std::io::Error::other(
                     "worker anchor belongs to another mapped module",
                 ));
@@ -1114,7 +1112,7 @@ impl LocalRuntimeObservation {
                     .filter(|entry| !entry.is_empty()),
                 )?,
                 // Owned snapshot captured by the actual root outside loader scope.
-                // Python ordinary environment mutation cannot invalidate its memory.
+                // Concurrent environment changes cannot invalidate the owned snapshot memory.
                 current_environment: environment.values.clone(),
             };
             checkpoint()?;
@@ -1187,7 +1185,7 @@ impl LocalRuntimeObservation {
 
 // A finite supported runtime configuration boundary, not arbitrary build environment.
 // Startup and current values both matter: glibc can consume a startup setting which a
-// Python host later removes from os.environ. Digests keep secret values out of records.
+// native host later removes from its current environment. Digests keep secret values out of records.
 fn runtime_environment<E: AsRef<[u8]>>(
     entries: impl Iterator<Item = E>,
 ) -> std::io::Result<std::collections::BTreeMap<String, String>> {
@@ -1224,7 +1222,6 @@ fn insert_environment(
         "TBB_",
         "SYMBOLICA_",
         "NUMERICA_",
-        "PYTHON",
     ]
     .iter()
     .any(|prefix| name.starts_with(prefix))
@@ -1399,8 +1396,8 @@ fn executable_mapping_files(
 /// The supported controlled root excludes executable mmap/JIT, opaque plugins and
 /// concurrent runtime configuration changes. The operation must not import/load
 /// modules, invoke provider/plugin callbacks, spawn threads, or wait for work which
-/// can acquire a loader lock. Additional effective Python configuration is observed
-/// before/after this scope, so the GIL is never acquired under the loader lock.
+/// can acquire a loader lock. Additional effective native configuration is observed
+/// before/after this scope, outside the loader exclusion.
 /// External/privileged file mutation is
 /// outside the existing generation-use contract; file/mapping checks detect ordinary
 /// stale deployments. This function itself does not mint scientific eligibility.
@@ -1492,11 +1489,11 @@ fn source_paths(
         limit: SOURCE_METADATA_BYTES,
     };
     budget.path(root, 1)?;
-    for name in ["crates", "vendor", "xtask", "python", "scripts"] {
+    for name in ["crates", "vendor", "xtask", "scripts"] {
         let directory = root.join(name);
         // Retired source overrides leave no vendor directory in a fresh checkout.
         // Observe its reappearance so a future actual override still rekeys the build.
-        if matches!(name, "vendor" | "python" | "scripts") && !directory.try_exists()? {
+        if matches!(name, "vendor" | "scripts") && !directory.try_exists()? {
             continue;
         }
         checkpoint()?;
@@ -1541,15 +1538,6 @@ fn collect_sources(
                 collect_sources(root, &path, files, budget, depth + 1, checkpoint)?;
             }
         } else if kind.is_file() {
-            // Installed native extension bytes are bound as actual role artifacts;
-            // they are outputs, not authored dirty Python source.
-            if path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with("_native") && name.ends_with(".so"))
-            {
-                continue;
-            }
             let relative_path = path.strip_prefix(root).map_err(std::io::Error::other)?;
             // Lossy UTF-8 replacement can expand each raw byte threefold. Include
             // that temporary and the replaced name plus vector spare capacity.
@@ -2118,9 +2106,6 @@ mod foundation_unit {
             .is_err()
         );
         let mut changed = observation.clone();
-        changed.role = super::LocalRuntimeRole::Python;
-        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
-        changed = observation.clone();
         changed.loaded[0].sha256 = "0".repeat(64);
         assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
         // SAFETY: only owned observation metadata changed; environment exclusion is unchanged.
@@ -2375,26 +2360,13 @@ mod foundation_unit {
         fs::write(&worker, b"worker two").unwrap();
         assert_ne!(original, super::digest(super::source_files(root).unwrap()));
         let changed = super::digest(super::source_files(root).unwrap());
-        fs::create_dir_all(root.join("python/pse")).unwrap();
-        fs::write(root.join("python/pse/workflow.py"), b"authored Python").unwrap();
-        let python_changed = super::digest(super::source_files(root).unwrap());
-        assert_ne!(changed, python_changed);
-        fs::write(
-            root.join("python/pse/_native.example.so"),
-            b"deployed artifact",
-        )
-        .unwrap();
-        assert_eq!(
-            python_changed,
-            super::digest(super::source_files(root).unwrap())
-        );
         fs::write(
             root.join("xtask/target/generated.rs"),
             b"different build output",
         )
         .unwrap();
         assert_eq!(
-            python_changed,
+            changed,
             super::digest(super::source_files(root).unwrap())
         );
     }

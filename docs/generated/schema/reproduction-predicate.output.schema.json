@@ -663,7 +663,7 @@
       ],
       "type": "object"
     },
-    "ValidityLineageOutput": {
+    "ValidityLineage": {
       "additionalProperties": false,
       "description": "What a rejected authored validity predicate guards (ADR-0123 Outcome 4, Plan 23 H5): its\nlayer and the declaration stating it; for the form and data layers the form it belongs\nto, the parameter sets whose values bound it and the form's declared arguments it\nconstrains; for the closure layer the model members its range bounds. A fixture's\nexpected validity failure is matched against this lineage, not against a rule text.",
       "properties": {
@@ -765,7 +765,7 @@
     "validity": {
       "anyOf": [
         {
-          "$ref": "#/$defs/ValidityLineageOutput"
+          "$ref": "#/$defs/ValidityLineage"
         },
         {
           "type": "null"
@@ -783,6 +783,6 @@
     "conditions",
     "document_version"
   ],
-  "title": "ReproductionPredicateOutput",
+  "title": "ReproductionPredicate",
   "type": "object"
 }

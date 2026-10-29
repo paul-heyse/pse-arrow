@@ -117,6 +117,6 @@
     "bypasses",
     "document_version"
   ],
-  "title": "CacheReportOutput",
+  "title": "CacheReport",
   "type": "object"
 }

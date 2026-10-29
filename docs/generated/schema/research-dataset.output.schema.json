@@ -73,6 +73,6 @@
     "request",
     "document_version"
   ],
-  "title": "ResearchDatasetOutput",
+  "title": "ResearchDataset",
   "type": "object"
 }

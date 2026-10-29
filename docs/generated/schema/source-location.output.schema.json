@@ -95,6 +95,6 @@
     "end",
     "document_version"
   ],
-  "title": "SourceLocationOutput",
+  "title": "SourceLocation",
   "type": "object"
 }

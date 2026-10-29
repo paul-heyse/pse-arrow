@@ -521,7 +521,7 @@ pub struct KnowledgeQuery {
     pub cursor: Option<KnowledgeCursor>,
 }
 fn knowledge_query_example() -> serde_json::Value {
-    serde_json::json!({"version":1,"mode":"productions","artifact_id":"generated_artifact:python/pse/_native.pyi","limit":8})
+    serde_json::json!({"version":1,"mode":"productions","artifact_id":"generated_artifact:crates/pse-authoring/src/generated/documents.rs","limit":8})
 }
 impl KnowledgeQuery {
     /// Decode the version header before the closed request body.

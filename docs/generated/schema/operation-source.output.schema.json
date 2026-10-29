@@ -37,12 +37,12 @@
       ],
       "type": "object"
     },
-    "ContextSelectionBodyOutput": {
+    "ContextSelectionBody": {
       "additionalProperties": false,
       "description": "Complete frozen selection. Deserializing this document grants no source authority.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/ProjectContextBodyOutput",
+          "$ref": "#/$defs/ProjectContextBody",
           "description": "Original immutable selected source descriptor."
         },
         "cut": {
@@ -62,7 +62,7 @@
       ],
       "type": "object"
     },
-    "ProjectContextBodyOutput": {
+    "ProjectContextBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -155,7 +155,7 @@
       "description": "An opaque canonical lookup key; never a scientific semantic identity.",
       "type": "string"
     },
-    "ResearchSourceOutput": {
+    "ResearchSource": {
       "additionalProperties": false,
       "description": "Authenticated original research ancestry carried by actual operation inputs.",
       "properties": {
@@ -205,7 +205,7 @@
     "context": {
       "anyOf": [
         {
-          "$ref": "#/$defs/ContextSelectionBodyOutput"
+          "$ref": "#/$defs/ContextSelectionBody"
         },
         {
           "type": "null"
@@ -227,7 +227,7 @@
     "research": {
       "anyOf": [
         {
-          "$ref": "#/$defs/ResearchSourceOutput"
+          "$ref": "#/$defs/ResearchSource"
         },
         {
           "type": "null"
@@ -249,6 +249,6 @@
     "physical_context",
     "document_version"
   ],
-  "title": "OperationSourceOutput",
+  "title": "OperationSource",
   "type": "object"
 }

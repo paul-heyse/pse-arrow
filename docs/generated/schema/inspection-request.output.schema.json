@@ -21,7 +21,7 @@
       ],
       "type": "object"
     },
-    "NumericalHistoryPolicyOutput": {
+    "NumericalHistoryPolicy": {
       "additionalProperties": false,
       "description": "Explicit operator-selected thresholds, not universal convergence criteria.\nThe enclosing inspection request retains this policy beside its statements.",
       "properties": {
@@ -136,7 +136,7 @@
     "numerical_history_policy": {
       "anyOf": [
         {
-          "$ref": "#/$defs/NumericalHistoryPolicyOutput"
+          "$ref": "#/$defs/NumericalHistoryPolicy"
         },
         {
           "type": "null"
@@ -179,6 +179,6 @@
     "related_limit",
     "numerical_history_policy"
   ],
-  "title": "InspectionRequestOutput",
+  "title": "InspectionRequest",
   "type": "object"
 }

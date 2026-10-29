@@ -42,7 +42,7 @@
         }
       ]
     },
-    "ReviewQueryColumnOutput": {
+    "ReviewQueryColumn": {
       "additionalProperties": false,
       "description": "A declared output column; strings preserve canonical native integer text.",
       "properties": {
@@ -69,7 +69,7 @@
       ],
       "type": "object"
     },
-    "ReviewQueryRequestOutput": {
+    "ReviewQueryRequest": {
       "additionalProperties": false,
       "description": "Explicit optional query request, separate from a scientific operation.",
       "properties": {
@@ -173,7 +173,7 @@
     "columns": {
       "description": "Schema expected from this query, not inferred from returned data.",
       "items": {
-        "$ref": "#/$defs/ReviewQueryColumnOutput"
+        "$ref": "#/$defs/ReviewQueryColumn"
       },
       "type": "array"
     },
@@ -230,7 +230,7 @@
       "type": "integer"
     },
     "request": {
-      "$ref": "#/$defs/ReviewQueryRequestOutput",
+      "$ref": "#/$defs/ReviewQueryRequest",
       "description": "Exact accepted request."
     },
     "rows": {
@@ -281,6 +281,6 @@
     "rows",
     "limitations"
   ],
-  "title": "ReviewQueryDocumentOutput",
+  "title": "ReviewQueryDocument",
   "type": "object"
 }

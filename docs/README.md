@@ -47,7 +47,6 @@ their original conditions; only named tests and measurements support Tested and 
 | `xtask/` | Everything that needs Rust APIs, JSON or cross-platform behaviour | Logic lives here, the justfile is the surface |
 | `tests/` | Workspace test crates: `governance`, `engine`, `conformance`, `lifecycle` | `tests/fixtures/` contains source inputs, not a crate; structural algorithms are tested in their owning crates |
 | `benches/` | Criterion benchmarks (`pse-benches`) | No timing gate in CI; `just bench-smoke` only runs them |
-| `python/pse/` | The Python package (import name `pse`) | `python/pse/contracts/` is GENERATED |
 | `docs/authoritative_design/` | **Authoritative collection:** current contracts in numbered `sections/` pages; `blueprint.md` keeps revisions and former anchors | Start at its README; edits follow the design route below |
 | `docs/adr/` | Retained decision records, immutable once accepted; obsolete ones retired to Git (ADR-0096) | `just adr-new`; index via `just adr-index` |
 | `docs/plans/` | Active plans, living until done; completed plans retire to Git | `just plan <slug>` |

@@ -45,7 +45,7 @@
       ],
       "type": "string"
     },
-    "ConformanceRunOutput": {
+    "ConformanceRun": {
       "additionalProperties": false,
       "description": "A package closure selected once within a conformance campaign.",
       "properties": {
@@ -163,7 +163,7 @@
         }
       ]
     },
-    "LimitsOutput": {
+    "Limits": {
       "additionalProperties": false,
       "description": "Explicit limits checked before expansion/allocation.",
       "properties": {
@@ -269,7 +269,7 @@
       ],
       "type": "object"
     },
-    "PreparationSettingsBodyOutput": {
+    "PreparationSettingsBody": {
       "additionalProperties": false,
       "description": "Serialization of the existing compiler/expansion controls, with no second defaults.",
       "properties": {
@@ -278,7 +278,7 @@
           "description": "Existing evaluator profile, encoded through its complete remote projection."
         },
         "limits": {
-          "$ref": "#/$defs/LimitsOutput",
+          "$ref": "#/$defs/Limits",
           "description": "Existing expansion admission limits."
         }
       },
@@ -288,7 +288,7 @@
       ],
       "type": "object"
     },
-    "RunSettingsOutput": {
+    "RunSettings": {
       "additionalProperties": false,
       "description": "Execution settings shared by all selected authored fixtures in one campaign.",
       "properties": {
@@ -438,7 +438,7 @@
         "preparation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PreparationSettingsBodyOutput"
+              "$ref": "#/$defs/PreparationSettingsBody"
             },
             {
               "type": "null"
@@ -534,12 +534,12 @@
     "runs": {
       "description": "Every selected closure is executed once in this order.",
       "items": {
-        "$ref": "#/$defs/ConformanceRunOutput"
+        "$ref": "#/$defs/ConformanceRun"
       },
       "type": "array"
     },
     "settings": {
-      "$ref": "#/$defs/RunSettingsOutput",
+      "$ref": "#/$defs/RunSettings",
       "description": "Settings applied through the ordinary runtime conformance entry."
     },
     "version": {
@@ -554,6 +554,6 @@
     "settings",
     "runs"
   ],
-  "title": "ConformanceManifestOutput",
+  "title": "ConformanceManifest",
   "type": "object"
 }

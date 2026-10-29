@@ -9,33 +9,25 @@ mod physical;
 mod grpc_wire;
 mod private_store;
 
-#[cfg(feature = "product-schemas")]
 #[cfg(feature = "native-abi")]
 mod ipopt;
 #[cfg(feature = "evidence-tools")]
 mod private_documents;
 #[cfg(feature = "product-schemas")]
-mod project_operations;
-pub(super) mod python_stubs;
-#[cfg(feature = "product-schemas")]
 mod schemas;
 
 use std::collections::BTreeSet;
-use std::fmt::Write as _;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, bail};
 use pse_codegen::codegen::{GeneratedTree, Language, documents, provenance};
-use sha2::{Digest, Sha256};
 
 use crate::Target;
 
 #[cfg(feature = "native-abi")]
 const BINDINGS: &str = "crates/pse-ipopt-sys/src/bindings.rs";
-const PYTHON_ROOT: &str = "python/pse/contracts";
-const PROJECT_PYTHON_ROOT: &str = "python/pse/generated";
 
 pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
     if only.is_none()
@@ -49,7 +41,6 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     }
     let languages = match only {
         Some(Target::Relations | Target::RustContracts) => vec![Language::Rust],
-        Some(Target::Python) => vec![Language::Python],
         Some(Target::Docs) => vec![Language::Markdown],
         Some(Target::Surreal) => vec![Language::Surreal],
         Some(Target::Bindgen) => return native_abi(root, check),
@@ -64,9 +55,6 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     let mut trees = Vec::new();
     for language in languages {
         let tree = language_tree(root, registry, language, only)?;
-        if language == Language::Python {
-            check_python_candidate(root, &tree, None)?;
-        }
         trees.push(provenance::sidecar(
             &format!("registry-{}", language.as_str()),
             &tree.relationships,
@@ -81,20 +69,8 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         trees.push(tree);
     }
     if matches!(only, None | Some(Target::Schemas)) {
-        let mut tree = document_schemas(registry)?;
-        add_python_manifest(&mut tree, Path::new(documents::PYTHON_ROOT))?;
+        let tree = document_schemas(registry)?;
         validate_tree(&tree)?;
-        let standalone_contracts = if only == Some(Target::Schemas) {
-            Some(language_tree(root, registry, Language::Python, only)?)
-        } else {
-            None
-        };
-        let contracts = trees
-            .iter()
-            .find(|candidate| candidate.roots == Language::Python.roots())
-            .or(standalone_contracts.as_ref())
-            .context("document candidate requires generated Python contracts")?;
-        check_python_candidate(root, &tree, Some(contracts))?;
         trees.push(provenance::sidecar(
             "runtime-catalogue",
             &tree.relationships,
@@ -128,9 +104,6 @@ fn language_tree(
             "{} generator changed its declared output roots",
             language.as_str()
         );
-    }
-    if language == Language::Python {
-        add_python_manifest(&mut tree, Path::new(PYTHON_ROOT))?;
     }
     if language == Language::Rust {
         let private_registry = xtask::development::catalog::assemble()?;
@@ -169,13 +142,6 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
                 &format!("{label} generation"),
                 language_tree(root, &registry, language, only),
             ) {
-                if language == Language::Python {
-                    check_result(
-                        &mut failures,
-                        &format!("{label} candidate validation"),
-                        check_python_candidate(root, &tree, None),
-                    );
-                }
                 if let Some(sidecar) = check_result(
                     &mut failures,
                     &format!("{label} provenance generation"),
@@ -200,40 +166,11 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
         }
         if matches!(only, None | Some(Target::Schemas)) {
             let tree = (|| {
-                let mut tree = document_schemas(&registry)?;
-                add_python_manifest(&mut tree, Path::new(documents::PYTHON_ROOT))?;
+                let tree = document_schemas(&registry)?;
                 validate_tree(&tree)?;
                 Ok(tree)
             })();
             if let Some(tree) = check_result(&mut failures, "document schemas generation", tree) {
-                // The standalone schema route needs the same dependency once;
-                // aggregate generation already owns its actual Python tree.
-                let standalone_contracts = if only == Some(Target::Schemas) {
-                    check_result(
-                        &mut failures,
-                        "document Python dependency generation",
-                        language_tree(root, &registry, Language::Python, only),
-                    )
-                } else {
-                    None
-                };
-                if let Some(contracts) = trees
-                    .iter()
-                    .find(|(_, candidate)| candidate.roots == Language::Python.roots())
-                    .map(|(_, candidate)| candidate)
-                    .or(standalone_contracts.as_ref())
-                {
-                    check_result(
-                        &mut failures,
-                        "document schemas candidate validation",
-                        check_python_candidate(root, &tree, Some(contracts)),
-                    );
-                } else {
-                    failures.push(
-                        "document schemas candidate validation: blocked by Python dependency generation failure"
-                            .to_owned(),
-                    );
-                }
                 if let Some(sidecar) = check_result(
                     &mut failures,
                     "document schemas provenance generation",
@@ -317,61 +254,7 @@ fn native_abi(_: &Path, _: bool) -> Result<()> {
     bail!("native bindings require native-abi and the actual selected headers")
 }
 
-/// Validate the actual candidate Python bytes before comparison or publication.
-fn check_python_candidate(
-    root: &Path,
-    tree: &GeneratedTree,
-    contracts: Option<&GeneratedTree>,
-) -> Result<()> {
-    let candidate = tempfile::tempdir().context("creating Python contract candidate")?;
-    if let Some(contracts) = contracts {
-        // Document enums must come from the same registry generation, even before
-        // publication or when only document schemas are being regenerated.
-        write_tree(candidate.path(), contracts)?;
-    }
-    write_tree(candidate.path(), tree)?;
-    let python = root.join(if cfg!(windows) {
-        ".venv/Scripts/python.exe"
-    } else {
-        ".venv/bin/python"
-    });
-    let status = Command::new(python)
-        .arg(root.join("scripts/check_python_contracts.py"))
-        .arg("--root")
-        .arg(candidate.path())
-        .args(contracts.map(|_| "--documents"))
-        .current_dir(root)
-        .status()
-        .context("checking candidate Python contract annotations")?;
-    if !status.success() {
-        bail!("candidate Python contract annotation check failed: {status}");
-    }
-    Ok(())
-}
-
-/// Check bootstrap annotations directly, with no package or SDK startup available.
-#[cfg(feature = "product-schemas")]
-fn check_private_python_candidate(tree: &GeneratedTree) -> Result<()> {
-    let candidate = tempfile::tempdir().context("creating private contract candidate")?;
-    write_tree(candidate.path(), tree)?;
-    let root = crate::workspace_root()?;
-    let python = root.join(if cfg!(windows) {
-        ".venv/Scripts/python.exe"
-    } else {
-        ".venv/bin/python"
-    });
-    let status = Command::new(python)
-        .arg(root.join("scripts/check_private_contracts.py"))
-        .arg(candidate.path().join(documents::PRIVATE_PYTHON_ROOT))
-        .status()
-        .context("checking private bootstrap contract annotations")?;
-    if !status.success() {
-        bail!("private bootstrap contract candidate check failed: {status}");
-    }
-    Ok(())
-}
-
-/// The published document schemas and Python document types, derived from the owning
+/// Published source-bearing native JSON Schemas, derived from the owning
 /// crates' serde types (ADR-0116 Outcome 7).
 #[cfg(feature = "product-schemas")]
 fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
@@ -388,6 +271,7 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
         }],
     )?;
     let evidence = documents::generate_private_catalogue(&private_documents::documents())?;
+    private.roots.extend(evidence.roots);
     private.files.extend(evidence.files);
     private.relationships.extend(evidence.relationships);
     let deployment_document = |name: &str, title: &str, mut schema: serde_json::Value| {
@@ -411,20 +295,21 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
         deployment_document("backup-operation", "BackupOperation", schemars::schema_for!(pse_operations::deployment::BackupOperation).to_value()),
         deployment_document("prepared-receiver-environment", "PreparedReceiverEnvironment", schemars::schema_for!(pse_runtime::workflow::PreparedReceiverEnvironment).to_value()),
     ])?;
+    private.roots.extend(deployment.roots);
     private.files.extend(deployment.files);
     private.relationships.extend(deployment.relationships);
     let metric_path =
-        Path::new(documents::PRIVATE_PYTHON_ROOT).join("native_metric_declarations.json");
+        Path::new(documents::PRIVATE_SCHEMA_ROOT).join("native_metric_declarations.json");
+    private.roots.push(metric_path.clone());
     private.files.insert(
         metric_path.clone(),
         serde_json::to_vec_pretty(
             pse_runtime::tooling::metric_declarations::metric_declarations(),
         )?,
     );
-    add_python_manifest(&mut private, Path::new(documents::PRIVATE_PYTHON_ROOT))?;
-    check_private_python_candidate(&private)?;
     tree.roots.extend(private.roots);
     tree.files.extend(private.files);
+    tree.relationships.extend(private.relationships);
     tree.relationships.push(provenance::SourceRelationship {
         declaration_key: "pse_runtime::tooling::telemetry::Settings".into(),
         declaration_kind: "private_bootstrap_contract".into(),
@@ -434,7 +319,7 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
         source_identity: None,
         generator_path: "crates/pse-codegen/src/codegen/documents.rs".into(),
         generator_symbol: "generate_private".into(),
-        output_path: format!("{}/telemetry_settings.py", documents::PRIVATE_PYTHON_ROOT),
+        output_path: format!("{}/telemetry-settings.schema.json", documents::PRIVATE_SCHEMA_ROOT),
         direction: Some("input".into()),
         contract_sections: Vec::new(),
         basis: "declared".into(),
@@ -453,11 +338,6 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
         contract_sections: Vec::new(),
         basis: "declared".into(),
     });
-    project_operations::append(&mut tree)?;
-    let fixtures = schemas::boundary_fixtures()?;
-    tree.roots.extend(fixtures.roots);
-    tree.files.extend(fixtures.files);
-    tree.relationships.extend(fixtures.relationships);
     Ok(tree)
 }
 
@@ -491,30 +371,6 @@ fn contract_roots(tree: &mut GeneratedTree) {
         .retain(|root| !matches!(root.to_str(), Some("crates/pse-quantity/src/generated")));
 }
 
-/// The `GENERATED.sha256` of the Python files under `root`: one digest line per file.
-fn add_python_manifest(tree: &mut GeneratedTree, root: &Path) -> Result<()> {
-    let manifest_path = root.join("GENERATED.sha256");
-    if tree.files.contains_key(&manifest_path) {
-        bail!("the Python generator must leave GENERATED.sha256 to the xtask writer");
-    }
-    let mut manifest = String::new();
-    for (path, bytes) in tree.files.iter().filter(|(path, _)| path.starts_with(root)) {
-        let relative = path
-            .strip_prefix(root)
-            .context("Python output escaped its root")?;
-        let name = relative
-            .to_str()
-            .context("generated filename is not UTF-8")?
-            .replace('\\', "/");
-        for byte in Sha256::digest(bytes) {
-            write!(manifest, "{byte:02x}")?;
-        }
-        writeln!(manifest, "  {name}")?;
-    }
-    tree.files.insert(manifest_path, manifest.into_bytes());
-    Ok(())
-}
-
 fn normal_relative(path: &Path) -> bool {
     !path.as_os_str().is_empty()
         && path
@@ -533,7 +389,7 @@ fn validate_tree(tree: &GeneratedTree) -> Result<()> {
             || !tree
                 .roots
                 .iter()
-                .any(|root| path != root && path.starts_with(root))
+                .any(|root| path == root || (!tree.files.contains_key(root) && path.starts_with(root)))
         {
             bail!(
                 "generated file lies outside the declared roots: {}",
@@ -568,9 +424,6 @@ fn inventory(root: &Path, tree: &GeneratedTree) -> Result<BTreeSet<PathBuf>> {
         reject_symlinks(root, relative)?;
         collect_files(root, relative, &mut files)?;
     }
-    // Inspect every path first: a cache directory cannot hide symlinks or other
-    // non-files. Explicit generator output always remains subject to comparison.
-    files.retain(|path| tree.files.contains_key(path) || !python_bytecode_path(path));
     // A root nested inside this tree's roots belongs to another target, which compares
     // and prunes it.
     let foreign = nested_roots(tree);
@@ -584,7 +437,6 @@ fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
         .iter()
         .flat_map(|language| language.roots())
         .chain(documents::roots())
-        .chain([PathBuf::from(documents::PRIVATE_PYTHON_ROOT)])
         // Each diagnostic producer owns a nested directory. The enclosing docs
         // generator must preserve every sidecar on partial regeneration.
         .chain([
@@ -598,35 +450,6 @@ fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
                     .any(|own| candidate != own && candidate.starts_with(own))
         })
         .collect()
-}
-
-fn python_bytecode_path(relative: &Path) -> bool {
-    if !(relative.starts_with(PYTHON_ROOT)
-        || relative.starts_with(documents::PRIVATE_PYTHON_ROOT)
-        || relative.starts_with(PROJECT_PYTHON_ROOT))
-        || relative.parent().and_then(Path::file_name) != Some("__pycache__".as_ref())
-    {
-        return false;
-    }
-    let Some(stem) = relative
-        .file_name()
-        .and_then(|name| name.to_str())
-        .and_then(|name| name.strip_suffix(".pyc"))
-    else {
-        return false;
-    };
-    let Some((module, tag)) = stem.rsplit_once(".cpython-") else {
-        return false;
-    };
-    let (version, optimization) = tag
-        .split_once(".opt-")
-        .map_or((tag, None), |(version, level)| (version, Some(level)));
-    !module.is_empty()
-        && !version.is_empty()
-        && version.bytes().all(|byte| byte.is_ascii_digit())
-        && optimization.is_none_or(|level| {
-            !level.is_empty() && level.bytes().all(|byte| byte.is_ascii_alphanumeric())
-        })
 }
 
 fn collect_files(root: &Path, relative: &Path, files: &mut BTreeSet<PathBuf>) -> Result<()> {
@@ -735,51 +558,64 @@ fn untracked_check(root: &Path, paths: &[PathBuf]) -> Result<()> {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "product-schemas")]
     #[test]
-    fn candidate_failure_still_compares_and_checks_tracking_without_publication() {
-        let checkout = tempfile::tempdir().unwrap();
-        assert!(
-            Command::new("git")
-                .arg("-C")
-                .arg(checkout.path())
-                .args(["init", "-q"])
-                .status()
-                .unwrap()
-                .success()
-        );
-        let existing = checkout.path().join(PYTHON_ROOT).join("unexpected.py");
-        fs::create_dir_all(existing.parent().unwrap()).unwrap();
-        fs::write(&existing, b"retained untracked source\n").unwrap();
-        let before = inventory(
-            checkout.path(),
-            &GeneratedTree::empty(Language::Python.roots()),
-        )
-        .unwrap();
-        // The isolated checkout has no interpreter. Candidate validation must
-        // fail independently of comparison and untracked-file diagnostics.
-        let error = check_generators(checkout.path(), &[Language::Python], Some(Target::Python))
-            .unwrap_err()
-            .to_string();
-        for label in [
-            "registry-python candidate validation:",
-            "comparison:",
-            "tracking:",
-            "missing from checkout",
-            "stale in checkout",
-            "generated files must be tracked",
-        ] {
-            assert!(error.contains(label), "missing {label}: {error}");
+    fn runtime_catalogue_sidecar_retains_every_private_source_relationship() {
+        let registry=pse_schema::catalog::assemble().unwrap();
+        let expected=documents::generate_private_catalogue(&private_documents::documents()).unwrap();
+        assert!(!expected.relationships.is_empty());
+        let tree=document_schemas(&registry).unwrap();
+        let sidecar=provenance::sidecar("runtime-catalogue",&tree.relationships).unwrap();
+        let path=PathBuf::from(provenance::ROOT).join("runtime-catalogue/relationships.json");
+        let sidecar:serde_json::Value=serde_json::from_slice(&sidecar.files[&path]).unwrap();
+        let rows=sidecar["relationships"].as_array().unwrap();
+        for relationship in expected.relationships {
+            assert!(tree.files.contains_key(Path::new(&relationship.output_path)));
+            let expected=serde_json::to_value(&relationship).unwrap();
+            assert!(rows.contains(&expected),"private catalogue contributor missing: {expected}");
         }
-        assert_eq!(fs::read(existing).unwrap(), b"retained untracked source\n");
-        assert_eq!(
-            inventory(
-                checkout.path(),
-                &GeneratedTree::empty(Language::Python.roots()),
-            )
-            .unwrap(),
-            before
-        );
-        assert!(!checkout.path().join(provenance::ROOT).exists());
+    }
+
+    #[cfg(feature = "product-schemas")]
+    #[test]
+    fn partial_schema_publication_preserves_foreign_outputs() {
+        let checkout=tempfile::tempdir().unwrap();
+        let scratch=tempfile::tempdir().unwrap();
+        let registry=pse_schema::catalog::assemble().unwrap();
+        let tree=document_schemas(&registry).unwrap();
+        assert!(!tree.roots.contains(&PathBuf::from(documents::PRIVATE_SCHEMA_ROOT)));
+        for path in ["scripts/generated/foreign.json", "scripts/generated/foreign_schema/record.json"] {
+            let path=checkout.path().join(path);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path,b"original foreign bytes").unwrap();
+        }
+        write_tree(checkout.path(),&tree).unwrap();
+        write_tree(scratch.path(),&tree).unwrap();
+        let metric=checkout.path().join("scripts/generated/native_metric_declarations.json");
+        fs::write(&metric,b"stale owned metadata").unwrap();
+        let error=compare_tree(checkout.path(),scratch.path(),&tree).unwrap_err().to_string();
+        assert!(error.contains("native_metric_declarations.json: bytes differ"),"{error}");
+        assert_eq!(fs::read(&metric).unwrap(),b"stale owned metadata");
+        write_tree(checkout.path(),&tree).unwrap();
+        compare_tree(checkout.path(),scratch.path(),&tree).unwrap();
+        for path in ["scripts/generated/foreign.json", "scripts/generated/foreign_schema/record.json"] {
+            assert_eq!(fs::read(checkout.path().join(path)).unwrap(),b"original foreign bytes");
+        }
+        assert_eq!(fs::read(metric).unwrap(),tree.files[Path::new("scripts/generated/native_metric_declarations.json")]);
+        assert!(checkout.path().join("scripts/generated/deployment_schema/deployment-request.schema.json").is_file());
+        assert!(checkout.path().join("scripts/generated/evidence_schema/catalogue.json").is_file());
+    }
+
+    #[test]
+    fn exact_file_roots_publish_only_their_declared_file() {
+        let checkout=tempfile::tempdir().unwrap();
+        let path=PathBuf::from("generated/one.json");
+        let mut tree=GeneratedTree::empty(vec![path.clone()]);
+        tree.files.insert(path.clone(),b"exact native bytes".to_vec());
+        write_tree(checkout.path(),&tree).unwrap();
+        assert_eq!(inventory(checkout.path(),&tree).unwrap(),BTreeSet::from([path.clone()]));
+        tree.files.insert(path.join("escaped.json"),Vec::new());
+        assert!(validate_tree(&tree).is_err(),"an exact file owner does not own a nested directory");
     }
 
     #[test]
@@ -834,7 +670,7 @@ mod tests {
     #[test]
     fn unchanged_generation_preserves_the_source_timestamp() {
         let directory = tempfile::tempdir().unwrap();
-        let tree = python_tree();
+        let tree = tree();
         write_tree(directory.path(), &tree).unwrap();
         let path = directory.path().join(tree.files.keys().next().unwrap());
         let stamp = std::time::UNIX_EPOCH + std::time::Duration::from_secs(17);
@@ -871,9 +707,7 @@ mod tests {
                 "pse-relations",
                 "pse-model",
                 "pse-authoring",
-                "pse-catalog",
                 "pse-admission",
-                "pse-runtime",
                 "pse-columnar"
             ]
             .map(|name| PathBuf::from(format!("crates/{name}/src/generated")))
@@ -886,248 +720,6 @@ mod tests {
             roots: vec![PathBuf::from("generated")],
             files: [(PathBuf::from("generated/a.txt"), b"exact bytes\n".to_vec())].into(),
         }
-    }
-
-    fn python_tree() -> GeneratedTree {
-        python_tree_at(PYTHON_ROOT)
-    }
-
-    fn python_tree_at(root: &str) -> GeneratedTree {
-        GeneratedTree {
-            relationships: Vec::new(),
-            roots: vec![PathBuf::from(root)],
-            files: [(Path::new(root).join("a.py"), b"value = 1\n".to_vec())].into(),
-        }
-    }
-
-    #[test]
-    fn private_python_caches_survive_writing_without_hiding_source_changes() {
-        python_caches_survive_at(documents::PRIVATE_PYTHON_ROOT);
-    }
-
-    #[test]
-    fn project_python_caches_survive_writing_without_hiding_source_changes() {
-        python_caches_survive_at(PROJECT_PYTHON_ROOT);
-    }
-
-    fn python_caches_survive_at(python_root: &str) {
-        let checkout = tempfile::tempdir().unwrap();
-        let scratch = tempfile::tempdir().unwrap();
-        let tree = python_tree_at(python_root);
-        write_tree(checkout.path(), &tree).unwrap();
-        write_tree(scratch.path(), &tree).unwrap();
-        let root = checkout.path().join(python_root);
-        let cache = root.join("__pycache__");
-        fs::create_dir(&cache).unwrap();
-        let names = [
-            "a.cpython-312.pyc",
-            "a.cpython-314.pyc",
-            "a.cpython-314.opt-2.pyc",
-        ];
-        for name in names {
-            fs::write(cache.join(name), name.as_bytes()).unwrap();
-        }
-        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
-        fs::write(root.join("a.py"), b"changed source\n").unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-        write_tree(checkout.path(), &tree).unwrap();
-        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
-        for name in names {
-            assert_eq!(fs::read(cache.join(name)).unwrap(), name.as_bytes());
-        }
-    }
-
-    #[test]
-    fn private_python_caches_reject_lookalikes_and_symlinks() {
-        python_caches_reject_lookalikes_and_symlinks_at(documents::PRIVATE_PYTHON_ROOT);
-    }
-
-    #[test]
-    fn project_python_caches_reject_lookalikes_and_symlinks() {
-        python_caches_reject_lookalikes_and_symlinks_at(PROJECT_PYTHON_ROOT);
-    }
-
-    fn python_caches_reject_lookalikes_and_symlinks_at(python_root: &str) {
-        let checkout = tempfile::tempdir().unwrap();
-        let scratch = tempfile::tempdir().unwrap();
-        let tree = python_tree_at(python_root);
-        write_tree(checkout.path(), &tree).unwrap();
-        write_tree(scratch.path(), &tree).unwrap();
-        let root = checkout.path().join(python_root);
-        let cache = root.join("__pycache__");
-        fs::create_dir(&cache).unwrap();
-        for relative in [
-            "__pycache__/unexpected.py",
-            "__pycache__/a.pyc",
-            "__pycache__/a.cpython-source.pyc",
-            "__pycache__/a.cpython-314.opt-.pyc",
-            "__pycache__/a.cpython-314.pyc.py",
-            "a.cpython-314.pyc",
-            "__pycache__/nested/a.cpython-314.pyc",
-        ] {
-            let path = root.join(relative);
-            fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::write(&path, b"unexpected file\n").unwrap();
-            assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-            write_tree(checkout.path(), &tree).unwrap();
-            assert!(!path.exists());
-        }
-        assert!(!python_bytecode_path(Path::new(
-            "scripts/generated-other/__pycache__/a.cpython-314.pyc"
-        )));
-        assert!(!python_bytecode_path(Path::new(
-            "python/pse/generated-other/__pycache__/a.cpython-314.pyc"
-        )));
-        #[cfg(unix)]
-        {
-            let external = tempfile::tempdir().unwrap();
-            let target = external.path().join("untouched");
-            fs::write(&target, b"external source\n").unwrap();
-            let link = cache.join("a.cpython-314.pyc");
-            std::os::unix::fs::symlink(&target, &link).unwrap();
-            assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-            assert!(write_tree(checkout.path(), &tree).is_err());
-            assert!(fs::symlink_metadata(&link).unwrap().is_symlink());
-            fs::remove_file(link).unwrap();
-            fs::remove_dir_all(&cache).unwrap();
-            std::os::unix::fs::symlink(external.path(), &cache).unwrap();
-            assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-            assert!(write_tree(checkout.path(), &tree).is_err());
-            assert_eq!(fs::read(target).unwrap(), b"external source\n");
-        }
-    }
-
-    #[test]
-    fn python_caches_survive_writing_and_do_not_hide_source_changes() {
-        let checkout = tempfile::tempdir().unwrap();
-        let scratch = tempfile::tempdir().unwrap();
-        let tree = python_tree();
-        write_tree(checkout.path(), &tree).unwrap();
-        write_tree(scratch.path(), &tree).unwrap();
-        let cache = checkout.path().join(PYTHON_ROOT).join("__pycache__");
-        fs::create_dir(&cache).unwrap();
-        let caches = [
-            "a.cpython-313.pyc",
-            "a.cpython-314.pyc",
-            "a.cpython-313.opt-1.pyc",
-            "a.cpython-314.opt-2.pyc",
-        ];
-        for name in caches {
-            fs::write(cache.join(name), name.as_bytes()).unwrap();
-        }
-        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
-        let source = checkout.path().join(PYTHON_ROOT).join("a.py");
-        fs::write(&source, b"changed source\n").unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-        assert_eq!(fs::read(&source).unwrap(), b"changed source\n");
-        fs::remove_file(&source).unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-        assert!(!source.exists());
-        write_tree(checkout.path(), &tree).unwrap();
-        let stale = checkout.path().join(PYTHON_ROOT).join("stale.py");
-        fs::write(&stale, b"stale source\n").unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-        write_tree(checkout.path(), &tree).unwrap();
-        assert!(!stale.exists());
-        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
-        for name in caches {
-            assert_eq!(fs::read(cache.join(name)).unwrap(), name.as_bytes());
-        }
-    }
-
-    #[test]
-    fn cache_directories_do_not_hide_unexpected_source_or_malformed_cache_names() {
-        let checkout = tempfile::tempdir().unwrap();
-        let scratch = tempfile::tempdir().unwrap();
-        let tree = python_tree();
-        write_tree(checkout.path(), &tree).unwrap();
-        write_tree(scratch.path(), &tree).unwrap();
-        let cache = checkout.path().join(PYTHON_ROOT).join("__pycache__");
-        fs::create_dir(&cache).unwrap();
-        for name in [
-            "unexpected.py",
-            "unexpected.txt",
-            "a.pyc",
-            "a.cpython-.pyc",
-            "a.cpython-source.pyc",
-            "a.cpython-314.opt-.pyc",
-            "a.cpython-314.pyc.py",
-        ] {
-            let path = cache.join(name);
-            fs::write(&path, b"unexpected source\n").unwrap();
-            assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-            assert!(path.is_file());
-            write_tree(checkout.path(), &tree).unwrap();
-            assert!(!path.exists());
-        }
-        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
-    }
-
-    #[test]
-    fn bytecode_exclusion_requires_the_python_root_and_immediate_cache_parent() {
-        for relative in [
-            "docs/generated/__pycache__/a.cpython-314.pyc",
-            "python/pse/contracts/a.cpython-314.pyc",
-            "python/pse/contracts/__pycache__/nested/a.cpython-314.pyc",
-        ] {
-            let checkout = tempfile::tempdir().unwrap();
-            let path = checkout.path().join(relative);
-            fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::write(path, b"unexpected file\n").unwrap();
-            let tree = GeneratedTree::empty(vec![
-                PathBuf::from("docs/generated"),
-                PathBuf::from(PYTHON_ROOT),
-            ]);
-            assert_eq!(
-                inventory(checkout.path(), &tree).unwrap(),
-                [PathBuf::from(relative)].into()
-            );
-        }
-    }
-
-    #[test]
-    fn explicit_generator_outputs_are_compared_even_with_bytecode_names() {
-        let checkout = tempfile::tempdir().unwrap();
-        let scratch = tempfile::tempdir().unwrap();
-        let mut tree = python_tree();
-        let relative = Path::new(PYTHON_ROOT).join("__pycache__/a.cpython-314.pyc");
-        tree.files
-            .insert(relative.clone(), b"declared bytes".to_vec());
-        write_tree(checkout.path(), &tree).unwrap();
-        write_tree(scratch.path(), &tree).unwrap();
-        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
-        let path = checkout.path().join(relative);
-        fs::write(&path, b"changed bytes").unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-        fs::remove_file(path).unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn bytecode_names_and_cache_directories_cannot_hide_symlinks() {
-        let checkout = tempfile::tempdir().unwrap();
-        let scratch = tempfile::tempdir().unwrap();
-        let external = tempfile::tempdir().unwrap();
-        let tree = python_tree();
-        write_tree(checkout.path(), &tree).unwrap();
-        write_tree(scratch.path(), &tree).unwrap();
-        let cache = checkout.path().join(PYTHON_ROOT).join("__pycache__");
-        fs::create_dir(&cache).unwrap();
-        let target = external.path().join("untouched");
-        fs::write(&target, b"external source\n").unwrap();
-        let link = cache.join("a.cpython-314.pyc");
-        std::os::unix::fs::symlink(&target, &link).unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-        assert!(write_tree(checkout.path(), &tree).is_err());
-        assert!(fs::symlink_metadata(&link).unwrap().is_symlink());
-        assert_eq!(fs::read(&target).unwrap(), b"external source\n");
-        fs::remove_file(link).unwrap();
-        fs::remove_dir(&cache).unwrap();
-        std::os::unix::fs::symlink(external.path(), &cache).unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-        assert!(write_tree(checkout.path(), &tree).is_err());
-        assert_eq!(fs::read(target).unwrap(), b"external source\n");
     }
 
     #[test]
@@ -1163,73 +755,26 @@ mod tests {
         assert!(validate_tree(&tree).is_err());
     }
 
-    #[test]
-    fn python_manifest_lists_exact_generated_bytes_and_excludes_itself() {
-        let mut tree = GeneratedTree::empty(Language::Python.roots());
-        tree.files
-            .insert(PathBuf::from("python/pse/contracts/a.py"), b"abc".to_vec());
-        add_python_manifest(&mut tree, Path::new(PYTHON_ROOT)).unwrap();
-        assert_eq!(
-            tree.files[Path::new("python/pse/contracts/GENERATED.sha256")],
-            b"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  a.py\n"
-        );
-    }
-
-    /// The document schemas and types live inside the Markdown and Python roots; each
-    /// target compares and prunes only its own files (ADR-0116 Outcome 7).
+    /// Markdown publication preserves the independently owned native schema tree.
     #[test]
     fn nested_document_roots_belong_to_their_own_target() {
-        let checkout = tempfile::tempdir().unwrap();
-        for nested in [
-            "docs/generated/schema/solve-settings.input.schema.json",
-            "python/pse/contracts/documents/__init__.py",
-        ] {
-            let path = checkout.path().join(nested);
-            fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::write(path, b"owned elsewhere").unwrap();
-        }
-        let mut docs = GeneratedTree::empty(Language::Markdown.roots());
-        docs.files
-            .insert(PathBuf::from("docs/generated/enums.md"), b"# e\n".to_vec());
-        let mut contracts = GeneratedTree::empty(Language::Python.roots());
-        contracts.files.insert(
-            PathBuf::from("python/pse/contracts/enums.py"),
-            b"x = 1\n".to_vec(),
-        );
-        for tree in [&docs, &contracts] {
-            write_tree(checkout.path(), tree).unwrap();
-            assert!(
-                inventory(checkout.path(), tree)
-                    .unwrap()
-                    .iter()
-                    .all(|path| tree.files.contains_key(path))
-            );
-        }
-        // Writing the enclosing targets pruned nothing of the nested ones.
-        assert!(
-            checkout
-                .path()
-                .join("docs/generated/schema/solve-settings.input.schema.json")
-                .exists()
-        );
-        assert!(
-            checkout
-                .path()
-                .join("python/pse/contracts/documents/__init__.py")
-                .exists()
-        );
-        let documents = GeneratedTree::empty(documents::roots());
-        assert_eq!(
-            inventory(checkout.path(), &documents).unwrap().len(),
-            2,
-            "the document target still sees its own files"
-        );
+        let checkout=tempfile::tempdir().unwrap();
+        let nested="docs/generated/schema/solve-settings.input.schema.json";
+        let path=checkout.path().join(nested);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path,b"owned elsewhere").unwrap();
+        let mut docs=GeneratedTree::empty(Language::Markdown.roots());
+        docs.files.insert(PathBuf::from("docs/generated/enums.md"),b"# e\n".to_vec());
+        write_tree(checkout.path(),&docs).unwrap();
+        assert!(path.exists());
+        assert!(inventory(checkout.path(),&docs).unwrap().iter().all(|path|docs.files.contains_key(path)));
+        assert_eq!(inventory(checkout.path(),&GeneratedTree::empty(documents::roots())).unwrap().len(),1);
     }
 
     #[test]
     fn partial_generation_preserves_other_producer_relationships() {
         let checkout = tempfile::tempdir().unwrap();
-        let native = provenance::sidecar("native-stubs", &[]).unwrap();
+        let native = provenance::sidecar("registry-rust", &[]).unwrap();
         let catalogue = provenance::sidecar("runtime-catalogue", &[]).unwrap();
         write_tree(checkout.path(), &native).unwrap();
         write_tree(checkout.path(), &catalogue).unwrap();
@@ -1250,32 +795,6 @@ mod tests {
         let scratch = tempfile::tempdir().unwrap();
         write_tree(scratch.path(), &markdown).unwrap();
         compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
-    }
-
-    #[test]
-    fn generation_prunes_retired_mcp_outputs_from_original_roots() {
-        let checkout = tempfile::tempdir().unwrap();
-        let scratch = tempfile::tempdir().unwrap();
-        for (root, retired) in [
-            (
-                PathBuf::from("docs/generated"),
-                "docs/generated/capabilities/reference.md",
-            ),
-            (
-                PathBuf::from(documents::PRIVATE_PYTHON_ROOT),
-                "scripts/generated/capabilities/cli.py",
-            ),
-        ] {
-            let original = checkout.path().join(retired);
-            fs::create_dir_all(original.parent().unwrap()).unwrap();
-            fs::write(&original, b"retired MCP presentation output\n").unwrap();
-            let tree = GeneratedTree::empty(vec![root]);
-            write_tree(scratch.path(), &tree).unwrap();
-            assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
-            write_tree(checkout.path(), &tree).unwrap();
-            assert!(!original.exists());
-            compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
-        }
     }
 
     #[test]

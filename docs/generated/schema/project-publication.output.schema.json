@@ -274,6 +274,6 @@
     "import",
     "document_version"
   ],
-  "title": "ProjectPublicationOutput",
+  "title": "ProjectPublication",
   "type": "object"
 }

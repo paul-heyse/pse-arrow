@@ -20,7 +20,7 @@
       ],
       "type": "string"
     },
-    "CapturedStudyRowForStudyCohortMemberOutput": {
+    "CapturedStudyRowForStudyCohortMember": {
       "additionalProperties": false,
       "description": "A stable capture position distinct from an occurrence's within-study ordinal.",
       "properties": {
@@ -31,7 +31,7 @@
           "type": "integer"
         },
         "value": {
-          "$ref": "#/$defs/StudyCohortMemberOutput",
+          "$ref": "#/$defs/StudyCohortMember",
           "description": "Original captured facts."
         }
       },
@@ -52,7 +52,7 @@
           "type": "integer"
         },
         "value": {
-          "$ref": "#/$defs/StudyWorkbenchHeaderOutput",
+          "$ref": "#/$defs/StudyWorkbenchHeader",
           "description": "Original captured facts."
         }
       },
@@ -68,7 +68,7 @@
       "minimum": 0,
       "type": "integer"
     },
-    "PointFactsOutput": {
+    "PointFacts": {
       "additionalProperties": false,
       "description": "Current operational and scientific facts for one occurrence.",
       "properties": {
@@ -124,7 +124,7 @@
           "type": "integer"
         },
         "scientific": {
-          "$ref": "#/$defs/ScientificFactsOutput",
+          "$ref": "#/$defs/ScientificFacts",
           "description": "Operation-owned aggregate assessment."
         },
         "seed": {
@@ -153,7 +153,7 @@
       ],
       "type": "object"
     },
-    "ScientificFactsOutput": {
+    "ScientificFacts": {
       "additionalProperties": false,
       "description": "E supplies aggregate decisions; the study never counts result tables to infer these.",
       "properties": {
@@ -340,7 +340,7 @@
       ],
       "type": "object"
     },
-    "StudyCohortMemberOutput": {
+    "StudyCohortMember": {
       "additionalProperties": false,
       "description": "One frozen point's compact original facts; no operation, report or payload is decoded.",
       "properties": {
@@ -352,7 +352,7 @@
           ]
         },
         "facts": {
-          "$ref": "#/$defs/PointFactsOutput",
+          "$ref": "#/$defs/PointFacts",
           "description": "Original lifecycle, scientific availability, attempt count and effect facts."
         },
         "key": {
@@ -404,14 +404,14 @@
       ],
       "type": "object"
     },
-    "StudyCohortMemberPageBodyOutput": {
+    "StudyCohortMemberPageBody": {
       "additionalProperties": false,
       "description": "One bounded immutable occurrence prefix, including original unavailable facts.",
       "properties": {
         "members": {
           "description": "Original occurrences; global positions differ from within-study ordinals.",
           "items": {
-            "$ref": "#/$defs/CapturedStudyRowForStudyCohortMemberOutput"
+            "$ref": "#/$defs/CapturedStudyRowForStudyCohortMember"
           },
           "type": "array"
         },
@@ -433,7 +433,7 @@
       ],
       "type": "object"
     },
-    "StudyCohortReceiptBodyOutput": {
+    "StudyCohortReceiptBody": {
       "additionalProperties": false,
       "description": "Historical acknowledgement of a complete native cut. Identifiers grant no read permission.",
       "properties": {
@@ -462,7 +462,7 @@
           "type": "integer"
         },
         "request": {
-          "$ref": "#/$defs/StudyCohortRequestBodyOutput",
+          "$ref": "#/$defs/StudyCohortRequestBody",
           "description": "Original immutable selection."
         }
       },
@@ -476,12 +476,12 @@
       ],
       "type": "object"
     },
-    "StudyCohortRequestBodyOutput": {
+    "StudyCohortRequestBody": {
       "additionalProperties": false,
       "description": "One complete bounded population selected before any analytical payload work.",
       "properties": {
         "filter": {
-          "$ref": "#/$defs/StudyWorkbenchFilterOutput",
+          "$ref": "#/$defs/StudyWorkbenchFilter",
           "description": "Exact native predicates."
         },
         "maximum_members": {
@@ -547,7 +547,7 @@
       ],
       "type": "string"
     },
-    "StudyWorkbenchFilterOutput": {
+    "StudyWorkbenchFilter": {
       "additionalProperties": false,
       "description": "Indexed predicates over actual original scientific and engineering owners.",
       "properties": {
@@ -624,7 +624,7 @@
       ],
       "type": "object"
     },
-    "StudyWorkbenchHeaderOutput": {
+    "StudyWorkbenchHeader": {
       "additionalProperties": false,
       "description": "Compact immutable attribution and current header facts. No definitions or trajectories.",
       "properties": {
@@ -753,7 +753,7 @@
       "description": "One original member prefix, including captured unavailable facts.",
       "properties": {
         "body": {
-          "$ref": "#/$defs/StudyCohortMemberPageBodyOutput"
+          "$ref": "#/$defs/StudyCohortMemberPageBody"
         },
         "kind": {
           "const": "members",
@@ -771,7 +771,7 @@
       "description": "Final acknowledgement of complete page traversal.",
       "properties": {
         "body": {
-          "$ref": "#/$defs/StudyCohortReceiptBodyOutput"
+          "$ref": "#/$defs/StudyCohortReceiptBody"
         },
         "kind": {
           "const": "receipt",

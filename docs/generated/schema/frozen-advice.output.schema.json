@@ -60,7 +60,7 @@
         }
       ]
     },
-    "AdviceObservationOutput": {
+    "AdviceObservation": {
       "additionalProperties": false,
       "description": "One actual observation in a declared matched exposure.",
       "properties": {
@@ -189,7 +189,7 @@
         }
       ]
     },
-    "WorkLimitsOutput": {
+    "WorkLimits": {
       "additionalProperties": false,
       "description": "Additional finite work allowances. None imposes no additional counter cap under the\nenclosing finite ExecutionScope; it never denotes an observed zero or a new deadline.\nEvery supplied counter is finite; Some(0) expressly prohibits that operation.",
       "properties": {
@@ -269,7 +269,7 @@
       "type": "integer"
     },
     "limits": {
-      "$ref": "#/$defs/WorkLimitsOutput",
+      "$ref": "#/$defs/WorkLimits",
       "description": "Original allowances for applicability checking; advice never widens them."
     },
     "metric": {
@@ -279,7 +279,7 @@
     "observations": {
       "description": "Actual retained observations, including exclusions.",
       "items": {
-        "$ref": "#/$defs/AdviceObservationOutput"
+        "$ref": "#/$defs/AdviceObservation"
       },
       "type": "array"
     },
@@ -307,6 +307,6 @@
     "limits",
     "document_version"
   ],
-  "title": "FrozenAdviceOutput",
+  "title": "FrozenAdvice",
   "type": "object"
 }

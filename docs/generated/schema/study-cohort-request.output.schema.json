@@ -10,7 +10,7 @@
       ],
       "type": "string"
     },
-    "StudyWorkbenchFilterOutput": {
+    "StudyWorkbenchFilter": {
       "additionalProperties": false,
       "description": "Indexed predicates over actual original scientific and engineering owners.",
       "properties": {
@@ -98,7 +98,7 @@
       "type": "integer"
     },
     "filter": {
-      "$ref": "#/$defs/StudyWorkbenchFilterOutput",
+      "$ref": "#/$defs/StudyWorkbenchFilter",
       "description": "Exact native predicates."
     },
     "maximum_members": {
@@ -120,6 +120,6 @@
     "maximum_members",
     "document_version"
   ],
-  "title": "StudyCohortRequestOutput",
+  "title": "StudyCohortRequest",
   "type": "object"
 }

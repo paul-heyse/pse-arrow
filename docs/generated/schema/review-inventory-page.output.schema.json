@@ -67,7 +67,7 @@
       ],
       "type": "object"
     },
-    "ReviewInventoryMemberOutput": {
+    "ReviewInventoryMember": {
       "additionalProperties": false,
       "description": "Immutable copied member metadata, with actual readable result-prefix facts.",
       "properties": {
@@ -188,7 +188,7 @@
     "members": {
       "description": "Actual selected members, including exact empty pages.",
       "items": {
-        "$ref": "#/$defs/ReviewInventoryMemberOutput"
+        "$ref": "#/$defs/ReviewInventoryMember"
       },
       "type": "array"
     },
@@ -231,6 +231,6 @@
     "gaps",
     "truncated"
   ],
-  "title": "ReviewInventoryPageOutput",
+  "title": "ReviewInventoryPage",
   "type": "object"
 }

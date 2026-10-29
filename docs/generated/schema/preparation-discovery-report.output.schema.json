@@ -101,7 +101,7 @@
       ],
       "type": "object"
     },
-    "ProductHeaderPageOutput": {
+    "ProductHeaderPage": {
       "additionalProperties": false,
       "description": "One bounded observational page of currently rooted original publications.",
       "properties": {
@@ -130,7 +130,7 @@
       ],
       "type": "object"
     },
-    "ResidentPreparationOutput": {
+    "ResidentPreparation": {
       "additionalProperties": false,
       "description": "Compact observational metadata; contains no live product or native handle.",
       "properties": {
@@ -177,7 +177,7 @@
     "durable": {
       "anyOf": [
         {
-          "$ref": "#/$defs/ProductHeaderPageOutput"
+          "$ref": "#/$defs/ProductHeaderPage"
         },
         {
           "type": "null"
@@ -196,7 +196,7 @@
     "resident": {
       "description": "At most 32 resident metadata rows. Body entries are service-wide and unchecked;\nselected admissions/frontiers/bases are scoped to the requested root.\nAbsence has no inferred cause.",
       "items": {
-        "$ref": "#/$defs/ResidentPreparationOutput"
+        "$ref": "#/$defs/ResidentPreparation"
       },
       "type": "array"
     },
@@ -218,6 +218,6 @@
     "durable_eligibility",
     "document_version"
   ],
-  "title": "PreparationDiscoveryReportOutput",
+  "title": "PreparationDiscoveryReport",
   "type": "object"
 }

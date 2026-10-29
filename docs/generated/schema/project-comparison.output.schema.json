@@ -10,7 +10,7 @@
       ],
       "type": "string"
     },
-    "ProjectComparisonSelectionOutput": {
+    "ProjectComparisonSelection": {
       "additionalProperties": false,
       "description": "Exact source identity used by a comparison; local tokens never stand in for durable keys.\nCompact changes between exact admitted authored inventories.",
       "properties": {
@@ -108,7 +108,7 @@
       "type": "integer"
     },
     "from": {
-      "$ref": "#/$defs/ProjectComparisonSelectionOutput",
+      "$ref": "#/$defs/ProjectComparisonSelection",
       "description": "Original exact admitted source selection."
     },
     "semantic_context_matches": {
@@ -116,7 +116,7 @@
       "type": "boolean"
     },
     "to": {
-      "$ref": "#/$defs/ProjectComparisonSelectionOutput",
+      "$ref": "#/$defs/ProjectComparisonSelection",
       "description": "Compared exact admitted source selection."
     }
   },
@@ -127,6 +127,6 @@
     "changes",
     "document_version"
   ],
-  "title": "ProjectComparisonOutput",
+  "title": "ProjectComparison",
   "type": "object"
 }

@@ -62,12 +62,6 @@ repos:
         files: ^(pyproject\.toml|uv\.lock)$
         pass_filenames: false
 
-      - id: check-generated
-        name: generated contracts match GENERATED.sha256
-        language: system
-        entry: python3 scripts/check_generated.py
-        files: ^python/pse/contracts/
-        pass_filenames: false
 
       - id: ast-grep
         name: ast-grep scan (structural bans)
@@ -96,12 +90,6 @@ repos:
         pass_filenames: false
         stages: [pre-push]
 
-      - id: import-linter
-        name: import-linter contracts
-        language: system
-        entry: just lint-imports
-        pass_filenames: false
-        stages: [pre-push]
 
       - id: cargo-fmt
         name: cargo fmt --all --check

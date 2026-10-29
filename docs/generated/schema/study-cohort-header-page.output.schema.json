@@ -21,7 +21,7 @@
           "type": "integer"
         },
         "value": {
-          "$ref": "#/$defs/StudyWorkbenchHeaderOutput",
+          "$ref": "#/$defs/StudyWorkbenchHeader",
           "description": "Original captured facts."
         }
       },
@@ -57,7 +57,7 @@
       ],
       "type": "object"
     },
-    "StudyWorkbenchHeaderOutput": {
+    "StudyWorkbenchHeader": {
       "additionalProperties": false,
       "description": "Compact immutable attribution and current header facts. No definitions or trajectories.",
       "properties": {

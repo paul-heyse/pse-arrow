@@ -116,6 +116,6 @@
     "draft_generation",
     "document_version"
   ],
-  "title": "LifecycleSelectionOutput",
+  "title": "LifecycleSelection",
   "type": "object"
 }

@@ -178,7 +178,7 @@
       ],
       "type": "object"
     },
-    "PackResultPredicateOutput": {
+    "PackResultPredicate": {
       "additionalProperties": false,
       "description": "Exact protected output predicate. Floating endpoints retain IEEE bits, not JSON rounding.",
       "properties": {
@@ -225,7 +225,7 @@
       ],
       "type": "object"
     },
-    "PackResultSelectionOutput": {
+    "PackResultSelection": {
       "additionalProperties": false,
       "description": "Exact original result lineage and range, including independent usability.",
       "properties": {
@@ -243,7 +243,7 @@
         "predicate": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PackResultPredicateOutput"
+              "$ref": "#/$defs/PackResultPredicate"
             },
             {
               "type": "null"
@@ -499,7 +499,7 @@
         }
       ]
     },
-    "PhysicalInspectionQueryOutput": {
+    "PhysicalInspectionQuery": {
       "description": "Physical names are package-declared names, never global aliases.",
       "oneOf": [
         {
@@ -589,7 +589,7 @@
         }
       ]
     },
-    "PhysicalInspectionRequestBodyOutput": {
+    "PhysicalInspectionRequestBody": {
       "additionalProperties": false,
       "description": "A bounded query against one immutable physical context.",
       "properties": {
@@ -607,7 +607,7 @@
           "type": "integer"
         },
         "query": {
-          "$ref": "#/$defs/PhysicalInspectionQueryOutput",
+          "$ref": "#/$defs/PhysicalInspectionQuery",
           "description": "Exact declared identity/name selection."
         }
       },
@@ -1064,7 +1064,7 @@
         }
       ]
     },
-    "ResultInspectionBasisOutput": {
+    "ResultInspectionBasis": {
       "additionalProperties": false,
       "description": "Immutable request coordinates retained across pages.",
       "properties": {
@@ -1093,7 +1093,7 @@
           "type": "integer"
         },
         "view": {
-          "$ref": "#/$defs/ResultInspectionViewOutput",
+          "$ref": "#/$defs/ResultInspectionView",
           "description": "Original view/path/page allowance, unchanged by continuation."
         }
       },
@@ -1362,12 +1362,12 @@
         }
       ]
     },
-    "ResultInspectionCursorOutput": {
+    "ResultInspectionCursor": {
       "additionalProperties": false,
       "description": "Store/selection-bound continuation; each call reacquires original protection.",
       "properties": {
         "basis": {
-          "$ref": "#/$defs/ResultInspectionBasisOutput",
+          "$ref": "#/$defs/ResultInspectionBasis",
           "description": "Original request identity."
         },
         "issuing_store": {
@@ -1393,7 +1393,7 @@
           "type": "string"
         },
         "selection": {
-          "$ref": "#/$defs/PackResultSelectionOutput",
+          "$ref": "#/$defs/PackResultSelection",
           "description": "Exact original protected selection, including issuing authority."
         }
       },
@@ -1640,7 +1640,7 @@
         }
       ]
     },
-    "ResultInspectionViewOutput": {
+    "ResultInspectionView": {
       "description": "Physical column selection; this does not reinterpret a scientific output predicate.",
       "oneOf": [
         {
@@ -1746,7 +1746,7 @@
               "type": "string"
             },
             "request": {
-              "$ref": "#/$defs/PhysicalInspectionRequestBodyOutput",
+              "$ref": "#/$defs/PhysicalInspectionRequestBody",
               "description": "Same physical-owner query used by direct Python and MCP inspection."
             }
           },
@@ -1996,7 +1996,7 @@
         "next_cursor": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ResultInspectionCursorOutput"
+              "$ref": "#/$defs/ResultInspectionCursor"
             },
             {
               "type": "null"
@@ -2028,7 +2028,7 @@
           "type": "object"
         },
         "selection": {
-          "$ref": "#/$defs/PackResultSelectionOutput",
+          "$ref": "#/$defs/PackResultSelection",
           "description": "Exact original source/terminal/range and available completion-owned product permission."
         }
       },
@@ -2075,7 +2075,7 @@
         "next_cursor": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ResultInspectionCursorOutput"
+              "$ref": "#/$defs/ResultInspectionCursor"
             },
             {
               "type": "null"
@@ -2128,7 +2128,7 @@
           "type": "array"
         },
         "selection": {
-          "$ref": "#/$defs/PackResultSelectionOutput",
+          "$ref": "#/$defs/PackResultSelection",
           "description": "Exact original source/terminal/range and available completion-owned product permission."
         }
       },
@@ -2182,7 +2182,7 @@
         "next_cursor": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ResultInspectionCursorOutput"
+              "$ref": "#/$defs/ResultInspectionCursor"
             },
             {
               "type": "null"
@@ -2205,7 +2205,7 @@
           "description": "Original selected field."
         },
         "selection": {
-          "$ref": "#/$defs/PackResultSelectionOutput",
+          "$ref": "#/$defs/PackResultSelection",
           "description": "Original protected result selection."
         }
       },
@@ -2243,7 +2243,7 @@
         "next_cursor": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ResultInspectionCursorOutput"
+              "$ref": "#/$defs/ResultInspectionCursor"
             },
             {
               "type": "null"
@@ -2267,7 +2267,7 @@
           "description": "Complete selected physical page; absent only when the original closure is unavailable."
         },
         "selection": {
-          "$ref": "#/$defs/PackResultSelectionOutput",
+          "$ref": "#/$defs/PackResultSelection",
           "description": "Exact original selected result; selected product usability remains unknown."
         }
       },

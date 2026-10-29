@@ -10,7 +10,7 @@
       ],
       "type": "string"
     },
-    "StudyWorkbenchFilterOutput": {
+    "StudyWorkbenchFilter": {
       "additionalProperties": false,
       "description": "Indexed predicates over actual original scientific and engineering owners.",
       "properties": {
@@ -102,7 +102,7 @@
       "type": "integer"
     },
     "filter": {
-      "$ref": "#/$defs/StudyWorkbenchFilterOutput",
+      "$ref": "#/$defs/StudyWorkbenchFilter",
       "description": "Exact original predicates."
     },
     "issuing_store": {
@@ -116,6 +116,6 @@
     "after",
     "document_version"
   ],
-  "title": "StudyWorkbenchCursorOutput",
+  "title": "StudyWorkbenchCursor",
   "type": "object"
 }

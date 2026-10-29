@@ -4,6 +4,6 @@
 # requests the maintainer's review when one is opened.
 #
 # Adding an owner here is a governance change: it needs an ADR, an update to
-# .github/setup/ruleset-main-full.json, and a `just gh-setup` re-run.
+# .github/setup/ruleset-main-full.json, and a the explicit GitHub setup instructions re-run.
 
 * @paul-heyse

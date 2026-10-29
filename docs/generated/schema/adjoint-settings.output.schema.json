@@ -34,6 +34,6 @@
     "steps_between_checkpoints",
     "max_checkpoints"
   ],
-  "title": "AdjointSettingsOutput",
+  "title": "AdjointSettings",
   "type": "object"
 }

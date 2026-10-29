@@ -45,7 +45,7 @@
       ],
       "type": "object"
     },
-    "WorkLimitsOutput": {
+    "WorkLimits": {
       "additionalProperties": false,
       "description": "Additional finite work allowances. None imposes no additional counter cap under the\nenclosing finite ExecutionScope; it never denotes an observed zero or a new deadline.\nEvery supplied counter is finite; Some(0) expressly prohibits that operation.",
       "properties": {
@@ -125,7 +125,7 @@
       "type": "integer"
     },
     "limits": {
-      "$ref": "#/$defs/WorkLimitsOutput",
+      "$ref": "#/$defs/WorkLimits",
       "description": "Original finite allowances; advice cannot replace these."
     }
   },
@@ -135,6 +135,6 @@
     "limits",
     "document_version"
   ],
-  "title": "SolverAdviceInputsOutput",
+  "title": "SolverAdviceInputs",
   "type": "object"
 }

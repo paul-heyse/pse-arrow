@@ -176,11 +176,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: solver-pin-tooling
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: synchronize the image manifest and literal consumers
         env:
           NEW_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ needs.build.outputs.tree-hash }}@${{ needs.build.outputs.ci-digest }}
           NEW_DEV_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-${{ needs.build.outputs.tree-hash }}@${{ needs.build.outputs.dev-digest }}
-        run: python3 scripts/solver-images.py update --ci "$NEW_REF" --dev "$NEW_DEV_REF"
+        run: scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- solver-images update --ci "$NEW_REF" --dev "$NEW_DEV_REF"
       - name: retain the reviewed pin update when no automation token is configured
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -233,9 +237,9 @@ jobs:
 
             **Evidence:** `Implemented` — the image was built and pushed by [this run](${{
             github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
-            The gates on this pull request are what prove the new image actually works:
-            `rust / test`, `rust / clippy`, `rust / codegen-diff` and `python / parity`
-            all run inside it.
+            This publication does not qualify native host lifecycles or science.
+            Dispatch the applicable compile checks explicitly; local Linux/user-systemd,
+            selected native solver and independent-reference acceptance remain H-owned.
 
             No ADR is needed for a rebuild at unchanged upstream versions. If this pull
             request accompanies a version or flag change in the recipe, it needs one —
@@ -243,5 +247,5 @@ jobs:
 
             ---
 
-            Opened with `PIN_PR_TOKEN` (a fine-grained PAT), so the checks run on it as
-            they would on a human-opened pull request.
+            Opened with `PIN_PR_TOKEN` (a fine-grained PAT). Check workflows remain
+            manual dispatch; opening this pull request starts no qualification campaign.

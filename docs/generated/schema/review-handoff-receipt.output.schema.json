@@ -65,7 +65,7 @@
       ],
       "type": "object"
     },
-    "ReviewHandoffMemberOutput": {
+    "ReviewHandoffMember": {
       "additionalProperties": false,
       "description": "One fully published immutable copied evidence set.",
       "properties": {
@@ -185,7 +185,7 @@
     "members": {
       "description": "Only fully finalized contained members.",
       "items": {
-        "$ref": "#/$defs/ReviewHandoffMemberOutput"
+        "$ref": "#/$defs/ReviewHandoffMember"
       },
       "type": "array"
     },
@@ -216,6 +216,6 @@
     "members",
     "errors"
   ],
-  "title": "ReviewHandoffReceiptOutput",
+  "title": "ReviewHandoffReceipt",
   "type": "object"
 }

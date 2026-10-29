@@ -37,12 +37,12 @@
       ],
       "type": "object"
     },
-    "ContextSelectionBodyOutput": {
+    "ContextSelectionBody": {
       "additionalProperties": false,
       "description": "Complete frozen selection. Deserializing this document grants no source authority.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/ProjectContextBodyOutput",
+          "$ref": "#/$defs/ProjectContextBody",
           "description": "Original immutable selected source descriptor."
         },
         "cut": {
@@ -62,7 +62,7 @@
       ],
       "type": "object"
     },
-    "ProjectContextBodyOutput": {
+    "ProjectContextBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -220,7 +220,7 @@
   "description": "Freeze an already authored fit's complete selection; no fitting shortcut is introduced.",
   "properties": {
     "context": {
-      "$ref": "#/$defs/ContextSelectionBodyOutput",
+      "$ref": "#/$defs/ContextSelectionBody",
       "description": "Exact recorded context."
     },
     "dataset": {
@@ -263,6 +263,6 @@
     "observations",
     "document_version"
   ],
-  "title": "ResearchSelectionRequestOutput",
+  "title": "ResearchSelectionRequest",
   "type": "object"
 }

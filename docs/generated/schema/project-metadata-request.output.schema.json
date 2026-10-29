@@ -72,6 +72,6 @@
     "cursor",
     "document_version"
   ],
-  "title": "ProjectMetadataRequestOutput",
+  "title": "ProjectMetadataRequest",
   "type": "object"
 }

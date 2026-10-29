@@ -41,7 +41,7 @@
         }
       ]
     },
-    "LifecycleSelectionBodyOutput": {
+    "LifecycleSelectionBody": {
       "additionalProperties": false,
       "description": "Current owner coordinates, rechecked in the same transaction as release.",
       "properties": {
@@ -135,7 +135,7 @@
       ]
     },
     "selection": {
-      "$ref": "#/$defs/LifecycleSelectionBodyOutput",
+      "$ref": "#/$defs/LifecycleSelectionBody",
       "description": "Exact selected owner and effect."
     }
   },
@@ -145,6 +145,6 @@
     "physical_reclaimed_bytes",
     "document_version"
   ],
-  "title": "LifecycleReleaseOutput",
+  "title": "LifecycleRelease",
   "type": "object"
 }

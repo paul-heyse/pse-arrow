@@ -37,12 +37,12 @@
       ],
       "type": "object"
     },
-    "ContextSelectionBodyOutput": {
+    "ContextSelectionBody": {
       "additionalProperties": false,
       "description": "Complete frozen selection. Deserializing this document grants no source authority.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/ProjectContextBodyOutput",
+          "$ref": "#/$defs/ProjectContextBody",
           "description": "Original immutable selected source descriptor."
         },
         "cut": {
@@ -62,7 +62,7 @@
       ],
       "type": "object"
     },
-    "ProjectContextBodyOutput": {
+    "ProjectContextBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -186,7 +186,7 @@
       ],
       "type": "object"
     },
-    "ResearchDataObjectOutput": {
+    "ResearchDataObject": {
       "additionalProperties": false,
       "description": "Exact attribute selection into the original typed measurement owner.",
       "properties": {
@@ -260,7 +260,7 @@
   "description": "Create one immutable research version from an exact temporal context.",
   "properties": {
     "context": {
-      "$ref": "#/$defs/ContextSelectionBodyOutput",
+      "$ref": "#/$defs/ContextSelectionBody",
       "description": "Exact effective-time and recorded-cut selection."
     },
     "document_version": {
@@ -275,7 +275,7 @@
     "members": {
       "description": "Bounded exact selections; data remains in original sources.",
       "items": {
-        "$ref": "#/$defs/ResearchDataObjectOutput"
+        "$ref": "#/$defs/ResearchDataObject"
       },
       "type": "array"
     },
@@ -304,6 +304,6 @@
     "members",
     "document_version"
   ],
-  "title": "ResearchDatasetRequestOutput",
+  "title": "ResearchDatasetRequest",
   "type": "object"
 }

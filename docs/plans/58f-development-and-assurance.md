@@ -139,6 +139,15 @@ ingestion needs an explicit disposition of queue/failure alerts rather than assu
 
 ## Package state
 
+| Package | Status | Owner | Completion |
+| --- | --- | --- | --- |
+| [F01](#f01) | in progress | 58f | Retained direct development/configuration operations and native settings resolution |
+| [F02](#f02) | in progress | 58f | Native tool delegation, Arrow closure selection and typed fixture composition |
+| [F03](#f03) | in progress | 58f | Rust generators/docs/governance consumers and retired Python emission |
+| [F04](#f04) | in progress | 58f | Proportionate evidence and independent native-candidate scientific assurance |
+| [F05](#f05) | planned | 58f | Integrated bridge retirement and native developer acceptance |
+| [F06](#f06) | deferred | 58f | Discrete explanation inquiry only when an actual consumer justifies it |
+
 ### Native fixture and developer-owner integration — 2026-10-29
 
 F02 now supplies `NativeTestCommand` and `pse-canonical-test`: the original correctness
@@ -166,14 +175,6 @@ focused results do not close the package table, qualify the assembled series or 
 measurement and durable-deployment campaigns. Replaced Python fixture/controller callers
 still require the integrated G cut before their retirement is complete.
 
-| Package | Status | Owner | Completion |
-| --- | --- | --- | --- |
-| [F01](#f01) | in progress | 58f | Retained direct development/configuration operations and native settings resolution |
-| [F02](#f02) | in progress | 58f | Native tool delegation, Arrow closure selection and typed fixture composition |
-| [F03](#f03) | in progress | 58f | Rust generators/docs/governance consumers and retired Python emission |
-| [F04](#f04) | in progress | 58f | Proportionate evidence and independent native-candidate scientific assurance |
-| [F05](#f05) | planned | 58f | Integrated bridge retirement and native developer acceptance |
-| [F06](#f06) | deferred | 58f | Discrete explanation inquiry only when an actual consumer justifies it |
 
 <a id="f01"></a>
 ### F01 — Make retained development operations directly callable
@@ -593,3 +594,22 @@ canonical clients and private service ownership settle on scientific failure and
 The corresponding two Python scientific test consumers and their resource declarations retire.
 Three local adoption controls and the ten-control private canonical selection pass; this does not
 qualify unrelated H science/reference/performance campaigns or finish all F/G retirement.
+
+## Native developer and generation cut — 2026-10-29
+
+The retained documentation, ADR/lifecycle/register, agent configuration, audit/affected,
+source-corpus and scientific campaign operations now have callable Rust owners in xtask.
+Manifest conformance preserves complete report files and explicit selection; the paired
+thermodynamic campaign preserves frozen feed ordering and failed/unattempted occurrences.
+Neither is represented as an executed H campaign. Captured workspace sources are built
+from one bounded supplied cut with explicit unknowns, without a live source rescan or a
+second evidence authority. Native field declarations replace the removed Python mirror,
+facade and stub emitters. Full generation published eight schema targets, and stale output
+was removed by its owner before the obsolete generator branches were deleted.
+
+The native host/codegen/buildinfo/diagnostics/xtask selection passes 505 controls. Independent
+implementation review found a stale bootstrap-root expectation after output retirement;
+its current-root correction is included in that pass. Final canonical operator, lifetime,
+manual tooling and comprehensive Clippy acceptance remain in progress. The source-built
+fixture replaces the last operator-evidence Python launcher with the selected native CLI;
+its original graph/query assertions and bounded diagnostics remain.

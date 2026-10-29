@@ -1,222 +1,61 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-#
-# The one Python project of pse-arrow (import name `pse`; blueprint §21). Every declared
-# dependency is pinned exactly (blueprint §3.1, ADR-0165; `add-bounds = "exact"` makes
-# `uv add` write `==`), and uv.lock holds everything beneath. Changing a version is agent
-# judgment; a hold (a pin not to bump casually) carries its reason beside it here. No
-# package and no licence is refused through phases 0-1 (blueprint §3.3.2, ADR-0066,
-# docs/dev/dependency-policy.md). Two interpreter ranges: the platform package targets
-# CPython >= 3.11; the parity environment (idaes-pse 2.13.0) is 3.11-3.14, expressed as a
-# dependency group with a marker rather than a second project, so one uv.lock covers both.
-
-[build-system]
-requires = ["maturin>=1.15"]
-build-backend = "maturin"
+# Independent scientific references and third-party repository tools only.
+# This virtual environment is not a Python product or a Rust release-version authority.
 
 [project]
-name = "pse-arrow"
-# Version authority is crates/pse-py/Cargo.toml (workspace-inherited): one number for Rust
-# and Python; the release gate asserts tag == version == wheel == installed metadata.
-dynamic = ["version"]
-description = "Arrow-native process systems engineering core (import name: pse)"
-readme = "README.md"
+name = "pse-arrow-reference-tools"
+version = "0.0.0"
 requires-python = ">=3.11"
-license = "MIT OR Apache-2.0"
-license-files = ["LICENSES/*.txt"]
-authors = [{ name = "Paul Heyse", email = "paul@heyse.io" }]
-keywords = [
-  "process systems engineering",
-  "arrow",
-  "datafusion",
-  "idaes",
-  "ipopt",
-]
-classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
-  "Intended Audience :: Science/Research",
-  "Programming Language :: Rust",
-  "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
-  "Programming Language :: Python :: Implementation :: CPython",
-  "Topic :: Scientific/Engineering :: Chemistry",
-  "Topic :: Scientific/Engineering :: Mathematics",
-  "Typing :: Typed",
-]
-# Exact (ADR-0165); uv.lock holds the rest. Adding a dependency here needs no ADR.
-dependencies = [
-  "pyarrow==25.0.1",
-  "attrs==26.1.0",
-  "cattrs==26.2.0",
-  "msgspec==0.21.1",
-  "referencing==0.37.0",
-  "httpx2==2.16.0",
-  "anyio==4.15.1",
-]
+dependencies = []
 
-[project.optional-dependencies]
-# NumPy is used only by the explicit array boundary, not mathematical execution.
-array = [
-  "numpy==2.5.3; python_full_version >= '3.12'",
-  "numpy==2.4.6; python_full_version < '3.12'",
-]
-
-[project.urls]
-Homepage = "https://github.com/paul-heyse/pse-arrow"
-Documentation = "https://paul-heyse.github.io/pse-arrow/"
-Repository = "https://github.com/paul-heyse/pse-arrow"
-Changelog = "https://github.com/paul-heyse/pse-arrow/blob/main/CHANGELOG.md"
-
-# PEP 735. Tools are pinned exactly like the libraries. The oracles below are holds, each
-# with its reason.
 [dependency-groups]
-# Optional active allocation diagnostics; installed explicitly into a separate environment.
-diagnostics = ["memray==1.20.0; sys_platform == 'linux'"]
-numerical-investigation = ["matplotlib==3.11.2"]
-docs = [
-  "ruamel.yaml==0.19.1",
-  "markdown-it-py==4.2.0",
-]
-# Independent frozen thermodynamic references; never a production dependency. Pinned: a
-# reference oracle must not move under the comparisons that cite it.
-thermo-reference = [
-  { include-group = "test" },
-  "teqp==0.23.1; python_version == '3.12'",
-]
-# Tools that only execute (formatters, linters, type checkers, test runners): exact pins
-# with no hold; bump one when the work calls for it.
 quality = [
-  # The full script type-check includes the optional numerical plotting helper.
-  { include-group = "numerical-investigation" },
   "ruff==0.16.7",
   "pyrefly==1.3.1",
-  "import-linter==2.15",
   "reuse==6.2.0",
   "taplo==0.9.3",
   "typos==1.50.2",
   "pre-commit==4.6.2",
-  "maturin==1.15.0",
-  "libcst==1.9.0",
-  "tomlkit==0.15.1",
-  "websockets==17.3",
-  "pydantic==2.14.1",
-  "opentelemetry-api==1.45.1",
-  "opentelemetry-sdk==1.45.1",
-  "opentelemetry-exporter-otlp-proto-http==1.45.1",
-  "opentelemetry-instrumentation-logging==0.66b1",
-  "prometheus-client==0.26.0",
-  "requests==2.34.2",
-  "jsonschema==4.26.0",
-  "types-jsonschema==4.26.0.20261006",
-  "defusedxml==0.7.1",
-  "types-defusedxml==0.7.0.20260504",
+
 ]
+# Frozen numerical oracle releases move only with deliberate reference requalification.
 test = [
-  "pytest==9.1.1",
-  "pytest-cov==7.1.0",
-  "pytest-xdist==3.8.0",
-  "unittest-xml-reporting==4.0.0",
-  # Test-time oracles only (blueprint §24.1); import-linter keeps them out of pse proper.
-  # Pinned: the oracle values the tests compare against are qualified at these releases.
-  # One universal uv.lock resolves groups and extras together, so this numpy pin also fixes
-  # the numpy the runtime `array` extra resolves to in development environments.
-  # Split by interpreter for the same reason as the `array` extra above.
+  "scipy-stubs==1.18.1.1; python_full_version >= '3.12'",
+  "pyarrow==25.0.1",
   "numpy==2.5.3; python_full_version >= '3.12'",
   "numpy==2.4.6; python_full_version < '3.12'",
   "scipy==1.18.1; python_full_version >= '3.12'",
   "scipy==1.17.1; python_full_version < '3.12'",
 ]
-# The parity environment (blueprint §3.1, §24). Pinned: idaes-pse==2.13.0 is the parity
-# reference (ADR-0097), and pyomo and pint are pinned with it as the environment that
-# reference was qualified in; the group moves only by the parity-pin ADR (GOVERNANCE.md §5).
-# IDAES 2.13.0 classifies 3.10-3.14 and the
-# platform floor is 3.11, so parity runs on 3.11-3.14. The marker makes
-# `uv sync --group parity` on 3.15 install nothing IDAES-related, and the --parity
-# conftest then FAILS (never skips).
+# IDAES 2.13.0 is the parity authority; Pyomo/Pint retain its qualified environment.
 parity = [
+  "msgspec==0.21.1",
   { include-group = "test" },
   "idaes-pse==2.13.0; python_full_version < '3.15'",
   "pyomo==6.10.1; python_full_version < '3.15'",
   "pint==0.26.1; python_full_version >= '3.12' and python_full_version < '3.15'",
   "pint==0.25.3; python_full_version < '3.12'",
 ]
-evidence = [
-  { include-group = "parity" },
+# The frozen thermodynamic bank retains its independently qualified teqp release.
+thermo-reference = [
+  { include-group = "test" },
+  "teqp==0.23.1; python_version == '3.12'",
 ]
 dev = [
-  { include-group = "docs" },
   { include-group = "quality" },
-  { include-group = "test" },
 ]
 
 [tool.uv]
-package = true
-# `uv add` writes an exact `==` pin (ADR-0165).
+package = false
 add-bounds = "exact"
 python-preference = "managed"
 default-groups = ["dev"]
-# Rebuild the extension when Rust inputs change (uv's defaults watch only pyproject/src).
-# uv.lock is a key because pse-buildinfo embeds it: a lock change must change build_info().
-cache-keys = [
-  { file = "pyproject.toml" },
-  { file = "Cargo.toml" },
-  { file = "Cargo.lock" },
-  { file = "uv.lock" },
-  { file = "rust-toolchain.toml" },
-  { file = "crates/**/Cargo.toml" },
-  { file = "crates/**/*.rs" },
-]
-
-[[tool.uv.index]]
-name = "testpypi"
-url = "https://test.pypi.org/simple/"
-publish-url = "https://test.pypi.org/legacy/"
-explicit = true
-
-[tool.maturin]
-bindings = "pyo3"
-manifest-path = "crates/pse-py/Cargo.toml"
-module-name = "pse._native"
-python-source = "python"
-python-packages = ["pse"]
-locked = true
-# "git": the sdist is the git-tracked tree, workspace intact, so `--locked` holds when
-# the sdist is built. The default "cargo" generator rewrites the workspace to pse-py's
-# dependency closure and the packaged Cargo.lock no longer matches it.
-sdist-generator = "git"
-profile = "release"
-editable-profile = "dev"
-# PyO3 0.29 introspection reads ELF's ordinary symbol table to generate the
-# actual native API stub. Keep it available in the installed extension.
-strip = false
-auditwheel = "repair"
-# abi3-py311 lives in crates/pse-py/Cargo.toml (pyo3 features): one authority.
-include = [
-  { path = "uv.lock", format = "sdist" },
-  { path = "rust-toolchain.toml", format = "sdist" },
-  { path = "REUSE.toml", format = "sdist" },
-]
-exclude = [
-  # Only Maturin's selected Cargo artifact may supply the extension to a wheel.
-  { path = "python/pse/_native*.so", format = "wheel" },
-  { path = "python/pse/tests/**", format = "wheel" },
-  { path = "python/pse/parity/tests/**", format = "wheel" },
-  # Agent configuration is not part of a source distribution. Directory symlinks
-  # in the skill aliases cannot be archived by the sdist writer.
-  { path = ".agents/**", format = "sdist" },
-  { path = ".claude/**", format = "sdist" },
-  { path = ".codex/**", format = "sdist" },
-  { path = ".github/**", format = "sdist" },
-  { path = "docs/capability-maps/evidence/**", format = "sdist" },
-]
 
 [tool.ruff]
 target-version = "py311"
 line-length = 88
-src = ["python"]
+src = ["scripts", "tests/reference"]
 # Skill bundles and their tooling are outside the product lint/format scope.
 force-exclude = true
 extend-exclude = [
@@ -236,8 +75,6 @@ docstring-code-format = true
 # Generated contracts are formatted by the generator; formatting them here would make
 # `rust / codegen-diff` fail. Lint still runs on them.
 exclude = [
-  "python/pse/contracts/**",
-  "python/pse/generated/**",
   "scripts/generated/**",
 ]
 
@@ -293,53 +130,13 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Direct -I oracle scripts are not packages; upstream imports follow pin/protocol checks.
 "tests/reference/oracles/*.py" = ["INP001", "PLC0415"]
-"scripts/tests/**" = ["S101"] # Acceptance assertions belong in test modules.
-"conftest.py" = ["D1", "INP001", "S603", "S607"]
-"python/pse/tests/**" = [
-  "S101",
-  "D1",
-  "ARG001",
-  "ARG002",
-  "PT011",
-  "SLF001",
-  "INP001",
-  "TID251",
-  "S603",
-  "S607",
-]
-"python/pse/parity/tests/**" = [
-  "S101",
-  "D1",
-  "ARG001",
-  "ARG002",
-  "PT011",
-  "SLF001",
-  "INP001",
-  "TID251",
-]
-"python/pse/contracts/**" = ["D", "E501", "TID251"]
-"python/pse/codec/**" = ["TID251"]
-# stdlib CLI scripts: json/tomllib are their codec, subprocess is their job, and every
-# helper does not need a google docstring. Skill bundles are excluded above.
-"scripts/**" = [
-  "T20",
-  "INP001",
-  "S603",
-  "S607",
-  "S602",
-  "D1",
-  "E501",
-  "TRY003",
-  "DTZ011",
-  "PERF401",
-  "TID251",
-]
-"docs/capability-maps/evidence/python/**" = ["ALL"]
+"scripts/tests/**" = ["S101"]
+# Independent oracle drivers own explicit subprocesses, JSON and terminal reports.
+"scripts/**" = ["T20", "INP001", "S603", "S607", "S602", "D1", "E501", "TRY003", "DTZ011", "PERF401", "TID251"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["pse"]
+known-first-party = ["scripts"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -373,197 +170,15 @@ parametrize-names-type = "tuple"
 ban-relative-imports = "parents"
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"typing.Any".msg = "Contracts are fully typed (blueprint §21.5); Any is banned outside tests."
-"cattrs.Converter".msg = "Use pse.codec.converter(): it installs the forbid_extra_keys hook factory."
-"cattrs.GenConverter".msg = "Use pse.codec.converter()."
-"cattrs.structure".msg = "The global converter ignores extra keys; use pse.codec."
-"cattrs.unstructure".msg = "Use pse.codec."
-"pyarrow.register_extension_type".msg = "Use pse.contracts.extension_types.register_all() (idempotent, blueprint §4.4)."
-"pyomo.util.check_units.assert_units_consistent".msg = "Use identify_inconsistent_units so the finding names components (blueprint §21.2)."
-"json".msg = "Every JSON the package reads or writes is a msgspec.Struct (blueprint §21.5); use msgspec.json."
-"tomllib".msg = "Use msgspec.toml (blueprint §21.5)."
-"pickle".msg = "No pickle: artifacts are Arrow/Parquet with content hashes."
+"typing.Any".msg = "Use concrete independent-reference protocol types; typing.Any is forbidden."
+"pickle".msg = "Use explicit versioned reference data formats."
 
 [tool.pyrefly]
-project-includes = ["python/pse", "scripts", "conftest.py"]
+# Retained Python is independent reference code, checked in its actual environment.
+project-includes = ["scripts", "tests/reference"]
 project-excludes = [
-  "**/.venv*/**",
-  "**/target/**",
-  "external/**",
-  "build/**",
-  "scripts/library_*.py",
-  "scripts/tests/test_library_*.py",
+  "**/.venv*/**", "**/target/**", "external/**", "build/**", "vendor/**",
+  "scripts/plan14_reference.py", "scripts/feos_entropy_reference.py", "scripts/pr_stability_reference.py",
 ]
-search-path = ["python", "python/stubs"]
-# Check against the floor, not the 3.14 we develop on.
-python-version = "3.11"
-
-[[tool.pyrefly.sub-config]]
-matches = "python/pse/parity/**"
-replace-imports-with-any = ["idaes.*", "pyomo.*", "pint.*"]
-
-# Same isolated IDAES/Pyomo boundary as parity above: locally typed exchange
-# records/control remain checked; upstream dynamic modeling objects lack usable stubs.
-[[tool.pyrefly.sub-config]]
-matches = "tests/reference/oracles/*.py"
-replace-imports-with-any = ["idaes.*", "pyomo.*"]
-
-# Executed only by plan14-reference in its isolated locked Python 3.12 environment.
-# These upstream modules do not ship typing metadata for the development checker.
-[[tool.pyrefly.sub-config]]
-matches = "scripts/plan14_reference.py"
-replace-imports-with-any = ["teqp", "scipy", "scipy.*"]
-
-# Same locked reference-only interpreter and upstream API as plan14_reference.py.
-[[tool.pyrefly.sub-config]]
-matches = "scripts/feos_entropy_reference.py"
-replace-imports-with-any = ["teqp"]
-
-# Same locked reference-only interpreter and upstream API as plan14_reference.py.
-[[tool.pyrefly.sub-config]]
-matches = "scripts/pr_stability_reference.py"
-replace-imports-with-any = ["teqp", "scipy", "scipy.*"]
-
-# Independent IDAES generators execute only in the isolated parity interpreter.
-[[tool.pyrefly.sub-config]]
-matches = "scripts/idaes_*_reference.py"
-replace-imports-with-any = ["idaes.*", "pyomo.*"]
-
-[[tool.pyrefly.sub-config]]
-matches = "scripts/thermodynamic_feeds.py"
-replace-imports-with-any = ["scipy", "scipy.*"]
-
-# Independent process/fit references use the exact isolated SciPy environment.
-[[tool.pyrefly.sub-config]]
-matches = "scripts/pfr_reference.py"
-replace-imports-with-any = ["scipy", "scipy.*"]
-
-[[tool.pyrefly.sub-config]]
-matches = "scripts/cstr_controller_reference.py"
-replace-imports-with-any = ["scipy", "scipy.*"]
-
-[[tool.pyrefly.sub-config]]
-matches = "scripts/decay_fit_reference.py"
-replace-imports-with-any = ["scipy", "scipy.*"]
-
-[[tool.pyrefly.sub-config]]
-matches = "scripts/scientific_reference.py"
-replace-imports-with-any = ["scipy", "scipy.*"]
-
-[tool.importlinter]
-root_packages = ["pse"]
-include_external_packages = true
-
-[[tool.importlinter.contracts]]
-name = "numpy/scipy only at the array boundary, in the parity harness, and in tests (blueprint §21.6, §24.1)"
-type = "forbidden"
-source_modules = ["pse"]
-forbidden_modules = ["numpy", "scipy"]
-# List only exercised exceptions. Add allowed adapter/parity imports when their
-# implementation lands; unmatched exceptions remain errors.
-ignore_imports = [
-  "pse._array -> numpy",
-  "pse.tests.** -> numpy",
-]
-
-# `pandas`, `pydantic`, `sympy`, `networkx`, `matplotlib` and `click` used to be listed
-# here too. They were dependency hygiene, not architecture, and ADR-0066 lifted that
-# constraint -- use any of them if it gets the platform working. `idaes` stays forbidden
-# for a packaging reason that has not changed: uv workspaces enforce a single
-# `requires-python` (the intersection across members), which is why the parity set is a
-# dependency group with an environment marker. An `idaes` import inside `pse` would drag
-# the platform package back to the parity interpreter range. The parity comparisons
-# under `pse.parity.tests` are excluded from the wheel and run only in the parity
-# environment, so they import IDAES directly.
-[[tool.importlinter.contracts]]
-name = "idaes is a parity dependency, never a platform dependency (blueprint §3.1)"
-type = "forbidden"
-source_modules = ["pse"]
-forbidden_modules = ["idaes"]
-ignore_imports = [
-  "pse.parity.tests.** -> idaes",
-]
-
-[[tool.importlinter.contracts]]
-name = "pyomo/pint only in the isolated parity harness (ADR-0083)"
-type = "forbidden"
-source_modules = ["pse"]
-forbidden_modules = ["pyomo", "pint"]
-ignore_imports = [
-  "pse.parity.** -> pyomo",
-]
-
-[[tool.importlinter.contracts]]
-name = "generated contracts use only the native identity gateway"
-type = "forbidden"
-source_modules = ["pse.contracts"]
-forbidden_modules = [
-  "pse.codec",
-  "pse.authoring",
-  "pse.adapters",
-  "pse.parity",
-  "pse.governance",
-  "pse._array",
-  "pse._build",
-]
-# Generated scalar identities use the sole native codec (blueprint §21.5).
-ignore_imports = ["pse.contracts.values -> pse._build"]
-
-[tool.pytest.ini_options]
-minversion = "9.1"
-# The parity tree is collected only by `just parity` (explicit path, --parity): its
-# conftest imports IDAES, which only the parity environment installs.
-testpaths = ["python/pse/tests"]
-python_files = ["test_*.py"]
-addopts = [
-  "-n",
-  "16",
-  "--dist=worksteal",
-  "--strict-markers",
-  "--strict-config",
-  "--import-mode=importlib",
-  "-ra",
-  "--durations=100",
-  "--durations-min=2",
-]
-xfail_strict = true
-# Allow-list policy: one entry per line, scoped by category AND module regex, with a comment
-# naming the upstream issue. A blanket `ignore::DeprecationWarning` is a review failure.
-filterwarnings = [
-  "error",
-]
-log_level = "INFO"
-console_output_style = "count"
-required_plugins = ["pytest-cov", "pytest-xdist"]
-markers = [
-  "contract_section(section, artifact): source-owned governing-section and exact consumer artifact assertion",
-  "test_requirements(canonical=False, native=False, roles=()): explicit owned control effects and campaign roles alongside actual fixture closure",
-  "unit: local policy or codec logic, no native attempt or inspection store",
-  "component: an owned native or storage boundary with explicit dependencies",
-  "integration: long-running end-to-end",
-  "managed_primary: durable study observer runs in its own managed process allocation",
-  "performance: opt-in with --performance; never collected otherwise",
-  "parity: needs the parity environment (IDAES 2.13.0 + ipopt on PATH); deselected without --parity, FAILS (never skips) with it",
-  "producer_deployment: strict actual deployment captures; deselected without --producer-deployment, fails without current captures when opted in",
-]
-
-[tool.coverage.run]
-branch = true
-source_pkgs = ["pse"]
-omit = ["python/pse/tests/*", "python/pse/parity/tests/*"]
-relative_files = true
-
-[tool.coverage.paths]
-pse = ["python/pse", "*/site-packages/pse"]
-
-[tool.coverage.report]
-fail_under = 90
-show_missing = true
-skip_empty = true
-exclude_also = [
-  "if TYPE_CHECKING:",
-  "@overload",
-  "raise NotImplementedError",
-  "^\\s*\\.\\.\\.$",
-  "if __name__ == .__main__.:",
-]
+python-version = "3.13"
+python-interpreter-path = ".venv-parity/bin/python"

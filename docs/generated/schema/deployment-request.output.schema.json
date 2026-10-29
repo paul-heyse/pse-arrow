@@ -340,5 +340,5 @@
   "required": [
     "document_version"
   ],
-  "title": "DeploymentRequestOutput"
+  "title": "DeploymentRequest"
 }

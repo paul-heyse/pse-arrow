@@ -239,17 +239,11 @@ mod tests {
         ] {
             assert!(text(&rust, &format!("{root}/mod.rs")).contains("pub mod identities;"));
         }
-        let python = generate(&registry, Language::Python).unwrap();
-        let aliases = text(&python, "python/pse/contracts/identities.py");
-        assert!(aliases.contains("WidgetId = NewType(\"WidgetId\", v.SemanticId)"));
-        assert!(aliases.contains("BundleId = NewType(\"BundleId\", v.ContentHash)"));
-        let rows = text(&python, "python/pse/contracts/authored.py");
-        assert!(rows.contains("from pse.contracts import identities as i"));
-        assert!(rows.contains("widget_id: i.WidgetId | None"), "{rows}");
+
     }
 
     /// A value nested in a column carries an identity without owning it; the nested
-    /// struct field is typed in Rust and annotated with the alias in Python.
+    /// struct field preserves its native Rust identity type.
     #[test]
     fn nested_identity_values_render_typed_ids() {
         let mut builder = RegistryBuilder::new();
@@ -289,13 +283,7 @@ mod tests {
             model.contains("pub r#label_id: Option<pse_ids::SemanticId>"),
             "{model}"
         );
-        let python = generate(&registry, Language::Python).unwrap();
-        let rows = text(&python, "python/pse/contracts/authored.py");
-        assert!(
-            rows.contains("from pse.contracts import identities as i"),
-            "{rows}"
-        );
-        assert!(rows.contains("widget_id: i.WidgetId"), "{rows}");
+
     }
 
     #[test]
@@ -312,8 +300,7 @@ mod tests {
         );
         let model = text(&rust, "crates/pse-model/src/generated/authored/widgets.rs");
         assert!(model.contains("pub r#seen_at: i64"), "{model}");
-        let python = generate(&registry, Language::Python).unwrap();
-        assert!(text(&python, "python/pse/contracts/authored.py").contains("seen_at: datetime"));
+
     }
     fn physical_identity_fixture(
         source: Option<&'static str>,
@@ -342,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn source_owned_identity_preserves_alias_codecs_roles_and_python_domain() {
+    fn source_owned_identity_preserves_native_alias_codecs_and_roles() {
         let registry = physical_identity_fixture(
             Some("pse_quantity::UnitId"),
             crate::model::IdentityBase::SemanticId,
@@ -368,11 +355,6 @@ mod tests {
             "crates/pse-schema/src/generated/standard_registry.rs",
         );
         assert!(restored.contains("pse_quantity::UnitId"), "{restored}");
-        let python = generate(&registry, Language::Python).unwrap();
-        assert!(
-            text(&python, "python/pse/contracts/identities.py")
-                .contains("UnitId = NewType(\"UnitId\", v.SemanticId)")
-        );
         let unsourced =
             physical_identity_fixture(None, crate::model::IdentityBase::SemanticId).unwrap();
         assert_eq!(

@@ -10,7 +10,7 @@
       ],
       "type": "string"
     },
-    "StudyWorkbenchCursorBodyOutput": {
+    "StudyWorkbenchCursorBody": {
       "additionalProperties": false,
       "description": "Authority-bound continuation for live browsing, never a frozen analysis population.",
       "properties": {
@@ -19,7 +19,7 @@
           "type": "string"
         },
         "filter": {
-          "$ref": "#/$defs/StudyWorkbenchFilterOutput",
+          "$ref": "#/$defs/StudyWorkbenchFilter",
           "description": "Exact original predicates."
         },
         "issuing_store": {
@@ -34,7 +34,7 @@
       ],
       "type": "object"
     },
-    "StudyWorkbenchFilterOutput": {
+    "StudyWorkbenchFilter": {
       "additionalProperties": false,
       "description": "Indexed predicates over actual original scientific and engineering owners.",
       "properties": {
@@ -119,7 +119,7 @@
     "cursor": {
       "anyOf": [
         {
-          "$ref": "#/$defs/StudyWorkbenchCursorBodyOutput"
+          "$ref": "#/$defs/StudyWorkbenchCursorBody"
         },
         {
           "type": "null"
@@ -133,7 +133,7 @@
       "type": "integer"
     },
     "filter": {
-      "$ref": "#/$defs/StudyWorkbenchFilterOutput",
+      "$ref": "#/$defs/StudyWorkbenchFilter",
       "description": "Exact scientific and engineering predicates."
     },
     "maximum": {
@@ -149,6 +149,6 @@
     "cursor",
     "document_version"
   ],
-  "title": "StudyWorkbenchRequestOutput",
+  "title": "StudyWorkbenchRequest",
   "type": "object"
 }

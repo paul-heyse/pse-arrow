@@ -5,7 +5,7 @@
 #
 #  1. A dependency *family* moves as a unit. Every declared dependency is `=`-pinned in
 #     [workspace.dependencies] and the committed Cargo.lock holds the rest (ADR-0165); the
-#     arrow, datafusion, object_store and pyo3 families move together, and a partial move
+#     arrow, datafusion and object_store families move together, and a partial move
 #     produces a mixed family that
 #     `cargo tree -d` cannot see. The groups below exist so that `cargo xtask family-check`
 #     either passes for the whole group or fails loudly. A pull request that moves part of a
@@ -52,13 +52,9 @@ updates:
           - "datafusion"
           - "datafusion-*"
           - "object_store"
-      pyo3-family:
-        patterns:
-          - "pyo3"
-          - "pyo3-*"
-          - "numpy"
       # A codegen bump changes generated output, so the pull request must also carry the
-      # regeneration commit; `rust / codegen-diff` fails otherwise.
+      # regeneration commit; independent projections have a manual codegen check,
+      # while the complete affected generator scope retains its native owner.
       codegen:
         patterns:
           - "syn"
@@ -88,7 +84,7 @@ updates:
     labels:
       - dependencies
       - kind/library-upgrade
-      - area/python-boundary
+      - area/tooling
     commit-message:
       prefix: deps
       include: scope
@@ -98,12 +94,10 @@ updates:
       # (GOVERNANCE.md §5). Dependabot must never touch it.
       - dependency-name: "idaes-pse"
     groups:
-      runtime:
+      scientific-oracles:
         patterns:
           - "pyarrow"
-          - "attrs"
-          - "cattrs"
-          - "msgspec"
+          - "teqp"
           - "pyomo"
           - "pint"
           - "numpy"
@@ -112,18 +106,16 @@ updates:
         patterns:
           - "ruff"
           - "pyrefly"
-          - "import-linter"
           - "reuse"
           - "taplo"
           - "typos"
           - "pre-commit"
-          - "maturin"
           - "pytest"
           - "pytest-*"
 
   # --- GitHub Actions -----------------------------------------------------------------
   # Every `uses:` is pinned by commit SHA with a version comment; Dependabot moves the
-  # SHA and the comment together. `pinact` in repo-hygiene catches anything that drifts
+  # SHA and the comment together. `zizmor` in repo-hygiene catches anything that drifts
   # back to a tag.
   - package-ecosystem: github-actions
     directory: "/"

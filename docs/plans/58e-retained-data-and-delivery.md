@@ -71,6 +71,13 @@ build-specific queries/alerts deliberately retire through B/F.
 
 ## Package state
 
+| Package | Status | Owner | Completion |
+| --- | --- | --- | --- |
+| [E01](#e01) | in progress | Result selection and decode owners | Retained reads construct from actual data capabilities without SourceServices/math. |
+| [E02](#e02) | in progress | Native result and cohort relation owners | Composable protected relations preserve configured state, pool and residual semantics. |
+| [E03](#e03) | planned | Payload allocation and export owners | Native selected delivery/export preserves custody through early close and partial failure. |
+| [E04](#e04) | planned | Data consumer and integration owners | Consumers migrate, conditional transports are dispositioned, and H owns assembled evidence. |
+
 ### Native data prerequisite checkpoint — 2026-10-29
 
 The authorized A01–A07 execution consumes this E01/E02 prerequisite slice.
@@ -120,14 +127,9 @@ reuse and protected-pruning controls now have selected acceptance. Frozen page/d
 exports and passive reconnect run after scientific shutdown. Broader sealed-payload concurrent
 reclamation, cancellation/delivery custody and assembled E/H qualification remain open.
 
-| Package | Status | Owner | Completion |
-| --- | --- | --- | --- |
-| [E01](#e01) | in progress | Result selection and decode owners | Retained reads construct from actual data capabilities without SourceServices/math. |
-| [E02](#e02) | in progress | Native result and cohort relation owners | Composable protected relations preserve configured state, pool and residual semantics. |
-| [E03](#e03) | planned | Payload allocation and export owners | Native selected delivery/export preserves custody through early close and partial failure. |
-| [E04](#e04) | planned | Data consumer and integration owners | Consumers migrate, conditional transports are dispositioned, and H owns assembled evidence. |
 
 <a id="e01"></a>
+
 ## E01 — Native retained-data construction
 
 Consume [D01's narrow connection boundary](58d-canonical-control-and-connectivity.md#d01)

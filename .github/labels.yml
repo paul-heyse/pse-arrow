@@ -1,20 +1,15 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# The declared label set. `just labels-sync` (scripts/labels-sync.sh) applies it with
-# `gh label create --force`, which is idempotent: it creates a label or updates its
-# colour and description in place. The script never deletes, so a label removed from
-# this file survives on the repository until someone removes it deliberately.
+# The local declared label set. Operators may apply explicitly selected rows with
+# the native `gh label create --force` or `gh label edit` commands. Editing this file
+# does not change live labels; removing a declaration never deletes a remote label.
 #
-# FORMAT IS LOAD-BEARING. scripts/labels-sync.sh parses this file with a strict
-# stdlib-only parser (no PyYAML on the critical path), so every entry must be exactly
-# three lines in this order and nothing else:
+# Each entry keeps its name, colour and description together for review:
 #
 #   - name: "<name>"
 #     color: "<6 hex digits, no leading #>"
 #     description: "<one line, at most 100 characters — GitHub's limit>"
-#
-# Comments and blank lines between entries are fine. Anything else is a hard error.
 #
 # Conventions: `kind/*` says what a thing is (exactly one per issue), `area/*` says where
 # it lives (as many as apply), `phase/*` says when it is scheduled. The unprefixed labels
@@ -75,10 +70,7 @@
   description: "Numerics, NLP solving, Ipopt, and MUMPS"
 - name: "area/backends"
   color: "c5def5"
-  description: "Backends: native, generated Pyomo, and their bindings"
-- name: "area/python-boundary"
-  color: "c5def5"
-  description: "The pyo3 extension and the pse Python package"
+  description: "Native scientific backends and solver bindings"
 - name: "area/diagnostics"
   color: "c5def5"
   description: "Errors, diagnostic codes, and how failures are reported"
@@ -127,7 +119,7 @@
   description: "Touches docs/adr/register.md: a deferred item and its trigger"
 - name: "release"
   color: "006b75"
-  description: "Release pull request; cargo-semver-checks becomes gating"
+  description: "Release planning and qualification under its explicit native owner"
 - name: "blocked"
   color: "d93f0b"
   description: "Waiting on something outside this repository"

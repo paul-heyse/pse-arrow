@@ -35,6 +35,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: governance
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: collect what is due
         id: due
         run: |
@@ -53,11 +57,11 @@ jobs:
             echo '```'
           } > issue-body.md
 
-          # `--due` lists the rows due this month and runs the checks that can be
+          # Native `register due` lists due rows and runs the checks that can be
           # automated (a crates.io version query, a `cargo info`, a file probe). It
           # exits non-zero only when the register itself is malformed, which
           # The manual governance workflow can also check the register's syntax.
-          if python3 scripts/check_register.py --due >> issue-body.md; then
+          if scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- register due >> issue-body.md; then
             status="ok"
           else
             status="error"

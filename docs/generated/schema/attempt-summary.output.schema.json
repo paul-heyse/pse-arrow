@@ -26,7 +26,7 @@
       ],
       "type": "object"
     },
-    "AppliedRestartOutput": {
+    "AppliedRestart": {
       "additionalProperties": false,
       "description": "The interior-point restart an adapter applied to a submitted primal-dual seed.",
       "properties": {
@@ -39,7 +39,7 @@
           ]
         },
         "profile": {
-          "$ref": "#/$defs/WarmRestartOutput",
+          "$ref": "#/$defs/WarmRestart",
           "description": "The restart profile that produced it."
         }
       },
@@ -49,7 +49,7 @@
       ],
       "type": "object"
     },
-    "AttemptDecisionOutput": {
+    "AttemptDecision": {
       "additionalProperties": false,
       "description": "Compact synchronous decision record. Charging identity preserves inclusive work meaning.",
       "properties": {
@@ -123,7 +123,7 @@
         "work": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WorkChargeOutput"
+              "$ref": "#/$defs/WorkCharge"
             },
             {
               "type": "null"
@@ -200,7 +200,7 @@
       ],
       "type": "object"
     },
-    "AttemptIntervalsOutput": {
+    "AttemptIntervals": {
       "additionalProperties": false,
       "description": "Disjoint phase observations are absent until their actual owner measures them.",
       "properties": {
@@ -289,7 +289,7 @@
         }
       ]
     },
-    "AttemptStartSummaryOutput": {
+    "AttemptStartSummary": {
       "additionalProperties": false,
       "description": "Actual submitted-start provenance. Full portable coordinates belong to replay.",
       "properties": {
@@ -333,7 +333,7 @@
         "transformations": {
           "description": "Transformations actually traversed before native submission.",
           "items": {
-            "$ref": "#/$defs/SeedTransformationOutput"
+            "$ref": "#/$defs/SeedTransformation"
           },
           "type": "array"
         }
@@ -348,7 +348,7 @@
       ],
       "type": "object"
     },
-    "AttemptStepSummaryOutput": {
+    "AttemptStepSummary": {
       "additionalProperties": false,
       "description": "One original requested step; missing native facts remain absent.",
       "properties": {
@@ -373,7 +373,7 @@
         "decisions": {
           "description": "Retained synchronous decision prefix.",
           "items": {
-            "$ref": "#/$defs/AttemptDecisionOutput"
+            "$ref": "#/$defs/AttemptDecision"
           },
           "type": "array"
         },
@@ -401,7 +401,7 @@
           "type": "array"
         },
         "intervals": {
-          "$ref": "#/$defs/AttemptIntervalsOutput",
+          "$ref": "#/$defs/AttemptIntervals",
           "description": "Available interval observations; overlapping native/callback costs are never added."
         },
         "native_defaults": {
@@ -414,7 +414,7 @@
         "native_observations": {
           "anyOf": [
             {
-              "$ref": "#/$defs/NativeObservationsOutput"
+              "$ref": "#/$defs/NativeObservations"
             },
             {
               "type": "null"
@@ -459,7 +459,7 @@
         "raw_map": {
           "anyOf": [
             {
-              "$ref": "#/$defs/RawMapHistoryOutput"
+              "$ref": "#/$defs/RawMapHistory"
             },
             {
               "type": "null"
@@ -477,7 +477,7 @@
         "start": {
           "anyOf": [
             {
-              "$ref": "#/$defs/AttemptStartSummaryOutput"
+              "$ref": "#/$defs/AttemptStartSummary"
             },
             {
               "type": "null"
@@ -501,7 +501,7 @@
         "work": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WorkObservationOutput"
+              "$ref": "#/$defs/WorkObservation"
             },
             {
               "type": "null"
@@ -827,7 +827,7 @@
       ],
       "type": "string"
     },
-    "NativeAttemptRecordOutput": {
+    "NativeAttemptRecord": {
       "additionalProperties": false,
       "description": "Native-owned compact attempt record; scientific workflow position belongs to its caller.\nNo factor, actor, oracle, candidate or complete SolveReport is retained here.",
       "properties": {
@@ -856,7 +856,7 @@
         "observations": {
           "anyOf": [
             {
-              "$ref": "#/$defs/NativeObservationsOutput"
+              "$ref": "#/$defs/NativeObservations"
             },
             {
               "type": "null"
@@ -881,7 +881,7 @@
         "raw_map": {
           "anyOf": [
             {
-              "$ref": "#/$defs/RawMapHistoryOutput"
+              "$ref": "#/$defs/RawMapHistory"
             },
             {
               "type": "null"
@@ -905,7 +905,7 @@
         "start": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SubmittedStartRecordBodyOutput"
+              "$ref": "#/$defs/SubmittedStartRecordBody"
             },
             {
               "type": "null"
@@ -918,7 +918,7 @@
           "type": "boolean"
         },
         "termination": {
-          "$ref": "#/$defs/NativeTerminationRecordOutput",
+          "$ref": "#/$defs/NativeTerminationRecord",
           "description": "Actual native status and the adapter's conservative interpretation."
         },
         "variables": {
@@ -931,7 +931,7 @@
           "type": "array"
         },
         "work": {
-          "$ref": "#/$defs/WorkEvidenceOutput",
+          "$ref": "#/$defs/WorkEvidence",
           "description": "Executing-owner work counters; absent values remain unknown."
         }
       },
@@ -1007,7 +1007,7 @@
       ],
       "type": "object"
     },
-    "NativeCountersOutput": {
+    "NativeCounters": {
       "description": "Family-specific native meanings; these counters are not interchangeable cost units.",
       "oneOf": [
         {
@@ -1297,7 +1297,7 @@
         }
       ]
     },
-    "NativeObservationsOutput": {
+    "NativeObservations": {
       "additionalProperties": false,
       "description": "Exact profile and problem witness for native facts; unknown counters remain absent.",
       "properties": {
@@ -1310,13 +1310,13 @@
           "description": "Point coordinates still require verified outer transport for authored diagnostics."
         },
         "counters": {
-          "$ref": "#/$defs/NativeCountersOutput",
+          "$ref": "#/$defs/NativeCounters",
           "description": "Native family-specific getters."
         },
         "current": {
           "anyOf": [
             {
-              "$ref": "#/$defs/NativeSnapshotOutput"
+              "$ref": "#/$defs/NativeSnapshot"
             },
             {
               "type": "null"
@@ -1372,7 +1372,7 @@
         }
       ]
     },
-    "NativeSnapshotOutput": {
+    "NativeSnapshot": {
       "additionalProperties": false,
       "description": "Latest callback point in its submitted coordinate authority, not a resumable state.",
       "properties": {
@@ -1440,7 +1440,7 @@
       ],
       "type": "string"
     },
-    "NativeTerminationRecordOutput": {
+    "NativeTerminationRecord": {
       "additionalProperties": false,
       "description": "Raw native termination and the adapter's conservative interpretation.",
       "properties": {
@@ -1834,7 +1834,7 @@
         }
       ]
     },
-    "RawMapCoordinateOutput": {
+    "RawMapCoordinate": {
       "additionalProperties": false,
       "description": "One physical tear quantity, or an explicitly submitted-oracle quantity.",
       "properties": {
@@ -1955,14 +1955,14 @@
         }
       ]
     },
-    "RawMapHistoryOutput": {
+    "RawMapHistory": {
       "additionalProperties": false,
       "description": "Shared bounded history, independent of lossy progress events.",
       "properties": {
         "last_evaluation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/RawMapSampleOutput"
+              "$ref": "#/$defs/RawMapSample"
             },
             {
               "type": "null"
@@ -1973,7 +1973,7 @@
         "last_successful": {
           "anyOf": [
             {
-              "$ref": "#/$defs/RawMapSampleOutput"
+              "$ref": "#/$defs/RawMapSample"
             },
             {
               "type": "null"
@@ -2002,7 +2002,7 @@
         "samples": {
           "description": "Retained prefix of actual evaluations, shared with last_successful when possible.",
           "items": {
-            "$ref": "#/$defs/RawMapSampleOutput"
+            "$ref": "#/$defs/RawMapSample"
           },
           "type": "array"
         }
@@ -2042,7 +2042,7 @@
         }
       ]
     },
-    "RawMapSampleOutput": {
+    "RawMapSample": {
       "additionalProperties": false,
       "description": "A bounded diagnostic map sample; missing fields are unknown, never zero.",
       "properties": {
@@ -2123,7 +2123,7 @@
         "values": {
           "description": "Bounded coordinate prefix.",
           "items": {
-            "$ref": "#/$defs/RawMapCoordinateOutput"
+            "$ref": "#/$defs/RawMapCoordinate"
           },
           "type": "array"
         }
@@ -2144,7 +2144,7 @@
       ],
       "type": "object"
     },
-    "ReplayNativeAttemptOutput": {
+    "ReplayNativeAttempt": {
       "additionalProperties": false,
       "description": "Workflow attribution over the native owner's immutable compact attempt facts.",
       "properties": {
@@ -2164,7 +2164,7 @@
           "type": "integer"
         },
         "record": {
-          "$ref": "#/$defs/NativeAttemptRecordOutput",
+          "$ref": "#/$defs/NativeAttemptRecord",
           "description": "Full actual native options, termination, counters, start receipt and raw evidence."
         },
         "step": {
@@ -2244,7 +2244,7 @@
       ],
       "type": "string"
     },
-    "SeedOriginOutput": {
+    "SeedOrigin": {
       "additionalProperties": false,
       "description": "Portable provenance of an output seed, distinct from its coordinate compatibility.",
       "properties": {
@@ -2270,7 +2270,7 @@
       ],
       "type": "object"
     },
-    "SeedTransformationOutput": {
+    "SeedTransformation": {
       "description": "One transformation a submitted seed passed through between its source coordinates and\nthe native API, recorded from what actually ran (F25).",
       "oneOf": [
         {
@@ -2338,7 +2338,7 @@
               "type": "string"
             },
             "value": {
-              "$ref": "#/$defs/AppliedRestartOutput"
+              "$ref": "#/$defs/AppliedRestart"
             }
           },
           "required": [
@@ -2364,7 +2364,7 @@
         }
       ]
     },
-    "SubmittedStartRecordBodyOutput": {
+    "SubmittedStartRecordBody": {
       "additionalProperties": false,
       "description": "Actual submitted source-coordinate seed, distinct from an output or native checkpoint.",
       "properties": {
@@ -2380,7 +2380,7 @@
         "seed": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WarmStartSnapshotBodyOutput"
+              "$ref": "#/$defs/WarmStartSnapshotBody"
             },
             {
               "type": "null"
@@ -2415,7 +2415,7 @@
         "transformations": {
           "description": "Complete transformations actually applied before API submission.",
           "items": {
-            "$ref": "#/$defs/SeedTransformationOutput"
+            "$ref": "#/$defs/SeedTransformation"
           },
           "type": "array"
         }
@@ -2435,7 +2435,7 @@
       "format": "double",
       "type": "number"
     },
-    "WarmPayloadSnapshotOutput": {
+    "WarmPayloadSnapshot": {
       "description": "Portable seed data with explicit numerical observations.",
       "oneOf": [
         {
@@ -2522,7 +2522,7 @@
             "working_set": {
               "anyOf": [
                 {
-                  "$ref": "#/$defs/WorkingSetSnapshotOutput"
+                  "$ref": "#/$defs/WorkingSetSnapshot"
                 },
                 {
                   "type": "null"
@@ -2604,7 +2604,7 @@
         }
       ]
     },
-    "WarmRestartOutput": {
+    "WarmRestart": {
       "additionalProperties": false,
       "description": "How an interior-point method re-centres a complete primal-dual seed (L-N3). With the\ncold-start defaults a seeded restart is pushed back towards the analytic centre and loses\nmost of its benefit, so a restart states its barrier and its pushes. Absent fields take\nthese defaults across the Python boundary (ADR-0113).",
       "properties": {
@@ -2651,7 +2651,7 @@
       ],
       "type": "object"
     },
-    "WarmStartSnapshotBodyOutput": {
+    "WarmStartSnapshotBody": {
       "additionalProperties": false,
       "description": "Typed semantic seed snapshot. Nonfinite numbers have explicit observations; zero's\nsign survives in real observations. Snapshot attribution is separate from content identity.",
       "properties": {
@@ -2674,7 +2674,7 @@
         "origin": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SeedOriginOutput"
+              "$ref": "#/$defs/SeedOrigin"
             },
             {
               "type": "null"
@@ -2683,7 +2683,7 @@
           "description": "Producing occurrence, when there is one."
         },
         "payload": {
-          "$ref": "#/$defs/WarmPayloadSnapshotOutput",
+          "$ref": "#/$defs/WarmPayloadSnapshot",
           "description": "Complete portable seed data."
         },
         "profile": {
@@ -2703,7 +2703,7 @@
       ],
       "type": "object"
     },
-    "WorkChargeOutput": {
+    "WorkCharge": {
       "additionalProperties": false,
       "description": "A work event with one owner; the effectful ledger prevents duplicate charging.",
       "properties": {
@@ -2714,7 +2714,7 @@
           "x-pse-identity": "ContentHash"
         },
         "observed": {
-          "$ref": "#/$defs/WorkObservationOutput",
+          "$ref": "#/$defs/WorkObservation",
           "description": "Actual observations, retaining unknown counters."
         },
         "phase": {
@@ -2734,7 +2734,7 @@
       ],
       "type": "object"
     },
-    "WorkEvidenceOutput": {
+    "WorkEvidence": {
       "additionalProperties": false,
       "description": "Work observed by its executing owner; unavailable counters remain absent.",
       "properties": {
@@ -2783,7 +2783,7 @@
       ],
       "type": "object"
     },
-    "WorkObservationOutput": {
+    "WorkObservation": {
       "additionalProperties": false,
       "description": "Actual observations. Unknown counters remain None; these are neither allowances nor\nreservations. Inclusive nested callback work is reported by its one charging owner.",
       "properties": {
@@ -2839,7 +2839,7 @@
       ],
       "type": "object"
     },
-    "WorkingSetSnapshotOutput": {
+    "WorkingSetSnapshot": {
       "additionalProperties": false,
       "description": "Typed active set with the transformation under which its indices are meaningful.",
       "properties": {
@@ -2912,7 +2912,7 @@
     "native_attempts": {
       "description": "Shared compact native records, bounded by the requested event capacity.",
       "items": {
-        "$ref": "#/$defs/ReplayNativeAttemptOutput"
+        "$ref": "#/$defs/ReplayNativeAttempt"
       },
       "type": "array"
     },
@@ -2947,7 +2947,7 @@
     "steps": {
       "description": "Retained bounded original steps.",
       "items": {
-        "$ref": "#/$defs/AttemptStepSummaryOutput"
+        "$ref": "#/$defs/AttemptStepSummary"
       },
       "type": "array"
     },
@@ -2968,6 +2968,6 @@
     "usable",
     "document_version"
   ],
-  "title": "AttemptSummaryOutput",
+  "title": "AttemptSummary",
   "type": "object"
 }

@@ -108,7 +108,7 @@
         }
       ]
     },
-    "AdviceObservationOutput": {
+    "AdviceObservation": {
       "additionalProperties": false,
       "description": "One actual observation in a declared matched exposure.",
       "properties": {
@@ -237,7 +237,7 @@
         }
       ]
     },
-    "AppliedRestartOutput": {
+    "AppliedRestart": {
       "additionalProperties": false,
       "description": "The interior-point restart an adapter applied to a submitted primal-dual seed.",
       "properties": {
@@ -250,7 +250,7 @@
           ]
         },
         "profile": {
-          "$ref": "#/$defs/WarmRestartOutput",
+          "$ref": "#/$defs/WarmRestart",
           "description": "The restart profile that produced it."
         }
       },
@@ -260,7 +260,7 @@
       ],
       "type": "object"
     },
-    "AttemptDecisionOutput": {
+    "AttemptDecision": {
       "additionalProperties": false,
       "description": "Compact synchronous decision record. Charging identity preserves inclusive work meaning.",
       "properties": {
@@ -334,7 +334,7 @@
         "work": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WorkChargeOutput"
+              "$ref": "#/$defs/WorkCharge"
             },
             {
               "type": "null"
@@ -411,7 +411,7 @@
       ],
       "type": "object"
     },
-    "AttemptIntervalsOutput": {
+    "AttemptIntervals": {
       "additionalProperties": false,
       "description": "Disjoint phase observations are absent until their actual owner measures them.",
       "properties": {
@@ -500,7 +500,7 @@
         }
       ]
     },
-    "AttemptStartSummaryOutput": {
+    "AttemptStartSummary": {
       "additionalProperties": false,
       "description": "Actual submitted-start provenance. Full portable coordinates belong to replay.",
       "properties": {
@@ -544,7 +544,7 @@
         "transformations": {
           "description": "Transformations actually traversed before native submission.",
           "items": {
-            "$ref": "#/$defs/SeedTransformationOutput"
+            "$ref": "#/$defs/SeedTransformation"
           },
           "type": "array"
         }
@@ -559,7 +559,7 @@
       ],
       "type": "object"
     },
-    "AttemptStepSummaryOutput": {
+    "AttemptStepSummary": {
       "additionalProperties": false,
       "description": "One original requested step; missing native facts remain absent.",
       "properties": {
@@ -584,7 +584,7 @@
         "decisions": {
           "description": "Retained synchronous decision prefix.",
           "items": {
-            "$ref": "#/$defs/AttemptDecisionOutput"
+            "$ref": "#/$defs/AttemptDecision"
           },
           "type": "array"
         },
@@ -612,7 +612,7 @@
           "type": "array"
         },
         "intervals": {
-          "$ref": "#/$defs/AttemptIntervalsOutput",
+          "$ref": "#/$defs/AttemptIntervals",
           "description": "Available interval observations; overlapping native/callback costs are never added."
         },
         "native_defaults": {
@@ -625,7 +625,7 @@
         "native_observations": {
           "anyOf": [
             {
-              "$ref": "#/$defs/NativeObservationsOutput"
+              "$ref": "#/$defs/NativeObservations"
             },
             {
               "type": "null"
@@ -670,7 +670,7 @@
         "raw_map": {
           "anyOf": [
             {
-              "$ref": "#/$defs/RawMapHistoryOutput"
+              "$ref": "#/$defs/RawMapHistory"
             },
             {
               "type": "null"
@@ -688,7 +688,7 @@
         "start": {
           "anyOf": [
             {
-              "$ref": "#/$defs/AttemptStartSummaryOutput"
+              "$ref": "#/$defs/AttemptStartSummary"
             },
             {
               "type": "null"
@@ -712,7 +712,7 @@
         "work": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WorkObservationOutput"
+              "$ref": "#/$defs/WorkObservation"
             },
             {
               "type": "null"
@@ -744,7 +744,7 @@
       ],
       "type": "object"
     },
-    "AttemptSummaryBodyOutput": {
+    "AttemptSummaryBody": {
       "additionalProperties": false,
       "description": "Bounded automatic summary. Partial evidence and truncation are explicit.",
       "properties": {
@@ -762,7 +762,7 @@
         "native_attempts": {
           "description": "Shared compact native records, bounded by the requested event capacity.",
           "items": {
-            "$ref": "#/$defs/ReplayNativeAttemptOutput"
+            "$ref": "#/$defs/ReplayNativeAttempt"
           },
           "type": "array"
         },
@@ -797,7 +797,7 @@
         "steps": {
           "description": "Retained bounded original steps.",
           "items": {
-            "$ref": "#/$defs/AttemptStepSummaryOutput"
+            "$ref": "#/$defs/AttemptStepSummary"
           },
           "type": "array"
         },
@@ -819,7 +819,7 @@
       ],
       "type": "object"
     },
-    "AuthoredAccuracyGoalsRowOutput": {
+    "AuthoredAccuracyGoalsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -978,7 +978,7 @@
       ],
       "type": "object"
     },
-    "AuthoredEngineeringDefaultRulesRowOutput": {
+    "AuthoredEngineeringDefaultRulesRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -1031,7 +1031,7 @@
       ],
       "type": "object"
     },
-    "AuthoredEngineeringScalesRowOutput": {
+    "AuthoredEngineeringScalesRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -1140,7 +1140,7 @@
       ],
       "type": "object"
     },
-    "AuthoredNumericalRequirementsRowOutput": {
+    "AuthoredNumericalRequirementsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -1293,7 +1293,7 @@
       ],
       "type": "object"
     },
-    "BackendSettingsBodyOutput": {
+    "BackendSettingsBody": {
       "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
       "oneOf": [
         {
@@ -1332,7 +1332,7 @@
               "description": "Barrier-parameter update strategy (`mu_strategy`)."
             },
             "restart": {
-              "$ref": "#/$defs/WarmRestartOutput",
+              "$ref": "#/$defs/WarmRestart",
               "default": {
                 "barrier": {
                   "kind": "seed"
@@ -1354,7 +1354,7 @@
             "bound_frac",
             "restart"
           ],
-          "title": "IpoptSettingsOutput",
+          "title": "IpoptSettings",
           "type": "object"
         },
         {
@@ -1366,7 +1366,7 @@
               "type": "string"
             },
             "finite_difference": {
-              "$ref": "#/$defs/FiniteDifferenceSettingsOutput",
+              "$ref": "#/$defs/FiniteDifferenceSettings",
               "default": {
                 "coloring": "cpr",
                 "pattern": "declared",
@@ -1375,7 +1375,7 @@
               "description": "Library-owned finite-difference curvature settings."
             },
             "linear": {
-              "$ref": "#/$defs/FeralSettingsOutput",
+              "$ref": "#/$defs/FeralSettings",
               "default": {
                 "bounded_storage_max_dimension": null,
                 "cascade_break": null,
@@ -1401,7 +1401,7 @@
               "description": "NLP method."
             },
             "partitioned": {
-              "$ref": "#/$defs/PartitionedSettingsOutput",
+              "$ref": "#/$defs/PartitionedSettings",
               "default": {
                 "block_size": 64,
                 "curvature_cap": null,
@@ -1412,7 +1412,7 @@
               "description": "Library-owned partitioned curvature settings."
             },
             "restart": {
-              "$ref": "#/$defs/WarmRestartOutput",
+              "$ref": "#/$defs/WarmRestart",
               "default": {
                 "barrier": {
                   "kind": "seed"
@@ -1434,7 +1434,7 @@
             "partitioned",
             "finite_difference"
           ],
-          "title": "PounceSettingsOutput",
+          "title": "PounceSettings",
           "type": "object"
         },
         {
@@ -1523,7 +1523,7 @@
             "orthogonalization",
             "anderson_delay"
           ],
-          "title": "KinsolSettingsOutput",
+          "title": "KinsolSettings",
           "type": "object"
         },
         {
@@ -1535,7 +1535,7 @@
               "type": "string"
             },
             "diagnostics": {
-              "$ref": "#/$defs/HighsDiagnosticsOutput",
+              "$ref": "#/$defs/HighsDiagnostics",
               "default": {
                 "basis_inverse": null,
                 "cut_pool": false,
@@ -1591,7 +1591,7 @@
             "diagnostics",
             "sparse_start"
           ],
-          "title": "HighsSettingsOutput",
+          "title": "HighsSettings",
           "type": "object"
         },
         {
@@ -1821,7 +1821,7 @@
             "chordal_decomposition_compact",
             "chordal_decomposition_complete_dual"
           ],
-          "title": "ClarabelSettingsOutput",
+          "title": "ClarabelSettings",
           "type": "object"
         },
         {
@@ -1889,7 +1889,7 @@
             "exact",
             "reoptimize"
           ],
-          "title": "ScipSettingsOutput",
+          "title": "ScipSettings",
           "type": "object"
         },
         {
@@ -1911,7 +1911,7 @@
               "type": "boolean"
             },
             "linear": {
-              "$ref": "#/$defs/FeralSettingsOutput",
+              "$ref": "#/$defs/FeralSettings",
               "default": {
                 "bounded_storage_max_dimension": null,
                 "cascade_break": null,
@@ -1944,7 +1944,7 @@
             "crossover",
             "linear"
           ],
-          "title": "PounceConvexSettingsOutput",
+          "title": "PounceConvexSettings",
           "type": "object"
         },
         {
@@ -1980,7 +1980,7 @@
             "trust_radius",
             "limited_memory"
           ],
-          "title": "UnoSettingsOutput",
+          "title": "UnoSettings",
           "type": "object"
         },
         {
@@ -2007,7 +2007,7 @@
               "description": "Selected native PC method."
             },
             "trust": {
-              "$ref": "#/$defs/TrustRegionOutput",
+              "$ref": "#/$defs/TrustRegion",
               "default": {
                 "initial": 1.0,
                 "maximum": 100000000.0,
@@ -2023,7 +2023,7 @@
             "preconditioner",
             "trust"
           ],
-          "title": "PetscSettingsOutput",
+          "title": "PetscSettings",
           "type": "object"
         }
       ]
@@ -2055,7 +2055,7 @@
       ],
       "type": "object"
     },
-    "BlockSolveOverrideBodyOutput": {
+    "BlockSolveOverrideBody": {
       "additionalProperties": false,
       "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
       "properties": {
@@ -2074,7 +2074,7 @@
         "controls": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SolveControlsOutput"
+              "$ref": "#/$defs/SolveControls"
             },
             {
               "type": "null"
@@ -2086,7 +2086,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettingsBodyOutput"
+              "$ref": "#/$defs/BackendSettingsBody"
             },
             {
               "type": "null"
@@ -2112,7 +2112,7 @@
       ],
       "type": "string"
     },
-    "BranchPolicyOutput": {
+    "BranchPolicy": {
       "additionalProperties": false,
       "description": "Root-selection meaning retained by every proposal and correction.",
       "properties": {
@@ -2158,7 +2158,7 @@
       ],
       "type": "string"
     },
-    "CanonicalQueryMetricsOutput": {
+    "CanonicalQueryMetrics": {
       "additionalProperties": false,
       "description": "Process-cumulative actual query builder / client response populations. Not every client\nselect/control API uses this query adapter; no server-wide coverage is claimed.",
       "properties": {
@@ -2238,7 +2238,7 @@
       ],
       "type": "object"
     },
-    "CaptureBudgetOutput": {
+    "CaptureBudget": {
       "additionalProperties": false,
       "description": "Capture configuration. These defaults configure optional work, never missing facts.",
       "properties": {
@@ -2263,7 +2263,7 @@
       ],
       "type": "object"
     },
-    "CaptureDocumentOutput": {
+    "CaptureDocument": {
       "additionalProperties": false,
       "description": "Typed capture answer; it contains no scientific results or result permissions.",
       "properties": {
@@ -2281,7 +2281,7 @@
         "launch_process": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ProcessLocatorBodyOutput"
+              "$ref": "#/$defs/ProcessLocatorBody"
             },
             {
               "type": "null"
@@ -2343,7 +2343,7 @@
         "targets": {
           "description": "Known process and actual native-thread attribution; CPU includes inherited tasks.",
           "items": {
-            "$ref": "#/$defs/CaptureTargetOutput"
+            "$ref": "#/$defs/CaptureTarget"
           },
           "type": "array"
         },
@@ -2526,7 +2526,7 @@
       ],
       "type": "object"
     },
-    "CaptureTargetOutput": {
+    "CaptureTarget": {
       "additionalProperties": false,
       "description": "One actual process followed by capture; process CPU is never operation-exclusive CPU.",
       "properties": {
@@ -2548,7 +2548,7 @@
           "type": "boolean"
         },
         "locator": {
-          "$ref": "#/$defs/ProcessLocatorBodyOutput",
+          "$ref": "#/$defs/ProcessLocatorBody",
           "description": "OS attachment identity copied from its owner."
         },
         "process": {
@@ -2580,7 +2580,7 @@
       ],
       "type": "object"
     },
-    "ChildSnapshotOutput": {
+    "ChildSnapshot": {
       "additionalProperties": false,
       "description": "Copied linked-operation summary; availability is explicit.",
       "properties": {
@@ -2720,7 +2720,7 @@
       ],
       "type": "string"
     },
-    "CoherentRecordBodyOutput": {
+    "CoherentRecordBody": {
       "additionalProperties": false,
       "description": "All members belong to the same source event; a read never assembles a mixed row.",
       "properties": {
@@ -2778,7 +2778,7 @@
         "values": {
           "description": "Complete bounded tuple; large scientific payloads use their existing owner.",
           "items": {
-            "$ref": "#/$defs/RecordFieldOutput"
+            "$ref": "#/$defs/RecordField"
           },
           "type": "array"
         }
@@ -2797,14 +2797,14 @@
       ],
       "type": "object"
     },
-    "CompositionRequestBodyOutput": {
+    "CompositionRequestBody": {
       "additionalProperties": false,
       "description": "Hard caller constraints retained by automatic and explicitly declared composition.",
       "properties": {
         "advice": {
           "anyOf": [
             {
-              "$ref": "#/$defs/FrozenAdviceBodyOutput"
+              "$ref": "#/$defs/FrozenAdviceBody"
             },
             {
               "type": "null"
@@ -2813,13 +2813,13 @@
           "description": "Full frozen descriptive body; absent leaves the complete baseline policy."
         },
         "branch": {
-          "$ref": "#/$defs/BranchPolicyOutput",
+          "$ref": "#/$defs/BranchPolicy",
           "description": "Original root-selection contract."
         },
         "limits": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WorkLimitsOutput"
+              "$ref": "#/$defs/WorkLimits"
             },
             {
               "type": "null"
@@ -2910,12 +2910,12 @@
       ],
       "type": "object"
     },
-    "ContextSelectionBodyOutput": {
+    "ContextSelectionBody": {
       "additionalProperties": false,
       "description": "Complete frozen selection. Deserializing this document grants no source authority.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/ProjectContextBodyOutput",
+          "$ref": "#/$defs/ProjectContextBody",
           "description": "Original immutable selected source descriptor."
         },
         "cut": {
@@ -2935,7 +2935,7 @@
       ],
       "type": "object"
     },
-    "CopiedExecutionObservationsOutput": {
+    "CopiedExecutionObservations": {
       "additionalProperties": false,
       "description": "Passive data-only trace export; empty observations do not imply capture was enabled.",
       "properties": {
@@ -2948,7 +2948,7 @@
         "observations": {
           "description": "Retained actual executions and preparations, in original collector order.",
           "items": {
-            "$ref": "#/$defs/CopiedPlanObservationOutput"
+            "$ref": "#/$defs/CopiedPlanObservation"
           },
           "type": "array"
         },
@@ -2985,7 +2985,7 @@
       ],
       "type": "object"
     },
-    "CopiedExecutionSnapshotOutput": {
+    "CopiedExecutionSnapshot": {
       "additionalProperties": false,
       "description": "Data-only copy of one actual execution population; no plan or stream owner survives.",
       "properties": {
@@ -3002,7 +3002,7 @@
         "metrics": {
           "description": "Native node/partition/label populations with exact units and value kinds.",
           "items": {
-            "$ref": "#/$defs/ObservedMetricOutput"
+            "$ref": "#/$defs/ObservedMetric"
           },
           "type": "array"
         },
@@ -3079,7 +3079,7 @@
         }
       ]
     },
-    "CopiedPlanObservationOutput": {
+    "CopiedPlanObservation": {
       "additionalProperties": false,
       "description": "Bounded original reports plus a single latest-or-terminal metric population.",
       "properties": {
@@ -3093,7 +3093,7 @@
         "execution": {
           "anyOf": [
             {
-              "$ref": "#/$defs/CopiedExecutionSnapshotOutput"
+              "$ref": "#/$defs/CopiedExecutionSnapshot"
             },
             {
               "type": "null"
@@ -3119,7 +3119,7 @@
         "physical_graph": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ObservedPhysicalGraphOutput"
+              "$ref": "#/$defs/ObservedPhysicalGraph"
             },
             {
               "type": "null"
@@ -3158,7 +3158,7 @@
       ],
       "type": "object"
     },
-    "CounterIntervalOutput": {
+    "CounterInterval": {
       "additionalProperties": false,
       "description": "Retained additive interval, copied for passive narrower-window reads.",
       "properties": {
@@ -3196,7 +3196,7 @@
       ],
       "type": "object"
     },
-    "CounterWindowOutput": {
+    "CounterWindow": {
       "additionalProperties": false,
       "description": "Bounded additive history; it cannot be reconstructed from arbitrary point samples.",
       "properties": {
@@ -3207,7 +3207,7 @@
         "intervals": {
           "description": "Retained second intervals, bounded by the same low-owner retention.",
           "items": {
-            "$ref": "#/$defs/CounterIntervalOutput"
+            "$ref": "#/$defs/CounterInterval"
           },
           "type": "array"
         },
@@ -3228,7 +3228,7 @@
       ],
       "type": "object"
     },
-    "CovarianceOriginOutput": {
+    "CovarianceOrigin": {
       "description": "Statistical provenance is independent of matrix admissibility.",
       "oneOf": [
         {
@@ -3358,7 +3358,7 @@
       ],
       "type": "object"
     },
-    "DetailDocumentOutput": {
+    "DetailDocument": {
       "additionalProperties": false,
       "description": "Immutable/readable capture prefix, never scientific publication permission.",
       "properties": {
@@ -3412,7 +3412,7 @@
           "type": "string"
         },
         "request": {
-          "$ref": "#/$defs/DetailRequestOutput",
+          "$ref": "#/$defs/DetailRequest",
           "description": "Original explicit source selection."
         },
         "scope_unavailable": {
@@ -3474,7 +3474,7 @@
         }
       ]
     },
-    "DetailEventOutput": {
+    "DetailEvent": {
       "additionalProperties": false,
       "description": "One bounded actual-time detail observation.",
       "properties": {
@@ -3489,7 +3489,7 @@
         "phase": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PhaseTransitionOutput"
+              "$ref": "#/$defs/PhaseTransition"
             },
             {
               "type": "null"
@@ -3635,7 +3635,7 @@
         }
       ]
     },
-    "DetailRecordPageOutput": {
+    "DetailRecordPage": {
       "additionalProperties": false,
       "description": "Bounded page of original source records, independent from derived explanations.",
       "properties": {
@@ -3669,7 +3669,7 @@
         "records": {
           "description": "Whole original source records, never reconstructed metric tuples.",
           "items": {
-            "$ref": "#/$defs/CoherentRecordBodyOutput"
+            "$ref": "#/$defs/CoherentRecordBody"
           },
           "type": "array"
         },
@@ -3690,7 +3690,7 @@
       ],
       "type": "object"
     },
-    "DetailRequestOutput": {
+    "DetailRequest": {
       "additionalProperties": false,
       "description": "Explicit selection acknowledged before future invocation children are constructed.",
       "properties": {
@@ -3700,7 +3700,7 @@
           "type": "boolean"
         },
         "budget": {
-          "$ref": "#/$defs/CaptureBudgetOutput",
+          "$ref": "#/$defs/CaptureBudget",
           "description": "Separate finite collector/queue/output allowances."
         },
         "duration": {
@@ -3727,7 +3727,7 @@
         "managed_budget": {
           "anyOf": [
             {
-              "$ref": "#/$defs/CaptureBudgetOutput"
+              "$ref": "#/$defs/CaptureBudget"
             },
             {
               "type": "null"
@@ -4032,7 +4032,7 @@
       ],
       "type": "string"
     },
-    "DurationSummaryOutput": {
+    "DurationSummary": {
       "additionalProperties": false,
       "description": "Finite duration extrema; no inferred distribution or exclusive time.",
       "properties": {
@@ -4081,7 +4081,7 @@
       ],
       "type": "string"
     },
-    "ExecutorMetricsSnapshotOutput": {
+    "ExecutorMetricsSnapshot": {
       "additionalProperties": false,
       "description": "Copied stable Tokio facts. Gauges are independently read, not an atomic scheduler census.",
       "properties": {
@@ -4179,7 +4179,7 @@
       ],
       "type": "string"
     },
-    "FeralSettingsOutput": {
+    "FeralSettings": {
       "additionalProperties": false,
       "properties": {
         "bounded_storage_max_dimension": {
@@ -4295,7 +4295,7 @@
       "format": "double",
       "type": "number"
     },
-    "FiniteDifferenceSettingsOutput": {
+    "FiniteDifferenceSettings": {
       "additionalProperties": false,
       "description": "Typed finite-difference pattern, coloring and native reuse controls.",
       "properties": {
@@ -4349,7 +4349,7 @@
       "maximum": 1.0,
       "type": "number"
     },
-    "FrozenAdviceBodyOutput": {
+    "FrozenAdviceBody": {
       "additionalProperties": false,
       "description": "Full immutable body retained with effective settings, including all excluded outcomes.",
       "properties": {
@@ -4367,7 +4367,7 @@
           "description": "Exact admitted comparison premises."
         },
         "limits": {
-          "$ref": "#/$defs/WorkLimitsOutput",
+          "$ref": "#/$defs/WorkLimits",
           "description": "Original allowances for applicability checking; advice never widens them."
         },
         "metric": {
@@ -4377,7 +4377,7 @@
         "observations": {
           "description": "Actual retained observations, including exclusions.",
           "items": {
-            "$ref": "#/$defs/AdviceObservationOutput"
+            "$ref": "#/$defs/AdviceObservation"
           },
           "type": "array"
         },
@@ -4417,7 +4417,7 @@
       ],
       "type": "string"
     },
-    "HighsDiagnosticsOutput": {
+    "HighsDiagnostics": {
       "additionalProperties": false,
       "description": "Requested native diagnostic work, bounded by the original attempt's deadline.",
       "properties": {
@@ -4467,7 +4467,7 @@
         "relaxation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/HighsPenaltiesOutput"
+              "$ref": "#/$defs/HighsPenalties"
             },
             {
               "type": "null"
@@ -4498,7 +4498,7 @@
       ],
       "type": "string"
     },
-    "HighsPenaltiesOutput": {
+    "HighsPenalties": {
       "additionalProperties": false,
       "description": "Complete physical penalty declarations for native feasibility relaxation.",
       "properties": {
@@ -4561,7 +4561,7 @@
       ],
       "type": "string"
     },
-    "InvocationEndpointsOutput": {
+    "InvocationEndpoints": {
       "additionalProperties": false,
       "description": "Observed invocation endpoints. Missing endpoints are unavailable, never zero.",
       "properties": {
@@ -4597,7 +4597,7 @@
       ],
       "type": "object"
     },
-    "InvocationEvidenceDocumentOutput": {
+    "InvocationEvidenceDocument": {
       "additionalProperties": false,
       "description": "One actual execution. Attempt evidence retains its existing charging and settings authority.",
       "properties": {
@@ -4611,7 +4611,7 @@
           "x-pse-identity": "AttemptId"
         },
         "attempts": {
-          "$ref": "#/$defs/AttemptSummaryBodyOutput",
+          "$ref": "#/$defs/AttemptSummaryBody",
           "description": "Existing retained attempt evidence: starts, reuse, configuration, work and coverage.\nIts native/strategy observations overlap and must not be added together."
         },
         "canonical_attempt": {
@@ -4633,7 +4633,7 @@
           "type": "string"
         },
         "endpoints": {
-          "$ref": "#/$defs/InvocationEndpointsOutput",
+          "$ref": "#/$defs/InvocationEndpoints",
           "description": "Directly observed endpoints on this invocation's monotonic pre-dispatch clock."
         },
         "family": {
@@ -4643,7 +4643,7 @@
         "intervals": {
           "description": "Bounded directly observed inclusive owner intervals.",
           "items": {
-            "$ref": "#/$defs/InvocationIntervalOutput"
+            "$ref": "#/$defs/InvocationInterval"
           },
           "type": "array"
         },
@@ -4688,7 +4688,7 @@
         "products": {
           "description": "Actual requested products and their independent availability.",
           "items": {
-            "$ref": "#/$defs/InvocationProductOutput"
+            "$ref": "#/$defs/InvocationProduct"
           },
           "type": "array"
         },
@@ -4737,7 +4737,7 @@
       ],
       "type": "object"
     },
-    "InvocationIntervalOutput": {
+    "InvocationInterval": {
       "additionalProperties": false,
       "description": "One directly observed inclusive owner interval, relative to invocation establishment.",
       "properties": {
@@ -4798,7 +4798,7 @@
         }
       ]
     },
-    "InvocationProductOutput": {
+    "InvocationProduct": {
       "additionalProperties": false,
       "description": "One requested product, independently of the invocation's terminal outcome.",
       "properties": {
@@ -5179,14 +5179,14 @@
         }
       ]
     },
-    "MetricSnapshotOutput": {
+    "MetricSnapshot": {
       "additionalProperties": false,
       "description": "Latest and cumulative facts remain available after recent detail has rolled over.",
       "properties": {
         "counter_window": {
           "anyOf": [
             {
-              "$ref": "#/$defs/CounterWindowOutput"
+              "$ref": "#/$defs/CounterWindow"
             },
             {
               "type": "null"
@@ -5205,7 +5205,7 @@
         "duration_summary": {
           "anyOf": [
             {
-              "$ref": "#/$defs/DurationSummaryOutput"
+              "$ref": "#/$defs/DurationSummary"
             },
             {
               "type": "null"
@@ -5391,7 +5391,7 @@
       ],
       "type": "string"
     },
-    "NativeAttemptRecordOutput": {
+    "NativeAttemptRecord": {
       "additionalProperties": false,
       "description": "Native-owned compact attempt record; scientific workflow position belongs to its caller.\nNo factor, actor, oracle, candidate or complete SolveReport is retained here.",
       "properties": {
@@ -5420,7 +5420,7 @@
         "observations": {
           "anyOf": [
             {
-              "$ref": "#/$defs/NativeObservationsOutput"
+              "$ref": "#/$defs/NativeObservations"
             },
             {
               "type": "null"
@@ -5445,7 +5445,7 @@
         "raw_map": {
           "anyOf": [
             {
-              "$ref": "#/$defs/RawMapHistoryOutput"
+              "$ref": "#/$defs/RawMapHistory"
             },
             {
               "type": "null"
@@ -5469,7 +5469,7 @@
         "start": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SubmittedStartRecordBodyOutput"
+              "$ref": "#/$defs/SubmittedStartRecordBody"
             },
             {
               "type": "null"
@@ -5482,7 +5482,7 @@
           "type": "boolean"
         },
         "termination": {
-          "$ref": "#/$defs/NativeTerminationRecordOutput",
+          "$ref": "#/$defs/NativeTerminationRecord",
           "description": "Actual native status and the adapter's conservative interpretation."
         },
         "variables": {
@@ -5495,7 +5495,7 @@
           "type": "array"
         },
         "work": {
-          "$ref": "#/$defs/WorkEvidenceOutput",
+          "$ref": "#/$defs/WorkEvidence",
           "description": "Executing-owner work counters; absent values remain unknown."
         }
       },
@@ -5571,7 +5571,7 @@
       ],
       "type": "object"
     },
-    "NativeCountersOutput": {
+    "NativeCounters": {
       "description": "Family-specific native meanings; these counters are not interchangeable cost units.",
       "oneOf": [
         {
@@ -5861,7 +5861,7 @@
         }
       ]
     },
-    "NativeObservationsOutput": {
+    "NativeObservations": {
       "additionalProperties": false,
       "description": "Exact profile and problem witness for native facts; unknown counters remain absent.",
       "properties": {
@@ -5874,13 +5874,13 @@
           "description": "Point coordinates still require verified outer transport for authored diagnostics."
         },
         "counters": {
-          "$ref": "#/$defs/NativeCountersOutput",
+          "$ref": "#/$defs/NativeCounters",
           "description": "Native family-specific getters."
         },
         "current": {
           "anyOf": [
             {
-              "$ref": "#/$defs/NativeSnapshotOutput"
+              "$ref": "#/$defs/NativeSnapshot"
             },
             {
               "type": "null"
@@ -5960,7 +5960,7 @@
         }
       ]
     },
-    "NativeSnapshotOutput": {
+    "NativeSnapshot": {
       "additionalProperties": false,
       "description": "Latest callback point in its submitted coordinate authority, not a resumable state.",
       "properties": {
@@ -6054,7 +6054,7 @@
       ],
       "type": "string"
     },
-    "NativeTerminationRecordOutput": {
+    "NativeTerminationRecord": {
       "additionalProperties": false,
       "description": "Raw native termination and the adapter's conservative interpretation.",
       "properties": {
@@ -6174,7 +6174,7 @@
       ],
       "type": "string"
     },
-    "NumericalPolicyOutput": {
+    "NumericalPolicy": {
       "additionalProperties": false,
       "description": "Shared semantic controls resolved before invoking any native adapter.",
       "properties": {
@@ -6205,7 +6205,7 @@
           "default": [],
           "description": "Shared rules matched by full quantity meaning, not dimensions alone.",
           "items": {
-            "$ref": "#/$defs/AuthoredEngineeringDefaultRulesRowOutput"
+            "$ref": "#/$defs/AuthoredEngineeringDefaultRulesRow"
           },
           "type": "array"
         },
@@ -6213,7 +6213,7 @@
           "default": [],
           "description": "Admitted explicitly tagged scales, with source and scope retained.",
           "items": {
-            "$ref": "#/$defs/AuthoredEngineeringScalesRowOutput"
+            "$ref": "#/$defs/AuthoredEngineeringScalesRow"
           },
           "type": "array"
         },
@@ -6233,7 +6233,7 @@
           "default": [],
           "description": "Selected output goals; empty does not assert decision invariance.",
           "items": {
-            "$ref": "#/$defs/AuthoredAccuracyGoalsRowOutput"
+            "$ref": "#/$defs/AuthoredAccuracyGoalsRow"
           },
           "type": "array"
         },
@@ -6283,7 +6283,7 @@
           "default": [],
           "description": "ID-keyed analysis overrides, using the same declaration as model/case sources.",
           "items": {
-            "$ref": "#/$defs/AuthoredNumericalRequirementsRowOutput"
+            "$ref": "#/$defs/AuthoredNumericalRequirementsRow"
           },
           "type": "array"
         },
@@ -6554,7 +6554,7 @@
         }
       ]
     },
-    "ObservedMetricOutput": {
+    "ObservedMetric": {
       "additionalProperties": false,
       "description": "One metric from one node and partition of the executed graph.",
       "properties": {
@@ -6663,7 +6663,7 @@
       ],
       "type": "object"
     },
-    "ObservedPhysicalGraphOutput": {
+    "ObservedPhysicalGraph": {
       "additionalProperties": false,
       "description": "A bounded actual physical topology. Ordinals share the native metric traversal.",
       "properties": {
@@ -6829,14 +6829,14 @@
       ],
       "type": "string"
     },
-    "OperationSnapshotBodyOutput": {
+    "OperationSnapshotBody": {
       "additionalProperties": false,
       "description": "A bounded independent read. Overlapping child times must not be added as exclusive time.",
       "properties": {
         "children": {
           "description": "Bounded linked-operation summaries, with explicit unavailable attribution.",
           "items": {
-            "$ref": "#/$defs/ChildSnapshotOutput"
+            "$ref": "#/$defs/ChildSnapshot"
           },
           "type": "array"
         },
@@ -6847,7 +6847,7 @@
         "detail": {
           "description": "Bounded actual-time detail prefix within the requested interval.",
           "items": {
-            "$ref": "#/$defs/DetailEventOutput"
+            "$ref": "#/$defs/DetailEvent"
           },
           "type": "array"
         },
@@ -6889,7 +6889,7 @@
         "metrics": {
           "description": "Bounded producer-owned facts; child facts are never summed implicitly.",
           "items": {
-            "$ref": "#/$defs/MetricSnapshotOutput"
+            "$ref": "#/$defs/MetricSnapshot"
           },
           "type": "array"
         },
@@ -6925,7 +6925,7 @@
         "producers": {
           "description": "Explicit producers with atomic current and independently retained recent records.",
           "items": {
-            "$ref": "#/$defs/ProducerSnapshotOutput"
+            "$ref": "#/$defs/ProducerSnapshot"
           },
           "type": "array"
         },
@@ -6955,7 +6955,7 @@
         "summary": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SummaryPublicationOutput"
+              "$ref": "#/$defs/SummaryPublication"
             },
             {
               "type": "null"
@@ -6989,7 +6989,7 @@
       ],
       "type": "object"
     },
-    "OperationalMetricsSnapshotOutput": {
+    "OperationalMetricsSnapshot": {
       "additionalProperties": false,
       "description": "Copied owner totals. Acquisition callers and shared producers are overlapping populations.",
       "properties": {
@@ -7093,12 +7093,12 @@
       ],
       "description": "Native option type; each adapter validates registration, type and protected controls.\nA document states the value itself: a JSON Boolean, integer, other number or string\ndecodes as the Boolean, integer, real or text option of that value."
     },
-    "ParameterCovarianceOutput": {
+    "ParameterCovariance": {
       "additionalProperties": false,
       "description": "A parameter covariance as `runtime.parameter_covariances` publishes it.",
       "properties": {
         "origin": {
-          "$ref": "#/$defs/CovarianceOriginOutput",
+          "$ref": "#/$defs/CovarianceOrigin",
           "description": "A qualified fit reference or explicit external statistical assumptions."
         },
         "parameter_quantities": {
@@ -7176,7 +7176,7 @@
       ],
       "type": "string"
     },
-    "PartitionedSettingsOutput": {
+    "PartitionedSettings": {
       "additionalProperties": false,
       "description": "Typed partitioned update controls. An absent formula preserves the library's\nmode-dependent default and its option set-ness.",
       "properties": {
@@ -7256,7 +7256,7 @@
       ],
       "type": "object"
     },
-    "PhaseTransitionOutput": {
+    "PhaseTransition": {
       "additionalProperties": false,
       "description": "Actual phase entry/exit facts, retaining token and exact timestamps for optional export.",
       "properties": {
@@ -7582,7 +7582,7 @@
       ],
       "type": "object"
     },
-    "ProcessCheckpointOutput": {
+    "ProcessCheckpoint": {
       "additionalProperties": false,
       "description": "One immutable process publication, never a scientific result or native restart state.",
       "properties": {
@@ -7598,7 +7598,7 @@
           "description": "Mapping to the same-host monotonic clock, with bounded read uncertainty."
         },
         "locator": {
-          "$ref": "#/$defs/ProcessLocatorBodyOutput",
+          "$ref": "#/$defs/ProcessLocatorBody",
           "description": "Actual operational attachment locator, not build provenance."
         },
         "omitted": {
@@ -7610,7 +7610,7 @@
         "operations": {
           "description": "Current/cumulative/recent facts, including their own scopes and coverage.",
           "items": {
-            "$ref": "#/$defs/OperationSnapshotBodyOutput"
+            "$ref": "#/$defs/OperationSnapshotBody"
           },
           "type": "array"
         },
@@ -7640,11 +7640,11 @@
           "description": "Registry refusal/loss, including operations that could not obtain diagnostic storage."
         },
         "resources": {
-          "$ref": "#/$defs/ProcessResourcesOutput",
+          "$ref": "#/$defs/ProcessResources",
           "description": "Process-wide samples, never a private operation's peak or exclusive CPU time."
         },
         "runtime_metrics": {
-          "$ref": "#/$defs/RuntimeMetricsSnapshotOutput",
+          "$ref": "#/$defs/RuntimeMetricsSnapshot",
           "description": "Actual executor and selected-future measurements, with their independent coverage."
         },
         "sequence": {
@@ -7660,7 +7660,7 @@
         "threads": {
           "description": "Bounded actual native-thread execution scopes.",
           "items": {
-            "$ref": "#/$defs/ThreadExecutionOutput"
+            "$ref": "#/$defs/ThreadExecution"
           },
           "type": "array"
         },
@@ -7694,7 +7694,7 @@
       ],
       "type": "object"
     },
-    "ProcessLocatorBodyOutput": {
+    "ProcessLocatorBody": {
       "additionalProperties": false,
       "description": "Actual process locator. PID reuse must be checked before attaching an optional sampler.",
       "properties": {
@@ -7728,7 +7728,7 @@
       ],
       "type": "object"
     },
-    "ProcessResourcesOutput": {
+    "ProcessResources": {
       "additionalProperties": false,
       "description": "Independently sampled process scope. Missing values are unavailable, never zero-filled.",
       "properties": {
@@ -7867,7 +7867,7 @@
         }
       ]
     },
-    "ProducerSnapshotOutput": {
+    "ProducerSnapshot": {
       "additionalProperties": false,
       "description": "One producer's independent current and recent record views.",
       "properties": {
@@ -7878,7 +7878,7 @@
         "current": {
           "anyOf": [
             {
-              "$ref": "#/$defs/CoherentRecordBodyOutput"
+              "$ref": "#/$defs/CoherentRecordBody"
             },
             {
               "type": "null"
@@ -7893,7 +7893,7 @@
         "recent": {
           "description": "Bounded whole records intersecting the requested interval.",
           "items": {
-            "$ref": "#/$defs/CoherentRecordBodyOutput"
+            "$ref": "#/$defs/CoherentRecordBody"
           },
           "type": "array"
         }
@@ -7926,7 +7926,7 @@
         }
       ]
     },
-    "ProjectContextBodyOutput": {
+    "ProjectContextBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -8019,12 +8019,12 @@
       "description": "An opaque canonical lookup key; never a scientific semantic identity.",
       "type": "string"
     },
-    "PropagationOutput": {
+    "Propagation": {
       "additionalProperties": false,
       "description": "Propagation of a parameter covariance to solved variables, `Σ_y = J·Σ_θ·Jᵀ` with `J` the\nstep's parametric sensitivities (Plan 22 S4; ADR-0118 items 1 and 11). The result holds\nwhile the sensitivities do: its validity is theirs, and the covariance's, which a fit\npublishes only when certified.",
       "properties": {
         "covariance": {
-          "$ref": "#/$defs/ParameterCovarianceOutput",
+          "$ref": "#/$defs/ParameterCovariance",
           "description": "The covariance to propagate, as a fit run published it."
         },
         "outputs": {
@@ -8084,7 +8084,7 @@
         }
       ]
     },
-    "RawMapCoordinateOutput": {
+    "RawMapCoordinate": {
       "additionalProperties": false,
       "description": "One physical tear quantity, or an explicitly submitted-oracle quantity.",
       "properties": {
@@ -8205,14 +8205,14 @@
         }
       ]
     },
-    "RawMapHistoryOutput": {
+    "RawMapHistory": {
       "additionalProperties": false,
       "description": "Shared bounded history, independent of lossy progress events.",
       "properties": {
         "last_evaluation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/RawMapSampleOutput"
+              "$ref": "#/$defs/RawMapSample"
             },
             {
               "type": "null"
@@ -8223,7 +8223,7 @@
         "last_successful": {
           "anyOf": [
             {
-              "$ref": "#/$defs/RawMapSampleOutput"
+              "$ref": "#/$defs/RawMapSample"
             },
             {
               "type": "null"
@@ -8252,7 +8252,7 @@
         "samples": {
           "description": "Retained prefix of actual evaluations, shared with last_successful when possible.",
           "items": {
-            "$ref": "#/$defs/RawMapSampleOutput"
+            "$ref": "#/$defs/RawMapSample"
           },
           "type": "array"
         }
@@ -8292,7 +8292,7 @@
         }
       ]
     },
-    "RawMapSampleOutput": {
+    "RawMapSample": {
       "additionalProperties": false,
       "description": "A bounded diagnostic map sample; missing fields are unknown, never zero.",
       "properties": {
@@ -8373,7 +8373,7 @@
         "values": {
           "description": "Bounded coordinate prefix.",
           "items": {
-            "$ref": "#/$defs/RawMapCoordinateOutput"
+            "$ref": "#/$defs/RawMapCoordinate"
           },
           "type": "array"
         }
@@ -8495,7 +8495,7 @@
       ],
       "type": "object"
     },
-    "RecordFieldOutput": {
+    "RecordField": {
       "additionalProperties": false,
       "description": "One typed member of an indivisible source-issued record.",
       "properties": {
@@ -8564,7 +8564,7 @@
       ],
       "type": "string"
     },
-    "ReplayCoverageOutput": {
+    "ReplayCoverage": {
       "additionalProperties": false,
       "description": "Recorded coverage, without promoting an interrupted prefix into a full trajectory.",
       "properties": {
@@ -8616,7 +8616,7 @@
       ],
       "type": "object"
     },
-    "ReplayNativeAttemptOutput": {
+    "ReplayNativeAttempt": {
       "additionalProperties": false,
       "description": "Workflow attribution over the native owner's immutable compact attempt facts.",
       "properties": {
@@ -8636,7 +8636,7 @@
           "type": "integer"
         },
         "record": {
-          "$ref": "#/$defs/NativeAttemptRecordOutput",
+          "$ref": "#/$defs/NativeAttemptRecord",
           "description": "Full actual native options, termination, counters, start receipt and raw evidence."
         },
         "step": {
@@ -8775,7 +8775,7 @@
       ],
       "type": "object"
     },
-    "ReplaySolverSettingsOutput": {
+    "ReplaySolverSettings": {
       "additionalProperties": false,
       "description": "Full actual requested solver controls; native settings remain their original typed authority.",
       "properties": {
@@ -8795,7 +8795,7 @@
           "description": "Stable original structural block overrides, including their complete controls.",
           "patternProperties": {
             "^blake3:[0-9a-fA-F]{64}$": {
-              "$ref": "#/$defs/BlockSolveOverrideBodyOutput"
+              "$ref": "#/$defs/BlockSolveOverrideBody"
             }
           },
           "type": "object"
@@ -8807,11 +8807,11 @@
           "type": "integer"
         },
         "composition": {
-          "$ref": "#/$defs/CompositionRequestBodyOutput",
+          "$ref": "#/$defs/CompositionRequestBody",
           "description": "Complete original composition, frozen advice, branch and finite work limits."
         },
         "controls": {
-          "$ref": "#/$defs/SolveControlsOutput",
+          "$ref": "#/$defs/SolveControls",
           "description": "Original finite controls, including wall allowance, options, starts and reuse."
         },
         "convexity_absolute": {
@@ -8835,7 +8835,7 @@
           "description": "Original scientific analysis goal."
         },
         "numerics": {
-          "$ref": "#/$defs/NumericalPolicyOutput",
+          "$ref": "#/$defs/NumericalPolicy",
           "description": "Full ID-keyed scientific numerical requirements."
         },
         "presolve": {
@@ -8871,7 +8871,7 @@
         "sensitivity": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SensitivityRequestOutput"
+              "$ref": "#/$defs/SensitivityRequest"
             },
             {
               "type": "null"
@@ -8882,7 +8882,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettingsBodyOutput"
+              "$ref": "#/$defs/BackendSettingsBody"
             },
             {
               "type": "null"
@@ -8973,7 +8973,7 @@
       ],
       "type": "object"
     },
-    "ResearchSourceOutput": {
+    "ResearchSource": {
       "additionalProperties": false,
       "description": "Authenticated original research ancestry carried by actual operation inputs.",
       "properties": {
@@ -9076,7 +9076,7 @@
         }
       ]
     },
-    "ReviewContextDocumentOutput": {
+    "ReviewContextDocument": {
       "additionalProperties": false,
       "description": "Data-only descriptive context. Deserialization grants no factory or execution capability.",
       "properties": {
@@ -9092,7 +9092,7 @@
         "coverage": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ReplayCoverageOutput"
+              "$ref": "#/$defs/ReplayCoverage"
             },
             {
               "type": "null"
@@ -9141,7 +9141,7 @@
         "solver_settings": {
           "description": "Actual materialized settings, in selected original step order.",
           "items": {
-            "$ref": "#/$defs/ReplaySolverSettingsOutput"
+            "$ref": "#/$defs/ReplaySolverSettings"
           },
           "type": "array"
         },
@@ -9157,14 +9157,14 @@
         "sources": {
           "description": "Selected original source closures. Build hashes describe source image premises only.",
           "items": {
-            "$ref": "#/$defs/ReviewSourceDocumentOutput"
+            "$ref": "#/$defs/ReviewSourceDocument"
           },
           "type": "array"
         },
         "unavailable": {
           "description": "Explicit omissions and unavailable capabilities.",
           "items": {
-            "$ref": "#/$defs/ReviewContextUnavailableOutput"
+            "$ref": "#/$defs/ReviewContextUnavailable"
           },
           "type": "array"
         },
@@ -9257,7 +9257,7 @@
       ],
       "type": "object"
     },
-    "ReviewContextUnavailableOutput": {
+    "ReviewContextUnavailable": {
       "additionalProperties": false,
       "description": "Missing explanatory material is independent of scientific product availability.",
       "properties": {
@@ -9322,7 +9322,7 @@
       ],
       "type": "object"
     },
-    "ReviewInventoryMemberOutput": {
+    "ReviewInventoryMember": {
       "additionalProperties": false,
       "description": "Immutable copied member metadata, with actual readable result-prefix facts.",
       "properties": {
@@ -9428,7 +9428,7 @@
       ],
       "type": "object"
     },
-    "ReviewInventorySelectionOutput": {
+    "ReviewInventorySelection": {
       "additionalProperties": false,
       "description": "Frozen metadata selected at owner boundaries; never an atomic cross-process graph.",
       "properties": {
@@ -9446,7 +9446,7 @@
         "members": {
           "description": "Bounded immutable member prefix, in its recorded order.",
           "items": {
-            "$ref": "#/$defs/ReviewInventoryMemberOutput"
+            "$ref": "#/$defs/ReviewInventoryMember"
           },
           "type": "array"
         },
@@ -9475,7 +9475,7 @@
       ],
       "type": "object"
     },
-    "ReviewProviderDescriptorOutput": {
+    "ReviewProviderDescriptor": {
       "additionalProperties": false,
       "description": "Recorded callable descriptor, independent of opaque factory configuration callbacks.",
       "properties": {
@@ -9593,7 +9593,7 @@
         }
       ]
     },
-    "ReviewQueryColumnOutput": {
+    "ReviewQueryColumn": {
       "additionalProperties": false,
       "description": "A declared output column; strings preserve canonical native integer text.",
       "properties": {
@@ -9620,14 +9620,14 @@
       ],
       "type": "object"
     },
-    "ReviewQueryDocumentOutput": {
+    "ReviewQueryDocument": {
       "additionalProperties": false,
       "description": "Retained query product, including readable failure prefixes and interpretation limits.",
       "properties": {
         "columns": {
           "description": "Schema expected from this query, not inferred from returned data.",
           "items": {
-            "$ref": "#/$defs/ReviewQueryColumnOutput"
+            "$ref": "#/$defs/ReviewQueryColumn"
           },
           "type": "array"
         },
@@ -9684,7 +9684,7 @@
           "type": "integer"
         },
         "request": {
-          "$ref": "#/$defs/ReviewQueryRequestOutput",
+          "$ref": "#/$defs/ReviewQueryRequest",
           "description": "Exact accepted request."
         },
         "rows": {
@@ -9737,7 +9737,7 @@
       ],
       "type": "object"
     },
-    "ReviewQueryRequestOutput": {
+    "ReviewQueryRequest": {
       "additionalProperties": false,
       "description": "Explicit optional query request, separate from a scientific operation.",
       "properties": {
@@ -9833,7 +9833,7 @@
         }
       ]
     },
-    "ReviewSourceDocumentOutput": {
+    "ReviewSourceDocument": {
       "additionalProperties": false,
       "description": "Original source facts, with opaque descriptors and no executable factory predicates.",
       "properties": {
@@ -9846,7 +9846,7 @@
         "context": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ContextSelectionBodyOutput"
+              "$ref": "#/$defs/ContextSelectionBody"
             },
             {
               "type": "null"
@@ -9887,14 +9887,14 @@
         "providers": {
           "description": "Recorded provider ABI descriptors; opaque implementations stay unavailable.",
           "items": {
-            "$ref": "#/$defs/ReviewProviderDescriptorOutput"
+            "$ref": "#/$defs/ReviewProviderDescriptor"
           },
           "type": "array"
         },
         "research": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ResearchSourceOutput"
+              "$ref": "#/$defs/ResearchSource"
             },
             {
               "type": "null"
@@ -9951,12 +9951,12 @@
       ],
       "type": "object"
     },
-    "RuntimeMetricsSnapshotOutput": {
+    "RuntimeMetricsSnapshot": {
       "additionalProperties": false,
       "description": "One read of the same typed sources used by checkpoints and optional OTel export.",
       "properties": {
         "canonical_queries": {
-          "$ref": "#/$defs/CanonicalQueryMetricsOutput",
+          "$ref": "#/$defs/CanonicalQueryMetrics",
           "description": "Selected canonical Query-adapter statistics; excludes other client APIs."
         },
         "coverage": {
@@ -9966,16 +9966,16 @@
         "executors": {
           "description": "At most eight actual registered executors.",
           "items": {
-            "$ref": "#/$defs/ExecutorMetricsSnapshotOutput"
+            "$ref": "#/$defs/ExecutorMetricsSnapshot"
           },
           "type": "array"
         },
         "locator": {
-          "$ref": "#/$defs/ProcessLocatorBodyOutput",
+          "$ref": "#/$defs/ProcessLocatorBody",
           "description": "Actual process/start locator; absence of start ticks limits identity evidence."
         },
         "operational": {
-          "$ref": "#/$defs/OperationalMetricsSnapshotOutput",
+          "$ref": "#/$defs/OperationalMetricsSnapshot",
           "description": "Same cumulative native/shared-preparation source read by OTel callbacks."
         },
         "preparations": {
@@ -10008,7 +10008,7 @@
       ],
       "type": "object"
     },
-    "SeedOriginOutput": {
+    "SeedOrigin": {
       "additionalProperties": false,
       "description": "Portable provenance of an output seed, distinct from its coordinate compatibility.",
       "properties": {
@@ -10034,7 +10034,7 @@
       ],
       "type": "object"
     },
-    "SeedTransformationOutput": {
+    "SeedTransformation": {
       "description": "One transformation a submitted seed passed through between its source coordinates and\nthe native API, recorded from what actually ran (F25).",
       "oneOf": [
         {
@@ -10102,7 +10102,7 @@
               "type": "string"
             },
             "value": {
-              "$ref": "#/$defs/AppliedRestartOutput"
+              "$ref": "#/$defs/AppliedRestart"
             }
           },
           "required": [
@@ -10113,7 +10113,7 @@
         }
       ]
     },
-    "SensitivityRequestOutput": {
+    "SensitivityRequest": {
       "additionalProperties": false,
       "description": "Physical parameter sensitivities at a regular square Root or an optimization's local\nsolution (ADR-0144; ADR-0118). Roots use qualified equality Jacobian response;\noptimization uses KKT-point analysis. Results use original physical coordinates and\nunits, with certified validity or the condition that withheld them.",
       "properties": {
@@ -10129,7 +10129,7 @@
         "propagation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PropagationOutput"
+              "$ref": "#/$defs/Propagation"
             },
             {
               "type": "null"
@@ -10149,7 +10149,7 @@
       ],
       "type": "object"
     },
-    "SolveControlsOutput": {
+    "SolveControls": {
       "additionalProperties": false,
       "description": "Finite shared attempt controls chosen by the caller; solver-specific settings remain\nnative typed values. Accuracy is not among them: it is resolved from the numerical\npolicy ([`ResolvedAccuracy`]). A document states the time limit in seconds; absent\nfields take these defaults and unknown fields are refused.",
       "properties": {
@@ -10289,7 +10289,7 @@
         }
       ]
     },
-    "SubmittedStartRecordBodyOutput": {
+    "SubmittedStartRecordBody": {
       "additionalProperties": false,
       "description": "Actual submitted source-coordinate seed, distinct from an output or native checkpoint.",
       "properties": {
@@ -10305,7 +10305,7 @@
         "seed": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WarmStartSnapshotBodyOutput"
+              "$ref": "#/$defs/WarmStartSnapshotBody"
             },
             {
               "type": "null"
@@ -10340,7 +10340,7 @@
         "transformations": {
           "description": "Complete transformations actually applied before API submission.",
           "items": {
-            "$ref": "#/$defs/SeedTransformationOutput"
+            "$ref": "#/$defs/SeedTransformation"
           },
           "type": "array"
         }
@@ -10384,7 +10384,7 @@
       ],
       "type": "object"
     },
-    "SummaryPublicationOutput": {
+    "SummaryPublication": {
       "additionalProperties": false,
       "description": "Generic producer-owned compact explanation; it grants no execution ownership.",
       "properties": {
@@ -10549,7 +10549,7 @@
       ],
       "type": "string"
     },
-    "ThreadExecutionOutput": {
+    "ThreadExecution": {
       "additionalProperties": false,
       "description": "One actual entered native-thread scope. Async migration is not inferred from this record.",
       "properties": {
@@ -10603,7 +10603,7 @@
       "format": "double",
       "type": "number"
     },
-    "TrustRegionOutput": {
+    "TrustRegion": {
       "additionalProperties": false,
       "description": "Normalized radius bounds consumed by the native trust-region method.",
       "properties": {
@@ -10782,7 +10782,7 @@
         }
       ]
     },
-    "WarmPayloadSnapshotOutput": {
+    "WarmPayloadSnapshot": {
       "description": "Portable seed data with explicit numerical observations.",
       "oneOf": [
         {
@@ -10869,7 +10869,7 @@
             "working_set": {
               "anyOf": [
                 {
-                  "$ref": "#/$defs/WorkingSetSnapshotOutput"
+                  "$ref": "#/$defs/WorkingSetSnapshot"
                 },
                 {
                   "type": "null"
@@ -10951,7 +10951,7 @@
         }
       ]
     },
-    "WarmRestartOutput": {
+    "WarmRestart": {
       "additionalProperties": false,
       "description": "How an interior-point method re-centres a complete primal-dual seed (L-N3). With the\ncold-start defaults a seeded restart is pushed back towards the analytic centre and loses\nmost of its benefit, so a restart states its barrier and its pushes. Absent fields take\nthese defaults across the Python boundary (ADR-0113).",
       "properties": {
@@ -10998,7 +10998,7 @@
       ],
       "type": "object"
     },
-    "WarmStartSnapshotBodyOutput": {
+    "WarmStartSnapshotBody": {
       "additionalProperties": false,
       "description": "Typed semantic seed snapshot. Nonfinite numbers have explicit observations; zero's\nsign survives in real observations. Snapshot attribution is separate from content identity.",
       "properties": {
@@ -11021,7 +11021,7 @@
         "origin": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SeedOriginOutput"
+              "$ref": "#/$defs/SeedOrigin"
             },
             {
               "type": "null"
@@ -11030,7 +11030,7 @@
           "description": "Producing occurrence, when there is one."
         },
         "payload": {
-          "$ref": "#/$defs/WarmPayloadSnapshotOutput",
+          "$ref": "#/$defs/WarmPayloadSnapshot",
           "description": "Complete portable seed data."
         },
         "profile": {
@@ -11050,7 +11050,7 @@
       ],
       "type": "object"
     },
-    "WorkChargeOutput": {
+    "WorkCharge": {
       "additionalProperties": false,
       "description": "A work event with one owner; the effectful ledger prevents duplicate charging.",
       "properties": {
@@ -11061,7 +11061,7 @@
           "x-pse-identity": "ContentHash"
         },
         "observed": {
-          "$ref": "#/$defs/WorkObservationOutput",
+          "$ref": "#/$defs/WorkObservation",
           "description": "Actual observations, retaining unknown counters."
         },
         "phase": {
@@ -11081,7 +11081,7 @@
       ],
       "type": "object"
     },
-    "WorkEvidenceOutput": {
+    "WorkEvidence": {
       "additionalProperties": false,
       "description": "Work observed by its executing owner; unavailable counters remain absent.",
       "properties": {
@@ -11130,7 +11130,7 @@
       ],
       "type": "object"
     },
-    "WorkLimitsOutput": {
+    "WorkLimits": {
       "additionalProperties": false,
       "description": "Additional finite work allowances. None imposes no additional counter cap under the\nenclosing finite ExecutionScope; it never denotes an observed zero or a new deadline.\nEvery supplied counter is finite; Some(0) expressly prohibits that operation.",
       "properties": {
@@ -11186,7 +11186,7 @@
       ],
       "type": "object"
     },
-    "WorkObservationOutput": {
+    "WorkObservation": {
       "additionalProperties": false,
       "description": "Actual observations. Unknown counters remain None; these are neither allowances nor\nreservations. Inclusive nested callback work is reported by its one charging owner.",
       "properties": {
@@ -11242,7 +11242,7 @@
       ],
       "type": "object"
     },
-    "WorkingSetSnapshotOutput": {
+    "WorkingSetSnapshot": {
       "additionalProperties": false,
       "description": "Typed active set with the transformation under which its indices are meaningful.",
       "properties": {
@@ -11300,14 +11300,14 @@
       "default": [],
       "description": "Capture metadata only. Embedded output paths never authorize file reads.",
       "items": {
-        "$ref": "#/$defs/CaptureDocumentOutput"
+        "$ref": "#/$defs/CaptureDocument"
       },
       "type": "array"
     },
     "checkpoints": {
       "description": "Exact process publication images, at most 32; conflicting process identities refuse.",
       "items": {
-        "$ref": "#/$defs/ProcessCheckpointOutput"
+        "$ref": "#/$defs/ProcessCheckpoint"
       },
       "type": "array"
     },
@@ -11315,7 +11315,7 @@
       "default": [],
       "description": "Descriptive scientific context, independent of executable replay.",
       "items": {
-        "$ref": "#/$defs/ReviewContextDocumentOutput"
+        "$ref": "#/$defs/ReviewContextDocument"
       },
       "type": "array"
     },
@@ -11323,7 +11323,7 @@
       "default": [],
       "description": "Explicit immutable pages; embedded paths are descriptive, never resolution authority.",
       "items": {
-        "$ref": "#/$defs/DetailRecordPageOutput"
+        "$ref": "#/$defs/DetailRecordPage"
       },
       "type": "array"
     },
@@ -11331,7 +11331,7 @@
       "default": [],
       "description": "Detail capture metadata only; raw pages are explicitly supplied separately.",
       "items": {
-        "$ref": "#/$defs/DetailDocumentOutput"
+        "$ref": "#/$defs/DetailDocument"
       },
       "type": "array"
     },
@@ -11339,7 +11339,7 @@
       "default": [],
       "description": "Copied engine observations, without live plan or session handles.",
       "items": {
-        "$ref": "#/$defs/CopiedExecutionObservationsOutput"
+        "$ref": "#/$defs/CopiedExecutionObservations"
       },
       "type": "array"
     },
@@ -11347,7 +11347,7 @@
       "default": [],
       "description": "Frozen exact membership/current-versus-retained attempt selections.",
       "items": {
-        "$ref": "#/$defs/ReviewInventorySelectionOutput"
+        "$ref": "#/$defs/ReviewInventorySelection"
       },
       "type": "array"
     },
@@ -11355,7 +11355,7 @@
       "default": [],
       "description": "Saved invocation facts; no native or allocation owners can be reconstructed.",
       "items": {
-        "$ref": "#/$defs/InvocationEvidenceDocumentOutput"
+        "$ref": "#/$defs/InvocationEvidenceDocument"
       },
       "type": "array"
     },
@@ -11363,7 +11363,7 @@
       "default": [],
       "description": "Exact copied operation members supplied independently of a whole process image.",
       "items": {
-        "$ref": "#/$defs/OperationSnapshotBodyOutput"
+        "$ref": "#/$defs/OperationSnapshotBody"
       },
       "type": "array"
     },
@@ -11371,7 +11371,7 @@
       "default": [],
       "description": "Contextual optional query outputs; raw members remain independent.",
       "items": {
-        "$ref": "#/$defs/ReviewQueryDocumentOutput"
+        "$ref": "#/$defs/ReviewQueryDocument"
       },
       "type": "array"
     },
@@ -11379,7 +11379,7 @@
       "default": [],
       "description": "Exact copied coherent source records, retaining their own clock and event identity.",
       "items": {
-        "$ref": "#/$defs/CoherentRecordBodyOutput"
+        "$ref": "#/$defs/CoherentRecordBody"
       },
       "type": "array"
     },
@@ -11404,6 +11404,6 @@
     "engine_observations",
     "query_results"
   ],
-  "title": "FrozenEvidenceSetOutput",
+  "title": "FrozenEvidenceSet",
   "type": "object"
 }

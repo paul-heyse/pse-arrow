@@ -24,7 +24,7 @@
       ],
       "type": "string"
     },
-    "AuthoredDocumentsRowOutput": {
+    "AuthoredDocumentsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -129,7 +129,7 @@
       ],
       "type": "object"
     },
-    "AuthoredFitCasesFieldObservationsItemOutput": {
+    "AuthoredFitCasesFieldObservationsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -212,7 +212,7 @@
       ],
       "type": "object"
     },
-    "AuthoredFitCasesFieldParametersItemOutput": {
+    "AuthoredFitCasesFieldParametersItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -263,7 +263,7 @@
       ],
       "type": "object"
     },
-    "AuthoredFitCasesRowOutput": {
+    "AuthoredFitCasesRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -283,14 +283,14 @@
         "observations": {
           "description": "observations",
           "items": {
-            "$ref": "#/$defs/AuthoredFitCasesFieldObservationsItemOutput"
+            "$ref": "#/$defs/AuthoredFitCasesFieldObservationsItem"
           },
           "type": "array"
         },
         "parameters": {
           "description": "parameters",
           "items": {
-            "$ref": "#/$defs/AuthoredFitCasesFieldParametersItemOutput"
+            "$ref": "#/$defs/AuthoredFitCasesFieldParametersItem"
           },
           "type": "array"
         }
@@ -303,26 +303,549 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem": {
+    "AuthoredModelingDeclarationsFieldValue": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
+        "accumulator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAccumulator"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "accumulator"
         },
-        "name": {
-          "description": "name",
-          "type": "string"
+        "annotation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "annotation"
+        },
+        "applicability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueApplicability"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "applicability"
+        },
+        "attribute": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAttribute"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "attribute"
+        },
+        "binding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBinding"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "binding"
+        },
+        "boundary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBoundary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "boundary"
+        },
+        "cardinality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCardinality"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "cardinality"
+        },
+        "collocation_scheme": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCollocationScheme"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "collocation_scheme"
+        },
+        "complementarity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueComplementarity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "complementarity"
+        },
+        "connection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueConnection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "connection"
+        },
+        "constant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueConstant"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "constant"
+        },
+        "continuation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContinuation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "continuation"
+        },
+        "continuous": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContinuous"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "continuous"
+        },
+        "contribution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContribution"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "contribution"
+        },
+        "coordinate_map": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateMap"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "coordinate_map"
+        },
+        "coordinate_slot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateSlot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "coordinate_slot"
+        },
+        "dataset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDataset"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "dataset"
+        },
+        "difference_scheme": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDifferenceScheme"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "difference_scheme"
+        },
+        "discretization": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDiscretization"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "discretization"
+        },
+        "entity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEntity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "entity"
+        },
+        "enumeration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEnumeration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "enumeration"
+        },
+        "envelope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "envelope"
+        },
+        "equation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "equation"
+        },
+        "exchange": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueExchange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "exchange"
+        },
+        "expectation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueExpectation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "expectation"
+        },
+        "function": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueFunction"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "function"
+        },
+        "guard": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueGuard"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "guard"
+        },
+        "import": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueImport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "import"
+        },
+        "inventory_balance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueInventoryBalance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "inventory_balance"
+        },
+        "kind": {
+          "$ref": "#/$defs/ModelingDeclarationKind",
+          "description": "kind"
+        },
+        "logic": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueLogic"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "logic"
+        },
+        "ordered_set": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueOrderedSet"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "ordered_set"
+        },
+        "permission": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValuePermission"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "permission"
+        },
+        "piecewise": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValuePiecewise"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "piecewise"
+        },
+        "realization": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueRealization"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "realization"
+        },
+        "reconstruction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReconstruction"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "reconstruction"
+        },
+        "reference_translation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReferenceTranslation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "reference_translation"
+        },
+        "relaxation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueRelaxation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "relaxation"
+        },
+        "requirement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueRequirement"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "requirement"
+        },
+        "response": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueResponse"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "response"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "scope"
+        },
+        "state_port": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStatePort"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "state_port"
+        },
+        "state_specification": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecification"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "state_specification"
+        },
+        "table": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTable"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "table"
+        },
+        "temporal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTemporal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "temporal"
         }
       },
       "required": [
-        "name",
-        "domain"
+        "kind",
+        "temporal",
+        "relaxation",
+        "continuation",
+        "scope",
+        "binding",
+        "function",
+        "coordinate_map",
+        "coordinate_slot",
+        "reconstruction",
+        "response",
+        "reference_translation",
+        "boundary",
+        "exchange",
+        "equation",
+        "ordered_set",
+        "cardinality",
+        "piecewise",
+        "logic",
+        "complementarity",
+        "table",
+        "applicability",
+        "permission",
+        "envelope",
+        "attribute",
+        "dataset",
+        "entity",
+        "enumeration",
+        "constant",
+        "import",
+        "guard",
+        "accumulator",
+        "contribution",
+        "state_specification",
+        "state_port",
+        "inventory_balance",
+        "connection",
+        "annotation",
+        "requirement",
+        "expectation",
+        "continuous",
+        "difference_scheme",
+        "collocation_scheme",
+        "discretization",
+        "realization"
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueAccumulatorOutput": {
+    "AuthoredModelingDeclarationsFieldValueAccumulator": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -351,7 +874,7 @@
         "type": {
           "description": "type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": "array"
         }
@@ -365,7 +888,125 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoalOutput": {
+    "AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "domain": {
+          "description": "domain",
+          "type": "string"
+        },
+        "name": {
+          "description": "name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "domain"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueAnnotation": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "accuracy_goal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "accuracy_goal"
+        },
+        "arguments": {
+          "description": "arguments",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "connectivity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationConnectivity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "connectivity"
+        },
+        "engineering_default": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "engineering_default"
+        },
+        "engineering_scale": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "engineering_scale"
+        },
+        "kind": {
+          "$ref": "#/$defs/ModelingAnnotationKind",
+          "description": "kind"
+        },
+        "objective": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationObjective"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "objective"
+        },
+        "scheme": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConstraintScalingScheme"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "scheme"
+        },
+        "target": {
+          "description": "target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "target",
+        "arguments",
+        "scheme",
+        "connectivity",
+        "objective",
+        "accuracy_goal",
+        "engineering_scale",
+        "engineering_default"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -431,7 +1072,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueAnnotationConnectivityOutput": {
+    "AuthoredModelingDeclarationsFieldValueAnnotationConnectivity": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -491,7 +1132,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueAnnotationObjectiveOutput": {
+    "AuthoredModelingDeclarationsFieldValueAnnotationObjective": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -546,136 +1187,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueAnnotationOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "accuracy_goal": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoalOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "accuracy_goal"
-        },
-        "arguments": {
-          "description": "arguments",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "connectivity": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationConnectivityOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "connectivity"
-        },
-        "engineering_default": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "engineering_default"
-        },
-        "engineering_scale": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "engineering_scale"
-        },
-        "kind": {
-          "$ref": "#/$defs/ModelingAnnotationKind",
-          "description": "kind"
-        },
-        "objective": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationObjectiveOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "objective"
-        },
-        "scheme": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ConstraintScalingScheme"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "scheme"
-        },
-        "target": {
-          "description": "target",
-          "type": "string"
-        }
-      },
-      "required": [
-        "kind",
-        "target",
-        "arguments",
-        "scheme",
-        "connectivity",
-        "objective",
-        "accuracy_goal",
-        "engineering_scale",
-        "engineering_default"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItemOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "default_value": {
-          "description": "default_value",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        },
-        "type": {
-          "description": "type",
-          "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "name",
-        "type",
-        "default_value"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueApplicabilityOutput": {
+    "AuthoredModelingDeclarationsFieldValueApplicability": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -689,7 +1201,7 @@
         "arguments": {
           "description": "arguments",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItemOutput"
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem"
           },
           "type": "array"
         },
@@ -780,7 +1292,37 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueAttributeOutput": {
+    "AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "default_value": {
+          "description": "default_value",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
+        "type": {
+          "description": "type",
+          "items": {
+            "$ref": "#/$defs/ModelingTypeArenaNode"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "default_value"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueAttribute": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -798,14 +1340,14 @@
         "storage": {
           "description": "storage",
           "items": {
-            "$ref": "#/$defs/ModelingColumnStorageOutput"
+            "$ref": "#/$defs/ModelingColumnStorage"
           },
           "type": "array"
         },
         "type": {
           "description": "type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": [
             "array",
@@ -819,7 +1361,7 @@
         "value": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ModelingCellOutput"
+              "$ref": "#/$defs/ModelingCell"
             },
             {
               "type": "null"
@@ -838,26 +1380,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueBindingIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueBindingOutput": {
+    "AuthoredModelingDeclarationsFieldValueBinding": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -896,7 +1419,7 @@
         "type": {
           "description": "type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": [
             "array",
@@ -909,6 +1432,25 @@
         "indices",
         "expression",
         "defined_by",
+        "domain"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueBindingIndicesItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "domain": {
+          "description": "domain",
+          "type": "string"
+        },
+        "name": {
+          "description": "name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
         "domain"
       ],
       "type": "object"
@@ -1113,7 +1655,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueConstantOutput": {
+    "AuthoredModelingDeclarationsFieldValueConstant": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -1124,12 +1666,12 @@
         "type": {
           "description": "type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": "array"
         },
         "value": {
-          "$ref": "#/$defs/ModelingCellOutput",
+          "$ref": "#/$defs/ModelingCell",
           "description": "value"
         }
       },
@@ -1164,7 +1706,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueContinuousOutput": {
+    "AuthoredModelingDeclarationsFieldValueContinuous": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -1175,7 +1717,7 @@
         "type": {
           "description": "type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": "array"
         },
@@ -1242,7 +1784,32 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItemOutput": {
+    "AuthoredModelingDeclarationsFieldValueCoordinateMap": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "arguments": {
+          "description": "arguments",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem"
+          },
+          "type": "array"
+        },
+        "validity": {
+          "description": "validity",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "arguments",
+        "validity"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -1260,7 +1827,7 @@
         "type": {
           "description": "type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": "array"
         }
@@ -1269,31 +1836,6 @@
         "name",
         "type",
         "default_value"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueCoordinateMapOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "arguments": {
-          "description": "arguments",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItemOutput"
-          },
-          "type": "array"
-        },
-        "validity": {
-          "description": "validity",
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "arguments",
-        "validity"
       ],
       "type": "object"
     },
@@ -1338,40 +1880,21 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueDatasetBindingsItemOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "name": {
-          "description": "name",
-          "type": "string"
-        },
-        "value": {
-          "$ref": "#/$defs/ModelingCellOutput",
-          "description": "value"
-        }
-      },
-      "required": [
-        "name",
-        "value"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueDatasetOutput": {
+    "AuthoredModelingDeclarationsFieldValueDataset": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
         "bindings": {
           "description": "bindings",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDatasetBindingsItemOutput"
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDatasetBindingsItem"
           },
           "type": "array"
         },
         "complete_over": {
           "description": "complete_over",
           "items": {
-            "$ref": "#/$defs/ModelingCompletenessOutput"
+            "$ref": "#/$defs/ModelingCompleteness"
           },
           "type": "array"
         },
@@ -1389,7 +1912,7 @@
         "rows": {
           "description": "rows",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDatasetRowsItemOutput"
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDatasetRowsItem"
           },
           "type": "array"
         },
@@ -1408,21 +1931,40 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueDatasetRowsItemOutput": {
+    "AuthoredModelingDeclarationsFieldValueDatasetBindingsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/ModelingCell",
+          "description": "value"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueDatasetRowsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
         "keys": {
           "description": "keys",
           "items": {
-            "$ref": "#/$defs/ModelingCellOutput"
+            "$ref": "#/$defs/ModelingCell"
           },
           "type": "array"
         },
         "values": {
           "description": "values",
           "items": {
-            "$ref": "#/$defs/ModelingCellOutput"
+            "$ref": "#/$defs/ModelingCell"
           },
           "type": "array"
         }
@@ -1504,45 +2046,14 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueEntityAttributesItemOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "name": {
-          "description": "name",
-          "type": "string"
-        },
-        "provenance": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelingProvenance"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "provenance"
-        },
-        "value": {
-          "$ref": "#/$defs/ModelingCellOutput",
-          "description": "value"
-        }
-      },
-      "required": [
-        "name",
-        "value",
-        "provenance"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueEntityOutput": {
+    "AuthoredModelingDeclarationsFieldValueEntity": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
         "attributes": {
           "description": "attributes",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEntityAttributesItemOutput"
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEntityAttributesItem"
           },
           "type": "array"
         },
@@ -1566,6 +2077,37 @@
         "kind_name",
         "provenance",
         "attributes"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueEntityAttributesItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "provenance"
+        },
+        "value": {
+          "$ref": "#/$defs/ModelingCell",
+          "description": "value"
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "provenance"
       ],
       "type": "object"
     },
@@ -1615,7 +2157,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueEnvelopeOutput": {
+    "AuthoredModelingDeclarationsFieldValueEnvelope": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -1626,7 +2168,7 @@
         "type": {
           "description": "type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": "array"
         },
@@ -1639,6 +2181,40 @@
         "type",
         "lower",
         "upper"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueEquation": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquationCondition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "condition"
+        },
+        "expression": {
+          "description": "expression",
+          "type": "string"
+        },
+        "indices": {
+          "description": "indices",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquationIndicesItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "indices",
+        "expression",
+        "condition"
       ],
       "type": "object"
     },
@@ -1677,40 +2253,6 @@
       "required": [
         "name",
         "domain"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueEquationOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "condition": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquationCondition"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "condition"
-        },
-        "expression": {
-          "description": "expression",
-          "type": "string"
-        },
-        "indices": {
-          "description": "indices",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquationIndicesItem"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "indices",
-        "expression",
-        "condition"
       ],
       "type": "object"
     },
@@ -1760,7 +2302,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueExpectationOutput": {
+    "AuthoredModelingDeclarationsFieldValueExpectation": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -1792,7 +2334,93 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueFunctionArgumentsItemOutput": {
+    "AuthoredModelingDeclarationsFieldValueFunction": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "applicability": {
+          "description": "applicability",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "arguments": {
+          "description": "arguments",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem"
+          },
+          "type": "array"
+        },
+        "body": {
+          "description": "body",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "continuity": {
+          "description": "continuity",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "external": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueFunctionExternal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "external"
+        },
+        "guards": {
+          "description": "guards",
+          "items": {
+            "$ref": "#/$defs/ModelingEnvelopeGuard"
+          },
+          "type": "array"
+        },
+        "return_type": {
+          "description": "return_type",
+          "items": {
+            "$ref": "#/$defs/ModelingTypeArenaNode"
+          },
+          "type": "array"
+        },
+        "type_parameters": {
+          "description": "type_parameters",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "validity": {
+          "description": "validity",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "type_parameters",
+        "arguments",
+        "return_type",
+        "body",
+        "validity",
+        "guards",
+        "applicability",
+        "continuity",
+        "external"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -1810,7 +2438,7 @@
         "type": {
           "description": "type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": "array"
         }
@@ -1868,92 +2496,6 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueFunctionOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "applicability": {
-          "description": "applicability",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "arguments": {
-          "description": "arguments",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueFunctionArgumentsItemOutput"
-          },
-          "type": "array"
-        },
-        "body": {
-          "description": "body",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "continuity": {
-          "description": "continuity",
-          "format": "int64",
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "external": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueFunctionExternal"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "external"
-        },
-        "guards": {
-          "description": "guards",
-          "items": {
-            "$ref": "#/$defs/ModelingEnvelopeGuard"
-          },
-          "type": "array"
-        },
-        "return_type": {
-          "description": "return_type",
-          "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
-          },
-          "type": "array"
-        },
-        "type_parameters": {
-          "description": "type_parameters",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "validity": {
-          "description": "validity",
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "type_parameters",
-        "arguments",
-        "return_type",
-        "body",
-        "validity",
-        "guards",
-        "applicability",
-        "continuity",
-        "external"
-      ],
-      "type": "object"
-    },
     "AuthoredModelingDeclarationsFieldValueGuard": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -1968,7 +2510,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueImportOutput": {
+    "AuthoredModelingDeclarationsFieldValueImport": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -1990,26 +2532,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueInventoryBalanceOutput": {
+    "AuthoredModelingDeclarationsFieldValueInventoryBalance": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -2046,7 +2569,7 @@
         "type": {
           "description": "type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": "array"
         }
@@ -2059,6 +2582,25 @@
         "flux",
         "tolerance",
         "transfers"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "domain": {
+          "description": "domain",
+          "type": "string"
+        },
+        "name": {
+          "description": "name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "domain"
       ],
       "type": "object"
     },
@@ -2168,548 +2710,6 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "accumulator": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAccumulatorOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "accumulator"
-        },
-        "annotation": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "annotation"
-        },
-        "applicability": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueApplicabilityOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "applicability"
-        },
-        "attribute": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAttributeOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "attribute"
-        },
-        "binding": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBindingOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "binding"
-        },
-        "boundary": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBoundary"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "boundary"
-        },
-        "cardinality": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCardinality"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "cardinality"
-        },
-        "collocation_scheme": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCollocationScheme"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "collocation_scheme"
-        },
-        "complementarity": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueComplementarity"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "complementarity"
-        },
-        "connection": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueConnection"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "connection"
-        },
-        "constant": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueConstantOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "constant"
-        },
-        "continuation": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContinuation"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "continuation"
-        },
-        "continuous": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContinuousOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "continuous"
-        },
-        "contribution": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContribution"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "contribution"
-        },
-        "coordinate_map": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateMapOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "coordinate_map"
-        },
-        "coordinate_slot": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateSlot"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "coordinate_slot"
-        },
-        "dataset": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDatasetOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "dataset"
-        },
-        "difference_scheme": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDifferenceScheme"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "difference_scheme"
-        },
-        "discretization": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDiscretization"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "discretization"
-        },
-        "entity": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEntityOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "entity"
-        },
-        "enumeration": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEnumeration"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "enumeration"
-        },
-        "envelope": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEnvelopeOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "envelope"
-        },
-        "equation": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquationOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "equation"
-        },
-        "exchange": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueExchange"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "exchange"
-        },
-        "expectation": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueExpectationOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "expectation"
-        },
-        "function": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueFunctionOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "function"
-        },
-        "guard": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueGuard"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "guard"
-        },
-        "import": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueImportOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "import"
-        },
-        "inventory_balance": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueInventoryBalanceOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "inventory_balance"
-        },
-        "kind": {
-          "$ref": "#/$defs/ModelingDeclarationKind",
-          "description": "kind"
-        },
-        "logic": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueLogic"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "logic"
-        },
-        "ordered_set": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueOrderedSet"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "ordered_set"
-        },
-        "permission": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValuePermission"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "permission"
-        },
-        "piecewise": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValuePiecewise"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "piecewise"
-        },
-        "realization": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueRealizationOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "realization"
-        },
-        "reconstruction": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReconstructionOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "reconstruction"
-        },
-        "reference_translation": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReferenceTranslationOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "reference_translation"
-        },
-        "relaxation": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueRelaxation"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "relaxation"
-        },
-        "requirement": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueRequirement"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "requirement"
-        },
-        "response": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueResponseOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "response"
-        },
-        "scope": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "scope"
-        },
-        "state_port": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStatePort"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "state_port"
-        },
-        "state_specification": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "state_specification"
-        },
-        "table": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "table"
-        },
-        "temporal": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTemporal"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "temporal"
-        }
-      },
-      "required": [
-        "kind",
-        "temporal",
-        "relaxation",
-        "continuation",
-        "scope",
-        "binding",
-        "function",
-        "coordinate_map",
-        "coordinate_slot",
-        "reconstruction",
-        "response",
-        "reference_translation",
-        "boundary",
-        "exchange",
-        "equation",
-        "ordered_set",
-        "cardinality",
-        "piecewise",
-        "logic",
-        "complementarity",
-        "table",
-        "applicability",
-        "permission",
-        "envelope",
-        "attribute",
-        "dataset",
-        "entity",
-        "enumeration",
-        "constant",
-        "import",
-        "guard",
-        "accumulator",
-        "contribution",
-        "state_specification",
-        "state_port",
-        "inventory_balance",
-        "connection",
-        "annotation",
-        "requirement",
-        "expectation",
-        "continuous",
-        "difference_scheme",
-        "collocation_scheme",
-        "discretization",
-        "realization"
-      ],
-      "type": "object"
-    },
     "AuthoredModelingDeclarationsFieldValuePermission": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -2798,7 +2798,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueRealizationOutput": {
+    "AuthoredModelingDeclarationsFieldValueRealization": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -2841,44 +2841,14 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItemOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "default_value": {
-          "description": "default_value",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        },
-        "type": {
-          "description": "type",
-          "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "name",
-        "type",
-        "default_value"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueReconstructionOutput": {
+    "AuthoredModelingDeclarationsFieldValueReconstruction": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
         "arguments": {
           "description": "arguments",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItemOutput"
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem"
           },
           "type": "array"
         },
@@ -2897,7 +2867,7 @@
         "return_type": {
           "description": "return_type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": "array"
         }
@@ -2911,7 +2881,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItemOutput": {
+    "AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -2929,7 +2899,7 @@
         "type": {
           "description": "type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": "array"
         }
@@ -2941,14 +2911,14 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueReferenceTranslationOutput": {
+    "AuthoredModelingDeclarationsFieldValueReferenceTranslation": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
         "arguments": {
           "description": "arguments",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItemOutput"
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem"
           },
           "type": "array"
         },
@@ -2963,7 +2933,7 @@
         "return_type": {
           "description": "return_type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": "array"
         },
@@ -2988,6 +2958,36 @@
         "temperature",
         "pressure",
         "provenance"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "default_value": {
+          "description": "default_value",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
+        "type": {
+          "description": "type",
+          "items": {
+            "$ref": "#/$defs/ModelingTypeArenaNode"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "default_value"
       ],
       "type": "object"
     },
@@ -3029,7 +3029,42 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueResponseArgumentsItemOutput": {
+    "AuthoredModelingDeclarationsFieldValueResponse": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "arguments": {
+          "description": "arguments",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueResponseArgumentsItem"
+          },
+          "type": "array"
+        },
+        "body": {
+          "description": "body",
+          "type": "string"
+        },
+        "return_type": {
+          "description": "return_type",
+          "items": {
+            "$ref": "#/$defs/ModelingTypeArenaNode"
+          },
+          "type": "array"
+        },
+        "witness": {
+          "description": "witness",
+          "type": "string"
+        }
+      },
+      "required": [
+        "witness",
+        "arguments",
+        "return_type",
+        "body"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueResponseArgumentsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -3047,7 +3082,7 @@
         "type": {
           "description": "type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": "array"
         }
@@ -3059,38 +3094,262 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueResponseOutput": {
+    "AuthoredModelingDeclarationsFieldValueScope": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
-        "arguments": {
-          "description": "arguments",
+        "bases": {
+          "description": "bases",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueResponseArgumentsItemOutput"
+            "type": "string"
           },
           "type": "array"
         },
-        "body": {
-          "description": "body",
-          "type": "string"
+        "branch": {
+          "description": "branch",
+          "type": [
+            "string",
+            "null"
+          ]
         },
-        "return_type": {
-          "description": "return_type",
+        "eligibility": {
+          "description": "eligibility",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "facets": {
+          "description": "facets",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingKindFacet"
           },
           "type": "array"
         },
-        "witness": {
-          "description": "witness",
-          "type": "string"
+        "fixture": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixture"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "fixture"
+        },
+        "operational": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeOperational"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "operational"
+        },
+        "oracle": {
+          "description": "oracle",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "parameters": {
+          "description": "parameters",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeParametersItem"
+          },
+          "type": "array"
+        },
+        "selection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeSelection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "selection"
+        },
+        "type_parameters": {
+          "description": "type_parameters",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
-        "witness",
-        "arguments",
-        "return_type",
-        "body"
+        "parameters",
+        "bases",
+        "type_parameters",
+        "selection",
+        "branch",
+        "operational",
+        "eligibility",
+        "oracle",
+        "facets",
+        "fixture"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueScopeFixture": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "degrees_of_freedom": {
+          "description": "degrees_of_freedom",
+          "format": "int64",
+          "type": "integer"
+        },
+        "diagnostics": {
+          "description": "diagnostics",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem"
+          },
+          "type": "array"
+        },
+        "endpoint": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "endpoint"
+        },
+        "expected_failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "expected_failure"
+        },
+        "initialization": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "initialization"
+        },
+        "integration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "integration"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NativeSolveIntent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "intent"
+        },
+        "modes": {
+          "description": "modes",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem"
+          },
+          "type": "array"
+        },
+        "policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixturePolicy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "policy"
+        },
+        "procedure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingProcedure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "procedure"
+        },
+        "route": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingAnalysisRoute"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "route"
+        },
+        "shooting": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureShooting"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "shooting"
+        },
+        "specifications": {
+          "description": "specifications",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem"
+          },
+          "type": "array"
+        },
+        "stages": {
+          "description": "stages",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "degrees_of_freedom",
+        "route",
+        "procedure",
+        "endpoint",
+        "intent",
+        "policy",
+        "stages",
+        "initialization",
+        "integration",
+        "modes",
+        "shooting",
+        "expected_failure",
+        "diagnostics",
+        "specifications"
       ],
       "type": "object"
     },
@@ -3116,7 +3375,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueScopeFixtureEndpointOutput": {
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -3135,6 +3394,52 @@
       "required": [
         "kind",
         "event"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "applicability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "applicability"
+        },
+        "class": {
+          "$ref": "#/$defs/NativeBoundaryClass",
+          "description": "class"
+        },
+        "members": {
+          "description": "members",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "validity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "validity"
+        }
+      },
+      "required": [
+        "class",
+        "validity",
+        "applicability",
+        "members"
       ],
       "type": "object"
     },
@@ -3183,53 +3488,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "applicability": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "applicability"
-        },
-        "class": {
-          "$ref": "#/$defs/NativeBoundaryClass",
-          "description": "class"
-        },
-        "members": {
-          "description": "members",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "validity": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidityOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "validity"
-        }
-      },
-      "required": [
-        "class",
-        "validity",
-        "applicability",
-        "members"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidityOutput": {
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -3311,7 +3570,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationOutput": {
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -3354,7 +3613,7 @@
         "schedules": {
           "description": "schedules",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItemOutput"
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem"
           },
           "type": "array"
         }
@@ -3389,7 +3648,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItemOutput": {
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -3440,7 +3699,37 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemOutput": {
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "events": {
+          "description": "events",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem"
+          },
+          "type": "array"
+        },
+        "facts": {
+          "description": "facts",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem"
+          },
+          "type": "array"
+        },
+        "name": {
+          "description": "name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "facts",
+        "events"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -3523,211 +3812,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "events": {
-          "description": "events",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemOutput"
-          },
-          "type": "array"
-        },
-        "facts": {
-          "description": "facts",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem"
-          },
-          "type": "array"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "facts",
-        "events"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueScopeFixtureOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "degrees_of_freedom": {
-          "description": "degrees_of_freedom",
-          "format": "int64",
-          "type": "integer"
-        },
-        "diagnostics": {
-          "description": "diagnostics",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem"
-          },
-          "type": "array"
-        },
-        "endpoint": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureEndpointOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "endpoint"
-        },
-        "expected_failure": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "expected_failure"
-        },
-        "initialization": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "initialization"
-        },
-        "integration": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "integration"
-        },
-        "intent": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/NativeSolveIntent"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "intent"
-        },
-        "modes": {
-          "description": "modes",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemOutput"
-          },
-          "type": "array"
-        },
-        "policy": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixturePolicyOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "policy"
-        },
-        "procedure": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelingProcedure"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "procedure"
-        },
-        "route": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelingAnalysisRoute"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "route"
-        },
-        "shooting": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureShooting"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "shooting"
-        },
-        "specifications": {
-          "description": "specifications",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItemOutput"
-          },
-          "type": "array"
-        },
-        "stages": {
-          "description": "stages",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "degrees_of_freedom",
-        "route",
-        "procedure",
-        "endpoint",
-        "intent",
-        "policy",
-        "stages",
-        "initialization",
-        "integration",
-        "modes",
-        "shooting",
-        "expected_failure",
-        "diagnostics",
-        "specifications"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItemOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "name": {
-          "description": "name",
-          "type": "string"
-        },
-        "value": {
-          "$ref": "#/$defs/ModelingCellOutput",
-          "description": "value"
-        }
-      },
-      "required": [
-        "name",
-        "value"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueScopeFixturePolicyOutput": {
+    "AuthoredModelingDeclarationsFieldValueScopeFixturePolicy": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -3801,7 +3886,7 @@
         "native_options": {
           "description": "native_options",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItemOutput"
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem"
           },
           "type": "array"
         },
@@ -3831,6 +3916,25 @@
       ],
       "type": "object"
     },
+    "AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/ModelingCell",
+          "description": "value"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "type": "object"
+    },
     "AuthoredModelingDeclarationsFieldValueScopeFixtureShooting": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -3853,7 +3957,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItemOutput": {
+    "AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -3880,26 +3984,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "expression": {
-          "description": "expression",
-          "type": "string"
-        },
-        "target": {
-          "description": "target",
-          "type": "string"
-        }
-      },
-      "required": [
-        "target",
-        "expression"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueScopeOperationalOutput": {
+    "AuthoredModelingDeclarationsFieldValueScopeOperational": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -3929,111 +4014,26 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueScopeOutput": {
+    "AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
-        "bases": {
-          "description": "bases",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "expression": {
+          "description": "expression",
+          "type": "string"
         },
-        "branch": {
-          "description": "branch",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "eligibility": {
-          "description": "eligibility",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "facets": {
-          "description": "facets",
-          "items": {
-            "$ref": "#/$defs/ModelingKindFacet"
-          },
-          "type": "array"
-        },
-        "fixture": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "fixture"
-        },
-        "operational": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeOperationalOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "operational"
-        },
-        "oracle": {
-          "description": "oracle",
-          "items": {
-            "type": "string"
-          },
-          "type": [
-            "array",
-            "null"
-          ]
-        },
-        "parameters": {
-          "description": "parameters",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeParametersItemOutput"
-          },
-          "type": "array"
-        },
-        "selection": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeSelection"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "selection"
-        },
-        "type_parameters": {
-          "description": "type_parameters",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "target": {
+          "description": "target",
+          "type": "string"
         }
       },
       "required": [
-        "parameters",
-        "bases",
-        "type_parameters",
-        "selection",
-        "branch",
-        "operational",
-        "eligibility",
-        "oracle",
-        "facets",
-        "fixture"
+        "target",
+        "expression"
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueScopeParametersItemOutput": {
+    "AuthoredModelingDeclarationsFieldValueScopeParametersItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -4051,7 +4051,7 @@
         "type": {
           "description": "type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": "array"
         }
@@ -4123,6 +4123,60 @@
       ],
       "type": "object"
     },
+    "AuthoredModelingDeclarationsFieldValueStateSpecification": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "coordinates": {
+          "description": "coordinates",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem"
+          },
+          "type": "array"
+        },
+        "extends": {
+          "description": "extends",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "indices": {
+          "description": "indices",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem"
+          },
+          "type": "array"
+        },
+        "reconstructions": {
+          "description": "reconstructions",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem"
+          },
+          "type": "array"
+        },
+        "supplied": {
+          "description": "supplied",
+          "type": "string"
+        },
+        "transports": {
+          "description": "transports",
+          "items": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "indices",
+        "extends",
+        "supplied",
+        "coordinates",
+        "reconstructions",
+        "transports"
+      ],
+      "type": "object"
+    },
     "AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -4185,60 +4239,6 @@
       "required": [
         "name",
         "domain"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueStateSpecificationOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "coordinates": {
-          "description": "coordinates",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem"
-          },
-          "type": "array"
-        },
-        "extends": {
-          "description": "extends",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "indices": {
-          "description": "indices",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem"
-          },
-          "type": "array"
-        },
-        "reconstructions": {
-          "description": "reconstructions",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem"
-          },
-          "type": "array"
-        },
-        "supplied": {
-          "description": "supplied",
-          "type": "string"
-        },
-        "transports": {
-          "description": "transports",
-          "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "indices",
-        "extends",
-        "supplied",
-        "coordinates",
-        "reconstructions",
-        "transports"
       ],
       "type": "object"
     },
@@ -4344,92 +4344,28 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueTableColumnsItemOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "derived": {
-          "description": "derived",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        },
-        "type": {
-          "description": "type",
-          "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "name",
-        "type",
-        "derived"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueTableKeysItemOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "name": {
-          "description": "name",
-          "type": "string"
-        },
-        "range": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelingIntegerRange"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "range"
-        },
-        "type": {
-          "description": "type",
-          "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "name",
-        "type",
-        "range"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueTableOutput": {
+    "AuthoredModelingDeclarationsFieldValueTable": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
         "columns": {
           "description": "columns",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableColumnsItemOutput"
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableColumnsItem"
           },
           "type": "array"
         },
         "complete_over": {
           "description": "complete_over",
           "items": {
-            "$ref": "#/$defs/ModelingCompletenessOutput"
+            "$ref": "#/$defs/ModelingCompleteness"
           },
           "type": "array"
         },
         "default_value": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ModelingCellOutput"
+              "$ref": "#/$defs/ModelingCell"
             },
             {
               "type": "null"
@@ -4440,14 +4376,14 @@
         "envelopes": {
           "description": "envelopes",
           "items": {
-            "$ref": "#/$defs/ModelingEnvelopeOutput"
+            "$ref": "#/$defs/ModelingEnvelope"
           },
           "type": "array"
         },
         "keys": {
           "description": "keys",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableKeysItemOutput"
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableKeysItem"
           },
           "type": "array"
         },
@@ -4465,7 +4401,7 @@
         "storage": {
           "description": "storage",
           "items": {
-            "$ref": "#/$defs/ModelingColumnStorageOutput"
+            "$ref": "#/$defs/ModelingColumnStorage"
           },
           "type": "array"
         },
@@ -4490,7 +4426,7 @@
         "value_type": {
           "description": "value_type",
           "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            "$ref": "#/$defs/ModelingTypeArenaNode"
           },
           "type": [
             "array",
@@ -4510,6 +4446,70 @@
         "requirements",
         "envelopes",
         "storage"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueTableColumnsItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "derived": {
+          "description": "derived",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
+        "type": {
+          "description": "type",
+          "items": {
+            "$ref": "#/$defs/ModelingTypeArenaNode"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "derived"
+      ],
+      "type": "object"
+    },
+    "AuthoredModelingDeclarationsFieldValueTableKeysItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingIntegerRange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "range"
+        },
+        "type": {
+          "description": "type",
+          "items": {
+            "$ref": "#/$defs/ModelingTypeArenaNode"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "range"
       ],
       "type": "object"
     },
@@ -4583,7 +4583,7 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsRowOutput": {
+    "AuthoredModelingDeclarationsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -4632,7 +4632,7 @@
           "type": "integer"
         },
         "value": {
-          "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueOutput",
+          "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValue",
           "description": "value"
         }
       },
@@ -4914,21 +4914,7 @@
       ],
       "type": "string"
     },
-    "ModelingCellKind": {
-      "enum": [
-        "boolean",
-        "integer",
-        "quantity",
-        "text",
-        "identifier",
-        "reference",
-        "references",
-        "row",
-        "missing"
-      ],
-      "type": "string"
-    },
-    "ModelingCellOutput": {
+    "ModelingCell": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -4944,7 +4930,7 @@
           "description": "uncertainty"
         },
         "value": {
-          "$ref": "#/$defs/ModelingCellValueOutput",
+          "$ref": "#/$defs/ModelingCellValue",
           "description": "value"
         }
       },
@@ -4953,6 +4939,20 @@
         "uncertainty"
       ],
       "type": "object"
+    },
+    "ModelingCellKind": {
+      "enum": [
+        "boolean",
+        "integer",
+        "quantity",
+        "text",
+        "identifier",
+        "reference",
+        "references",
+        "row",
+        "missing"
+      ],
+      "type": "string"
     },
     "ModelingCellUncertainty": {
       "additionalProperties": false,
@@ -4971,6 +4971,116 @@
       "required": [
         "kind",
         "magnitude"
+      ],
+      "type": "object"
+    },
+    "ModelingCellValue": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "boolean": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingCellValueBoolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "boolean"
+        },
+        "identifier": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingCellValueIdentifier"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "identifier"
+        },
+        "integer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingCellValueInteger"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "integer"
+        },
+        "kind": {
+          "$ref": "#/$defs/ModelingCellKind",
+          "description": "kind"
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingCellValueQuantity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "quantity"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingCellValueReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "reference"
+        },
+        "references": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingCellValueReferences"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "references"
+        },
+        "row": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingCellValueRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "row"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelingCellValueText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "text"
+        }
+      },
+      "required": [
+        "kind",
+        "boolean",
+        "integer",
+        "quantity",
+        "text",
+        "identifier",
+        "reference",
+        "references",
+        "row"
       ],
       "type": "object"
     },
@@ -5025,117 +5135,7 @@
       ],
       "type": "object"
     },
-    "ModelingCellValueOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "boolean": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelingCellValueBoolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "boolean"
-        },
-        "identifier": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelingCellValueIdentifier"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "identifier"
-        },
-        "integer": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelingCellValueInteger"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "integer"
-        },
-        "kind": {
-          "$ref": "#/$defs/ModelingCellKind",
-          "description": "kind"
-        },
-        "quantity": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelingCellValueQuantityOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "quantity"
-        },
-        "reference": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelingCellValueReference"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "reference"
-        },
-        "references": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelingCellValueReferencesOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "references"
-        },
-        "row": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelingCellValueRowOutput"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "row"
-        },
-        "text": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ModelingCellValueText"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "text"
-        }
-      },
-      "required": [
-        "kind",
-        "boolean",
-        "integer",
-        "quantity",
-        "text",
-        "identifier",
-        "reference",
-        "references",
-        "row"
-      ],
-      "type": "object"
-    },
-    "ModelingCellValueQuantityOutput": {
+    "ModelingCellValueQuantity": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -5178,14 +5178,14 @@
       ],
       "type": "object"
     },
-    "ModelingCellValueReferencesOutput": {
+    "ModelingCellValueReferences": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
         "paths": {
           "description": "paths",
           "items": {
-            "$ref": "#/$defs/ModelingCellValueReferencesPathsItemOutput"
+            "$ref": "#/$defs/ModelingCellValueReferencesPathsItem"
           },
           "type": "array"
         }
@@ -5195,14 +5195,14 @@
       ],
       "type": "object"
     },
-    "ModelingCellValueReferencesPathsItemOutput": {
+    "ModelingCellValueReferencesPathsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
         "keys": {
           "description": "keys",
           "items": {
-            "$ref": "#/$defs/ModelingKeyCellOutput"
+            "$ref": "#/$defs/ModelingKeyCell"
           },
           "type": [
             "array",
@@ -5223,14 +5223,14 @@
       ],
       "type": "object"
     },
-    "ModelingCellValueRowOutput": {
+    "ModelingCellValueRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
         "keys": {
           "description": "keys",
           "items": {
-            "$ref": "#/$defs/ModelingKeyCellOutput"
+            "$ref": "#/$defs/ModelingKeyCell"
           },
           "type": "array"
         },
@@ -5262,7 +5262,7 @@
       ],
       "type": "object"
     },
-    "ModelingColumnStorageOutput": {
+    "ModelingColumnStorage": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -5298,7 +5298,7 @@
       ],
       "type": "object"
     },
-    "ModelingCompletenessOutput": {
+    "ModelingCompleteness": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -5435,6 +5435,38 @@
       ],
       "type": "string"
     },
+    "ModelingEnvelope": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "lower": {
+          "description": "lower",
+          "type": "string"
+        },
+        "name": {
+          "description": "name",
+          "type": "string"
+        },
+        "type": {
+          "description": "type",
+          "items": {
+            "$ref": "#/$defs/ModelingTypeArenaNode"
+          },
+          "type": "array"
+        },
+        "upper": {
+          "description": "upper",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "lower",
+        "upper"
+      ],
+      "type": "object"
+    },
     "ModelingEnvelopeExtent": {
       "enum": [
         "point",
@@ -5471,38 +5503,6 @@
         "envelope",
         "extent",
         "arguments"
-      ],
-      "type": "object"
-    },
-    "ModelingEnvelopeOutput": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "lower": {
-          "description": "lower",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        },
-        "type": {
-          "description": "type",
-          "items": {
-            "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
-          },
-          "type": "array"
-        },
-        "upper": {
-          "description": "upper",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "type",
-        "lower",
-        "upper"
       ],
       "type": "object"
     },
@@ -5545,18 +5545,7 @@
       ],
       "type": "object"
     },
-    "ModelingKeyCellKind": {
-      "enum": [
-        "boolean",
-        "integer",
-        "quantity",
-        "text",
-        "identifier",
-        "reference"
-      ],
-      "type": "string"
-    },
-    "ModelingKeyCellOutput": {
+    "ModelingKeyCell": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -5600,7 +5589,7 @@
         "quantity": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ModelingCellValueQuantityOutput"
+              "$ref": "#/$defs/ModelingCellValueQuantity"
             },
             {
               "type": "null"
@@ -5641,6 +5630,17 @@
         "reference"
       ],
       "type": "object"
+    },
+    "ModelingKeyCellKind": {
+      "enum": [
+        "boolean",
+        "integer",
+        "quantity",
+        "text",
+        "identifier",
+        "reference"
+      ],
+      "type": "string"
     },
     "ModelingKindFacet": {
       "enum": [
@@ -5757,32 +5757,7 @@
       ],
       "type": "string"
     },
-    "ModelingTypeArenaNodeExponent": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "den": {
-          "description": "den",
-          "format": "int16",
-          "maximum": 32767,
-          "minimum": -32768,
-          "type": "integer"
-        },
-        "num": {
-          "description": "num",
-          "format": "int16",
-          "maximum": 32767,
-          "minimum": -32768,
-          "type": "integer"
-        }
-      },
-      "required": [
-        "num",
-        "den"
-      ],
-      "type": "object"
-    },
-    "ModelingTypeArenaNodeOutput": {
+    "ModelingTypeArenaNode": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -5834,6 +5809,31 @@
         "name",
         "exponent",
         "children"
+      ],
+      "type": "object"
+    },
+    "ModelingTypeArenaNodeExponent": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "den": {
+          "description": "den",
+          "format": "int16",
+          "maximum": 32767,
+          "minimum": -32768,
+          "type": "integer"
+        },
+        "num": {
+          "description": "num",
+          "format": "int16",
+          "maximum": 32767,
+          "minimum": -32768,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "num",
+        "den"
       ],
       "type": "object"
     },
@@ -6008,7 +6008,7 @@
       ],
       "type": "string"
     },
-    "SourceDocumentDeltaOutput": {
+    "SourceDocumentDelta": {
       "additionalProperties": false,
       "description": "Parent-qualified document additions, replacements and removals.",
       "properties": {
@@ -6016,7 +6016,7 @@
           "default": [],
           "description": "Newly owned documents.",
           "items": {
-            "$ref": "#/$defs/AuthoredDocumentsRowOutput"
+            "$ref": "#/$defs/AuthoredDocumentsRow"
           },
           "type": "array"
         },
@@ -6034,7 +6034,7 @@
           "default": [],
           "description": "Complete replacement of an existing document and its optional data bytes.",
           "items": {
-            "$ref": "#/$defs/AuthoredDocumentsRowOutput"
+            "$ref": "#/$defs/AuthoredDocumentsRow"
           },
           "type": "array"
         }
@@ -6046,7 +6046,7 @@
       ],
       "type": "object"
     },
-    "SourceFitDeltaOutput": {
+    "SourceFitDelta": {
       "additionalProperties": false,
       "description": "Parent-qualified fitting declaration changes.",
       "properties": {
@@ -6054,7 +6054,7 @@
           "default": [],
           "description": "New fitting declarations.",
           "items": {
-            "$ref": "#/$defs/AuthoredFitCasesRowOutput"
+            "$ref": "#/$defs/AuthoredFitCasesRow"
           },
           "type": "array"
         },
@@ -6072,7 +6072,7 @@
           "default": [],
           "description": "Existing fitting declarations replaced in full.",
           "items": {
-            "$ref": "#/$defs/AuthoredFitCasesRowOutput"
+            "$ref": "#/$defs/AuthoredFitCasesRow"
           },
           "type": "array"
         }
@@ -6125,7 +6125,7 @@
       "default": [],
       "description": "New declarations, appended in this order after retained parent rows.",
       "items": {
-        "$ref": "#/$defs/AuthoredModelingDeclarationsRowOutput"
+        "$ref": "#/$defs/AuthoredModelingDeclarationsRow"
       },
       "type": "array"
     },
@@ -6135,7 +6135,7 @@
       "type": "integer"
     },
     "documents": {
-      "$ref": "#/$defs/SourceDocumentDeltaOutput",
+      "$ref": "#/$defs/SourceDocumentDelta",
       "default": {
         "additions": [],
         "removals": [],
@@ -6144,7 +6144,7 @@
       "description": "Explicit document ownership changes, including their data payloads."
     },
     "fits": {
-      "$ref": "#/$defs/SourceFitDeltaOutput",
+      "$ref": "#/$defs/SourceFitDelta",
       "default": {
         "additions": [],
         "removals": [],
@@ -6170,7 +6170,7 @@
       "default": [],
       "description": "Existing declarations replaced in their original ordered positions.",
       "items": {
-        "$ref": "#/$defs/AuthoredModelingDeclarationsRowOutput"
+        "$ref": "#/$defs/AuthoredModelingDeclarationsRow"
       },
       "type": "array"
     }
@@ -6184,6 +6184,6 @@
     "fits",
     "document_version"
   ],
-  "title": "SourceDeltaOutput",
+  "title": "SourceDelta",
   "type": "object"
 }

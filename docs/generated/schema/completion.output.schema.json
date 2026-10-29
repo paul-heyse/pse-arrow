@@ -98,7 +98,7 @@
       ],
       "type": "string"
     },
-    "ApplicabilityClaimOutput": {
+    "ApplicabilityClaim": {
       "additionalProperties": false,
       "description": "Immutable attribution of an instantiated scientific claim.",
       "properties": {
@@ -239,7 +239,7 @@
       ],
       "type": "object"
     },
-    "ApplicabilityObservationOutput": {
+    "ApplicabilityObservation": {
       "additionalProperties": false,
       "description": "One typed observation, including alternative evidence which was not required.",
       "properties": {
@@ -248,7 +248,7 @@
           "type": "boolean"
         },
         "claim": {
-          "$ref": "#/$defs/ApplicabilityClaimOutput",
+          "$ref": "#/$defs/ApplicabilityClaim",
           "description": "Complete scientific attribution."
         },
         "extrapolation_allowed": {
@@ -352,7 +352,7 @@
       ],
       "type": "object"
     },
-    "BoundaryDiagnosticBodyOutput": {
+    "BoundaryDiagnosticBody": {
       "additionalProperties": false,
       "description": "Stable structured cause shared by Rust and the public error projection.",
       "properties": {
@@ -360,7 +360,7 @@
           "default": [],
           "description": "Complete scientific evidence on demanded paths, including refused claims.",
           "items": {
-            "$ref": "#/$defs/ApplicabilityObservationOutput"
+            "$ref": "#/$defs/ApplicabilityObservation"
           },
           "type": "array"
         },
@@ -368,7 +368,7 @@
           "default": [],
           "description": "Ordered retained cause envelopes, preserving repeated aggregate occurrences.",
           "items": {
-            "$ref": "#/$defs/BoundaryDiagnosticBodyOutput"
+            "$ref": "#/$defs/BoundaryDiagnosticBody"
           },
           "type": "array"
         },
@@ -384,7 +384,7 @@
           "default": [],
           "description": "Available source locations. Empty means unattributed, not a guessed source.",
           "items": {
-            "$ref": "#/$defs/SourceLocationBodyOutput"
+            "$ref": "#/$defs/SourceLocationBody"
           },
           "type": "array"
         },
@@ -420,7 +420,7 @@
         "validity": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ValidityLineageOutput"
+              "$ref": "#/$defs/ValidityLineage"
             },
             {
               "type": "null"
@@ -977,7 +977,7 @@
       ],
       "type": "string"
     },
-    "LocalValidityOutput": {
+    "LocalValidity": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -1541,7 +1541,7 @@
       ],
       "type": "object"
     },
-    "ProductPermissionOutput": {
+    "ProductPermission": {
       "additionalProperties": false,
       "description": "Local validity remains meaningful even when original permission withholds a product.",
       "properties": {
@@ -1561,7 +1561,7 @@
           "description": "Existing registry-owned derived scientific quantity."
         },
         "validity": {
-          "$ref": "#/$defs/LocalValidityOutput",
+          "$ref": "#/$defs/LocalValidity",
           "description": "The independent mathematical assessment."
         }
       },
@@ -1573,7 +1573,7 @@
       ],
       "type": "object"
     },
-    "RuntimeAccuracyGoalAssessmentsRowOutput": {
+    "RuntimeAccuracyGoalAssessmentsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -1893,7 +1893,7 @@
       ],
       "type": "object"
     },
-    "RuntimeCandidateAssessmentsRowOutput": {
+    "RuntimeCandidateAssessmentsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -2057,7 +2057,7 @@
       ],
       "type": "object"
     },
-    "RuntimeComputationRunsRowOutput": {
+    "RuntimeComputationRunsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -2248,7 +2248,7 @@
       ],
       "type": "object"
     },
-    "RuntimeRunLineageRowOutput": {
+    "RuntimeRunLineageRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -2387,7 +2387,7 @@
       ],
       "type": "object"
     },
-    "RuntimeSolveRunsRowOutput": {
+    "RuntimeSolveRunsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -2593,7 +2593,7 @@
       ],
       "type": "object"
     },
-    "ScientificPermissionOutput": {
+    "ScientificPermission": {
       "additionalProperties": false,
       "description": "One completion-owned original scope, with evidence and reasons retained together.",
       "properties": {
@@ -2651,7 +2651,7 @@
       ],
       "type": "object"
     },
-    "SourceLocationBodyOutput": {
+    "SourceLocationBody": {
       "additionalProperties": false,
       "description": "Authored location attached by the owner that has the source map.",
       "properties": {
@@ -2755,7 +2755,7 @@
       ],
       "type": "string"
     },
-    "ValidityLineageOutput": {
+    "ValidityLineage": {
       "additionalProperties": false,
       "description": "What a rejected authored validity predicate guards (ADR-0123 Outcome 4, Plan 23 H5): its\nlayer and the declaration stating it; for the form and data layers the form it belongs\nto, the parameter sets whose values bound it and the form's declared arguments it\nconstrains; for the closure layer the model members its range bounds. A fixture's\nexpected validity failure is matched against this lineage, not against a rule text.",
       "properties": {
@@ -2848,21 +2848,21 @@
       "default": [],
       "description": "Retained engineering outcomes; historical no-goal products have an empty collection.",
       "items": {
-        "$ref": "#/$defs/RuntimeAccuracyGoalAssessmentsRowOutput"
+        "$ref": "#/$defs/RuntimeAccuracyGoalAssessmentsRow"
       },
       "type": "array"
     },
     "assessments": {
       "description": "Final physical closure and usability decisions, never recomputed by an exporter.",
       "items": {
-        "$ref": "#/$defs/RuntimeCandidateAssessmentsRowOutput"
+        "$ref": "#/$defs/RuntimeCandidateAssessmentsRow"
       },
       "type": "array"
     },
     "computation": {
       "anyOf": [
         {
-          "$ref": "#/$defs/RuntimeComputationRunsRowOutput"
+          "$ref": "#/$defs/RuntimeComputationRunsRow"
         },
         {
           "type": "null"
@@ -2873,21 +2873,21 @@
     "diagnostics": {
       "description": "Source-attributed final errors and unavailable fit diagnostics.",
       "items": {
-        "$ref": "#/$defs/BoundaryDiagnosticBodyOutput"
+        "$ref": "#/$defs/BoundaryDiagnosticBody"
       },
       "type": "array"
     },
     "lineage": {
       "description": "Complete request lineage, independent of this execution's unique identity.",
       "items": {
-        "$ref": "#/$defs/RuntimeRunLineageRowOutput"
+        "$ref": "#/$defs/RuntimeRunLineageRow"
       },
       "type": "array"
     },
     "permission": {
       "anyOf": [
         {
-          "$ref": "#/$defs/ScientificPermissionOutput"
+          "$ref": "#/$defs/ScientificPermission"
         },
         {
           "type": "null"
@@ -2898,21 +2898,21 @@
     "products": {
       "description": "Fit-derived mathematical validity composed with its governing original decision.",
       "items": {
-        "$ref": "#/$defs/ProductPermissionOutput"
+        "$ref": "#/$defs/ProductPermission"
       },
       "type": "array"
     },
     "solves": {
       "description": "Algebraic outcomes, including requested steps that were not attempted.",
       "items": {
-        "$ref": "#/$defs/RuntimeSolveRunsRowOutput"
+        "$ref": "#/$defs/RuntimeSolveRunsRow"
       },
       "type": "array"
     },
     "step_permissions": {
       "description": "Independently requested original modeling steps, never whole-request promotion.",
       "items": {
-        "$ref": "#/$defs/ScientificPermissionOutput"
+        "$ref": "#/$defs/ScientificPermission"
       },
       "type": "array"
     },
@@ -2935,6 +2935,6 @@
     "computation",
     "lineage"
   ],
-  "title": "CompletionOutput",
+  "title": "Completion",
   "type": "object"
 }

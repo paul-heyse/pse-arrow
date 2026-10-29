@@ -20,7 +20,7 @@
       ],
       "type": "object"
     },
-    "LifecycleBytesOutput": {
+    "LifecycleBytes": {
       "additionalProperties": false,
       "description": "Byte categories never imply filesystem space has been reclaimed.",
       "properties": {
@@ -109,7 +109,7 @@
         }
       ]
     },
-    "LifecycleSelectionBodyOutput": {
+    "LifecycleSelectionBody": {
       "additionalProperties": false,
       "description": "Current owner coordinates, rechecked in the same transaction as release.",
       "properties": {
@@ -196,7 +196,7 @@
       "type": "boolean"
     },
     "bytes": {
-      "$ref": "#/$defs/LifecycleBytesOutput",
+      "$ref": "#/$defs/LifecycleBytes",
       "description": "Logical, copied, physical and reclaimed extents, with unknown values explicit."
     },
     "detail_released": {
@@ -213,7 +213,7 @@
       "type": "boolean"
     },
     "selection": {
-      "$ref": "#/$defs/LifecycleSelectionBodyOutput",
+      "$ref": "#/$defs/LifecycleSelectionBody",
       "description": "Exact checked selection; retaining this document grants no deletion capability."
     }
   },
@@ -226,6 +226,6 @@
     "requires_original_artifact_intent",
     "document_version"
   ],
-  "title": "LifecycleExplanationOutput",
+  "title": "LifecycleExplanation",
   "type": "object"
 }

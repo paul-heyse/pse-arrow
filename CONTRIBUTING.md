@@ -50,7 +50,7 @@ differently from the rest:
   identities (`blueprint §14.3`). Design amendments need an ADR and a revision row in
   `blueprint.md`, which also maps former single-file anchors. Retained ADRs explain why;
   completed plans, resolved reviews and obsolete decisions retire to Git history (ADR-0096).
-- `docs/generated/`, `crates/*/src/generated/`, `python/pse/contracts/` — **generated**.
+- `docs/generated/`, `crates/*/src/generated/`, `xtask/src/generated/`, `scripts/generated/` — **generated**.
   Never edit by hand; fix the generator and run `just codegen`.
 - `external/`, `target/`, `build/` — not yours to edit; regenerable or fetched.
 
@@ -124,11 +124,10 @@ the completed plan and its resolved reviews then retire (Git history keeps them)
 | `just governance` | the repository's own invariants (pin reasons, registration, the nightly pin against the MSRV floor, floors, unsafe allowlist, error taxonomy) | anything about the domain |
 | `just deps-report` | what is in the dependency graph and under what licences — **advisory, always exits 0** | nothing: it refuses nothing, and no library or licence blocks a merge (§3.3.2, ADR-0066) |
 | `just policy` | the same `cargo deny` + `cargo audit` checks run strictly. Opt-in; not part of `just ci-pr` | that a dependency is *appropriate* |
-| `just coverage` | line/branch coverage numbers | that the covered lines assert anything meaningful |
 | `just bench-smoke` | benchmarks still build and run | any performance claim — that needs `Measured` with conditions |
-| `just quality` | ruff, pyrefly, import-linter, REUSE, lockfile freshness | that the Python surface matches the native extension |
+| `just quality` | ruff, pyrefly, REUSE and repository tools | scientific agreement or runtime acceptance |
 | `just parity` | agreement with `idaes-pse==2.13.0` on the comparisons under test, on this Linux machine with the pinned solver prefix | agreement anywhere else, or that IDAES is right where we differ |
-| `just ci-pr` | the local composite Rust, Python, quality and documentation checks pass | GitHub's interpreter matrix, parity, or deeper manual jobs |
+| `just ci-pr` | the selected local Rust, repository quality and documentation checks pass | parity, scientific campaigns, or deeper manual jobs |
 
 GitHub check workflows run only when manually dispatched; `just ci-pr` is optional.
 There are no end-of-turn hooks (ADR-0161). The root agent runs `just turn-end` at the end

@@ -60,7 +60,7 @@ pub(crate) fn authenticated(root: &Path, name: &str) -> Result<String, Box<dyn E
         || document["delta_sha256"].as_str() != Some(sha256(&fs::read(delta)?).as_str())
     {
         return Err(format!(
-            "{name}: stale supplier source receipt; refresh scripts/supplier_source.py"
+            "{name}: stale supplier source receipt; explicitly refresh the selected native provider with pse-host prepare"
         )
         .into());
     }

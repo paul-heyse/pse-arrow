@@ -448,12 +448,6 @@ pub(crate) fn inherit<F: Future>(future: F) -> impl Future<Output = F::Output> {
         .with_subscriber(tracing::dispatcher::get_default(Clone::clone))
 }
 
-/// Emit a synchronous lifecycle fact under its authentic span context. An explicit
-/// tracing event parent alone does not activate the log bridge's OTel context.
-pub fn lifecycle(span: &tracing::Span, code: &'static str, owner: &'static str) {
-    span.in_scope(|| tracing::info!(target: "pse.telemetry.diagnostic", code, owner, "native lifecycle owner event"));
-}
-
 /// Project source-owned diagnostic codes without rendering private scientific inputs.
 /// Cancellation and nonconvergence keep their native classes; no eager span Ok status.
 pub(crate) fn diagnostic(error: &dyn pse_diagnostics::TypedDiagnostic, owner: &'static str) {
@@ -1143,14 +1137,48 @@ mod tests {
     }
     #[derive(Clone, Debug, Default)]
     struct Recorded(Arc<Mutex<Vec<opentelemetry_sdk::trace::SpanData>>>);
+    impl Recorded {
+        fn snapshot(&self) -> Vec<opentelemetry_sdk::trace::SpanData> {
+            // Assertions must not hold this lock: unwinding can close live spans
+            // and synchronously call the exporter again.
+            self.0.lock().unwrap().clone()
+        }
+    }
     impl opentelemetry_sdk::trace::SpanExporter for Recorded {
         async fn export(
             &self,
             batch: Vec<opentelemetry_sdk::trace::SpanData>,
         ) -> opentelemetry_sdk::error::OTelSdkResult {
-            self.0.lock().unwrap().extend(batch);
+            self.0
+                .lock()
+                .map_err(|error| {
+                    opentelemetry_sdk::error::OTelSdkError::InternalFailure(format!(
+                        "recorded span mutex poisoned: {error}"
+                    ))
+                })?
+                .extend(batch);
             Ok(())
         }
+    }
+    #[test]
+    fn recorded_exporter_reports_poison_without_panicking_during_cleanup() {
+        let recorded = Recorded::default();
+        let poisoned = std::panic::catch_unwind(|| {
+            let _records = recorded.0.lock().unwrap();
+            panic!("fixture assertion while holding exporter storage");
+        });
+        assert!(poisoned.is_err());
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let result = runtime.block_on(opentelemetry_sdk::trace::SpanExporter::export(
+            &recorded,
+            Vec::new(),
+        ));
+        assert!(matches!(
+            result,
+            Err(opentelemetry_sdk::error::OTelSdkError::InternalFailure(_))
+        ));
     }
     #[test]
     fn production_span_filter_retains_exact_request_parent_without_events_or_other_library_spans() {
@@ -1194,7 +1222,7 @@ mod tests {
             native_id
         });
         provider.force_flush().unwrap();
-        let records = recorded.0.lock().unwrap();
+        let records = recorded.snapshot();
         assert_eq!(records.len(), 2);
         let native = records
             .iter()
@@ -1211,7 +1239,6 @@ mod tests {
             "8123456789abcdef0123456789abcdef"
         );
         assert!(records.iter().all(|span| span.events.events.is_empty()));
-        drop(records);
         provider.shutdown().unwrap();
     }
     #[test]
@@ -1255,10 +1282,9 @@ mod tests {
             });
         });
         provider.force_flush().unwrap();
-        let exported = recorded.0.lock().unwrap();
+        let exported = recorded.snapshot();
         assert_eq!(exported.len(), 1);
         assert_eq!(exported[0].name, "pse.native.operation");
-        drop(exported);
         let captured = session.wait().unwrap();
         let output = captured
             .outputs
@@ -1530,7 +1556,7 @@ mod tests {
             "1123456789abcdef0123456789abcdef"
         );
         provider.force_flush().unwrap();
-        let records = recorded.0.lock().unwrap();
+        let records = recorded.snapshot();
         let root = records
             .iter()
             .find(|span| span.name == "pse.native.operation")
@@ -1542,7 +1568,6 @@ mod tests {
             .find(|span| span.name == "pse.fixture.task")
             .unwrap();
         assert_eq!(task.parent_span_id, root.span_context.span_id());
-        drop(records);
         provider.shutdown().unwrap();
     }
     #[test]
@@ -1565,7 +1590,7 @@ mod tests {
         producer.in_scope(|| {});
         drop(producer);
         provider.force_flush().unwrap();
-        let records = recorded.0.lock().unwrap();
+        let records = recorded.snapshot();
         let root = records
             .iter()
             .find(|span| span.name == "pse.native.shared_producer")
@@ -1576,7 +1601,6 @@ mod tests {
             root.links.links[0].span_context.span_id().to_string(),
             "4123456789abcdef"
         );
-        drop(records);
         provider.shutdown().unwrap();
     }
 
@@ -1601,112 +1625,50 @@ mod tests {
         let context = tracing::dispatcher::with_default(&dispatch, || {
             initiator.in_scope(crate::ExecutionContext::capture)
         });
-        let initiator_id = initiator.context().span().span_context().span_id();
+        let initiator_context = initiator.context().span().span_context().clone();
+        let producer_context = context.shared_producer("fixture.continued");
+        // The captured context owns an initiator span clone. Release both
+        // owners before polling the independent producer to exercise an ended
+        // initiator rather than just a dropped local span handle.
+        drop(context);
         drop(initiator);
+        provider.force_flush().unwrap();
+        let ended = recorded.snapshot();
+        assert_eq!(ended.len(), 1);
+        assert_eq!(ended[0].name, "pse.native.operation");
+        assert_eq!(ended[0].span_context, initiator_context);
+        assert_eq!(ended[0].parent_span_id.to_string(), "6123456789abcdef");
+        assert!(ended[0].parent_span_is_remote);
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
-        runtime.block_on(
-            context
-                .shared_producer("fixture.continued")
-                .instrument_with(
-                    async {
-                        tokio::task::yield_now().await;
-                        assert!(
-                            Carrier::current()
-                                .context()
-                                .span()
-                                .span_context()
-                                .is_valid()
-                        );
-                    },
-                    |_| Some(pse_diagnostics::observation::Outcome::Completed),
-                ),
-        );
+        let continued = runtime.block_on(producer_context.instrument_with(
+            async {
+                tokio::task::yield_now().await;
+                Carrier::current().context().span().span_context().clone()
+            },
+            |_| Some(pse_diagnostics::observation::Outcome::Completed),
+        ));
         provider.force_flush().unwrap();
-        let records = recorded.0.lock().unwrap();
-        let producer = records
-            .iter()
-            .find(|span| span.name == "pse.native.shared_producer")
-            .unwrap();
+        let records = recorded.snapshot();
+        provider.shutdown().unwrap();
+        assert_eq!(records.len(), 2);
         assert_eq!(records[0].name, "pse.native.operation");
+        let producer = &records[1];
+        assert_eq!(producer.name, "pse.native.shared_producer");
         assert_eq!(
             producer.parent_span_id,
             opentelemetry::trace::SpanId::INVALID
         );
-        assert_eq!(producer.links.links[0].span_context.span_id(), initiator_id);
-        drop(records);
-        provider.shutdown().unwrap();
+        assert_eq!(producer.links.links.len(), 1);
+        assert_eq!(producer.links.links[0].span_context, initiator_context);
+        assert!(continued.is_valid());
+        assert_eq!(continued.trace_id(), producer.span_context.trace_id());
+        assert_eq!(continued.span_id(), producer.span_context.span_id());
+        assert_eq!(continued.trace_flags(), producer.span_context.trace_flags());
     }
 
-    #[derive(Clone, Debug, Default)]
-    struct RecordedLogs(Arc<Mutex<Vec<opentelemetry_sdk::logs::TraceContext>>>);
-    impl opentelemetry_sdk::logs::LogExporter for RecordedLogs {
-        async fn export(
-            &self,
-            batch: opentelemetry_sdk::logs::LogBatch<'_>,
-        ) -> opentelemetry_sdk::error::OTelSdkResult {
-            self.0.lock().unwrap().extend(
-                batch
-                    .iter()
-                    .filter_map(|(record, _)| record.trace_context().cloned()),
-            );
-            Ok(())
-        }
-    }
-    #[test]
-    fn waiting_thread_lifecycle_logs_use_authentic_native_span_context() {
-        let records = RecordedLogs::default();
-        let traces = SdkTracerProvider::builder()
-            .with_simple_exporter(Recorded::default())
-            .build();
-        let logs = SdkLoggerProvider::builder()
-            .with_simple_exporter(records.clone())
-            .build();
-        let dispatch = tracing::Dispatch::new(
-            tracing_subscriber::registry()
-                .with(tracing_opentelemetry::layer().with_tracer(traces.tracer("fixture")))
-                .with(
-                    opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new(&logs),
-                ),
-        );
-        let carrier = Carrier::from_fields(BTreeMap::from([(
-            "traceparent".into(),
-            "00-7123456789abcdef0123456789abcdef-8123456789abcdef-01".into(),
-        )]))
-        .unwrap();
-        let unrelated = Carrier::from_fields(BTreeMap::from([(
-            "traceparent".into(),
-            "00-9123456789abcdef0123456789abcdef-a123456789abcdef-01".into(),
-        )]))
-        .unwrap();
-        let span = tracing::dispatcher::with_default(&dispatch, || {
-            carrier.operation_span("fixture.native")
-        });
-        let native_id = span.context().span().span_context().span_id();
-        tracing::dispatcher::with_default(&dispatch, || {
-            let unrelated = unrelated.operation_span("fixture.waiting_thread");
-            unrelated.in_scope(|| {
-                lifecycle(&span, "native.cancel.requested", "python.native_pull");
-                lifecycle(&span, "native.drain.settled", "python.native_pull");
-            });
-        });
-        logs.force_flush().unwrap();
-        let records = records.0.lock().unwrap();
-        assert_eq!(records.len(), 2);
-        for context in records.iter() {
-            assert_eq!(
-                context.trace_id.to_string(),
-                "7123456789abcdef0123456789abcdef"
-            );
-            assert_eq!(context.span_id, native_id);
-        }
-        drop(records);
-        drop(span);
-        logs.shutdown().unwrap();
-        traces.shutdown().unwrap();
-    }
     fn settings() -> Settings {
         Settings::from_json(
             r#"{

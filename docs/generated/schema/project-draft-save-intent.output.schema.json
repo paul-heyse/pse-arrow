@@ -96,7 +96,7 @@
       },
       "type": "array"
     },
-    "ProjectBranchRecordBodyOutput": {
+    "ProjectBranchRecordBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -190,7 +190,7 @@
       "type": "string"
     },
     "branch": {
-      "$ref": "#/$defs/ProjectBranchRecordBodyOutput"
+      "$ref": "#/$defs/ProjectBranchRecordBody"
     },
     "bytes": {
       "format": "uint64",
@@ -239,6 +239,6 @@
     "artifact",
     "document_version"
   ],
-  "title": "ProjectDraftSaveIntentOutput",
+  "title": "ProjectDraftSaveIntent",
   "type": "object"
 }

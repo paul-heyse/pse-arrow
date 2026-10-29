@@ -28,6 +28,6 @@
     "time_limit",
     "document_version"
   ],
-  "title": "DiagnosticSamplesControlsOutput",
+  "title": "DiagnosticSamplesControls",
   "type": "object"
 }

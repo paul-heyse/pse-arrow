@@ -53,7 +53,7 @@
         }
       ]
     },
-    "ArithmeticSourceDocumentOutput": {
+    "ArithmeticSourceDocument": {
       "additionalProperties": false,
       "description": "One source check's original range within a potentially shared arithmetic region.",
       "properties": {
@@ -306,7 +306,7 @@
       ],
       "type": "object"
     },
-    "SourceFieldDocumentOutput": {
+    "SourceFieldDocument": {
       "additionalProperties": false,
       "description": "One exact current source field, independent of shared mathematical identity.",
       "properties": {
@@ -525,14 +525,14 @@
       ],
       "type": "object"
     },
-    "SourceTemplateDocumentOutput": {
+    "SourceTemplateDocument": {
       "additionalProperties": false,
       "description": "One compiler-issued selected product template. Numerical weights/directions are not static identities.",
       "properties": {
         "arithmetic": {
           "description": "All original check ranges in the stated program, including static branches.",
           "items": {
-            "$ref": "#/$defs/ArithmeticSourceDocumentOutput"
+            "$ref": "#/$defs/ArithmeticSourceDocument"
           },
           "type": "array"
         },
@@ -608,7 +608,7 @@
     "fields": {
       "description": "Exact current authored field/document occurrences.",
       "items": {
-        "$ref": "#/$defs/SourceFieldDocumentOutput"
+        "$ref": "#/$defs/SourceFieldDocument"
       },
       "type": "array"
     },
@@ -695,7 +695,7 @@
     "templates": {
       "description": "Deduplicated selected mathematical products and their source origins.",
       "items": {
-        "$ref": "#/$defs/SourceTemplateDocumentOutput"
+        "$ref": "#/$defs/SourceTemplateDocument"
       },
       "type": "array"
     },
@@ -743,6 +743,6 @@
     "instances",
     "native_pullback_unavailable"
   ],
-  "title": "ModelingSourceMapDocumentOutput",
+  "title": "ModelingSourceMapDocument",
   "type": "object"
 }

@@ -127,6 +127,6 @@
     "maximum_entries",
     "document_version"
   ],
-  "title": "LinearDiagnosticControlsOutput",
+  "title": "LinearDiagnosticControls",
   "type": "object"
 }

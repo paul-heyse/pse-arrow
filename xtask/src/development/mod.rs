@@ -2,13 +2,23 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Disposable evidence and knowledge; original source owners retain authority and custody.
+pub mod affected;
+pub mod audit;
 pub mod catalog;
+pub mod configuration;
+pub mod repository_tools;
+#[cfg(feature = "package-fixtures")]
+pub mod conformance;
+#[cfg(feature = "package-fixtures")]
+pub mod thermodynamic_campaign;
 #[cfg(feature = "evidence-tools")]
 pub mod evidence;
 #[cfg(feature = "evidence-tools")]
 pub mod evidence_query;
 #[cfg(feature = "evidence-tools")]
 pub mod knowledge;
+#[cfg(feature = "evidence-tools")]
+pub mod workspace_sources;
 
 /// Resolve the independent private registry, without adding declarations to product schemas.
 /// # Errors

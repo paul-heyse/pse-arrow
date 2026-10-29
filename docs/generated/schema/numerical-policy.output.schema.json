@@ -24,7 +24,7 @@
       ],
       "type": "string"
     },
-    "AuthoredAccuracyGoalsRowOutput": {
+    "AuthoredAccuracyGoalsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -183,7 +183,7 @@
       ],
       "type": "object"
     },
-    "AuthoredEngineeringDefaultRulesRowOutput": {
+    "AuthoredEngineeringDefaultRulesRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -236,7 +236,7 @@
       ],
       "type": "object"
     },
-    "AuthoredEngineeringScalesRowOutput": {
+    "AuthoredEngineeringScalesRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -345,7 +345,7 @@
       ],
       "type": "object"
     },
-    "AuthoredNumericalRequirementsRowOutput": {
+    "AuthoredNumericalRequirementsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -612,7 +612,7 @@
       "default": [],
       "description": "Shared rules matched by full quantity meaning, not dimensions alone.",
       "items": {
-        "$ref": "#/$defs/AuthoredEngineeringDefaultRulesRowOutput"
+        "$ref": "#/$defs/AuthoredEngineeringDefaultRulesRow"
       },
       "type": "array"
     },
@@ -620,7 +620,7 @@
       "default": [],
       "description": "Admitted explicitly tagged scales, with source and scope retained.",
       "items": {
-        "$ref": "#/$defs/AuthoredEngineeringScalesRowOutput"
+        "$ref": "#/$defs/AuthoredEngineeringScalesRow"
       },
       "type": "array"
     },
@@ -640,7 +640,7 @@
       "default": [],
       "description": "Selected output goals; empty does not assert decision invariance.",
       "items": {
-        "$ref": "#/$defs/AuthoredAccuracyGoalsRowOutput"
+        "$ref": "#/$defs/AuthoredAccuracyGoalsRow"
       },
       "type": "array"
     },
@@ -690,7 +690,7 @@
       "default": [],
       "description": "ID-keyed analysis overrides, using the same declaration as model/case sources.",
       "items": {
-        "$ref": "#/$defs/AuthoredNumericalRequirementsRowOutput"
+        "$ref": "#/$defs/AuthoredNumericalRequirementsRow"
       },
       "type": "array"
     },
@@ -739,6 +739,6 @@
     "closure",
     "incumbent"
   ],
-  "title": "NumericalPolicyOutput",
+  "title": "NumericalPolicy",
   "type": "object"
 }

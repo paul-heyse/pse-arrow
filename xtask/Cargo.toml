@@ -101,9 +101,12 @@ product-schemas = [
   "dep:pse-model",
   "dep:pse-operations",
 ]
-package-fixtures = ["physical-admission", "product-schemas"]
+package-fixtures = ["physical-admission", "product-schemas", "dep:parquet"]
 
 [dependencies]
+bytes.workspace = true
+globset.workspace = true
+percent-encoding.workspace = true
 surrealdb-types = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
@@ -146,6 +149,9 @@ cargo_metadata.workspace = true
 toml.workspace = true
 serde.workspace = true
 regex.workspace = true
+chrono = { workspace = true, features = ["clock"] }
+serde-saphyr.workspace = true
+pulldown-cmark.workspace = true
 anyhow.workspace = true
 semver.workspace = true
 tokio = { workspace = true, features = ["signal"] }
@@ -154,7 +160,6 @@ tempfile.workspace = true
 # Generated contracts and selected producer-file observations; semantic identity uses blake3.
 sha2.workspace = true
 # Introspect the actual compiled PyO3 boundary; no handwritten API replica.
-pyo3-introspection.workspace = true
 syn.workspace = true
 # Print generated Rust through the library without a rustfmt subprocess.
 quote.workspace = true

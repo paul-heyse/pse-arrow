@@ -31,7 +31,7 @@ fn edit_payloads_preserve_all_patch_paths_and_reject_unknown_edits() -> Result {
 #[test]
 fn normalized_generated_and_vcs_paths_stay_protected_under_design_authority() -> Result {
     let root = tempfile::tempdir()?;
-    for path in ["docs/../docs/generated/a", "./external/a", ".git/config", "build/out", "target/bin", "crates/a/src/generated/b.rs", "crates/pse-operations/src/generated/schema.surql", "crates/pse-operations-queries/Cargo.toml", "python/pse/contracts/a.py", "python/pse/generated/project.py", "python/pse/_native.pyi", "crates/pse-ipopt-sys/src/bindings.rs", "scripts/generated/settings.rs", "xtask/src/generated/item.rs"] {
+    for path in ["docs/../docs/generated/a", "./external/a", ".git/config", "build/out", "target/bin", "crates/a/src/generated/b.rs", "crates/pse-operations/src/generated/schema.surql", "crates/pse-ipopt-sys/src/bindings.rs", "scripts/generated/settings.rs", "xtask/src/generated/item.rs"] {
         assert!(protected(root.path(), Path::new(path), true)?.is_some(), "{path}");
     }
     for path in ["crates/a/src/lib.rs", ".codex/skills/example/build/probe.rs", "docs/plans/build/note.md"] { assert!(protected(root.path(), Path::new(path), false)?.is_none(), "{path}"); }

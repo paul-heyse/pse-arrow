@@ -10,7 +10,7 @@
 # move that dependency (or its family), check the lock diff, run the affected tests. Holds,
 # versions that must not be bumped casually, are listed with their reason in
 # [workspace.metadata.pse.pins] (`dependency_pins` checks all of this). The arrow, datafusion,
-# object_store and pyo3 families must resolve to ONE version each: `=` binds direct
+# object_store families must resolve to ONE version each: `=` binds direct
 # dependencies only and `cargo tree -d` cannot flag a mixed family, so `cargo xtask
 # family-check` asserts the resolved graph against the families table; families move as a
 # unit, and a family major needs an ADR. ADDING a dependency needs no ceremony: no library and
@@ -144,19 +144,13 @@ datafusion-optimizer = "=55.1.0"
 
 url = { version = "=2.5.8", features = ["serde"] }
 percent-encoding = "=2.3.2"
+globset = "=0.4.20"
 tar = { version = "=0.4.46", default-features = false }
 flate2 = { version = "=1.1.10", default-features = false, features = ["rust_backend"] }
 zip = { version = "=2.4.2", default-features = false, features = ["deflate"] }
 
 # Required by DataFusion 55 (^0.13.2); 0.14.x exists on crates.io and must not be taken.
 object_store = "=0.13.2"
-
-# ---- Python boundary (pse-py only; features added in that crate) ----
-pyo3 = "=0.29.2"
-pyo3-build-config = "=0.29.2"
-pyo3-async-runtimes = { version = "=0.29.0", features = ["tokio-runtime"] }
-pyo3-arrow = "=0.19.0"
-pyo3-introspection = "=0.29.2"
 
 # ---- runtime ----
 # Exact server parser/AST, only selected by maintenance catalog validation.
@@ -232,7 +226,7 @@ serde = { version = "=1.0.229", features = ["derive", "rc"] }
 serde_json = { version = "=1.0.151", features = ["float_roundtrip"] }
 serde_path_to_error = "=0.1.20"
 # JSON Schema (draft 2020-12) of the Rust-owned boundary documents, derived from their
-# serde types; the generator publishes the schemas and the Python msgspec types from them
+# serde types; the generator publishes native input/output schemas from them
 # (ADR-0116 Outcome 7).
 schemars = "=1.2.2"
 # Validated single-value settings domains (ADR-0116 Outcome 8): a value outside its domain
@@ -253,6 +247,7 @@ hyper-util = { version = "=0.1.21", features = ["tokio"] }
 base64 = "=0.22.1"
 bytes = "=1.12.1"
 chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
+pulldown-cmark = { version = "=0.13.5", default-features = false }
 serde-saphyr = "=1.3.0"
 toml = { version = "=1.1.6", default-features = false, features = [
   "parse",
@@ -424,8 +419,8 @@ bindgen = "=0.73.2"
 pkg-config = "=0.3.34"
 cc = "=1.6.0"
 semver = "=1.0.28"
-# xtask writes python/pse/contracts/GENERATED.sha256 with it; semantic identity is
-# blake3 in pse-ids and never this (blueprint §5.3, ADR-0051).
+# Explicit generated-output inventories use SHA-256; semantic identity remains
+# blake3 in pse-ids (blueprint §5.3, ADR-0051).
 sha2 = "=0.11.0"
 # dev-dependency of pse-tests-lifecycle: the fault-injecting ObjectStore wrapper
 # implements an async trait (blueprint §24.1 "Lifecycle").
@@ -538,7 +533,7 @@ debug = "full"
 inherits = "profiling"
 split-debuginfo = "off"
 
-# Shipped wheels and binaries only (`maturin --profile dist`).
+# Explicitly distributed native binaries only.
 [profile.dist]
 inherits = "release"
 lto = "fat"
@@ -562,7 +557,6 @@ unsafe-allowlist = [
   "pse-uno-sys",        # ADR-0157: shielded Uno project ABI.
   "pse-petsc-sys",      # ADR-0157: MPIUNI real-double project ABI.
   "pse-backend-native",
-  "pse-py",             # CPython ABI and ADR-0164 controlled deployment qualification.
 ]
 
 # Dependencies consumed by standalone source tooling, outside the workspace graph.
@@ -572,7 +566,7 @@ surrealdb = { version = "=3.3.4", default-features = false, features = [
   "rustls",
 ] }
 
-# Native validated mathematics, prepared by scripts/native_cache.py. The archive
+# Native validated mathematics, explicitly prepared by pse-host. The archive
 # includes FILIB and the upstream patches for bundled SoPlex; no system LP/BLAS.
 [workspace.metadata.pse.root-isolation]
 version = "2.9.1"
@@ -629,7 +623,7 @@ options = [
 patch = "docker/solvers/petsc-pse.patch"
 
 # Consumed by `cargo xtask family-check`: one resolved version per family, equal to the
-# declared one (`match = "minor"` for pyo3).
+# declared one (including any explicitly declared minor-version family).
 [workspace.metadata.pse.families]
 arrow = { version = "59.3.0", crates = [
   "arrow",
@@ -645,14 +639,6 @@ datafusion = { version = "55.1.0", crates = [
   "datafusion-tracing",
 ] }
 object_store = { version = "0.13.2", crates = ["object_store"] }
-pyo3 = { version = "0.29", match = "minor", crates = [
-  "pyo3",
-  "pyo3-ffi",
-  "pyo3-macros",
-  "pyo3-macros-backend",
-  "pyo3-build-config",
-  "pyo3-introspection",
-] }
 
 # Holds: pinned dependencies outside the families above that must not be bumped casually,
 # each with its reason (ADR-0165). Every dependency is exact anyway; one with no entry here

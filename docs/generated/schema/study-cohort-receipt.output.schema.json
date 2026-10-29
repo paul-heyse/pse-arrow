@@ -10,12 +10,12 @@
       ],
       "type": "string"
     },
-    "StudyCohortRequestBodyOutput": {
+    "StudyCohortRequestBody": {
       "additionalProperties": false,
       "description": "One complete bounded population selected before any analytical payload work.",
       "properties": {
         "filter": {
-          "$ref": "#/$defs/StudyWorkbenchFilterOutput",
+          "$ref": "#/$defs/StudyWorkbenchFilter",
           "description": "Exact native predicates."
         },
         "maximum_members": {
@@ -38,7 +38,7 @@
       ],
       "type": "object"
     },
-    "StudyWorkbenchFilterOutput": {
+    "StudyWorkbenchFilter": {
       "additionalProperties": false,
       "description": "Indexed predicates over actual original scientific and engineering owners.",
       "properties": {
@@ -150,7 +150,7 @@
       "type": "integer"
     },
     "request": {
-      "$ref": "#/$defs/StudyCohortRequestBodyOutput",
+      "$ref": "#/$defs/StudyCohortRequestBody",
       "description": "Original immutable selection."
     }
   },

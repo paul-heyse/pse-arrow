@@ -47,19 +47,19 @@ is. Say what you did NOT verify too.
 ## Checklist
 
 - [ ] An ADR is referenced above, **or** I have stated why no ADR is needed.
-- [ ] Generated sources were regenerated with `just codegen` and committed
-      (`rust / codegen-diff` is green), or this PR touches no generator input.
+- [ ] Generated sources were regenerated with `just codegen` and committed, with the
+      actual generation-check scope reported above, or this PR touches no generator input.
 - [ ] Any dependency added or bumped is pinned exactly, the lock diff moved only what was
       meant (`just upgrade <package>`), the affected tests ran, and any new hold has its
       reason recorded beside it (ADR-0165).
-- [ ] If one of the four pinned families was **majored** (arrow, datafusion, pyo3,
+- [ ] If one of the retained pinned families was **majored** (arrow, datafusion,
       object_store): the ADR exists, the capability map under `docs/capability-maps/` was
       regenerated, and `just family-check` passes. *Adding a dependency needs none of
       this — see `docs/dev/dependency-policy.md`.*
 - [ ] If the IDAES parity pin moved: GOVERNANCE.md §5 was followed and every tolerance
       change is called out individually above.
 - [ ] No edits under `docs/generated/`, `crates/*/src/generated/`,
-      `python/pse/contracts/`, `external/`, `build/`, or `target/`.
+      `external/`, `build/`, or `target/`.
 - [ ] Documentation updated where an enduring contract, explanation or workflow changed; new files follow the naming and
       citation conventions (CONTRIBUTING.md §7).
 - [ ] Any checks chosen for this review and their scope are reported above. CI is

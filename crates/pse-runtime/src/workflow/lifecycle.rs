@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Public current-owner lifecycle composition; host resource authority stays in Python.
+//! Current retention-owner lifecycle composition; native host owners retain physical authority.
 use super::{Runtime, WorkflowError};
 pub use pse_operations::canonical_lifecycle::{
     LifecycleBlocker, LifecycleBytes, LifecycleExplanation, LifecycleKind, LifecycleRelease,

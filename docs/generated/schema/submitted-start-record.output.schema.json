@@ -26,7 +26,7 @@
       ],
       "type": "object"
     },
-    "AppliedRestartOutput": {
+    "AppliedRestart": {
       "additionalProperties": false,
       "description": "The interior-point restart an adapter applied to a submitted primal-dual seed.",
       "properties": {
@@ -39,7 +39,7 @@
           ]
         },
         "profile": {
-          "$ref": "#/$defs/WarmRestartOutput",
+          "$ref": "#/$defs/WarmRestart",
           "description": "The restart profile that produced it."
         }
       },
@@ -427,7 +427,7 @@
       ],
       "type": "string"
     },
-    "SeedOriginOutput": {
+    "SeedOrigin": {
       "additionalProperties": false,
       "description": "Portable provenance of an output seed, distinct from its coordinate compatibility.",
       "properties": {
@@ -453,7 +453,7 @@
       ],
       "type": "object"
     },
-    "SeedTransformationOutput": {
+    "SeedTransformation": {
       "description": "One transformation a submitted seed passed through between its source coordinates and\nthe native API, recorded from what actually ran (F25).",
       "oneOf": [
         {
@@ -521,7 +521,7 @@
               "type": "string"
             },
             "value": {
-              "$ref": "#/$defs/AppliedRestartOutput"
+              "$ref": "#/$defs/AppliedRestart"
             }
           },
           "required": [
@@ -538,7 +538,7 @@
       "format": "double",
       "type": "number"
     },
-    "WarmPayloadSnapshotOutput": {
+    "WarmPayloadSnapshot": {
       "description": "Portable seed data with explicit numerical observations.",
       "oneOf": [
         {
@@ -625,7 +625,7 @@
             "working_set": {
               "anyOf": [
                 {
-                  "$ref": "#/$defs/WorkingSetSnapshotOutput"
+                  "$ref": "#/$defs/WorkingSetSnapshot"
                 },
                 {
                   "type": "null"
@@ -707,7 +707,7 @@
         }
       ]
     },
-    "WarmRestartOutput": {
+    "WarmRestart": {
       "additionalProperties": false,
       "description": "How an interior-point method re-centres a complete primal-dual seed (L-N3). With the\ncold-start defaults a seeded restart is pushed back towards the analytic centre and loses\nmost of its benefit, so a restart states its barrier and its pushes. Absent fields take\nthese defaults across the Python boundary (ADR-0113).",
       "properties": {
@@ -754,7 +754,7 @@
       ],
       "type": "object"
     },
-    "WarmStartSnapshotBodyOutput": {
+    "WarmStartSnapshotBody": {
       "additionalProperties": false,
       "description": "Typed semantic seed snapshot. Nonfinite numbers have explicit observations; zero's\nsign survives in real observations. Snapshot attribution is separate from content identity.",
       "properties": {
@@ -777,7 +777,7 @@
         "origin": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SeedOriginOutput"
+              "$ref": "#/$defs/SeedOrigin"
             },
             {
               "type": "null"
@@ -786,7 +786,7 @@
           "description": "Producing occurrence, when there is one."
         },
         "payload": {
-          "$ref": "#/$defs/WarmPayloadSnapshotOutput",
+          "$ref": "#/$defs/WarmPayloadSnapshot",
           "description": "Complete portable seed data."
         },
         "profile": {
@@ -806,7 +806,7 @@
       ],
       "type": "object"
     },
-    "WorkingSetSnapshotOutput": {
+    "WorkingSetSnapshot": {
       "additionalProperties": false,
       "description": "Typed active set with the transformation under which its indices are meaningful.",
       "properties": {
@@ -877,7 +877,7 @@
     "seed": {
       "anyOf": [
         {
-          "$ref": "#/$defs/WarmStartSnapshotBodyOutput"
+          "$ref": "#/$defs/WarmStartSnapshotBody"
         },
         {
           "type": "null"
@@ -912,7 +912,7 @@
     "transformations": {
       "description": "Complete transformations actually applied before API submission.",
       "items": {
-        "$ref": "#/$defs/SeedTransformationOutput"
+        "$ref": "#/$defs/SeedTransformation"
       },
       "type": "array"
     }

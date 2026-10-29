@@ -21,7 +21,7 @@
       ],
       "type": "object"
     },
-    "InspectionRequestOutput": {
+    "InspectionRequest": {
       "additionalProperties": false,
       "description": "Request for copied diagnostics only; it cannot request scientific work or result admission.",
       "properties": {
@@ -33,7 +33,7 @@
         "numerical_history_policy": {
           "anyOf": [
             {
-              "$ref": "#/$defs/NumericalHistoryPolicyOutput"
+              "$ref": "#/$defs/NumericalHistoryPolicy"
             },
             {
               "type": "null"
@@ -78,7 +78,7 @@
       ],
       "type": "object"
     },
-    "NumericalHistoryPolicyOutput": {
+    "NumericalHistoryPolicy": {
       "additionalProperties": false,
       "description": "Explicit operator-selected thresholds, not universal convergence criteria.\nThe enclosing inspection request retains this policy beside its statements.",
       "properties": {
@@ -248,7 +248,7 @@
   "description": "Explicit immutable read request, independent of a checkpoint's original filesystem location.",
   "properties": {
     "inspection": {
-      "$ref": "#/$defs/InspectionRequestOutput",
+      "$ref": "#/$defs/InspectionRequest",
       "description": "Shared interpretation policy and exact operation identity."
     },
     "version": {
@@ -270,6 +270,6 @@
     "inspection",
     "window"
   ],
-  "title": "FrozenInspectionRequestOutput",
+  "title": "FrozenInspectionRequest",
   "type": "object"
 }

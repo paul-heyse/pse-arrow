@@ -324,7 +324,7 @@
       ],
       "type": "string"
     },
-    "SeedOriginOutput": {
+    "SeedOrigin": {
       "additionalProperties": false,
       "description": "Portable provenance of an output seed, distinct from its coordinate compatibility.",
       "properties": {
@@ -350,7 +350,7 @@
       ],
       "type": "object"
     },
-    "WarmPayloadSnapshotOutput": {
+    "WarmPayloadSnapshot": {
       "description": "Portable seed data with explicit numerical observations.",
       "oneOf": [
         {
@@ -437,7 +437,7 @@
             "working_set": {
               "anyOf": [
                 {
-                  "$ref": "#/$defs/WorkingSetSnapshotOutput"
+                  "$ref": "#/$defs/WorkingSetSnapshot"
                 },
                 {
                   "type": "null"
@@ -519,7 +519,7 @@
         }
       ]
     },
-    "WorkingSetSnapshotOutput": {
+    "WorkingSetSnapshot": {
       "additionalProperties": false,
       "description": "Typed active set with the transformation under which its indices are meaningful.",
       "properties": {
@@ -576,7 +576,7 @@
     "origin": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SeedOriginOutput"
+          "$ref": "#/$defs/SeedOrigin"
         },
         {
           "type": "null"
@@ -585,7 +585,7 @@
       "description": "Producing occurrence, when there is one."
     },
     "payload": {
-      "$ref": "#/$defs/WarmPayloadSnapshotOutput",
+      "$ref": "#/$defs/WarmPayloadSnapshot",
       "description": "Complete portable seed data."
     },
     "profile": {
@@ -604,6 +604,6 @@
     "payload",
     "document_version"
   ],
-  "title": "WarmStartSnapshotOutput",
+  "title": "WarmStartSnapshot",
   "type": "object"
 }

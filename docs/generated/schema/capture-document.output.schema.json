@@ -155,7 +155,7 @@
       ],
       "type": "object"
     },
-    "CaptureTargetOutput": {
+    "CaptureTarget": {
       "additionalProperties": false,
       "description": "One actual process followed by capture; process CPU is never operation-exclusive CPU.",
       "properties": {
@@ -177,7 +177,7 @@
           "type": "boolean"
         },
         "locator": {
-          "$ref": "#/$defs/ProcessLocatorBodyOutput",
+          "$ref": "#/$defs/ProcessLocatorBody",
           "description": "OS attachment identity copied from its owner."
         },
         "process": {
@@ -257,7 +257,7 @@
       ],
       "type": "object"
     },
-    "ProcessLocatorBodyOutput": {
+    "ProcessLocatorBody": {
       "additionalProperties": false,
       "description": "Actual process locator. PID reuse must be checked before attaching an optional sampler.",
       "properties": {
@@ -310,7 +310,7 @@
     "launch_process": {
       "anyOf": [
         {
-          "$ref": "#/$defs/ProcessLocatorBodyOutput"
+          "$ref": "#/$defs/ProcessLocatorBody"
         },
         {
           "type": "null"
@@ -372,7 +372,7 @@
     "targets": {
       "description": "Known process and actual native-thread attribution; CPU includes inherited tasks.",
       "items": {
-        "$ref": "#/$defs/CaptureTargetOutput"
+        "$ref": "#/$defs/CaptureTarget"
       },
       "type": "array"
     },
@@ -399,6 +399,6 @@
     "open_intervals",
     "errors"
   ],
-  "title": "CaptureDocumentOutput",
+  "title": "CaptureDocument",
   "type": "object"
 }

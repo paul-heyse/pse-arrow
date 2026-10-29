@@ -33,10 +33,8 @@ env:
   CARGO_INCREMENTAL: "0"
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "1"
-  # PLACEHOLDER until the first solver image is pushed to GHCR. `solvers-image.yml`
-  # opens a pull request that rewrites this value AND the literal `container.image`
-  # strings below to `ci-<tree-hash>@sha256:<digest>`. Until then every container job
-  # here fails to pull, which is deliberate and visible rather than silently skipped.
+  # The authored solver manifest synchronizes this immutable image reference.
+  # Image compilation does not establish local user-systemd or scientific acceptance.
   SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-2893f027e09f@sha256:cf6a21efa0728a9dfae55ac453445196bc2c0f4cb6775e62dafe1b0a688f5b95
 
 jobs:
@@ -74,71 +72,48 @@ jobs:
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: clippy (default features)
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+        run: scripts/cargo-bin/cargo-pse-correctness clippy --workspace --all-targets --locked -- -D warnings
       - name: clippy (no default features)
         # Checks the no-default dependency graph. Native ABI link profiles are explicit
         # and qualify separately; this job does not establish solver availability.
-        run: cargo clippy --workspace --all-targets --locked --no-default-features -- -D warnings
+        run: scripts/cargo-bin/cargo-pse-correctness clippy --workspace --all-targets --locked --no-default-features -- -D warnings
 
-  test:
-    name: rust / test
+  identity-unit:
+    name: rust / identity-unit
     runs-on: ubuntu-24.04
-    container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-2893f027e09f@sha256:cf6a21efa0728a9dfae55ac453445196bc2c0f4cb6775e62dafe1b0a688f5b95
+    # This pure owner has no store, native solver or user-systemd fixture.
+    # Full native lifecycle/scientific journeys remain local/H-owned.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
-          shared-key: test
+          shared-key: identity-unit
           save-if: ${{ github.ref == 'refs/heads/main' }}
-          tools: cargo-nextest
-      - name: nextest
-        # `force-validate` turns on arrow's own invariant checks. It is named explicitly
-        # rather than hidden behind an alias so that what CI runs is readable here.
-        run: |
-          cargo nextest run --workspace --locked --profile ci \
-            --features pse-relations/force-validate
-      - name: doctests
-        # nextest does not run doctests; every gate pairs the two.
-        run: cargo test --doc --workspace --locked --features pse-relations/force-validate
-      - name: benches build and smoke
-        # Builds and runs each criterion bench once. There is no timing gate here — a
-        # performance claim needs `Measured` with stated conditions, not a CI runner.
-        run: cargo test --benches -p pse-benches -p pse-relations --locked --features pse-relations/force-validate
-      - name: upload JUnit report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: nextest-junit
-          path: target/nextest/ci/junit.xml
-          if-no-files-found: warn
-          retention-days: 14
+      - name: pure identity units
+        run: scripts/cargo-bin/cargo-pse-correctness test -p pse-ids --lib --locked
+      - name: identity doctests
+        run: scripts/cargo-bin/cargo-pse-correctness test -p pse-ids --doc --locked
 
   codegen-diff:
     name: rust / codegen-diff
     runs-on: ubuntu-24.04
-    # Needs the Ipopt headers and libclang for the bindgen arm of `xtask codegen`.
-    container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-2893f027e09f@sha256:cf6a21efa0728a9dfae55ac453445196bc2c0f4cb6775e62dafe1b0a688f5b95
+    # Independent registry contracts/docs/Surreal projections require no runtime.
+    # Physical/native-ABI and aggregate generation remain scope-end native checks.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: trust the checkout inside the container
-        # The container runs as a different uid from the runner's checkout; without this
-        # git reports "dubious ownership" and `git diff`/`git status` behave as if there
-        # were no repository at all.
-        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
       - uses: ./.github/actions/setup-rust
         with:
           shared-key: codegen
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - name: generated sources match the generator
-        # Regenerates into the working tree and fails on any diff or untracked file.
-        # If this is red, run `just codegen` and commit the result in the same PR.
-        run: cargo run -p xtask --features full-codegen,force-validate --locked -- codegen --check
+      - name: independent generated projections match their owners
+        run: |
+          scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- codegen --check --only rust-contracts
+          scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- codegen --check --only docs
+          scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- codegen --check --only surreal
 
   family-check:
     name: rust / family-check
@@ -158,7 +133,7 @@ jobs:
           # One --evidence per lockfile (clap takes one value each); families-only, because
           # the evidence lockfiles were resolved on their own day and unrelated transitive
           # crates drift by patch version without saying anything about the pins.
-          cargo xtask family-check \
+          scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- family-check \
             --evidence docs/capability-maps/evidence/rust/apisurface-Cargo.lock \
             --evidence docs/capability-maps/evidence/rust/support-Cargo.lock \
             --evidence-families-only
@@ -249,81 +224,10 @@ jobs:
         if: steps.availability.outputs.ready == 'true'
         # Checks every `a::b::c` and [rustdoc:…] identifier in docs/** against the
         # committed path indexes. The deeper sweep is manually available in rust-scheduled.yml.
-        run: cargo xtask doc-lint
-
-  coverage:
-    name: rust / coverage
-    runs-on: ubuntu-24.04
-    container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-2893f027e09f@sha256:cf6a21efa0728a9dfae55ac453445196bc2c0f4cb6775e62dafe1b0a688f5b95
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-rust
-        with:
-          shared-key: coverage
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-          tools: |
-            cargo-llvm-cov
-            cargo-nextest
-      - name: cargo llvm-cov
-        run: |
-          cargo llvm-cov nextest --workspace --locked --profile ci \
-            --features pse-relations/force-validate \
-            --lcov --output-path lcov.info
-      - name: export coverage for a host-side upload
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: rust-coverage
-          path: lcov.info
-          if-no-files-found: error
-
-  coverage-upload:
-    name: rust / coverage-upload
-    needs: [coverage]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: rust-coverage
-      - name: upload to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        with:
-          files: lcov.info
-          flags: rust
-          use_oidc: true
-          fail_ci_if_error: false
-
-  semver:
-    name: rust / semver
-    runs-on: ubuntu-24.04
-    # Advisory on manual runs. There is nothing to compare before the first tag.
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-rust
-        with:
-          shared-key: semver
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: obi1kenobi/cargo-semver-checks-action@6b69fcf40e9b5fb17adeb57e4b6ecd020649a239 # v2.9
-        with:
-          feature-group: default-features
-          rust-toolchain: manual
+        run: scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- doc-lint
 
   msrv-floors:
-    name: rust / msrv-floors
+    name: rust / dependency-floors
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -333,7 +237,6 @@ jobs:
         with:
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
-          tools: cargo-hack
-      - name: every dependency's rust-version floor is at or below ours
-        # Pre-1.0 crates can raise their own MSRV in patch releases.
-        run: cargo hack check --rust-version --workspace --all-targets --locked
+      - name: locked dependency language floors
+        # The repository's pinned nightly remains the compiler; no toolchain override.
+        run: scripts/cargo-bin/cargo-pse-correctness test -p pse-tests-governance --test dependency_floors --locked

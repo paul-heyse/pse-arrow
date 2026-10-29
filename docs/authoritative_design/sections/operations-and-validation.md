@@ -9,8 +9,9 @@ This area covers how the running system reports what it did and why it failed, a
 the repository establishes that the implementation behaves as its contracts say.
 `pse-diagnostics` owns the failure vocabulary; `pse-columnar::engine` classifies native
 engine errors; `pse-engine::session` owns engine observation policy; runtime result
-relations carry execution facts. Test crates live under `tests/`, Python tests under
-`python/pse/tests`, benchmarks under `benches/`; `just --list` is the command surface.
+relations carry execution facts. Native tests live in the owning crates and `tests/`, isolated
+reference exchanges under `tests/reference`, and benchmarks under `benches/`; `just --list` is the
+command surface.
 
 ## 23. Observability and failure semantics
 
@@ -23,7 +24,7 @@ computation can never change its scientific or publication outcome
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
-Product detail and protected result-selection contracts precede internal tooling extraction. Rust owns conformance manifest/defaults and cooperating-source launch execution; Python adapts commands. Optional tracing/crate selection requires its own bounded outcome; existing observation authority remains until replacement qualifies.
+Product detail and protected result-selection contracts precede internal tooling extraction. Rust owns conformance manifests/defaults and cooperating-source launch execution; native developer adapters consume those owners. Optional tracing/crate selection requires its own bounded outcome; existing observation authority remains until replacement qualifies.
 
 > Decision: ADR-0192/0196 (proposed; accepted Plan47 RC01/RC02 target). Live inspection
 > observes current time and known local publication. Frozen inspection consumes supplied
@@ -36,7 +37,7 @@ Product detail and protected result-selection contracts precede internal tooling
 > used by live owners without reconstructing numerical or allocation authority. Descriptive
 > context and offline completion do not establish executable replay or scientific success.
 
-Frozen Rust/Python ingress accepts versioned copied checkpoint, invocation, context,
+Frozen native ingress accepts versioned copied checkpoint, invocation, context,
 membership and capture documents with finite input bounds. Saved invocation explanation
 and comparison use the live owners' pure interpreter, validating exact step/product/native
 coordinates before matching. Related operations resolve only from supplied members;
@@ -143,15 +144,15 @@ report consumes the same original document and never changes scientific or quali
 **Shared diagnostic telemetry.** Maintainer-selected Plan52 OpenTelemetry RC01/RC02 add a
 persistent native Collector and local OpenObserve projection alongside finite capture. The process
 host composes providers, resource identity and shutdown once; constructing a Runtime never installs
-a provider. Python and embedded Rust share their actual process incarnation, with instrumentation
-scopes separate. Native child processes have their own incarnation. Bounded W3C parent context
+a provider. Each native process retains its actual incarnation and separate instrumentation scopes. Child
+processes have their own incarnation. Bounded W3C parent context
 crosses explicit host/task/thread boundaries independently of scientific request documents, hashes,
 operation handles and native parent locators. A shared ID is association, not a propagated edge.
 
 SDK batching and standard Collector queues/retry own optional signal delivery. Ordinary selected
 telemetry exports coarse owner stages and safe structured diagnostics, with metric populations
 remaining defined at their performing owners. Export failure changes neither native admission nor
-execution, drain, scientific assurance or publication. Long-lived executable and embedded Python
+execution, drain, scientific assurance or publication. Long-lived native executable
 hosts settle native owners before explicit provider shutdown. The private one-shot native lane
 keeps its providers for process lifetime without synchronous network drain on scientific exit;
 its final batches, or all spans from a short solve, may be absent. Native result, child join and
@@ -167,13 +168,12 @@ selects the explicit `pse.owner.stage` marker and exact canonical request span; 
 separate. Rust SDK 0.33.1 internal diagnostics expose first-drop observation during processor life
 and a cumulative drop count at the SDK shutdown attempt, before its control-send/wait. That count
 does not establish successful shutdown, queue drain, export or ingestion. Failed shutdown remains
-independent; abrupt buffered loss is unknown, and capacity is not occupancy. Python SDK queues
-remain unavailable rather than inferred from native observations. The small delegating processor
+independent; abrupt buffered loss is unknown, and capacity is not occupancy. The small delegating processor
 observes SDK events without replacing its queue or mutating global meter configuration.
 
-The resolved private host-settings wire is declared by Rust serde types and projected through the
-existing schema generator into source-only Python bindings. Python owns environment resolution;
-immutable encoded settings and native validation preserve that single selection. Public effective
+Rust serde types declare private host settings. The native host owns environment resolution;
+immutable settings and native validation preserve that single selection. Responsibility-owned
+schema publication does not require a scientific product import. Public effective
 configuration is a separate redacted projection and exposes no private credential document.
 
 Registered native executor owners supply library measurements to the existing typed process
@@ -193,8 +193,8 @@ attribution remains absent. An owner classifies completion; entering attribution
 report scientific success.
 
 Owner-typed lifecycle boundaries feed the observation hub, operational counts, optional tracing
-and bounded invocation recorder independently. Job, native-session, Python-pull and window-team
-populations remain distinct: observing a session or pull cannot increment native-job counts.
+and bounded invocation recorder independently. Job, native-session and window-team populations
+remain distinct: observing a session cannot increment native-job counts.
 Sampling or absent subscribers does not remove owner state, and unavailable observation is not
 zero work. Fine boundaries do not consume the recorder's 64 interval slots; only declared
 intervals such as actual inclusive native-worker execution do, with its existing name bound.
@@ -221,7 +221,7 @@ than metric labels. Histogram boundaries, source epochs, missing observations an
 coverage remain explicit. Sampling off does not disable owner metrics.
 
 The optional Python FastMCP endpoint, global operation catalogue, generated capability CLI and
-frontend sessions are retired under proposed ADR-0233 and Plan58 G02. Direct Rust owners and
+first-party frontend sessions are retired under proposed ADR-0233 and Plan58 G02. Direct Rust owners and
 retained passive reports supply selected native operations and evidence routes; an eventual
 agent adapter needs a concrete consumer and its own acceptance. The retained backend adapter owns signal-specific field
 mapping, credentials, reusable asynchronous transport and service-generation fences. Cumulative
@@ -401,17 +401,17 @@ Observation effects are classified before any preparation identity is narrowed. 
 settings and resource/reporting consequences remain visible; no identical-deadline-trajectory or
 zero-overhead claim follows.
 
-> Decision: ADR-0192 (proposed; Plan44/RC01 implemented). The invocation recorder is established inside the entered activity owner before native dispatch, and that one context transfers through worker and supervisor. Version 2 uses wall seconds from that establishment, excluding earlier preparation; synchronous admission/refusal and nested invocation boundaries remain. Version-1 supervisor-only observations do not supply that expanded coverage. The native worker records its actual bounded inclusive execution interval; it is not exclusive CPU accounting. Targeted invocation, comparison, final-assessment and Python projection controls passed; selected assembled native, durable/managed and public Python acceptance is recorded in §24.2.
+> Decision: ADR-0192 (proposed; Plan44/RC01 implemented). The invocation recorder is established inside the entered activity owner before native dispatch, and that one context transfers through worker and supervisor. Version 2 uses wall seconds from that establishment, excluding earlier preparation; synchronous admission/refusal and nested invocation boundaries remain. Version-1 supervisor-only observations do not supply that expanded coverage. The native worker records its actual bounded inclusive execution interval; it is not exclusive CPU accounting. Selected historical invocation, comparison and projection acceptance retains its original scope in §24.2.
 
-> Decision: ADR-0196 (proposed; Plan43e target). Retained source-event pages can be projected through the registry-declared `runtime.diagnostic_evidence_fields`, `runtime.diagnostic_invocations` and `runtime.diagnostic_captures` relations. Operation/producer/generation/event/field membership, exact time, units, typed values and explicit loss/availability survive projection. Existing source artifacts remain raw authority; finite analytical allocation leases remain attached to escaped Arrow buffers. DataFusion and Python consume this same projection without scientific-store availability, implicit evaluation or a second retention authority. Repeated event identities refuse the derived view rather than silently deduplicate raw evidence.
+> Decision: ADR-0196 (proposed; Plan43e target). Retained source-event pages can be projected through the registry-declared `runtime.diagnostic_evidence_fields`, `runtime.diagnostic_invocations` and `runtime.diagnostic_captures` relations. Operation/producer/generation/event/field membership, exact time, units, typed values and explicit loss/availability survive projection. Existing source artifacts remain raw authority; finite analytical allocation leases remain attached to escaped Arrow buffers. Native DataFusion consumers use this same projection without scientific-store availability, implicit evaluation or a second retention authority. Repeated event identities refuse the derived view rather than silently deduplicate raw evidence.
 
 Pure interpretation consumes copied coherent history or actual joined invocation documents. Selected numerical-history policies declare thresholds and require compatible phase, generation, sequence, coordinate and norm meaning. Statements distinguish facts, hypotheses and limitations and reference their source fields. Tiny native search directions are not accepted physical displacements; equal endpoints do not establish continuous stagnation. Invocation comparisons preserve requested products, original permission, failures, retries and inclusive clock scopes without initiating science or selecting an automatic performance winner.
 
-Explicit static source-map inspection retains original document/field/occurrence locations, aliases, gathers, fixed/eliminated coordinates and arithmetic contributors. Shared arithmetic execution is represented once while all contributing sources remain attributable. A static branch alternative is eligibility, not evidence it executed. Unknown native pullbacks remain unavailable; passive inspection never reevaluates equations. One nonrenewable caller deadline covers Python declaration/preparation, artifact waits and mapping/copying; finite byte admission remains separate. Explicit full bounded singular-mode diagnostics qualify actual scaled-operator residuals and normalization; absent rectangular equations are absent, not zero residuals or a global certificate.
+Explicit static source-map inspection retains original document/field/occurrence locations, aliases, gathers, fixed/eliminated coordinates and arithmetic contributors. Shared arithmetic execution is represented once while all contributing sources remain attributable. A static branch alternative is eligibility, not evidence it executed. Unknown native pullbacks remain unavailable; passive inspection never reevaluates equations. One nonrenewable caller deadline covers declaration/preparation, artifact waits and mapping/copying; finite byte admission remains separate. Explicit full bounded singular-mode diagnostics qualify actual scaled-operator residuals and normalization; absent rectangular equations are absent, not zero residuals or a global certificate.
 
 Optional Perfetto capture emits actual MONOTONIC/BOOTTIME relationships before events and retains its alignment sampling width. Typed record fields preserve source event membership; independently stoppable bounded query tools consume immutable traces without stopping science. Native KLU detail counts actual issued/completed owner operations; PETSc detail uses an independently owned handler and prepared event populations with inclusive completed-event scope. Accepted Plan45 RC08 retains separate actual symbolic/full-numeric/refactor/substitution observations for fixed-pattern qualification (§18); retained symbolic ownership never implies fresh numeric work or convergence. Unselected hooks do not claim measured zero. Operating routes and tool limitations live in the [diagnostic guide](../../dev/simulation-diagnostics.md).
 
-> Decision: ADR-0192/0196 (proposed; Plan43 production-completeness correction). Explicit numerical diagnostics use one operation clock across preparation, admission and execution and retain optional originating invocation/attempt/failure attribution. Origin conveys no scientific permission. Joined scientific products follow their individual governing original completion; retained raw or partial data remains diagnostic. Launch CPU profiling composes a separately owned command with the existing exporter owner: enable acknowledgement precedes scientific exec, and capture failure/stop never cancels command work. CaptureDocument version 2 identifies the exact launch process with no fabricated selected operation; bounded discovery retains actual related operations. The capture view version 2 uses an explicit process/operation subject. DiagnosticOrigin is one typed optional run/attempt/step/native-attempt/operation/failure reference retained in the version 2 diagnostic relations; Rust DiagnosticOperation and the Python endpoints share the original caller clock through preparation, term analysis, owned numerical work and initial export. Whole-run refusal and step-local availability remain independent. Changed generated documents/views migrate together. Implementation and current package status remain with Plan43.
+> Decision: ADR-0192/0196 (proposed; Plan43 production-completeness correction). Explicit numerical diagnostics use one operation clock across preparation, admission and execution and retain optional originating invocation/attempt/failure attribution. Origin conveys no scientific permission. Joined scientific products follow their individual governing original completion; retained raw or partial data remains diagnostic. Launch CPU profiling composes a separately owned command with the existing exporter owner: enable acknowledgement precedes scientific exec, and capture failure/stop never cancels command work. CaptureDocument version 2 identifies the exact launch process with no fabricated selected operation; bounded discovery retains actual related operations. The capture view version 2 uses an explicit process/operation subject. DiagnosticOrigin is one typed optional run/attempt/step/native-attempt/operation/failure reference retained in the version 2 diagnostic relations; native `DiagnosticOperation` consumers share the original caller clock through preparation, term analysis, owned numerical work and initial export. Whole-run refusal and step-local availability remain independent. Changed generated documents/views migrate together. Implementation and current package status remain with Plan43.
 
 ### 23.2 Failure taxonomy
 
@@ -446,7 +446,7 @@ nonfinite observations as physical values. Detailed diagnostic identity is autho
 coarse `FailureClass`, boundary disposition, severity, scientific usability and retry are
 separate purpose-specific projections. A coarse class never reconstructs the detailed code.
 Closed numerical/qualification rules are validated at authored admission. Rust, generated
-relations, durable termination documents and Python reports retain the same structured envelope.
+relations, durable termination documents and native reports retain the same structured envelope.
 `DiagnosticReport.envelope()` exposes the complete document, including nested causes.
 
 > Supplement: [ADR-0224](../../adr/0224-native-result-inspection.md) (proposed;
@@ -466,7 +466,7 @@ Scientific refusal diagnostics and available members survive operational failure
 
 **Ownership.** `pse-diagnostics` declares one vocabulary: `FailureClass` (coarse class)
 and `DiagnosticCode` (detailed code, each mapped to one class). The registry projects
-both into generated enums, Arrow and Python contracts; nothing else declares a code.
+both into generated enums, Arrow and native documents; nothing else declares a code.
 Codes are dotted in data (`authoring.parse.missing_id`) and rendered in Rust path form
 by miette (`authoring::parse::missing_id`).
 
@@ -482,7 +482,7 @@ by miette (`authoring::parse::missing_id`).
   does not establish its class or erase an uncertain commit.
 - Findings are relations; a rendered diagnostic is a projection of a finding, never its
   storage. Boundary diagnostics carry source identities, stage and observations
-  (`pse-model::diagnostic`); Python exceptions carry the same structured report.
+  (`pse-model::diagnostic`); native reports preserve that same structured content.
 - A non-converged or infeasible solve is a typed result (native termination, candidate
   kind, qualification), not an error ([§18](numerical-execution.md#section-18)).
   Errors cover refusals, evaluation failures, failed native operations, resource limits,
@@ -642,22 +642,29 @@ design-change tracking are owned by
 
 ### 24.1 Test layers
 
-The authorized remaining Plan58 target moves first-party development configuration, metadata,
-generation, fixtures and evidence callers to native responsibility owners. Python-only
-declaration/stub/currency checks retire with their producer and consumers; native registry and
-regeneration equivalence remain required. Valuable scientific oracle exchanges stay isolated
-from production. Obsolete Python measurement drivers may retire only after their exact cases,
-inputs, expected outcomes and observation/custody requirements pass to H; original results retain
-their historical scope. This is the scoped ADR-0233 §13 target, not current full qualification.
+First-party development configuration, documentation metadata/lifecycle/site interpretation,
+fixtures, governance, generation and evidence callers have native responsibility owners. Typed
+fixtures use production admission and original resource owners. Strict YAML and Markdown parsing
+serve the existing documentation policies through `serde-saphyr` and `pulldown-cmark`; parser
+success does not decide lifecycle, current authority or publication. The source-only knowledge
+constructor captures bounded bytes once, preserves native metadata and section/package identities,
+and reports unknowns and omissions rather than inferring API use from dependency declarations.
+
+Python-only product declarations, stubs, extension currency and wrapper tests retire with their
+producers/consumers. Native registry/schema and complete regeneration equivalence remain required.
+Independent scientific oracle exchanges are isolated from production. Retired measurement drivers
+hand their exact scenarios, inputs, assertions and observation/custody requirements to H; historical
+measurements retain only their original scope. Retirement neither runs those campaigns nor
+establishes replacement performance.
 
 > Decision: [ADR-0233](../../adr/0233-rust-owned-host-and-execution-boundaries.md) (proposed;
 > maintainer-authorized Plan58 native cutover).
 
 Native typed operations, protected result readers and passive reports are the retained access
 routes. The Python MCP endpoint, its presentation-only contracts, generated Cyclopts frontend,
-Codex refresh/reconnect helpers and mcpls clients are deleted. Their dedicated tests and generated
+Codex refresh/reconnect helpers and first-party mcpls clients are deleted. Their dedicated tests and generated
 outputs retire with those mechanisms. The [interface guide](../../dev/capability-interface.md)
-names current routes and immutable historical evidence. No replacement server or mandatory CLI
+names current native routes. No replacement server or mandatory CLI
 follows. The existing structural migration retains its source-cut, preview, apply and
 reconciliation owner; ordinary editor and shell workflows supply source navigation.
 
@@ -666,9 +673,9 @@ correlation, deadlines, cursor/issuer/selection binding and physical-context rul
 contracts. Observation close is distinct from scientific cancellation, durable completion and
 physical release. Protected result custody survives another reader or publisher closing; native
 and connection owners retain actual settlement and independent cleanup failures. Removing a
-frontend does not qualify remaining native consumers or the broader Python facade retirement.
+frontend does not qualify unexercised native consumers or the assembled product.
 
-**Implemented (ADR-0231, maintainer-directed):** ordinary editable dev/native and fixed
+**Implemented (ADR-0231, maintainer-directed):** explicit native product and fixed
 evidence-executable construction publish a completed immutable artifact generation through the
 existing preparation receipt. The build/install owner establishes validity once and publishes the
 typed descriptor only after completion. Failure before publication commits preserves the previous selection. If descriptor replacement
@@ -679,14 +686,11 @@ source edits affect later construction, not the validity of the existing generat
 generation survives mutable installation-alias changes and newer publications until explicit
 replacement drains its owner. Original cursors never attach silently to a replacement.
 
-A retained Python extension attachment names its checkout and interpreter. Environment/provider
-lifetime remains with its original owner. Explicit image replacement drains its native owners;
-source edits affect later construction. Source-only discovery never prepares native prerequisites. Explicit stages compare their requested mode, profile and validation contract before
-import or stub publication; generic installed capture retains its separate meaning. The former
-foreground capability CLI and `capabilities_drain` handshake are retired with their endpoint.
-Their historical two-generation qualification remains in §24.2 and the original Plan56 Outcome;
-it is not acceptance of Plan58 replacements. Original native owners still close admission and
-retain resources until actual settlement; observer loss cannot confer release authority.
+Native attachment retains its original environment/provider owner. Explicit image replacement
+drains those native owners; source-only discovery never prepares prerequisites. Explicit stages
+compare requested mode, profile and validation at construction. Historical frontend attachment and
+two-generation evidence in §24.2 do not qualify replacement consumers. Original native owners
+close admission and retain resources until actual settlement; observer loss grants no release.
 
 > Decision: [ADR-0219](../../adr/0219-selected-development-evidence.md) (proposed; maintainer-authorized Plan51d target).
 
@@ -733,8 +737,9 @@ availability; metadata references are not current protection grants.
 | Engine | `tests/engine` | provider hierarchy, plan codec, pushdown truthfulness against unpruned sources, relational expansion, unified sources |
 | Conformance | `tests/conformance` | selected scientific acceptance journeys; native value/IEEE framing and Arrow admission properties remain in their owning crates |
 | Lifecycle | `tests/lifecycle` | guarded canonical admission, interruption, exact retained reads and result memory budgets |
-| Python | `python/pse/tests` | the native Python boundary: generated contracts, extension round trips, extra-key refusal, nullable-array refusal, workflows, protected canonical Arrow streams |
-| Parity | `python/pse/parity` | the IDAES 2.13.0 environment and selected scientific reference comparisons (proposed [ADR-0097](../../adr/0097-modeling-scope-and-parity.md)) |
+| Native application | `crates/pse-runtime/tests/native_*.rs` and workflow tests | actual typed scientific/local/durable callers, protected data, original completion and resource settlement |
+| Developer tools | `xtask` and `pse-host` tests | native source/doc/governance/evidence owners, exact command/environment selection and authenticated independent operator effects |
+| Independent references | native exchange tests and isolated `tests/reference/oracles` | the IDAES 2.13.0 environment and selected scientific reference comparisons (proposed [ADR-0097](../../adr/0097-modeling-scope-and-parity.md)) |
 
 Structural algorithms are tested in their owning production crates; no empty structural
 test package is retained. Scientific checks compare against analytic, exhaustive or
@@ -752,17 +757,15 @@ formulations. Parity does not establish numerical IDAES equivalence
   Workspace-unifier edges do not establish consumption, and never activate validation by
   default. User target, package and feature selections remain part of the closure.
   Workspace commands may use the relation flag when those targets are already selected.
-- Every Python test carries exactly one of `unit`, `component`, `integration` or
-  `performance`; the repository `conftest.py` refuses collection otherwise.
-  Performance tests are collected only with `--performance`. Parity tests run only with
-  `--parity` and fail, never skip, when the environment is wrong. Tests own requested
-  temporary files, isolated databases and mutable runtime state. Prohibited writes are
-  checked against disposable inputs with known contents and modes; concurrent checkout
-  edits are not attributed through Git polling.
+- Tests own requested temporary files, private fresh databases and mutable runtime state.
+  Native canonical fixtures select an explicit immutable prepared module and an already-built
+  helper; they never borrow or replace an existing user store. Isolated oracle exchanges fail
+  when their requested environment/reference is unavailable; no product Python environment is
+  required. Prohibited-write checks use disposable known inputs, not concurrent Git polling.
 - Generated trees equal a fresh regeneration through the complete nonmutating xtask
   comparison, including missing, extra and untracked outputs. Product tests do not repeat
   a weaker freshness check ([ADR-0160](../../adr/0160-centralize-testing-responsibility.md)).
-- Test selection belongs to nextest and pytest; no exact-name acceptance manifest exists.
+- Native test selection belongs to Cargo/nextest; no exact-name acceptance manifest exists.
   Reports distinguish executed, unchanged-input reuse, reviewed transfer and not-run
   evidence. Feature campaigns may reuse individual completed passing combinations only from a
   complete frozen cargo-hack enumeration with identical literal arguments, tool/compiler identity,
@@ -772,7 +775,8 @@ formulations. Parity does not establish numerical IDAES equivalence
   native/binary provenance; unknown scope captures all inputs. One terminal composer
   reconciles actual selection, failure, cancellation and missing evidence. Comprehensive
   qualification runs the shared native graph once, with separate feature-absence controls
-  and one Python scope; ordinary effects follow requested fixtures and resource owners.
+  and separately requested independent-reference exchanges; ordinary effects follow requested
+  fixtures and resource owners.
   Invocation resources associate that exact selection with an isolated mutable context
   before creation. Fixture Drop/exit records borrower/drain facts, never test success.
   Only reconciled terminal pass plus actual reader/native/cgroup drain and no protected
@@ -814,11 +818,10 @@ Plan53 C04 owns implementation and caller/self-test migration; publication estab
 implemented exit behavior.
 
 The same accepted target gives actual selected effect/resource requirements one semantic
-owner across managed affected/native/Python/setup routes. Tool catalogs remain selection
+owner across managed affected/native/setup routes. Tool catalogs remain selection
 authority; homogeneous binary/module defaults and explicit exceptions must correspond to
-actual selected cases and guard effect creation. Demonstrably pure controls and the two
-identified local Python consumers lose accidental solver/canonical barriers only after their
-actual effects are removed. Genuine native thread, timing, service and remaining canonical
+actual selected cases and guard effect creation. Demonstrably pure controls carry no accidental
+solver/canonical barriers. Genuine native thread, timing, service and remaining canonical
 protection stays conservative. Per-run exclusion is not service-wide quiet. Plan53 C02/F01/F02
 own implementation; this is neither a universal exact-test manifest nor permission to widen
 canonical concurrency. The [Plan53 coordinator](../../plans/53-test-architecture-target.md)
@@ -829,9 +832,9 @@ conservative declared scope before opening or hashing bytes; membership, absence
 symlink targets remain inputs where consumed. A whole-source provenance request retains its
 whole-source cut. Ordinary selected Rust execution consumes its retained actual build and
 catalogue, including original tool/configuration inputs; generation aggregates invoke shared
-owners once while their independent comparison routes remain available. Python environment,
-editable extension, stubs and fresh import admission have independent responsibilities and
-supported owner contracts. Published artifact validity is established at construction rather than
+owners once while their independent comparison routes remain available. Native preparation,
+immutable artifact publication and independent reference environments retain their separate
+construction/admission responsibilities. Published artifact validity is established at construction rather than
 repeated by readers; fresh numerical-state checks retain their scientific responsibility. Declared
 assessment-output placement and process SDK
 selection are runtime observations rather than compiler inputs; unknown/compiler/provider
@@ -850,8 +853,8 @@ marker is removed. Actual service/registry binding and complete writer coverage 
 to an absence claim. Unresolved original associations remain protective unknowns. Scratch
 candidate discovery is independent of retained evidence discovery and cannot itself authorize
 release. Every effect, maintenance action and cleanup rechecks its actual authority and lifetime.
-Physical fixture settlement shares one original outer deadline across Rust/Python and receiver
-bridges, attempts independent siblings, and retains each error and incomplete reader/owner;
+Physical fixture settlement shares one original outer deadline across native fixture and receiver
+owners, attempts independent siblings, and retains each error and incomplete reader/owner;
 logical close or terminal pass alone cannot establish physical drain.
 
 Assessment version 6 atomically publishes a compact root after its immutable source and gate
@@ -870,17 +873,18 @@ across invocations. Timing/native/thread constraints remain where actually deman
 mechanisms establish no measured speedup or general permission to widen canonical capacity.
 Current implementation, qualification and scientific limits remain at the Plan53 coordinator.
 
-**Commands.** During implementation: `just check-package <pkg>`, `just unit-package
-<pkg> <filter>` and `just codegen` when declarations change. On request: `just test`
-(default feature graph), `just native-test` (full linked native feature graph),
-`just doctest`, `just py-test` or `just native-python <output>` after
-`just py-sync-native`, `just governance-tests`, `just setup-test`, `just codegen-check`,
-`just family-check`, `just quality`, `just parity`. `just assessment` runs every
-current-environment check, continues after failures and writes logs and reports to a
-new ignored directory under `build/assessment/`; `just assessment-list` prints its scope
-and exclusions without executing anything. See the
-[development guides](../../dev/README.md), including [manual CI](../../dev/ci.md) and
-[build reuse](../../dev/build-performance.md).
+**Commands.** During implementation, compile touched packages and run targeted owning tests with
+`just check-package <pkg>` and `just unit-package <pkg> <filter>`; declaration changes include
+`just codegen`. Native correctness routes use Cargo/nextest with explicit selected Arrow validation.
+`just native-test <module-receipt> ...` builds selected tests and runs them against a private fresh
+native canonical fixture using that immutable module. `just docs-test` exercises the native
+metadata/lifecycle/publisher owners without a scientific product environment. On request, relevant
+native scientific/component/integration journeys, `just doctest`, `just governance-tests`,
+`just setup-test`, `just codegen-check`, family checks and scope-end hygiene/manual publication
+qualify their selected responsibilities. `just parity` runs explicit native candidate exchanges
+with the isolated IDAES/Pyomo environment. Current command arguments and unsupported selections
+belong to the [development guides](../../dev/README.md) and `just --list`; no extension build,
+Python product import, wheel or generated Python API check is an acceptance prerequisite.
 
 Storage health uses the versioned `storage-health-v1` observation document. It composes the
 selected service/engine identity, bounded process/cgroup and host storage observations, exact
@@ -902,7 +906,8 @@ publication scope remain independent. A task packet consumes bounded captured na
 bytes and refuses stale rows. Historical Git/session rationale is attributable evidence, never
 current authorization. Exact producer assertions preserve declaration–generator–specific-output
 correspondence; two declarations sharing a generator do not inherit each other's outputs.
-Catalogue registration, type definition and actual compiled PyO3 metadata retain distinct roles.
+Catalogue registration, type definition and actual compiled/native API use retain distinct roles.
+Dependency declarations alone establish neither API use nor feature activation.
 
 The optional development-knowledge v2 projection reuses the existing private tooling database,
 roles and original request lifetime. Closed subjects, role-specific contributors, native topics,
@@ -944,6 +949,32 @@ The original typed reproducer and `OriginalFailureReproduced` meaning are unchan
 > maintainer-authorized Plan52c target; implementation and qualification remain at C06.
 
 ### 24.2 Current qualification basis
+
+The current native source cut implements the first-party callable Rust application and native
+host/developer owners described by ADR-0233. The retired Python product and generated frontend
+outputs supply no current acceptance requirement. Exact package state, commands, failures and
+successful affected reruns remain at [58a](../../plans/58a-native-product-and-scientific-workflows.md),
+[58f](../../plans/58f-development-and-assurance.md) and
+[58g](../../plans/58g-boundary-retirement-and-optional-consumers.md).
+
+**Tested, focused local Linux scope:** the native boundary acceptance callers exercise actual SCIP
+with its scientific 1 MiB solver heap stop and managed two-Ipopt execution through a fresh canonical
+service and external native workers. The SCIP case retains no candidate, unavailable feasibility,
+nine null variable observations and exact durable assessments/findings. The selected-detail case
+binds external process and exact attempt identity, positive observed/acknowledged samples and an
+incomplete parent recording. Their names are
+`public_durable_scip_memory_stop_retains_unavailable_feasibility_and_exact_rows` and
+`public_managed_detail_keeps_external_owners_exact_attempts_and_complete_prefixes` in
+`native_boundary_acceptance`; their prepared profile, commands and original repairs remain at 58g.
+Selected native host, feature/field, source/documentation and actual ADR/corpus command checks
+support only their exercised responsibilities; they are not a clean assembled product campaign.
+
+[58h](../../plans/58h-qualification-and-publication.md) owns the remaining assembled/native and
+durable-deployment qualification and the exact measurement-scenario handoffs. These campaigns
+remain unqualified by this publication. No whole B–G closure, full feature powerset, full
+solver-fleet/parity, distribution, other-platform result or measured benefit follows from source
+retirement or the focused checks. Historical frontend evidence below is historical, with no
+transfer of acceptance to deleted or changed paths.
 
 The historical full qualification basis is Plan 22's Q1 of 2026-09-29, on the final state of
 the solver, discrete-decision and operational-store work. The retired record states each
@@ -1558,8 +1589,9 @@ under inline and nested realizations; nothing is solved, and workloads are regis
 | Command | Purpose |
 |---|---|
 | `just bench-smoke` | runs every benchmark once as a test; no timing |
-| `just case-measure <output> [--functional-from <report>]` | fresh-process observations; optional reference to actual passing functional tests, with execution differences recorded |
-| `just bench-production` | production-equivalent native measurements without force-validation, in an isolated target directory, memory-capped (each recipe command runs in its own `scripts/pse-env` scope), with receipts under the repository `build/` |
+| `just bench-cache` | native cache/reuse observations under the declared benchmark profile |
+| `just check-native-process-bench` | compile the native process target; this does not execute or qualify a measurement campaign |
+| `just bench-production` | production-equivalent native measurements without force-validation, in its declared isolated target directory, with outputs under the repository `build/` |
 
 Measurement rules:
 

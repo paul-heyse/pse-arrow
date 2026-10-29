@@ -4,7 +4,9 @@
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
-image="${PSE_SOLVER_IMAGE:-$(python3 scripts/solver-images.py ref ci)}"
+pse_xtask="${PSE_XTASK_BINARY:-$root/target/debug/xtask}"
+[[ -x "$pse_xtask" ]] || { echo "solver-rebuild-check: explicitly build xtask first" >&2; exit 125; }
+image="$("$pse_xtask" solver-images runtime ci)"
 report="$(mktemp -d)"
 trap 'rm -rf "$report"' EXIT
 docker build --no-cache --target solvers -t pse-solvers:rebuild \

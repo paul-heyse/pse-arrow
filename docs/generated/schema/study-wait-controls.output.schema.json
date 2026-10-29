@@ -30,6 +30,6 @@
     "timeout_seconds",
     "document_version"
   ],
-  "title": "StudyWaitControlsOutput",
+  "title": "StudyWaitControls",
   "type": "object"
 }

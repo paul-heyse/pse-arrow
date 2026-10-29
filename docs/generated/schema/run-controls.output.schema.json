@@ -19,6 +19,6 @@
     "continue_independent",
     "document_version"
   ],
-  "title": "RunControlsOutput",
+  "title": "RunControls",
   "type": "object"
 }

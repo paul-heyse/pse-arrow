@@ -102,7 +102,7 @@
         "coordinates": {
           "description": "Original ordered physical coordinate description.",
           "items": {
-            "$ref": "#/$defs/DesignCoordinateOutput"
+            "$ref": "#/$defs/DesignCoordinate"
           },
           "type": "array"
         },
@@ -132,7 +132,7 @@
       ],
       "type": "object"
     },
-    "DesignCoordinateOutput": {
+    "DesignCoordinate": {
       "additionalProperties": false,
       "description": "One numeric, quantity-typed authored coordinate, in its supplied representation.",
       "properties": {
@@ -264,7 +264,7 @@
       "format": "double",
       "type": "number"
     },
-    "PointOverlayOutput": {
+    "PointOverlay": {
       "additionalProperties": false,
       "description": "Submitted replacements; the list preserves duplicate references for validation.",
       "properties": {
@@ -294,7 +294,7 @@
     "points": {
       "description": "Complete ordered raw overlays for StudyPoint authoring.",
       "items": {
-        "$ref": "#/$defs/PointOverlayOutput"
+        "$ref": "#/$defs/PointOverlay"
       },
       "type": "array"
     }

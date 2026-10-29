@@ -35,7 +35,7 @@
       ],
       "type": "object"
     },
-    "BranchPolicyOutput": {
+    "BranchPolicy": {
       "additionalProperties": false,
       "description": "Root-selection meaning retained by every proposal and correction.",
       "properties": {
@@ -98,7 +98,7 @@
       ],
       "type": "object"
     },
-    "MechanismOutput": {
+    "Mechanism": {
       "additionalProperties": false,
       "description": "One operation description. Applicability, supplied derivatives and method mathematics\nremain with its support producers; this declaration owns bounded composition only.",
       "properties": {
@@ -107,11 +107,11 @@
           "description": "Declared numerical operation, from the shared registry vocabulary."
         },
         "limits": {
-          "$ref": "#/$defs/WorkLimitsOutput",
+          "$ref": "#/$defs/WorkLimits",
           "description": "Additional local finite allowances under the enclosing task scope."
         },
         "operation": {
-          "$ref": "#/$defs/OperationContractOutput",
+          "$ref": "#/$defs/OperationContract",
           "default": {
             "inputs": [],
             "outputs": []
@@ -301,22 +301,22 @@
       ],
       "type": "string"
     },
-    "NumericalStrategyOutput": {
+    "NumericalStrategy": {
       "additionalProperties": false,
       "description": "Immutable ordered declaration. Ordering affects composition and identity; no backend\nranking or universal direct-first escalation is implied. With no request, the runtime\nconstructs direct(start, limits) from its existing admitted controls and enclosing scope.",
       "properties": {
         "branch": {
-          "$ref": "#/$defs/BranchPolicyOutput",
+          "$ref": "#/$defs/BranchPolicy",
           "description": "Original root-selection contract."
         },
         "limits": {
-          "$ref": "#/$defs/WorkLimitsOutput",
+          "$ref": "#/$defs/WorkLimits",
           "description": "Existing admitted task/occurrence finite limits, never refreshed at a new rung."
         },
         "mechanisms": {
           "description": "Ordered composition. At least one execution operation is required.",
           "items": {
-            "$ref": "#/$defs/MechanismOutput"
+            "$ref": "#/$defs/Mechanism"
           },
           "type": "array"
         },
@@ -343,21 +343,21 @@
       ],
       "type": "string"
     },
-    "OperationContractOutput": {
+    "OperationContract": {
       "additionalProperties": false,
       "description": "Input requirements are consumed before use; output contracts grant bounded production,\nnever possession of the future output's certificate.",
       "properties": {
         "inputs": {
           "description": "Actual prerequisites consumed by this particular operation.",
           "items": {
-            "$ref": "#/$defs/ProductDemandOutput"
+            "$ref": "#/$defs/ProductDemand"
           },
           "type": "array"
         },
         "outputs": {
           "description": "Products this operation may attempt to refine under the supplied demands.",
           "items": {
-            "$ref": "#/$defs/ProductionDemandOutput"
+            "$ref": "#/$defs/ProductionDemand"
           },
           "type": "array"
         }
@@ -368,7 +368,7 @@
       ],
       "type": "object"
     },
-    "ProductDemandOutput": {
+    "ProductDemand": {
       "additionalProperties": false,
       "description": "The consumer's exact dependency contract. No field is inferred from capabilities.",
       "properties": {
@@ -377,7 +377,7 @@
           "description": "Required product/error normalization and evidence class."
         },
         "branch": {
-          "$ref": "#/$defs/BranchPolicyOutput",
+          "$ref": "#/$defs/BranchPolicy",
           "description": "Required branch meaning."
         },
         "derivative_order": {
@@ -388,7 +388,7 @@
           "type": "integer"
         },
         "source": {
-          "$ref": "#/$defs/SemanticProductKeyOutput",
+          "$ref": "#/$defs/SemanticProductKey",
           "description": "The immutable dependencies and actual point the consumer requires."
         }
       },
@@ -400,7 +400,7 @@
       ],
       "type": "object"
     },
-    "ProductionDemandOutput": {
+    "ProductionDemand": {
       "additionalProperties": false,
       "description": "A producer's finite output obligation, before the output point or receipt exists.",
       "properties": {
@@ -410,7 +410,7 @@
           "type": "number"
         },
         "branch": {
-          "$ref": "#/$defs/BranchPolicyOutput",
+          "$ref": "#/$defs/BranchPolicy",
           "description": "Original branch permission required of the output."
         },
         "class": {
@@ -425,7 +425,7 @@
           "type": "integer"
         },
         "source": {
-          "$ref": "#/$defs/SemanticProductKeyOutput",
+          "$ref": "#/$defs/SemanticProductKey",
           "description": "Frozen producer dependencies. An absent point names a point selected during execution."
         }
       },
@@ -459,7 +459,7 @@
       ],
       "type": "object"
     },
-    "SemanticProductKeyOutput": {
+    "SemanticProductKey": {
       "additionalProperties": false,
       "description": "Actual consumed dependencies of a semantic product. Omitted fields were not consumed;\nproducer ownership determines compatibility, including lawful transport between values.",
       "properties": {
@@ -574,7 +574,7 @@
       ],
       "type": "object"
     },
-    "WorkLimitsOutput": {
+    "WorkLimits": {
       "additionalProperties": false,
       "description": "Additional finite work allowances. None imposes no additional counter cap under the\nenclosing finite ExecutionScope; it never denotes an observed zero or a new deadline.\nEvery supplied counter is finite; Some(0) expressly prohibits that operation.",
       "properties": {
@@ -636,7 +636,7 @@
   "description": "Current strategy wire document. Historical bodies are not silently reinterpreted.",
   "properties": {
     "strategy": {
-      "$ref": "#/$defs/NumericalStrategyOutput",
+      "$ref": "#/$defs/NumericalStrategy",
       "description": "Validated finite operation declaration."
     },
     "version": {
@@ -650,6 +650,6 @@
     "version",
     "strategy"
   ],
-  "title": "NumericalStrategyDocumentOutput",
+  "title": "NumericalStrategyDocument",
   "type": "object"
 }

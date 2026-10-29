@@ -103,7 +103,7 @@
         }
       ]
     },
-    "LimitsOutput": {
+    "Limits": {
       "additionalProperties": false,
       "description": "Explicit limits checked before expansion/allocation.",
       "properties": {
@@ -226,7 +226,7 @@
       "type": "integer"
     },
     "limits": {
-      "$ref": "#/$defs/LimitsOutput",
+      "$ref": "#/$defs/Limits",
       "description": "Existing expansion admission limits."
     }
   },
@@ -235,6 +235,6 @@
     "limits",
     "document_version"
   ],
-  "title": "PreparationSettingsOutput",
+  "title": "PreparationSettings",
   "type": "object"
 }

@@ -233,6 +233,6 @@
     "mode_identities",
     "document_version"
   ],
-  "title": "ReviewScientificCoordinatesOutput",
+  "title": "ReviewScientificCoordinates",
   "type": "object"
 }

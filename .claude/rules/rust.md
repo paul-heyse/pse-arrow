@@ -37,8 +37,7 @@ the failure is silent and reads like a logic bug (blueprint §3.1).
   because each package name still appears once. **`just family-check`** asserts the
   resolved graph against `[workspace.metadata.pse.families]`. Run it when a manifest
   change moves or adds a dependency in one of those families.
-- Import Arrow through `datafusion::arrow::…` inside engine crates; the PyO3 boundary in
-  `crates/pse-py` speaks `pyo3-arrow`'s types instead.
+- Import Arrow through `datafusion::arrow::…` inside engine crates.
 - `object_store` is `=0.13.2` deliberately: DataFusion 55 requires `^0.13.2`, so a newer
   0.14.x would split the graph.
 
@@ -56,7 +55,7 @@ the failure is silent and reads like a logic bug (blueprint §3.1).
   implements `miette::Diagnostic` with a typed §23.2 code. `xtask` opts out at crate level.
 
 `unwrap`/`expect`/`panic`/`todo`/`print*`/`dbg!` are denied outside tests for the same
-reason: a panic crossing the PyO3 or Ipopt boundary is an abort risk.
+reason: native solver callbacks and owned operations must preserve recoverable error boundaries.
 
 
 ## Lint escapes carry a reason
@@ -67,8 +66,8 @@ without a reason will not compile in CI.
 
 ## Profiles and floating point
 
-- **`panic = "unwind"`** in every profile. PyO3 converts unwinds into Python exceptions
-  and the Ipopt callbacks `catch_unwind`; `abort` takes the interpreter down.
+- **`panic = "unwind"`** in every profile. Native solver callbacks `catch_unwind`;
+  `abort` prevents original-operation settlement.
 - **Never `target-cpu=native`**, and never add `[build] rustflags` to `.cargo/config.toml` —
   a contracted FMA changes float results between your machine and CI. A governance test
   forbids both.

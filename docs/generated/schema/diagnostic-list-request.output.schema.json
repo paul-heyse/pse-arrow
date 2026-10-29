@@ -29,6 +29,6 @@
     "limit",
     "document_version"
   ],
-  "title": "DiagnosticListRequestOutput",
+  "title": "DiagnosticListRequest",
   "type": "object"
 }

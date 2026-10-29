@@ -204,6 +204,6 @@
     "limit",
     "continuation"
   ],
-  "title": "CanonicalGraphRequestOutput",
+  "title": "CanonicalGraphRequest",
   "type": "object"
 }

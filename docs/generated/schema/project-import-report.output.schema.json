@@ -269,6 +269,6 @@
     "project_complete",
     "document_version"
   ],
-  "title": "ProjectImportReportOutput",
+  "title": "ProjectImportReport",
   "type": "object"
 }

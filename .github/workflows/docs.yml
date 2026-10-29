@@ -3,8 +3,8 @@
 #
 # The book builds on manual dispatch. Deployment requires an explicit input on `main`.
 #
-# The book never needs the Rust extension: `docs/generated/` is committed, so a
-# documentation change can be verified without a solver, a toolchain, or a wheel. The
+# Native xtask owns publication; committed generated material needs no solver.
+# The externally owned runner prepares its pinned Rust tooling explicitly. The
 # rustdoc API reference is folded in opportunistically when `rust / docs` has already
 # produced its artifact for the same commit — it is a bonus, never a dependency.
 name: docs
@@ -41,24 +41,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: docs-tooling
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Read documentation tool pins
         id: docs-tools
-        run: echo "tools=$(python3 -m scripts.docs tool-specs)" >> "$GITHUB_OUTPUT"
+        run: echo "tools=$(scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- docs tool-specs)" >> "$GITHUB_OUTPUT"
       - name: Install documentation tools
         uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
           tool: ${{ steps.docs-tools.outputs.tools }}
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-      - name: Provision locked docs-only Python dependencies
-        run: |
-          eval "$(python3 -m scripts.pse_env --docs --print)"
-          uv sync --locked --only-group docs --no-install-project
       - name: ADR index is current
-        # `adr.py index` regenerates the source-readable ADR index. Navigation is
-        # derived during publication. --check fails instead of writing.
-        run: .venv-docs/bin/python -m scripts.adr index --check
+        run: scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- adr index --check
       - name: register rows are well formed
-        run: python3 scripts/check_register.py --lint
+        run: scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- register lint
       - name: fold in the rustdoc reference if it exists
         # Best effort by design. `rust / docs` may still be running, or may not run at
         # all for a docs-only change; either way the book must still build.
@@ -80,9 +77,10 @@ jobs:
             echo "::notice::rust run ${run_id} produced no rustdoc artifact; continuing"
           fi
       - name: Publisher and citation fixtures
-        run: .venv-docs/bin/python -m unittest scripts.tests.test_document_lifecycle scripts.tests.test_adr scripts.tests.test_docs scripts.tests.docs_integration -v
+        run: |
+          scripts/cargo-bin/cargo-pse-correctness test -p xtask --lib --no-default-features --locked documentation::
       - name: Build documentation and search
-        run: .venv-docs/bin/python -m scripts.docs build
+        run: scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- docs build
       - name: internal links resolve
         # --offline: external links are not this gate's business (they rot for reasons
         # outside the repository). Every internal link must resolve.

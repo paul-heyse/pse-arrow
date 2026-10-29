@@ -137,7 +137,7 @@
         }
       ]
     },
-    "PackMemberSelectionOutput": {
+    "PackMemberSelection": {
       "additionalProperties": false,
       "description": "One explicitly requested member. Missing optional members differ from unrequested members.",
       "properties": {
@@ -193,7 +193,7 @@
         "result": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PackResultSelectionOutput"
+              "$ref": "#/$defs/PackResultSelection"
             },
             {
               "type": "null"
@@ -227,7 +227,7 @@
       ],
       "type": "object"
     },
-    "PackResultPredicateOutput": {
+    "PackResultPredicate": {
       "additionalProperties": false,
       "description": "Exact protected output predicate. Floating endpoints retain IEEE bits, not JSON rounding.",
       "properties": {
@@ -274,7 +274,7 @@
       ],
       "type": "object"
     },
-    "PackResultSelectionOutput": {
+    "PackResultSelection": {
       "additionalProperties": false,
       "description": "Exact original result lineage and range, including independent usability.",
       "properties": {
@@ -292,7 +292,7 @@
         "predicate": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PackResultPredicateOutput"
+              "$ref": "#/$defs/PackResultPredicate"
             },
             {
               "type": "null"
@@ -484,7 +484,7 @@
     "members": {
       "description": "Complete selected membership; no first-page completeness inference.",
       "items": {
-        "$ref": "#/$defs/PackMemberSelectionOutput"
+        "$ref": "#/$defs/PackMemberSelection"
       },
       "type": "array"
     },
@@ -510,6 +510,6 @@
     "maximum_document_bytes",
     "missing_context"
   ],
-  "title": "PackSelectionOutput",
+  "title": "PackSelection",
   "type": "object"
 }

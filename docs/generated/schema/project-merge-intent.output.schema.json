@@ -70,7 +70,7 @@
       "description": "An opaque canonical lookup key; never a scientific semantic identity.",
       "type": "string"
     },
-    "ProjectDraftVersionBodyOutput": {
+    "ProjectDraftVersionBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -149,7 +149,7 @@
       ],
       "type": "string"
     },
-    "ProjectMergeProposalOutput": {
+    "ProjectMergeProposal": {
       "description": "Original admitted proposal ownership, independent of later branch or draft heads.",
       "oneOf": [
         {
@@ -180,7 +180,7 @@
               "type": "string"
             },
             "version": {
-              "$ref": "#/$defs/ProjectDraftVersionBodyOutput",
+              "$ref": "#/$defs/ProjectDraftVersionBody",
               "description": "Full original version descriptor authenticated by its storage owner."
             }
           },
@@ -211,7 +211,7 @@
       ],
       "type": "object"
     },
-    "ProjectPublicationBodyOutput": {
+    "ProjectPublicationBody": {
       "additionalProperties": false,
       "description": "Original source-publication intent. Retain it unchanged through uncertain completion.",
       "properties": {
@@ -434,11 +434,11 @@
       "type": "string"
     },
     "proposal": {
-      "$ref": "#/$defs/ProjectMergeProposalOutput",
+      "$ref": "#/$defs/ProjectMergeProposal",
       "description": "Original admitted source or immutable saved draft version."
     },
     "publication": {
-      "$ref": "#/$defs/ProjectPublicationBodyOutput",
+      "$ref": "#/$defs/ProjectPublicationBody",
       "description": "Original canonical source CAS and immutable decision commitment."
     },
     "resolutions": {
@@ -469,6 +469,6 @@
     "physical",
     "resolutions"
   ],
-  "title": "ProjectMergeIntentOutput",
+  "title": "ProjectMergeIntent",
   "type": "object"
 }

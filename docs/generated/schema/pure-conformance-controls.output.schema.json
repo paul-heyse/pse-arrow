@@ -43,6 +43,6 @@
     "fixtures",
     "document_version"
   ],
-  "title": "PureConformanceControlsOutput",
+  "title": "PureConformanceControls",
   "type": "object"
 }

@@ -38,6 +38,6 @@
     "executable",
     "document_version"
   ],
-  "title": "ProcessLocatorOutput",
+  "title": "ProcessLocator",
   "type": "object"
 }

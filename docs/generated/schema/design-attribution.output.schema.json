@@ -44,7 +44,7 @@
         }
       ]
     },
-    "DesignCoordinateOutput": {
+    "DesignCoordinate": {
       "additionalProperties": false,
       "description": "One numeric, quantity-typed authored coordinate, in its supplied representation.",
       "properties": {
@@ -188,7 +188,7 @@
     "coordinates": {
       "description": "Original ordered physical coordinate description.",
       "items": {
-        "$ref": "#/$defs/DesignCoordinateOutput"
+        "$ref": "#/$defs/DesignCoordinate"
       },
       "type": "array"
     },

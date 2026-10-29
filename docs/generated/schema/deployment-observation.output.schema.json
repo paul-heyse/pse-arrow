@@ -83,6 +83,6 @@
     "cause",
     "document_version"
   ],
-  "title": "DeploymentObservationOutput",
+  "title": "DeploymentObservation",
   "type": "object"
 }

@@ -11,19 +11,19 @@
 #
 # sccache is not wired in here: a mandatory `rustc-wrapper` breaks every contributor who
 # lacks it. scripts/pse-env activates installed sccache for just and direnv. (sccache cannot
-# cache cdylib/bin/proc-macro crates, which is why pse-py is a thin shell over rlibs.)
+# cache cdylib/bin/proc-macro crates; reusable implementation stays in rlibs.)
 #
 # There is no config key for `--locked`; every gate passes it explicitly.
 #
 # This file governs every Cargo invocation in a checkout -- recipes, bare cargo,
-# rust-analyzer and maturin -- so feature unification lives here, not in the recipe
+# rust-analyzer -- so feature unification lives here, not in the recipe
 # environment (ADR-0122). The toolchain is the dated nightly in rust-toolchain.toml.
 #
 # Intermediates stay in each checkout's own target/ (Cargo's default). A build directory
 # shared by several checkouts is unsound: Cargo keys a workspace member's unit by its
 # workspace-relative path with checkout-local fingerprint state, so one checkout could
 # reuse another checkout's artifacts. sccache shares compilations across
-# checkouts instead (scripts/build_environment.py).
+# checkouts instead; the native host owns its environment selection.
 
 [build]
 jobs = 32

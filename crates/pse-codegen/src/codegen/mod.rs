@@ -14,7 +14,7 @@
 //! `HashMap` reaching output would make `codegen --check` fail intermittently, which reads
 //! as a flaky test rather than as the nondeterminism it is (ADR-0051).
 //!
-//! Rust rows, manifest envelopes and authoring decoders, Python contracts, Markdown reference pages and
+//! Rust rows, manifest envelopes and authoring decoders, Markdown reference pages and
 //! authoring JSON Schema are generated from the same admitted registry.
 
 #[cfg(test)]
@@ -26,7 +26,6 @@ pub mod markdown;
 mod native;
 pub mod provenance;
 
-pub mod python;
 pub mod rust;
 mod surreal;
 /// Lower explicit native relations and declared indexes for an independent store.
@@ -58,9 +57,6 @@ use crate::error::SchemaError;
 pub enum Language {
     /// Generated contracts and explicitly selected physical package fixtures.
     Rust,
-    /// `python/pse/contracts/`, including its `GENERATED.sha256`, except `documents/`,
-    /// which the document types own ([`documents`]).
-    Python,
     /// `docs/generated/`, except `schema/`, which the document schemas own
     /// ([`documents`]).
     Markdown,
@@ -70,13 +66,12 @@ pub enum Language {
 
 impl Language {
     /// Every target.
-    pub const ALL: [Self; 4] = [Self::Rust, Self::Python, Self::Markdown, Self::Surreal];
+    pub const ALL: [Self; 3] = [Self::Rust, Self::Markdown, Self::Surreal];
 
     /// The target's name, as `cargo xtask codegen --only <name>` spells it.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Rust => "rust",
-            Self::Python => "python",
             Self::Markdown => "markdown",
             Self::Surreal => "surreal",
         }
@@ -93,19 +88,12 @@ impl Language {
                 PathBuf::from("crates/pse-relations/src/generated"),
                 PathBuf::from("crates/pse-model/src/generated"),
                 PathBuf::from("crates/pse-authoring/src/generated"),
-                PathBuf::from("crates/pse-catalog/src/generated"),
                 PathBuf::from("crates/pse-admission/src/generated"),
-                // The Rust owner prunes the replaced adapter output during publication.
-                PathBuf::from("crates/pse-runtime/src/generated"),
                 PathBuf::from("crates/pse-quantity/src/generated"),
                 PathBuf::from("crates/pse-columnar/src/generated"),
             ],
-            Self::Python => vec![PathBuf::from("python/pse/contracts")],
             Self::Markdown => vec![PathBuf::from("docs/generated")],
-            Self::Surreal => vec![
-                PathBuf::from("crates/pse-operations/src/generated"),
-                PathBuf::from("crates/pse-operations-queries"),
-            ],
+            Self::Surreal => vec![PathBuf::from("crates/pse-operations/src/generated")],
         }
     }
 }
@@ -115,7 +103,8 @@ impl Language {
 pub struct GeneratedTree {
     /// Path relative to the workspace root, to the exact bytes of the file.
     pub files: BTreeMap<PathBuf, Vec<u8>>,
-    /// The roots the writer may create, replace within and prune.
+    /// Exact files or directory trees the writer may create, replace and prune.
+    /// An emitted file may equal its root; directory roots own their descendants.
     pub roots: Vec<PathBuf>,
     /// Producer-declared diagnostic links, outside registry/scientific identities.
     pub relationships: Vec<provenance::SourceRelationship>,
@@ -140,7 +129,6 @@ impl GeneratedTree {
 pub fn generate(reg: &Registry, language: Language) -> Result<GeneratedTree, SchemaError> {
     match language {
         Language::Rust => rust::generate(reg),
-        Language::Python => python::generate(reg),
         Language::Markdown => markdown::generate(reg),
         Language::Surreal => {
             let mut tree = GeneratedTree::empty(Language::Surreal.roots());
@@ -250,17 +238,10 @@ mod tests {
                 PathBuf::from("crates/pse-relations/src/generated"),
                 PathBuf::from("crates/pse-model/src/generated"),
                 PathBuf::from("crates/pse-authoring/src/generated"),
-                PathBuf::from("crates/pse-catalog/src/generated"),
                 PathBuf::from("crates/pse-admission/src/generated"),
-                // The Rust owner prunes the replaced adapter output during publication.
-                PathBuf::from("crates/pse-runtime/src/generated"),
                 PathBuf::from("crates/pse-quantity/src/generated"),
                 PathBuf::from("crates/pse-columnar/src/generated"),
             ]
-        );
-        assert_eq!(
-            Language::Python.roots(),
-            vec![PathBuf::from("python/pse/contracts")]
         );
         assert_eq!(
             Language::Markdown.roots(),
@@ -269,8 +250,7 @@ mod tests {
         assert_eq!(
             Language::Surreal.roots(),
             vec![
-                PathBuf::from("crates/pse-operations/src/generated"),
-                PathBuf::from("crates/pse-operations-queries")
+                PathBuf::from("crates/pse-operations/src/generated")
             ]
         );
     }

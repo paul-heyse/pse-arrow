@@ -68,7 +68,7 @@
         }
       ]
     },
-    "PackResultPredicateOutput": {
+    "PackResultPredicate": {
       "additionalProperties": false,
       "description": "Exact protected output predicate. Floating endpoints retain IEEE bits, not JSON rounding.",
       "properties": {
@@ -115,7 +115,7 @@
       ],
       "type": "object"
     },
-    "PackResultSelectionOutput": {
+    "PackResultSelection": {
       "additionalProperties": false,
       "description": "Exact original result lineage and range, including independent usability.",
       "properties": {
@@ -133,7 +133,7 @@
         "predicate": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PackResultPredicateOutput"
+              "$ref": "#/$defs/PackResultPredicate"
             },
             {
               "type": "null"
@@ -221,7 +221,7 @@
         }
       ]
     },
-    "PhysicalInspectionQueryOutput": {
+    "PhysicalInspectionQuery": {
       "description": "Physical names are package-declared names, never global aliases.",
       "oneOf": [
         {
@@ -311,7 +311,7 @@
         }
       ]
     },
-    "PhysicalInspectionRequestBodyOutput": {
+    "PhysicalInspectionRequestBody": {
       "additionalProperties": false,
       "description": "A bounded query against one immutable physical context.",
       "properties": {
@@ -329,7 +329,7 @@
           "type": "integer"
         },
         "query": {
-          "$ref": "#/$defs/PhysicalInspectionQueryOutput",
+          "$ref": "#/$defs/PhysicalInspectionQuery",
           "description": "Exact declared identity/name selection."
         }
       },
@@ -340,7 +340,7 @@
       ],
       "type": "object"
     },
-    "ResultInspectionBasisOutput": {
+    "ResultInspectionBasis": {
       "additionalProperties": false,
       "description": "Immutable request coordinates retained across pages.",
       "properties": {
@@ -369,7 +369,7 @@
           "type": "integer"
         },
         "view": {
-          "$ref": "#/$defs/ResultInspectionViewOutput",
+          "$ref": "#/$defs/ResultInspectionView",
           "description": "Original view/path/page allowance, unchanged by continuation."
         }
       },
@@ -383,12 +383,12 @@
       ],
       "type": "object"
     },
-    "ResultInspectionCursorOutput": {
+    "ResultInspectionCursor": {
       "additionalProperties": false,
       "description": "Store/selection-bound continuation; each call reacquires original protection.",
       "properties": {
         "basis": {
-          "$ref": "#/$defs/ResultInspectionBasisOutput",
+          "$ref": "#/$defs/ResultInspectionBasis",
           "description": "Original request identity."
         },
         "issuing_store": {
@@ -414,7 +414,7 @@
           "type": "string"
         },
         "selection": {
-          "$ref": "#/$defs/PackResultSelectionOutput",
+          "$ref": "#/$defs/PackResultSelection",
           "description": "Exact original protected selection, including issuing authority."
         }
       },
@@ -429,7 +429,7 @@
       ],
       "type": "object"
     },
-    "ResultInspectionViewOutput": {
+    "ResultInspectionView": {
       "description": "Physical column selection; this does not reinterpret a scientific output predicate.",
       "oneOf": [
         {
@@ -535,7 +535,7 @@
               "type": "string"
             },
             "request": {
-              "$ref": "#/$defs/PhysicalInspectionRequestBodyOutput",
+              "$ref": "#/$defs/PhysicalInspectionRequestBody",
               "description": "Same physical-owner query used by direct Python and MCP inspection."
             }
           },
@@ -665,7 +665,7 @@
     "cursor": {
       "anyOf": [
         {
-          "$ref": "#/$defs/ResultInspectionCursorOutput"
+          "$ref": "#/$defs/ResultInspectionCursor"
         },
         {
           "type": "null"
@@ -708,7 +708,7 @@
       "type": "integer"
     },
     "view": {
-      "$ref": "#/$defs/ResultInspectionViewOutput",
+      "$ref": "#/$defs/ResultInspectionView",
       "description": "Bounded schema page or readable scalar selection."
     }
   },
@@ -723,6 +723,6 @@
     "cursor",
     "document_version"
   ],
-  "title": "ResultInspectionRequestOutput",
+  "title": "ResultInspectionRequest",
   "type": "object"
 }

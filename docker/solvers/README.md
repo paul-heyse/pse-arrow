@@ -182,10 +182,10 @@ which oneMKL's libraries are ~0.5 GB).
 
 ## Local images
 
-`scripts/native_cache.py solver` (sourced through `scripts/native-solver-env.sh`
-by every native recipe) extracts `/opt/pse-solvers` from the **pinned** dev
-image in `.github/setup/solver-images.json` into the native cache, and
-`scripts/native-solver-runner.sh` runs native test binaries inside that image.
+`scripts/pse-host native prepare --capabilities solver` explicitly extracts the
+selected immutable dev image into a prepared native prefix. Native recipes activate
+that completed provider without building it. There is no configured generic Docker
+test runner; normal native consumers execute through the host owner.
 To use a locally built recipe instead — before it is published, or while
 changing it — name the image by content in `PSE_SOLVER_IMAGE`:
 

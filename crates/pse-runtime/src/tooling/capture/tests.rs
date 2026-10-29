@@ -1097,16 +1097,11 @@ fn capture_builtin_clock_relationship_precedes_typed_source_events() {
 
 /// Explicitly selected consumer qualification; ordinary tests never install or require this tool.
 #[test]
-#[ignore = "requires explicit PSE_TRACE_PROCESSOR binary and pinned checkout Python"]
+#[ignore = "requires explicit PSE_TRACE_PROCESSOR binary"]
 fn capture_standalone_trace_processor_reads_numerical_events_with_clock_alignment() {
     use pse_diagnostics::observation::{ProducerRole, RecordField, Value};
     let binary = std::env::var_os("PSE_TRACE_PROCESSOR")
         .expect("select an existing Trace Processor binary explicitly");
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap();
     let directory = tempfile::tempdir().unwrap();
     let owner = Diagnostics::new(Policy::default(), directory.path().to_owned());
     let operation = owner.hub().start("Trace Processor consumer control");
@@ -1137,27 +1132,41 @@ fn capture_standalone_trace_processor_reads_numerical_events_with_clock_alignmen
         .find(|output| output.kind == CaptureOutputKind::Perfetto && output.readable)
         .unwrap();
     let results = directory.path().join("actual-consumer");
-    // Existing adapter applies a finite child clock/file allowance and joins its exact child.
-    let status = std::process::Command::new(root.join(".venv/bin/python"))
-        .arg(root.join("scripts/diagnostic_trace.py"))
-        .arg("query")
-        .arg(&output.path)
-        .arg("numerical")
-        .arg("--output")
-        .arg(&results)
-        .arg("--timeout")
-        .arg("10")
-        .arg("--output-bytes")
-        .arg("65536")
-        .arg("--binary")
-        .arg(binary)
-        .status()
-        .unwrap();
-    assert!(
-        status.success(),
-        "{}",
-        std::fs::read_to_string(results.join("stderr.txt")).unwrap_or_default()
-    );
+    // Exercise the native query owner and the actual optional tool directly.
+    // The retired Python convenience executor is not a product prerequisite.
+    use crate::tooling::review_query::{self, ReviewQuery, ReviewQueryRequest};
+    std::fs::create_dir(&results).unwrap();
+    let specification = review_query::specification(&ReviewQueryRequest {
+        version: Version,
+        input_member: "actual-consumer".into(),
+        question: ReviewQuery::Numerical,
+        clock_scope: "actual-consumer:monotonic".into(),
+        interval: None,
+        timeout_seconds: 10.0,
+        output_bytes: 65536,
+    }).unwrap();
+    let sql = results.join("query.sql");
+    std::fs::write(&sql, specification.sql).unwrap();
+    let rows_path = results.join("rows.csv");
+    let errors_path = results.join("stderr.txt");
+    let mut command = std::process::Command::new(binary);
+    command.arg("query").arg("-f").arg(sql).arg(&output.path)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::fs::File::create(&rows_path).unwrap())
+        .stderr(std::fs::File::create(&errors_path).unwrap());
+    let mut child = spawn_owned_command(&mut command).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() { break status; }
+        if Instant::now() >= deadline
+            || std::fs::metadata(&rows_path).unwrap().len()
+                + std::fs::metadata(&errors_path).unwrap().len() > 65536 {
+            child.cancel().unwrap();
+            panic!("optional tool exceeded this test's clock/output extent");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    assert_eq!(status, 0, "{}", std::fs::read_to_string(&errors_path).unwrap());
     let rows = std::fs::read_to_string(results.join("rows.csv")).unwrap();
     assert!(
         rows.contains("trace_consumer_control.v1")

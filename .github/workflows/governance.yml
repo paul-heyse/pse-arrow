@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-#
-# Optional repository governance checks, run only on manual dispatch.
+# Native source/configuration checks on an externally owned hosted runner.
+# Local Linux/user-systemd and assembled scientific qualification remain H-owned.
 name: governance
 
 on:
@@ -26,35 +26,25 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # `adr.py lint` compares accepted records against origin/main to enforce
-          # immutability, so it needs more than a shallow clone.
+          # Accepted-record immutability and register IDs consume original Git history.
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-      - name: Provision locked docs-only Python dependencies
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: governance
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: decision records and index are current
         run: |
-          eval "$(python3 -m scripts.pse_env --docs --print)"
-          uv sync --locked --only-group docs --no-install-project
-      - name: decision records are well formed
-        # File-name pattern, contiguous numbering, required §H keys, enum values,
-        # DM-xx references, blueprint § anchors that resolve to real headings, review
-        # paths that exist, symmetric supersession, and immutability of accepted ADRs.
-        run: .venv-docs/bin/python -m scripts.adr lint
+          scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- adr lint
+          scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- adr index --check
       - name: register rows are well formed
-        run: python3 scripts/check_register.py --lint
-      - name: the IDAES tag matches the parity pin
-        # scripts/fetch-external.sh derives the idaes-pse tag from the parity pin in
-        # pyproject.toml (and the arrow/datafusion tags from Cargo.lock); `--print` reports
-        # them without cloning. If the derivation ever changes, this is where it shows.
+        run: scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- register lint
+      - name: independent IDAES reference tag matches its retained pin
         run: |
           set -euo pipefail
           pin="$(grep -oE 'idaes-pse==[0-9][0-9A-Za-z.-]*' pyproject.toml | head -n1 | cut -d= -f3)"
-          [ -n "$pin" ] || { echo "::error::no idaes-pse== pin in pyproject.toml"; exit 1; }
+          [ -n "$pin" ] || { echo "::error::no idaes-pse reference pin in pyproject.toml"; exit 1; }
           tag="$(scripts/fetch-external.sh --print | sed -n 's/^IDAES_TAG=//p')"
-          [ "$pin" = "$tag" ] || {
-            echo "::error::parity pin idaes-pse==${pin} but fetch-external.sh resolves ${tag}"
-            exit 1
-          }
-          echo "idaes-pse parity pin and reading-copy tag agree at ${pin}"
+          [ "$pin" = "$tag" ] || { echo "::error::IDAES reference pin and reading-copy tag differ"; exit 1; }
 
   reuse:
     name: governance / reuse
@@ -63,46 +53,37 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: every file has a licence
-        # Two-line SPDX header on authored sources; REUSE.toml covers the file types
-        # that cannot carry one (JSON, lockfiles, .github/**, docs/**).
-        uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
+      - uses: ./.github/actions/setup-rust
         with:
-          args: lint
+          shared-key: governance
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: prepare the locked independent REUSE tool environment
+        env:
+          UV_PROJECT_ENVIRONMENT: .venv
+        run: uv sync --locked --only-group quality --no-install-project
+      - name: every Git-eligible source has a licence
+        run: scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- reuse-lint
 
   agent-config:
-    name: governance / agent-config (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, windows-2022]
+    name: governance / agent-config
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: install just (check_agent_config.py verifies recipe names against `just --summary`)
-        uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: governance
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
           tool: just@1.58.0
-      - name: materialize skill aliases
-        run: python3 scripts/agent-config.py
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-      - name: Provision docs dependencies for setup controls
-        # The local placement boundary is Linux-only. Windows CI is a fresh checkout,
-        # so its child environment selects the same fixed target without local admission.
+      - name: materialize and check the shared role/skill aliases
         run: |
-          if [[ "$RUNNER_OS" == Windows ]]; then
-            export UV_PROJECT_ENVIRONMENT=.venv-docs
-          else
-            eval "$(python3 -m scripts.pse_env --docs --print)"
-          fi
-          uv sync --locked --only-group docs --no-install-project
-          echo "UV_PROJECT_ENVIRONMENT=$UV_PROJECT_ENVIRONMENT" >> "$GITHUB_ENV"
-      - name: skill aliases and native role contracts are consistent
-        # Skill aliases share the canonical .codex/skills tree. Native adapters remain
-        # independent and load shared role contracts; synchronization never overwrites them.
-        run: |
-          python3 scripts/check_agent_config.py
-          python3 scripts/solver-images.py check
-          uv run --no-sync python -m unittest discover -s scripts/tests -p "test_*.py" -v
+          scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- agent-config
+          scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- agent-config-check
+      - name: solver image projections are current
+        run: scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- solver-images check
+      - name: native configuration controls
+        run: scripts/cargo-bin/cargo-pse-correctness test -p xtask --lib --no-default-features --locked development::configuration::tests

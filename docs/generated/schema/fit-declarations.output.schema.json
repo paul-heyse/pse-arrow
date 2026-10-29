@@ -58,7 +58,7 @@
       ],
       "type": "object"
     },
-    "AuthoredFitCasesFieldObservationsItemOutput": {
+    "AuthoredFitCasesFieldObservationsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -141,7 +141,7 @@
       ],
       "type": "object"
     },
-    "AuthoredFitCasesFieldParametersItemOutput": {
+    "AuthoredFitCasesFieldParametersItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -192,7 +192,7 @@
       ],
       "type": "object"
     },
-    "AuthoredFitCasesRowOutput": {
+    "AuthoredFitCasesRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -212,14 +212,14 @@
         "observations": {
           "description": "observations",
           "items": {
-            "$ref": "#/$defs/AuthoredFitCasesFieldObservationsItemOutput"
+            "$ref": "#/$defs/AuthoredFitCasesFieldObservationsItem"
           },
           "type": "array"
         },
         "parameters": {
           "description": "parameters",
           "items": {
-            "$ref": "#/$defs/AuthoredFitCasesFieldParametersItemOutput"
+            "$ref": "#/$defs/AuthoredFitCasesFieldParametersItem"
           },
           "type": "array"
         }
@@ -260,7 +260,7 @@
     "fits": {
       "description": "Declared fits with their parameters, experiments and observation selections.",
       "items": {
-        "$ref": "#/$defs/AuthoredFitCasesRowOutput"
+        "$ref": "#/$defs/AuthoredFitCasesRow"
       },
       "type": "array"
     }
@@ -269,6 +269,6 @@
     "fits",
     "document_version"
   ],
-  "title": "FitDeclarationsOutput",
+  "title": "FitDeclarations",
   "type": "object"
 }

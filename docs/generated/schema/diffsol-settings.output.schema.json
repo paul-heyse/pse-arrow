@@ -44,6 +44,6 @@
     "method",
     "linear"
   ],
-  "title": "DiffsolSettingsOutput",
+  "title": "DiffsolSettings",
   "type": "object"
 }

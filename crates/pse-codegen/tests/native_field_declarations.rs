@@ -110,10 +110,6 @@ fn tagged_arms_project_to_native_fields_and_all_generated_contracts() {
     .unwrap();
     assert!(rust.contains("pub enum AuthoredNativeFieldsFieldValueSelected"));
     assert!(rust.contains("pub fn from_number"));
-    let python = generate(&registry, Language::Python).unwrap();
-    let python =
-        std::str::from_utf8(&python.files[Path::new("python/pse/contracts/authored.py")]).unwrap();
-    assert!(python.contains("def __attrs_post_init__"));
     // The authoring schema is the documents target's (B5.2), not Markdown's.
     let schema: serde_json::Value =
         serde_json::from_str(&pse_codegen::codegen::jsonschema::generate(&registry).unwrap())
@@ -207,10 +203,7 @@ fn entirely_payload_free_alternatives_do_not_generate_a_borrow_lifetime() {
     assert!(rust.contains("pub enum AuthoredNativeFieldsFieldValueSelected {"));
     assert!(!rust.contains("AuthoredNativeFieldsFieldValueSelected<'a>"));
     syn::parse_file(rust).unwrap();
-    let python = generate(&registry, Language::Python).unwrap();
-    let python =
-        std::str::from_utf8(&python.files[Path::new("python/pse/contracts/authored.py")]).unwrap();
-    assert!(!python.contains(" and )"));
+
 }
 
 #[test]
@@ -325,12 +318,6 @@ fn bounded_signed_domains_project_to_languages_and_arrow() {
     )
     .unwrap();
     assert!(rust.contains("Vec<Option<i64>>"));
-    let python = generate(&registry, Language::Python).unwrap();
-    assert!(python.files.values().any(|value| {
-        std::str::from_utf8(value)
-            .unwrap()
-            .contains("v.integer_range(0, 255)")
-    }));
     // The authoring schema is the documents target's (B5.2), not Markdown's.
     let json: serde_json::Value =
         serde_json::from_str(&pse_codegen::codegen::jsonschema::generate(&registry).unwrap())
@@ -567,14 +554,6 @@ fn generated_language_views_preserve_nullable_list_elements() {
     )
     .unwrap();
     assert!(rust.contains("Vec<Option<pse_ids::SemanticId>>"), "{rust}");
-    let python = generate(&reg, Language::Python).unwrap();
-    let contents = python
-        .files
-        .values()
-        .map(|bytes| std::str::from_utf8(bytes).unwrap())
-        .collect::<Vec<_>>()
-        .join("\n");
-    assert!(contents.contains("b.tuple[v.SemanticId | None, ...]"));
     // The authoring schema is the documents target's (B5.2), not Markdown's.
     let json: serde_json::Value =
         serde_json::from_str(&pse_codegen::codegen::jsonschema::generate(&reg).unwrap()).unwrap();
@@ -600,14 +579,7 @@ fn native_binary_and_dictionary_do_not_acquire_undeclared_domain_meaning() {
             &arrow::bind_type(&reg, &data_type, "value").unwrap()
         );
         assert!(!field.metadata().contains_key(arrow::KEY_EXTENSION_NAME));
-        for language in [Language::Rust, Language::Python] {
-            assert!(
-                generate(&reg, language)
-                    .unwrap_err()
-                    .to_string()
-                    .contains("explicit declaration")
-            );
-        }
+        assert!(generate(&reg, Language::Rust).unwrap_err().to_string().contains("explicit declaration"));
         // The authoring schema is the documents target's (B5.2), not Markdown's.
         assert!(
             pse_codegen::codegen::jsonschema::generate(&reg)

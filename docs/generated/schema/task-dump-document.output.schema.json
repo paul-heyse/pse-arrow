@@ -90,6 +90,6 @@
     "failure",
     "coverage"
   ],
-  "title": "TaskDumpDocumentOutput",
+  "title": "TaskDumpDocument",
   "type": "object"
 }

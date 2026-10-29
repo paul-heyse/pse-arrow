@@ -64,7 +64,7 @@
       "description": "An opaque canonical lookup key; never a scientific semantic identity.",
       "type": "string"
     },
-    "ProjectPublicationBodyOutput": {
+    "ProjectPublicationBody": {
       "additionalProperties": false,
       "description": "Original source-publication intent. Retain it unchanged through uncertain completion.",
       "properties": {
@@ -280,13 +280,13 @@
       "type": "integer"
     },
     "publication": {
-      "$ref": "#/$defs/ProjectPublicationBodyOutput"
+      "$ref": "#/$defs/ProjectPublicationBody"
     }
   },
   "required": [
     "publication",
     "document_version"
   ],
-  "title": "ProjectImportIntentOutput",
+  "title": "ProjectImportIntent",
   "type": "object"
 }

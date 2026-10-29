@@ -260,6 +260,6 @@
     "diagnostics",
     "document_version"
   ],
-  "title": "ConformanceControlsOutput",
+  "title": "ConformanceControls",
   "type": "object"
 }

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 311
+revision: 312
 date: 2026-10-29
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 312 | 2026-10-29 | Publish the Rust-owned application, optional coarse adapter, native developer/fixture and isolated reference contracts after final required Python product/tool retirement (§3, §21, §23, §24.1). Preserve historical qualification and H scope limits. | Authorized Plan58 B–G execution under proposed ADR-0233; `PSE_DESIGN_EDIT=1`. Focused native acceptance only; no formal ADR status or assembled H qualification claim. |
 | 311 | 2026-10-29 | Extend the authorized native boundary target to final extension-crate, packaging and Python-only generation/governance retirement while preserving retained scientific/developer consumers (D12, §3, §21.7, §24.1). | Proposed ADR-0233 and independent scoped §13 assessment; `PSE_DESIGN_EDIT=1`. Target only; implementation and H acceptance remain with Plan58. |
 | 310 | 2026-10-29 | Retire replaced Python modeling diagnostic/sample/nonlinear-explanation projections while retaining native report ownership and separately consumed developer settings (§21). | Authorized Plan58 A04/A07/G03 cut under proposed ADR-0233; `PSE_DESIGN_EDIT=1`. Selected native diagnostic evidence; complete boundary retirement and H qualification remain open. |
 | 309 | 2026-10-29 | Extend narrow retained-data construction to passive study observers; retire the replaced Python frozen-cohort/observer projection while preserving native APIs and operator actions (§19). | Authorized Plan58 A/E/G consumer cut under proposed ADR-0233; `PSE_DESIGN_EDIT=1`. Selected native/API and operator acceptance; assembled qualification remains open. |

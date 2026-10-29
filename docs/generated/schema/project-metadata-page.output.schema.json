@@ -271,6 +271,6 @@
     "next",
     "document_version"
   ],
-  "title": "ProjectMetadataPageOutput",
+  "title": "ProjectMetadataPage",
   "type": "object"
 }

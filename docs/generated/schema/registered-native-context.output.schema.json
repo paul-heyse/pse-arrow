@@ -252,6 +252,6 @@
     "receiver_state",
     "receiver_generation"
   ],
-  "title": "RegisteredNativeContextOutput",
+  "title": "RegisteredNativeContext",
   "type": "object"
 }

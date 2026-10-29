@@ -84,6 +84,6 @@
     "database",
     "producer"
   ],
-  "title": "ReviewExportDeploymentOutput",
+  "title": "ReviewExportDeployment",
   "type": "object"
 }

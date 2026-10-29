@@ -75,6 +75,6 @@
     "retired",
     "document_version"
   ],
-  "title": "ProjectDraftVersionOutput",
+  "title": "ProjectDraftVersion",
   "type": "object"
 }

@@ -37,12 +37,12 @@
       ],
       "type": "object"
     },
-    "ContextSelectionBodyOutput": {
+    "ContextSelectionBody": {
       "additionalProperties": false,
       "description": "Complete frozen selection. Deserializing this document grants no source authority.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/ProjectContextBodyOutput",
+          "$ref": "#/$defs/ProjectContextBody",
           "description": "Original immutable selected source descriptor."
         },
         "cut": {
@@ -62,7 +62,7 @@
       ],
       "type": "object"
     },
-    "ProjectBranchRecordBodyOutput": {
+    "ProjectBranchRecordBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -106,7 +106,7 @@
       ],
       "type": "object"
     },
-    "ProjectContextBodyOutput": {
+    "ProjectContextBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -230,7 +230,7 @@
       ],
       "type": "object"
     },
-    "ResearchParameterTargetOutput": {
+    "ResearchParameterTarget": {
       "additionalProperties": false,
       "description": "Explicit original fitted-cell to authored scalar-parameter mapping.",
       "properties": {
@@ -316,7 +316,7 @@
       "type": "string"
     },
     "branch": {
-      "$ref": "#/$defs/ProjectBranchRecordBodyOutput",
+      "$ref": "#/$defs/ProjectBranchRecordBody",
       "description": "Exact target branch generation and canonical problem."
     },
     "document_version": {
@@ -341,13 +341,13 @@
       "type": "string"
     },
     "target": {
-      "$ref": "#/$defs/ContextSelectionBodyOutput",
+      "$ref": "#/$defs/ContextSelectionBody",
       "description": "Exact original target source/physical context."
     },
     "targets": {
       "description": "Explicit bounded mapping; all unrelated authored declarations remain inherited.",
       "items": {
-        "$ref": "#/$defs/ResearchParameterTargetOutput"
+        "$ref": "#/$defs/ResearchParameterTarget"
       },
       "type": "array"
     }
@@ -363,6 +363,6 @@
     "targets",
     "document_version"
   ],
-  "title": "ResearchPublicationRequestOutput",
+  "title": "ResearchPublicationRequest",
   "type": "object"
 }

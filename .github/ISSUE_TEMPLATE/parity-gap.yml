@@ -8,10 +8,10 @@ body:
   - type: markdown
     attributes:
       value: >-
-        Parity means: for the models covered by the parity harness, `pse-arrow` and
-        **`idaes-pse==2.13.0`** agree within a declared tolerance, on Linux, with Ipopt
-        3.14.x + MUMPS from the pinned solver image. A gap is a disagreement inside that
-        envelope.
+        Name the original Rust candidate, the independent **`idaes-pse==2.13.0`**
+        reference and their declared tolerance and execution conditions. Existing
+        comparisons retain their actual supported scope; assembled native qualification
+        remains owned by Plan58h. A gap is a disagreement within a named comparison.
 
 
         `pse-arrow` is a **clean-room** re-implementation. Please describe *behaviour*
@@ -34,7 +34,8 @@ body:
       placeholder: |
         idaes.models.unit_models.heat_exchanger.HeatExchanger with
         idaes.models.properties.modular_properties … , idaes-pse 2.13.0
-        Parity test: python/pse/parity/tests/test_heat_exchanger.py::test_duty_trajectory
+        Native comparison: <Rust test and selected case>
+        Independent oracle: <isolated reference invocation>
     validations:
       required: true
 
@@ -96,8 +97,9 @@ body:
     attributes:
       label: Reproduction
       description: >-
-        How to see both numbers. Ideally the parity harness invocation
-        (`just parity` / `uv run --no-sync pytest --parity -k …`) plus the model file.
+        Give the exact native comparison command and isolated reference invocation,
+        plus the original model, oracle inputs/outputs and numerical allowances.
+        Identify checks not run and the owning H qualification scenario.
       render: shell
     validations:
       required: true
@@ -107,9 +109,10 @@ body:
     attributes:
       label: Environment
       description: >-
-        `cargo xtask probe-host --json`, or the `artifacts/probe_host.json` the parity
-        pre-flight writes. It records the Ipopt, MUMPS, ASL, and IDAES versions actually
-        in use, which is the first thing to check on any parity report.
+        Include `scripts/pse-host doctor --json`, the actual selected native solver
+        preparation and the isolated reference interpreter/library versions.
+        The retained Python reference environment is independent of the Rust product;
+        report missing or unavailable facts explicitly.
       render: json
     validations:
       required: true
@@ -120,8 +123,8 @@ body:
       label: Before submitting
       options:
         - label: >-
-            The parity pre-flight passed — Python < 3.15, `idaes.__version__ == "2.13.0"`,
-            and `ipopt` 3.14.x on `PATH` (it fails rather than skips when it is not).
+            I recorded the actual native solver selection and independent reference
+            environment, including `idaes.__version__ == "2.13.0"` and unavailable facts.
           required: true
         - label: >-
             I am reporting observed behaviour of IDAES. I have not copied IDAES source

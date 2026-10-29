@@ -5,9 +5,8 @@ and [current work](../plans/README.md); inspect production source only as needed
 
 ## Commands
 
-- `just bootstrap-docs` provisions the locked docs-only Python group in `.venv-docs`
-  and installs the mdBook and Pagefind versions declared in `docs/site.toml`.
-  It does not synchronize or compile the product Python environment.
+- `just bootstrap-docs` explicitly installs the mdBook and Pagefind versions declared
+  in `docs/site.toml` through the native xtask publisher. No Python product is installed.
 - `just docs` discovers collections, stages sources, builds HTML and indexes canonical chapter
   content with Pagefind. Output is `docs/book/`; staging is temporary under `build/docs/`.
 - `just docs-test` exercises publisher and citation fixtures without importing the product.
@@ -77,7 +76,7 @@ Search assets are local, and ordinary chapter navigation remains usable without 
 
 ## Metadata and aggregate scope
 
-`scripts/document_metadata.py` is the shared interpretation boundary for publication,
+`xtask::documentation::metadata` is the shared interpretation boundary for publication,
 ADRs and lifecycle queries. `docs/lifecycle.toml` declares versioned vocabulary, collection
 and bundle defaults, exceptions and native scope bindings. Preserve native fields and body
 bytes; controlled `doc_*` fields add role, topics, ownership and retention
@@ -90,16 +89,16 @@ bytes; an explicit path/key/scalar-digest adapter handles only declared historic
 before the same strict YAML parse. New and mutable documents use valid YAML.
 
 ```bash
-scripts/pse-env --docs -- python3 -m scripts.document_lifecycle inventory --role plan
-scripts/pse-env --docs -- python3 -m scripts.document_lifecycle validate
-scripts/pse-env --docs -- python3 -m scripts.document_lifecycle scope --state open
-scripts/pse-env --docs -- python3 -m scripts.document_lifecycle retire-plan --path 'docs/plans/32-*'
+scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- lifecycle inventory --role plan
+scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- lifecycle validate
+scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- lifecycle scope --state open
+scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- lifecycle retire-plan --path 'docs/plans/32-*'
 ```
 
 These are read-only JSON projections and retirement preflight. They neither authorize nor
-perform deletion. Queries read the provisioned docs environment without syncing dependencies,
-compiling the extension or scanning host storage. Use `just bootstrap-docs` explicitly when
-that environment is missing.
+perform deletion. These commands explicitly build/run xtask through the correctness adapter;
+their document queries do not scan host storage, start a service or synchronize environments.
+An already built `target/debug/xtask lifecycle ...` can read without invoking Cargo.
 
 Multiple plans may be active concurrently. Native packet/finding tables remain their status
 owners; explicit bindings derive a scope view with document/binding/native-row identity,

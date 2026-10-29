@@ -1,73 +1,28 @@
 ---
-description: The Python package, its class systems and its boundaries
+description: Independent Python references and repository tool environments
 paths:
   - "python/**"
-  - "conftest.py"
+  - "tests/reference/**/*.py"
+  - "scripts/*_reference.py"
   - "pyproject.toml"
   - "uv.lock"
 ---
 
-# Working in `python/pse`
+# Independent Python references
 
-## One class system per contract
+Plan58 G retires the first-party Python product, its generated document/stub mirrors,
+PyO3 delivery and operating controllers under ADR-0233 and blueprint §21.7. Do not extend
+those retiring interfaces or restore a compatibility adapter. The owning plan records which
+actual callers still require native acceptance; the target alone is not a completed cutover.
 
-There are exactly two, and they do not overlap (blueprint §21.1):
+Keep independent IDAES/Pyomo, SciPy and other scientific oracles isolated in their explicitly
+selected environments. Exchange explicit cases/results with native candidates; do not import
+`pse` or calculate expected answers through the production implementation. Preserve source,
+versions, physical meaning, tolerances and deliberately wrong-candidate controls. A missing
+required reference dependency is a failure, never a skipped parity claim.
 
-- **msgspec `Struct`** for typed records that cross a JSON boundary.
-- **attrs + cattrs** for row-shaped data. Build converters through `pse.codec.converter()`
-  — it sets `forbid_extra_keys` and owns the hooks. `cattrs.Converter`,
-  `GenConverter`, bare `structure`/`unstructure`, `json` and `tomllib` are banned imports.
-
-Adding a third way to describe a scientific package record is the failure mode this rule
-exists to prevent. Host tools under `scripts/` may use Pydantic for their own validated
-requests, exposure metadata and results. They must not mirror Rust-owned scientific fields
-or replace native decoding/admission (Plan52 unified-interface RC02).
-
-## `Any` is banned
-
-`typing.Any` is a banned import (ruff TID251) *and* `pse.governance` walks
-`attrs.fields` in the explicit `just python-contracts-check` quality/codegen check,
-recursively rejecting `Any`, bare `dict` and bare `list`. Dynamic converter hooks
-check their classes when constructed. Import checks compiled registry identity.
-
-`from __future__ import annotations` is allowed. `pse.governance` calls
-`attrs.resolve_types` before walking fields, the codec's cattrs converter resolves them
-too, and `test_postponed_annotations_are_resolved_before_the_lint` keeps the `Any` lint
-effective for modules that postpone annotations.
-
-## numpy stays at the boundary
-
-numpy and scipy may be imported only in `python/pse/_array.py`, the parity harness and
-tests; import-linter enforces it. `_array.py` passes `zero_copy_only=True` and every
-copy carries a `copy_reason`. `idaes`, `pandas`, `sympy`, `networkx`,
-`matplotlib` and `click` never appear outside the parity harness; `pyomo` and `pint`
-only in the isolated parity harness and its tests. Production Pyomo adapters are removed.
-
-Never `import pse._native` outside the package's own boundary modules — the extension is
-reached through the typed surface, and `python/pse/_native.pyi` is
-generated from the actual compiled PyO3 metadata by `just python-stubs`. Run
-`just py-sync` after native API changes; fix the native declaration or generator
-instead of editing the stub. The API surface is checked against the loaded extension.
-
-## Parity fails, it never skips
-
-`--parity` runs the suite against `idaes-pse==2.13.0`. A session fixture *fails* — not
-skips — unless the interpreter is < 3.15, `idaes.__version__ == "2.13.0"` and `ipopt` is
-on PATH. `pytest.skip` and `importorskip` are banned under the parity tree by ast-grep.
-A skipped parity test is a parity claim with no evidence behind it.
-
-## Markers and tools
-
-Exactly one of `unit`/`component`/`integration`/`performance` per test; `conftest.py`
-raises a `UsageError` at collection listing every offender. `just py-test` runs the
-`unit or component` set.
-
-Tools come from `.venv/bin`, declared with floors in `pyproject.toml`
-`[dependency-groups]` and resolved by `uv.lock`, never from `$PATH` and never via
-`pip install`. `just turn-end` only formats (ADR-0161); ruff, pyrefly, import-linter and
-the repository linters run in `just hygiene` once all functional scope is implemented, and you
-fix what they report. `just quality` runs them together when the maintainer requests it. While implementing, run only `just py-sync` (or `just py-sync-native`) when the native API
-changed and the targeted `just py-unit` tests for what you changed (`just py-unit` picks the
-environment for whichever extension is installed; `just py-test` adds component tests against
-the canonical store); do not run ruff, pyrefly or other linters
-yourself.
+`typing.Any` remains banned. Tools come from the checkout's selected environment and locked
+dependency groups; do not use a global formatter/type checker or install an unpinned tool.
+Run targeted reference checks during implementation. Formatting and comprehensive quality
+checks follow AGENTS.md's scope-end rhythm. Ordinary third-party tools may use Python;
+they do not make a first-party Python controller part of the product or cold host.

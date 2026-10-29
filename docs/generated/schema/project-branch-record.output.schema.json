@@ -48,6 +48,6 @@
     "generation",
     "document_version"
   ],
-  "title": "ProjectBranchRecordOutput",
+  "title": "ProjectBranchRecord",
   "type": "object"
 }

@@ -38,7 +38,7 @@
       "minimum": 0,
       "type": "integer"
     },
-    "PointFactsOutput": {
+    "PointFacts": {
       "additionalProperties": false,
       "description": "Current operational and scientific facts for one occurrence.",
       "properties": {
@@ -94,7 +94,7 @@
           "type": "integer"
         },
         "scientific": {
-          "$ref": "#/$defs/ScientificFactsOutput",
+          "$ref": "#/$defs/ScientificFacts",
           "description": "Operation-owned aggregate assessment."
         },
         "seed": {
@@ -123,7 +123,7 @@
       ],
       "type": "object"
     },
-    "ScientificFactsOutput": {
+    "ScientificFacts": {
       "additionalProperties": false,
       "description": "E supplies aggregate decisions; the study never counts result tables to infer these.",
       "properties": {
@@ -289,7 +289,7 @@
           "description": "Knowledge under this analysis's exact predicate."
         },
         "member": {
-          "$ref": "#/$defs/StudyCohortMemberOutput",
+          "$ref": "#/$defs/StudyCohortMember",
           "description": "Unmodified captured original facts."
         }
       },
@@ -325,7 +325,7 @@
       ],
       "type": "object"
     },
-    "StudyCohortMemberOutput": {
+    "StudyCohortMember": {
       "additionalProperties": false,
       "description": "One frozen point's compact original facts; no operation, report or payload is decoded.",
       "properties": {
@@ -337,7 +337,7 @@
           ]
         },
         "facts": {
-          "$ref": "#/$defs/PointFactsOutput",
+          "$ref": "#/$defs/PointFacts",
           "description": "Original lifecycle, scientific availability, attempt count and effect facts."
         },
         "key": {

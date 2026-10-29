@@ -4,6 +4,8 @@
 //!
 //! The nextest adapter observes Cargo's translated build argv, never interprets nextest's
 //! complete CLI grammar, and never sends unit-graph JSON into its compiler-message stream.
+//! Cargo-hack retains feature enumeration; its native Cargo callback qualifies selected
+//! package features and isolates actual diagnostic taskdump checks through Cargo profiles.
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -16,6 +18,7 @@ use std::{
 const REAL_CARGO: &str = "PSE_CORRECTNESS_REAL_CARGO";
 const ADAPTER: &str = "PSE_CORRECTNESS_ADAPTER";
 const FIXTURE_METADATA_CAPTURE: &str = "PSE_FIXTURE_CARGO_METADATA_CAPTURE";
+const CARGO_HACK_ADAPTER: &str = "CARGO_HACK_CARGO_SRC";
 
 /// Failure to establish the selected correctness closure, distinct from a Cargo exit.
 #[derive(Debug, thiserror::Error)]
@@ -44,6 +47,8 @@ struct Package {
     id: String,
     name: String,
     features: BTreeMap<String, Vec<String>>,
+    #[serde(default)]
+    manifest_path: Option<PathBuf>,
 }
 #[derive(Debug, Deserialize)]
 struct Metadata {
@@ -125,7 +130,7 @@ fn arrow(package: &Package) -> bool {
     package.name == "arrow" || package.name.starts_with("arrow-")
 }
 
-/// The validated original operation, with only necessary root feature additions.
+/// The validated original scope, with qualified features and selected diagnostic isolation.
 #[derive(Debug)]
 pub struct Resolution {
     /// Actual Cargo arguments, excluding its executable.
@@ -259,6 +264,80 @@ fn metadata_arguments(arguments: &[OsString]) -> Result<Vec<OsString>, Correctne
     }
     Ok(result)
 }
+struct CheckControls {
+    manifest: Option<PathBuf>,
+    features: Vec<(usize, &'static str, Vec<String>)>,
+    profile: Option<String>,
+    release: bool,
+    all_features: bool,
+    end: usize,
+}
+fn check_controls(arguments:&[OsString])->Result<Option<CheckControls>,CorrectnessError>{
+    let position=mode_position(arguments)?;
+    if arguments[position]!="check"&&arguments[position]!="clippy"{return Ok(None);}
+    let end=arguments.iter().position(|arg|arg=="--").unwrap_or(arguments.len());
+    let mut controls=CheckControls{manifest:None,features:vec![],profile:None,release:false,all_features:false,end};
+    let mut index=position+1;
+    while index<end {
+        let argument=arguments[index].to_str().ok_or_else(||invalid("Cargo check controls must be UTF-8"))?;
+        let mut feature=None;
+        match argument {
+            "--manifest-path"|"--features"|"-F"|"--profile"=>{
+                index+=1;
+                if index>=end{return Err(invalid(format!("{argument} requires a value")));}
+                match argument {
+                    "--manifest-path"=>controls.manifest=Some(PathBuf::from(&arguments[index])),
+                    "--profile"=>controls.profile=Some(arguments[index].to_str().ok_or_else(||invalid("Cargo profile must be UTF-8"))?.into()),
+                    _=>feature=Some(("",arguments[index].to_str().ok_or_else(||invalid("Cargo features must be UTF-8"))?)),
+                }
+            },
+            "--release"|"-r"=>controls.release=true,
+            "--all-features"=>controls.all_features=true,
+            _=>{
+                if let Some(value)=argument.strip_prefix("--manifest-path="){controls.manifest=Some(value.into());}
+                else if let Some(value)=argument.strip_prefix("--profile="){controls.profile=Some(value.into());}
+                else if let Some(value)=argument.strip_prefix("--features="){feature=Some(("--features=",value));}
+                else if let Some(value)=argument.strip_prefix("-F"){if !value.is_empty(){feature=Some(("-F",value));}}
+            },
+        }
+        if let Some((prefix,features))=feature{controls.features.push((index,prefix,features.split(|character:char|character==','||character.is_whitespace()).filter(|value|!value.is_empty()).map(str::to_owned).collect()));}
+        index+=1;
+    }
+    Ok(Some(controls))
+}
+// cargo-hack's per-package callback uses --manifest-path with bare features.
+// Reuse this invocation's real Cargo metadata, rather than rereading manifests
+// or obtaining a second resolution from a parallel selection owner.
+fn qualify_selected_check_features(arguments:&[OsString],packages:&BTreeMap<String,Package>)->Result<Vec<OsString>,CorrectnessError>{
+    let Some(controls)=check_controls(arguments)? else{return Ok(arguments.to_vec());};
+    if !controls.features.iter().flat_map(|(_,_,features)|features).any(|feature|!feature.contains('/')){return Ok(arguments.to_vec());}
+    let Some(manifest)=controls.manifest else{return Ok(arguments.to_vec());};
+    let manifest=manifest.canonicalize()?;
+    let mut selected=packages.values().filter(|package|package.manifest_path.as_ref().is_some_and(|path|path.canonicalize().is_ok_and(|path|path==manifest)));
+    let package=selected.next().ok_or_else(||invalid("selected check manifest is absent from Cargo metadata"))?;
+    if selected.next().is_some(){return Err(invalid("selected check manifest resolves to multiple Cargo packages"));}
+    let mut qualified=arguments.to_vec();
+    for (index,prefix,features) in controls.features{
+        if features.iter().any(|feature|!feature.contains('/')){
+            qualified[index]=format!("{prefix}{}",features.into_iter().map(|feature|if feature.contains('/'){feature}else{format!("{}/{feature}",package.name)}).collect::<Vec<_>>().join(",")).into();
+        }
+    }
+    Ok(qualified)
+}
+fn diagnostic_check_arguments(arguments:&[OsString])->Result<Vec<OsString>,CorrectnessError>{
+    diagnostic_scope_arguments(arguments,false)
+}
+fn diagnostic_scope_arguments(arguments:&[OsString],resolved_taskdump:bool)->Result<Vec<OsString>,CorrectnessError>{
+    let Some(controls)=check_controls(arguments)? else{return Ok(arguments.to_vec());};
+    if !resolved_taskdump&&!controls.features.iter().flat_map(|(_,_,features)|features).any(|feature|feature.rsplit('/').next()==Some("diagnostic-taskdump")){return Ok(arguments.to_vec());}
+    if controls.release||controls.profile.as_deref().is_some_and(|profile|profile!="diagnostic-taskdump"){
+        return Err(invalid("diagnostic-taskdump checks require the isolated diagnostic-taskdump profile"));
+    }
+    let mut additions=vec![];
+    for setting in ["unstable.profile-rustflags=true","profile.diagnostic-taskdump.rustflags=[\"--cfg\",\"tokio_unstable\"]"]{if !arguments[..controls.end].iter().any(|argument|argument==setting){additions.extend([OsString::from("--config"),OsString::from(setting)]);}}
+    if controls.profile.is_none(){additions.extend(["--profile".into(),"diagnostic-taskdump".into()]);}
+    let mut selected=arguments.to_vec();selected.splice(controls.end..controls.end,additions);Ok(selected)
+}
 /// Resolve with injected Cargo capture for focused controls; native execution uses real Cargo.
 pub fn resolve_with<F>(
     arguments: &[OsString],
@@ -267,14 +346,28 @@ pub fn resolve_with<F>(
 where
     F: FnMut(&[OsString]) -> Result<Vec<u8>, CorrectnessError>,
 {
-    let metadata: Metadata = serde_json::from_slice(&capture(&metadata_arguments(arguments)?)?)?;
+    let arguments=diagnostic_check_arguments(arguments)?;
+    let metadata: Metadata = serde_json::from_slice(&capture(&metadata_arguments(&arguments)?)?)?;
     let mut packages = BTreeMap::new();
     for package in metadata.packages {
         if packages.insert(package.id.clone(), package).is_some() {
             return Err(invalid("Cargo metadata repeats a package identity"));
         }
     }
-    let original: Graph = serde_json::from_slice(&capture(&graph_arguments(arguments)?)?)?;
+    let mut arguments=qualify_selected_check_features(&arguments,&packages)?;
+    let mut original: Graph = serde_json::from_slice(&capture(&graph_arguments(&arguments)?)?)?;
+    // All-feature check/Clippy callbacks need the same isolation even when
+    // cargo-hack (or the caller) does not spell the diagnostic feature. The
+    // actual reached units decide, including target and host dependency units.
+    if check_controls(&arguments)?.is_some_and(|controls|controls.all_features)
+        && original.reached(&packages,&original.roots)?.iter().any(|index|original.units[*index].features.iter().any(|feature|feature=="diagnostic-taskdump")){
+        let diagnostic=diagnostic_scope_arguments(&arguments,true)?;
+        if diagnostic!=arguments{
+            let graph:Graph=serde_json::from_slice(&capture(&graph_arguments(&diagnostic)?)?)?;
+            if original.root_identity()?!=graph.root_identity()?{return Err(invalid("diagnostic isolation changed selected Cargo package/target roots"));}
+            arguments=diagnostic;original=graph;
+        }
+    }
     let mut additions = BTreeSet::new();
     let mut names = BTreeSet::new();
     for root in &original.roots {
@@ -304,7 +397,7 @@ where
     }
     // Check malformed indices even when a graph has no selected roots.
     original.reached(&packages, &original.roots)?;
-    let mut selected = arguments.to_vec();
+    let mut selected = arguments.clone();
     if !additions.is_empty() {
         let position = selected
             .iter()
@@ -355,7 +448,8 @@ fn native_command(cargo: &OsStr, arguments: &[OsString]) -> Command {
     command
         .args(arguments)
         .env("CARGO", cargo)
-        .env_remove(ADAPTER);
+        .env_remove(ADAPTER)
+        .env_remove(CARGO_HACK_ADAPTER);
     command
 }
 fn capture(cargo: &OsStr, arguments: &[OsString]) -> Result<Vec<u8>, CorrectnessError> {
@@ -501,6 +595,20 @@ pub fn restore_test_environment() -> Result<i32, CorrectnessError> {
     writeln!(output, "CARGO={cargo}\n{ADAPTER}=0")?;
     Ok(0)
 }
+fn execute_adapter(cargo:&OsStr,arguments:&[OsString],metadata_capture:Option<&OsStr>)->Result<i32,CorrectnessError>{
+    // cargo-hack 0.6.45 requests -vV before metadata and per-manifest checks.
+    // Discovery can be forwarded; the marker never authorizes compiler work.
+    if arguments==[OsString::from("--version")]
+        || arguments==[OsString::from("-V")]
+        || arguments==[OsString::from("-vV")]{return execute(cargo,arguments);}
+    let position=mode_position(arguments)?;
+    if arguments[position]=="metadata"{
+        if let Some(destination)=metadata_capture{return execute_metadata(cargo,arguments,destination,&mut io::stdout().lock());}
+        return execute(cargo,arguments);
+    }
+    if arguments[position]=="locate-project"{return execute(cargo,arguments);}
+    let resolution=resolve_with(arguments,|args|capture(cargo,args))?;execute(cargo,&resolution.arguments)
+}
 /// Native external Cargo command and invocation-local nextest build adapter.
 pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
     let mut arguments = arguments;
@@ -516,8 +624,10 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
     {
         return restore_test_environment();
     }
+    let cargo_adapter=std::env::var_os(ADAPTER).is_some_and(|value|value=="1")
+        || std::env::var_os(CARGO_HACK_ADAPTER).is_some_and(|value|!value.is_empty());
     if arguments.as_slice() == [OsString::from("--version")]
-        && std::env::var_os(ADAPTER).is_none_or(|value| value != "1")
+        && !cargo_adapter
     {
         writeln!(
             io::stdout(),
@@ -527,26 +637,8 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
         return Ok(0);
     }
     let cargo = real_cargo()?;
-    if std::env::var_os(ADAPTER).is_some_and(|value| value == "1") {
-        // A discovery marker is not compilation authority: nested Cargo compiler
-        // calls must establish the same graph even when a caller supplies the marker.
-        if arguments.as_slice() == [OsString::from("--version")]
-            || arguments.as_slice() == [OsString::from("-V")]
-        {
-            return execute(&cargo, &arguments);
-        }
-        let position = mode_position(&arguments)?;
-        if arguments[position] == "metadata" {
-            if let Some(destination) = std::env::var_os(FIXTURE_METADATA_CAPTURE) {
-                return execute_metadata(&cargo, &arguments, &destination, &mut io::stdout().lock());
-            }
-            return execute(&cargo, &arguments);
-        }
-        if arguments[position] == "locate-project" {
-            return execute(&cargo, &arguments);
-        }
-        let resolution = resolve_with(&arguments, |args| capture(&cargo, args))?;
-        return execute(&cargo, &resolution.arguments);
+    if cargo_adapter {
+        return execute_adapter(&cargo,&arguments,std::env::var_os(FIXTURE_METADATA_CAPTURE).as_deref());
     }
     if arguments
         .first()
@@ -672,6 +764,75 @@ mod tests {
     }
     fn arrow_metadata() -> Value {
         json!({"packages":[package("root","root",json!({"force-validate":[]})),package("arrow-array","arrow-array",json!({"force_validate":[]}))]})
+    }
+    #[test]
+    fn cargo_hack_discovery_preserves_literal_requests_and_native_failure_without_compiler_bypass(){
+        use std::os::unix::fs::PermissionsExt as _;
+        let directory=tempfile::tempdir().unwrap();let cargo=directory.path().join("fake-cargo");std::fs::write(&cargo,b"#!/bin/sh\nprintf '%s\\0' \"$@\" >> \"${0}.calls\"\ncase \"$1\" in\n-vV) exit 13;;\nmetadata) exit 17;;\nlocate-project) exit 19;;\n*) exit 77;;\nesac\n").unwrap();std::fs::set_permissions(&cargo,std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert_eq!(execute_adapter(cargo.as_os_str(),&args(&["-vV"]),None).unwrap(),13);assert_eq!(execute_adapter(cargo.as_os_str(),&args(&["metadata","--format-version","1"]),None).unwrap(),17);assert_eq!(execute_adapter(cargo.as_os_str(),&args(&["locate-project"]),None).unwrap(),19);
+        assert_eq!(std::fs::read(directory.path().join("fake-cargo.calls")).unwrap(),b"-vV\0metadata\0--format-version\x001\0locate-project\0");
+        assert!(execute_adapter(cargo.as_os_str(),&args(&["check","--no-default-features"]),None).is_err(),"compiler callbacks must still establish Cargo graph coverage");
+    }
+    #[test]
+    fn cargo_hack_selected_manifest_features_keep_target_host_graph_and_literal_controls() {
+        let directory=tempfile::tempdir().unwrap();let manifest=directory.path().join("selected manifest; literal.toml");std::fs::write(&manifest,"Cargo metadata is the package-name owner").unwrap();
+        let mut metadata=arrow_metadata();metadata["packages"][0]["name"]=json!("selected-package");metadata["packages"][0]["manifest_path"]=json!(manifest);
+        let before=graph(vec![unit("root",&[],&[1,2],Some("custom-target"),"check"),unit("arrow-array",&[],&[],Some("custom-target"),"build"),unit("arrow-array",&[],&[],None,"build")]);
+        let after=graph(vec![unit("root",&["force-validate"],&[1,2],Some("custom-target"),"check"),unit("arrow-array",&["force_validate"],&[],Some("custom-target"),"build"),unit("arrow-array",&["force_validate"],&[],None,"build")]);
+        for (features,qualified) in [
+            (args(&["--features","native,default pse-relations/force-validate"]),args(&["--features","selected-package/native,selected-package/default,pse-relations/force-validate"])),
+            (args(&["--features=native"]),args(&["--features=selected-package/native"])),
+            (args(&["-F","native"]),args(&["-F","selected-package/native"])),
+            (args(&["-Fnative"]),args(&["-Fselected-package/native"])),
+        ]{
+            let mut original=args(&["check","--locked","--no-default-features","--tests","--target","custom-target","--config","target.custom-target.rustflags=['--cfg=original']","--manifest-path"]);original.push(manifest.clone().into_os_string());original.extend(features);
+            let (resolution,calls)=resolve(&original,vec![metadata.clone(),before.clone(),after.clone()]).unwrap();
+            let mut expected=original[..10].to_vec();expected.extend(qualified);let qualified_before=expected.clone();expected.extend(args(&["--features","selected-package/force-validate"]));
+            assert_eq!(resolution.arguments,expected);assert_eq!(resolution.packages,["selected-package"]);assert_eq!(calls.len(),3,"one invocation-local metadata capture and the original/validated unit graphs");assert_eq!(calls[1],graph_arguments(&qualified_before).unwrap());assert_eq!(calls[2],graph_arguments(&resolution.arguments).unwrap());
+        }
+    }
+    #[test]
+    fn cargo_hack_no_default_scope_does_not_add_unrelated_features_or_targets(){
+        let original=args(&["check","--manifest-path=literal-selection/Cargo.toml","--locked","--no-default-features","--lib","--target=target"]);
+        let (resolution,calls)=resolve(&original,vec![json!({"packages":[package("pure","pure",json!({}))]}),graph(vec![unit("pure",&[],&[],Some("target"),"check")])]).unwrap();assert_eq!(resolution.arguments,original);assert_eq!(calls.len(),2);assert_eq!(calls[1],graph_arguments(&original).unwrap());
+    }
+    #[test]
+    fn cargo_hack_bare_features_require_the_actual_selected_metadata_package(){
+        let directory=tempfile::tempdir().unwrap();let manifest=directory.path().join("Cargo.toml");std::fs::write(&manifest,"selected manifest").unwrap();let original=vec!["check".into(),"--manifest-path".into(),manifest.into_os_string(),"-Fbare".into()];let error=resolve(&original,vec![arrow_metadata()]).unwrap_err();assert!(error.to_string().contains("absent from Cargo metadata"));
+    }
+    #[test]
+    fn cargo_hack_taskdump_uses_same_cargo_owned_profile_flags_for_graph_and_execution(){
+        let original=args(&["check","--features=selected/diagnostic-taskdump","--target","custom-target","--config","target.custom-target.rustflags=['--cfg=original']","--profile=diagnostic-taskdump"]);
+        let (resolution,calls)=resolve(&original,vec![json!({"packages":[package("pure","pure",json!({}))]}),graph(vec![unit("pure",&[],&[],Some("custom-target"),"check")])]).unwrap();
+        assert_eq!(&resolution.arguments[..original.len()],original.as_slice());
+        for call in calls.iter().chain(std::iter::once(&resolution.arguments)){
+            assert!(call.iter().any(|value|value=="target.custom-target.rustflags=['--cfg=original']"));assert!(call.iter().any(|value|value=="unstable.profile-rustflags=true"));assert!(call.iter().any(|value|value=="profile.diagnostic-taskdump.rustflags=[\"--cfg\",\"tokio_unstable\"]"));
+        }
+        let command=native_command(OsStr::new("cargo"),&resolution.arguments);assert!(!command.get_envs().any(|(key,_)|key=="RUSTFLAGS"||key=="CARGO_ENCODED_RUSTFLAGS"),"Cargo retains ownership of inherited flags and target configuration");
+    }
+    #[test]
+    fn cargo_hack_taskdump_profile_conflicts_refuse_and_other_commands_stay_literal(){
+        for suffix in [args(&["--release"]),args(&["-r"]),args(&["--profile","dev"]),args(&["--profile=release"]) ]{let mut selected=args(&["check","-Fdiagnostic-taskdump"]);selected.extend(suffix);assert!(diagnostic_check_arguments(&selected).unwrap_err().to_string().contains("isolated diagnostic-taskdump profile"));}
+        for original in [args(&["check","--features=other/diagnostic-taskdump-extra"]),args(&["check","--","-Fdiagnostic-taskdump"]),args(&["build","-Fdiagnostic-taskdump"])]{assert_eq!(diagnostic_check_arguments(&original).unwrap(),original);}
+        let selected=diagnostic_check_arguments(&args(&["check","-Fdiagnostic-taskdump"])).unwrap();assert!(selected.windows(2).any(|pair|pair==args(&["--profile","diagnostic-taskdump"])));
+    }
+    #[test]
+    fn cargo_hack_all_feature_check_and_clippy_isolate_only_actual_reached_taskdump(){
+        let metadata=json!({"packages":[package("root","root",json!({"diagnostic-taskdump":[]})),package("other","other",json!({"diagnostic-taskdump":[]}))]});
+        let original_graph=graph(vec![unit("root",&["diagnostic-taskdump"],&[],Some("custom-target"),"check")]);
+        for mode in ["check","clippy"]{
+            let mut original=args(&[mode,"--workspace","--all-features","--all-targets","--target","custom-target","--config","target.custom-target.rustflags=['--cfg=original']"]);if mode=="clippy"{original.push("--no-deps".into());}
+            let (resolution,calls)=resolve(&original,vec![metadata.clone(),original_graph.clone(),original_graph.clone()]).unwrap();
+            assert_eq!(&resolution.arguments[..original.len()],original.as_slice());assert!(resolution.arguments.windows(2).any(|pair|pair==args(&["--profile","diagnostic-taskdump"])));assert!(resolution.arguments.iter().any(|value|value=="profile.diagnostic-taskdump.rustflags=[\"--cfg\",\"tokio_unstable\"]"));assert_eq!(calls.len(),3);assert_eq!(calls.iter().filter(|call|call.first().is_some_and(|value|value=="metadata")).count(),1);assert_eq!(calls[2],graph_arguments(&resolution.arguments).unwrap());
+            if mode=="clippy"{assert!(resolution.arguments.iter().any(|value|value=="--no-deps"));assert!(!calls[2].iter().any(|value|value=="--no-deps"));}
+            let pure=graph(vec![unit("root",&[],&[],Some("custom-target"),"check")]);let (unrelated,calls)=resolve(&original,vec![metadata.clone(),pure]).unwrap();assert_eq!(unrelated.arguments,original,"an unrelated metadata feature does not select diagnostic isolation");assert_eq!(calls.len(),2);
+        }
+    }
+    #[test]
+    fn cargo_hack_resolved_taskdump_refuses_conflicting_profile_or_changed_target_roots(){
+        let metadata=json!({"packages":[package("root","root",json!({"diagnostic-taskdump":[]}))]});let before=graph(vec![unit("root",&["diagnostic-taskdump"],&[],None,"check")]);
+        for mode in ["check","clippy"]{let error=resolve(&args(&[mode,"--all-features","--profile=dev"]),vec![metadata.clone(),before.clone()]).unwrap_err();assert!(error.to_string().contains("isolated diagnostic-taskdump profile"));}
+        let mut changed=before.clone();changed["units"][0]["target"]["name"]=json!("different-target");let error=resolve(&args(&["check","--all-features"]),vec![metadata,before,changed]).unwrap_err();assert!(error.to_string().contains("isolation changed selected Cargo package/target roots"));
     }
     #[test]
     fn correctness_pure_scope_is_unchanged() {

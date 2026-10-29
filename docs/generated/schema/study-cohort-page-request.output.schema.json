@@ -60,6 +60,6 @@
     "cursor",
     "document_version"
   ],
-  "title": "StudyCohortPageRequestOutput",
+  "title": "StudyCohortPageRequest",
   "type": "object"
 }

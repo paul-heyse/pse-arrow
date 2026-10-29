@@ -158,7 +158,7 @@
         }
       ]
     },
-    "PackMemberOutput": {
+    "PackMember": {
       "additionalProperties": false,
       "description": "The indexed read boundary of one selected member.",
       "properties": {
@@ -181,7 +181,7 @@
           "type": "string"
         },
         "selection": {
-          "$ref": "#/$defs/PackMemberSelectionOutput",
+          "$ref": "#/$defs/PackMemberSelection",
           "description": "Original explicit selection and its finite allowances."
         }
       },
@@ -244,7 +244,7 @@
         }
       ]
     },
-    "PackMemberSelectionOutput": {
+    "PackMemberSelection": {
       "additionalProperties": false,
       "description": "One explicitly requested member. Missing optional members differ from unrequested members.",
       "properties": {
@@ -300,7 +300,7 @@
         "result": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PackResultSelectionOutput"
+              "$ref": "#/$defs/PackResultSelection"
             },
             {
               "type": "null"
@@ -349,7 +349,7 @@
         }
       ]
     },
-    "PackResultPredicateOutput": {
+    "PackResultPredicate": {
       "additionalProperties": false,
       "description": "Exact protected output predicate. Floating endpoints retain IEEE bits, not JSON rounding.",
       "properties": {
@@ -396,7 +396,7 @@
       ],
       "type": "object"
     },
-    "PackResultSelectionOutput": {
+    "PackResultSelection": {
       "additionalProperties": false,
       "description": "Exact original result lineage and range, including independent usability.",
       "properties": {
@@ -414,7 +414,7 @@
         "predicate": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PackResultPredicateOutput"
+              "$ref": "#/$defs/PackResultPredicate"
             },
             {
               "type": "null"
@@ -502,7 +502,7 @@
         }
       ]
     },
-    "PackSelectionOutput": {
+    "PackSelection": {
       "additionalProperties": false,
       "description": "Versioned complete explicit membership and finite publication allowances.",
       "properties": {
@@ -521,7 +521,7 @@
         "members": {
           "description": "Complete selected membership; no first-page completeness inference.",
           "items": {
-            "$ref": "#/$defs/PackMemberSelectionOutput"
+            "$ref": "#/$defs/PackMemberSelection"
           },
           "type": "array"
         },
@@ -648,7 +648,7 @@
     "members": {
       "description": "Complete selected membership; no first-page completeness inference.",
       "items": {
-        "$ref": "#/$defs/PackMemberOutput"
+        "$ref": "#/$defs/PackMember"
       },
       "type": "array"
     },
@@ -668,7 +668,7 @@
       "description": "Independent enclosing publication completion state."
     },
     "selection": {
-      "$ref": "#/$defs/PackSelectionOutput",
+      "$ref": "#/$defs/PackSelection",
       "description": "Original explicit selection and its finite allowances."
     },
     "self_contained": {
@@ -692,6 +692,6 @@
     "missing_context",
     "errors"
   ],
-  "title": "PackIndexOutput",
+  "title": "PackIndex",
   "type": "object"
 }

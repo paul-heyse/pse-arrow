@@ -53,7 +53,7 @@ fields (`id`, `title`, `status`, `date`, `deciders`, `level`, `principles`, `blu
 **Status lifecycle:** `proposed` → `accepted` | `rejected`; an accepted record later
 becomes `deprecated` or `superseded`. An accepted ADR is immutable except for its status
 fields and its status history — it is changed by superseding it, never by editing it.
-`scripts/adr.py lint` enforces this against `origin/main` and runs as
+`cargo xtask adr lint` enforces this against `origin/main` and runs as
 `governance / adr-lint`.
 
 **Retention (ADR-0096).** `docs/adr/` keeps the decisions whose rationale explains the
@@ -198,7 +198,7 @@ pinned family needs none of them:
    packages shared with the evidence lockfiles must match. `cargo tree -d` cannot detect
    a mixed family; this check can.
 4. The corresponding capability map under `docs/capability-maps/` is regenerated
-   (`just evidence-regen`) and its `pins:` front matter updated.
+   using its retained independent evidence README/manifests and its `pins:` front matter updated.
 5. Pre-1.0 crate floors are re-checked (`dependency_floors` in `tests/governance`), and
    any register row whose trigger the move fires is answered.
 6. `cargo semver-checks` must be green; a `datafusion-proto` bump also re-checks byte
@@ -259,5 +259,5 @@ is used.
 
 Governance changes are in the top row of the §2 table: ADR **and** design review. The
 pull request is labeled `governance` and `adr`, and the ADR's `verification:` field names
-what shows the new rule holds — usually a lint in `scripts/adr.py`, a field in
+what shows the new rule holds — usually a lint in `xtask::documentation::adr`, a field in
 `.github/setup/*.json`, or a line in `docs/dev/ci.md`.

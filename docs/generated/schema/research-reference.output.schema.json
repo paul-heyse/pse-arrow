@@ -69,6 +69,6 @@
     "request",
     "document_version"
   ],
-  "title": "ResearchReferenceOutput",
+  "title": "ResearchReference",
   "type": "object"
 }

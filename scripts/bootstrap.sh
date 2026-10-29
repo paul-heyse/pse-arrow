@@ -6,7 +6,7 @@
 # Run it again any time; every step is safe to repeat. `just bootstrap` is the entry point.
 #
 # Stages are separable because some are slow or network-bound:
-#   --venv-only      interpreter + Python dependencies + the editable extension (uv sync)
+#   --venv-only      independent reference and repository-tool dependencies (uv sync)
 #   --quality-only   the quality tools from [dependency-groups].quality (as uv.lock resolved them)
 #   --rust-only      cargo development tools (protocol-sensitive versions pinned)
 #   --linters-only   repository linters that are plain binaries (actionlint, ast-grep, ...)
@@ -15,20 +15,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-.venv}"
-case "$UV_PROJECT_ENVIRONMENT" in
-  /*|[A-Za-z]:*) VENV="$UV_PROJECT_ENVIRONMENT" ;;
-  *) VENV="${ROOT}/${UV_PROJECT_ENVIRONMENT}" ;;
-esac
-PY="${VENV}/bin/python"  # used by doctor below on Windows
-[[ "${OS:-}" == Windows_NT ]] && PY="${VENV}/Scripts/python.exe"
-export PY
 
 # Names live here; protocol-sensitive versions come from diagnostic-tools.toml.
 CARGO_TOOLS=(
   "cargo-nextest" "cargo-deny"   "cargo-audit"
   "cargo-shear"   "cargo-llvm-cov"
   "cargo-insta"   "cargo-hack"   "cargo-msrv"
-  "cargo-mutants" "cargo-fuzz" "cargo-geiger"
+  "cargo-mutants" "cargo-fuzz"
   "cargo-semver-checks" "git-cliff"
 )
 
@@ -44,23 +37,19 @@ need() {
 stage_venv() {
   need uv "https://docs.astral.sh/uv/"
   say "Syncing ${UV_PROJECT_ENVIRONMENT} from uv.lock (platform set + dev groups)"
-  # The compiler wrapper runs in this checkout's venv even when Maturin uses an
-  # isolated build environment. Install its locked dependencies before invoking it.
   uv sync --locked --no-install-project
-  uv sync --locked
 }
 
 stage_quality() {
   need uv "https://docs.astral.sh/uv/"
   say "Installing quality tools from [dependency-groups].quality"
-  uv sync --locked --group quality
+  uv sync --locked --no-install-project --group quality
 }
 
 stage_docs() {
   need uv "https://docs.astral.sh/uv/"
   # Selection and alias refusal belong to the shared boundary, before exact sync.
-  "$ROOT/scripts/pse-env" --docs -- uv sync --project "$ROOT" --locked --only-group docs --no-install-project
-  "$ROOT/scripts/pse-env" --docs -- python3 -m scripts.docs install
+  "$ROOT/scripts/pse-env" --docs -- cargo run --locked -p xtask --no-default-features -- docs install
 }
 
 stage_rust() {
@@ -70,11 +59,12 @@ stage_rust() {
     cargo install cargo-binstall --locked
   fi
   say "Installing cargo development tools"
-  mapfile -t tool_specs < <(python3 -m scripts.cargo_tools "${CARGO_TOOLS[@]}")
+  tool_specs_text=$("$ROOT/scripts/pse-host" cargo-tools "${CARGO_TOOLS[@]}")
+  mapfile -t tool_specs <<< "$tool_specs_text"
   cargo binstall --no-confirm "${tool_specs[@]}"
   say "Installing pinned compiler cache"
-  python3 -m scripts.diagnostic_trace install sccache
-  (cd "$ROOT" && python3 -m scripts.docs install)
+  "$ROOT/scripts/pse-host" diagnostic-tools install sccache
+  "$ROOT/scripts/pse-env" -- cargo run --locked -p xtask --no-default-features -- docs install
 }
 
 stage_repo_linters() {
@@ -97,6 +87,7 @@ stage_repo_linters() {
 }
 
 main() {
+  "$ROOT/scripts/bootstrap-host"
   case "${1:-all}" in
     --venv-only)    stage_venv ;;
     --quality-only) stage_quality ;;
@@ -119,11 +110,11 @@ main() {
   fi
 
   # Skill aliases (a no-op where the committed symlinks work) and the selected library skills.
-  python3 scripts/agent-config.py
-  python3 scripts/library_skills.py
+  "$ROOT/scripts/pse-env" -- cargo run --locked -p xtask --no-default-features -- agent-config
+  "$ROOT/scripts/pse-env" -- cargo run --locked -p xtask --no-default-features -- skills
 
   say "Status"
-  python3 scripts/doctor.py --format=text
+  "$ROOT/scripts/pse-host" doctor
 }
 
 main "$@"

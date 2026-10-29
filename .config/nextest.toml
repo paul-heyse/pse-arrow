@@ -49,9 +49,8 @@ success-output = "never"
 path = "junit.xml"
 store-failure-output = true
 
-# Per-run test groups and threads-required are projected from the exact
-# catalogue's shared semantic requirements by scripts.test_requirements.
-# This source file retains independent timeout and profile behavior.
+# Nextest owns the declared scheduling and timeout behavior directly. Private native
+# fixtures supply capabilities; scheduling groups never grant execution authority.
 [[profile.default.overrides]]
 filter = '(package(pse-backend-native) & test(/^(kinsol|ipopt|uno|petsc|root_isolation|dynamics|highs|clarabel_tests|restart_tests|scip_tests|l1_tests|pounce_convex_tests|measurement_tests)::/)) | test(/(^|::)solve_/)'
 slow-timeout = { period = "300s", terminate-after = 2 }

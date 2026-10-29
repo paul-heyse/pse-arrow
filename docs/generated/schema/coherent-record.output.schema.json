@@ -113,7 +113,7 @@
         }
       ]
     },
-    "RecordFieldOutput": {
+    "RecordField": {
       "additionalProperties": false,
       "description": "One typed member of an indivisible source-issued record.",
       "properties": {
@@ -362,7 +362,7 @@
     "values": {
       "description": "Complete bounded tuple; large scientific payloads use their existing owner.",
       "items": {
-        "$ref": "#/$defs/RecordFieldOutput"
+        "$ref": "#/$defs/RecordField"
       },
       "type": "array"
     }
@@ -380,6 +380,6 @@
     "values",
     "document_version"
   ],
-  "title": "CoherentRecordOutput",
+  "title": "CoherentRecord",
   "type": "object"
 }

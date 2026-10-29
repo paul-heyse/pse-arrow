@@ -24,7 +24,7 @@
       ],
       "type": "object"
     },
-    "InvocationComparisonStatementOutput": {
+    "InvocationComparisonStatement": {
       "additionalProperties": false,
       "description": "Shared statement strength and optional next observations retain their existing meanings.",
       "properties": {
@@ -35,7 +35,7 @@
         "evidence": {
           "description": "Actual source fields supporting the explanation.",
           "items": {
-            "$ref": "#/$defs/InvocationEvidenceReferenceOutput"
+            "$ref": "#/$defs/InvocationEvidenceReference"
           },
           "type": "array"
         },
@@ -64,7 +64,7 @@
       ],
       "type": "object"
     },
-    "InvocationEvidenceReferenceOutput": {
+    "InvocationEvidenceReference": {
       "additionalProperties": false,
       "description": "A source-native field reference rather than a second invocation or work ledger.",
       "properties": {
@@ -77,7 +77,7 @@
           "type": "string"
         },
         "invocation": {
-          "$ref": "#/$defs/InvocationReferenceOutput",
+          "$ref": "#/$defs/InvocationReference",
           "description": "Exact source execution/attempt/operation."
         },
         "partial": {
@@ -98,7 +98,7 @@
       ],
       "type": "object"
     },
-    "InvocationReferenceOutput": {
+    "InvocationReference": {
       "additionalProperties": false,
       "description": "Actual source document identity. Absence of diagnostics does not invent an operation.",
       "properties": {
@@ -346,13 +346,13 @@
   "description": "Immutable explanation/comparison output over borrowed source documents.",
   "properties": {
     "baseline": {
-      "$ref": "#/$defs/InvocationReferenceOutput",
+      "$ref": "#/$defs/InvocationReference",
       "description": "Actual first/source invocation."
     },
     "candidate": {
       "anyOf": [
         {
-          "$ref": "#/$defs/InvocationReferenceOutput"
+          "$ref": "#/$defs/InvocationReference"
         },
         {
           "type": "null"
@@ -393,7 +393,7 @@
     "statements": {
       "description": "Evidence-linked interpretations.",
       "items": {
-        "$ref": "#/$defs/InvocationComparisonStatementOutput"
+        "$ref": "#/$defs/InvocationComparisonStatement"
       },
       "type": "array"
     },
@@ -416,6 +416,6 @@
     "omitted_source_items",
     "partial"
   ],
-  "title": "InvocationComparisonDocumentOutput",
+  "title": "InvocationComparisonDocument",
   "type": "object"
 }

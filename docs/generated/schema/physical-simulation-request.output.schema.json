@@ -24,7 +24,7 @@
       ],
       "type": "string"
     },
-    "AdjointSettingsOutput": {
+    "AdjointSettings": {
       "additionalProperties": false,
       "description": "Forward checkpoints of the adjoint backward pass (ADR-0110 item 3), a versioned boundary\ndocument (ADR-0116 Outcome 6): the version is required, and absent fields take these\ndefaults. The backward pass replays at most `steps_between_checkpoints` native steps\nfrom a stored checkpoint, and at most `max_checkpoints` are held at once, at least two\nper scheduled segment; a forward pass that needs more stops with a typed memory limit.\nTheir estimated bytes are charged against the caller's memory allowance before any\nnative work.",
       "properties": {
@@ -52,7 +52,7 @@
       ],
       "type": "object"
     },
-    "AuthoredAccuracyGoalsRowOutput": {
+    "AuthoredAccuracyGoalsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -211,7 +211,7 @@
       ],
       "type": "object"
     },
-    "AuthoredEngineeringDefaultRulesRowOutput": {
+    "AuthoredEngineeringDefaultRulesRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -264,7 +264,7 @@
       ],
       "type": "object"
     },
-    "AuthoredEngineeringScalesRowOutput": {
+    "AuthoredEngineeringScalesRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -373,7 +373,7 @@
       ],
       "type": "object"
     },
-    "AuthoredNumericalRequirementsRowOutput": {
+    "AuthoredNumericalRequirementsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -609,7 +609,7 @@
       ],
       "type": "string"
     },
-    "DiffsolOdeSolverOptionsOutput": {
+    "DiffsolOdeSolverOptions": {
       "additionalProperties": false,
       "properties": {
         "max_error_test_failures": {
@@ -709,7 +709,7 @@
       ],
       "type": "object"
     },
-    "DiffsolSettingsOutput": {
+    "DiffsolSettings": {
       "additionalProperties": false,
       "description": "Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):\nthe version is required, and absent fields take these defaults.",
       "properties": {
@@ -760,7 +760,7 @@
       ],
       "type": "string"
     },
-    "EndpointRequirementOutput": {
+    "EndpointRequirement": {
       "additionalProperties": false,
       "description": "Explicit final-result obligation, independent of the requested output grid.",
       "properties": {
@@ -844,7 +844,7 @@
       ],
       "type": "object"
     },
-    "IdasInitialConditionsOutput": {
+    "IdasInitialConditions": {
       "additionalProperties": false,
       "description": "Exact IDAS consistent-initialization controls; no physical time stepping is requested.",
       "properties": {
@@ -936,7 +936,7 @@
       ],
       "type": "string"
     },
-    "IdasLinearOutput": {
+    "IdasLinear": {
       "description": "IDAS Newton linear solver.",
       "oneOf": [
         {
@@ -1034,12 +1034,12 @@
         }
       ]
     },
-    "IdasSettingsOutput": {
+    "IdasSettings": {
       "additionalProperties": false,
       "description": "Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document\n(ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.\nVersion 2 removes the per-state sign constraints: they derive from the authored bounds\n([`Contract::signs`], ADR-0119 Outcome 4).\nVersion 3 makes native automatic first-step selection the default (ADR-0207).",
       "properties": {
         "initial_conditions": {
-          "$ref": "#/$defs/IdasInitialConditionsOutput",
+          "$ref": "#/$defs/IdasInitialConditions",
           "default": {
             "backtracks": null,
             "convergence_coefficient": 0.0033,
@@ -1057,7 +1057,7 @@
           "description": "Consistent initialization at the start of the horizon; scheduled changes and resets\nalways keep their differential states."
         },
         "linear": {
-          "$ref": "#/$defs/IdasLinearOutput",
+          "$ref": "#/$defs/IdasLinear",
           "default": {
             "kind": "klu"
           },
@@ -1098,12 +1098,12 @@
       ],
       "type": "string"
     },
-    "IntegrationControlsForArray_of_ScientificCoordinateValueOutput": {
+    "IntegrationControlsForArray_of_ScientificCoordinateValue": {
       "additionalProperties": false,
       "description": "Finite integration policy. Tolerances apply to the normalized state coordinates.",
       "properties": {
         "adjoint": {
-          "$ref": "#/$defs/AdjointSettingsOutput",
+          "$ref": "#/$defs/AdjointSettings",
           "default": {
             "max_checkpoints": 400,
             "steps_between_checkpoints": 250,
@@ -1119,7 +1119,7 @@
           "type": "array"
         },
         "diffsol": {
-          "$ref": "#/$defs/DiffsolSettingsOutput",
+          "$ref": "#/$defs/DiffsolSettings",
           "default": {
             "linear": "faer_lu",
             "method": "bdf",
@@ -1133,7 +1133,7 @@
           "type": "number"
         },
         "endpoint": {
-          "$ref": "#/$defs/EndpointRequirementOutput",
+          "$ref": "#/$defs/EndpointRequirement",
           "default": {
             "event": null,
             "kind": "fixed_horizon"
@@ -1141,7 +1141,7 @@
           "description": "Declared completion event; omitted means the full fixed horizon."
         },
         "idas": {
-          "$ref": "#/$defs/IdasSettingsOutput",
+          "$ref": "#/$defs/IdasSettings",
           "default": {
             "initial_conditions": {
               "backtracks": null,
@@ -1195,11 +1195,11 @@
           "description": "Native method selected from the required trial semantics; automatic when absent."
         },
         "native": {
-          "$ref": "#/$defs/DiffsolOdeSolverOptionsOutput",
+          "$ref": "#/$defs/DiffsolOdeSolverOptions",
           "description": "Native BDF/nonlinear/error-control settings."
         },
         "numerics": {
-          "$ref": "#/$defs/NumericalPolicyOutput",
+          "$ref": "#/$defs/NumericalPolicy",
           "default": {
             "acceptable": null,
             "closure": "require_closed",
@@ -1361,7 +1361,7 @@
       ],
       "type": "string"
     },
-    "NumericalPolicyOutput": {
+    "NumericalPolicy": {
       "additionalProperties": false,
       "description": "Shared semantic controls resolved before invoking any native adapter.",
       "properties": {
@@ -1392,7 +1392,7 @@
           "default": [],
           "description": "Shared rules matched by full quantity meaning, not dimensions alone.",
           "items": {
-            "$ref": "#/$defs/AuthoredEngineeringDefaultRulesRowOutput"
+            "$ref": "#/$defs/AuthoredEngineeringDefaultRulesRow"
           },
           "type": "array"
         },
@@ -1400,7 +1400,7 @@
           "default": [],
           "description": "Admitted explicitly tagged scales, with source and scope retained.",
           "items": {
-            "$ref": "#/$defs/AuthoredEngineeringScalesRowOutput"
+            "$ref": "#/$defs/AuthoredEngineeringScalesRow"
           },
           "type": "array"
         },
@@ -1420,7 +1420,7 @@
           "default": [],
           "description": "Selected output goals; empty does not assert decision invariance.",
           "items": {
-            "$ref": "#/$defs/AuthoredAccuracyGoalsRowOutput"
+            "$ref": "#/$defs/AuthoredAccuracyGoalsRow"
           },
           "type": "array"
         },
@@ -1470,7 +1470,7 @@
           "default": [],
           "description": "ID-keyed analysis overrides, using the same declaration as model/case sources.",
           "items": {
-            "$ref": "#/$defs/AuthoredNumericalRequirementsRowOutput"
+            "$ref": "#/$defs/AuthoredNumericalRequirementsRow"
           },
           "type": "array"
         },
@@ -1624,7 +1624,7 @@
   "description": "Pending host simulation controls. Physical time stays signed binary64 seconds;\nall coordinate-bearing tolerances and characteristic scales carry keys and units.",
   "properties": {
     "controls": {
-      "$ref": "#/$defs/IntegrationControlsForArray_of_ScientificCoordinateValueOutput",
+      "$ref": "#/$defs/IntegrationControlsForArray_of_ScientificCoordinateValue",
       "description": "One controls declaration with physically typed Delta coordinate payloads."
     },
     "version": {
@@ -1638,6 +1638,6 @@
     "version",
     "controls"
   ],
-  "title": "PhysicalSimulationRequestOutput",
+  "title": "PhysicalSimulationRequest",
   "type": "object"
 }

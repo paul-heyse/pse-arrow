@@ -44,7 +44,7 @@
         }
       ]
     },
-    "DesignCoordinateOutput": {
+    "DesignCoordinate": {
       "additionalProperties": false,
       "description": "One numeric, quantity-typed authored coordinate, in its supplied representation.",
       "properties": {
@@ -288,7 +288,7 @@
     "coordinates": {
       "description": "Coordinate order is output order.",
       "items": {
-        "$ref": "#/$defs/DesignCoordinateOutput"
+        "$ref": "#/$defs/DesignCoordinate"
       },
       "type": "array"
     },
@@ -342,6 +342,6 @@
     "grid_levels",
     "maximum_work"
   ],
-  "title": "DesignRequestOutput",
+  "title": "DesignRequest",
   "type": "object"
 }

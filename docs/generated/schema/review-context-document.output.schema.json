@@ -83,7 +83,7 @@
         }
       ]
     },
-    "AdviceObservationOutput": {
+    "AdviceObservation": {
       "additionalProperties": false,
       "description": "One actual observation in a declared matched exposure.",
       "properties": {
@@ -212,7 +212,7 @@
         }
       ]
     },
-    "AuthoredAccuracyGoalsRowOutput": {
+    "AuthoredAccuracyGoalsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -371,7 +371,7 @@
       ],
       "type": "object"
     },
-    "AuthoredEngineeringDefaultRulesRowOutput": {
+    "AuthoredEngineeringDefaultRulesRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -424,7 +424,7 @@
       ],
       "type": "object"
     },
-    "AuthoredEngineeringScalesRowOutput": {
+    "AuthoredEngineeringScalesRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -533,7 +533,7 @@
       ],
       "type": "object"
     },
-    "AuthoredNumericalRequirementsRowOutput": {
+    "AuthoredNumericalRequirementsRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -686,7 +686,7 @@
       ],
       "type": "object"
     },
-    "BackendSettingsBodyOutput": {
+    "BackendSettingsBody": {
       "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
       "oneOf": [
         {
@@ -725,7 +725,7 @@
               "description": "Barrier-parameter update strategy (`mu_strategy`)."
             },
             "restart": {
-              "$ref": "#/$defs/WarmRestartOutput",
+              "$ref": "#/$defs/WarmRestart",
               "default": {
                 "barrier": {
                   "kind": "seed"
@@ -747,7 +747,7 @@
             "bound_frac",
             "restart"
           ],
-          "title": "IpoptSettingsOutput",
+          "title": "IpoptSettings",
           "type": "object"
         },
         {
@@ -759,7 +759,7 @@
               "type": "string"
             },
             "finite_difference": {
-              "$ref": "#/$defs/FiniteDifferenceSettingsOutput",
+              "$ref": "#/$defs/FiniteDifferenceSettings",
               "default": {
                 "coloring": "cpr",
                 "pattern": "declared",
@@ -768,7 +768,7 @@
               "description": "Library-owned finite-difference curvature settings."
             },
             "linear": {
-              "$ref": "#/$defs/FeralSettingsOutput",
+              "$ref": "#/$defs/FeralSettings",
               "default": {
                 "bounded_storage_max_dimension": null,
                 "cascade_break": null,
@@ -794,7 +794,7 @@
               "description": "NLP method."
             },
             "partitioned": {
-              "$ref": "#/$defs/PartitionedSettingsOutput",
+              "$ref": "#/$defs/PartitionedSettings",
               "default": {
                 "block_size": 64,
                 "curvature_cap": null,
@@ -805,7 +805,7 @@
               "description": "Library-owned partitioned curvature settings."
             },
             "restart": {
-              "$ref": "#/$defs/WarmRestartOutput",
+              "$ref": "#/$defs/WarmRestart",
               "default": {
                 "barrier": {
                   "kind": "seed"
@@ -827,7 +827,7 @@
             "partitioned",
             "finite_difference"
           ],
-          "title": "PounceSettingsOutput",
+          "title": "PounceSettings",
           "type": "object"
         },
         {
@@ -916,7 +916,7 @@
             "orthogonalization",
             "anderson_delay"
           ],
-          "title": "KinsolSettingsOutput",
+          "title": "KinsolSettings",
           "type": "object"
         },
         {
@@ -928,7 +928,7 @@
               "type": "string"
             },
             "diagnostics": {
-              "$ref": "#/$defs/HighsDiagnosticsOutput",
+              "$ref": "#/$defs/HighsDiagnostics",
               "default": {
                 "basis_inverse": null,
                 "cut_pool": false,
@@ -984,7 +984,7 @@
             "diagnostics",
             "sparse_start"
           ],
-          "title": "HighsSettingsOutput",
+          "title": "HighsSettings",
           "type": "object"
         },
         {
@@ -1214,7 +1214,7 @@
             "chordal_decomposition_compact",
             "chordal_decomposition_complete_dual"
           ],
-          "title": "ClarabelSettingsOutput",
+          "title": "ClarabelSettings",
           "type": "object"
         },
         {
@@ -1282,7 +1282,7 @@
             "exact",
             "reoptimize"
           ],
-          "title": "ScipSettingsOutput",
+          "title": "ScipSettings",
           "type": "object"
         },
         {
@@ -1304,7 +1304,7 @@
               "type": "boolean"
             },
             "linear": {
-              "$ref": "#/$defs/FeralSettingsOutput",
+              "$ref": "#/$defs/FeralSettings",
               "default": {
                 "bounded_storage_max_dimension": null,
                 "cascade_break": null,
@@ -1337,7 +1337,7 @@
             "crossover",
             "linear"
           ],
-          "title": "PounceConvexSettingsOutput",
+          "title": "PounceConvexSettings",
           "type": "object"
         },
         {
@@ -1373,7 +1373,7 @@
             "trust_radius",
             "limited_memory"
           ],
-          "title": "UnoSettingsOutput",
+          "title": "UnoSettings",
           "type": "object"
         },
         {
@@ -1400,7 +1400,7 @@
               "description": "Selected native PC method."
             },
             "trust": {
-              "$ref": "#/$defs/TrustRegionOutput",
+              "$ref": "#/$defs/TrustRegion",
               "default": {
                 "initial": 1.0,
                 "maximum": 100000000.0,
@@ -1416,12 +1416,12 @@
             "preconditioner",
             "trust"
           ],
-          "title": "PetscSettingsOutput",
+          "title": "PetscSettings",
           "type": "object"
         }
       ]
     },
-    "BlockSolveOverrideBodyOutput": {
+    "BlockSolveOverrideBody": {
       "additionalProperties": false,
       "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
       "properties": {
@@ -1440,7 +1440,7 @@
         "controls": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SolveControlsOutput"
+              "$ref": "#/$defs/SolveControls"
             },
             {
               "type": "null"
@@ -1452,7 +1452,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettingsBodyOutput"
+              "$ref": "#/$defs/BackendSettingsBody"
             },
             {
               "type": "null"
@@ -1469,7 +1469,7 @@
       ],
       "type": "object"
     },
-    "BranchPolicyOutput": {
+    "BranchPolicy": {
       "additionalProperties": false,
       "description": "Root-selection meaning retained by every proposal and correction.",
       "properties": {
@@ -1534,14 +1534,14 @@
       ],
       "type": "string"
     },
-    "CompositionRequestBodyOutput": {
+    "CompositionRequestBody": {
       "additionalProperties": false,
       "description": "Hard caller constraints retained by automatic and explicitly declared composition.",
       "properties": {
         "advice": {
           "anyOf": [
             {
-              "$ref": "#/$defs/FrozenAdviceBodyOutput"
+              "$ref": "#/$defs/FrozenAdviceBody"
             },
             {
               "type": "null"
@@ -1550,13 +1550,13 @@
           "description": "Full frozen descriptive body; absent leaves the complete baseline policy."
         },
         "branch": {
-          "$ref": "#/$defs/BranchPolicyOutput",
+          "$ref": "#/$defs/BranchPolicy",
           "description": "Original root-selection contract."
         },
         "limits": {
           "anyOf": [
             {
-              "$ref": "#/$defs/WorkLimitsOutput"
+              "$ref": "#/$defs/WorkLimits"
             },
             {
               "type": "null"
@@ -1647,12 +1647,12 @@
       ],
       "type": "object"
     },
-    "ContextSelectionBodyOutput": {
+    "ContextSelectionBody": {
       "additionalProperties": false,
       "description": "Complete frozen selection. Deserializing this document grants no source authority.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/ProjectContextBodyOutput",
+          "$ref": "#/$defs/ProjectContextBody",
           "description": "Original immutable selected source descriptor."
         },
         "cut": {
@@ -1672,7 +1672,7 @@
       ],
       "type": "object"
     },
-    "CovarianceOriginOutput": {
+    "CovarianceOrigin": {
       "description": "Statistical provenance is independent of matrix admissibility.",
       "oneOf": [
         {
@@ -1784,7 +1784,7 @@
       ],
       "type": "string"
     },
-    "FeralSettingsOutput": {
+    "FeralSettings": {
       "additionalProperties": false,
       "properties": {
         "bounded_storage_max_dimension": {
@@ -1900,7 +1900,7 @@
       "format": "double",
       "type": "number"
     },
-    "FiniteDifferenceSettingsOutput": {
+    "FiniteDifferenceSettings": {
       "additionalProperties": false,
       "description": "Typed finite-difference pattern, coloring and native reuse controls.",
       "properties": {
@@ -1954,7 +1954,7 @@
       "maximum": 1.0,
       "type": "number"
     },
-    "FrozenAdviceBodyOutput": {
+    "FrozenAdviceBody": {
       "additionalProperties": false,
       "description": "Full immutable body retained with effective settings, including all excluded outcomes.",
       "properties": {
@@ -1972,7 +1972,7 @@
           "description": "Exact admitted comparison premises."
         },
         "limits": {
-          "$ref": "#/$defs/WorkLimitsOutput",
+          "$ref": "#/$defs/WorkLimits",
           "description": "Original allowances for applicability checking; advice never widens them."
         },
         "metric": {
@@ -1982,7 +1982,7 @@
         "observations": {
           "description": "Actual retained observations, including exclusions.",
           "items": {
-            "$ref": "#/$defs/AdviceObservationOutput"
+            "$ref": "#/$defs/AdviceObservation"
           },
           "type": "array"
         },
@@ -2022,7 +2022,7 @@
       ],
       "type": "string"
     },
-    "HighsDiagnosticsOutput": {
+    "HighsDiagnostics": {
       "additionalProperties": false,
       "description": "Requested native diagnostic work, bounded by the original attempt's deadline.",
       "properties": {
@@ -2072,7 +2072,7 @@
         "relaxation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/HighsPenaltiesOutput"
+              "$ref": "#/$defs/HighsPenalties"
             },
             {
               "type": "null"
@@ -2103,7 +2103,7 @@
       ],
       "type": "string"
     },
-    "HighsPenaltiesOutput": {
+    "HighsPenalties": {
       "additionalProperties": false,
       "description": "Complete physical penalty declarations for native feasibility relaxation.",
       "properties": {
@@ -2626,7 +2626,7 @@
       ],
       "type": "string"
     },
-    "NumericalPolicyOutput": {
+    "NumericalPolicy": {
       "additionalProperties": false,
       "description": "Shared semantic controls resolved before invoking any native adapter.",
       "properties": {
@@ -2657,7 +2657,7 @@
           "default": [],
           "description": "Shared rules matched by full quantity meaning, not dimensions alone.",
           "items": {
-            "$ref": "#/$defs/AuthoredEngineeringDefaultRulesRowOutput"
+            "$ref": "#/$defs/AuthoredEngineeringDefaultRulesRow"
           },
           "type": "array"
         },
@@ -2665,7 +2665,7 @@
           "default": [],
           "description": "Admitted explicitly tagged scales, with source and scope retained.",
           "items": {
-            "$ref": "#/$defs/AuthoredEngineeringScalesRowOutput"
+            "$ref": "#/$defs/AuthoredEngineeringScalesRow"
           },
           "type": "array"
         },
@@ -2685,7 +2685,7 @@
           "default": [],
           "description": "Selected output goals; empty does not assert decision invariance.",
           "items": {
-            "$ref": "#/$defs/AuthoredAccuracyGoalsRowOutput"
+            "$ref": "#/$defs/AuthoredAccuracyGoalsRow"
           },
           "type": "array"
         },
@@ -2735,7 +2735,7 @@
           "default": [],
           "description": "ID-keyed analysis overrides, using the same declaration as model/case sources.",
           "items": {
-            "$ref": "#/$defs/AuthoredNumericalRequirementsRowOutput"
+            "$ref": "#/$defs/AuthoredNumericalRequirementsRow"
           },
           "type": "array"
         },
@@ -3066,12 +3066,12 @@
       ],
       "description": "Native option type; each adapter validates registration, type and protected controls.\nA document states the value itself: a JSON Boolean, integer, other number or string\ndecodes as the Boolean, integer, real or text option of that value."
     },
-    "ParameterCovarianceOutput": {
+    "ParameterCovariance": {
       "additionalProperties": false,
       "description": "A parameter covariance as `runtime.parameter_covariances` publishes it.",
       "properties": {
         "origin": {
-          "$ref": "#/$defs/CovarianceOriginOutput",
+          "$ref": "#/$defs/CovarianceOrigin",
           "description": "A qualified fit reference or explicit external statistical assumptions."
         },
         "parameter_quantities": {
@@ -3149,7 +3149,7 @@
       ],
       "type": "string"
     },
-    "PartitionedSettingsOutput": {
+    "PartitionedSettings": {
       "additionalProperties": false,
       "description": "Typed partitioned update controls. An absent formula preserves the library's\nmode-dependent default and its option set-ness.",
       "properties": {
@@ -3308,7 +3308,7 @@
       ],
       "type": "string"
     },
-    "ProjectContextBodyOutput": {
+    "ProjectContextBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -3401,12 +3401,12 @@
       "description": "An opaque canonical lookup key; never a scientific semantic identity.",
       "type": "string"
     },
-    "PropagationOutput": {
+    "Propagation": {
       "additionalProperties": false,
       "description": "Propagation of a parameter covariance to solved variables, `Σ_y = J·Σ_θ·Jᵀ` with `J` the\nstep's parametric sensitivities (Plan 22 S4; ADR-0118 items 1 and 11). The result holds\nwhile the sensitivities do: its validity is theirs, and the covariance's, which a fit\npublishes only when certified.",
       "properties": {
         "covariance": {
-          "$ref": "#/$defs/ParameterCovarianceOutput",
+          "$ref": "#/$defs/ParameterCovariance",
           "description": "The covariance to propagate, as a fit run published it."
         },
         "outputs": {
@@ -3479,7 +3479,7 @@
       ],
       "type": "object"
     },
-    "ReplayCoverageOutput": {
+    "ReplayCoverage": {
       "additionalProperties": false,
       "description": "Recorded coverage, without promoting an interrupted prefix into a full trajectory.",
       "properties": {
@@ -3637,7 +3637,7 @@
       ],
       "type": "object"
     },
-    "ReplaySolverSettingsOutput": {
+    "ReplaySolverSettings": {
       "additionalProperties": false,
       "description": "Full actual requested solver controls; native settings remain their original typed authority.",
       "properties": {
@@ -3657,7 +3657,7 @@
           "description": "Stable original structural block overrides, including their complete controls.",
           "patternProperties": {
             "^blake3:[0-9a-fA-F]{64}$": {
-              "$ref": "#/$defs/BlockSolveOverrideBodyOutput"
+              "$ref": "#/$defs/BlockSolveOverrideBody"
             }
           },
           "type": "object"
@@ -3669,11 +3669,11 @@
           "type": "integer"
         },
         "composition": {
-          "$ref": "#/$defs/CompositionRequestBodyOutput",
+          "$ref": "#/$defs/CompositionRequestBody",
           "description": "Complete original composition, frozen advice, branch and finite work limits."
         },
         "controls": {
-          "$ref": "#/$defs/SolveControlsOutput",
+          "$ref": "#/$defs/SolveControls",
           "description": "Original finite controls, including wall allowance, options, starts and reuse."
         },
         "convexity_absolute": {
@@ -3697,7 +3697,7 @@
           "description": "Original scientific analysis goal."
         },
         "numerics": {
-          "$ref": "#/$defs/NumericalPolicyOutput",
+          "$ref": "#/$defs/NumericalPolicy",
           "description": "Full ID-keyed scientific numerical requirements."
         },
         "presolve": {
@@ -3733,7 +3733,7 @@
         "sensitivity": {
           "anyOf": [
             {
-              "$ref": "#/$defs/SensitivityRequestOutput"
+              "$ref": "#/$defs/SensitivityRequest"
             },
             {
               "type": "null"
@@ -3744,7 +3744,7 @@
         "settings": {
           "anyOf": [
             {
-              "$ref": "#/$defs/BackendSettingsBodyOutput"
+              "$ref": "#/$defs/BackendSettingsBody"
             },
             {
               "type": "null"
@@ -3835,7 +3835,7 @@
       ],
       "type": "object"
     },
-    "ResearchSourceOutput": {
+    "ResearchSource": {
       "additionalProperties": false,
       "description": "Authenticated original research ancestry carried by actual operation inputs.",
       "properties": {
@@ -3989,7 +3989,7 @@
       ],
       "type": "object"
     },
-    "ReviewContextUnavailableOutput": {
+    "ReviewContextUnavailable": {
       "additionalProperties": false,
       "description": "Missing explanatory material is independent of scientific product availability.",
       "properties": {
@@ -4016,7 +4016,7 @@
       ],
       "type": "object"
     },
-    "ReviewProviderDescriptorOutput": {
+    "ReviewProviderDescriptor": {
       "additionalProperties": false,
       "description": "Recorded callable descriptor, independent of opaque factory configuration callbacks.",
       "properties": {
@@ -4114,7 +4114,7 @@
       ],
       "type": "object"
     },
-    "ReviewSourceDocumentOutput": {
+    "ReviewSourceDocument": {
       "additionalProperties": false,
       "description": "Original source facts, with opaque descriptors and no executable factory predicates.",
       "properties": {
@@ -4127,7 +4127,7 @@
         "context": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ContextSelectionBodyOutput"
+              "$ref": "#/$defs/ContextSelectionBody"
             },
             {
               "type": "null"
@@ -4168,14 +4168,14 @@
         "providers": {
           "description": "Recorded provider ABI descriptors; opaque implementations stay unavailable.",
           "items": {
-            "$ref": "#/$defs/ReviewProviderDescriptorOutput"
+            "$ref": "#/$defs/ReviewProviderDescriptor"
           },
           "type": "array"
         },
         "research": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ResearchSourceOutput"
+              "$ref": "#/$defs/ResearchSource"
             },
             {
               "type": "null"
@@ -4197,7 +4197,7 @@
       ],
       "type": "object"
     },
-    "SensitivityRequestOutput": {
+    "SensitivityRequest": {
       "additionalProperties": false,
       "description": "Physical parameter sensitivities at a regular square Root or an optimization's local\nsolution (ADR-0144; ADR-0118). Roots use qualified equality Jacobian response;\noptimization uses KKT-point analysis. Results use original physical coordinates and\nunits, with certified validity or the condition that withheld them.",
       "properties": {
@@ -4213,7 +4213,7 @@
         "propagation": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PropagationOutput"
+              "$ref": "#/$defs/Propagation"
             },
             {
               "type": "null"
@@ -4233,7 +4233,7 @@
       ],
       "type": "object"
     },
-    "SolveControlsOutput": {
+    "SolveControls": {
       "additionalProperties": false,
       "description": "Finite shared attempt controls chosen by the caller; solver-specific settings remain\nnative typed values. Accuracy is not among them: it is resolved from the numerical\npolicy ([`ResolvedAccuracy`]). A document states the time limit in seconds; absent\nfields take these defaults and unknown fields are refused.",
       "properties": {
@@ -4339,7 +4339,7 @@
       "format": "double",
       "type": "number"
     },
-    "TrustRegionOutput": {
+    "TrustRegion": {
       "additionalProperties": false,
       "description": "Normalized radius bounds consumed by the native trust-region method.",
       "properties": {
@@ -4369,7 +4369,7 @@
       ],
       "type": "object"
     },
-    "WarmRestartOutput": {
+    "WarmRestart": {
       "additionalProperties": false,
       "description": "How an interior-point method re-centres a complete primal-dual seed (L-N3). With the\ncold-start defaults a seeded restart is pushed back towards the analytic centre and loses\nmost of its benefit, so a restart states its barrier and its pushes. Absent fields take\nthese defaults across the Python boundary (ADR-0113).",
       "properties": {
@@ -4416,7 +4416,7 @@
       ],
       "type": "object"
     },
-    "WorkLimitsOutput": {
+    "WorkLimits": {
       "additionalProperties": false,
       "description": "Additional finite work allowances. None imposes no additional counter cap under the\nenclosing finite ExecutionScope; it never denotes an observed zero or a new deadline.\nEvery supplied counter is finite; Some(0) expressly prohibits that operation.",
       "properties": {
@@ -4489,7 +4489,7 @@
     "coverage": {
       "anyOf": [
         {
-          "$ref": "#/$defs/ReplayCoverageOutput"
+          "$ref": "#/$defs/ReplayCoverage"
         },
         {
           "type": "null"
@@ -4538,7 +4538,7 @@
     "solver_settings": {
       "description": "Actual materialized settings, in selected original step order.",
       "items": {
-        "$ref": "#/$defs/ReplaySolverSettingsOutput"
+        "$ref": "#/$defs/ReplaySolverSettings"
       },
       "type": "array"
     },
@@ -4554,14 +4554,14 @@
     "sources": {
       "description": "Selected original source closures. Build hashes describe source image premises only.",
       "items": {
-        "$ref": "#/$defs/ReviewSourceDocumentOutput"
+        "$ref": "#/$defs/ReviewSourceDocument"
       },
       "type": "array"
     },
     "unavailable": {
       "description": "Explicit omissions and unavailable capabilities.",
       "items": {
-        "$ref": "#/$defs/ReviewContextUnavailableOutput"
+        "$ref": "#/$defs/ReviewContextUnavailable"
       },
       "type": "array"
     },
@@ -4586,6 +4586,6 @@
     "failure",
     "unavailable"
   ],
-  "title": "ReviewContextDocumentOutput",
+  "title": "ReviewContextDocument",
   "type": "object"
 }

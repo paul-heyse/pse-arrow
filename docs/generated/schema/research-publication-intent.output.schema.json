@@ -49,12 +49,12 @@
       ],
       "type": "object"
     },
-    "ContextSelectionBodyOutput": {
+    "ContextSelectionBody": {
       "additionalProperties": false,
       "description": "Complete frozen selection. Deserializing this document grants no source authority.",
       "properties": {
         "context": {
-          "$ref": "#/$defs/ProjectContextBodyOutput",
+          "$ref": "#/$defs/ProjectContextBody",
           "description": "Original immutable selected source descriptor."
         },
         "cut": {
@@ -117,7 +117,7 @@
       "description": "An opaque canonical lookup key; never a scientific semantic identity.",
       "type": "string"
     },
-    "ProjectBranchRecordBodyOutput": {
+    "ProjectBranchRecordBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -161,7 +161,7 @@
       ],
       "type": "object"
     },
-    "ProjectContextBodyOutput": {
+    "ProjectContextBody": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
       "properties": {
@@ -258,7 +258,7 @@
       "description": "An opaque canonical lookup key; never a scientific semantic identity.",
       "type": "string"
     },
-    "ProjectPublicationBodyOutput": {
+    "ProjectPublicationBody": {
       "additionalProperties": false,
       "description": "Original source-publication intent. Retain it unchanged through uncertain completion.",
       "properties": {
@@ -426,7 +426,7 @@
       ],
       "type": "object"
     },
-    "ResearchParameterTargetOutput": {
+    "ResearchParameterTarget": {
       "additionalProperties": false,
       "description": "Explicit original fitted-cell to authored scalar-parameter mapping.",
       "properties": {
@@ -558,7 +558,7 @@
       ],
       "type": "object"
     },
-    "ResearchPublicationRequestBodyOutput": {
+    "ResearchPublicationRequestBody": {
       "additionalProperties": false,
       "description": "Original fit and exact target branch/source decision; retain it unchanged for settlement.",
       "properties": {
@@ -567,7 +567,7 @@
           "type": "string"
         },
         "branch": {
-          "$ref": "#/$defs/ProjectBranchRecordBodyOutput",
+          "$ref": "#/$defs/ProjectBranchRecordBody",
           "description": "Exact target branch generation and canonical problem."
         },
         "operation": {
@@ -587,13 +587,13 @@
           "type": "string"
         },
         "target": {
-          "$ref": "#/$defs/ContextSelectionBodyOutput",
+          "$ref": "#/$defs/ContextSelectionBody",
           "description": "Exact original target source/physical context."
         },
         "targets": {
           "description": "Explicit bounded mapping; all unrelated authored declarations remain inherited.",
           "items": {
-            "$ref": "#/$defs/ResearchParameterTargetOutput"
+            "$ref": "#/$defs/ResearchParameterTarget"
           },
           "type": "array"
         }
@@ -633,11 +633,11 @@
       "type": "integer"
     },
     "publication": {
-      "$ref": "#/$defs/ProjectPublicationBodyOutput",
+      "$ref": "#/$defs/ProjectPublicationBody",
       "description": "Sole source owner's exact activation intent and authenticated original result receipt."
     },
     "request": {
-      "$ref": "#/$defs/ResearchPublicationRequestBodyOutput",
+      "$ref": "#/$defs/ResearchPublicationRequestBody",
       "description": "Complete original scientific decision."
     }
   },
@@ -646,6 +646,6 @@
     "publication",
     "document_version"
   ],
-  "title": "ResearchPublicationIntentOutput",
+  "title": "ResearchPublicationIntent",
   "type": "object"
 }

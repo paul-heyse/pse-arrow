@@ -69,6 +69,6 @@
     "span",
     "document_version"
   ],
-  "title": "DiagnosticNoteDocumentOutput",
+  "title": "DiagnosticNoteDocument",
   "type": "object"
 }

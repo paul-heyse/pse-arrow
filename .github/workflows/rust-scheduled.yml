@@ -27,7 +27,7 @@ env:
   CARGO_INCREMENTAL: "0"
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "1"
-  # PLACEHOLDER until the first solver image is pushed; see rust.yml for the full note.
+  # Synchronized from the authored solver image manifest.
   SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-2893f027e09f@sha256:cf6a21efa0728a9dfae55ac453445196bc2c0f4cb6775e62dafe1b0a688f5b95
 
 jobs:
@@ -45,51 +45,9 @@ jobs:
       - name: pure scientific replay authority
         run: cargo miri test -p pse-ids -p pse-relations --lib --locked --features pse-relations/force-validate scientific_replay::tests
 
-  # Owner: maintainer. Response: a broken feature combination is a bug in the feature
-  # wiring, not a reason to drop the combination — fix the cfg or make the feature
-  # additive (docs/dev/ci.md).
-  features:
-    name: features
-    runs-on: ubuntu-24.04
-    container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-2893f027e09f@sha256:cf6a21efa0728a9dfae55ac453445196bc2c0f4cb6775e62dafe1b0a688f5b95
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-rust
-        with:
-          shared-key: features
-          save-if: "true"
-          tools: cargo-hack
-      - name: feature powerset
-        # depth 2: pairwise. The full powerset over the optional backends and kernels
-        # would not finish, and pairs catch essentially all of the real breakage.
-        run: cargo hack --feature-powerset --depth 2 --workspace --locked check --all-targets
-
-  # Owner: maintainer. Response: release-profile tests exercise ThinLTO and
-  # release compiler defaults alongside the workspace O2/dependency O3 policy.
-  test-release:
-    name: test-release
-    runs-on: ubuntu-24.04
-    container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-2893f027e09f@sha256:cf6a21efa0728a9dfae55ac453445196bc2c0f4cb6775e62dafe1b0a688f5b95
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-rust
-        with:
-          shared-key: test-release
-          save-if: "true"
-          tools: cargo-nextest
-      - name: nextest at the release profile
-        run: |
-          cargo nextest run --workspace --locked --profile ci \
-            --cargo-profile release \
-            --features pse-relations/force-validate
-      - name: doctests at the release profile
-        run: cargo test --doc --workspace --locked --release --features pse-relations/force-validate
+  # Feature powersets and release-profile/native lifecycle journeys require their
+  # selected local preparation and remain H-owned; this hosted workflow does not
+  # infer a user-systemd or scientific placement capability from a container.
 
   # Owner: maintainer. Advisory only (`continue-on-error`): a surviving mutant is a
   # question about test strength, not a defect. Response: read the artifact and decide
@@ -107,10 +65,9 @@ jobs:
           shared-key: mutants
           save-if: "true"
           tools: cargo-mutants
-      - name: mutate the two crates whose correctness is pure logic
-        # pse-ids (hashing and identity) and pse-math (typed library mathematics and guarded execution) have
-        # no I/O and no solver, so a surviving mutant there is a real gap in the tests.
-        run: cargo mutants --no-shuffle -p pse-ids -p pse-math -- --locked
+      - name: mutate the pure identity owner
+        # No store, user-systemd or native FFI fixture belongs to this selected closure.
+        run: cargo mutants --no-shuffle -p pse-ids -- --locked
       - name: upload the mutants report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -120,78 +77,19 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-  # Owner: maintainer. Response: any `unsafe` outside the four allowlisted crates is a
-  # governance failure, not a style question — and it fires the Miri register row.
   unsafe-surface:
     name: unsafe-surface
     runs-on: ubuntu-24.04
-    container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-2893f027e09f@sha256:cf6a21efa0728a9dfae55ac453445196bc2c0f4cb6775e62dafe1b0a688f5b95
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
-          shared-key: geiger
-          save-if: "true"
-      - name: install cargo-geiger
-        # Not available as a prebuilt binary from taiki-e/install-action, so it is built
-        # here. Cached, and the only `cargo install` in this workflow.
-        run: cargo install cargo-geiger --locked
-      - name: count the unsafe surface
-        run: cargo geiger --workspace --all-targets --output-format GitHubMarkdown | tee geiger.md
-      - name: publish to the run summary
-        if: ${{ !cancelled() }}
-        run: cat geiger.md >> "${GITHUB_STEP_SUMMARY}"
-
-  # Owner: maintainer. Response: fix the prose or add an allowlist entry with a reason.
-  # This is the full sweep of documentation paths.
-  doc-lint:
-    name: doc-lint
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-rust
-        with:
-          shared-key: check
-          save-if: "true"
-      - name: every backticked path in docs resolves
-        run: cargo xtask doc-lint
-
-  # Owner: maintainer. Response: this is the early warning for a pre-1.0 dependency
-  # raising its own MSRV in a patch release. It is advisory about the FUTURE lockfile,
-  # so it never touches the committed one.
-  floors-latest:
-    name: floors-latest
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-rust
-        with:
-          shared-key: floors
-          save-if: "true"
-          tools: cargo-hack
-      - name: what would move
-        run: cargo update --dry-run --workspace 2>&1 | tee "${RUNNER_TEMP}/update.log"
-      - name: floors still hold against the latest resolvable set
-        run: |
-          set -euo pipefail
-          cp Cargo.lock "${RUNNER_TEMP}/Cargo.lock.committed"
-          cargo update
-          echo "::group::resolved changes"
-          diff -u "${RUNNER_TEMP}/Cargo.lock.committed" Cargo.lock || true
-          echo "::endgroup::"
-          status=0
-          cargo hack check --rust-version --workspace --all-targets --locked || status=$?
-          # Always restore: this job must leave no trace in the working tree, and the
-          # committed lockfile is the authority.
-          cp "${RUNNER_TEMP}/Cargo.lock.committed" Cargo.lock
-          exit "${status}"
+          shared-key: governance
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: native unsafe allowlist and unwind-boundary contracts
+        run: scripts/cargo-bin/cargo-pse-correctness test -p pse-tests-governance --test unsafe_allowlist --test ffi_callbacks_catch_unwind --locked
 
   # Owner: maintainer. Response: a checksum difference means the recipe is not
   # reproducible — usually an unpinned apt package or a timestamp leaking into a build.

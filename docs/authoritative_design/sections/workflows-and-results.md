@@ -7,10 +7,10 @@ status: current
 
 This page owns the public operations that turn an immutable model revision into native
 work and the meaning of what comes back: dynamic simulation, parameter fitting, cases,
-result qualification and the Python boundary. The Rust owner is
+result qualification and native application boundaries. The Rust owner is
 `crates/pse-runtime/src/workflow/` (revisions, preparation, canonical execution, dynamics, fitting,
 completion and result encoding) over the native adapters in `crates/pse-backend-native`.
-Python projects the same objects through `crates/pse-py` and `python/pse`. The callable
+Native callers compose the same admitted workflow objects and protected data owners. The callable
 sequence, settings and examples are in the [native workflow guide](../../dev/native-workflow.md);
 this page states the contracts and limits that guide relies on.
 
@@ -350,8 +350,7 @@ the report keeps both. Sensitivities cover initial and direct output parameter t
 Diffsol's reset sensitivities record that event-time partials are numerical. Sensitivities
 through terminal events, and sensitivities combining conserved balances with events, are
 refused. Diffsol's infallible operators signal typed provider failure or cancellation
-through a private contained unwind; the native solver is discarded before any C or
-Python boundary, and no fabricated output is produced
+through a private contained unwind; the native solver is discarded before any foreign ABI boundary, and no fabricated output is produced
 ([ADR-0084](../../adr/0084-physical-provider-and-dynamic-contracts.md)).
 
 Profiles bound native steps, retained events, retained scalar cells and a cooperative wall
@@ -418,7 +417,7 @@ qualification basis for the admitted profiles is
 
 ## 19. Cases, results and analytics
 
-> Decision: [ADR-0187](../../adr/0187-sealed-payloads-and-strong-result-snapshots.md) (proposed; Plan38e target): existing Python tables/streams/export/live consumers migrate to sealed payloads and strong snapshots; Rust snapshot providers preserve the existing DataFusion SQL/functions/resource context. No new Python query product is selected.
+> Decision: [ADR-0187](../../adr/0187-sealed-payloads-and-strong-result-snapshots.md) (proposed; Plan38e target): native result readers, exports and live consumers use sealed payloads and strong snapshots; snapshot providers preserve the existing DataFusion SQL/functions/resource context.
 
 > Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
 
@@ -487,7 +486,7 @@ and positive flush delay), rather than accepting arbitrary live operations from
 another deployment. Explicit local composition needs no store; actual store operations
 without a configured sink refuse with typed diagnostics. Recording/read operations have their own configured owner and do not change default scientific execution durability. APIs requiring canonical source publication refuse an ephemeral execution owner before writing partial source state.
 
-`Runtime.source_settlement(problem, operation)` reads only the immutable acknowledgement of the original source publication. A missing acknowledgement leaves its outcome unproved; settlement never reissues an edit. Source errors expose the original problem and operation. A definite refusal requires evidence from the actual source transaction phase, not a later receipt-read failure. Python interruption drains the original operation and preserves any actual acknowledgement identity on the raised exception.
+`Runtime.source_settlement(problem, operation)` reads only the immutable acknowledgement of the original source publication. A missing acknowledgement leaves its outcome unproved; settlement never reissues an edit. Source errors expose the original problem and operation. A definite refusal requires evidence from the actual source transaction phase, not a later receipt-read failure. Cancellation retains the original issued operation through settlement and preserves any actual acknowledgement identity.
 
 ### 19.1 Cases and overlays
 
@@ -559,7 +558,7 @@ Exact statistics over admitted batches, bound to payload/schema/interpretation, 
 > Decision: ADR-0163 (proposed; authorized implementation).
 
 Completion retains immutable physical goal assessments, method, validity, strength and
-unavailable reasons. Retained tables and Python/durable consumers report that assessment without
+unavailable reasons. Retained tables and native/durable consumers report that assessment without
 refining or reinterpreting usability. A selected output and the optimum objective are distinct
 subjects: objective-gap evidence cannot certify arbitrary variables. For an asymmetric optimum
 interval, value resolution is assessed about the reported representative, not silently about
@@ -588,7 +587,7 @@ profile endpoints remain diagnostic chains rather than permitted intervals. A ho
 failure retains its authentic prefix without promoting the requested whole operation.
 Lineage records model revision, case, request, preparation, profile, numerical policy,
 physical context and actual environment identities, separately from the unique run ID.
-Arrow tables, retained IPC and Python consumers preserve this product; reading it never
+Arrow tables, retained IPC and native consumers preserve this product; reading it never
 evaluates or reclassifies the model. Durable consumers select compact canonical handles
 rather than hydrating every joined native report. A failed or partial attempt can retain
 inspectable observations without a usable result. A preclaim refusal keeps its original
@@ -608,7 +607,7 @@ admission/clock state through the original workflow supervisor; caller cancellat
 connected through drain. An exported seed is not a native continuation checkpoint.
 Owned in-process replay reconstruction supports an independent receiver over the same actual shared deployment, registry and native validation bindings. One receiving activity shares immutable object/index/parser and callable owners, directly admits source rows whose successful relation evidence was not retained, and renews physical invocation-sensitive evidence. Unknown coverage or foreign binding/resource owners refuse. Each distinct retained closure gets an independent local head, no durable origin and no held engagement. Repeated positions share only exact retained source/physical/provider/accelerator owners within that operation; positional outputs and allocation ownership remain complete. An explicit durable receiver remains durable and still needs acknowledged source publication before durable execution; no ephemeral fallback is inferred.
 
-Actual supplied documents retain their independent complete import checks under a receiving activity. Temporary logical/document/package lookups remove repeated searches without weakening trust. Same-format export converts an exact retained source once per operation but emits and accounts for every positional body and unchanged constructor index. No Python receiver parameter or replay version change follows from this internal correction.
+Actual supplied documents retain their independent complete import checks under a receiving activity. Temporary logical/document/package lookups remove repeated searches without weakening trust. Same-format export converts an exact retained source once per operation but emits and accounts for every positional body and unchanged constructor index. This internal correction does not change the receiver or replay version contract.
 
 Replay v5 has one closed tagged constructor for modeling, simulation, fitting, horizon or
 shooting. Kind-owned request/completed projections provide lifecycle facts to replay, durable
@@ -635,9 +634,7 @@ buffers retain their actual custody. A receiver must have compatible
 original registry/native bindings, and durable publication authenticates the source's immutable
 original issuer before effects. A separate caller over the same bindings remains lawful after
 the original caller closes. Ephemeral execution suppresses automatic publication while retaining
-configured canonical read capabilities. Remaining Python facades supply services to their retained consumers; the frozen-cohort and
-passive-study-observer Python projections are retired. Native APIs and existing typed study
-operator actions retain their original capabilities.
+configured canonical read capabilities. Native APIs and typed study operator actions retain these original capabilities.
 
 `ModelingTrajectory` is a clone-shared immutable completion snapshot. Read-only accessors
 expose the native outcome and retained checks; `accepted()` derives the composed permission.
@@ -906,10 +903,8 @@ traversal/classification knowledge. DataFusion DataFrame composition preserves t
 functions and shared deployment pool; an unrelated pool refuses. Native states need no mutable
 default catalog: direct read_table/alias/join_on composition supports cross-attempt comparison.
 Pending, captured unavailable and empty selections remain distinct from numerical observations.
-The native aggregation/export operations remain; their optional Python aggregate/result
-projection is retired under proposed ADR-0233. Frozen browsing and other unmigrated Python
-wrappers retain their existing owners; this native read construction does not establish that
-those wrappers have stopped retaining mathematics.
+Native aggregation/export and frozen browsing consume these protected native owners independently
+of mathematical preparation. Their original capture and physical-context rules remain unchanged.
 
 The unguarded 10,000-member SSI surrogate conflicted and rolled back. The resulting gated native
 implementation passes the complete public 10,000-point creation/capture/provider/summary journey,
@@ -938,7 +933,7 @@ is lent to a new lane. Publication saturation supplies finite cancellation-aware
 
 > Supplement: [ADR-0191](../../adr/0191-explicit-scalar-compiled-evaluation.md) (proposed; Plan 41e carries explicit evaluator selection through versioned study preparation).
 
-Local studies retain actual immutable model/physical owners and one shared admitted scientific payload. Public admission and local execution require no canonical store. Recording is an explicit effect over those retained sources, yielding a portable StudyDefinition with real receipts; durable startup validates it against canonical owners. Rust `ModelingPackage::admit_study` and Python `ModelingPackage.admit_study` return `LocalStudy`; `LocalStudy.execute` and package-local study execution always use ephemeral producers, including when the package has acknowledged canonical origin. `Runtime.record_study` publishes exact retained sources, then Rust `start_recorded_study` / Python `start_study` starts the recorded descriptor; `execute_study` joins durable execution. Local handles do not serialize or contain fabricated source receipts. Recording does not repeat scientific admission or expand unselected lazy variants. Exact document bytes are retained when document ingress supports later recording; unavailable recording prerequisites refuse before effects.
+Local studies retain actual immutable model/physical owners and one shared admitted scientific payload. Public admission and local execution require no canonical store. Recording is an explicit effect over those retained sources, yielding a portable StudyDefinition with real receipts; durable startup validates it against canonical owners. `ModelingPackage::admit_study` returns `LocalStudy`; local and package-local study execution always use ephemeral producers, including when the package has acknowledged canonical origin. `Runtime::record_study` publishes exact retained sources, then `start_recorded_study` starts the recorded descriptor; `execute_study` joins durable execution. Local handles do not serialize or contain fabricated source receipts. Recording does not repeat scientific admission or expand unselected lazy variants. Exact document bytes are retained when document ingress supports later recording; unavailable recording prerequisites refuse before effects.
 
 > Decision: [ADR-0190](../../adr/0190-own-local-studies-before-recording.md) (proposed; maintainer-authorized Plan 41c target).
 
@@ -1035,7 +1030,7 @@ counting tables or selecting the first result cannot promote it.
 > a finite completion-driven group with private mutable state and exact occurrence
 > placement. Genuine predecessor/seed dependencies retain ordered native reuse;
 > suitable native bulk operations remain eligible. Cancellation stops issuance and
-> drains issued native work before closing its owners. Public Rust/Python routes are
+> drains issued native work before closing its owners. Public native routes are
 > consumers of this target, not a separate serial implementation. Plan 28 owns current
 > migration and qualification evidence.
 
@@ -1128,7 +1123,7 @@ terminal history with issuer/context cursors. Reconnect catches up or reports a 
 resynchronization, including unavailable remote live or retired history; observer exit neither
 cancels nor advances science. Explicit file/batch acquisition uses the existing typed package
 loader; no external streaming producer or control effects are adopted. Operational bounds and
-Rust/Python/CLI entrypoints are in the [substrate guide](../../dev/surreal-substrate.md#research-versions-study-workbench-and-selected-evidence).
+Native entrypoints are in the [substrate guide](../../dev/surreal-substrate.md#research-versions-study-workbench-and-selected-evidence).
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
@@ -1462,7 +1457,7 @@ Qualified fit covariance additionally requires the exact producer Completion pro
 Public preparation reconciles the ordered matrix, parameter identities, quantities, units and
 scales against the genuine retained fit. An in-process decoded fit reference needs its actual
 result handle; a canonical reference can recover the exact evidence after reopen. Preparation
-then owns the admitted evidence independently of the Python producer. Statistical withholding
+then owns the admitted evidence independently of the originating producer. Statistical withholding
 does not fabricate an available covariance. External origin and its assumptions remain explicit.
 Propagation is lazy: a mathematical refusal may surface when consuming the Arrow stream,
 and obtaining a table provider alone does not establish a successful scientific product.
@@ -1491,523 +1486,259 @@ a withheld input withholds it as `upstream_withheld`, naming that input and its 
 `propagation_withheld_when_upstream_withheld` (runtime units). Propagation is first-order
 only, and robust optimization is not implemented.
 
-## 21. The Python boundary
+## 21. Native application and adapter boundaries
 
-> Decision: [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed; maintainer-authorized Plan57k/L first slice).
+> Decision: [ADR-0233](../../adr/0233-rust-owned-host-and-execution-boundaries.md) (proposed;
+> maintainer-authorized Plan58 native cutover).
 
-**Implemented:** durable browse/cancel/reconcile is available on the native canonical connection
-independently of scientific Runtime construction, mathematical preparation and Python. The Python
-HTTP control client and its dedicated harnesses are retired under proposed ADR-0233.
-Modeling diagnostic, diagnostic-sample and nonlinear-explanation Python projections are also
-retired; their native typed operations and owned reports remain. The shared Python diagnostic
-settings parser remains for the separately retained developer conformance consumer. The retained
-scientific distribution still loads its actual native image at the scientific gate; generated
-document imports do not initialize science. Scientific execution, retained-data capabilities and
-physical settlement keep their distinct owners. Plan58 D04/G03 own current consumer cutovers and
-qualification; historical Plan57 evidence retains its original scope.
-
-
-`ModelingPackage.generate_design` returns a local owning `GeneratedDesign`, with no store
-effect. Its explicit bounded `export()` creates an independent generated document containing
-the realized overlays and attribution; the native handle and conversion retain their actual
-allocation owners through copying. Exported overlays can form an ordinary `LocalStudy`.
-Explicit `Runtime.record_study` publishes the retained scientific inputs and yields a recorded
-definition replayable by another runtime after the generating handles close (§19.3). Export
-alone neither records a study nor promises portable seed regeneration.
-
-> Decision: [ADR-0190](../../adr/0190-own-local-studies-before-recording.md) (proposed; maintainer-authorized Plan 41c target).
-
-> Decision: [ADR-0188](../../adr/0188-consumed-runtime-settings.md) (proposed; maintainer-authorized Plan38f target).
-
-`EngineSettings` no longer accepts or exposes `hashing_may_use_pool`. Identical resolved
-consumed settings acquire the same process Runtime; differing real resource or execution
-settings still refuse. The removed flag previously caused acquisition refusal when its value
-differed; it never selected an isolated Runtime or hashing implementation.
-
-> Decision: [ADR-0187](../../adr/0187-sealed-payloads-and-strong-result-snapshots.md) (proposed; Plan38e target): existing Python tables/streams/export/live consumers migrate to sealed payloads and strong snapshots; Rust snapshot providers preserve the existing DataFusion SQL/functions/resource context. No new Python query product is selected.
-
-> Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
-
-**Implemented:** generated Rust/Python contracts expose reconstructible lazy study inputs, stable block-ID native overrides and opt-in bounded live samples. No arbitrary generator callback, wider scientific permission, new storage topology or serializable native-history checkpoint follows. Study request/operation version 7 and definition version 11 distinguish explicit points from bounded lazy constructors. Stable BlockId keys select per-block backend/settings/control overrides; unknown keys and expanded start/branch/physics permission refuse. PreparedOperation.start_live binds its finite subscription before dispatch. Changed producers/consumers migrate together through their authoritative generators.
-
-> Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
-
-> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; maintainer-authorized Plan38c target).
-
-Ordinary independent solve defaults select neutral compatible reuse only after profile
-acceptance; explicit Fresh/RequireReuse and start permissions remain distinct. Generated
-reports preserve actual reset/resource/stop facts and method-specific numerical evidence.
-
-Rust-owned generated documents expose bounded attempt/failure summaries, frozen optional advice and explicit replay levels. Python adds no policy, numerical estimator or counter inference. Required recording and optional ordinary telemetry retain separate outcomes; default local computation needs neither history nor a store.
-
-> Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
-
-`Runtime(settings, ephemeral=True)` may omit `substrate` and never connects at construction.
-A supplied substrate permits explicit store access when consumed. Default durable construction
-requires a configured sink; a database without a substrate refuses. Rust and Python use the
-same owned model/admission/preparation path. `ModelingPackage.revision_id` is an opaque exact
-receiver token used by `SourceDelta.parent`; it is distinct from semantic content identity.
-`canonical_revision` and `canonical_problem` are optional actual origin, never fabricated rows.
-Attaching acknowledged origin does not change the local token or semantic identity.
-
-> Decision: [ADR-0181](../../adr/0181-separate-caller-activity-and-physical-connection-lifetimes.md) (proposed; Plan 37 target). Runtime `close` releases logical caller admission. Already admitted work retains independent continuation authority; explicit cache clearing and deployment-owned physical shutdown are separate operations (§20.6).
-
-> Decision: [ADR-0180](../../adr/0180-demanded-result-coverage-and-acknowledgments.md) (proposed; maintainer-authorized Plan 36 target).
-
-> Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)
-
-> Decision: [ADR-0024](../../adr/0024-pyo3-arrow-over-arrow-pyarrow.md),
-> [ADR-0083](../../adr/0083-class-specific-native-execution.md)
-
-Python is authoring and result convenience over the Rust workflow. Everything that
-computes lives in the extension `pse._native` (`crates/pse-py`); `python/pse` is the typed
-boundary around it, and only `pse._build` imports the raw extension (ast-grep rule
-`no-direct-native-import`). Mathematical policy, eligibility, numeric validation and all
-solver work stay native; Python supplies no numerical callbacks, and provider selection
-is a durable native factory declaration.
-
-IDAES and Pyomo are isolated reference tools. They appear only in the parity harness
-(`python/pse/parity`, a separate dependency group and environment) and in no production
-path. Parity fails rather than skips and exercises the environment and explicitly selected
-scientific reference comparisons; it does not establish
-full numerical equivalence
+The first-party application is callable linked Rust. Scientific operations compose the existing
+modeling, preparation and execution owners; canonical control and protected retained-data access
+have independently constructible native services. The Python product, PyO3 extension, generated
+Python contracts and mandatory MCP/frontend composition are retired. No foreign binding, full
+command-line scientific interface or shared-library ABI is required by the native product.
+Independent Python scientific references remain isolated oracles, without production policy or
+execution ownership. Their selected comparisons do not establish full numerical equivalence
 ([relationship to IDAES](../../relationship-to-idaes.md)).
 
-**Artifact and history boundary (ADR-0182, proposed; Plan37 target).** Rust and Python
-retain current run/study/analysis handle identity. Scientific artifact promotion/read and
-independent owner release expose typed outcomes through the same boundary; history release
-is distinct from payload release. Original scientific IDs and opaque operation ID/hash
-meaning stay unchanged. A collected owner reports retired/history-unavailable rather than
-an invented completion, missing-as-never-issued inference or native redispatch. Original
-assessment, units and partiality remain scientific-owner authority.
+### 21.1 Native operations, canonical access and protected results
 
-`Runtime.promote_seed_artifact(solution, owner_kind=..., owner=...)` preserves a qualified
-start; `promote_scientific_artifact(run, attempt, kind, owner_kind=..., owner=...)` admits a
-sufficient `final-state`, `trajectory` or `local-analysis` product without rerunning science.
-`scientific_artifact(key)` opens active independently retained content. A
-`ScientificArtifact` exposes exact `key`, `kind`, `original_intent`, `metadata()` and
-`block(ordinal)`, plus independently attributed `retain(kind, owner)`,
-`release(kind, owner)` and bounded `collect()`. Prepared algebraic solves consume a retained
-seed through `with_artifact_start(artifact)` under current scientific admission.
+> Decisions: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md),
+> [ADR-0231](../../adr/0231-retained-native-read-currency.md) and
+> [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed).
 
-`recover_artifact_intent(bytes)` decodes the exact bounded owner-emitted original document,
-available from `original_intent` or an uncertainty/interrupt diagnostic's `artifact_intent`.
-It returns `ArtifactSettlement` with only `key`, `release(kind, owner)` and `collect()`.
-Server effects recheck immutable intent equality and the original finite creation authority.
-Recovery neither replays promotion nor renews authority, adds retention, or grants content
-access. An absent, inactive or retiring header cannot become readable through recovery;
-active content acquisition remains a separate operation. A pending `collect()` returns
-`False`, including while original creation/read windows remain unsettled.
+Finite responsibility-owned declarations supply stable operation identity, typed request/result
+references, receiver category, defaults/bounds, effects, prerequisites and read-lifetime eligibility.
+Native callers use the owning typed APIs. Host help and dispatch preserve separate source admission,
+canonical diagnostic writes and retained capture effects; a passive explanation grants no scientific
+eligibility. Supplied-only evidence inspection requires neither scientific preparation nor a store.
+Product and private development declarations have separate publication roots. Unsupported constructs
+and conflicting definitions refuse generation; publication never initializes scientific services.
 
-History operations consume generated `HistoryOwner` (run or study) and `HistoryObligation`
-(key, owner, audit/unsettled purpose and attribution) documents.
-`retain_history_obligation` and `release_history_obligation` compare the exact attributed
-obligation; `release_history(owner)` explicitly and irreversibly releases settled detail
-separately from payload retirement. `reclaim_history_page(owner)` returns typed
-`HistoryReclamationPage` completion/removal/compaction counts. Study collection includes
-already settled member and summary-run detail in bounded pages. Permanent identities and
-unknown/audit obligations retain the protection specified in §20.4; release does not
-invent completion, redispatch native work or promise returned physical disk space.
+`ModelingPackage` exposes admitted immutable declarations, limits and fit-data views, selected
+solve/simulation/fitting preparation, initialization, flow/recycle and block strategies, studies,
+diagnostics and conformance. Physical and modeling document admission consumes the explicit source
+closure and actual physical owner. `Limits` validates positive optional body capacities before
+compilation, reuse or specialization. Common `PreparationSettings` carries the complete compiler
+profile and expansion policy, including finite conserved class-proof allowance; native and pure
+conformance forward that same policy. Missing required fields refuse. Byte admission and symbolic
+work bounds remain independent (§14.3.2).
 
-### 21.7 Proposed Rust-owned first-party boundary
+Default capability inventory describes each adapter's actually admitted default settings; configured
+queries resolve through that same adapter. Linked-library presence is distinct from model eligibility.
+Prepared routes and adapter eligibility retain registry reasons and typed detail; strategies retain
+ordered attempts. Dynamics attribution requires a concrete method. Recovery profiles, replacement
+starts, PETSc Newton/composed pseudo-transient/nonlinear Schwarz policies, KINSOL fixed-point roles
+and settings-sensitive Clarabel/SCIP threading retain their native scientific owners (§18).
 
-> Decision: [ADR-0233](../../adr/0233-rust-owned-host-and-execution-boundaries.md) (proposed).
+Effectful operations receive explicit preparation, source or execution services from the existing
+Runtime composition (§19.2). Store-free local computation needs no canonical connection. Durable
+construction and publication require the configured canonical owners and never fall back silently
+to ephemeral execution. Shared resource services retain actual configured budgets, executor and
+native bindings; conflicting consumed settings refuse. Runtime logical close seals new caller
+admission, while already admitted continuations retain their authority. Cache clearing and
+deployment-owned physical shutdown are separate operations (§20.6).
 
-**Proposed:** Plan58 selects normal linked Rust operations as the first-party product and
-operating target. Python authoring/results and FastMCP are no longer mandatory target
-boundaries. CLI adapters remain optional; PyO3 implementation is deferred. The existing
-implemented Python contracts below remain current until their owning cutovers replace them.
-Independent scientific Python references remain isolated oracles, not production policy.
+Native durable browse/cancel/reconcile is independent of scientific Runtime construction and
+mathematical preparation. Exact run/attempt records and manifests use registry-generated rows;
+scientific `RunId` is distinct from canonical lookup keys. Selected results bind the exact
+run/attempt/relation, stored range and typed field/partition predicates. Latest selection uses
+explicit terminal classes and native run sequence, never wall-clock ordering or substitution of a
+successful attempt. Progress and analysis read exact retained histories and bounded node/edge pages.
 
-The remaining authorized cut removes `pse-py`, product packaging and Python-only projections,
-stubs and registration/currency checks after their last actual callers migrate or retire.
-Native conformance/campaign selection and reports, uncertainty/research adoption, protected
-result reads and calculation observation retain their domain owners. No replacement foreign
-adapter is selected. The scoped §13 design assessment covers this target and its governance
-amendments; it establishes neither implementation nor H qualification. Existing boundary
-sections remain an account of the implementation being retired until each owning cut lands.
+Analysis cleanup removes one bounded page and remains pending while creation settlement or cleanup
+is unresolved. Absence without valid original creation authority is not settlement. The original
+occurrence key carries immutable authority and expiry for uncertain final acknowledgement, even
+after header deletion. Uncertain publication diagnostics retain the actual `analysis_key` after
+dispatch. Protected result analysis separates selection, artifact transfer and graph assembly into
+narrow borrowed async phases. Original read protection survives transfer and exact release; prepaid
+boxed reader state retains its independent grant through readiness and allocation destruction.
+Metadata and snapshot grants remain separate. Heap placement creates neither a spawned task nor a
+new cancellation/recovery owner.
 
-The native host root is independent of scientific preparation, Arrow/DataFusion, database
-clients and generated product schemas. It owns environment selection and authentic OS
-process/service ownership. Canonical SurrealDB owns persisted execution transitions and
-schema/write-admission policy; native computation and physical joins remain Rust/OS effects.
-Service launch alone does not establish schema readiness. Pure local science needs no DB.
+`ModelingPackage::generate_design` returns a local owning `GeneratedDesign` without store effects.
+Bounded export retains the actual allocation through copying and emits realized overlays and
+attribution. These can form a `LocalStudy`; explicit recording publishes exact retained scientific
+inputs for independent replay after generating handles close (§19.3). Export alone neither records
+nor promises portable seed regeneration. Lazy study constructors and stable `BlockId` overrides
+retain their declared versioned contracts. Unknown keys and wider start/branch/physics permission
+refuse. Live subscription admission precedes dispatch; arbitrary generator callbacks, new storage
+topology and serializable native-history checkpoints are not implied.
 
-Integrated cutovers remove replaced owners with callers/configuration/tests. Typed fixture
-construction replaces duplicate permission registries. Useful scientific progress remains;
-bespoke build observation retires. A successful compiler result does not become invalid
-solely because a cache service dies. Required correctness, real boundary admission and
-physical release remain. These are Proposed changes, not qualification of the current code.
+Ordinary independent solves select neutral compatible reuse only after profile acceptance.
+Fresh, RequireReuse and start permissions remain distinct. Reports preserve actual reset/resource/
+stop facts, method-specific evidence, bounded attempt/failure summaries, frozen optional advice
+and explicit replay levels. Required recording and optional ordinary telemetry have separate
+outcomes. Exact receiver revision tokens differ from semantic identity and optional canonical
+origin; attaching an acknowledged origin changes neither local token nor content identity.
 
-### 21.1 Extension module, canonical operations and Arrow streams
+Typed `solve_bound` consumes the case, ordered point overlay, settings/policy and cancellation at
+the existing receiver. Targets resolve once; duplicate targets refuse. Canonical physical conversion
+preserves submitted attribution and the immutable parent. Source deltas compare exact parent/CAS
+identity. Applied starts, seeds and predecessor receipts retain their owners; reuse tracks positive
+and negative reads, shadowing/import/binder/guard dependencies and conservative physical changes.
+Full replacement preserves its exact deletion domain. Metadata, framing and full receiver admission
+remain required (§14/§19).
 
-> Decision: [ADR-0231](../../adr/0231-retained-native-read-currency.md) (proposed; maintainer-selected Plan56 F02/F05/F06 target).
+Native `RunHandle::wait` is asynchronously repeatable. Dropping one wait future does not stop a run
+whose handle remains owned. Explicit cancellation requests stop; dropping the final immediate run
+handle also requests stop, while the supervisor retains native cleanup ownership. Passive observation
+holds no scientific cancellation lease, and repeated waits never rerun science. Capture stop affects
+recording separately from scientific cancellation; command cancellation and observer-ticket lifetime
+remain with their own owners. Issued pulls retain original future/response custody through actual
+transport drain, independently of the caller's cancellation.
 
-**Implemented:** finite responsibility-owned operation declarations supply stable public identity,
-typed request/result references, receiver category, defaults/bounds, structured effects,
-prerequisites and read-lifetime eligibility. Runtime-owned declarations project the existing 53
-project/research/study Python and PyO3 methods, retaining their typed receiver glue, signatures and
-public metadata. The native-agent catalogue composes 21 runtime operations and one tooling
-operation. Source admission, canonical diagnostic writes and retained cohort capture keep their
-distinct effects in host help and dispatch; neither prose nor a successful import grants read-only
-eligibility. Source-only discovery imports its leaf contracts without preparing a native image.
-Supplied-only evidence comparison uses the witnessed tooling executable without acquiring a
-scientific extension or store prerequisite. Compiled catalogue comparison uses the original codec's
-complete JSON projection before runtime acquisition.
+Result inventories discover relation names without encoding payloads. A selected relation uses the
+common projection and preserves relation-local intrinsic versus request-local delivery failures
+(§19.2). Readers hold an exact strong snapshot for future chunks. Metadata allowances follow finite
+header, selection and page layouts before owned decoding, separately from file and Arrow decode
+grants. Validated metadata transfers only from a unique response owner; live transport suffixes
+retain the original grant. Snapshot aliases share inventory/read charges. Protected cleanup retains
+metadata and a bounded release-response allowance through acknowledgement, socket drain or explicit
+recovery. Dispatched metadata/file-open responses retain the original ticket and prepaid decode
+allowance through transport drain even after caller cancellation. Source/creation clocks are
+separate. Escaped decoded arrays retain accounted owners after reader close. Close releases unread
+work; cancellation refuses further consumption. Requested-schema casts are refused.
 
-Modeling `Limits` owns positive optional body capacities and validates them before compilation,
-reuse and native specialization; remote and host projections do not redeclare those constraints.
-Generated host capture envelopes bind their concrete query-answer payload through the same generic
-contract, with strict source/checkpoint validation. Generated Python method metadata is applied in
-place so receiver descriptor binding and static typing remain intact.
+Physical identity declarations re-export source-owned native types rather than duplicate wrappers.
+`PhysicalContext` describes and resolves admitted quantities, units and reference states directly;
+result inspection consumes that same projection and exact-context rules (§8.1/§19.2). Readable
+physical meaning requires no independent reconstruction from physical YAML.
 
-> Decision: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md) (proposed):
-> product and private declaration publication follow responsibility; scientific meaning stays
-> canonical. Plan56e owns migration and actual dependency/import qualification.
+`ResultInspectionRequest` version 2 checks its required header before body decoding; old documents
+are not reinterpreted. Shallow schema/children/metadata pages are independent of data reads. Typed
+struct/list paths preserve null parents/elements, absent indexes, numeric widths and IEEE bits.
+Continuation binds issuer, protected selection, manifest, original window/paths and schema contract.
+Recursive metadata may be deferred by original key/byte extent with ancestor attribution; omission
+never becomes complete context. Exact metadata or original IPC retains the detail with finite intact
+refusal. Physical-context admission reads retained physical sources. Value transport admits original
+full batches and retains physical context within its document allowance. Readability establishes
+neither scientific usability, complete IPC fidelity, terminal settlement nor speed. Complete local
+IPC export follows §19.2.
 
-Non-scientific owner-local serde documents and closed string enums lower through the existing
-schema/Python generator. Product contracts and private bootstrap/development outputs have separate
-publication roots. Private generated consumers do not require scientific package import, while
-scientific enum references retain their exact registry identity. Unsupported constructs and
-conflicting definitions refuse generation rather than widening the contract.
+Declaration pages select original source identities before hydration. Model inspection requires
+explicit preparation/inspection policy with source, physical and preparation attribution. Two-source
+comparison shares one Runtime and retains source-only unknown impact where physical contexts differ;
+it may admit imports. Passive host explanation does not claim native eligibility.
 
-> Amendment: [ADR-0227](../../adr/0227-completion-permission-and-operation-facts.md)
-> (proposed; maintainer-authorized Plan56b).
+**Artifact and history settlement.** Under proposed ADR-0182, qualified seed and scientific-artifact
+promotion preserves sufficient final-state, trajectory or local-analysis products without rerunning
+science. Active acquisition exposes the exact key, kind, original intent, metadata and bounded blocks.
+Independent attributed retain/release and bounded collect remain separate; prepared artifact starts
+require current scientific admission. Artifact intent recovery accepts only the bounded original
+owner-emitted document and exposes settlement key/release/collect. Server effects recheck exact
+immutable intent equality and original finite creation authority. Recovery does not repromote,
+renew authority, add retention or grant content access; active acquisition remains separate. Pending
+collection reports incomplete while original creation/read windows remain unsettled.
 
-Default capability inventory describes each adapter's actually admitted default settings;
-configured capability queries resolve through that same adapter. Dynamics attribution requires
-a concrete selected method. Recovery profiles and replacement starts come from the adapter seam.
-Direct Python PETSc settings expose executable Newton root controls; composed pseudo-transient
-and nonlinear Schwarz controls remain explicit internal scientific composition settings and
-participate in the complete composition identity. KINSOL's configured fixed-point role and
-settings-sensitive Clarabel/SCIP thread capabilities remain available.
+History operations compare exact attributed `HistoryOwner`/`HistoryObligation` documents. Explicit
+settled-history release is irreversible and separate from payload retirement. Bounded reclamation
+reports actual completion/removal/compaction, including settled study members and summaries.
+Permanent identities and unknown/audit obligations retain §20.4 protection. Collected history is
+unavailable, never an invented completion or redispatch. Release makes no physical disk-space claim.
 
-> Decision: [ADR-0226](../../adr/0226-source-owned-physical-identities.md) (proposed) extends
-> declared identity projection to existing physical types, preserving Rust-owned documents and
-> generated Python aliases. Plan56a owns implementation and actual boundary qualification.
+### 21.2 Native execution and optional model adapters
 
-Physical identity declarations generate re-exports of the source-owned native types rather than
-second Rust wrappers. Generated document, Arrow and Python projections consume the same domain
-declaration. `PhysicalContext.describe`, `resolve_quantity`, `resolve_unit` and
-`resolve_reference_state` expose the admitted physical owner directly; native result inspection
-uses that same projection and its exact-context rules (§8.1/§19.2). Native callers need no
-independent physical YAML interpretation to obtain named input addresses or readable result meaning.
+Native class-specific execution owns the admitted mathematical profiles (§18). There is no
+production Pyomo model construction. A future model adapter must preserve original scientific
+admission and cannot introduce a second mathematical policy or execution path.
 
-`ResultInspectionRequest` and its version-2 schema/children/metadata/physical/values/refusal document are
-Rust-owned members of the directional catalogue under proposed ADR-0224. Required version headers
-are checked before body decoding; old inspection documents are not reinterpreted. PyO3 and
-Python's retained `Runtime.inspect_result` consume generated records. The optional Python MCP
-projection is retired under proposed ADR-0233; remaining Python consumer cutovers belong to Plan58.
-Shallow descriptors and metadata have independent native pages; typed struct/list paths preserve
-null parents, null elements, absent indexes, original numeric widths and IEEE bits. Native cursor
-continuation binds issuer, protected selection, manifest, original window/paths and schema contract.
-Composite logical-type metadata can contain recursive storage descriptions. Shallow fields
-explicitly defer that original entry by key/byte extent, including ancestor attribution, while
-retaining other physical/unit/identity metadata inline; omitted context is never marked complete.
-The exact metadata reader or original IPC retains the detail, with finite intact refusal.
-Schema/metadata discovery reads no result data batches; original physical-context admission
-reads retained physical source batches. Value transport still admits original full result batches,
-retains physical context and refuses intact at its finite document allowance. Readability does not
-establish scientific usability, terminal settlement, complete IPC fidelity or measured speed.
+### 21.3 Reference comparisons and scientific consumers
 
-Model declaration pages select original source identities before hydration. Native model inspection
-requires explicit preparation/inspection policies and keeps source, physical and preparation
-attribution; two-source comparison shares one Runtime and preserves explicit source-only unknown
-impact for differing physical contexts. These operations can prepare/admit imports. Host request
-explanation remains passive and does not claim native eligibility.
+Independent IDAES/Pyomo and thermodynamic references are isolated comparison tools (§24.1).
+Tear selection and structural checks remain native (§15/§17), as do fitting (§19.4) and uncertainty
+(§19.8). Disjunctive/robust scope retains its explicit limits (§19.7/§19.8). A reference result is
+neither production permission nor qualification of unexercised formulations.
 
-> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+### 21.4 Native provider callbacks
 
-Strict registry enums/identity metadata and one direction-qualified document catalogue
-supply generated types, typed returns and actual compiled fingerprint checks. Standalone
-unversioned roots receive required versioned wire owners; nested domain values retain
-their encoding and owner-declared version fields retain their meaning. Check the root
-version before current body decoding, including duplicate-header refusal. Keyed physical
-Arrow inputs resolve through selected coordinate contracts and QuantityRegistry, establish
-immutable custody through drain, and retain signed precise physical time separately from
-wall-clock budgets.
+Native provider factory declarations own external-function lifetimes and capabilities (§9,
+ADR-0084). No Python or ASL callback reaches a solver. Native callbacks retain typed failure,
+unwind containment, original allocation and join obligations; a foreign adapter cannot weaken them.
 
-> Decision: ADR-0192 (proposed): Plan43a coherent diagnostic and invocation document changes migrate their Rust, generated Python and CLI consumers together; diagnostic locators and selected-detail coverage grant no scientific or publication permission.
+### 21.5 Typed documents and version admission
 
-> Decision: [ADR-0190](../../adr/0190-own-local-studies-before-recording.md) (proposed; maintainer-authorized Plan 41c target).
+> Decisions: [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md),
+> [ADR-0116](../../adr/0116-typed-boundary-documents.md),
+> [ADR-0224](../../adr/0224-native-result-inspection.md) and ADR-0233.
 
-> Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment; Plan 36 P-A1/P-A2).
+Rust serde types own settings, completion, fitting/preparation, knowledge/inspection,
+flow/tear/recycle, initialization, simulation, study, analysis, reclamation and diagnostics.
+Schemars derives draft-2020-12 schemas into the retained native publication tree; there is no
+parallel handwritten schema or Python mirror. Domain enums and identities retain their registry
+owner. Source-authoring grammar schemas remain distinct from hydrated serde document schemas.
+Product and private documents publish through their responsibility-owned catalogue (§4.2).
 
-Typed `solve_bound` at the existing package/revision receiver consumes a declared case,
-ordered point overlay, settings/policy and cancellation. Resolve targets once, reject
-duplicates and apply canonical physical conversion while retaining submitted attribution.
-Results retain exact parent, binding/context and applied start/seed/predecessor receipts.
-The parent is immutable; value-dependent facts and independent original assessment remain
-fresh. Typed `SourceDelta` supplies explicit additions/replacements/removals and document/data
-ownership changes under exact parent/CAS. Reject overlapping intents before atomic effects;
-parent reload compares checksums and reparses changed documents. Exact parents retain source indexes, parsed products and per-object canonical products. Reuse tracks successful and absent lexical reads, shadows, imports, binder/type/member/root/guard premises and owner scope. Physical changes conservatively invalidate references. Unchanged reference/canonical work is skipped; full metadata-map copies, ordered identity framing and complete receiving admission remain explicit. Full replacement retains
-its explicit deletion domain. Generated Rust/Python contracts and actual consumers migrate
-together; these target APIs do not imply implementation or qualification.
+Required root versions are checked before current body decoding, including duplicate headers;
+successful decode checks trailing input. Unsupported historical readmission retains recorded bytes
+and refuses explicitly. `DiagnosticReport.decode_location` preserves header/body/trailing phase,
+category, line/column and structural path. Supplied map keys/variant values are filtered in public
+host views; decode paths do not masquerade as revision-bound authored-source spans. Contextual
+identities, defaults, unknown-key and finite-number rules remain native admission responsibilities.
 
-> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Native typed problem/revision/run/output selectors and bounded Arrow streams replace Runtime, modeling-knowledge and TableReader SQL convenience. Streams protect their exact immutable selection and treat rows as provisional until successful statement completion. Ordinary runtime construction is durable; ephemeral execution is explicitly requested.
+Validated setting domains (`Tolerance`, `Fraction`, `PositiveCount`, `FiniteBound`) use nutype;
+`admit_settings` owns cross-field/environment rules. Fixture execution policy remains authored data
+(§6.10). Package documents preserve exact text or binary bytes, including binary Parquet. Typed fit
+selections, read-only knowledge inspection and explicit fitted-parameter export retain their source
+revision. Resource reports distinguish pool reservations from process high-water observations.
+Common vocabulary iteration/parsing/spelling mechanics do not replace operation-specific meaning.
+Keyed physical Arrow input resolves selected coordinate contracts and `QuantityRegistry`, retains
+immutable custody through drain, and separates signed precise physical time from wall-clock budgets.
 
-> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
-> shared vocabulary (restating ADR-0090);
-> [ADR-0116](../../adr/0116-typed-boundary-documents.md) (superseding ADR-0113) — typed backend settings, registry names and typed
-> eligibility across the boundary (Plan 22 A5, implemented), with published JSON Schemas and
-> generated Python document types (Plan 22 B5, implemented).
-> ADR-0114 records the historical operational-store predecessor; its publication/job
-> surfaces are replaced by the authorized ADR-0164 implementation.
+### 21.6 Array fidelity across optional adapters
 
-`pse.Runtime(settings, *, substrate=None, database=None, producer=None, ephemeral=False)` attaches to the
-canonical deployment and its shared memory budget. `settings` is an `EngineSettings` value
-and `substrate`, when supplied, selects the supervisor state directory. Ordinary construction
-is durable and requires it. `ephemeral=True` without substrate/database/producer selects
-store-free local computation with admitted source ownership. Local study handles execute directly; explicit recording creates portable descriptors for durable startup. An optional reviewed producer receipt is checked against the
-actual loaded source/build attestation; it is not a caller-provided scientific qualification.
-The process-owned resource service retains one configured budget, spill directory and
-executor; conflicting settings refuse. Escaped Arrow buffers retain their accounted owners.
-Runtime facades, packages and mutable journey effects remain individually owned.
+Native Arrow remains the scientific data boundary. Any future array adapter must preserve nulls
+separately from NaN, signed zero and original numeric/IEEE representation, and retain the actual
+buffer/chunk allocation owners. Conversion cannot imply an unrequested cast, missingness change or
+scientific permission. No NumPy product adapter is currently selected.
 
-`run_record`, `attempt_record` and `result_manifest` return exact registry-generated Arrow
-rows. Scientific `RunId` remains distinct from opaque canonical lookup keys. `results`
-selects an exact run/attempt/relation and stored row range; `output_results` adds typed
-owner/field/partition and finite or missingness predicates. `latest_results` uses an explicit
-set of terminal classes and native run sequence, never wall-clock ordering or success
-substitution. `progress(run, attempt)` reads the selected closed progress history.
-`analysis(key)` opens an exact active analysis; `result_analysis` records retained sensitivity
-provenance, and prepared solves expose dependency analysis. The analysis handle reads its
-header and bounded node/edge pages. `forget_analysis_results(key)` removes one bounded
-page and returns `False` while cleanup or creation settlement remains pending; `True`
-means all per-analysis state was removed behind the source-authority creation fence
-(ADR-0172). An unknown key without valid original creation authority refuses rather than treating absence
-as settlement. The original occurrence key carries its immutable authority and expiry, so it
-can resolve an uncertain final acknowledgement through exact settlement after header deletion.
-Result analysis separates protected selection, artifact promotion and graph assembly into
-narrow borrowed async phases on the ordinary caller. The original result-read protection
-survives the complete artifact transfer and exact release. Connected terminal selection, durable progress construction, their page reads and shared completion/replay/seed chunk reads separate large borrowed future state
-from outer activity/cancellation polling. Boxed reader state is prepaid by its exact
-allocation extent; that independent grant survives readiness and drops after the child
-allocation. Metadata response and protected snapshot grants retain their separate lifetimes.
-Heap placement does not introduce a spawned task or change cancellation/recovery ownership.
+### 21.7 First-party host and future foreign adapters
 
-An uncertain publication diagnostic exposes `analysis_key`; a joined Python signal preserves
-the same key even if cancellation arrives after publication dispatch. Local `export_results` writes a complete provenance-bearing
-IPC file under the completion rule in [§19.2](#section-19-2). Public SQL, operational-store,
-workspace and publication APIs have no compatibility facade.
+The independent native host owns developer environment selection, authentic OS process/service
+ownership and operator effects, without scientific preparation, Arrow/DataFusion, database clients
+or generated product schemas. Heavy native developer composition stays in xtask. Canonical SurrealDB
+owns persisted execution transitions and schema/write-admission policy; computation and physical
+joins remain Rust/OS effects. Service launch alone does not establish schema readiness; pure local
+science needs no database.
 
-`physical_from_documents` admits physical data;
-`modeling_from_documents` admits the explicit package closure. `ModelingPackage` exposes
-immutable declarations/limits/fit-data views, selected solve/simulation/fitting preparation,
-initialization, flow/recycle and block strategies, studies, diagnostics and conformance.
-`capabilities` reports linked libraries, not model eligibility. A prepared operation
-exposes its selected route (`NativeRoute`) and one typed eligibility row per assessed
-adapter (`NativeEligibility`, whose reasons carry registry `NativeIneligibility` codes and
-typed detail), and a strategy result its ordered attempts (`NativeStrategyAttempt`), all in
-registry spellings ([§18.7](numerical-execution.md#section-18-7)). A sensitivity request
-travels in the typed `SolveSettings` document (`SensitivityRequest`, with an optional
-`Propagation`; [§15.5.1](numerical-execution.md#section-15-5-1)), and `prepare_fit` takes the
-derivative source (`FitDerivatives`) and the uncertainty request (`FitUncertainty`)
-([§19.4](#section-19-4)); their results are ordinary result tables. `SimulationSettings`
-takes the dynamic sensitivity (`DynamicSensitivity`) and the adjoint checkpoint settings
-(`AdjointSettings`); authored schedules, modes and events are admitted with the case,
-while direct shooting remains Rust-only
-([§13.6](#section-13-6)). Owners are `crates/pse-py/src/workflow/`,
-`python/pse/_modeling.py`, `_runs.py` and `_strategies.py`.
-The removed model builders have no compatibility facade.
-
-`prepare_solve`, `solve_case`, native conformance and pure conformance accept the
-existing generated `PreparationSettings` document: one complete compiler profile and
-expansion policy. A provided policy reaches the existing Rust preparation owner unchanged,
-including its finite conserved class-proof allowance; it replaces standalone expansion
-limits for that operation. An omitted policy retains the Rust compiler default and the
-selected package or explicit pure-expansion limits. Python declares no compiler defaults.
-Conformance manifests forward the same document in both execution modes. Missing required
-fields refuse rather than silently defaulting, and byte admission remains independent of
-conservative symbolic work (§14.3.2).
-
-`RunHandle.wait()` releases the interpreter while waiting and checks signals; an
-interrupt requests cancellation and joins the native supervisor before the signal
-propagates. Python asyncio run waiting and its cancellation bridge are retired under
-proposed ADR-0233. Native Rust `RunHandle::wait` remains asynchronously repeatable;
-dropping an individual wait future does not stop a run whose handle remains owned.
-Explicit cancellation requests stop; dropping the final immediate run handle also requests
-stop, while the supervisor retains native cleanup ownership. Passive observation does not
-hold that cancellation lease. Repeated waits never rerun a solver. A run handle supervises one staged
-sequence ([§19.2](#section-19-2)); a single solve is a one-step sequence on its own native
-session.
-
-Synchronous waits share completion-first polling while retaining each consumer's signal
-policy and existing 100 ms or 20 ms interval. Waiting releases the interpreter; the first
-signal remains the original exception. Native pull waits request cancellation and join the
-original pull, retaining its cause. Canonical blocking waits request cancellation, finish
-the same issued future and perform the final signal check, attaching any actual acknowledged
-analysis/artifact recovery identity before raising. Capture joins request recording stop and
-wait without cancelling scientific work. Launched-command waits request command cancellation
-and preserve their immediate signal-return policy. Task-dump waits return the signal without
-cancelling the issued observer ticket. Controlled `next_batch` prechecks signals before issuing
-a pull, so an already pending signal leaves the stream unconsumed. This does not replace
-unrelated asynchronous cursor interfaces or install process-global signal handlers.
-
-> Decision: ADR-0169 (proposed; maintainer-authorized Plan 33 implementation).
-
-Python result `tables()` discovers relation names from immutable inventory without encoding
-payloads. `table(name)` consumes only that relation through the common projection and its
-relation-local intrinsic/request-local delivery semantics ([§19.2](#section-19-2)).
-
-Scientific and metadata tables cross as one-consumption `TableStream` objects exposing
-`__arrow_c_stream__`, never as parallel row objects or materialized on both sides. The capsule
-protocol, not `pyarrow`, is the contract
-([ADR-0024](../../adr/0024-pyo3-arrow-over-arrow-pyarrow.md)). Result readers hold their exact
-strong snapshot ticket for future chunks. Metadata allowances follow finite header, selection, page and output-page layouts, enforced before owned-value decoding; they are separate from file payload and Arrow decode grants. Validated metadata transfers only when its response owner is unique; live transport suffixes retain the full original grant. Snapshot aliases share inventory and read charges. Protected cleanup retains its metadata and a separately bounded release-response allowance through acknowledgment, socket drain or explicit recovery. Dispatched metadata and file-open responses retain
-that original ticket and their own prepaid decode allowance through native transport drain,
-even after cancellation discards the caller. Source/creation selections retain their separate
-finite-clock rules. Fully decoded copied arrays retain accounted allocation owners after reader
-or parent-wrapper drop. `close` releases unread work while live arrays remain valid; `cancel`
-makes further consumption fail with a cancellation diagnostic. Python signal handling cancels
-without taking the producer lock and joins the exact native pull before returning the original
-exception; that join alone is not late transport-response drain. Requested-schema casts are refused.
-`TableStream.extension_report` compares a consumer's schema field by field as retained,
-storage-only, metadata-lost or mismatched (`python/pse/_transfer.py`); capsule export
-does not prove the consumer registered the extension types.
-
-### 21.5 Python contracts
-
-Under ADR-0224, native JSON decoding retains typed header/body/trailing phase, category,
-line/column and structural path precision through `DiagnosticReport.decode_location`. The shared
-streaming header owner checks versions and duplicate headers before current body decoding;
-successful decode checks trailing input. Generated Python version admission retains an explicit
-native cause. Map keys/variant values may be supplied data and are filtered at public host views;
-decode paths do not masquerade as revision-bound authored-source spans.
-
-> Supplement: [ADR-0191](../../adr/0191-explicit-scalar-compiled-evaluation.md) (proposed; Plan 41e carries explicit evaluator selection through versioned study preparation).
-
-> Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment). Source intents preserve strict direct conversion, version-aware general decoding and fresh public converters. Private generated-row transport may reuse thread-owned hooks; it cannot bypass Rust admission, unknown-key/finite-number refusal or required raw/typed version checks.
-
-> Decision: [ADR-0116](../../adr/0116-typed-boundary-documents.md) — Rust owns typed,
-> versioned boundary documents, schemars JSON Schemas and generated msgspec types.
-> Durable study readers check envelope versions before current nested decoding;
-> unsupported historical readmission preserves recorded bytes and refuses explicitly.
-> [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — every enumeration
-> crossing the boundary has one registry-generated Rust type.
-> Amendment: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed;
-> authorized implementation) replaces predecessor job/publication documents with native
-> canonical execution, result selection, analysis and reclamation contracts.
-
-Python contracts are generated from the registry into `python/pse/contracts/`
-([§4.2](schema-and-relations.md#section-4-2),
-[ADR-0051](../../adr/0051-generated-trees-and-regeneration-check.md)): frozen attrs
-classes per relation row, enums, value types and Arrow extension types. Generic modeling declarations are generated from the same owner; no hand-written
-class mirrors a relation. Entity identities are generated `NewType`s
-(`pse.contracts.identities`). The native API stubs (`_native.pyi`) are generated from the
-compiled extension's metadata.
-
-Package document mappings accept exact `str | bytes` values through one Rust converter;
-Parquet documents remain binary. Typed fit selections replace the old measurement-relation
-API. Read-only knowledge inspection and explicit fitted-parameter export retain their
-source revision; the existing resource report projects pool and process high-water marks
-separately.
-
-**Boundary documents.** The Rust serde type owns each Rust-owned document: the backend,
-solve, Diffsol and IDAS settings, termination detail, completion, fitting declarations and
-preparation, knowledge/inspection, flow/tear/recycle, initialization, simulation profiles,
-study request/definition/outcomes/status/cancellation/results, analysis controls, result
-reclamation and complete boundary diagnostics. schemars derives its JSON
-Schema (draft 2020-12) into `docs/generated/schema/`, and a closed emitter
-(`pse-codegen::codegen::documents`) turns the schemas into frozen msgspec `Struct` types in
-`python/pse/contracts/documents/`: every
-enumeration is the registry's generated enum, every object refuses unknown fields, and a
-schema construct outside the mapping is a generation error. ADR-0116 Outcome 7 allowed
-datamodel-code-generator or this emitter; the emitter was chosen because the external
-generator emits `Any`, duplicate enums and unfrozen structs. Python's `SolveSettings`,
-`BackendSettings`, `DiffsolSettings` and `IdasSettings` are these types, and the native
-entry points decode the encoded document, so no `**fields: object` signature remains.
-Single-value setting domains are validated types (`Tolerance`, `Fraction`,
-`PositiveCount`, `FiniteBound`, built with nutype) refused at decode with a typed cause;
-`admit_settings` keeps the cross-field and environment rules. `SimulationSettings` stays a
-native class that takes an encoded document; fixture execution policies are authored data
-([§6.10](schema-and-relations.md#section-6-10)).
-
-Operation-owned request/result types are registered directly for generation; there is no
-parallel hand-written schema or Python mirror. Python sends typed documents through the
-common codec, then Rust admission resolves contextual identities and defaults. Closed
-getters and their compiled stubs expose generated enums, while explanations stay separate.
-Source-authoring grammar schemas remain distinct from hydrated serde document schemas.
-
-Row collection cardinality uses attrs validators; uniqueness uses linear equality-consistent
-keys derived by admitted element type. Nested records, sequences and reordered maps retain
-their equality contract, including equal signed zeros; content hashes are not equality keys.
-The emitter uses deterministic petgraph dependency ordering with attributable cycle/missing
-reference errors. Common strum mechanics own vocabulary iteration, parsing and spelling;
-operation-specific semantic projections remain with their owner.
-
-> Supplement: [ADR-0151](../../adr/0151-generated-operation-boundaries.md)
-> (proposed; authorized implementation).
-
-- **Strict structuring.** cattrs converters forbid extra keys and keep detailed
-  validation; msgspec structs forbid unknown fields for wire envelopes, settings and
-  documents (`python/pse/codec`). A mismatched payload fails at the boundary.
-- **No `Any`.** Contract classes are checked for `Any`, bare `dict` and bare `list`
-  (`pse.governance`). The check resolves annotations first (`attrs.resolve_types`), so
-  postponed annotations (`from __future__ import annotations`) are allowed. It also covers
-  the generated msgspec document types (ADR-0116).
-- **Import-time checks.** Importing `pse` registers the extension types idempotently and
-  checks package/native version and generated registry fingerprint agreement.
-
-### 21.6 The array boundary (numpy)
-
-A nullable Arrow column converted to a bare `ndarray` turns null into NaN.
-`pse._array.to_ndarray` is the only production numpy boundary: it refuses any column
-with nulls, converts zero-copy by default (refusing chunked or non-mappable layouts), and
-copies only when the caller names a `copy_reason`. Signed zero survives. numpy is imported
-lazily so `import pse` does not load it; import rules confine numpy/scipy to this module,
-the parity harness and tests.
-
-## Retired section identities
-
-#### 21.2 Pyomo adapter algorithm — retired
-
-Native class-specific execution replaced production Pyomo model construction
-([§18](numerical-execution.md#section-18),
-[ADR-0083](../../adr/0083-class-specific-native-execution.md)).
-
-#### 21.3 Uses of the Pyomo adapter — retired
-
-Parity is the isolated harness of [§21](#section-21), tear selection and structural
-checks are native ([§15](numerical-execution.md#section-15),
-[§17](numerical-execution.md#section-17)), fitting is native ([§19.4](#section-19-4)),
-and disjunctive or robust optimization has no replacement ([§19.7](#section-19-7),
-[§19.8](#section-19-8)).
-
-#### 21.4 Opaque kernels and ASL — retired
-
-Native provider factory declarations replaced external-function kernels; no Python or
-ASL callback reaches a solver ([§9](physical-semantics.md#section-9),
-[ADR-0084](../../adr/0084-physical-provider-and-dynamic-contracts.md)).
+Optional foreign adapters require a named consumer and remain coarse callers of the same native
+operations, documents and protected data services. They acquire no separate scientific, scheduling,
+settlement or schema authority. No PyO3 implementation, full CLI, RMCP endpoint or cdylib is mandatory.
+Retired producers, callers, configuration and mechanism-only tests leave together; useful scientific
+acceptance stays with native callers. Typed fixtures and native documentation/governance/evidence
+owners replace first-party Python tooling (§24.1). A successful compiler result is not invalidated
+solely by cache-service loss; correctness, real boundary admission and physical release remain.
+Implementation of this cut does not close all Plan58 B–G acceptance or qualify H's assembled and
+durable-deployment campaigns (§24.2).
 
 ### Conditional and fitting owner lifetimes
 
 > Decision: ADR-0166 and ADR-0186 (proposed amendments; maintainer-approved Plan46 execution).
 
-Parallel initialization and block solves retain prepared predecessor/successor maps and
-compact per-request consumed binding bases. Every original authored parameter and explicitly
-fixed variable remains mandatory, even unused. Unread authored free coordinates may be omitted
-from a private conditional binding; the public full/effective-frozen validators are unchanged.
-The solver and assessor share leased immutable values. Exclusive bases update changed consumed
-inputs in place; escaped aliases require a fresh leased base. No source map, start or history
-travels with backend-qualified neutral native capacity.
+Parallel initialization and block solves retain prepared predecessor/successor maps and compact
+per-request consumed binding bases. Every original authored parameter and explicitly fixed variable
+remains mandatory, even unused. Unread authored free coordinates may be omitted from a private
+conditional binding; public full/effective-frozen validators are unchanged. Solver and assessor share
+leased immutable values. Exclusive bases update changed consumed inputs in place; escaped aliases
+require a fresh leased base. No source map, start or history travels with backend-qualified neutral
+native capacity.
 
-Fitting preconstructs exactly one private worker for each assigned experiment, retains compact
-lane inventories and reduces results in authored order. Production retains deterministic authored stride. A distinct test-only affinity comparison
-separates the expensive transient experiments without worker replication; native/provider
-residency bounds are not execution-time estimates and do not select a production assignment. Profile chains retain their existing causal pins;
-failed lanes do not replay experiments. Current forward/adjoint selection and checkpoint spacing
-remain explicit; short comparisons do not establish a universal parameter/objective crossover.
+Fitting preconstructs exactly one private worker for each assigned experiment, retains compact lane
+inventories and reduces results in authored order. Production keeps deterministic authored stride.
+A distinct test-only affinity comparison separates expensive transient experiments without worker
+replication; native/provider residency bounds are not execution-time estimates or a production
+assignment. Profile chains retain causal pins; failed lanes do not replay experiments. Forward/
+adjoint selection and checkpoint spacing remain explicit; short comparisons establish no universal
+parameter/objective crossover.
 
 ### Live sample capture and publication
 
 > Decision: ADR-0180 (proposed amendment; maintainer-approved Plan46 execution).
 
-Native callbacks capture only bounded selected owned output values, mode, time
-and original sample identity. Existing supervision builds checked Arrow collections under the
-original scope/lease and retains channel envelopes through complete drain even after cursor
-drop and native completion. Selected lineage is prepared outside per-sample encoding; full
-original lineage maps are not an uncharged per-sample operation. Encoding failure or late cancellation cancels and drains the producer and
-leaves recording incomplete. Empty bounded append queue capacity can be reused, but payloads
-and authentic acknowledgements remain per sample. No cross-sample batching/relaxed visibility
-was selected; Recorded means only the authentic contiguous acknowledged prefix.
+Native callbacks capture only bounded selected owned output values, mode, time and original sample
+identity. Supervision builds checked Arrow collections under the original scope/lease and retains
+channel envelopes through complete drain even after cursor drop and native completion. Selected
+lineage is prepared outside per-sample encoding; full original lineage maps are not an uncharged
+per-sample operation. Encoding failure or late cancellation cancels/drains the producer and leaves
+recording incomplete. Empty bounded append-queue capacity can be reused, but payloads and authentic
+acknowledgements remain per sample. No cross-sample batching or relaxed visibility is selected;
+Recorded means only the authentic contiguous acknowledged prefix.

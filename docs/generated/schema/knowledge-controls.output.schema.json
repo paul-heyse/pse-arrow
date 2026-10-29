@@ -29,6 +29,6 @@
     "maximum_bytes",
     "document_version"
   ],
-  "title": "KnowledgeControlsOutput",
+  "title": "KnowledgeControls",
   "type": "object"
 }

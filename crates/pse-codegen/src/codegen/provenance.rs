@@ -15,7 +15,7 @@ pub const ROOT: &str = "docs/generated/source-relationships";
 /// An actual declaration contributor to an output, rather than inferred consumer reach.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SourceRelationship {
-    /// Registry semantic key, Rust catalogue type, or compiled Python module identity.
+    /// Registry semantic key, or native Rust catalogue type.
     pub declaration_key: String,
     /// Which declaration namespace gives the key meaning.
     pub declaration_kind: String,
@@ -167,7 +167,6 @@ mod tests {
         let registry = crate::registry().unwrap();
         let identity = registry.fingerprint();
         let rust = generate(registry, Language::Rust).unwrap();
-        let python = generate(registry, Language::Python).unwrap();
         for output in [
             "crates/pse-authoring/src/generated/documents.rs",
             "crates/pse-admission/src/generated/document_adapters.rs",
@@ -204,19 +203,7 @@ mod tests {
                         == "crates/pse-model/src/generated/authored/fit_cases.rs"
                     && record.generator_symbol == "split")
         );
-        assert!(
-            python
-                .relationships
-                .iter()
-                .any(|record| record.declaration_key == "authored.fit_cases@4"
-                    && record.output_path == "python/pse/contracts/authored.py")
-        );
-        for tree in [&rust, &python] {
-            assert!(tree.relationships.iter().all(|record| {
-                tree.files
-                    .contains_key(std::path::Path::new(&record.output_path))
-            }));
-        }
+        assert!(rust.relationships.iter().all(|record|rust.files.contains_key(std::path::Path::new(&record.output_path))));
         assert_eq!(registry.fingerprint(), identity);
     }
 

@@ -360,3 +360,28 @@ store/provider helpers, scientific/PyO3 callers and other independent-reference 
 their actual consumers and open G01/G03 ownership. Historical receiver metadata is not falsely
 claimed deleted. [58c](58c-runtime-lifecycles.md#native-scientific-worker-closeout--2026-10-29)
 owns targeted results; the whole Plan58 B/C/D/G selection remains incomplete and paused.
+
+## Final required-boundary retirement cut — 2026-10-29
+
+Following ADR-0233's scoped target review and architecture revisions311/312, the required
+Python product/extension crate, packaging, generated DTO/stub/facade output, first-party
+Python controllers and their mechanism-specific tests are removed with their callers.
+Rust owns retained developer/scientific operations; reference drivers and frozen inputs
+remain independent. The virtual uv project selects only repository tools by default;
+independent reference environments retain their own explicit groups and codecs. Cargo
+no longer declares the PyO3 family. Historical receipt decoders and committed evidence
+are retained as data-custody readers, with no operating Python producer constructor.
+
+Unused producer and generic Docker-test launchers retire. The actual solver byte-rebuild
+comparison retains native immutable-image selection. The obsolete capability-map regeneration
+convenience wrapper retires while every independent manifest/lock/probe/requirements snapshot
+and its README reproduction remains. This selects no new library research or measurement
+campaign. Optional CI product-wheel/release paths retire; retained checks remain manually
+invoked and make no claim about an available local manager on a hosted runner.
+
+Native documentation/generation, fixture and independent science outcomes are preserved at
+their actual owners. Optional debugger/Trace Processor execution wrappers, old assessment
+ledgers, high-level recovery controllers and obsolete measurement drivers retire under the
+recorded selections. H retains the exact scientific scenarios/inputs/expectations and custody
+conditions already transferred before driver deletion. No existing database, queue, authored
+input, historical result or external service was deleted. Final scope acceptance remains open.

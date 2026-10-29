@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-# SPDX-License-Identifier: MIT OR Apache-2.0
-# Copyright (c) 2026 Paul Heyse
-exec "${PSE_PRODUCER_CARGO_PYTHON:?strict capture requires its selected Python}" "$(dirname "${BASH_SOURCE[0]}")/producer_cargo.py" "$@"

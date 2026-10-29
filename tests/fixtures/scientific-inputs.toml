@@ -325,7 +325,7 @@ roots = [
   "packages/reference/physical",
 ]
 documents = []
-consumers = ["pse-py", "pse-runtime"]
+consumers = ["pse-runtime"]
 projection = "authentic-transport"
 substitutions = []
 
@@ -333,7 +333,7 @@ substitutions = []
 name = "conformance"
 roots = []
 documents = []
-consumers = ["pse-tests-conformance", "pse-py"]
+consumers = ["pse-tests-conformance", "xtask"]
 projection = "authentic-transport"
 substitutions = []
 manifest = "packages/reference/conformance.toml"
@@ -342,14 +342,14 @@ manifest = "packages/reference/conformance.toml"
 name = "seed-transport"
 roots = ["packages/reference/seed-data"]
 documents = []
-consumers = ["pse-py", "pse-tests-conformance", "pse-benches"]
+consumers = ["xtask", "pse-tests-conformance", "pse-benches"]
 projection = "authentic-transport"
 
 [[families]]
 name = "campaign-transport"
 roots = ["packages/reference/campaign"]
 documents = []
-consumers = ["pse-py", "pse-tests-conformance", "pse-benches"]
+consumers = ["xtask", "pse-tests-conformance", "pse-benches"]
 projection = "authentic-transport"
 
 [[families]]

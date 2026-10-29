@@ -21,6 +21,6 @@
     "maximum_points",
     "document_version"
   ],
-  "title": "StudyRunControlsOutput",
+  "title": "StudyRunControls",
   "type": "object"
 }
