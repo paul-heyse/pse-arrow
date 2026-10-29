@@ -54,10 +54,12 @@ control_gib = 8
 # Production execution authority. Host lane and process scopes retain distinct totals.
 [production]
 version = 1
-default_profile = "service"
+# The workstation default reuses the declared 128GiB scientific pool and
+# 140GiB process envelope. Explicit smaller/timing profiles remain opt-in.
+default_profile = "reference"
 
 [production.capabilities]
-memory_limit_bytes = 17179869184
+memory_limit_bytes = 137438953472
 threads = 16
 max_spill_bytes = 1073741824
 

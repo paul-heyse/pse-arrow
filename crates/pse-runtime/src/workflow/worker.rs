@@ -19,7 +19,6 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::io::{AsyncRead, AsyncReadExt};
 mod publication;
 pub(in crate::workflow) use publication::Handoff as PublicationHandoff;
 #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
@@ -113,7 +112,8 @@ impl Processed {
     }
 }
 /// Finite polling and optional total-work bound; live service retains only a count.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorkerSettings {
     /// Finite delay between discovery iterations.
     pub poll: Duration,
@@ -168,174 +168,13 @@ impl Drop for CandidateTurn {
             .remove(&self.key);
     }
 }
-async fn receiver_output(stream: impl AsyncRead + Unpin) -> Result<Vec<u8>, WorkflowError> {
-    let mut bytes = Vec::new();
-    stream
-        .take(64 * 1024 + 1)
-        .read_to_end(&mut bytes)
-        .await
-        .map_err(|error| contract(format!("managed primary response: {error}")))?;
-    if bytes.len() > 64 * 1024 {
-        return Err(contract(
-            "managed primary readiness response exceeds its bound",
-        ));
-    }
-    Ok(bytes)
-}
-
-async fn receiver_response(
-    mut command: tokio::process::Command,
-) -> Result<(std::process::ExitStatus, Vec<u8>, Vec<u8>), WorkflowError> {
-    command
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true);
-    let mut child = command
-        .spawn()
-        .map_err(|error| contract(format!("managed primary control: {error}")))?;
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| contract("managed primary output pipe absent"))?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| contract("managed primary error pipe absent"))?;
-    let output = async { tokio::try_join!(receiver_output(stdout), receiver_output(stderr)) };
-    tokio::pin!(output);
-    tokio::select! {
-        output = &mut output => match output {
-            Ok((stdout, stderr)) => {
-                let status = child.wait().await.map_err(|error| contract(format!("managed primary control: {error}")))?;
-                Ok((status, stdout, stderr))
-            }
-            Err(error) => {
-                // Bounded-output refusal still joins the actual control process.
-                child.kill().await.map_err(|cause| contract(format!("managed primary control drain: {cause}")))?;
-                Err(error)
-            }
-        },
-        status = child.wait() => {
-            let status = status.map_err(|error| contract(format!("managed primary control: {error}")))?;
-            let (stdout, stderr) = output.await?;
-            Ok((status, stdout, stderr))
-        },
-    }
-}
-
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(deny_unknown_fields)]
-struct PrimaryScope {
-    unit: String,
-    group: String,
-    invocation: String,
-}
-
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(deny_unknown_fields)]
-struct PrimaryOwner {
-    scope: PrimaryScope,
-    scope_inode: u64,
-}
-
-/// One startup-admitted receiver lifetime; a replacement cannot become this owner.
+/// A bound observation is distinct from physical release authority.
 pub(super) enum PrimaryObservation {
     Live,
     Drained,
     OwnerChanged,
 }
 
-pub(super) struct ManagedPrimary {
-    selected: super::NativeExecutionSelection,
-    owner: PrimaryOwner,
-}
-impl ManagedPrimary {
-    /// Observe the selected lifetime without granting resource-release authority.
-    pub(super) async fn observe(&self) -> Result<PrimaryObservation, WorkflowError> {
-        // The startup-selected immutable supervisor observes the original lifetime,
-        // even if the next native selection changes. No worker bytes are reopened.
-        let controller = self.selected.controller()?;
-        let mut command = tokio::process::Command::new(&controller.supervisor_executable);
-        command
-            .arg(&controller.supervisor_script)
-            .arg("observe-primary")
-            .arg("--state")
-            .arg(self.selected.receiver_state())
-            .arg("--canonical-database")
-            .arg(self.selected.database())
-            .arg("--primary-owner")
-            .arg(serde_json::to_string(&self.owner).map_err(|error| contract(error.to_string()))?);
-        let (status, stdout, _) = receiver_response(command).await?;
-        // A failed/unknown observation grants no release authority.
-        if !status.success() {
-            return Ok(PrimaryObservation::Live);
-        }
-        #[derive(serde::Deserialize)]
-        struct Observation {
-            canonical_database: String,
-            primary_owner: PrimaryOwner,
-            phase: String,
-        }
-        let observed: Observation = serde_json::from_slice(&stdout)
-            .map_err(|error| contract(format!("managed primary observation: {error}")))?;
-        if observed.canonical_database != self.selected.database()
-            || observed.primary_owner.scope.unit != self.owner.scope.unit
-            || observed.primary_owner.scope.group != self.owner.scope.group
-            || observed.primary_owner.scope.invocation != self.owner.scope.invocation
-            || observed.primary_owner.scope_inode != self.owner.scope_inode
-        {
-            return Err(contract("managed primary observation identity differs"));
-        }
-        Ok(match observed.phase.as_str() {
-            "complete" => PrimaryObservation::Drained,
-            "mismatch" => PrimaryObservation::OwnerChanged,
-            _ => PrimaryObservation::Live,
-        })
-    }
-}
-#[cfg(test)]
-mod receiver_tests {
-    use super::*;
-    #[tokio::test]
-    async fn primary_response_bound_refuses_a_stream_without_an_end() {
-        let result = tokio::time::timeout(
-            Duration::from_secs(1),
-            receiver_output(tokio::io::repeat(0)),
-        )
-        .await
-        .unwrap();
-        assert!(result.is_err());
-    }
-    #[tokio::test]
-    async fn primary_response_retains_exact_bounded_readiness_bytes() {
-        let bytes = b"{\"ready\":true}";
-        assert_eq!(receiver_output(bytes.as_slice()).await.unwrap(), bytes);
-    }
-    #[tokio::test]
-    async fn primary_response_output_refusal_reaps_its_actual_control() {
-        let directory = tempfile::tempdir().unwrap();
-        let pid = directory.path().join("pid");
-        let mut command = tokio::process::Command::new("/bin/sh");
-        command
-            .arg("-c")
-            .arg("echo $$ > \"$1\"; while :; do printf '0123456789abcdef'; done")
-            .arg("control")
-            .arg(&pid);
-        let result = tokio::time::timeout(Duration::from_secs(5), receiver_response(command))
-            .await
-            .unwrap();
-        assert!(result.is_err());
-        let pid: u32 = std::fs::read_to_string(pid)
-            .unwrap()
-            .trim()
-            .parse()
-            .unwrap();
-        assert!(
-            !std::path::Path::new(&format!("/proc/{pid}")).exists(),
-            "refused control was reaped before returning"
-        );
-    }
-}
 // Existing service loop, isolated from canonical discovery for focused
 // scheduling controls. The lane itself still owns all claims and effects.
 #[cfg(test)]
@@ -1713,68 +1552,25 @@ impl Operations {
 }
 
 impl Runtime {
-    /// Activate or reuse the deployment's one verified primary group. The receiving
-    /// observer has no native assistance lane and must fit its separate placement.
-    pub(super) async fn ensure_managed_primary(
+    /// Borrow the application root's already-ready native scientific worker.
+    pub(super) async fn managed_primary(
         &self,
         cancel: &crate::CancelSource,
-    ) -> Result<ManagedPrimary, WorkflowError> {
+    ) -> Result<super::NativeStudyWorkerObserver, WorkflowError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
-        if cancel.token().is_cancelled() {
-            return Err(crate::math::MathRuntimeError::Cancelled.into());
-        }
-        let store = operations(self)?.store();
-        let selected = super::NativeExecutionSelection::from_store(store)?;
-        let (_, profile) = selected.managed_primary()?;
-        let controller = selected.controller()?;
-        if self.shared.budget().memory_limit_bytes.get() > profile.observer_memory_bytes {
-            return Err(contract(
-                "durable observer pool exceeds its managed observer allocation",
-            ));
-        }
-        if cancel.token().is_cancelled() {
-            return Err(crate::math::MathRuntimeError::Cancelled.into());
-        }
-        let mut command = tokio::process::Command::new(&controller.supervisor_executable);
-        command
-            .arg(&controller.supervisor_script)
-            .arg("ensure-primary")
-            .arg("--state")
-            .arg(selected.receiver_state())
-            .arg("--canonical-database")
-            .arg(store.database())
-            .arg("--observer-pid")
-            .arg(std::process::id().to_string());
-        let response = receiver_response(command);
-        let (status, stdout, stderr) = tokio::select! {
-            output = tokio::time::timeout(Duration::from_millis(profile.admission_wait_ms), response) =>
-                output.map_err(|_| super::deadline_limit("managed primary readiness deadline expired"))?
-                    ?,
-            () = cancel.cancelled() => return Err(crate::math::MathRuntimeError::Cancelled.into()),
-        };
-        if !status.success() {
-            return Err(contract(format!(
-                "managed primary startup: {}",
-                String::from_utf8_lossy(&stderr)
-            )));
-        }
-        #[derive(serde::Deserialize)]
-        struct Ready {
-            ready: bool,
-            canonical_database: String,
-            primary_owner: PrimaryOwner,
-            diagnostics: Option<serde_json::Value>,
-        }
-        let ready: Ready = serde_json::from_slice(&stdout)
-            .map_err(|error| contract(format!("managed primary readiness: {error}")))?;
-        if !ready.ready || ready.canonical_database != selected.database() {
-            return Err(contract("managed primary is not ready"));
-        }
-        selected.require_current()?;
-        self.observations().observe_receiver_ready(selected.receiver_state(), selected.database(), ready.diagnostics);
-        Ok(ManagedPrimary { selected, owner: ready.primary_owner })
-
+            if cancel.token().is_cancelled() {
+                return Err(crate::math::MathRuntimeError::Cancelled.into());
+            }
+            let primary = self.managed_worker.as_ref().ok_or_else(|| {
+                contract("durable study requires the application root's ready native worker borrow")
+            })?;
+            primary.require_store(operations(self)?.store(), self.shared.budget().memory_limit_bytes.get())?;
+            match primary.observe().await? {
+                PrimaryObservation::Live => Ok(primary.clone()),
+                PrimaryObservation::Drained | PrimaryObservation::OwnerChanged =>
+                    Err(contract("original native study worker is no longer live")),
+            }
         }).await
     }
     /// Claim a structurally ready candidate under its exact consumed revisions.

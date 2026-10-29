@@ -109,6 +109,17 @@ impl Default for MathPolicy {
     }
 }
 impl MathPolicy {
+    /// Size retention, compiler workspace and numeric allowances from the same pool.
+    /// These are limits; only the workspace is reserved at construction. Explicit
+    /// deployment worker/job selections can refine this policy before construction.
+    pub fn for_pool(pool_bytes: usize) -> Self {
+        Self {
+            artifact_bytes: pool_bytes / 4,
+            workspace_bytes: pool_bytes / 8,
+            worker_bytes: pool_bytes / 2,
+            ..Self::default()
+        }
+    }
     /// The foreign-library allowance of one solve: the allowance its controls declare, else
     /// this deployment's. It is reserved only while the solve runs, the deployment's by its
     /// native session and a declared one by its step, and a library that enforces its own

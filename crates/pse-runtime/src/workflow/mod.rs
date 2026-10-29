@@ -126,6 +126,7 @@ mod progress;
 pub use progress::ProgressStream;
 mod bindings;
 mod native_deployment;
+mod native_worker;
 mod physical_cache;
 pub mod sampling;
 mod worker;
@@ -140,6 +141,7 @@ pub use native_deployment::{
     ProductionProfile, ProductionProfileName, ProductionProfiles, RegisteredNativeContext,
 };
 pub use worker::{PhysicalSource, Processed, WorkerSettings};
+pub use native_worker::{NativeStudyWorker, NativeStudyWorkerInputs, NativeStudyWorkerObserver, NativeStudyWorkerSpec, NativeWorkerTerminal};
 mod declared_requests;
 mod operation_preparation;
 pub use declared_requests::conform_pure_request;
@@ -578,6 +580,7 @@ pub struct Runtime {
     pub(crate) durability: Durability,
     recording_operations: Option<Box<Operations>>,
     physical_cache: Arc<physical_cache::PhysicalCache>,
+    managed_worker: Option<NativeStudyWorkerObserver>,
 }
 /// Select execution durability within this runtime's canonical deployment and pool.
 #[derive(Clone, Debug)]
@@ -686,6 +689,7 @@ impl Runtime {
             },
             durability,
             physical_cache,
+            managed_worker: None,
         })
     }
     /// Construct an explicitly ephemeral caller over the existing deployment. No
@@ -712,6 +716,7 @@ impl Runtime {
             durability: Durability::Ephemeral,
             recording_operations: None,
             physical_cache,
+            managed_worker: None,
         })
     }
     /// Attach an explicitly opened import/recording boundary to this same caller.

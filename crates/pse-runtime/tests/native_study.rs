@@ -108,6 +108,9 @@ impl Science {
         })
     }
     fn submit(&self,count:u32) -> BoxFuture<'_,(StudyHandle,String)> {
+        self.submit_with_seed_policy(count,Default::default())
+    }
+    fn submit_with_seed_policy(&self,count:u32,unavailable:pse_model::study::UnavailableSeedPolicy) -> BoxFuture<'_,(StudyHandle,String)> {
         Box::pin(async move {
         let runtime=&self.runtimes[0]; let cancel=CancelSource::new();
         let package=self.package().await;
@@ -142,7 +145,7 @@ impl Science {
                     },..Default::default()}}),
             preparation:PreparationSettings::default(),overlay:PointOverlay::default(),
             policy:StudyPointPolicy {key:OccurrenceKey(key),dependencies:if key==0 {vec![]} else {vec![Dependency::Ordering(OccurrenceKey(0))]},
-                start:if key==0 {StartPolicy::Fresh} else {StartPolicy::Continuation(SeedEdge {predecessor:OccurrenceKey(0),role:SeedRole::PrimalSolution,permission:Default::default(),unavailable:Default::default()})},attempt_limit:1},
+                start:if key==0 {StartPolicy::Fresh} else {StartPolicy::Continuation(SeedEdge {predecessor:OccurrenceKey(0),role:SeedRole::PrimalSolution,permission:Default::default(),unavailable})},attempt_limit:1},
         }).collect();
         let local=admit(&package,&runtime.execution_services(),&StudyInputs::Explicit(points),&cancel).await.unwrap();
         let definition=record(runtime,&local,&cancel).await.unwrap();
@@ -275,7 +278,7 @@ fn journey<'a>(science:&'a mut Science,store:&'a CanonicalStore,service:&'a mut 
     })
 }
 #[derive(Clone,Copy)]
-enum NativeStudyCase { Completed, BeforeClaim, ActiveCancellation }
+enum NativeStudyCase { Completed, BeforeClaim, ActiveCancellation, CrashReplacement }
 
 #[derive(Default)]
 struct HeldNativeEntry {
@@ -349,7 +352,9 @@ fn active_cancellation<'a>(science:&'a mut Science,store:&'a CanonicalStore,serv
         }
         entry.release();
         let (left,right)=work.await;
-        assert!(left.is_ok() && right.is_ok(),"original worker settlement: {left:?}, {right:?}");
+        let settled = |result: &Result<usize, WorkflowError>| matches!(result,
+            Ok(_) | Err(WorkflowError::Math(pse_runtime::math::MathRuntimeError::Cancelled)));
+        assert!(settled(&left) && settled(&right),"original worker settlement: {left:?}, {right:?}");
         assert!(entry.exited.load(Ordering::SeqCst));
         original
         };
@@ -365,6 +370,198 @@ fn active_cancellation<'a>(science:&'a mut Science,store:&'a CanonicalStore,serv
         assert!(!status.points[0].outcome.as_ref().unwrap().scientific.usable);
     })
 }
+
+const CRASH_TEST: &str = "native_recorded_study_killed_process_is_drained_before_replacement_and_preserves_unknown_effect";
+const CRASH_STATE: &str = "PSE_NATIVE_STUDY_CRASH_STATE";
+
+// The same already-built test executable supplies an actual scientific worker.
+// No CLI deployment profile, configured service or production worker is selected.
+async fn crash_child(state:&Path) {
+    let ready=CanonicalStore::connect_ready(&pse_operations::canonical::CanonicalOptions::from_state(state).unwrap()).await.unwrap();
+    let store=ready.store();
+    let science=Science::new(&[store.clone(),store.clone(),store.clone()]);
+    let entry_path=state.join("crash-native-entry");
+    let observer=Arc::new(move |stop:&std::sync::atomic::AtomicBool| {
+        use std::{io::Write,os::unix::fs::OpenOptionsExt};
+        let temporary=entry_path.with_extension("pending");
+        let mut file=std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&temporary).unwrap();
+        write!(file,"{}",std::process::id()).unwrap();file.sync_all().unwrap();
+        std::fs::rename(temporary,&entry_path).unwrap();
+        // Hold a real admitted native session, with a finite orphan fallback.
+        // SIGKILL must destroy this process before this callback can return.
+        let entry=HeldNativeEntry::default();
+        let deadline=Instant::now()+Duration::from_secs(90);
+        let mut released=entry.released.lock().unwrap();
+        while !stop.load(Ordering::SeqCst) && Instant::now()<deadline {
+            released=entry.changed.wait_timeout(released,Duration::from_millis(10)).unwrap().0;
+        }
+        stop.store(true,Ordering::SeqCst);
+    });
+    pse_runtime::math::install_qualified_native_entry(observer.clone()).unwrap();
+    let stop=CancelSource::new();
+    let result=AssertUnwindSafe(pse_runtime::math::observed_native_entry(observer,serve(&science.runtimes[1],&stop))).catch_unwind().await;
+    let closed=science.close().await;
+    let disconnected=store.disconnect().await;
+    if let Err(error)=&closed {eprintln!("crash child native drain failed: {error}");}
+    if let Err(error)=&disconnected {eprintln!("crash child connection drain failed: {error}");}
+    if let Err(panic)=result {std::panic::resume_unwind(panic);}
+    closed.unwrap();
+    disconnected.unwrap();
+    panic!("crash worker returned instead of being killed: {:?}",result.unwrap());
+}
+
+fn crash_replacement<'a>(science:&'a mut Science,store:&'a CanonicalStore,service:&'a mut NativeCanonicalService)->BoxFuture<'a,()> {
+    Box::pin(async move {
+        use std::{os::unix::{fs::OpenOptionsExt,process::ExitStatusExt},process::{Command,Stdio}};
+        let (handle,revision)=science.submit_with_seed_policy(2,pse_model::study::UnavailableSeedPolicy::FreshOnUnavailable).await;
+        let study=handle.study_id();
+        let point_key=pse_operations::canonical_studies::point_key(&study.to_string(),OccurrenceKey(0));
+        let log_path=service.state().join("crash-worker.log");
+        let log=std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&log_path).unwrap();
+        let mut command=Command::new(std::env::current_exe().unwrap());
+        command.args(["--exact",CRASH_TEST,"--nocapture"])
+            .env(CRASH_STATE,service.state()).stdin(Stdio::null())
+            .stdout(Stdio::from(log.try_clone().unwrap())).stderr(Stdio::from(log));
+        let mut child=pse_diagnostics::SupervisedChild::spawn(&mut command,
+            pse_diagnostics::DrainFailurePolicy::Refuse(Duration::from_secs(30)),None).unwrap();
+        let result=AssertUnwindSafe(async {
+            let original_identity=child.identity().unwrap().clone();
+            let entered=service.state().join("crash-native-entry");
+            let deadline=Instant::now()+Duration::from_secs(120);
+            while !entered.exists() {
+                assert!(child.try_wait().unwrap().is_none(),"scientific child exited before entry; log={}",log_path.display());
+                assert!(Instant::now()<deadline,"scientific child never entered; log={}",log_path.display());
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            assert_eq!(std::fs::read_to_string(&entered).unwrap(),original_identity.pid.to_string());
+            let original=store.canonical_study_point(&point_key).await.unwrap().unwrap();
+            assert!(original.assigned && !original.settled);
+            assert!(pse_operations::canonical_studies::point_facts(&original).unwrap().native_started);
+            let original_attempt=store.canonical_attempt(original.attempt.as_ref().unwrap()).await.unwrap().unwrap();
+            assert!(!original_attempt.terminal());
+            // The existing owner verifies pidfd identity, kills only its fresh
+            // process group, drains every member and reaps the original leader.
+            let status=child.cancel().unwrap();
+            assert_eq!(status.signal(),Some(9));
+            assert_eq!(child.retained_status(),Some(status),"retention follows whole-group physical drain");
+            assert!(chrono::Utc::now().timestamp_micros()<original_attempt.expires_at,
+                "original physical death must precede even its previously observed lease expiry");
+            let frozen=store.canonical_attempt(&original_attempt.key).await.unwrap().unwrap();
+            assert!(!frozen.terminal(),"process death alone does not manufacture canonical completion");
+            assert_eq!(frozen.generation,original_attempt.generation);
+            // Wait on the original canonical lease fact, never use a sleep as
+            // evidence of death or manufacture expiry through database writes.
+            let deadline=Instant::now()+Duration::from_secs(45);
+            while chrono::Utc::now().timestamp_micros()<=frozen.expires_at {
+                assert!(Instant::now()<deadline,"original lease did not become recoverable");
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            let fresh=service.connect().await.unwrap();
+            let replacement=science.attach(fresh.store(),"after-process-death");
+            let entered=Arc::new(AtomicUsize::new(0));
+            let observer={let entered=entered.clone();Arc::new(move |_:&std::sync::atomic::AtomicBool| {entered.fetch_add(1,Ordering::SeqCst);})};
+            pse_runtime::math::install_qualified_native_entry(observer.clone()).unwrap();
+            let stop=CancelSource::new();
+            // A transient idle pass is not a terminal-study witness: the last
+            // issued heartbeat may still settle after physical process death.
+            // Keep one replacement service until the canonical conclusion, then
+            // cancel and join that same owner under the existing finite watchdog.
+            let mut replacement_settings=settings(); replacement_settings.until_idle=false;
+            let work=pse_runtime::math::observed_native_entry(observer,
+                Box::pin(science.runtimes[replacement].serve(replacement_settings,&stop)));
+            tokio::pin!(work);
+            let recovered=async {
+                loop {
+                    let status=handle.status().await?;
+                    if status.points[0].settled { return Ok::<_,WorkflowError>(status); }
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+            };
+            let recovered=tokio::select! {
+                result=&mut work=>panic!("replacement service ended before original recovery: {result:?}"),
+                observed=tokio::time::timeout(Duration::from_secs(120),recovered)=>observed,
+            };
+            let recovered=match recovered {
+                Ok(Ok(status))=>status,
+                other=>{ stop.cancel();let drained=work.await;panic!("original recovery unavailable: {other:?}; drain={drained:?}"); }
+            };
+            assert_eq!(recovered.state,pse_runtime::workflow::StudyState::Open);
+            assert_eq!(recovered.points[0].attempt.as_ref(),Some(&original_attempt.key));
+            assert!(!recovered.points[0].outcome.as_ref().unwrap().scientific.usable);
+            assert!(!recovered.points[0].outcome.as_ref().unwrap().scientific.seed_permission);
+            assert_eq!(recovered.points[0].outcome.as_ref().unwrap().effect,pse_model::study::EffectState::Unknown);
+            assert_eq!(recovered.points[1].state,pse_model::generated::enums::StudyPointState::Pending);
+            assert!(recovered.points[1].attempt.is_none());
+            assert_eq!(entered.load(Ordering::SeqCst),0,"physical death grants no resolution of unknown effects");
+
+            // Explicit independent authored work can use the replacement. It is
+            // neither a retry nor a continuation of the unresolved original.
+            let (independent,independent_revision)=science.submit(1).await;
+            assert_ne!(independent.study_id(),study);
+            let observe=async {
+                loop {
+                    let status=independent.status().await?;
+                    if status.state==pse_runtime::workflow::StudyState::Concluded { return Ok::<_,WorkflowError>(status); }
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+            };
+            let observed=tokio::select! {
+                result=&mut work=>panic!("replacement service ended before independent conclusion: {result:?}"),
+                observed=tokio::time::timeout(Duration::from_secs(120),observe)=>observed,
+            };
+            stop.cancel();
+            let worked=work.await;
+            let status=match observed {
+                Ok(Ok(status))=>status,
+                other=> {
+                    let original=handle.status().await;
+                    let attempt=store.canonical_attempt(&original_attempt.key).await;
+                    panic!("independent conclusion unavailable: {other:?}; original={original:?}; attempt={attempt:?}; replacement drain={worked:?}");
+                }
+            };
+            assert!(worked.unwrap()>0);
+            // One occurrence can admit preparation and solve sessions separately.
+            // The canonical attempt assertions below establish occurrence identity.
+            assert!(entered.load(Ordering::SeqCst)>0,"independent authored work must actually enter native science");
+            let services=science.runtimes[replacement].execution_services();
+            let pse_runtime::workflow::Durability::Durable(operations)=services.durability() else {panic!("durable replacement");};
+            let lost=operations.record(&original.run,&original_attempt.key).await.unwrap();
+            assert_eq!(lost.attempt.as_ref().unwrap().outcome.as_ref().map(|value|value.as_str()),Some("failed"));
+            assert!(lost.completion.as_ref().unwrap().completion.is_none());
+            assert!(lost.solutions.is_empty(),"killed native entry supplies no reusable seed");
+            assert_eq!(lost.attempt.as_ref().unwrap().generation,original_attempt.generation);
+            let lost_id=lost.attempt_id;drop(lost);
+            let original_status=handle.status().await.unwrap();
+            assert_eq!(original_status.state,pse_runtime::workflow::StudyState::Open);
+            assert_eq!(original_status.points[0].outcome.as_ref().unwrap().attempts.len(),1);
+            assert_eq!(original_status.points[0].outcome.as_ref().unwrap().attempts[0].attempt_id,Some(lost_id));
+            assert!(original_status.points[1].attempt.is_none());
+            let original_run=store.canonical_run(&original.run).await.unwrap().unwrap();
+            assert_eq!(original_run.revision,revision);
+            assert!(original_run.current_generation>original_attempt.generation);
+            let original_summary=store.canonical_study_summary(&study.to_string()).await.unwrap().unwrap();
+            let parent=store.canonical_run(&original_summary.run).await.unwrap().unwrap();
+            assert!(store.canonical_attempt_page(&original_summary.run,None,parent.current_generation).await.unwrap().is_empty(),
+                "unknown original effects cannot produce a completed parent inventory");
+            let [point]=status.points.as_slice() else {panic!("one independent occurrence");};
+            assert!(point.settled && point.outcome.as_ref().unwrap().scientific.usable);
+            assert_eq!(point.outcome.as_ref().unwrap().attempts.len(),1);
+            let run=store.canonical_run(&point.run).await.unwrap().unwrap();
+            assert_eq!(run.revision,independent_revision);
+            value(&science.runtimes[replacement],&point.run,point.attempt.as_ref().unwrap()).await;
+            let summary=store.canonical_study_summary(&independent.study_id().to_string()).await.unwrap().unwrap();
+            let parent=store.canonical_run(&summary.run).await.unwrap().unwrap();
+            let attempts=store.canonical_attempt_page(&summary.run,None,parent.current_generation).await.unwrap();
+            assert_eq!(attempts.len(),1,"one independent parent finalization");assert!(attempts[0].terminal);
+        }).catch_unwind().await;
+        // Even failed assertions attempt child drain before the enclosing owner
+        // independently closes native lanes, connections and the private service.
+        let drained=child.cancel();
+        if let Err(error)=&drained {eprintln!("crash worker physical drain failed: {error}; log={}",log_path.display());}
+        if let Err(panic)=result {std::panic::resume_unwind(panic);}
+        drained.unwrap();
+    })
+}
 async fn run_private(case:NativeStudyCase) {
     let mut service=service();
     service.run(Instant::now()+Duration::from_secs(240),|service|Box::pin(async move {
@@ -377,6 +574,7 @@ async fn run_private(case:NativeStudyCase) {
             NativeStudyCase::Completed=>journey(&mut science,&store,service,false),
             NativeStudyCase::BeforeClaim=>journey(&mut science,&store,service,true),
             NativeStudyCase::ActiveCancellation=>active_cancellation(&mut science,&store,service),
+            NativeStudyCase::CrashReplacement=>crash_replacement(&mut science,&store,service),
         };
         let result=AssertUnwindSafe(body).catch_unwind().await;
         if let Err(error)=science.close().await {
@@ -394,3 +592,8 @@ async fn native_recorded_study_two_workers_preserve_science_protection_and_linea
 async fn native_recorded_study_cancelled_before_claim_never_enters_native_and_reopens_its_summary() {run_private(NativeStudyCase::BeforeClaim).await;}
 #[tokio::test]
 async fn native_recorded_study_active_cancellation_joins_original_owner_before_replacement() {run_private(NativeStudyCase::ActiveCancellation).await;}
+#[tokio::test]
+async fn native_recorded_study_killed_process_is_drained_before_replacement_and_preserves_unknown_effect() {
+    if let Some(state)=std::env::var_os(CRASH_STATE) {crash_child(Path::new(&state)).await;return;}
+    run_private(NativeStudyCase::CrashReplacement).await;
+}

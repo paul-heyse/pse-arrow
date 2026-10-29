@@ -128,6 +128,21 @@ builder. Host tools must be explicitly refreshed after source edits with `script
 
 ## Native foreground ownership and supported placement
 
+The workstation's default scientific deployment selects the existing `reference` declaration:
+a 128 GiB shared scientific pool, 140 GiB worker process envelope and 160 GiB total envelope
+including storage and observer. Interactive request capacity is 128 GiB. These are admission
+and retention ceilings, not resident RAM reservations. Explicit smaller, timing and observer
+profiles retain their declared meanings. Ordinary builds/tests remain uncapped under
+`PSE_BUILD_MODE=unbounded`, with 32 compiler jobs and 16 test lanes. Changing the default does
+not resize already running services; newly constructed native owners consume it.
+
+Worker compiler workspace and artifact retention derive from the actual selected pool via
+`MathPolicy::for_pool`; execution profiles still own numeric/job allowances. A final native
+application root and its Tokio threads use at least the existing 32 MiB qualified mathematical
+stack, preserving a larger explicit `RUST_MIN_STACK`. The OS main stack is not resized by that
+environment variable, so the process joins a properly sized application thread. Higher limits
+can avoid premature refusal, eviction or spilling; no performance improvement is measured here.
+
 Configured `PSE_BUILD_MODE=unbounded` ordinary work uses all host CPUs and the declared Cargo
 jobs without a new memory cap or slot ledger. Recipe class hints do not recreate finite
 allocation policy. Explicit finite/scientific classes and `PSE_MEMORY_MAX` select finite
@@ -355,39 +370,22 @@ Structured compiler feedback is available with
 Cargo's `compiler-message` records carry the diagnostic and spans, while non-diagnostic
 records describe build progress. This does not measure compiler or solver performance.
 
-For managed durable studies, select the reference execution profile and an already
-built linked worker when creating state:
+For new managed durable studies, construct `NativeCanonicalService` with an explicitly
+prepared module and the selected server/helper, then launch it to obtain `SchemaReady`.
+Construct `NativeStudyWorker` from that readiness capability, the already built linked
+`pse-worker`, selected environment, materialized allocation and sustained worker settings.
+Retain this performing owner before calling `launch`; give scientific callers only its
+identity-pinned observer through `Runtime::with_managed_worker`.
 
-```bash
-export PSE_SURREAL_STATE=/absolute/path/to/private/reference-state
-just deployment-build
-scripts/pse-env --native -- .venv/bin/python -m scripts.arrow_validation build -p pse-runtime --bin pse-worker --locked --features product-operators,native-solvers
-scripts/pse-env -- .venv/bin/python -m scripts.arrow_validation build -p pse-operations --bin pse-canonical-recovery --locked
-scripts/pse-env --native -- just surreal setup --execution-profile reference \
-  --worker-executable "$PWD/target/debug/pse-worker" \
-  --payload-verifier "$PWD/target/debug/pse-canonical-recovery"
-scripts/pse-env --resource-class reference -- bash -euo pipefail -s <<'SH'
-cleanup() {
-  just surreal quiesce --state "$PSE_SURREAL_STATE"
-  just surreal stop --drained --state "$PSE_SURREAL_STATE"
-}
-trap cleanup EXIT
-just canonical-init "$PSE_SURREAL_STATE"
-just surreal start --state "$PSE_SURREAL_STATE"
-# Run the selected managed study here, before leaving its allocation.
-SH
-```
+Build the child explicitly through the native correctness route with the actual solver
+features; neither launch nor observation builds it. `pse-worker --native-input` consumes only
+the owner's private handoff, not a Python receiver context. After canonical conclusion,
+shutdown joins native lanes and final transport work before publishing the application receipt;
+physical shutdown still belongs to the original native unit owner. `just worker-test` is the
+selected Rust process-journey route and requires an explicitly prepared module receipt and
+already built canonical-service helper. Broader scientific and old-state cutovers remain in
+Plan58 B/C/F/G; this route is not a claim that those packages are complete.
 
-The setup records the selected worker bytes and the exact reference allocation.
-Receiver publication captures the prepared native environment. Keep the allocation
-materializer on its separate `deployment-build` route: it must run before native
-library paths are prepared. A fresh state initializes through its closed lifecycle
-owner before ordinary startup; normal start cannot bypass required validation.
-Start, managed work and drained stop share one reference allocation: the reference
-store exceeds the ordinary resident functional lane. A plain light start does not
-establish that allocation. The trap stops the owned service without deleting its data.
-A compatible rebuilt worker is frozen into a new context receiver generation;
-existing receivers retain their admitted bytes and storage remains running.
 Existing legacy state requires quiescing and draining its workers, stopping the
 server, then `just surreal reconfigure --execution-profile reference
 --worker-executable "$PWD/target/debug/pse-worker"` before restarting. The

@@ -18,21 +18,24 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
-#[path = "support/deployment.rs"]
-mod deployment;
 #[path = "support/signals.rs"]
 mod signals;
 
 use clap::Parser;
 use pse_runtime::workflow::{
-    DurabilitySelection, LeasePolicy, Operations, Runtime, WorkerSettings, WorkflowError,
+    CanonicalDeployment, DurabilitySelection, LeasePolicy, NativeStudyWorkerInputs, Operations, OuterAttestation, Runtime, WorkflowError,
 };
 use pse_runtime::{CancelSource, ResourceBudget, SharedRuntime};
+#[cfg(test)]
+use pse_runtime::workflow::WorkerSettings;
 
 /// Managed canonical study worker.
 #[derive(Debug, Parser)]
 #[command(name = "pse-worker", version)]
 struct Cli {
+    /// Explicit native application handoff produced by NativeStudyWorker.
+    #[arg(long)]
+    native_input: Option<std::path::PathBuf>,
     /// Canonical database on the supervised endpoint; defaults to the profile selection.
     #[arg(long)]
     canonical_database: Option<String>,
@@ -50,8 +53,8 @@ struct Cli {
     #[arg(long, default_value_t = 10_000)]
     heartbeat_ms: u64,
     /// Idle poll period in milliseconds.
-    #[arg(long, default_value_t = 500)]
-    poll_ms: u64,
+    #[arg(long)]
+    poll_ms: Option<u64>,
     /// Stop after this many processed scheduling actions.
     #[arg(long)]
     maximum_actions: Option<usize>,
@@ -135,7 +138,7 @@ fn resource_budget(
                 worker_bytes: execution.worker_bytes,
                 jobs: execution.math_jobs,
                 admission_wait: Duration::from_millis(execution.admission_wait_ms),
-                ..Default::default()
+                ..pse_runtime::math::MathPolicy::for_pool(execution.pool_memory_bytes)
             },
         });
     }
@@ -154,12 +157,7 @@ fn resource_budget(
     let threads = cli
         .threads
         .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, NonZeroUsize::get));
-    let math = pse_runtime::math::MathPolicy {
-        workspace_bytes: memory / 8,
-        worker_bytes: memory / 2,
-        artifact_bytes: memory / 8,
-        ..Default::default()
-    };
+    let math = pse_runtime::math::MathPolicy::for_pool(memory);
     Ok(ResourceBudget {
         memory_limit_bytes: count(memory),
         spill_dir: std::env::temp_dir(),
@@ -283,151 +281,45 @@ fn verify_placement_hierarchy(
     Ok(())
 }
 
-fn producer_receipt_observation(
-    path: Option<&std::ffi::OsStr>,
-) -> Result<(Option<String>, Option<String>), String> {
-    use sha2::{Digest, Sha256};
-    use std::io::Read;
-    let Some(path) = path else {
-        return Ok((None, None));
-    };
-    let path = std::path::Path::new(path);
-    let display = path
-        .to_str()
-        .ok_or("worker receipt path is not UTF-8")?
-        .to_owned();
-    let mut file = std::fs::File::open(path).map_err(|error| error.to_string())?;
-    let mut hash = Sha256::new();
-    let mut buffer = [0_u8; 65536];
-    loop {
-        let bytes = file.read(&mut buffer).map_err(|error| error.to_string())?;
-        if bytes == 0 {
-            break;
-        }
-        hash.update(&buffer[..bytes]);
-    }
-    let digest = hash
-        .finalize()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
-    Ok((Some(display), Some(digest)))
-}
-
-fn publish_ready(
-    cli: &Cli,
-    selected: &pse_runtime::workflow::NativeExecutionSelection,
-    diagnostics: &pse_runtime::observation::Diagnostics,
-) -> Result<(), String> {
-    let Some(nonce) = std::env::var_os("PSE_PRIMARY_NONCE") else {
-        return Ok(());
-    };
-    let state = std::env::var_os("PSE_SURREAL_STATE").ok_or("managed primary state missing")?;
-    let state = std::path::Path::new(&state);
-    selected
-        .require_current()
-        .map_err(|error| error.to_string())?;
-    let (_, execution) = selected
-        .managed_primary()
-        .map_err(|error| error.to_string())?;
-    if cli.maximum_in_flight != Some(execution.case_lanes)
-        || cli.until_idle
-        || cli.maximum_actions.is_some()
-    {
-        return Err("managed primary requires its declared sustained case lanes".into());
-    }
-    // runtime() has completed the deployment owner's receipt/header/artifact admission.
-    // This streamed observation associates that receiving input without another validator.
-    let receipt = std::env::var_os("PSE_PRODUCER_RECEIPT");
-    let (receipt_path, receipt_sha256) = producer_receipt_observation(receipt.as_deref())?;
-    let value = serde_json::json!({
-        "producer_receipt_path": receipt_path, "producer_receipt_sha256": receipt_sha256,
-        "ready": true, "pid": std::process::id(), "nonce": nonce.to_string_lossy(),
-        "canonical_database": selected.database(),
-        "diagnostics": {
-            "identity": diagnostics.checkpoint_identity(),
-            "checkpoint": diagnostics.checkpoint_path(),
-            "enabled": diagnostics.hub().policy().enabled,
-            "writer_failure": diagnostics.writer_failure(),
-        },
-        "pool_memory_bytes": execution.pool_memory_bytes, "worker_bytes": execution.worker_bytes,
-        "cpu_threads": execution.cpu_threads, "case_lanes": execution.case_lanes, "math_jobs": execution.math_jobs,
-    });
-    #[cfg(feature = "canonical-tests")]
-    let value = {
-        let mut value = value;
-        value["qualification_native_entry"] = serde_json::json!(cli.qualification_native_entry);
-        value
-    };
-    let temporary = state.join(format!(".primary-ready-{}.json", std::process::id()));
-    let mut options = std::fs::OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut file = options
-        .open(&temporary)
-        .map_err(|error| error.to_string())?;
-    use std::io::Write;
-    file.write_all(&serde_json::to_vec(&value).map_err(|error| error.to_string())?)
-        .map_err(|error| error.to_string())?;
-    file.sync_all().map_err(|error| error.to_string())?;
-    std::fs::rename(&temporary, state.join("primary-receiver.json"))
-        .map_err(|error| error.to_string())?;
-    std::fs::File::open(state)
-        .and_then(|directory| directory.sync_all())
-        .map_err(|error| error.to_string())
-}
-
 async fn runtime(
     cli: &Cli,
     stop: &CancelSource,
-) -> Result<(Runtime, pse_runtime::workflow::NativeExecutionSelection), String> {
-    let state = std::env::var_os("PSE_SURREAL_STATE")
-        .ok_or("PSE_SURREAL_STATE must select a supervised canonical deployment")?;
-    let selected = pse_runtime::workflow::NativeExecutionSelection::from_state(
-        std::path::Path::new(&state),
-        cli.canonical_database.as_deref(),
-    )
-    .map_err(|e| format!("managed execution configuration: {e}"))?;
-    verify_placement(&selected.allocation()).map_err(|e| format!("managed placement: {e}"))?;
+) -> Result<(Runtime, NativeStudyWorkerInputs), String> {
+    if stop.token().is_cancelled() { return Err("native worker startup cancelled".into()); }
+    let path = cli.native_input.as_deref().ok_or("--native-input must select an explicit native application handoff")?;
+    let selected = NativeStudyWorkerInputs::read(path).map_err(|error| error.to_string())?;
+    if cli.canonical_database.as_deref().is_some_and(|database| database != selected.database())
+        || cli.until_idle || cli.maximum_actions.is_some() || cli.maximum_in_flight.is_some_and(|width| Some(width) != selected.settings().maximum_in_flight)
+        || cli.poll_ms.is_some_and(|poll| Duration::from_millis(poll) != selected.settings().poll)
+    { return Err("worker overrides differ from the original native sustained application".into()); }
+    verify_placement(&selected.allocation()).map_err(|error| format!("managed placement: {error}"))?;
     let shared = SharedRuntime::build(resource_budget(cli, selected.allocation())?)
-        .map_err(|e| format!("runtime budget: {e}"))?;
-    let registry = pse_schema::shared_registry().map_err(|e| format!("registry: {e}"))?;
-    let sessions = Arc::new(
-        shared
-            .session_factory(pse_engine::session::native_engine_profile())
-            .map_err(|e| format!("session factory: {e}"))?,
-    );
-    let deployment = deployment::open(cli.canonical_database.as_deref(), shared.math(), stop)
-        .await
-        .map_err(|e| format!("canonical deployment admission: {e}"))?;
+        .map_err(|error| format!("runtime budget: {error}"))?;
+    let model = Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())
+        .map_err(|error| error.to_string())?).bind_model(pse_schema::shared_registry().map_err(|error| error.to_string())?)
+        .map_err(|error| error.to_string())?;
     let defaults = LeasePolicy::default();
-    let policy = LeasePolicy::new(
-        Duration::from_secs(cli.lease_seconds),
-        Duration::from_millis(cli.heartbeat_ms),
-        defaults.batch(),
-        defaults.flush(),
-    )
-    .map_err(|error| error.to_string())?;
-    let worker = cli
-        .name
-        .clone()
-        .unwrap_or_else(|| Operations::process_worker("pse-worker"));
-    let model = sessions
-        .bind_model(registry)
+    let policy = LeasePolicy::new(Duration::from_secs(cli.lease_seconds), Duration::from_millis(cli.heartbeat_ms), defaults.batch(), defaults.flush())
         .map_err(|error| error.to_string())?;
-    let runtime = Runtime::from_shared(shared, model, deployment)
-        .and_then(|runtime| {
-            runtime.with_durability(DurabilitySelection::Durable { worker, policy })
-        })
+    let worker = cli.name.clone().unwrap_or_else(|| Operations::process_worker("pse-worker"));
+    // Same callable Rust composition as native_study: schema-ready connection,
+    // explicit shared budget/model, then the real Runtime::serve scientific root.
+    let actual = std::env::current_exe().map_err(|error| error.to_string())?;
+    pse_buildinfo::verify_loaded_module(&actual).map_err(|error| error.to_string())?;
+    let mut file = std::fs::File::open(&actual).map_err(|error| error.to_string())?;
+    let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+    hash.part_reader(file.metadata().map_err(|error| error.to_string())?.len(), &mut file, &|| Ok(()))
         .map_err(|error| error.to_string())?;
-    selected
-        .require_current()
-        .map_err(|error| error.to_string())?;
-    Ok((runtime, selected))
+    let store = selected.connect().await.map_err(|error| error.to_string())?;
+    let built = Runtime::from_shared(shared, model, CanonicalDeployment::new(store.clone(), OuterAttestation { source: None, build: hash.finish_hash() }, None))
+        .and_then(|runtime| runtime.with_durability(DurabilitySelection::Durable { worker, policy }));
+    match built {
+        Ok(runtime) => Ok((runtime, selected)),
+        Err(error) => {
+            let cleanup = store.disconnect().await;
+            Err(format!("native runtime construction: {error}; connection cleanup: {cleanup:?}"))
+        }
+    }
 }
 
 fn diagnostic_report(error: &WorkflowError) -> String {
@@ -445,12 +337,13 @@ fn report(error: &WorkflowError) {
     }
 }
 
+#[cfg(test)]
 fn worker_settings(
     cli: &Cli,
     allocation: pse_runtime::workflow::NativeAllocation,
 ) -> WorkerSettings {
     WorkerSettings {
-        poll: Duration::from_millis(cli.poll_ms),
+        poll: cli.poll_ms.map(Duration::from_millis).unwrap_or(WorkerSettings::default().poll),
         maximum_actions: cli.maximum_actions,
         maximum_in_flight: cli
             .maximum_in_flight
@@ -461,13 +354,13 @@ fn worker_settings(
 }
 
 async fn serve(
-    cli: &Cli,
+    _cli: &Cli,
     runtime: Runtime,
-    allocation: pse_runtime::workflow::NativeAllocation,
+    selected: &NativeStudyWorkerInputs,
     stop: &CancelSource,
     #[cfg(feature = "canonical-tests")] qualification: Option<Arc<qualification::Controller>>,
 ) -> Result<usize, WorkflowError> {
-    let settings = worker_settings(cli, allocation);
+    let settings = selected.settings();
     let result = async {
         #[cfg(feature = "canonical-tests")]
         if let Some(qualification) = qualification {
@@ -495,18 +388,73 @@ async fn serve(
         }
         runtime.serve(settings, stop).await
     }.await;
+    finish(&runtime, selected, result).await
+}
+
+async fn finish(runtime: &Runtime, selected: &NativeStudyWorkerInputs, result: Result<usize, WorkflowError>) -> Result<usize, WorkflowError> {
     runtime.close();
-    match (result, runtime.native().shutdown_native_lanes().await) {
+    runtime.clear_program_cache();
+    let native = runtime.native().shutdown_native_lanes().await;
+    let joined = native.is_ok();
+    let result = match (result, native) {
         (Ok(value), Ok(())) => Ok(value),
         (Err(error), Ok(())) => Err(error),
         (Ok(_), Err(error)) => Err(error.into()),
         (Err(operation), Err(cleanup)) => Err(WorkflowError::Settlement {
             operation: Box::new(operation), cleanup: Box::new(cleanup.into()),
         }),
+    };
+    let cleanup = match runtime.canonical_store() {
+        // This is the final application owner, after serve and native lanes
+        // joined. A known response can precede its actual outbound transport
+        // drain; seal admission and join that suffix instead of an early busy
+        // refusal. Live escaped readers still refuse through the existing owner.
+        Ok(store) => store.drain_owned_connection_until(
+            tokio::time::Instant::now() + Duration::from_secs(30),
+        ).await.map_err(WorkflowError::from),
+        Err(error) => Err(error),
+    };
+    let result = combine(result, cleanup);
+    let published = selected.publish_terminal(joined, &result);
+    combine(result, published)
+
+}
+
+fn combine<T>(result: Result<T, WorkflowError>, cleanup: Result<(), WorkflowError>) -> Result<T, WorkflowError> {
+    match (result, cleanup) {
+        (Ok(value), Ok(())) => Ok(value),
+        (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
+        (Err(operation), Err(cleanup)) => Err(WorkflowError::Settlement { operation: Box::new(operation), cleanup: Box::new(cleanup) }),
     }
 }
 
 fn main() -> ExitCode {
+    if let Err(error) = ensure_openmp_environment() {
+        eprintln!("error: {error}");
+        return ExitCode::FAILURE;
+    }
+    // block_on polls its root on the calling thread. RUST_MIN_STACK does not
+    // resize the OS main stack: give the actual application root the same
+    // qualified stack as native structural work, preserving a larger selection.
+    let stack = match std::env::var("RUST_MIN_STACK") {
+        Ok(value) => match value.parse::<usize>() {
+            Ok(value) if value > 0 => value.max(pse_runtime::math::MathPolicy::default().stack_bytes),
+            _ => { eprintln!("error: RUST_MIN_STACK must be a positive byte count"); return ExitCode::FAILURE; }
+        },
+        Err(std::env::VarError::NotPresent) => pse_runtime::math::MathPolicy::default().stack_bytes,
+        Err(error) => { eprintln!("error: RUST_MIN_STACK: {error}"); return ExitCode::FAILURE; }
+    };
+    match std::thread::Builder::new().name("pse-worker-root".into())
+        .stack_size(stack).spawn(move || run(stack)) {
+        Ok(root) => match root.join() {
+            Ok(status) => status,
+            Err(panic) => std::panic::resume_unwind(panic),
+        },
+        Err(error) => { eprintln!("error: worker root: {error}"); ExitCode::FAILURE }
+    }
+}
+
+fn run(stack: usize) -> ExitCode {
     if let Err(error) = ensure_openmp_environment() {
         eprintln!("error: {error}");
         return ExitCode::FAILURE;
@@ -521,6 +469,7 @@ fn main() -> ExitCode {
         };
     let cli = Cli::parse();
     let executor = match tokio::runtime::Builder::new_multi_thread()
+        .thread_stack_size(stack)
         .enable_all()
         .build()
     {
@@ -550,40 +499,34 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    #[cfg(feature = "canonical-tests")]
-    let qualification = match cli
-        .qualification_native_entry
-        .as_deref()
-        .map(|directory| qualification::Controller::open(directory, &cli, &selected))
-        .transpose()
-    {
-        Ok(qualification) => qualification,
-        Err(error) => {
-            eprintln!("error: native entry qualification: {error}");
-            return ExitCode::FAILURE;
-        }
-    };
-    #[cfg(feature = "canonical-tests")]
-    if let Some(controller) = &qualification {
-        let observer = controller.clone();
-        if let Err(error) =
-            pse_runtime::math::install_qualified_native_entry(Arc::new(move |flag| {
-                observer.enter(flag)
-            }))
-        {
-            eprintln!("error: {error}");
-            return ExitCode::FAILURE;
-        }
-    }
-    if let Err(error) = publish_ready(&cli, &selected, runtime.observations()) {
-        eprintln!("error: primary readiness publication: {error}");
-        return ExitCode::FAILURE;
-    }
+    // Keep the actual application root through every startup refusal as well as
+    // serving: no ready-publication or qualification error bypasses native drain.
     let diagnostics = runtime.observations().clone();
     #[cfg(feature = "canonical-tests")]
-    let result = executor.block_on(serve(&cli, runtime, selected.allocation(), &stop, qualification));
+    let startup = (|| {
+        let qualification = cli.qualification_native_entry.as_deref()
+            .map(|directory| qualification::Controller::open(directory, &cli, &selected)).transpose()
+            .map_err(|error| WorkflowError::Internal(format!("native entry qualification: {error}")))?;
+        if let Some(controller) = &qualification {
+            let observer = controller.clone();
+            pse_runtime::math::install_qualified_native_entry(Arc::new(move |flag| observer.enter(flag)))
+                .map_err(|error| WorkflowError::Internal(error.to_string()))?;
+        }
+        selected.publish_ready(&runtime)?;
+        Ok::<_, WorkflowError>(qualification)
+    })();
     #[cfg(not(feature = "canonical-tests"))]
-    let result = executor.block_on(serve(&cli, runtime, selected.allocation(), &stop));
+    let startup = selected.publish_ready(&runtime);
+    let result = match startup {
+        #[cfg(feature = "canonical-tests")]
+        Ok(qualification) => executor.block_on(serve(&cli, runtime, &selected, &stop, qualification)),
+        #[cfg(not(feature = "canonical-tests"))]
+        Ok(()) => executor.block_on(serve(&cli, runtime, &selected, &stop)),
+        Err(error) => {
+            stop.cancel();
+            executor.block_on(finish(&runtime, &selected, Err(error)))
+        }
+    };
     executor.block_on(interrupt.finish());
     // This process composition root joins its optional publisher after scientific
     // lanes have drained, outside RuntimeCaller admission and native ownership locks.
@@ -744,27 +687,6 @@ mod tests {
         .unwrap()
     }
     #[test]
-    fn primary_receipt_observation_streams_actual_bytes_and_distinguishes_absence() {
-        assert_eq!(producer_receipt_observation(None).unwrap(), (None, None));
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("worker.json");
-        std::fs::write(&path, b"abc").unwrap();
-        let observed = producer_receipt_observation(Some(path.as_os_str())).unwrap();
-        assert_eq!(observed.0.as_deref(), path.to_str());
-        assert_eq!(
-            observed.1.as_deref(),
-            Some("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
-        );
-        std::fs::write(&path, vec![b'a'; 65537]).unwrap();
-        assert_ne!(
-            producer_receipt_observation(Some(path.as_os_str())).unwrap(),
-            observed
-        );
-        std::fs::remove_file(&path).unwrap();
-        assert!(producer_receipt_observation(Some(path.as_os_str())).is_err());
-    }
-
-    #[test]
     fn selected_functional_worker_consumes_case_lanes_and_preserves_bounded_override() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let profiles = pse_runtime::workflow::ProductionProfiles::read(
@@ -821,7 +743,7 @@ mod tests {
         assert_eq!(budget.threads.pool_threads.get(), 16);
         assert_eq!(
             budget.math.workspace_bytes,
-            pse_runtime::math::MathPolicy::default().workspace_bytes
+            pse_runtime::math::MathPolicy::for_pool(execution.pool_memory_bytes).workspace_bytes
         );
         let cli = Cli::try_parse_from(["pse-worker", "--threads", "8"]).unwrap();
         assert!(resource_budget(&cli, allocation).is_err());
@@ -953,11 +875,9 @@ mod qualification {
         pub(super) fn open(
             directory: &Path,
             cli: &super::Cli,
-            selected: &pse_runtime::workflow::NativeExecutionSelection,
+            selected: &pse_runtime::workflow::NativeStudyWorkerInputs,
         ) -> Result<Arc<Self>, String> {
-            let state =
-                std::env::var_os("PSE_SURREAL_STATE").ok_or("qualification state missing")?;
-            let state = std::fs::canonicalize(state).map_err(|error| error.to_string())?;
+            let state = std::fs::canonicalize(selected.state()).map_err(|error| error.to_string())?;
             private_metadata(directory, true)?;
             let directory = std::fs::canonicalize(directory).map_err(|error| error.to_string())?;
             if directory.parent() != Some(state.as_path()) {

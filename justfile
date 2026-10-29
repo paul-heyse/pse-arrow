@@ -264,21 +264,14 @@ scientific-replay-miri:
     scripts/cargo-bin/cargo-pse-correctness miri test -p pse-ids --lib --locked scientific_replay::tests
 
 [group('local')]
-[doc('Run canonical execution actions in a supervised native worker; e.g. --until-idle --maximum-actions 100')]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
-[positional-arguments]
-pse-worker *args:
-    cargo build --locked -p pse-runtime --bin pse-worker --features product-operators,native-solvers
-    "{{ py }}" scripts/surreal_server.py worker --worker-command "$PWD/target/debug/pse-worker" "$@"
-
-[group('local')]
-[doc('The pse-worker journey: the worker binary runs an authored case in a child process against an isolated store')]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
+[doc('Run native scientific worker journeys using explicitly built worker/control helpers and a prepared module receipt')]
+[script("bash", "scripts/pse-env", "--native=compiler,solver,klu", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 worker-test *args:
-    scripts/pse-env --native -- scripts/cargo-bin/cargo-pse-correctness build -p pse-runtime --bin pse-worker --locked --no-default-features --features product-operators,native-solvers
-    scripts/pse-env --native= -- scripts/cargo-bin/cargo-pse-correctness build -p xtask --bin xtask --locked --no-default-features --features canonical-tools
-    PSE_WORKER_BINARY="$PWD/target/debug/pse-worker" scripts/pse-env --native --store -- "{{ py }}" scripts/select.py --features pse-runtime/native-solvers integration pse-runtime worker "$@"
+    : "${PSE_NATIVE_FIXTURE_SERVICE_HELPER:?select the already-built native canonical-service helper}"
+    : "${PSE_WORKER_BINARY:?select the already-built scientific pse-worker}"
+    export PSE_NATIVE_STUDY_WORKER="$PSE_WORKER_BINARY"
+    exec scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p pse-runtime --test worker --locked --features native-study-tests,product-operators,solver-ipopt,solver-scip "$@"
 
 # ---------------------------------------------------------------- discovery --
 

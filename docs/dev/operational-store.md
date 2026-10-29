@@ -26,7 +26,7 @@ backup/restore retain their own contracts. Explicit reconstruction and frozen fo
 maintenance follow the [operator route](surreal-substrate.md#explicit-design-phase-reconstruction-and-recovery).
 Python attaches with `pse.Runtime(settings, substrate="/path/to/private/state")`.
 The engine, mathematical preparation, native work and returned buffers share the
-admitted deployment budget. Managed workers use the supervisor's finite capped slots.
+admitted deployment budget. Managed workers consume the native application owner's explicit process and shared-pool allocation.
 An optional qualified `producer` receipt enables eligible stored-product reuse. An
 absent receipt permits admission and persistent execution while refusing cross-build
 scientific reuse. `ephemeral=True` explicitly selects process-local numerical outcomes.
@@ -86,8 +86,12 @@ separate. Progress never grants scientific seed permission.
 Studies record distinct occurrences, dependencies, bindings and start policies. Each
 point's authored `attempt_limit` owns its retry limit. Readiness uses immediate premises
 and prepares only ready numerical consumers. Equal bindings remain distinct occurrences.
-Use `just pse-worker --until-idle --maximum-actions 100`, or in-process
-`runtime.work(maximum_actions=...)`, to perform bounded canonical actions.
+Use the application-owned `NativeStudyWorker` and its read-only observer for a scientific
+child process, or `Runtime::work`/`Runtime::serve` in the application process, to perform
+canonical actions. The application retains the performing worker owner through startup
+failures and cancellation, explicitly stops and drains it, and treats its native-join receipt
+separately from host drain and scientific publication. The child helper is launched by that
+owner; the former Python-backed `just pse-worker` launcher is retired.
 
 A recovered closed attempt can reconcile and seal its existing observations without
 rerunning numerics. A lost summary worker can be replaced without repeating point solves.

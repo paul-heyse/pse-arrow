@@ -145,8 +145,7 @@ impl NativeAllocation {
             return Err(super::contract("finite native-worker allocation required"));
         }
         if let Some(profile) = self.execution
-            && (self.native_workers != 1
-                || profile.pool_memory_bytes == 0
+            && (profile.pool_memory_bytes == 0
                 || profile.worker_bytes == 0
                 || profile.worker_bytes > profile.pool_memory_bytes
                 || profile.cpu_threads == 0
@@ -210,33 +209,12 @@ struct ConfigurationObservation {
     bytes: Option<Vec<u8>>,
 }
 
-// This role already exists in the retained service configuration. It controls
-// storage/receiver admission, independently of the receiver's execution closure.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)]
-pub(super) struct ServiceController {
-    pub(super) supervisor_executable: PathBuf,
-    pub(super) supervisor_script: PathBuf,
-    supervisor_sha256: String,
-}
-#[derive(serde::Deserialize)]
-struct ServiceControlProjection {
-    #[serde(default)]
-    service_supervisor: Option<ServiceController>,
-}
-#[derive(serde::Deserialize)]
-struct ControllerGeneration {
-    version: u32,
-    identity: String,
-    files: std::collections::BTreeMap<String, String>,
-}
-
 /// One database-matched allocation and receiver selected from the deployment owner.
 /// Native execution consumes this snapshot together; storage never loads it.
 #[derive(Clone, Debug)]
 pub struct NativeExecutionSelection {
     allocation: NativeAllocation,
     receiver: Option<ManagedPrimaryReceiver>,
-    controller: Option<ServiceController>,
     database: String,
     namespace: String,
     endpoint: String,
@@ -384,105 +362,18 @@ impl NativeExecutionSelection {
         }
         policy.resources.validate()?;
         let mut artifacts = Vec::new();
-        let controller = if policy.primary_receiver.is_some() {
-            let projected: ServiceControlProjection =
-                pse_operations::deployment::projection(&service_bytes)
-                    .map_err(|error| super::contract(error.to_string()))?;
-            let controller = projected.service_supervisor.ok_or_else(|| {
-                super::contract("managed execution requires the selected storage controller")
-            })?;
-            if receiver_state != service_state {
-                let path = receiver_state.join("config.json");
-                let retained = configuration
-                    .iter()
-                    .find(|entry| entry.path == path)
-                    .and_then(|entry| entry.bytes.as_deref())
-                    .ok_or_else(|| {
-                        super::contract("receiver storage-controller binding is missing")
-                    })?;
-                let receiver_control: ServiceControlProjection =
-                    pse_operations::deployment::projection(retained)
-                        .map_err(|error| super::contract(error.to_string()))?;
-                if receiver_control.service_supervisor.as_ref() != Some(&controller) {
-                    return Err(super::contract(
-                        "receiver storage-controller binding differs from its service",
-                    ));
-                }
-            }
-            let script = &controller.supervisor_script;
-            let generation = script
-                .parent()
-                .and_then(Path::parent)
-                .ok_or_else(|| super::contract("storage controller generation is missing"))?;
-            let identity = generation.file_name().and_then(|name| name.to_str());
-            if !controller.supervisor_executable.is_absolute()
-                || !script.is_absolute()
-                || script
-                    .file_name()
-                    .is_none_or(|name| name != "surreal_server.py")
-                || script
-                    .parent()
-                    .and_then(Path::file_name)
-                    .is_none_or(|name| name != "scripts")
-                || generation.parent() != Some(service_state.join(".generations").as_path())
-                || identity.is_none_or(|identity| !digest(identity))
-                || !digest(&controller.supervisor_sha256)
-            {
-                return Err(super::contract(
-                    "storage controller is outside its admitted generation",
-                ));
-            }
-            private_directory(&service_state.join(".generations"))?;
-            private_directory(generation)?;
-            private_directory(&generation.join("scripts"))?;
-            let path = generation.join("generation.json");
-            let bytes = private_file(&path)?;
-            let admitted: ControllerGeneration = decode(&bytes)?;
-            if !matches!(admitted.version, 1 | 2)
-                || Some(admitted.identity.as_str()) != identity
-                || admitted.files.get("scripts/surreal_server.py")
-                    != Some(&controller.supervisor_sha256)
-            {
-                return Err(super::contract(
-                    "storage controller differs from its admitted generation",
-                ));
-            }
-            configuration.push(ConfigurationObservation {
-                path,
-                bytes: Some(bytes),
-            });
-            // The construction owner admitted these bytes. Readers retain exact
-            // metadata/binding currentness; the executing SCRIPT guard owns closure
-            // validation, rather than this projection rehashing admitted artifacts.
-            let metadata = std::fs::symlink_metadata(script).map_err(infrastructure)?;
-            if !metadata.is_file() || metadata.file_type().is_symlink() {
-                return Err(super::contract(
-                    "storage controller entry point is not an admitted file",
-                ));
-            }
-            private_owner(&metadata)?;
-            Some(controller)
-        } else {
-            None
-        };
         if let Some(receiver) = &policy.primary_receiver {
             if policy.resources.execution.is_none()
-                || !receiver.supervisor_executable.is_absolute()
-                || !receiver.supervisor_script.is_absolute()
                 || !receiver.worker_executable.is_absolute()
-                || !digest(&receiver.supervisor_sha256)
                 || !digest(&receiver.worker_sha256)
             {
                 return Err(super::contract(
                     "managed primary requires an execution profile and exact executable association",
                 ));
             }
-            // The frozen supervisor retains complete generation/placement/readiness admission.
-            // Check the actually selected entry-point bytes before executing that supervisor.
-            for (path, expected) in [
-                (&receiver.supervisor_script, &receiver.supervisor_sha256),
-                (&receiver.worker_executable, &receiver.worker_sha256),
-            ] {
+            // Retained legacy profile readers still bind their scientific image.
+            // No interpreter/controller artifact is authenticated or executed here.
+            for (path, expected) in [(&receiver.worker_executable, &receiver.worker_sha256)] {
                 let observed =
                     pse_buildinfo::FileObservation::capture(path).map_err(infrastructure)?;
                 if &observed.sha256 != expected {
@@ -496,7 +387,6 @@ impl NativeExecutionSelection {
         let selected = Self {
             allocation: policy.resources,
             receiver: policy.primary_receiver,
-            controller,
             database: database.to_owned(),
             namespace: service.namespace,
             endpoint: service.endpoint,
@@ -514,11 +404,6 @@ impl NativeExecutionSelection {
     /// Configured managed receiver; legacy explicitly managed workers may omit it.
     pub fn receiver(&self) -> Option<&ManagedPrimaryReceiver> {
         self.receiver.as_ref()
-    }
-    pub(super) fn controller(&self) -> Result<&ServiceController, WorkflowError> {
-        self.controller.as_ref().ok_or_else(|| {
-            super::contract("managed primary requires the selected storage controller")
-        })
     }
     /// Database bound to this execution selection.
     pub fn database(&self) -> &str {
@@ -631,339 +516,3 @@ fn exists(path: &Path) -> Result<bool, WorkflowError> {
     }
 }
 
-#[cfg(test)]
-mod native_selection_unit {
-    #![allow(clippy::unwrap_used, reason = "isolated native selection assertions")]
-    use super::*;
-    use serde_json::{Value, json};
-
-    fn private_scope() -> tempfile::TempDir {
-        use std::os::unix::fs::PermissionsExt;
-        let scope = tempfile::tempdir().unwrap();
-        std::fs::set_permissions(scope.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
-        scope
-    }
-
-    fn write(path: &Path, bytes: &[u8]) {
-        use std::{io::Write, os::unix::fs::OpenOptionsExt};
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .mode(0o600)
-            .open(path)
-            .unwrap();
-        file.write_all(bytes).unwrap();
-    }
-    fn document(path: &Path, value: &Value) {
-        write(path, &serde_json::to_vec(value).unwrap());
-    }
-    fn directory(path: &Path) {
-        use std::os::unix::fs::DirBuilderExt;
-        std::fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(path)
-            .unwrap();
-    }
-    fn policy() -> Value {
-        serde_json::to_value(
-            NativeAllocation::materialize(
-                1 << 30,
-                512 << 20,
-                1,
-                64 << 20,
-                Some(NativeExecutionAllocation {
-                    pool_memory_bytes: 32 << 20,
-                    worker_bytes: 16 << 20,
-                    cpu_threads: 2,
-                    case_lanes: 2,
-                    math_jobs: 4,
-                    compiler_cores: 1,
-                    admission_wait_ms: 1000,
-                    process_headroom_bytes: 32 << 20,
-                    observer_memory_bytes: 16 << 20,
-                }),
-            )
-            .unwrap(),
-        )
-        .unwrap()
-    }
-    fn deployment(resources: Value, receiver: Value) -> Value {
-        let controller = receiver.as_object().map(|_| receiver.clone());
-        json!({"profile_version": 3, "endpoint": "grpc://127.0.0.1:8000",
-            "namespace": "canonical", "database": "selected",
-            "resources": resources, "primary_receiver": receiver,
-            "service_supervisor": controller})
-    }
-    fn receiver(root: &Path) -> Value {
-        receiver_generation(root, &"b".repeat(64))
-    }
-    fn receiver_generation(root: &Path, generation: &str) -> Value {
-        let generation_root = root.join(".generations").join(generation);
-        let script = generation_root.join("scripts/surreal_server.py");
-        directory(&generation_root.join("scripts"));
-        let worker = generation_root.join("worker");
-        write(&script, b"supervisor generation");
-        write(&worker, b"worker generation");
-        let sha256 = pse_buildinfo::FileObservation::capture(&script)
-            .unwrap()
-            .sha256;
-        document(
-            &generation_root.join("generation.json"),
-            &json!({
-                "version": 2, "identity": generation,
-                "files": {"scripts/surreal_server.py": sha256},
-            }),
-        );
-        json!({"supervisor_executable": "/usr/bin/python3", "supervisor_script": script,
-            "worker_executable": worker,
-            "supervisor_sha256": sha256,
-            "worker_sha256": pse_buildinfo::FileObservation::capture(&worker).unwrap().sha256})
-    }
-    fn context(root: &Path, database: &str, resources: &Value, receiver: &Value) -> PathBuf {
-        let generation = "a".repeat(64);
-        let state = root.join(".receivers").join(&generation).join(database);
-        directory(&state);
-        directory(&root.join(".contexts"));
-        let mut config = deployment(resources.clone(), receiver.clone());
-        let service: Value =
-            serde_json::from_slice(&std::fs::read(root.join("config.json")).unwrap()).unwrap();
-        config["service_supervisor"] = service["service_supervisor"].clone();
-        config["database"] = database.into();
-        config["receiver_generation"] = generation.clone().into();
-        config["service_state"] = json!(root);
-        document(&state.join("config.json"), &config);
-        document(
-            &root.join(".contexts").join(format!("{database}.json")),
-            &json!({
-                "version": 1, "database": database, "resources": resources,
-                "primary_receiver": receiver, "receiver_state": state, "receiver_generation": generation,
-            }),
-        );
-        state
-    }
-    #[test]
-    fn execution_rejects_missing_malformed_or_nonfinite_policy_and_missing_primary() {
-        let root = private_scope();
-        let mut multiple_primaries = policy();
-        multiple_primaries["native_workers"] = 2.into();
-        for resources in [
-            Value::Null,
-            json!("malformed"),
-            json!({"native_workers": 0, "native_worker_memory_bytes": 1024}),
-            multiple_primaries,
-        ] {
-            document(
-                &root.path().join("config.json"),
-                &deployment(resources, Value::Null),
-            );
-            assert!(NativeExecutionSelection::from_state(root.path(), None).is_err());
-        }
-        let mut invalid = policy();
-        invalid["execution"]["process_headroom_bytes"] = 1024.into();
-        document(
-            &root.path().join("config.json"),
-            &deployment(invalid, Value::Null),
-        );
-        assert!(NativeExecutionSelection::from_state(root.path(), None).is_err());
-        document(
-            &root.path().join("config.json"),
-            &deployment(policy(), Value::Null),
-        );
-        let selected = NativeExecutionSelection::from_state(root.path(), None).unwrap();
-        assert!(selected.managed_primary().is_err());
-        assert!(NativeExecutionSelection::from_state(root.path(), Some("unregistered")).is_err());
-    }
-    #[test]
-    fn execution_accepts_module_receipts_within_shared_deployment_bound() {
-        let root = private_scope();
-        let path = root.path().join("config.json");
-        let mut configuration = deployment(policy(), Value::Null);
-        configuration["server"] = json!({"source_receipt": "x".repeat(80 * 1024)});
-        document(&path, &configuration);
-        let selected = NativeExecutionSelection::from_state(root.path(), None).unwrap();
-        selected.require_configuration_current().unwrap();
-        let mut at_limit = serde_json::to_vec(&configuration).unwrap();
-        at_limit.resize(256 * 1024, b' ');
-        write(&path, &at_limit);
-        let at_limit_selection = NativeExecutionSelection::from_state(root.path(), None).unwrap();
-        at_limit_selection.require_configuration_current().unwrap();
-        assert!(selected.require_configuration_current().is_err());
-        at_limit.push(b' ');
-        write(&path, &at_limit);
-        assert!(NativeExecutionSelection::from_state(root.path(), None).is_err());
-        assert!(at_limit_selection.require_configuration_current().is_err());
-    }
-
-    #[test]
-    fn execution_checks_actual_receiver_bytes_and_refuses_replacement_after_selection() {
-        let root = private_scope();
-        let association = receiver(root.path());
-        document(
-            &root.path().join("config.json"),
-            &deployment(policy(), association.clone()),
-        );
-        let selected = NativeExecutionSelection::from_state(root.path(), None).unwrap();
-        assert_eq!(selected.managed_primary().unwrap().1.cpu_threads, 2);
-        write(
-            Path::new(association["worker_executable"].as_str().unwrap()),
-            b"replacement",
-        );
-        assert!(selected.require_current().is_err());
-        assert!(NativeExecutionSelection::from_state(root.path(), None).is_err());
-    }
-    #[test]
-    fn registered_context_selects_one_coherent_profile_and_detects_stale_generations() {
-        let root = private_scope();
-        let association = receiver(root.path());
-        // The unused base-native projection may be malformed; this database owns its policy.
-        let mut base = deployment(json!("unused"), json!(17));
-        base["service_supervisor"] = association.clone();
-        document(&root.path().join("config.json"), &base);
-        let receiver_state = context(root.path(), "isolated", &policy(), &association);
-        let selected = NativeExecutionSelection::from_state(root.path(), Some("isolated")).unwrap();
-        assert_eq!(selected.database(), "isolated");
-        assert_eq!(selected.receiver_state(), receiver_state);
-        assert_eq!(selected.allocation().native_worker_memory_bytes, 64 << 20);
-        assert!(selected.managed_primary().is_ok());
-        assert!(NativeExecutionSelection::from_state(&receiver_state, Some("isolated")).is_ok());
-        let receiver_config = receiver_state.join("config.json");
-        let mut config: Value =
-            serde_json::from_slice(&std::fs::read(&receiver_config).unwrap()).unwrap();
-        config["receiver_generation"] = "b".repeat(64).into();
-        document(&receiver_config, &config);
-        assert!(selected.require_current().is_err());
-        assert!(NativeExecutionSelection::from_state(root.path(), Some("isolated")).is_err());
-    }
-    #[test]
-    fn distinct_storage_controller_and_receiver_generations_keep_their_own_roles() {
-        let root = private_scope();
-        let controller = receiver_generation(root.path(), &"b".repeat(64));
-        let receiver = receiver_generation(root.path(), &"c".repeat(64));
-        document(
-            &root.path().join("config.json"),
-            &deployment(policy(), controller.clone()),
-        );
-        let state = context(root.path(), "isolated", &policy(), &receiver);
-        let selected = NativeExecutionSelection::from_state(root.path(), Some("isolated")).unwrap();
-        assert_eq!(
-            selected.controller().unwrap().supervisor_script,
-            Path::new(controller["supervisor_script"].as_str().unwrap())
-        );
-        assert_eq!(
-            selected.receiver().unwrap().supervisor_script,
-            Path::new(receiver["supervisor_script"].as_str().unwrap())
-        );
-        assert_ne!(
-            selected.controller().unwrap().supervisor_script,
-            selected.receiver().unwrap().supervisor_script
-        );
-        assert_eq!(selected.receiver_state(), state);
-        selected.require_current().unwrap();
-        let manifest = Path::new(controller["supervisor_script"].as_str().unwrap())
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("generation.json");
-        let mut changed: Value =
-            serde_json::from_slice(&std::fs::read(&manifest).unwrap()).unwrap();
-        changed["identity"] = "d".repeat(64).into();
-        document(&manifest, &changed);
-        assert!(selected.require_current().is_err());
-        assert!(NativeExecutionSelection::from_state(root.path(), Some("isolated")).is_err());
-    }
-    #[test]
-    fn missing_foreign_or_changed_storage_controller_binding_refuses() {
-        let root = private_scope();
-        let controller = receiver(root.path());
-        let original = deployment(policy(), controller.clone());
-        for reason in ["missing", "foreign", "digest"] {
-            let mut changed = original.clone();
-            match reason {
-                "missing" => changed["service_supervisor"] = Value::Null,
-                "foreign" => {
-                    changed["service_supervisor"]["supervisor_script"] =
-                        json!(root.path().join("foreign.py"))
-                }
-                _ => changed["service_supervisor"]["supervisor_sha256"] = "d".repeat(64).into(),
-            }
-            document(&root.path().join("config.json"), &changed);
-            assert!(NativeExecutionSelection::from_state(root.path(), None).is_err());
-        }
-        document(&root.path().join("config.json"), &original);
-        let state = context(root.path(), "isolated", &policy(), &controller);
-        let selected = NativeExecutionSelection::from_state(root.path(), Some("isolated")).unwrap();
-        let path = state.join("config.json");
-        let mut changed: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        changed["service_supervisor"]["supervisor_script"] = json!(root.path().join("foreign.py"));
-        document(&path, &changed);
-        assert!(selected.require_current().is_err());
-        assert!(NativeExecutionSelection::from_state(root.path(), Some("isolated")).is_err());
-    }
-    #[test]
-    fn context_policy_or_database_mismatch_cannot_borrow_another_receivers_allocation() {
-        let root = private_scope();
-        let association = receiver(root.path());
-        document(
-            &root.path().join("config.json"),
-            &deployment(policy(), association.clone()),
-        );
-        let state = context(root.path(), "isolated", &policy(), &association);
-        let path = root.path().join(".contexts/isolated.json");
-        let original: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        for (field, value) in [
-            ("database", json!("other")),
-            ("receiver_state", json!(root.path())),
-            (
-                "resources",
-                json!({"native_workers": 1, "native_worker_memory_bytes": 4096}),
-            ),
-        ] {
-            let mut invalid = original.clone();
-            invalid[field] = value;
-            document(&path, &invalid);
-            assert!(NativeExecutionSelection::from_state(root.path(), Some("isolated")).is_err());
-        }
-        document(&path, &original);
-        assert!(NativeExecutionSelection::from_state(&state, Some("other")).is_err());
-    }
-    #[test]
-    fn native_selection_refuses_new_context_after_observing_base_policy() {
-        let root = private_scope();
-        let association = receiver(root.path());
-        document(
-            &root.path().join("config.json"),
-            &deployment(policy(), association.clone()),
-        );
-        let selected = NativeExecutionSelection::from_state(root.path(), None).unwrap();
-        context(root.path(), "selected", &policy(), &association);
-        assert!(selected.require_current().is_err());
-    }
-    #[test]
-    fn canonical_failures_retain_infrastructure_diagnostics_distinct_from_user_input() {
-        use pse_diagnostics::{DiagnosticCode, TypedDiagnostic};
-        for cause in [
-            CanonicalError::Timeout,
-            CanonicalError::Interpretation {
-                expected: "required",
-                observed: "installed".into(),
-            },
-            CanonicalError::Configuration(
-                "disconnect refused while protected readers are live".into(),
-            ),
-        ] {
-            let error = WorkflowError::from(cause);
-            assert_eq!(
-                error.diagnostic_code(),
-                Some(DiagnosticCode::RuntimeInfrastructure)
-            );
-            assert!(matches!(error, WorkflowError::Canonical(_)));
-        }
-        assert_eq!(
-            super::super::contract("reversed range").diagnostic_code(),
-            Some(DiagnosticCode::WorkflowInput)
-        );
-    }
-}

@@ -67,6 +67,7 @@ native-solvers = [
 ]
 
 [dependencies]
+pse-host.workspace = true
 clap = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }
 tempfile.workspace = true
@@ -142,7 +143,6 @@ pse-operations.workspace = true
 chrono.workspace = true
 
 [dev-dependencies]
-pse-host.workspace = true
 proptest.workspace = true
 uuid.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }
@@ -155,7 +155,7 @@ tokio.workspace = true
 # The worker journeys run authored cases through the pse-worker binary, which needs the
 # linked native solvers.
 name = "worker"
-required-features = ["native-solvers"]
+required-features = ["native-study-tests", "product-operators", "solver-ipopt", "solver-scip"]
 
 
 [[bin]]
@@ -194,3 +194,7 @@ required-features = ["solver-ipopt"]
 [[test]]
 name = "reference_pid_exchange"
 required-features = ["solver-diffsol"]
+
+[[test]]
+name = "native_worker_lifecycle"
+required-features = ["native-study-tests", "product-operators"]

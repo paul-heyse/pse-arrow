@@ -2,6 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Immutable occurrence contracts and canonical dependency-scoped execution.
 #[cfg(feature = "canonical-tests")]
+#[path = "../../../../tests/fixtures/native-worker-environment.rs"]
+mod native_worker_environment;
+
+#[cfg(feature = "canonical-tests")]
 use super::durable_tests::durable_runtime;
 #[cfg(any(
     feature = "canonical-tests",
@@ -1558,124 +1562,124 @@ async fn related_definition_with_primal_accuracy(
 #[tokio::test]
 async fn managed_primary_reopened_continuation_uses_shared_secant_and_original_correction() {
     use pse_relations::generated::runtime::{solve_strategy_events, solve_variables};
-    let fixture = ManagedStudyFixture::start(false).await;
-    let runtime = fixture.runtime.clone();
-    let operations = runtime.operations().unwrap().clone();
-    let (_, definition) = related_definition(&runtime).await;
-    let cancel = crate::CancelSource::new();
-    let definition = runtime
-        .record_study(&definition, &crate::CancelSource::new())
+    ManagedStudyFixture::run(false, |fixture| Box::pin(async move {
+        let runtime = fixture.runtime.clone();
+        let operations = runtime.operations().unwrap().clone();
+        let (_, definition) = related_definition(&runtime).await;
+        let cancel = crate::CancelSource::new();
+        let definition = runtime
+            .record_study(&definition, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let observed = runtime
+            .observations()
+            .hub()
+            .start("qualification.managed-study");
+        let observation = observed.reader();
+        let study = pse_diagnostics::observation::scope(
+            Some(observed.context()),
+            fixture.dispatch(&cancel, runtime.execute_study(&definition, 3, &cancel)),
+        )
         .await
         .unwrap();
-    let observed = runtime
-        .observations()
-        .hub()
-        .start("qualification.managed-study");
-    let observation = observed.reader();
-    let study = pse_diagnostics::observation::scope(
-        Some(observed.context()),
-        fixture.dispatch(&cancel, runtime.execute_study(&definition, 3, &cancel)),
-    )
-    .await
-    .unwrap();
-    observed.finish(pse_diagnostics::observation::Outcome::Completed);
-    assert!(
-        study
-            .outcomes
-            .iter()
-            .all(|outcome| outcome.scientific.usable),
-        "{:?}",
-        study.outcomes
-    );
-    let third = study.results[2].as_ref().unwrap();
-    let selected = study.diagnostic_selection().await.unwrap().unwrap();
-    let inventory = runtime
-        .study(selected.study_id)
-        .review_inventory(&ReviewInventoryRequest {
-            attempts: ReviewAttemptSelection::Retained,
-            maximum_members: 64,
-        })
-        .await
-        .unwrap();
-    assert!(!inventory.truncated);
-    for original in study.results.iter().flatten() {
-        let (run, attempt) = original.stored_keys().unwrap();
+        observed.finish(pse_diagnostics::observation::Outcome::Completed);
         assert!(
-            inventory
-                .members
+            study
+                .outcomes
                 .iter()
-                .any(|member| member.run.as_deref() == Some(run)
-                    && member.attempt.as_deref() == Some(attempt)
-                    && member.terminal)
+                .all(|outcome| outcome.scientific.usable),
+            "{:?}",
+            study.outcomes
         );
-    }
-    review_qualification_tests::assert_inventory_transport(
-        inventory,
-        observation.snapshot(Duration::from_secs(60)),
-    );
-    let (run, attempt) = third.stored_keys().unwrap();
-    let reopened = operations.record(run, attempt).await.unwrap();
-    assert_eq!(reopened.solutions.len(), 1);
-    let mut events = runtime
-        .results(
-            run,
-            attempt,
-            "runtime.solve_strategy_events",
-            0,
-            u64::MAX,
-            pse_columnar::CancellationToken::new(),
-        )
-        .await
-        .unwrap();
-    let mut predicted = false;
-    while let Some(batch) = events.next_batch().await.unwrap() {
-        let checked = solve_strategy_events::View::try_from_batch_with_registry(
-            runtime.registry(),
-            &batch,
-            &runtime.validation_context(),
-        )
-        .unwrap();
-        for row in checked.rows().unwrap() {
-            predicted |= row.start_origin
-                == Some(pse_model::generated::enums::NumericalStartOrigin::Predicted);
+        let third = study.results[2].as_ref().unwrap();
+        let selected = study.diagnostic_selection().await.unwrap().unwrap();
+        let inventory = runtime
+            .study(selected.study_id)
+            .review_inventory(&ReviewInventoryRequest {
+                attempts: ReviewAttemptSelection::Retained,
+                maximum_members: 64,
+            })
+            .await
+            .unwrap();
+        assert!(!inventory.truncated);
+        for original in study.results.iter().flatten() {
+            let (run, attempt) = original.stored_keys().unwrap();
+            assert!(
+                inventory
+                    .members
+                    .iter()
+                    .any(|member| member.run.as_deref() == Some(run)
+                        && member.attempt.as_deref() == Some(attempt)
+                        && member.terminal)
+            );
         }
-    }
-    assert!(
-        predicted,
-        "retained third occurrence must consume the shared secant producer"
-    );
-    let mut variables = runtime
-        .results(
-            run,
-            attempt,
-            "runtime.solve_variables",
-            0,
-            u64::MAX,
-            pse_columnar::CancellationToken::new(),
-        )
-        .await
-        .unwrap();
-    let mut corrected = false;
-    while let Some(batch) = variables.next_batch().await.unwrap() {
-        let checked = solve_variables::View::try_from_batch_with_registry(
-            runtime.registry(),
-            &batch,
-            &runtime.validation_context(),
-        )
-        .unwrap();
-        for row in checked.rows().unwrap() {
-            corrected |= row
-                .value
-                .is_some_and(|value| (value - 4.08_f64.sqrt()).abs() < 1e-8);
+        review_qualification_tests::assert_inventory_transport(
+            inventory,
+            observation.snapshot(Duration::from_secs(60)),
+        );
+        let (run, attempt) = third.stored_keys().unwrap();
+        let reopened = operations.record(run, attempt).await.unwrap();
+        assert_eq!(reopened.solutions.len(), 1);
+        let mut events = runtime
+            .results(
+                run,
+                attempt,
+                "runtime.solve_strategy_events",
+                0,
+                u64::MAX,
+                pse_columnar::CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let mut predicted = false;
+        while let Some(batch) = events.next_batch().await.unwrap() {
+            let checked = solve_strategy_events::View::try_from_batch_with_registry(
+                runtime.registry(),
+                &batch,
+                &runtime.validation_context(),
+            )
+            .unwrap();
+            for row in checked.rows().unwrap() {
+                predicted |= row.start_origin
+                    == Some(pse_model::generated::enums::NumericalStartOrigin::Predicted);
+            }
         }
-    }
-    assert!(
-        corrected,
-        "retained original correction must solve actual target equation"
-    );
-    drop(events);
-    drop(variables);
-    fixture.finish().await;
+        assert!(
+            predicted,
+            "retained third occurrence must consume the shared secant producer"
+        );
+        let mut variables = runtime
+            .results(
+                run,
+                attempt,
+                "runtime.solve_variables",
+                0,
+                u64::MAX,
+                pse_columnar::CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let mut corrected = false;
+        while let Some(batch) = variables.next_batch().await.unwrap() {
+            let checked = solve_variables::View::try_from_batch_with_registry(
+                runtime.registry(),
+                &batch,
+                &runtime.validation_context(),
+            )
+            .unwrap();
+            for row in checked.rows().unwrap() {
+                corrected |= row
+                    .value
+                    .is_some_and(|value| (value - 4.08_f64.sqrt()).abs() < 1e-8);
+            }
+        }
+        assert!(
+            corrected,
+            "retained original correction must solve actual target equation"
+        );
+        drop(events);
+        drop(variables);
+    })).await;
 }
 
 #[cfg(feature = "canonical-tests")]
@@ -3517,7 +3521,10 @@ struct ManagedStudyFixture {
     controls_resource: String,
     nonce: String,
     worker_pid: u32,
-    primary_owner: serde_json::Value,
+    worker: tokio::sync::Mutex<Option<NativeStudyWorker>>,
+    schema_ready: Option<pse_operations::canonical::migration::SchemaReady>,
+    physical_drained: std::sync::atomic::AtomicBool,
+    killed: std::sync::atomic::AtomicBool,
     finished: bool,
     drain_deadline: std::sync::Mutex<Option<std::time::Instant>>,
 }
@@ -3546,25 +3553,70 @@ fn managed_read_json(path: &std::path::Path) -> serde_json::Value {
     serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
 }
 #[cfg(feature = "canonical-tests")]
+fn managed_cleanup_attempt(
+    failures: &mut Vec<String>,
+    action: &str,
+    operation: impl FnOnce(),
+) {
+    if let Err(error) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(operation)) {
+        let message = error.downcast_ref::<String>().map(String::as_str)
+            .or_else(|| error.downcast_ref::<&str>().copied()).unwrap_or("non-string panic");
+        failures.push(format!("{action}: {message}"));
+    }
+}
+#[cfg(feature = "canonical-tests")]
 impl ManagedStudyFixture {
-    async fn start(hold_entries: bool) -> Self {
-        Self::start_on(hold_entries, tests::durable_runtime(), 16).await
+    async fn run(
+        hold_entries: bool,
+        body: impl for<'a> FnOnce(
+            &'a Self,
+        ) -> std::pin::Pin<Box<dyn Future<Output = ()> + 'a>>,
+    ) {
+        Self::run_on(hold_entries, tests::durable_runtime(), 16, body).await;
+    }
+
+    async fn run_on(
+        hold_entries: bool,
+        runtime: Runtime,
+        entries: usize,
+        body: impl for<'a> FnOnce(
+            &'a Self,
+        ) -> std::pin::Pin<Box<dyn Future<Output = ()> + 'a>>,
+    ) {
+        use futures_util::FutureExt;
+        let mut fixture = Self::start_on(hold_entries, runtime, entries).await;
+        // Assertion failures retain the original application owner until the same
+        // explicit asynchronous settlement used by the successful journey completes.
+        let outcome = std::panic::AssertUnwindSafe(async { body(&fixture).await })
+            .catch_unwind()
+            .await;
+        let cleanup = fixture.finish(true, outcome.is_err()).await;
+        match outcome {
+            Ok(()) => assert!(cleanup.is_empty(), "managed fixture settlement: {cleanup:?}"),
+            Err(original) => {
+                eprintln!(
+                    "managed fixture original failure; retained handoff={:?}; settlement failures={cleanup:?}",
+                    fixture.worker.get_mut().as_ref().map(NativeStudyWorker::directory),
+                );
+                std::panic::resume_unwind(original);
+            }
+        }
     }
 
     async fn start_on(hold_entries: bool, runtime: Runtime, entries: usize) -> Self {
+        use futures_util::FutureExt;
         use std::os::unix::fs::DirBuilderExt;
-        // This is the observer's separately placed pool. The managed primary retains
-        // the exact 128 GiB/16 CPU/32 population profile recorded in the state.
+        // Read only the durable caller's already-owned fixture metadata. The
+        // allocation is data; neither frozen Python identity nor receiver storage
+        // supplies the native application's launch or stop authority.
         let store = runtime.canonical_store().unwrap();
+        let state = store.deployment_state().to_path_buf();
         let context = managed_read_json(
-            &store
-                .deployment_state()
-                .join(".contexts")
-                .join(format!("{}.json", store.database())),
+            &state.join(".contexts").join(format!("{}.json", store.database())),
         );
-        let state = std::path::PathBuf::from(context["receiver_state"].as_str().unwrap());
-        let selected = NativeExecutionSelection::from_store(store).unwrap();
-        let allocation = selected.allocation();
+        assert_eq!(context["database"], store.database());
+        let allocation: NativeAllocation =
+            serde_json::from_value(context["resources"].clone()).unwrap();
         allocation.validate().unwrap();
         assert_eq!(allocation.native_workers, 1);
         let profile = allocation.execution.unwrap();
@@ -3581,20 +3633,19 @@ impl ManagedStudyFixture {
             runtime.shared.budget().memory_limit_bytes.get() <= profile.observer_memory_bytes
                 && profile.observer_memory_bytes <= 4 << 30
         );
-        let controller = selected.controller().unwrap();
-        let nonce: pse_ids::SemanticId = pse_operations::mint_id();
-        let nonce = nonce.to_string();
+        let executable = std::path::PathBuf::from(
+            std::env::var_os("PSE_WORKER_BINARY")
+                .expect("managed science requires an explicit already-built PSE_WORKER_BINARY"),
+        );
+        assert!(executable.is_absolute() && executable.is_file());
+        let nonce = pse_operations::mint_id::<pse_ids::SemanticId>().to_string();
+        // Controller::open checks this against NativeStudyWorkerInputs::state().
+        // It remains a qualification barrier, never a launcher or host owner.
         let directory = state.join(format!("native-entry-qualification-{nonce}"));
         let controls_resource = pse_operations::testing::register_fixture_controls(
-            &state,
-            store.database(),
-            &directory,
-        )
-        .unwrap();
-        std::fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&directory)
-            .unwrap();
+            &state, store.database(), &directory,
+        ).unwrap();
+        std::fs::DirBuilder::new().mode(0o700).create(&directory).unwrap();
         managed_private_json(
             &directory.join("request.json"),
             &serde_json::json!({
@@ -3602,83 +3653,121 @@ impl ManagedStudyFixture {
             }),
         );
         let mut fixture = Self {
-            runtime: runtime
-                .with_durability(DurabilitySelection::Durable {
-                    worker: "managed-study-observer".into(),
-                    policy: durable_tests::quick(),
-                })
-                .unwrap(),
+            runtime: runtime.with_durability(DurabilitySelection::Durable {
+                worker: "managed-study-observer".into(),
+                policy: durable_tests::quick(),
+            }).unwrap(),
             directory,
             controls_resource,
             nonce,
             worker_pid: 0,
-            primary_owner: serde_json::Value::Null,
+            worker: tokio::sync::Mutex::new(None),
+            schema_ready: None,
+            physical_drained: std::sync::atomic::AtomicBool::new(false),
+            killed: std::sync::atomic::AtomicBool::new(false),
             finished: false,
             drain_deadline: std::sync::Mutex::new(None),
         };
-        if !hold_entries {
-            fixture.signal("release.json");
+        let startup = std::panic::AssertUnwindSafe(async {
+            if !hold_entries {
+                fixture.signal("release.json");
+            }
+            let store = fixture.runtime.canonical_store().unwrap();
+            // Open the exact existing fixture database without migration or reset.
+            // This temporary schema-ready connection is explicitly disconnected
+            // even if native construction refuses the supplied image or inputs.
+            let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
+                store.deployment_state(), Some(store.database()),
+            ).unwrap();
+            fixture.schema_ready = Some(pse_operations::canonical::CanonicalStore::connect_ready(&options)
+                .await.unwrap());
+            let ready = fixture.schema_ready.as_ref().unwrap();
+            assert_eq!(ready.store().endpoint(), store.endpoint());
+            assert_eq!(ready.store().namespace(), store.namespace());
+            assert_eq!(ready.store().database(), store.database());
+            let constructed = NativeStudyWorker::new(NativeStudyWorkerSpec {
+                ready,
+                executable,
+                environment: native_worker_environment::selected(),
+                allocation,
+                settings: WorkerSettings {
+                    maximum_in_flight: Some(profile.case_lanes),
+                    ..Default::default()
+                },
+            });
+            // Retain a constructed owner before examining either failure.
+            let construction_error = match constructed {
+                Ok(original) => {
+                    *fixture.worker.lock().await = Some(original);
+                    None
+                }
+                Err(error) => Some(error),
+            };
+            let disconnected = ready.store().disconnect().await;
+            if disconnected.is_ok() {
+                fixture.schema_ready = None;
+            }
+            assert!(construction_error.is_none() && disconnected.is_ok(),
+                "native construction: {construction_error:?}; schema-ready disconnect: {disconnected:?}");
+            let mut worker = fixture.worker.lock().await;
+            let original = worker.take().expect("native scientific worker construction failed");
+            *worker = Some(original.with_qualification_native_entry(fixture.directory.clone()).unwrap());
+            let original = worker.as_mut().unwrap();
+            original.launch(std::time::Instant::now() + Duration::from_secs(45)).await.unwrap();
+            let ready = managed_read_json(&original.directory().join("ready.json"));
+            fixture.worker_pid = u32::try_from(ready["pid"].as_u64().unwrap()).unwrap();
+            assert_ne!(fixture.worker_pid, std::process::id());
+            assert_eq!(ready["endpoint"], store.endpoint());
+            assert_eq!(ready["namespace"], store.namespace());
+            assert_eq!(ready["database"], store.database());
+            assert_eq!(ready["allocation"], serde_json::to_value(allocation).unwrap());
+            let observer = original.observer().unwrap();
+            // Readiness has already been authenticated by the original native
+            // owner; separately retain actual manager and process membership.
+            let manager = pse_host::HostManager::connect_user(None).await.unwrap();
+            let observed = manager.observe(original.intent().unit()).await.unwrap();
+            assert_eq!(observed.main_pid, fixture.worker_pid);
+            assert_eq!(
+                ready["invocation"].as_str().unwrap(),
+                observed.invocation.iter().map(|byte| format!("{byte:02x}")).collect::<String>()
+            );
+            let membership = std::fs::read_to_string(format!("/proc/{}/cgroup", fixture.worker_pid)).unwrap();
+            assert!(membership.lines().any(|line| line.strip_prefix("0::") == Some(observed.control_group.as_str())));
+            let entries = managed_read_json(&fixture.directory.join("entries.json"));
+            assert_eq!(entries["nonce"], fixture.nonce);
+            assert_eq!(entries["canonical_database"], store.database());
+            assert_eq!(entries["pid"], fixture.worker_pid);
+            // Native ready must publish this original runtime association. A
+            // missing handoff is an integration gap, never a reason to erase the
+            // existing diagnostic identity/checkpoint observation requirement.
+            let diagnostics = &ready["diagnostics"];
+            let identity: crate::observation::CheckpointIdentity =
+                serde_json::from_value(diagnostics["identity"].clone()).unwrap();
+            assert!(!identity.process.is_empty());
+            assert_eq!(identity.locator.pid, fixture.worker_pid);
+            let pse_diagnostics::process_facts::ProcessRead::Present(facts) =
+                pse_diagnostics::process_facts::ProcessReader::default().process(fixture.worker_pid)
+            else { panic!("native scientific process identity unavailable") };
+            assert_eq!(identity.locator.start_ticks, Some(facts.identity.start_ticks));
+            let checkpoint = std::path::Path::new(diagnostics["checkpoint"].as_str().unwrap());
+            assert!(checkpoint.is_absolute());
+            assert_eq!(checkpoint.file_stem().unwrap().to_str().unwrap(), identity.process);
+            assert_eq!(diagnostics["canonical_database"], ready["database"]);
+            assert_eq!(diagnostics["nonce"], ready["nonce"]);
+            // Optional publication stays optional; a present image must belong
+            // to the actual scientific process rather than a replacement writer.
+            if checkpoint.exists() {
+                identity.validate(&crate::observation::read_checkpoint(checkpoint).unwrap()).unwrap();
+            }
+            fixture.runtime = fixture.runtime.clone().with_managed_worker(observer).unwrap();
+        }).catch_unwind().await;
+        if let Err(original) = startup {
+            let cleanup = fixture.finish(false, true).await;
+            if !cleanup.is_empty() {
+                eprintln!("managed fixture startup settlement after original failure: {cleanup:?}");
+            }
+            std::panic::resume_unwind(original);
         }
-        let output = tokio::time::timeout(
-            Duration::from_secs(45),
-            tokio::process::Command::new(&controller.supervisor_executable)
-                .arg(&controller.supervisor_script)
-                .arg("ensure-primary")
-                .arg("--state")
-                .arg(&state)
-                .arg("--canonical-database")
-                .arg(fixture.runtime.canonical_store().unwrap().database())
-                .arg("--observer-pid")
-                .arg(std::process::id().to_string())
-                .arg("--qualification-native-entry")
-                .arg(&fixture.directory)
-                .kill_on_drop(true)
-                .output(),
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        assert!(output.stdout.len() <= 64 << 10 && output.stderr.len() <= 64 << 10);
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        let ready: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-        assert_eq!(ready["ready"], true);
-        fixture.primary_owner = ready["primary_owner"].clone();
-        assert_eq!(
-            ready["canonical_database"],
-            fixture.runtime.canonical_store().unwrap().database()
-        );
-        let marker = managed_read_json(&state.join("primary-receiver.json"));
-        assert_eq!(
-            ready["diagnostics"]["identity"],
-            marker["diagnostics"]["identity"]
-        );
-        assert_eq!(
-            ready["diagnostics"]["checkpoint"],
-            marker["diagnostics"]["checkpoint"]
-        );
-        assert_eq!(
-            ready["diagnostics"]["canonical_database"],
-            marker["canonical_database"]
-        );
-        assert_eq!(ready["diagnostics"]["nonce"], marker["nonce"]);
-        assert_eq!(
-            marker["canonical_database"],
-            fixture.runtime.canonical_store().unwrap().database()
-        );
-        assert_eq!(marker["pool_memory_bytes"], 128_u64 << 30);
-        assert_eq!(marker["cpu_threads"], 16);
-        assert_eq!(marker["case_lanes"], 16);
-        assert_eq!(marker["math_jobs"], 32);
-        assert_eq!(
-            marker["qualification_native_entry"],
-            fixture.directory.to_str().unwrap()
-        );
-        fixture.worker_pid = u32::try_from(marker["pid"].as_u64().unwrap()).unwrap();
-        assert_ne!(fixture.worker_pid, std::process::id());
         fixture
     }
     fn signal(&self, name: &str) {
@@ -3714,32 +3803,24 @@ impl ManagedStudyFixture {
             } => failure,
         };
         cancel.cancel();
+        let mut signals = Vec::new();
         for name in ["release.json", "stop.json"] {
-            if !self.directory.join(name).exists() {
-                self.signal(name);
-            }
+            managed_cleanup_attempt(&mut signals, name, || self.signal(name));
         }
-        // Keep the public future and its cancellation owner alive while the real
-        // primary drains. A timeout drops neither the fixture nor its drain owner;
-        // Drop retains the actual worker drain ownership during the explicit failure.
-        let drained = tokio::time::timeout_at(
-            tokio::time::Instant::from_std(self.drain_deadline()),
-            async {
-                tokio::join!(
-                    async {
-                        let _ = (&mut operation).await;
-                    },
-                    async {
-                        while std::path::Path::new(&format!("/proc/{}", self.worker_pid)).exists() {
-                            tokio::time::sleep(Duration::from_millis(20)).await;
-                        }
-                    }
-                );
-            },
-        )
-        .await
-        .is_ok();
-        panic!("{failure}; public cancellation and primary drain completed: {drained}");
+        // Keep the original public future/token until its cancellation bound,
+        // while independently retaining the native owner's actual drain result.
+        // PID absence alone never establishes physical population settlement.
+        let (public, drained) = tokio::join!(
+            tokio::time::timeout_at(
+                tokio::time::Instant::from_std(self.drain_deadline()),
+                &mut operation,
+            ),
+            self.shutdown_original(),
+        );
+        panic!(
+            "{failure}; signal failures: {signals:?}; public cancellation settled: {}; original native drain: {drained:?}",
+            public.is_ok(),
+        );
     }
     #[cfg(feature = "solver-ipopt")]
     async fn observation(
@@ -3793,23 +3874,105 @@ impl ManagedStudyFixture {
             )
         })
     }
-    async fn finish(mut self) {
-        self.signal("release.json");
-        self.signal("stop.json");
-        tokio::time::timeout_at(
-            tokio::time::Instant::from_std(self.drain_deadline()),
-            async {
-                while std::path::Path::new(&format!("/proc/{}", self.worker_pid)).exists() {
-                    tokio::time::sleep(Duration::from_millis(20)).await;
-                }
-            },
-        )
-        .await
-        .unwrap();
-        let final_entries = managed_read_json(&self.directory.join("entries.json"));
-        assert_eq!(final_entries["active"], 0);
-        assert!(!self.directory.join("failure.json").exists());
-        self.finished = true;
+    async fn shutdown_original(&self) -> Result<Option<pse_host::UnitObservation>, WorkflowError> {
+        let deadline = self.drain_deadline();
+        let mut worker = self.worker.lock().await;
+        let result = match worker.as_mut() {
+            Some(original) => original.shutdown(deadline).await,
+            // No native owner was constructed, so no launch was dispatched.
+            None => Ok(None),
+        };
+        if result.is_ok() {
+            self.physical_drained.store(true, std::sync::atomic::Ordering::Release);
+        }
+        result
+    }
+
+    #[cfg(feature = "solver-ipopt")]
+    async fn kill_original(&self) {
+        self.killed.store(true, std::sync::atomic::Ordering::Release);
+        let mut worker = self.worker.lock().await;
+        let original = worker.as_mut().unwrap();
+        let ready = managed_read_json(&original.directory().join("ready.json"));
+        // Qualification needs abrupt original-owner death, distinct from a
+        // cooperative worker stop. Only the identity-bound performing owner may
+        // kill and drain this population; a configured unit name cannot adopt it.
+        let observed = original.kill_and_drain_for_qualification(self.drain_deadline()).await;
+        if observed.is_ok() {
+            self.physical_drained.store(true, std::sync::atomic::Ordering::Release);
+        }
+        let observed = observed.unwrap();
+        assert_eq!(observed.unit, original.intent().unit());
+        assert_eq!(
+            ready["invocation"].as_str().unwrap(),
+            observed.invocation.iter().map(|byte| format!("{byte:02x}")).collect::<String>()
+        );
+        assert_eq!(observed.exit_code, 2, "original process was killed rather than gracefully stopped");
+        assert_eq!(observed.exit_status, 9);
+        assert!(original.terminal().unwrap().is_none(), "physical death cannot invent native join completion");
+    }
+
+    async fn finish(&mut self, check_science: bool, retain_diagnostics: bool) -> Vec<String> {
+        let mut failures = Vec::new();
+        // Every cleanup is attempted even after another one fails. All native
+        // attempts share the first absolute drain deadline; retries cannot reset it.
+        for name in ["release.json", "stop.json"] {
+            managed_cleanup_attempt(&mut failures, name, || self.signal(name));
+        }
+        if let Err(error) = self.shutdown_original().await {
+            failures.push(format!("original native stop/drain: {error}"));
+        }
+        if let Some(ready) = &self.schema_ready {
+            match ready.store().disconnect().await {
+                Ok(()) => self.schema_ready = None,
+                Err(error) => failures.push(format!("schema-ready connection drain: {error}")),
+            }
+        }
+        let mut worker = self.worker.lock().await;
+        if check_science {
+            if !self.killed.load(std::sync::atomic::Ordering::Acquire) {
+                managed_cleanup_attempt(&mut failures, "original application join receipt", || {
+                    let terminal = worker.as_ref().unwrap().terminal().unwrap().expect("native join receipt absent");
+                    assert!(terminal.native_joined, "original native lanes did not join: {terminal:?}");
+                    assert!(terminal.failure.is_none(), "original application failed: {terminal:?}");
+                });
+                managed_cleanup_attempt(&mut failures, "native entry drain", || {
+                    let final_entries = managed_read_json(&self.directory.join("entries.json"));
+                    assert_eq!(final_entries["nonce"], self.nonce);
+                    assert_eq!(final_entries["canonical_database"], self.runtime.canonical_store().unwrap().database());
+                    assert_eq!(final_entries["pid"], self.worker_pid);
+                    assert_eq!(final_entries["active"], 0);
+                });
+            } else {
+                managed_cleanup_attempt(&mut failures, "killed application has no join receipt", || {
+                    assert!(worker.as_ref().unwrap().terminal().unwrap().is_none());
+                });
+            }
+        }
+        managed_cleanup_attempt(&mut failures, "native qualification failure", || {
+            let failure = self.directory.join("failure.json");
+            assert!(!failure.exists(), "native qualification failed: {:?}", failure.exists().then(|| managed_read_json(&failure)));
+        });
+        if self.physical_drained.load(std::sync::atomic::Ordering::Acquire) {
+            managed_cleanup_attempt(&mut failures, "fixture controls drain registration", || {
+                pse_operations::testing::record_fixture_controls_drain(
+                    &self.controls_resource,
+                    self.directory.parent().unwrap(),
+                    self.runtime.canonical_store().unwrap().database(),
+                ).unwrap();
+            });
+            // Retain readiness/terminal diagnostics when any settlement or
+            // scientific assertion failed; disposal never proves native join.
+            if failures.is_empty()
+                && !retain_diagnostics
+                && let Some(original) = worker.as_mut()
+                && let Err(error) = original.dispose()
+            {
+                failures.push(format!("native handoff disposal: {error}"));
+            }
+            self.finished = self.schema_ready.is_none();
+        }
+        failures
     }
 }
 
@@ -3837,373 +4000,316 @@ async fn managed_primary_multipage_read_overlaps_compiler_leases_and_original_sc
             ..Default::default()
         },
     );
-    let fixture =
-        ManagedStudyFixture::start_on(true, durable_tests::durable_runtime_on(local), 3).await;
-    let runtime = &fixture.runtime;
-    let store = runtime.canonical_store().unwrap();
-    let pool = runtime.shared.pool();
-    let key = format!("multipage-managed-{}", fixture.nonce);
-    let revision = store.edit(&key, None, "transport-only", &[]).await.unwrap();
-    store
-        .begin_run(&RunRequest {
-            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
-            admission_study: None,
-            admission_point: None,
-            key: key.clone().into(),
-            revision,
-            sources: vec![],
-            request: vec![1],
-            source_selection: vec![2],
-            attestation: vec![3],
-        })
-        .await
-        .unwrap();
-    let fence = store
-        .claim_run(&key, "claim", "transport-only", Duration::from_secs(60))
-        .await
-        .unwrap();
-    let run_id = pse_operations::mint_id();
-    let mut batches = Vec::new();
-    for step in 0..65 {
-        let mut builder = solve_metrics::Builder::with_registry(
-            runtime.registry(),
-            1,
-            &runtime.validation_context(),
-        )
-        .unwrap();
-        builder
-            .push(solve_metrics::Row {
-                run_id,
-                step,
-                namespace: "transport-only".into(),
-                name: "temperature".into(),
-                kind: NativeMetricKind::Real,
-                real: Some(273.15 + step as f64),
-                integer: None,
-                boolean: None,
-                text: None,
-                unavailable: None,
-            })
-            .unwrap();
-        batches.push(builder.finish().unwrap());
-    }
-    result_projection::store_result_table(
-        store,
-        &fence,
-        solve_metrics::RELATION_ID,
-        ResultCursor::from_retained(
-            batches[0].batch().schema(),
-            solve_metrics::RELATION_ID,
-            &batches,
-        )
-        .unwrap(),
-        &pool,
-        &durable::PublicationAcks::new(&pool),
-    )
-    .await
-    .unwrap();
-    drop(batches);
-    let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
-    let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
-    // SAFETY: these observations establish transport availability only.
-    unsafe {
-        store.seal_attempt(
-            &manifest,
-            "seal",
-            TerminalClass::Partial,
-            &[1],
-            pse_operations::canonical_execution::SeedEligibility::Unavailable,
-        )
-    }
-    .await
-    .unwrap();
-    let (_, local) = parallel_study_definition(runtime, 3, None).await;
-    let cancel = crate::CancelSource::new();
-    let definition = runtime.record_study(&local, &cancel).await.unwrap();
-    drop(local);
-    let science = runtime.execute_study(&definition, 3, &cancel);
-    let serving = async {
-        let held = fixture.observation(|value| value["active"] == 3).await;
-        assert_eq!(held["entries"].as_array().unwrap().len(), 3);
-        let physical = tests::physical();
-        let workspace = || {
-            runtime
-                .native()
-                .workspace(
-                    CompilerContext {
-                        quantities: physical.quantities.clone(),
-                        preconditions: physical.preconditions.clone(),
-                        providers: Default::default(),
-                    },
-                    WorkspaceLimits::default(),
-                )
-                .unwrap()
-        };
-        let before = pool.reserved();
-        let first = workspace();
-        let second = workspace();
-        assert_eq!(pool.reserved() - before, 128 << 20);
-        let baseline = pool.reserved();
-        let settle_read = || async {
-            // The issued release retains this read's metadata grant through its
-            // SDK suffix. Other live study readers are intentionally not drained.
-            tokio::time::timeout(Duration::from_secs(10), async {
-                while pool.reserved() != baseline {
-                    tokio::time::sleep(Duration::from_millis(1)).await;
-                }
+    ManagedStudyFixture::run_on(true, durable_tests::durable_runtime_on(local), 3, |fixture| Box::pin(async move {
+        let runtime = &fixture.runtime;
+        let store = runtime.canonical_store().unwrap();
+        let pool = runtime.shared.pool();
+        let key = format!("multipage-managed-{}", fixture.nonce);
+        let revision = store.edit(&key, None, "transport-only", &[]).await.unwrap();
+        store
+            .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
+                key: key.clone().into(),
+                revision,
+                sources: vec![],
+                request: vec![1],
+                source_selection: vec![2],
+                attestation: vec![3],
             })
             .await
-            .expect("owned result-read suffix must release its grant");
-        };
-        let stop = CancellationToken::new();
-        let mut reader = runtime
-            .results(
-                fence.run(),
-                fence.attempt(),
-                "runtime.solve_metrics",
-                0,
-                65,
-                stop.clone(),
+            .unwrap();
+        let fence = store
+            .claim_run(&key, "claim", "transport-only", Duration::from_secs(60))
+            .await
+            .unwrap();
+        let run_id = pse_operations::mint_id();
+        let mut batches = Vec::new();
+        for step in 0..65 {
+            let mut builder = solve_metrics::Builder::with_registry(
+                runtime.registry(),
+                1,
+                &runtime.validation_context(),
             )
-            .await
             .unwrap();
-        let snapshot = reader.snapshot();
-        assert_eq!(snapshot.blocks().len(), 65);
-        let alias = snapshot.clone();
-        let mut rows = 0;
-        while let Some(batch) = reader.next_batch().await.unwrap() {
-            let values = batch
-                .column_by_name("real")
-                .unwrap()
-                .as_any()
-                .downcast_ref::<Float64Array>()
+            builder
+                .push(solve_metrics::Row {
+                    run_id,
+                    step,
+                    namespace: "transport-only".into(),
+                    name: "temperature".into(),
+                    kind: NativeMetricKind::Real,
+                    real: Some(273.15 + step as f64),
+                    integer: None,
+                    boolean: None,
+                    text: None,
+                    unavailable: None,
+                })
                 .unwrap();
-            assert_eq!(batch.num_rows(), 1);
-            assert_eq!(values.value(0), 273.15 + rows as f64);
-            rows += 1;
+            batches.push(builder.finish().unwrap());
         }
-        assert_eq!(rows, 65);
-        drop(reader);
-        drop(snapshot);
-        assert!(pool.reserved() > baseline);
-        drop(alias);
-        settle_read().await;
-        assert_eq!(pool.reserved(), baseline);
-        let pressure = MemoryConsumer::new("test:managed-result-pressure").register(&pool);
-        let remaining = (256 << 20) - pool.reserved();
-        let pressure_bytes = remaining
-            .checked_sub(pse_operations::canonical::MetadataResponse::Selection.allocation_bytes())
-            .expect(
-                "original observer pool must fit a complete selection with both compiler leases",
+        result_projection::store_result_table(
+            store,
+            &fence,
+            solve_metrics::RELATION_ID,
+            ResultCursor::from_retained(
+                batches[0].batch().schema(),
+                solve_metrics::RELATION_ID,
+                &batches,
             )
-            + 1;
-        pressure.try_grow(pressure_bytes).unwrap();
-        assert!(
-            runtime
+            .unwrap(),
+            &pool,
+            &durable::PublicationAcks::new(&pool),
+        )
+        .await
+        .unwrap();
+        drop(batches);
+        let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: these observations establish transport availability only.
+        unsafe {
+            store.seal_attempt(
+                &manifest,
+                "seal",
+                TerminalClass::Partial,
+                &[1],
+                pse_operations::canonical_execution::SeedEligibility::Unavailable,
+            )
+        }
+        .await
+        .unwrap();
+        let (_, local) = parallel_study_definition(runtime, 3, None).await;
+        let cancel = crate::CancelSource::new();
+        let definition = runtime.record_study(&local, &cancel).await.unwrap();
+        drop(local);
+        let science = runtime.execute_study(&definition, 3, &cancel);
+        let serving = async {
+            let held = fixture.observation(|value| value["active"] == 3).await;
+            assert_eq!(held["entries"].as_array().unwrap().len(), 3);
+            let physical = tests::physical();
+            let workspace = || {
+                runtime
+                    .native()
+                    .workspace(
+                        CompilerContext {
+                            quantities: physical.quantities.clone(),
+                            preconditions: physical.preconditions.clone(),
+                            providers: Default::default(),
+                        },
+                        WorkspaceLimits::default(),
+                    )
+                    .unwrap()
+            };
+            let before = pool.reserved();
+            let first = workspace();
+            let second = workspace();
+            assert_eq!(pool.reserved() - before, 128 << 20);
+            let baseline = pool.reserved();
+            let settle_read = || async {
+                // The issued release retains this read's metadata grant through its
+                // SDK suffix. Other live study readers are intentionally not drained.
+                tokio::time::timeout(Duration::from_secs(10), async {
+                    while pool.reserved() != baseline {
+                        tokio::time::sleep(Duration::from_millis(1)).await;
+                    }
+                })
+                .await
+                .expect("owned result-read suffix must release its grant");
+            };
+            let stop = CancellationToken::new();
+            let mut reader = runtime
                 .results(
                     fence.run(),
                     fence.attempt(),
                     "runtime.solve_metrics",
                     0,
                     65,
-                    CancellationToken::new()
+                    stop.clone(),
                 )
                 .await
-                .is_err()
+                .unwrap();
+            let snapshot = reader.snapshot();
+            assert_eq!(snapshot.blocks().len(), 65);
+            let alias = snapshot.clone();
+            let mut rows = 0;
+            while let Some(batch) = reader.next_batch().await.unwrap() {
+                let values = batch
+                    .column_by_name("real")
+                    .unwrap()
+                    .as_any()
+                    .downcast_ref::<Float64Array>()
+                    .unwrap();
+                assert_eq!(batch.num_rows(), 1);
+                assert_eq!(values.value(0), 273.15 + rows as f64);
+                rows += 1;
+            }
+            assert_eq!(rows, 65);
+            drop(reader);
+            drop(snapshot);
+            assert!(pool.reserved() > baseline);
+            drop(alias);
+            settle_read().await;
+            assert_eq!(pool.reserved(), baseline);
+            let pressure = MemoryConsumer::new("test:managed-result-pressure").register(&pool);
+            let remaining = (256 << 20) - pool.reserved();
+            let pressure_bytes = remaining
+                .checked_sub(pse_operations::canonical::MetadataResponse::Selection.allocation_bytes())
+                .expect(
+                    "original observer pool must fit a complete selection with both compiler leases",
+                )
+                + 1;
+            pressure.try_grow(pressure_bytes).unwrap();
+            assert!(
+                runtime
+                    .results(
+                        fence.run(),
+                        fence.attempt(),
+                        "runtime.solve_metrics",
+                        0,
+                        65,
+                        CancellationToken::new()
+                    )
+                    .await
+                    .is_err()
+            );
+            drop(pressure);
+            let mut reader = runtime
+                .results(
+                    fence.run(),
+                    fence.attempt(),
+                    "runtime.solve_metrics",
+                    0,
+                    65,
+                    stop.clone(),
+                )
+                .await
+                .unwrap();
+            stop.cancel();
+            assert!(reader.next_batch().await.is_err());
+            drop(reader);
+            settle_read().await;
+            assert_eq!(pool.reserved(), baseline);
+            drop(first);
+            drop(second);
+            assert_eq!(pool.reserved(), before);
+            fixture.signal("release.json");
+        };
+        let (report, ()) = fixture
+            .dispatch(&cancel, async { tokio::join!(science, serving) })
+            .await;
+        let report = report.unwrap();
+        assert_eq!(report.outcomes.len(), 3);
+        assert!(
+            report
+                .outcomes
+                .iter()
+                .all(|outcome| outcome.scientific.usable)
         );
-        drop(pressure);
-        let mut reader = runtime
-            .results(
-                fence.run(),
-                fence.attempt(),
-                "runtime.solve_metrics",
-                0,
-                65,
-                stop.clone(),
-            )
-            .await
-            .unwrap();
-        stop.cancel();
-        assert!(reader.next_batch().await.is_err());
-        drop(reader);
-        settle_read().await;
-        assert_eq!(pool.reserved(), baseline);
-        drop(first);
-        drop(second);
-        assert_eq!(pool.reserved(), before);
-        fixture.signal("release.json");
-    };
-    let (report, ()) = fixture
-        .dispatch(&cancel, async { tokio::join!(science, serving) })
-        .await;
-    let report = report.unwrap();
-    assert_eq!(report.outcomes.len(), 3);
-    assert!(
-        report
-            .outcomes
-            .iter()
-            .all(|outcome| outcome.scientific.usable)
-    );
-    assert_eq!(report.results.len(), 3);
-    assert_eq!(
-        report
-            .results
-            .iter()
-            .map(|result| result.as_ref().unwrap().stored_keys().unwrap())
-            .collect::<std::collections::BTreeSet<_>>()
-            .len(),
-        3,
-        "each managed occurrence retains its own exact result identity"
-    );
-    for result in &report.results {
-        let (run, attempt) = result.as_ref().unwrap().stored_keys().unwrap();
-        let reopened = runtime
-            .operations()
-            .unwrap()
-            .record(run, attempt)
-            .await
-            .unwrap();
-        assert_eq!(reopened.solutions.len(), 1);
-        let mut variables = runtime
-            .results(
-                run,
-                attempt,
-                "runtime.solve_variables",
-                0,
-                u64::MAX,
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        let mut original_checked = false;
-        while let Some(batch) = variables.next_batch().await.unwrap() {
-            let view = pse_relations::generated::runtime::solve_variables::View::try_from_batch_with_registry(runtime.registry(), &batch, &runtime.validation_context()).unwrap();
-            for row in view.rows().unwrap() {
-                if row.parameter {
-                    continue;
-                }
-                if let Some(value) = row.value {
-                    let allowance = row.tolerance.unwrap();
-                    assert!(value.is_finite() && allowance.is_finite() && allowance > 0.0);
-                    assert!((value - 2.0).abs() <= allowance);
-                    assert!((value * value - 4.0).abs() <= allowance * (4.0 + allowance));
-                    original_checked = true;
+        assert_eq!(report.results.len(), 3);
+        assert_eq!(
+            report
+                .results
+                .iter()
+                .map(|result| result.as_ref().unwrap().stored_keys().unwrap())
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            3,
+            "each managed occurrence retains its own exact result identity"
+        );
+        for result in &report.results {
+            let (run, attempt) = result.as_ref().unwrap().stored_keys().unwrap();
+            let reopened = runtime
+                .operations()
+                .unwrap()
+                .record(run, attempt)
+                .await
+                .unwrap();
+            assert_eq!(reopened.solutions.len(), 1);
+            let mut variables = runtime
+                .results(
+                    run,
+                    attempt,
+                    "runtime.solve_variables",
+                    0,
+                    u64::MAX,
+                    CancellationToken::new(),
+                )
+                .await
+                .unwrap();
+            let mut original_checked = false;
+            while let Some(batch) = variables.next_batch().await.unwrap() {
+                let view = pse_relations::generated::runtime::solve_variables::View::try_from_batch_with_registry(runtime.registry(), &batch, &runtime.validation_context()).unwrap();
+                for row in view.rows().unwrap() {
+                    if row.parameter {
+                        continue;
+                    }
+                    if let Some(value) = row.value {
+                        let allowance = row.tolerance.unwrap();
+                        assert!(value.is_finite() && allowance.is_finite() && allowance > 0.0);
+                        assert!((value - 2.0).abs() <= allowance);
+                        assert!((value * value - 4.0).abs() <= allowance * (4.0 + allowance));
+                        original_checked = true;
+                    }
                 }
             }
+            assert!(original_checked, "actual managed original root retained");
         }
-        assert!(original_checked, "actual managed original root retained");
-    }
-    drop(report);
-    fixture.finish().await;
+        drop(report);
+    })).await;
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
 #[tokio::test]
 async fn managed_primary_death_returns_incomplete_study_without_fabricated_terminal() {
-    let mut fixture = ManagedStudyFixture::start_on(true, tests::durable_runtime(), 1).await;
-    let runtime = &fixture.runtime;
-    let (_, local) = parallel_study_definition(runtime, 1, None).await;
-    let cancel = crate::CancelSource::new();
-    let definition = runtime.record_study(&local, &cancel).await.unwrap();
-    let science = runtime.execute_study(&definition, 1, &cancel);
-    let death = async {
-        fixture.observation(|value| value["active"] == 1).await;
-        let unit = fixture.primary_owner["scope"]["unit"].as_str().unwrap();
-        let observed = tokio::process::Command::new("systemctl")
-            .args(["--user", "show", "--property=InvocationID", "--value", unit])
-            .output()
-            .await
-            .unwrap();
-        assert!(observed.status.success());
-        assert_eq!(
-            std::str::from_utf8(&observed.stdout).unwrap().trim(),
-            fixture.primary_owner["scope"]["invocation"]
-                .as_str()
-                .unwrap()
-        );
-        // This fixture owns the isolated database's exact primary invocation.
-        // Deliberate death leaves durable work incomplete rather than inventing an ACK.
-        assert!(
-            tokio::process::Command::new("systemctl")
-                .args([
-                    "--user",
-                    "kill",
-                    "--kill-whom=all",
-                    "--signal=SIGKILL",
-                    unit
-                ])
-                .status()
-                .await
-                .unwrap()
-                .success()
-        );
-    };
-    let (result, ()) = tokio::time::timeout(Duration::from_secs(45), async {
-        tokio::join!(science, death)
-    })
-    .await
-    .unwrap();
-    let study = match result {
-        Err(WorkflowError::StudyExecutionUnavailable { study }) => study,
-        result => panic!("dead primary must preserve an incomplete study identity: {result:?}"),
-    };
-    assert!(runtime.study(study).result().await.unwrap().is_none());
-    assert!(!std::path::Path::new(&format!("/proc/{}", fixture.worker_pid)).exists());
-    fixture.finished = true;
+    ManagedStudyFixture::run_on(true, tests::durable_runtime(), 1, |fixture| Box::pin(async move {
+        let runtime = &fixture.runtime;
+        let (_, local) = parallel_study_definition(runtime, 1, None).await;
+        let cancel = crate::CancelSource::new();
+        let definition = runtime.record_study(&local, &cancel).await.unwrap();
+        let science = runtime.execute_study(&definition, 1, &cancel);
+        let death = async {
+            fixture.observation(|value| value["active"] == 1).await;
+            fixture.kill_original().await;
+        };
+        let (result, ()) = tokio::time::timeout(Duration::from_secs(45), async {
+            tokio::join!(science, death)
+        })
+        .await
+        .unwrap();
+        let study = match result {
+            Err(WorkflowError::StudyExecutionUnavailable { study }) => study,
+            result => panic!("dead primary must preserve an incomplete study identity: {result:?}"),
+        };
+        assert!(runtime.study(study).result().await.unwrap().is_none());
+        assert!(!std::path::Path::new(&format!("/proc/{}", fixture.worker_pid)).exists());
+    })).await;
 }
 #[cfg(feature = "canonical-tests")]
 impl Drop for ManagedStudyFixture {
     fn drop(&mut self) {
-        if self.worker_pid == 0 {
-            // Startup may publish the bounded controller observation before readiness
-            // fails. Associate only this fixture's nonce/database with its actual PID.
-            let observation = self.directory.join("entries.json");
-            if let Ok(metadata) = std::fs::symlink_metadata(&observation)
-                && metadata.is_file()
-                && !metadata.file_type().is_symlink()
-                && metadata.len() <= 8192
-                && let Ok(bytes) = std::fs::read(&observation)
-                && let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes)
-                && value["nonce"] == self.nonce
-                && value["canonical_database"] == self.runtime.canonical_store().unwrap().database()
-                && let Some(pid) = value["pid"]
-                    .as_u64()
-                    .and_then(|pid| u32::try_from(pid).ok())
-            {
-                self.worker_pid = pid;
-            }
-        }
         if !self.finished {
-            // Qualification panic also releases native entry owners and asks the same
-            // primary driver to cancel/drain; it never tears a running owner away.
-            if !self.directory.join("release.json").exists() {
-                self.signal("release.json");
+            let mut failures = Vec::new();
+            for name in ["release.json", "stop.json"] {
+                managed_cleanup_attempt(&mut failures, name, || self.signal(name));
             }
-            if !self.directory.join("stop.json").exists() {
-                self.signal("stop.json");
-            }
-            let deadline = self.drain_deadline();
-            while self.worker_pid != 0
-                && std::path::Path::new(&format!("/proc/{}", self.worker_pid)).exists()
-                && std::time::Instant::now() < deadline
+            // Drop cannot drive asynchronous manager settlement. Keep the exact
+            // original owner and its diagnostic paths after failed/cancelled
+            // cleanup rather than claiming PID absence proves descendant drain.
+            if !self.physical_drained.load(std::sync::atomic::Ordering::Acquire)
+                && let Some(original) = self.worker.get_mut().take()
             {
-                std::thread::sleep(Duration::from_millis(20));
+                eprintln!(
+                    "managed fixture original native owner retained without drain: unit={}, handoff={}, controls={}, deadline={:?}, signal failures={failures:?}",
+                    original.intent().unit(), original.directory().display(), self.directory.display(), self.drain_deadline.get_mut(),
+                );
+                std::mem::forget(original);
+            } else if !failures.is_empty() {
+                eprintln!("managed fixture cleanup incomplete: signals={failures:?}");
             }
-        }
-        if self.worker_pid == 0
-            || !std::path::Path::new(&format!("/proc/{}", self.worker_pid)).exists()
-        {
-            let result = pse_operations::testing::record_fixture_controls_drain(
-                &self.controls_resource,
-                self.directory.parent().unwrap(),
-                self.runtime.canonical_store().unwrap().database(),
-            );
-            if let Err(error) = result {
-                if std::thread::panicking() {
-                    eprintln!("managed fixture retained after drain failure: {error}");
-                } else {
-                    panic!("managed fixture drain failed: {error}");
-                }
+            if let Some(ready) = self.schema_ready.take() {
+                eprintln!("managed fixture schema-ready connection retained without explicit disconnect");
+                std::mem::forget(ready);
             }
         }
     }
@@ -4214,326 +4320,326 @@ impl Drop for ManagedStudyFixture {
 async fn managed_primary_study_enters_sixteen_native_owners_and_retains_original_results() {
     use pse_relations::generated::runtime::solve_variables;
     use std::collections::BTreeSet;
-    let fixture = ManagedStudyFixture::start(true).await;
-    let runtime = &fixture.runtime;
-    let (_, definition) = parallel_study_definition(runtime, 16, None).await;
-    assert!(
-        definition
-            .points
-            .windows(2)
-            .all(|points| points[0].binding_hash == points[1].binding_hash)
-    );
-    let cancel = crate::CancelSource::new();
-    let definition = runtime
-        .record_study(&definition, &crate::CancelSource::new())
-        .await
-        .unwrap();
-    let control = async {
-        let value = fixture.observation(|value| value["active"] == 16).await;
-        let entries = value["entries"].as_array().unwrap();
-        assert_eq!(entries.len(), 16);
-        assert_eq!(value["maximum"], 16);
-        assert!(entries.iter().all(|entry| entry["released"] == false));
-        let threads = entries
-            .iter()
-            .map(|entry| entry["thread"].as_str().unwrap())
-            .collect::<BTreeSet<_>>();
-        assert_eq!(
-            threads.len(),
-            16,
-            "sixteen actual owner threads on one primary PID hold CPU admission together"
+    ManagedStudyFixture::run(true, |fixture| Box::pin(async move {
+        let runtime = &fixture.runtime;
+        let (_, definition) = parallel_study_definition(runtime, 16, None).await;
+        assert!(
+            definition
+                .points
+                .windows(2)
+                .all(|points| points[0].binding_hash == points[1].binding_hash)
         );
-        fixture.signal("release.json");
-    };
-    let (report, ()) = fixture
-        .dispatch(&cancel, async {
-            tokio::join!(runtime.execute_study(&definition, 16, &cancel), control)
-        })
-        .await;
-    let report = report.unwrap();
-    assert!(
-        report
-            .outcomes
-            .iter()
-            .all(|outcome| outcome.scientific.usable),
-        "{:?}",
-        report.outcomes
-    );
-    assert_eq!(
-        report
-            .outcomes
-            .iter()
-            .map(|outcome| outcome.key)
-            .collect::<Vec<_>>(),
-        definition
-            .points
-            .iter()
-            .map(|point| point.policy.key)
-            .collect::<Vec<_>>()
-    );
-    let identities = report
-        .results
-        .iter()
-        .map(|result| result.as_ref().unwrap().run_id())
-        .collect::<BTreeSet<_>>();
-    assert_eq!(
-        identities.len(),
-        16,
-        "equal bindings have sixteen exact retained executions"
-    );
-    for result in &report.results {
-        let result = result.as_ref().unwrap();
-        assert!(matches!(result, StudyOccurrenceResult::Retained { .. }));
-        let (run, attempt) = result.stored_keys().unwrap();
-        let mut variables = runtime
-            .results(
-                run,
-                attempt,
-                "runtime.solve_variables",
-                0,
-                u64::MAX,
-                pse_columnar::CancellationToken::new(),
-            )
+        let cancel = crate::CancelSource::new();
+        let definition = runtime
+            .record_study(&definition, &crate::CancelSource::new())
             .await
             .unwrap();
-        let mut roots = 0;
-        while let Some(batch) = variables.next_batch().await.unwrap() {
-            let view = solve_variables::View::try_from_batch_with_registry(
-                runtime.registry(),
-                &batch,
-                &runtime.validation_context(),
-            )
-            .unwrap();
-            for row in view
-                .rows()
-                .unwrap()
-                .into_iter()
-                .filter(|row| !row.parameter)
-            {
-                let value = row.value.unwrap();
-                let allowance = row.tolerance.unwrap();
-                assert!(value.is_finite() && allowance.is_finite() && allowance > 0.0);
-                assert!(
-                    (value - 2.0).abs() <= allowance,
-                    "original native root must satisfy its published production allowance"
-                );
-                roots += 1;
+        let control = async {
+            let value = fixture.observation(|value| value["active"] == 16).await;
+            let entries = value["entries"].as_array().unwrap();
+            assert_eq!(entries.len(), 16);
+            assert_eq!(value["maximum"], 16);
+            assert!(entries.iter().all(|entry| entry["released"] == false));
+            let threads = entries
+                .iter()
+                .map(|entry| entry["thread"].as_str().unwrap())
+                .collect::<BTreeSet<_>>();
+            assert_eq!(
+                threads.len(),
+                16,
+                "sixteen actual owner threads on one primary PID hold CPU admission together"
+            );
+            fixture.signal("release.json");
+        };
+        let (report, ()) = fixture
+            .dispatch(&cancel, async {
+                tokio::join!(runtime.execute_study(&definition, 16, &cancel), control)
+            })
+            .await;
+        let report = report.unwrap();
+        assert!(
+            report
+                .outcomes
+                .iter()
+                .all(|outcome| outcome.scientific.usable),
+            "{:?}",
+            report.outcomes
+        );
+        assert_eq!(
+            report
+                .outcomes
+                .iter()
+                .map(|outcome| outcome.key)
+                .collect::<Vec<_>>(),
+            definition
+                .points
+                .iter()
+                .map(|point| point.policy.key)
+                .collect::<Vec<_>>()
+        );
+        let identities = report
+            .results
+            .iter()
+            .map(|result| result.as_ref().unwrap().run_id())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            identities.len(),
+            16,
+            "equal bindings have sixteen exact retained executions"
+        );
+        for result in &report.results {
+            let result = result.as_ref().unwrap();
+            assert!(matches!(result, StudyOccurrenceResult::Retained { .. }));
+            let (run, attempt) = result.stored_keys().unwrap();
+            let mut variables = runtime
+                .results(
+                    run,
+                    attempt,
+                    "runtime.solve_variables",
+                    0,
+                    u64::MAX,
+                    pse_columnar::CancellationToken::new(),
+                )
+                .await
+                .unwrap();
+            let mut roots = 0;
+            while let Some(batch) = variables.next_batch().await.unwrap() {
+                let view = solve_variables::View::try_from_batch_with_registry(
+                    runtime.registry(),
+                    &batch,
+                    &runtime.validation_context(),
+                )
+                .unwrap();
+                for row in view
+                    .rows()
+                    .unwrap()
+                    .into_iter()
+                    .filter(|row| !row.parameter)
+                {
+                    let value = row.value.unwrap();
+                    let allowance = row.tolerance.unwrap();
+                    assert!(value.is_finite() && allowance.is_finite() && allowance > 0.0);
+                    assert!(
+                        (value - 2.0).abs() <= allowance,
+                        "original native root must satisfy its published production allowance"
+                    );
+                    roots += 1;
+                }
             }
+            assert_eq!(roots, 1);
         }
-        assert_eq!(roots, 1);
-    }
-    fixture.observation(|value| value["active"] == 0).await;
-    fixture.finish().await;
+        fixture.observation(|value| value["active"] == 0).await;
+    })).await;
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
 #[tokio::test]
 async fn managed_primary_sixteen_survive_caller_disconnect_until_explicit_cancel() {
-    let fixture = ManagedStudyFixture::start(true).await;
-    let runtime = &fixture.runtime;
-    let (_, definition) = parallel_study_definition(runtime, 16, None).await;
-    let definition = runtime
-        .record_study(&definition, &crate::CancelSource::new())
-        .await
+    ManagedStudyFixture::run(true, |fixture| Box::pin(async move {
+        let runtime = &fixture.runtime;
+        let (_, definition) = parallel_study_definition(runtime, 16, None).await;
+        let definition = runtime
+            .record_study(&definition, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        // Use an independent physical client as well as an independent caller token;
+        // cloning a deployment would keep the same driver's transport-close authority.
+        let store = runtime.canonical_store().unwrap();
+        let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
+            store.deployment_state(),
+            Some(store.database()),
+        )
         .unwrap();
-    // Use an independent physical client as well as an independent caller token;
-    // cloning a deployment would keep the same driver's transport-close authority.
-    let store = runtime.canonical_store().unwrap();
-    let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
-        store.deployment_state(),
-        Some(store.database()),
-    )
-    .unwrap();
-    let independent_store = pse_operations::canonical::CanonicalStore::connect(&options)
-        .await
+        let independent_store = pse_operations::canonical::CanonicalStore::connect(&options)
+            .await
+            .unwrap();
+        independent_store.open().await.unwrap();
+        let independent = Runtime::from_shared(
+            runtime.shared.clone(),
+            runtime.model.clone(),
+            CanonicalDeployment::new(
+                independent_store,
+                runtime.canonical().unwrap().attestation(),
+                runtime.canonical().unwrap().producer().cloned(),
+            ),
+        )
         .unwrap();
-    independent_store.open().await.unwrap();
-    let independent = Runtime::from_shared(
-        runtime.shared.clone(),
-        runtime.model.clone(),
-        CanonicalDeployment::new(
-            independent_store,
-            runtime.canonical().unwrap().attestation(),
-            runtime.canonical().unwrap().producer().cloned(),
-        ),
-    )
-    .unwrap();
-    let handle = runtime
-        .start_recorded_study(definition, &crate::CancelSource::new())
-        .await
-        .unwrap();
-    let study = handle.study_id();
-    fixture.observation(|value| value["active"] == 16).await;
-    drop(handle);
-    // Preparation retention owns source protections on this physical client.
-    // Evict its idle cache and join the registered releases before disconnecting.
-    runtime.clear_program_cache();
-    pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap())
-        .await
-        .unwrap();
-    runtime.close();
-    runtime
-        .canonical_store()
-        .unwrap()
-        .disconnect()
-        .await
-        .unwrap();
-
-    let handle = independent.study(study);
-    let status = handle.status().await.unwrap();
-    assert!(!status.cancelled);
-    assert_eq!(status.state, StudyState::Open);
-    assert_eq!(status.points.len(), 16);
-    assert!(status.points.iter().all(|point| !point.settled));
-    let held = fixture.observation(|value| value["active"] == 16).await;
-    assert!(
-        held["entries"]
-            .as_array()
+        let handle = runtime
+            .start_recorded_study(definition, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let study = handle.study_id();
+        fixture.observation(|value| value["active"] == 16).await;
+        drop(handle);
+        // Preparation retention owns source protections on this physical client.
+        // Evict its idle cache and join the registered releases before disconnecting.
+        runtime.clear_program_cache();
+        pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap())
+            .await
+            .unwrap();
+        runtime.close();
+        runtime
+            .canonical_store()
             .unwrap()
-            .iter()
-            .all(|entry| { entry["released"] == false && entry["stop_observed"] == false })
-    );
+            .disconnect()
+            .await
+            .unwrap();
 
-    let cancelled = handle.cancel().await.unwrap();
-    assert_eq!(cancelled.study_id, study);
-    assert!(!cancelled.already_concluded);
-    let drained = fixture.observation(|value| value["active"] == 0).await;
-    assert_eq!(drained["maximum"], 16);
-    let entries = drained["entries"].as_array().unwrap();
-    assert_eq!(entries.len(), 16);
-    assert!(
-        entries
-            .iter()
-            .all(|entry| { entry["released"] == true && entry["stop_observed"] == true })
-    );
-    tokio::time::timeout(Duration::from_secs(45), async {
-        loop {
-            let status = handle.status().await.unwrap();
-            if status.state == StudyState::Concluded {
-                assert!(status.cancelled);
-                assert_eq!(status.points.len(), 16);
-                assert!(
-                    status.points.iter().all(|point| {
-                        point.settled && point.state == StudyPointState::Cancelled
-                    })
-                );
-                break;
+        let handle = independent.study(study);
+        let status = handle.status().await.unwrap();
+        assert!(!status.cancelled);
+        assert_eq!(status.state, StudyState::Open);
+        assert_eq!(status.points.len(), 16);
+        assert!(status.points.iter().all(|point| !point.settled));
+        let held = fixture.observation(|value| value["active"] == 16).await;
+        assert!(
+            held["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|entry| { entry["released"] == false && entry["stop_observed"] == false })
+        );
+
+        let cancelled = handle.cancel().await.unwrap();
+        assert_eq!(cancelled.study_id, study);
+        assert!(!cancelled.already_concluded);
+        let drained = fixture.observation(|value| value["active"] == 0).await;
+        assert_eq!(drained["maximum"], 16);
+        let entries = drained["entries"].as_array().unwrap();
+        assert_eq!(entries.len(), 16);
+        assert!(
+            entries
+                .iter()
+                .all(|entry| { entry["released"] == true && entry["stop_observed"] == true })
+        );
+        tokio::time::timeout(Duration::from_secs(45), async {
+            loop {
+                let status = handle.status().await.unwrap();
+                if status.state == StudyState::Concluded {
+                    assert!(status.cancelled);
+                    assert_eq!(status.points.len(), 16);
+                    assert!(
+                        status.points.iter().all(|point| {
+                            point.settled && point.state == StudyPointState::Cancelled
+                        })
+                    );
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
             }
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .unwrap();
-    independent.close();
-    independent
-        .canonical_store()
-        .unwrap()
-        .disconnect()
+        })
         .await
         .unwrap();
-    fixture.finish().await;
+        independent.close();
+        independent
+            .canonical_store()
+            .unwrap()
+            .disconnect()
+            .await
+            .unwrap();
+    })).await;
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
 #[tokio::test]
 async fn managed_primary_worker_stop_joins_sixteen_native_owners_without_cancelling_study() {
-    let fixture = ManagedStudyFixture::start(true).await;
-    let runtime = &fixture.runtime;
-    let (_, definition) = parallel_study_definition(runtime, 16, None).await;
-    let definition = runtime
-        .record_study(&definition, &crate::CancelSource::new())
+    ManagedStudyFixture::run(true, |fixture| Box::pin(async move {
+        let runtime = &fixture.runtime;
+        let (_, definition) = parallel_study_definition(runtime, 16, None).await;
+        let definition = runtime
+            .record_study(&definition, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let handle = runtime
+            .start_recorded_study(definition, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        fixture.observation(|value| value["active"] == 16).await;
+        // Stop the actual primary's worker lifetime without authorizing the release
+        // barrier or changing the independent durable study cancellation authority.
+        fixture.signal("stop.json");
+        let stopped = fixture.observation(|value| value["active"] == 0).await;
+        assert_eq!(stopped["maximum"], 16);
+        let entries = stopped["entries"].as_array().unwrap();
+        assert_eq!(entries.len(), 16);
+        assert!(
+            entries
+                .iter()
+                .all(|entry| { entry["released"] == true && entry["stop_observed"] == true })
+        );
+        tokio::time::timeout_at(
+            tokio::time::Instant::from_std(fixture.drain_deadline()),
+            async {
+                while std::path::Path::new(&format!("/proc/{}", fixture.worker_pid)).exists() {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+            },
+        )
         .await
         .unwrap();
-    let handle = runtime
-        .start_recorded_study(definition, &crate::CancelSource::new())
-        .await
-        .unwrap();
-    fixture.observation(|value| value["active"] == 16).await;
-    // Stop the actual primary's worker lifetime without authorizing the release
-    // barrier or changing the independent durable study cancellation authority.
-    fixture.signal("stop.json");
-    let stopped = fixture.observation(|value| value["active"] == 0).await;
-    assert_eq!(stopped["maximum"], 16);
-    let entries = stopped["entries"].as_array().unwrap();
-    assert_eq!(entries.len(), 16);
-    assert!(
-        entries
-            .iter()
-            .all(|entry| { entry["released"] == true && entry["stop_observed"] == true })
-    );
-    tokio::time::timeout_at(
-        tokio::time::Instant::from_std(fixture.drain_deadline()),
-        async {
-            while std::path::Path::new(&format!("/proc/{}", fixture.worker_pid)).exists() {
-                tokio::time::sleep(Duration::from_millis(20)).await;
-            }
-        },
-    )
-    .await
-    .unwrap();
-    let status = handle.status().await.unwrap();
-    assert!(!status.cancelled);
-    assert_eq!(status.points.len(), 16);
-    assert!(status.points.iter().all(|point| {
-        point
-            .outcome
-            .as_ref()
-            .is_none_or(|outcome| !outcome.scientific.usable)
-    }));
-    fixture.finish().await;
+        let status = handle.status().await.unwrap();
+        assert!(!status.cancelled);
+        assert_eq!(status.points.len(), 16);
+        assert!(status.points.iter().all(|point| {
+            point
+                .outcome
+                .as_ref()
+                .is_none_or(|outcome| !outcome.scientific.usable)
+        }));
+    })).await;
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
 #[tokio::test]
 async fn managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_tail() {
-    let fixture = ManagedStudyFixture::start(true).await;
-    let runtime = &fixture.runtime;
-    let (_, definition) = parallel_study_definition(&fixture.runtime, 20, None).await;
-    let cancel = crate::CancelSource::new();
-    let definition = runtime
-        .record_study(&definition, &crate::CancelSource::new())
-        .await
-        .unwrap();
-    let control = async {
-        fixture.observation(|value| value["active"] == 16).await;
-        cancel.cancel();
-        let stopped = fixture.observation(|value| value["active"] == 0).await;
-        assert_eq!(stopped["maximum"], 16);
-        let entries = stopped["entries"].as_array().unwrap();
-        assert_eq!(
-            entries.len(),
-            16,
-            "cancellation cannot issue a seventeenth native owner"
+    ManagedStudyFixture::run(true, |fixture| Box::pin(async move {
+        let runtime = &fixture.runtime;
+        let (_, definition) = parallel_study_definition(&fixture.runtime, 20, None).await;
+        let cancel = crate::CancelSource::new();
+        let definition = runtime
+            .record_study(&definition, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let control = async {
+            fixture.observation(|value| value["active"] == 16).await;
+            cancel.cancel();
+            let stopped = fixture.observation(|value| value["active"] == 0).await;
+            assert_eq!(stopped["maximum"], 16);
+            let entries = stopped["entries"].as_array().unwrap();
+            assert_eq!(
+                entries.len(),
+                16,
+                "cancellation cannot issue a seventeenth native owner"
+            );
+            assert!(
+                entries
+                    .iter()
+                    .all(|entry| entry["released"] == true && entry["stop_observed"] == true),
+                "actual admitted owners exit their entry barrier through the native stop flag"
+            );
+        };
+        let (report, ()) = fixture
+            .dispatch(&cancel, async {
+                tokio::join!(runtime.execute_study(&definition, 20, &cancel), control)
+            })
+            .await;
+        let report = report.unwrap();
+        assert!(
+            report
+                .outcomes
+                .iter()
+                .all(|outcome| outcome.lifecycle == StudyPointState::Cancelled),
+            "{:?}",
+            report.outcomes
         );
         assert!(
-            entries
+            report.outcomes[16..]
                 .iter()
-                .all(|entry| entry["released"] == true && entry["stop_observed"] == true),
-            "actual admitted owners exit their entry barrier through the native stop flag"
+                .all(|outcome| outcome.attempts.is_empty()),
+            "the unissued tail settles through the existing effect-free cancellation policy"
         );
-    };
-    let (report, ()) = fixture
-        .dispatch(&cancel, async {
-            tokio::join!(runtime.execute_study(&definition, 20, &cancel), control)
-        })
-        .await;
-    let report = report.unwrap();
-    assert!(
-        report
-            .outcomes
-            .iter()
-            .all(|outcome| outcome.lifecycle == StudyPointState::Cancelled),
-        "{:?}",
-        report.outcomes
-    );
-    assert!(
-        report.outcomes[16..]
-            .iter()
-            .all(|outcome| outcome.attempts.is_empty()),
-        "the unissued tail settles through the existing effect-free cancellation policy"
-    );
-    assert!(report.results[16..].iter().all(Option::is_none));
-    fixture.finish().await;
+        assert!(report.results[16..].iter().all(Option::is_none));
+    })).await;
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
@@ -4553,581 +4659,581 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
     };
     use std::sync::atomic::{AtomicBool, Ordering};
 
-    let fixture = ManagedStudyFixture::start(true).await;
-    let runtime = &fixture.runtime;
-    let store = runtime.canonical_store().unwrap();
-    let pool = runtime.shared.pool();
-    let validation = runtime.validation_context();
-    let transport_run = format!("serving-transport-{}", fixture.nonce);
-    let revision = store
-        .edit(&transport_run, None, "partial Arrow transport fixture", &[])
-        .await
-        .unwrap();
-    store
-        .begin_run(&RunRequest {
-            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
-            admission_study: None,
-            admission_point: None,
-            key: transport_run.clone().into(),
-            revision: revision.clone(),
-            sources: vec![],
-            request: vec![1],
-            source_selection: vec![2],
-            attestation: vec![3],
-        })
-        .await
-        .unwrap();
-    let mut attempts = Vec::new();
-    // These two transport-only attempts exercise actual typed publication and
-    // exact current/history selection; neither fabricates scientific success.
-    for (ordinal, temperature) in [273.15, 300.0].into_iter().enumerate() {
-        let fence = store
-            .claim_run(
-                &transport_run,
-                &format!("serving-claim-{ordinal}"),
-                "serving-transport-fixture",
-                Duration::from_secs(60),
-            )
+    ManagedStudyFixture::run(true, |fixture| Box::pin(async move {
+        let runtime = &fixture.runtime;
+        let store = runtime.canonical_store().unwrap();
+        let pool = runtime.shared.pool();
+        let validation = runtime.validation_context();
+        let transport_run = format!("serving-transport-{}", fixture.nonce);
+        let revision = store
+            .edit(&transport_run, None, "partial Arrow transport fixture", &[])
             .await
             .unwrap();
-        let run_id = pse_operations::mint_id();
-        let mut builder =
-            solve_metrics::Builder::with_registry(runtime.registry(), 3, &validation).unwrap();
-        for (step, real) in [Some(-0.0), None, Some(temperature)]
-            .into_iter()
-            .enumerate()
-        {
-            builder
-                .push(solve_metrics::Row {
-                    run_id,
-                    step: step as i64,
-                    namespace: "partial-serving-transport".into(),
-                    name: "temperature".into(),
-                    kind: if real.is_some() {
-                        NativeMetricKind::Real
-                    } else {
-                        NativeMetricKind::Unavailable
-                    },
-                    real,
-                    integer: None,
-                    boolean: None,
-                    text: None,
-                    unavailable: real.is_none().then_some(
-                        pse_model::generated::enums::EvidenceUnavailableReason::Nonfinite,
-                    ),
-                })
+        store
+            .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
+                key: transport_run.clone().into(),
+                revision: revision.clone(),
+                sources: vec![],
+                request: vec![1],
+                source_selection: vec![2],
+                attestation: vec![3],
+            })
+            .await
+            .unwrap();
+        let mut attempts = Vec::new();
+        // These two transport-only attempts exercise actual typed publication and
+        // exact current/history selection; neither fabricates scientific success.
+        for (ordinal, temperature) in [273.15, 300.0].into_iter().enumerate() {
+            let fence = store
+                .claim_run(
+                    &transport_run,
+                    &format!("serving-claim-{ordinal}"),
+                    "serving-transport-fixture",
+                    Duration::from_secs(60),
+                )
+                .await
                 .unwrap();
-        }
-        let table = builder.finish().unwrap();
-        result_projection::store_result_table(
-            store,
-            &fence,
-            solve_metrics::RELATION_ID,
-            ResultCursor::from_checked(table.clone()),
-            &pool,
-            &durable::PublicationAcks::new(&pool),
-        )
-        .await
-        .unwrap();
-        let closed = store
-            .close_result_ingestion(&fence, &format!("serving-close-{ordinal}"))
-            .await
-            .unwrap();
-        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
-        let seal = format!("serving-seal-{ordinal}");
-        // SAFETY: these finite generated transport rows establish Partial only.
-        unsafe {
-            store.seal_attempt(
-                &manifest,
-                &seal,
-                TerminalClass::Partial,
-                &[1],
-                pse_operations::canonical_execution::SeedEligibility::Unavailable,
+            let run_id = pse_operations::mint_id();
+            let mut builder =
+                solve_metrics::Builder::with_registry(runtime.registry(), 3, &validation).unwrap();
+            for (step, real) in [Some(-0.0), None, Some(temperature)]
+                .into_iter()
+                .enumerate()
+            {
+                builder
+                    .push(solve_metrics::Row {
+                        run_id,
+                        step: step as i64,
+                        namespace: "partial-serving-transport".into(),
+                        name: "temperature".into(),
+                        kind: if real.is_some() {
+                            NativeMetricKind::Real
+                        } else {
+                            NativeMetricKind::Unavailable
+                        },
+                        real,
+                        integer: None,
+                        boolean: None,
+                        text: None,
+                        unavailable: real.is_none().then_some(
+                            pse_model::generated::enums::EvidenceUnavailableReason::Nonfinite,
+                        ),
+                    })
+                    .unwrap();
+            }
+            let table = builder.finish().unwrap();
+            result_projection::store_result_table(
+                store,
+                &fence,
+                solve_metrics::RELATION_ID,
+                ResultCursor::from_checked(table.clone()),
+                &pool,
+                &durable::PublicationAcks::new(&pool),
             )
-        }
-        .await
-        .unwrap();
-        attempts.push(fence.attempt().to_owned());
-    }
-
-    let (_, definition) = parallel_study_definition(runtime, 16, None).await;
-    let cancel = crate::CancelSource::new();
-    let definition = runtime
-        .record_study(&definition, &crate::CancelSource::new())
-        .await
-        .unwrap();
-    let published = AtomicBool::new(false);
-    let science = async {
-        let report = runtime
-            .execute_study(&definition, 16, &cancel)
             .await
             .unwrap();
-        published.store(true, Ordering::Release);
-        report
-    };
-    let serving = async {
-        let held = fixture.observation(|value| value["active"] == 16).await;
-        let owners = held["entries"].as_array().unwrap();
-        assert_eq!(owners.len(), 16);
-        assert_eq!(held["maximum"], 16);
-        assert_eq!(
-            owners
-                .iter()
-                .map(|entry| entry["thread"].as_str().unwrap())
-                .collect::<std::collections::BTreeSet<_>>()
-                .len(),
-            16
-        );
-        assert!(owners.iter().all(|entry| entry["released"] == false));
-        assert!(!published.load(Ordering::Acquire));
-        assert!(
-            runtime
+            let closed = store
+                .close_result_ingestion(&fence, &format!("serving-close-{ordinal}"))
+                .await
+                .unwrap();
+            let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+            let seal = format!("serving-seal-{ordinal}");
+            // SAFETY: these finite generated transport rows establish Partial only.
+            unsafe {
+                store.seal_attempt(
+                    &manifest,
+                    &seal,
+                    TerminalClass::Partial,
+                    &[1],
+                    pse_operations::canonical_execution::SeedEligibility::Unavailable,
+                )
+            }
+            .await
+            .unwrap();
+            attempts.push(fence.attempt().to_owned());
+        }
+
+        let (_, definition) = parallel_study_definition(runtime, 16, None).await;
+        let cancel = crate::CancelSource::new();
+        let definition = runtime
+            .record_study(&definition, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let published = AtomicBool::new(false);
+        let science = async {
+            let report = runtime
+                .execute_study(&definition, 16, &cancel)
+                .await
+                .unwrap();
+            published.store(true, Ordering::Release);
+            report
+        };
+        let serving = async {
+            let held = fixture.observation(|value| value["active"] == 16).await;
+            let owners = held["entries"].as_array().unwrap();
+            assert_eq!(owners.len(), 16);
+            assert_eq!(held["maximum"], 16);
+            assert_eq!(
+                owners
+                    .iter()
+                    .map(|entry| entry["thread"].as_str().unwrap())
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len(),
+                16
+            );
+            assert!(owners.iter().all(|entry| entry["released"] == false));
+            assert!(!published.load(Ordering::Acquire));
+            assert!(
+                runtime
+                    .latest_results(
+                        &transport_run,
+                        &[TerminalClass::Succeeded],
+                        "runtime.solve_metrics",
+                        0,
+                        3,
+                        CancellationToken::new(),
+                    )
+                    .await
+                    .is_err(),
+                "a partial transport observation cannot be substituted for scientific success"
+            );
+            let mut current = runtime
                 .latest_results(
                     &transport_run,
-                    &[TerminalClass::Succeeded],
+                    &[TerminalClass::Partial],
+                    "runtime.solve_metrics",
+                    1,
+                    3,
+                    CancellationToken::new(),
+                )
+                .await
+                .unwrap();
+            let mut historical = runtime
+                .results(
+                    &transport_run,
+                    &attempts[0],
                     "runtime.solve_metrics",
                     0,
                     3,
                     CancellationToken::new(),
                 )
                 .await
-                .is_err(),
-            "a partial transport observation cannot be substituted for scientific success"
-        );
-        let mut current = runtime
-            .latest_results(
-                &transport_run,
-                &[TerminalClass::Partial],
-                "runtime.solve_metrics",
-                1,
-                3,
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        let mut historical = runtime
-            .results(
-                &transport_run,
-                &attempts[0],
-                "runtime.solve_metrics",
-                0,
-                3,
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(current.selection().attempt().key, attempts[1]);
-        assert_eq!(historical.selection().attempt().key, attempts[0]);
-        assert_eq!(
-            current
-                .selection()
-                .attempt()
-                .outcome
-                .as_ref()
-                .map(|value| value.as_str()),
-            Some("partial")
-        );
-        assert_eq!(
-            historical
-                .selection()
-                .attempt()
-                .outcome
-                .as_ref()
-                .map(|value| value.as_str()),
-            Some("partial")
-        );
-        let current_batch = current.next_batch().await.unwrap().unwrap();
-        let historical_batch = historical.next_batch().await.unwrap().unwrap();
-        assert_eq!(current_batch.num_rows(), 2);
-        assert_eq!(historical_batch.num_rows(), 3);
-        let current_values = current_batch.column_by_name("real").unwrap().clone();
-        let historical_values = historical_batch.column_by_name("real").unwrap().clone();
-        let values = current_values
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-        assert!(values.is_null(0));
-        assert_eq!(values.value(1), 300.0);
-        let values = historical_values
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-        assert_eq!(values.value(0).to_bits(), (-0.0f64).to_bits());
-        assert!(values.is_null(1));
-        assert_eq!(values.value(2), 273.15);
-        assert!(current.next_batch().await.unwrap().is_none());
-        assert!(historical.next_batch().await.unwrap().is_none());
-        assert!(store.forget_run_results(&transport_run).await.is_err());
-
-        // This fixture proves exact partial transport ownership only. Copy its
-        // original IPC members under both actual protected result selections;
-        // it cannot claim a final state or a qualified scientific local analysis.
-        let producer_inputs = [current.selection().clone(), historical.selection().clone()];
-        let mut original_members = Vec::new();
-        for input in &producer_inputs {
-            let set = input
-                .sets()
-                .iter()
-                .find(|set| set.name == solve_metrics::RELATION_ID.to_string())
                 .unwrap();
-            assert_eq!(set.batch_count, 1);
-            let member = store.result_payload(input, &set.key, 0).await.unwrap();
+            assert_eq!(current.selection().attempt().key, attempts[1]);
+            assert_eq!(historical.selection().attempt().key, attempts[0]);
             assert_eq!(
-                member.batch.row_count, 3,
-                "artifact evidence preserves the full original member rather than the projected reader slice"
+                current
+                    .selection()
+                    .attempt()
+                    .outcome
+                    .as_ref()
+                    .map(|value| value.as_str()),
+                Some("partial")
             );
-            original_members.push(member);
-        }
-        let provenance = serde_json::to_vec(
-            &producer_inputs
-                .iter()
-                .map(|input| {
-                    (
-                        &input.run().key,
-                        &input.run().revision,
-                        input.run().sequence,
-                        &input.attempt().key,
-                        input.attempt().generation,
-                        &input.attempt().outcome,
-                        input.manifest(),
-                        input.sets(),
-                    )
-                })
-                .collect::<Vec<_>>(),
-        )
-        .unwrap();
-        let mut artifact = store
-            .new_artifact(
-                &revision,
-                "transport-fixture",
-                provenance,
-                2,
-                original_members
+            assert_eq!(
+                historical
+                    .selection()
+                    .attempt()
+                    .outcome
+                    .as_ref()
+                    .map(|value| value.as_str()),
+                Some("partial")
+            );
+            let current_batch = current.next_batch().await.unwrap().unwrap();
+            let historical_batch = historical.next_batch().await.unwrap().unwrap();
+            assert_eq!(current_batch.num_rows(), 2);
+            assert_eq!(historical_batch.num_rows(), 3);
+            let current_values = current_batch.column_by_name("real").unwrap().clone();
+            let historical_values = historical_batch.column_by_name("real").unwrap().clone();
+            let values = current_values
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .unwrap();
+            assert!(values.is_null(0));
+            assert_eq!(values.value(1), 300.0);
+            let values = historical_values
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .unwrap();
+            assert_eq!(values.value(0).to_bits(), (-0.0f64).to_bits());
+            assert!(values.is_null(1));
+            assert_eq!(values.value(2), 273.15);
+            assert!(current.next_batch().await.unwrap().is_none());
+            assert!(historical.next_batch().await.unwrap().is_none());
+            assert!(store.forget_run_results(&transport_run).await.is_err());
+
+            // This fixture proves exact partial transport ownership only. Copy its
+            // original IPC members under both actual protected result selections;
+            // it cannot claim a final state or a qualified scientific local analysis.
+            let producer_inputs = [current.selection().clone(), historical.selection().clone()];
+            let mut original_members = Vec::new();
+            for input in &producer_inputs {
+                let set = input
+                    .sets()
                     .iter()
-                    .map(|member| member.batch.payload.len() as u64)
-                    .sum(),
+                    .find(|set| set.name == solve_metrics::RELATION_ID.to_string())
+                    .unwrap();
+                assert_eq!(set.batch_count, 1);
+                let member = store.result_payload(input, &set.key, 0).await.unwrap();
+                assert_eq!(
+                    member.batch.row_count, 3,
+                    "artifact evidence preserves the full original member rather than the projected reader slice"
+                );
+                original_members.push(member);
+            }
+            let provenance = serde_json::to_vec(
+                &producer_inputs
+                    .iter()
+                    .map(|input| {
+                        (
+                            &input.run().key,
+                            &input.run().revision,
+                            input.run().sequence,
+                            &input.attempt().key,
+                            input.attempt().generation,
+                            &input.attempt().outcome,
+                            input.manifest(),
+                            input.sets(),
+                        )
+                    })
+                    .collect::<Vec<_>>(),
             )
-            .await
             .unwrap();
-        let blocks = original_members
-            .iter()
-            .enumerate()
-            .map(|(ordinal, member)| {
-                pse_operations::canonical_artifacts::artifact_block(
-                    &artifact.key,
-                    ordinal as u64,
-                    "runtime.solve_metrics",
-                    member.batch.payload.to_vec(),
-                    &member.batch.digest,
-                    member.batch.row_count,
+            let mut artifact = store
+                .new_artifact(
+                    &revision,
+                    "transport-fixture",
+                    provenance,
+                    2,
+                    original_members
+                        .iter()
+                        .map(|member| member.batch.payload.len() as u64)
+                        .sum(),
                 )
-                .native_file(&solve_metrics::RELATION_ID.to_string())
-                .unwrap()
-            })
-            .collect::<Vec<_>>();
-        drop(original_members);
-        let staging_owner = format!("partial-transport-staging:{}", fixture.nonce);
-        pse_operations::canonical_artifacts::seal_artifact_request(
-            &mut artifact,
-            std::slice::from_ref(&revision),
-            &producer_inputs,
-            &blocks,
-            "audit",
-            &staging_owner,
-        );
-        store
-            .persist_artifact(
-                &artifact,
+                .await
+                .unwrap();
+            let blocks = original_members
+                .iter()
+                .enumerate()
+                .map(|(ordinal, member)| {
+                    pse_operations::canonical_artifacts::artifact_block(
+                        &artifact.key,
+                        ordinal as u64,
+                        "runtime.solve_metrics",
+                        member.batch.payload.to_vec(),
+                        &member.batch.digest,
+                        member.batch.row_count,
+                    )
+                    .native_file(&solve_metrics::RELATION_ID.to_string())
+                    .unwrap()
+                })
+                .collect::<Vec<_>>();
+            drop(original_members);
+            let staging_owner = format!("partial-transport-staging:{}", fixture.nonce);
+            pse_operations::canonical_artifacts::seal_artifact_request(
+                &mut artifact,
                 std::slice::from_ref(&revision),
                 &producer_inputs,
                 &blocks,
                 "audit",
                 &staging_owner,
-            )
-            .await
-            .unwrap();
-        let artifact_read = store.read_artifact(&artifact.key).await.unwrap();
-        drop(producer_inputs);
-        let mut analysis = store
-            .new_analysis(
-                &revision,
-                "partial-transport-reader-handoff-fixture:v2",
-                vec![1],
-                artifact.creation_request_digest.clone(),
-                1,
-                2,
-            )
-            .await
-            .unwrap();
-        let node = AnalysisNode {
-            key: format!("serving-transport-node-{}", fixture.nonce),
-            analysis: analysis.key.clone(),
-            semantic: "partial-transport-temperature".into(),
-            kind: "result".into(),
-        };
-        let edges = (0..2)
-            .map(|ordinal| AnalysisEdge {
-                key: format!("serving-transport-edge-{}-{ordinal}", fixture.nonce),
-                analysis: analysis.key.clone(),
-                source: node.key.clone(),
-                target: node.key.clone(),
-                kind: format!("retained_partial_transport_{ordinal}"),
-                evidence_artifact: Some(artifact.key.clone()),
-                evidence_block: Some(ordinal),
-                evidence_row: Some(2),
-                evidence_field: Some("real".into()),
-            })
-            .collect::<Vec<_>>();
-        let inputs = [artifact_read];
-        pse_operations::canonical_analyses::seal_analysis_request(
-            &mut analysis,
-            std::slice::from_ref(&revision),
-            &inputs,
-            std::slice::from_ref(&node),
-            &edges,
-        );
-        assert!(
+            );
             store
-                .persist_analysis(
-                    &analysis,
+                .persist_artifact(
+                    &artifact,
                     std::slice::from_ref(&revision),
-                    &inputs,
-                    &[node],
-                    &edges
+                    &producer_inputs,
+                    &blocks,
+                    "audit",
+                    &staging_owner,
                 )
                 .await
-                .unwrap()
-                .active
-        );
-        store
-            .release_artifact_intent(&artifact, "audit", &staging_owner)
-            .await
-            .unwrap();
-        for read in inputs {
-            read.release().await.unwrap();
-        }
-        // Both exact protected selections are open before any native owner is
-        // released, and remain open throughout all sixteen real publications.
-        fixture.signal("release.json");
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(90);
-        let mut serving_reads = 0;
-        loop {
-            let mut reopened = runtime
-                .results(
-                    &transport_run,
-                    &attempts[0],
-                    "runtime.solve_metrics",
+                .unwrap();
+            let artifact_read = store.read_artifact(&artifact.key).await.unwrap();
+            drop(producer_inputs);
+            let mut analysis = store
+                .new_analysis(
+                    &revision,
+                    "partial-transport-reader-handoff-fixture:v2",
+                    vec![1],
+                    artifact.creation_request_digest.clone(),
+                    1,
                     2,
-                    3,
+                )
+                .await
+                .unwrap();
+            let node = AnalysisNode {
+                key: format!("serving-transport-node-{}", fixture.nonce),
+                analysis: analysis.key.clone(),
+                semantic: "partial-transport-temperature".into(),
+                kind: "result".into(),
+            };
+            let edges = (0..2)
+                .map(|ordinal| AnalysisEdge {
+                    key: format!("serving-transport-edge-{}-{ordinal}", fixture.nonce),
+                    analysis: analysis.key.clone(),
+                    source: node.key.clone(),
+                    target: node.key.clone(),
+                    kind: format!("retained_partial_transport_{ordinal}"),
+                    evidence_artifact: Some(artifact.key.clone()),
+                    evidence_block: Some(ordinal),
+                    evidence_row: Some(2),
+                    evidence_field: Some("real".into()),
+                })
+                .collect::<Vec<_>>();
+            let inputs = [artifact_read];
+            pse_operations::canonical_analyses::seal_analysis_request(
+                &mut analysis,
+                std::slice::from_ref(&revision),
+                &inputs,
+                std::slice::from_ref(&node),
+                &edges,
+            );
+            assert!(
+                store
+                    .persist_analysis(
+                        &analysis,
+                        std::slice::from_ref(&revision),
+                        &inputs,
+                        &[node],
+                        &edges
+                    )
+                    .await
+                    .unwrap()
+                    .active
+            );
+            store
+                .release_artifact_intent(&artifact, "audit", &staging_owner)
+                .await
+                .unwrap();
+            for read in inputs {
+                read.release().await.unwrap();
+            }
+            // Both exact protected selections are open before any native owner is
+            // released, and remain open throughout all sixteen real publications.
+            fixture.signal("release.json");
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(90);
+            let mut serving_reads = 0;
+            loop {
+                let mut reopened = runtime
+                    .results(
+                        &transport_run,
+                        &attempts[0],
+                        "runtime.solve_metrics",
+                        2,
+                        3,
+                        CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(reopened.selection().attempt().key, attempts[0]);
+                let batch = reopened.next_batch().await.unwrap().unwrap();
+                assert_eq!(batch.num_rows(), 1);
+                assert_eq!(
+                    batch
+                        .column_by_name("real")
+                        .unwrap()
+                        .as_any()
+                        .downcast_ref::<Float64Array>()
+                        .unwrap()
+                        .value(0),
+                    273.15
+                );
+                assert!(reopened.next_batch().await.unwrap().is_none());
+                serving_reads += 1;
+                if published.load(Ordering::Acquire) {
+                    break;
+                }
+                assert!(
+                    tokio::time::Instant::now() < deadline,
+                    "scientific publication did not finish"
+                );
+            }
+            assert!(serving_reads > 0);
+            fixture.observation(|value| value["active"] == 0).await;
+            drop(current_batch);
+            drop(historical_batch);
+            drop(current);
+            drop(historical);
+            let mut retirement = None;
+            for _ in 0..32 {
+                if let Ok(page) = store.forget_run_results(&transport_run).await {
+                    retirement = Some(page);
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            let retirement = retirement.expect("reader release did not permit bounded retirement");
+            // Retirement returns its first bounded cleanup page. Include it when
+            // accounting for the exact two batches across both attempt generations.
+            let mut reclaimed = retirement.batches;
+            let mut complete = retirement.complete;
+            // Each transport attempt needs separate bounded pages for its batch,
+            // result set, append receipt and generation advance. Completion is a
+            // final page after both immutable attempt generations are traversed.
+            let maximum_pages = attempts.len() * 4 + 1;
+            for _ in 0..maximum_pages {
+                if complete {
+                    break;
+                }
+                let page = store.reclaim_result_page(&transport_run).await.unwrap();
+                reclaimed += page.batches;
+                if page.complete {
+                    complete = true;
+                    break;
+                }
+            }
+            assert!(
+                complete,
+                "transport reclamation exceeded {maximum_pages} pages"
+            );
+            assert_eq!(reclaimed, 2);
+            assert!(
+                runtime
+                    .results(
+                        &transport_run,
+                        &attempts[0],
+                        "runtime.solve_metrics",
+                        0,
+                        3,
+                        CancellationToken::new(),
+                    )
+                    .await
+                    .is_err()
+            );
+            assert!(
+                store.analysis(&analysis.key).await.unwrap().active,
+                "the independent graph survives while producer results drain"
+            );
+            let retained_edges = store.analysis_edge_page(&analysis.key, None).await.unwrap();
+            assert_eq!(retained_edges.len(), 2);
+            assert!(
+                retained_edges
+                    .iter()
+                    .all(
+                        |edge| edge.evidence_artifact.as_deref() == Some(artifact.key.as_str())
+                            && edge.evidence_row == Some(2)
+                            && edge.evidence_field.as_deref() == Some("real")
+                    )
+            );
+            let independent = store.read_artifact(&artifact.key).await.unwrap();
+            for ordinal in 0..2 {
+                let copied = independent.block(ordinal).await.unwrap();
+                assert_eq!(
+                    copied.payload, blocks[ordinal as usize].payload,
+                    "both original IPC members remain bit-exact after producer retirement"
+                );
+            }
+            independent.release().await.unwrap();
+            // Analysis retirement may still await its original finite creation window;
+            // it never needs to keep the reclaimed producer's result inventory.
+            let _complete = runtime
+                .forget_analysis_results(&analysis.key)
+                .await
+                .unwrap();
+            // Escaped decoded Arrow buffers need no storage access after reader close,
+            // native publication and original producer result cleanup have finished.
+            let values = current_values
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .unwrap();
+            assert!(values.is_null(0));
+            assert_eq!(values.value(1), 300.0);
+            let values = historical_values
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .unwrap();
+            assert_eq!(values.value(0).to_bits(), (-0.0f64).to_bits());
+            assert!(values.is_null(1));
+            assert_eq!(values.value(2), 273.15);
+            let retained_bytes = pool.reserved();
+            drop(current_values);
+            drop(historical_values);
+            assert!(
+                pool.reserved() < retained_bytes,
+                "escaping arrays retain real accounted allocation owners"
+            );
+        };
+        let (report, ()) = fixture
+            .dispatch(&cancel, async { tokio::join!(science, serving) })
+            .await;
+        assert_eq!(report.outcomes.len(), 16);
+        assert!(
+            report
+                .outcomes
+                .iter()
+                .all(|outcome| outcome.scientific.usable)
+        );
+        assert_eq!(
+            report
+                .outcomes
+                .iter()
+                .map(|outcome| outcome.key)
+                .collect::<Vec<_>>(),
+            definition
+                .points
+                .iter()
+                .map(|point| point.policy.key)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            report
+                .results
+                .iter()
+                .map(|result| result.as_ref().unwrap().run_id())
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            16
+        );
+        for result in &report.results {
+            let (run, attempt) = result.as_ref().unwrap().stored_keys().unwrap();
+            let mut reader = runtime
+                .results(
+                    run,
+                    attempt,
+                    "runtime.solve_variables",
+                    0,
+                    u64::MAX,
                     CancellationToken::new(),
                 )
                 .await
                 .unwrap();
-            assert_eq!(reopened.selection().attempt().key, attempts[0]);
-            let batch = reopened.next_batch().await.unwrap().unwrap();
-            assert_eq!(batch.num_rows(), 1);
             assert_eq!(
-                batch
-                    .column_by_name("real")
-                    .unwrap()
-                    .as_any()
-                    .downcast_ref::<Float64Array>()
-                    .unwrap()
-                    .value(0),
-                273.15
+                reader
+                    .selection()
+                    .attempt()
+                    .outcome
+                    .as_ref()
+                    .map(|value| value.as_str()),
+                Some("succeeded")
             );
-            assert!(reopened.next_batch().await.unwrap().is_none());
-            serving_reads += 1;
-            if published.load(Ordering::Acquire) {
-                break;
-            }
-            assert!(
-                tokio::time::Instant::now() < deadline,
-                "scientific publication did not finish"
-            );
-        }
-        assert!(serving_reads > 0);
-        fixture.observation(|value| value["active"] == 0).await;
-        drop(current_batch);
-        drop(historical_batch);
-        drop(current);
-        drop(historical);
-        let mut retirement = None;
-        for _ in 0..32 {
-            if let Ok(page) = store.forget_run_results(&transport_run).await {
-                retirement = Some(page);
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-        let retirement = retirement.expect("reader release did not permit bounded retirement");
-        // Retirement returns its first bounded cleanup page. Include it when
-        // accounting for the exact two batches across both attempt generations.
-        let mut reclaimed = retirement.batches;
-        let mut complete = retirement.complete;
-        // Each transport attempt needs separate bounded pages for its batch,
-        // result set, append receipt and generation advance. Completion is a
-        // final page after both immutable attempt generations are traversed.
-        let maximum_pages = attempts.len() * 4 + 1;
-        for _ in 0..maximum_pages {
-            if complete {
-                break;
-            }
-            let page = store.reclaim_result_page(&transport_run).await.unwrap();
-            reclaimed += page.batches;
-            if page.complete {
-                complete = true;
-                break;
-            }
-        }
-        assert!(
-            complete,
-            "transport reclamation exceeded {maximum_pages} pages"
-        );
-        assert_eq!(reclaimed, 2);
-        assert!(
-            runtime
-                .results(
-                    &transport_run,
-                    &attempts[0],
-                    "runtime.solve_metrics",
-                    0,
-                    3,
-                    CancellationToken::new(),
+            let mut roots = 0;
+            while let Some(batch) = reader.next_batch().await.unwrap() {
+                let view = solve_variables::View::try_from_batch_with_registry(
+                    runtime.registry(),
+                    &batch,
+                    &validation,
                 )
-                .await
-                .is_err()
-        );
-        assert!(
-            store.analysis(&analysis.key).await.unwrap().active,
-            "the independent graph survives while producer results drain"
-        );
-        let retained_edges = store.analysis_edge_page(&analysis.key, None).await.unwrap();
-        assert_eq!(retained_edges.len(), 2);
-        assert!(
-            retained_edges
-                .iter()
-                .all(
-                    |edge| edge.evidence_artifact.as_deref() == Some(artifact.key.as_str())
-                        && edge.evidence_row == Some(2)
-                        && edge.evidence_field.as_deref() == Some("real")
-                )
-        );
-        let independent = store.read_artifact(&artifact.key).await.unwrap();
-        for ordinal in 0..2 {
-            let copied = independent.block(ordinal).await.unwrap();
-            assert_eq!(
-                copied.payload, blocks[ordinal as usize].payload,
-                "both original IPC members remain bit-exact after producer retirement"
-            );
-        }
-        independent.release().await.unwrap();
-        // Analysis retirement may still await its original finite creation window;
-        // it never needs to keep the reclaimed producer's result inventory.
-        let _complete = runtime
-            .forget_analysis_results(&analysis.key)
-            .await
-            .unwrap();
-        // Escaped decoded Arrow buffers need no storage access after reader close,
-        // native publication and original producer result cleanup have finished.
-        let values = current_values
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-        assert!(values.is_null(0));
-        assert_eq!(values.value(1), 300.0);
-        let values = historical_values
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-        assert_eq!(values.value(0).to_bits(), (-0.0f64).to_bits());
-        assert!(values.is_null(1));
-        assert_eq!(values.value(2), 273.15);
-        let retained_bytes = pool.reserved();
-        drop(current_values);
-        drop(historical_values);
-        assert!(
-            pool.reserved() < retained_bytes,
-            "escaping arrays retain real accounted allocation owners"
-        );
-    };
-    let (report, ()) = fixture
-        .dispatch(&cancel, async { tokio::join!(science, serving) })
-        .await;
-    assert_eq!(report.outcomes.len(), 16);
-    assert!(
-        report
-            .outcomes
-            .iter()
-            .all(|outcome| outcome.scientific.usable)
-    );
-    assert_eq!(
-        report
-            .outcomes
-            .iter()
-            .map(|outcome| outcome.key)
-            .collect::<Vec<_>>(),
-        definition
-            .points
-            .iter()
-            .map(|point| point.policy.key)
-            .collect::<Vec<_>>()
-    );
-    assert_eq!(
-        report
-            .results
-            .iter()
-            .map(|result| result.as_ref().unwrap().run_id())
-            .collect::<std::collections::BTreeSet<_>>()
-            .len(),
-        16
-    );
-    for result in &report.results {
-        let (run, attempt) = result.as_ref().unwrap().stored_keys().unwrap();
-        let mut reader = runtime
-            .results(
-                run,
-                attempt,
-                "runtime.solve_variables",
-                0,
-                u64::MAX,
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(
-            reader
-                .selection()
-                .attempt()
-                .outcome
-                .as_ref()
-                .map(|value| value.as_str()),
-            Some("succeeded")
-        );
-        let mut roots = 0;
-        while let Some(batch) = reader.next_batch().await.unwrap() {
-            let view = solve_variables::View::try_from_batch_with_registry(
-                runtime.registry(),
-                &batch,
-                &validation,
-            )
-            .unwrap();
-            for row in view.rows().unwrap() {
-                let value = row.value.unwrap();
-                if row.parameter {
-                    assert_eq!(value, 4.0);
-                } else {
-                    let allowance = row.tolerance.unwrap();
-                    assert!(value.is_finite() && allowance.is_finite() && allowance > 0.0);
-                    assert!((value - 2.0).abs() <= allowance);
-                    assert!(value > 1.0, "original authored root check");
-                    roots += 1;
+                .unwrap();
+                for row in view.rows().unwrap() {
+                    let value = row.value.unwrap();
+                    if row.parameter {
+                        assert_eq!(value, 4.0);
+                    } else {
+                        let allowance = row.tolerance.unwrap();
+                        assert!(value.is_finite() && allowance.is_finite() && allowance > 0.0);
+                        assert!((value - 2.0).abs() <= allowance);
+                        assert!(value > 1.0, "original authored root check");
+                        roots += 1;
+                    }
                 }
             }
+            assert_eq!(roots, 1);
         }
-        assert_eq!(roots, 1);
-    }
-    fixture.finish().await;
+    })).await;
 }
 
 #[cfg(feature = "solver-kinsol")]

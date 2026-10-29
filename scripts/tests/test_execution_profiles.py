@@ -75,13 +75,13 @@ class ExecutionProfileTests(unittest.TestCase):
         self,
     ) -> None:
         declared = profiles.declarations()
-        assert declared.default_profile is deployment.ProductionProfileName.SERVICE
-        assert profiles.default_allocation() == profiles.profile("service")
+        assert declared.default_profile is deployment.ProductionProfileName.REFERENCE
+        assert profiles.default_allocation() == profiles.profile("reference")
         assert (
             declared.capabilities.memory_limit_bytes,
             declared.capabilities.threads,
             declared.capabilities.max_spill_bytes,
-        ) == (16 * GIB, 16, GIB)
+        ) == (128 * GIB, 16, GIB)
 
     def test_actual_materialization_validates_overrides_and_rejects_relational_changes(
         self,

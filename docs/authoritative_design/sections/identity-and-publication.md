@@ -1277,6 +1277,25 @@ declaration. Storage-only access does not validate unused native policy. Managed
 still requires finite native allocation, the actual receiver association and fresh admission;
 configuration selection alone is not execution authority.
 
+The native scientific composition root consumes the service's `SchemaReady` and explicitly
+constructs one `NativeStudyWorker` from a frozen executable, environment, allocation and
+sustained scheduling policy. Its private handoff retains the exact schema fence, store issuer
+and database. Readiness requires the actual original manager invocation/process and the
+application's matching connection/policy claim; `Type=exec` alone is insufficient. The root
+retains the performing owner before launch and lends only an identity-pinned observation
+capability to runtime callers. Runtime lookup neither launches a worker nor discovers a
+Python receiver. The process constructs the shared mathematical runtime and directly calls
+`Runtime::serve`; no Python subprocess, worker supervisor or JSON allocation constructor lies
+on this path. The replacement does not qualify remaining historical fixtures or consumers.
+
+Application shutdown joins issued native lanes and foreign destructors, then seals and drains
+its final canonical connection under the original finite shutdown allowance before publishing
+its terminal receipt. Ordinary shared-client disconnect still refuses live activity. Host
+physical drain remains separate: original `OwnedUnit` capability settlement observes the real
+population, including escaped descendants, and cannot manufacture a native-join or scientific
+success receipt. Actual process death preserves unknown effects and cannot grant predecessor
+seed permission or continuation eligibility merely because the physical group is empty.
+
 Host readiness distinguishes compatible ready, owned startup, actionable absence,
 unavailable observation and authenticated mismatch. Compatible borrowers join the startup
 owner under their original clock; uncertainty or mismatch cannot authorize restart.

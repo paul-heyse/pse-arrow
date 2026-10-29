@@ -2,13 +2,19 @@
 // Copyright (c) 2026 Paul Heyse
 //! Canonical worker child-process journeys: original authored science, retained seeds,
 //! truthful killed-writer recovery, native cancellation and competing study claims.
-#![recursion_limit = "256"]
+#![recursion_limit = "512"]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
+    clippy::print_stderr,
     reason = "integration assertions and child-process protocol"
 )]
+#[path = "../../../tests/fixtures/native-worker-environment.rs"]
+mod native_worker_environment;
+
+use futures_util::FutureExt;
+use pse_operations::native_service::{NativeCanonicalService, NativeModuleSource, NativeServiceSpec};
 use pse_admission::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
 use pse_backend_native::{
     presolve::PolicyKind,
@@ -23,168 +29,166 @@ use pse_runtime::{
         OperationRequest, Operations, PackageSources, PhysicalContext, PointOverlay,
         PreparationSettings, RunReport, RunRequest, Runtime, StartSource, StoredStart, StudyHandle,
         StudyPlan, StudyPoint, StudyPointPolicy, StudyPointState, StudyState,
+        NativeAllocation, NativeStudyWorker, NativeStudyWorkerSpec, WorkerSettings,
     },
 };
-use std::{collections::BTreeMap, num::NonZeroUsize, path::Path, sync::Arc, time::Duration};
-/// One journey owns this profile's finite worker slots at a time, including across
-/// Nextest test processes. The two-worker study consumes both configured slots.
+use std::{collections::BTreeMap, num::NonZeroUsize, panic::AssertUnwindSafe,
+    path::{Path, PathBuf}, sync::Arc, time::{Duration, Instant}};
+
+/// Own only newly created private canonical state and the original scientific roots.
+/// No configured database, legacy receiver metadata or unit-name adoption participates.
 struct ManagedWorkerCase {
-    _lock: std::fs::File,
-    state: std::path::PathBuf,
-    selected: Option<pse_runtime::workflow::NativeExecutionSelection>,
-    units: Vec<String>,
+    service: NativeCanonicalService,
+    allocation: NativeAllocation,
+    workers: Vec<NativeStudyWorker>,
+    runtimes: Vec<Runtime>,
+    shared: Vec<Arc<SharedRuntime>>,
+    children: Vec<tokio::process::Child>,
+    checkpoints: Vec<PathBuf>,
 }
+fn allocation_for_workers(selected: NativeAllocation, workers: usize, observer: usize) -> NativeAllocation {
+    let mut execution = selected.execution.unwrap();
+    execution.observer_memory_bytes = execution.observer_memory_bytes.max(observer);
+    let process = (selected.total_memory_bytes - selected.server_memory_bytes
+        - execution.observer_memory_bytes) / workers;
+    execution.pool_memory_bytes = process - execution.process_headroom_bytes;
+    execution.worker_bytes = execution.worker_bytes.min(execution.pool_memory_bytes / 2);
+    NativeAllocation::materialize(selected.total_memory_bytes,
+        selected.server_memory_bytes, workers, process, Some(execution)).unwrap()
+}
+
 impl ManagedWorkerCase {
-    fn acquire() -> Self {
-        let state = std::env::var_os("PSE_SURREAL_STATE")
-            .expect("worker-test selects owned canonical state");
-        Self::acquire_at(Path::new(&state))
+    fn new(workers: usize) -> Self {
+        let environment = std::env::vars_os().collect();
+        let module_source = if let Some(receipt) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
+            NativeModuleSource::Prepared(pse_host::study_module::select(
+                &PathBuf::from(receipt), pse_host::study_module::Variant::Production,
+            ).unwrap())
+        } else {
+            NativeModuleSource::RecordedState(PathBuf::from(
+                std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE")
+                    .expect("explicit prepared native module receipt selector"),
+            ))
+        };
+        let helper = PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
+            .expect("root supplies the already-built canonical-service helper"));
+        assert!(helper.is_absolute() && helper.is_file());
+        // Share the declared workstation envelope across these original processes;
+        // no independently invented small fixture pool can block default preparation.
+        let profiles = pse_runtime::workflow::ProductionProfiles::read(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.config/agent-capacity.toml"),
+        ).unwrap();
+        let selected = profiles.select(profiles.default_profile).unwrap();
+        let allocation = allocation_for_workers(selected, workers,
+            selected.execution.unwrap().observer_memory_bytes);
+        let service = NativeCanonicalService::new(NativeServiceSpec {
+            server: pse_host::server::select(&environment).unwrap(), helper, module_source,
+            state_parent: std::env::temp_dir(),
+        }).unwrap();
+        eprintln!("worker journey private state={} original_service={}",
+            service.state().display(), service.intent().unit());
+        Self { service, allocation, workers: Vec::new(), runtimes: Vec::new(), shared: Vec::new(), children: Vec::new(), checkpoints: Vec::new() }
     }
-    fn acquire_at(state: &Path) -> Self {
+    async fn launch(&mut self) {
+        self.service.launch(Instant::now() + Duration::from_secs(90)).await.unwrap();
+    }
+    fn runtime(&mut self, scip: bool) -> (Arc<SharedRuntime>, Runtime) {
+        let store = self.service.ready().unwrap().store().clone();
+        let (shared, local) = if scip { scip_runtime(store) } else { runtime_with_store(store) };
+        // The actual observer's pool is part of this same envelope before any
+        // scientific worker is constructed; SCIP and ordinary callers may differ.
+        assert!(self.workers.is_empty());
+        self.allocation = allocation_for_workers(self.allocation,
+            self.allocation.native_workers, shared.budget().memory_limit_bytes.get());
+        self.runtimes.push(local.clone());
+        self.shared.push(shared.clone());
+        (shared, local)
+    }
+    async fn spawn(&mut self) -> usize {
+        let executable = PathBuf::from(std::env::var_os("PSE_NATIVE_STUDY_WORKER")
+            .expect("root supplies the already-built scientific pse-worker"));
+        assert!(executable.is_absolute() && executable.is_file());
+        let index = self.workers.len();
+        self.workers.push(NativeStudyWorker::new(NativeStudyWorkerSpec {
+            ready: self.service.ready().unwrap(), executable,
+            environment: native_worker_environment::selected(),
+            allocation: self.allocation,
+            settings: WorkerSettings {
+                poll: Duration::from_millis(20), recovery: Duration::from_millis(200),
+                // The competition fixture needs each process to claim an original
+                // point. This scheduling bound does not alter its 16/32 CPU/native profile.
+                maximum_in_flight: (self.allocation.native_workers == 2).then_some(1),
+                ..Default::default()
+            },
+        }).unwrap());
+        // Retain the original owner before launch: uncertain startup still needs drain.
+        self.workers[index].launch(Instant::now() + Duration::from_secs(90)).await.unwrap();
+        index
+    }
+    fn bind_worker(&self, local: Runtime, index: usize) -> Runtime {
+        local.with_managed_worker(self.workers[index].observer().unwrap()).unwrap()
+    }
+    async fn stop_worker(&mut self, index: usize) {
+        self.workers[index].shutdown(Instant::now() + Duration::from_secs(45)).await.unwrap();
+        let terminal = self.workers[index].terminal().unwrap()
+            .expect("original scientific application join receipt, separate from host drain");
+        assert!(terminal.native_joined, "original application must join its native lanes");
+        assert!(terminal.failure.is_none(), "original worker failure: {:?}", terminal.failure);
+        assert!(terminal.processed.is_some(), "original scheduling count must be retained");
+    }
+    fn worker_identity(&self, index: usize) -> String {
+        // The real application chooses its process-scoped identity. Check the
+        // canonical writer against the authenticated original terminal receipt.
+        let terminal = serde_json::to_value(self.workers[index].terminal().unwrap().unwrap()).unwrap();
+        let pid = terminal["pid"].as_u64().unwrap();
+        let host = std::env::var("HOSTNAME").unwrap_or_else(|_| "localhost".into());
+        format!("pse-worker:{host}:{pid}")
+    }
+    fn child_logs(&self, name: &str) -> (std::fs::File, std::fs::File) {
         use std::os::unix::fs::OpenOptionsExt;
-        pse_operations::canonical::CanonicalOptions::from_state(state).unwrap();
-        let lock = std::fs::OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .read(true)
-            .write(true)
-            .mode(0o600)
-            .open(state.join(".worker-integration.lock"))
-            .unwrap();
-        lock.lock().unwrap();
-        Self {
-            _lock: lock,
-            state: state.to_path_buf(),
-            selected: None,
-            units: Vec::new(),
+        let open = |suffix| std::fs::OpenOptions::new().write(true).create_new(true)
+            .mode(0o600).open(self.service.state().join(format!("{name}.{suffix}"))).unwrap();
+        (open("stdout"), open("stderr"))
+    }
+    async fn finish(&mut self, body: std::thread::Result<()>) {
+        // Settle all independent scientific roots before closing their shared store.
+        // Retain all failures; a panic never substitutes Drop for asynchronous cleanup.
+        for local in &self.runtimes { local.close(); local.clear_program_cache(); }
+        let (worker_drains, child_drains, math_drains) = tokio::join!(
+            futures_util::future::join_all(self.workers.iter_mut().map(|worker|
+                worker.shutdown(Instant::now() + Duration::from_secs(45)))),
+            futures_util::future::join_all(self.children.iter_mut().map(|child| async {
+                if child.try_wait()?.is_none() { child.start_kill()?; }
+                tokio::time::timeout(Duration::from_secs(45), child.wait()).await
+                    .map_err(std::io::Error::other)?
+            })),
+            futures_util::future::join_all(self.shared.iter().map(|shared|
+                shared.math().shutdown_native_lanes())),
+        );
+        let service_drain = self.service.shutdown(Instant::now() + Duration::from_secs(45)).await;
+        let settled = worker_drains.iter().all(Result::is_ok)
+            && child_drains.iter().all(Result::is_ok) && math_drains.iter().all(Result::is_ok) && service_drain.is_ok();
+        if body.is_err() || !settled {
+            eprintln!("worker journey retained state={}; worker drains={worker_drains:?}; child drains={child_drains:?}; math drains={math_drains:?}; canonical drain={service_drain:?}", self.service.state().display());
+            for worker in &self.workers {
+                eprintln!("original worker diagnostics={} unit={}", worker.directory().display(), worker.intent().unit());
+            }
         }
-    }
-    fn bind_database(&mut self, database: &str) {
-        assert!(
-            self.selected.is_none(),
-            "one case owns one selected database"
-        );
-        let selected = pse_runtime::workflow::NativeExecutionSelection::from_state(
-            &self.state,
-            Some(database),
-        )
-        .unwrap();
-        let state = selected.receiver_state();
-        let output = supervisor_at(state).arg("status").output().unwrap();
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        let status: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-        let units = status["worker_units"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|unit| unit.as_str().unwrap().to_owned())
-            .collect::<Vec<_>>();
-        let checked = supervisor_python("from scripts import surreal_server as s; import os,pathlib; p=pathlib.Path(os.environ['PSE_SURREAL_STATE']); s.workers_drained(p,s.config_for(p))")
-            .env("PSE_SURREAL_STATE", state)
-            .status()
-            .unwrap();
-        assert!(
-            checked.success(),
-            "another process already owns this fixture profile's worker slots"
-        );
-        selected.require_current().unwrap();
-        self.units = units;
-        self.selected = Some(selected);
-    }
-    fn command(&self, executable: &std::ffi::OsStr) -> std::process::Command {
-        let selected = self
-            .selected
-            .as_ref()
-            .expect("bind the exact worker database");
-        selected.require_current().unwrap();
-        managed_worker_command_with(
-            supervisor_at(selected.receiver_state()),
-            selected.database(),
-            executable,
-        )
-    }
-    fn spawn(&self, name: &str, lease_seconds: u64) -> std::process::Child {
-        spawn_worker_with(
-            self.command(
-                &std::env::var_os("PSE_WORKER_BINARY")
-                    .expect("worker-test supplies its built worker"),
-            ),
-            name,
-            lease_seconds,
-        )
-    }
-    fn kill_solver(&self) {
-        // The scientific process is in slot zero in this serial single-worker case.
-        // Killing only its launcher would deliberately leave the scope alive.
-        let code = "from scripts import surreal_server as s; import sys; s.systemctl('kill','--kill-whom=all','--signal=SIGKILL',sys.argv[1])";
-        assert!(
-            supervisor_python(code)
-                .arg(&self.units[0])
-                .status()
-                .unwrap()
-                .success()
-        );
-    }
-}
-impl Drop for ManagedWorkerCase {
-    fn drop(&mut self) {
-        for unit in &self.units {
-            let _ = supervisor_python("from scripts import surreal_server as s; import sys; s.systemctl('stop',sys.argv[1],check=False)").arg(unit).status();
+        if let Err(panic) = body { std::panic::resume_unwind(panic); }
+        assert!(settled, "all owned physical/connection/native drains must succeed");
+        // Attempt every independently owned disposal; preserve individual errors.
+        let worker_disposals = self.workers.iter_mut().map(NativeStudyWorker::dispose).collect::<Vec<_>>();
+        let checkpoint_disposals = self.checkpoints.iter().map(std::fs::remove_file).collect::<Vec<_>>();
+        let disposed = worker_disposals.iter().all(Result::is_ok)
+            && checkpoint_disposals.iter().all(Result::is_ok);
+        // Retain canonical diagnosis if any independent diagnostic disposal failed.
+        let service_disposal = if disposed { self.service.dispose() } else { Ok(()) };
+        if !disposed || service_disposal.is_err() {
+            eprintln!("worker journey disposal retained state={}; workers={worker_disposals:?}; checkpoints={checkpoint_disposals:?}; canonical={service_disposal:?}", self.service.state().display());
         }
+        assert!(disposed, "every original diagnostic disposal must succeed");
+        service_disposal.unwrap();
     }
-}
-fn python() -> std::path::PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.venv/bin/python")
-}
-fn supervisor() -> std::process::Command {
-    let mut command = std::process::Command::new(python());
-    command.arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/surreal_server.py"));
-    command
-}
-fn supervisor_at(state: &Path) -> std::process::Command {
-    let mut command = supervisor();
-    command.arg("--state").arg(state);
-    command
-}
-fn supervisor_python(code: &str) -> std::process::Command {
-    let mut command = std::process::Command::new(python());
-    command
-        .args(["-c", code])
-        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."));
-    command
-}
-fn managed_worker_command_with(
-    mut command: std::process::Command,
-    database: &str,
-    executable: &std::ffi::OsStr,
-) -> std::process::Command {
-    command
-        .args(["worker", "--worker-command"])
-        .arg(executable)
-        .args(["--canonical-database", database]);
-    command
-}
-fn spawn_worker_with(
-    mut command: std::process::Command,
-    name: &str,
-    lease_seconds: u64,
-) -> std::process::Child {
-    command
-        .args([
-            "--name",
-            name,
-            "--until-idle",
-            "--lease-seconds",
-            &lease_seconds.to_string(),
-            "--heartbeat-ms",
-            "200",
-        ])
-        .spawn()
-        .unwrap()
 }
 
 const SQUARE: &str = r#"package algebraic { def Root {
@@ -243,139 +247,13 @@ fn sources_of(source: &str) -> (BTreeMap<String, Vec<u8>>, BTreeMap<String, Vec<
     )
 }
 
-struct TwoWorkerFixtureProfile {
-    state: std::path::PathBuf,
-    started: bool,
-}
-impl TwoWorkerFixtureProfile {
-    fn state(&self) -> &Path {
-        &self.state
-    }
-}
-impl Drop for TwoWorkerFixtureProfile {
-    fn drop(&mut self) {
-        if !self.started {
-            return;
-        }
-        let status = supervisor_at(&self.state)
-            .args(["stop", "--drained"])
-            .status();
-        if !std::thread::panicking() {
-            assert!(
-                status.unwrap().success(),
-                "alternate worker server did not stop cleanly"
-            );
-        }
-    }
+fn build_identity() -> pse_ids::ContentHash {
+    let mut executable = std::fs::File::open(std::env::current_exe().unwrap()).unwrap();
+    let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+    hash.part_reader(executable.metadata().unwrap().len(), &mut executable, &|| Ok(())).unwrap();
+    hash.finish_hash()
 }
 
-fn two_worker_fixture_state() -> TwoWorkerFixtureProfile {
-    const TOTAL_MIB: &str = "20480";
-    const SERVER_MIB: &str = "2048";
-    const WORKER_MIB: &str = "8192";
-    let selected =
-        std::env::var_os("PSE_SURREAL_STATE").expect("worker-test selects owned canonical state");
-    let selected = Path::new(&selected);
-    let selected_status = supervisor().arg("status").output().unwrap();
-    assert!(selected_status.status.success());
-    let selected_status: serde_json::Value =
-        serde_json::from_slice(&selected_status.stdout).unwrap();
-    let interpretation = selected_status["interpretation"].as_str().unwrap();
-    let name = selected.file_name().unwrap().to_string_lossy();
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let state = selected.with_file_name(format!(
-        "{name}-worker-two-slot-{}-{stamp}",
-        std::process::id()
-    ));
-    assert!(
-        !state.exists(),
-        "new alternate worker profile path already exists"
-    );
-    let mut profile = TwoWorkerFixtureProfile {
-        state: state.clone(),
-        started: false,
-    };
-
-    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
-    let port = listener.local_addr().unwrap().port().to_string();
-    drop(listener);
-    let setup = supervisor()
-        .args(["setup", "--state"])
-        .arg(&state)
-        .args([
-            "--port",
-            &port,
-            "--interpretation",
-            interpretation,
-            "--memory-mib",
-            TOTAL_MIB,
-            "--server-memory-mib",
-            SERVER_MIB,
-            "--native-workers",
-            "2",
-            "--native-worker-memory-mib",
-            WORKER_MIB,
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        setup.status.success(),
-        "{}",
-        String::from_utf8_lossy(&setup.stderr)
-    );
-
-    let status = supervisor_at(&state).arg("status").output().unwrap();
-    assert!(
-        status.status.success(),
-        "{}",
-        String::from_utf8_lossy(&status.stderr)
-    );
-    let status: serde_json::Value = serde_json::from_slice(&status.stdout).unwrap();
-    let resources = &status["resources"];
-    assert_eq!(status["interpretation"].as_str(), Some(interpretation));
-    assert_eq!(status["admission"].as_str(), Some("validation_required"));
-    assert_eq!(status["accepting_writes"].as_bool(), Some(false));
-    assert_eq!(resources["total_memory_bytes"].as_u64(), Some(20_u64 << 30));
-    assert_eq!(resources["server_memory_bytes"].as_u64(), Some(2_u64 << 30));
-    assert_eq!(resources["native_workers"].as_u64(), Some(2));
-    assert_eq!(
-        resources["native_worker_memory_bytes"].as_u64(),
-        Some(8_u64 << 30)
-    );
-    assert!(
-        resources.get("execution").is_none(),
-        "two-slot fixture must be legacy"
-    );
-    let initializer = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../target/debug/xtask")
-        .canonicalize()
-        .unwrap();
-    let initialize = supervisor_at(&state)
-        .args(["initialize", "--initializer-command"])
-        .arg(initializer)
-        .arg("canonical-init")
-        .arg(&state)
-        .status()
-        .unwrap();
-    assert!(initialize.success(), "fresh two-slot schema installation");
-    let start = supervisor_at(&state).arg("start").status().unwrap();
-    assert!(start.success());
-    profile.started = true;
-    profile
-}
-
-async fn canonical_fixture_store_at(state: &Path) -> pse_operations::canonical::CanonicalStore {
-    let mut options = pse_operations::canonical::CanonicalOptions::from_state(state).unwrap();
-    options.database = format!("canonical_test_worker_{}", uuid::Uuid::new_v4().simple());
-    pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap()
-}
-
-fn runtime() -> (Arc<SharedRuntime>, Runtime) {
-    runtime_with_store(pse_operations::testing::canonical_native_fixture_store().unwrap())
-}
 fn runtime_with_store(
     store: pse_operations::canonical::CanonicalStore,
 ) -> (Arc<SharedRuntime>, Runtime) {
@@ -386,8 +264,8 @@ fn runtime_with_store(
         max_temp_dir_bytes: 1 << 30,
         top_consumers: n(5),
         threads: pse_engine::ThreadBudget {
-            pool_threads: n(2),
-            target_partitions: n(1),
+            pool_threads: n(32),
+            target_partitions: n(16),
         },
         execution: Default::default(),
         cache: pse_runtime::CacheBudget::disabled(1024),
@@ -400,6 +278,7 @@ fn runtime_with_store(
                 + (64 << 20),
             workspace_bytes: 128 << 20,
             foreign_bytes: 1 << 20,
+            jobs: 32,
             ..Default::default()
         },
     })
@@ -418,8 +297,8 @@ fn runtime_with_store(
             pse_runtime::workflow::CanonicalDeployment::new(
                 store,
                 pse_runtime::workflow::OuterAttestation {
-                    source: Some(pse_ids::ContentHash::from_bytes([0; 32])),
-                    build: pse_ids::ContentHash::from_bytes([1; 32]),
+                    source: None,
+                    build: build_identity(),
                 },
                 None,
             ),
@@ -592,9 +471,9 @@ fn discrete_sources(source: &str) -> BTreeMap<String, Vec<u8>> {
     modeling
 }
 
-/// A runtime budgeted as the worker binary is with `--memory-mib 8192`, whose native jobs
-/// admit SCIP's memory limit (the default foreign allowance).
-fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
+/// A scientific observer runtime with the original eight-GiB pool, admitting the
+/// actual SCIP foreign-memory policy while retaining the host's 16/32 widths.
+fn scip_runtime(store: pse_operations::canonical::CanonicalStore) -> (Arc<SharedRuntime>, Runtime) {
     let n = |v| NonZeroUsize::new(v).unwrap();
     let memory: usize = 8 << 30;
     let shared = SharedRuntime::build(pse_runtime::ResourceBudget {
@@ -603,8 +482,8 @@ fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
         max_temp_dir_bytes: 1 << 30,
         top_consumers: n(5),
         threads: pse_engine::ThreadBudget {
-            pool_threads: n(2),
-            target_partitions: n(1),
+            pool_threads: n(32),
+            target_partitions: n(16),
         },
         execution: Default::default(),
         cache: pse_runtime::CacheBudget::disabled(1024),
@@ -612,6 +491,7 @@ fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
             workspace_bytes: memory / 8,
             worker_bytes: memory / 16,
             artifact_bytes: memory / 8,
+            jobs: 32,
             ..Default::default()
         },
     })
@@ -628,10 +508,10 @@ fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
             shared,
             sessions.bind_model(registry.clone()).unwrap(),
             pse_runtime::workflow::CanonicalDeployment::new(
-                pse_operations::testing::canonical_native_fixture_store().unwrap(),
+                store,
                 pse_runtime::workflow::OuterAttestation {
-                    source: Some(pse_ids::ContentHash::from_bytes([0; 32])),
-                    build: pse_ids::ContentHash::from_bytes([1; 32]),
+                    source: None,
+                    build: build_identity(),
                 },
                 None,
             ),
@@ -734,16 +614,15 @@ async fn submit_single(
         .unwrap();
     (package, case, handle)
 }
-async fn drain_worker(name: &str, managed: &ManagedWorkerCase) {
-    let command = managed.command(
-        &std::env::var_os("PSE_WORKER_BINARY").expect("worker-test supplies its built worker"),
-    );
-    let name = name.to_owned();
-    let status =
-        tokio::task::spawn_blocking(move || spawn_worker_with(command, &name, 30).wait().unwrap())
-            .await
-            .unwrap();
-    assert!(status.success(), "{status}");
+async fn drain_worker(handle: &StudyHandle, worker: usize, managed: &mut ManagedWorkerCase) {
+    until(Duration::from_secs(180), "canonical study conclusion", || async {
+        if handle.status().await.unwrap().state == StudyState::Concluded { return true; }
+        let terminal=managed.workers[worker].terminal().unwrap();
+        assert!(terminal.is_none(), "original scientific worker ended before canonical conclusion: {terminal:?}; diagnostics={}", managed.workers[worker].directory().display());
+        false
+    }).await;
+    // Sustained applications stop only after canonical scientific facts are visible.
+    managed.stop_worker(worker).await;
 }
 async fn until<F: Future<Output = bool>>(
     limit: Duration,
@@ -804,114 +683,111 @@ async fn assert_value(local: &Runtime, run: &str, attempt: &str, wanted: f64) {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[allow(
     clippy::too_many_lines,
-    reason = "one managed two-process journey keeps scientific assertions and optional fresh-miss cleanup together"
+    reason = "two original native process owners retain the same authored scientific case"
 )]
 async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
-    let mut managed = ManagedWorkerCase::acquire();
-    let (shared, local) = runtime();
-    managed.bind_database(local.canonical_store().unwrap().database());
-    let (local, operations) =
-        bind_operations(&shared, local, "replay-enqueuer", LeasePolicy::default());
-    let expect_miss = std::env::var_os("PSE_WORKER_REPLAY_EXPECT_MISS").is_some();
-    let (physical, modeling) = if expect_miss {
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+    let mut managed = ManagedWorkerCase::new(1);
+    let body = AssertUnwindSafe(async {
+        managed.launch().await;
+        let (shared, local) = managed.runtime(false);
+        let (local, operations) =
+            bind_operations(&shared, local, "replay-enqueuer", LeasePolicy::default());
+        let (physical, modeling) = sources();
+        let (package, _) = package(&shared, &local, &physical, &modeling).await;
+        let case = package
+            .declarations(&local.preparation_services())
+            .await
             .unwrap()
-            .as_nanos()
-            % 1_000_000_000_000;
-        sources_of(&SQUARE.replace("x*x==4", &format!("x*x==4+{nonce}/1000000000000")))
-    } else {
-        sources()
-    };
-    let (package, _) = package(&shared, &local, &physical, &modeling).await;
-    let case = package
-        .declarations(&local.preparation_services())
-        .await
-        .unwrap()
-        .iter()
-        .find(|d| d.name == "Root")
-        .unwrap()
-        .declaration_id;
-    let actual =
-        std::env::var_os("PSE_WORKER_BINARY").expect("worker-test supplies its built worker");
-    let first = std::env::var_os("PSE_WORKER_REPLAY_FIRST_PROBE").unwrap_or_else(|| actual.clone());
-    assert!(
-        !expect_miss || std::env::var_os("PSE_WORKER_REPLAY_FIRST_PROBE").is_some(),
-        "fresh-miss diagnostic requires a first-worker probe"
-    );
-    // The receiving probe is optional; ordinary runs use the actual worker for both launches.
-    let receiving = std::env::var_os("PSE_WORKER_REPLAY_PROBE").unwrap_or_else(|| actual.clone());
-    let mut previous = None;
-    for (name, executable) in [
-        ("worker-replay-first", first),
-        ("worker-replay-receiver", receiving),
-    ] {
-        let handle = local
-            .start_study(
-                StudyPlan {
-                    output: pse_runtime::workflow::StudyOutputDemand::Full {},
-                    sources: PackageSources {
-                        physical: physical.clone(),
-                        modeling: vec![modeling.clone()],
+            .iter()
+            .find(|d| d.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let mut previous = None;
+        let mut previous_worker = None;
+        for _ in 0..2 {
+            let worker = managed.spawn().await;
+            let local = managed.bind_worker(local.clone(), worker);
+            let handle = local
+                .start_study(
+                    StudyPlan {
+                        output: pse_runtime::workflow::StudyOutputDemand::Full {},
+                        sources: PackageSources {
+                            physical: physical.clone(),
+                            modeling: vec![modeling.clone()],
+                        },
+                        inputs: pse_runtime::workflow::StudyInputs::Explicit(vec![occurrence(
+                            case,
+                            0,
+                            settings(),
+                            1,
+                        )]),
                     },
-                    inputs: pse_runtime::workflow::StudyInputs::Explicit(vec![occurrence(
-                        case,
-                        0,
-                        settings(),
-                        1,
-                    )]),
-                },
-                &CancelSource::new(),
-            )
-            .await
-            .unwrap();
-        let mut command = managed.command(&executable);
-        command.env_remove("PSE_PRODUCER_RECEIPT").args([
-            "--name",
-            name,
-            "--until-idle",
-            "--lease-seconds",
-            "30",
-            "--heartbeat-ms",
-            "200",
-        ]);
-        let exited = tokio::task::spawn_blocking(move || command.spawn().unwrap().wait().unwrap())
-            .await
-            .unwrap();
-        if expect_miss {
-            let receiver_state = managed
-                .selected
-                .as_ref()
-                .unwrap()
-                .receiver_state()
-                .to_path_buf();
-            drop(managed);
-            assert!(supervisor_python("from scripts import surreal_server as s; import os,pathlib; p=pathlib.Path(os.environ['PSE_SURREAL_STATE']); s.workers_drained(p,s.config_for(p))").env("PSE_SURREAL_STATE", receiver_state).status().unwrap().success());
-            drop(handle);
-            drop(package);
-            local.clear_program_cache();
-            local
-                .canonical_store()
-                .unwrap()
-                .remove_isolated_fixture()
+                    &CancelSource::new(),
+                )
                 .await
                 .unwrap();
+            drain_worker(&handle, worker, &mut managed).await;
+            let writer = managed.worker_identity(worker);
+            if let Some(previous) = previous_worker { assert_ne!(writer, previous); }
+            previous_worker = Some(writer.clone());
+            let status = handle.status().await.unwrap();
+            assert_eq!(status.state, StudyState::Concluded);
+            assert_eq!(status.points.len(), 1);
+            let point = &status.points[0];
+            assert_eq!(point.state, StudyPointState::Completed);
+            let outcome = point.outcome.as_ref().unwrap();
+            assert!(outcome.scientific.usable);
+            assert_eq!(outcome.attempts.len(), 1);
+            let attempt = point.attempt.as_deref().unwrap();
+            let stored = operations
+                .store()
+                .canonical_attempt(attempt)
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(stored.terminal());
             assert_eq!(
-                exited.code(),
-                Some(42),
-                "fresh-admission hardware discriminator must fire"
+                stored.outcome.as_ref().map(|value| value.as_str()),
+                Some("succeeded")
             );
-            return;
+            assert_eq!(stored.worker, writer);
+            assert_value(&local, &point.run, attempt, 2.).await;
+            let identity = (
+                handle.study_id().to_string(),
+                point.run.clone(),
+                attempt.to_owned(),
+            );
+            if let Some((study, run, attempt)) = previous {
+                assert_ne!(identity.0, study);
+                assert_ne!(identity.1, run);
+                assert_ne!(identity.2, attempt);
+            }
+            previous = Some(identity);
         }
-        assert!(exited.success(), "{name}: {exited}");
+        drop(package);
+        local.clear_program_cache();
+    }).catch_unwind().await;
+    managed.finish(body).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn worker_runs_authored_case_end_to_end() {
+    let mut managed = ManagedWorkerCase::new(1);
+    let body = AssertUnwindSafe(async {
+        managed.launch().await;
+        let (shared, local) = managed.runtime(false);
+        let (local, operations) = bind_operations(&shared, local, "enqueuer", LeasePolicy::default());
+        let worker = managed.spawn().await;
+        let local = managed.bind_worker(local, worker);
+        let (physical, modeling) = sources();
+        let (package, case, handle) =
+            submit_single(&shared, &local, physical, modeling, settings(), 1).await;
+        drain_worker(&handle, worker, &mut managed).await;
         let status = handle.status().await.unwrap();
         assert_eq!(status.state, StudyState::Concluded);
-        assert_eq!(status.points.len(), 1);
         let point = &status.points[0];
-        assert_eq!(point.state, StudyPointState::Completed);
-        let outcome = point.outcome.as_ref().unwrap();
-        assert!(outcome.scientific.usable);
-        assert_eq!(outcome.attempts.len(), 1);
+        assert!(point.outcome.as_ref().unwrap().scientific.usable);
+        assert_eq!(point.outcome.as_ref().unwrap().attempts.len(), 1);
         let attempt = point.attempt.as_deref().unwrap();
         let stored = operations
             .store()
@@ -924,117 +800,62 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
             stored.outcome.as_ref().map(|value| value.as_str()),
             Some("succeeded")
         );
-        assert_eq!(stored.worker, name);
+        assert_eq!(stored.worker, managed.worker_identity(worker));
         assert_value(&local, &point.run, attempt, 2.).await;
-        let identity = (
-            handle.study_id().to_string(),
-            point.run.clone(),
-            attempt.to_owned(),
-        );
-        if let Some((study, run, attempt)) = previous {
-            assert_ne!(identity.0, study);
-            assert_ne!(identity.1, run);
-            assert_ne!(identity.2, attempt);
+        let mut progress = local
+            .progress(&point.run, attempt, pse_columnar::CancellationToken::new())
+            .await
+            .unwrap();
+        let mut count = 0;
+        while let Some(page) = progress.next_page().await.unwrap() {
+            count += page.len();
         }
-        previous = Some(identity);
-    }
-    drop(package);
-    local.clear_program_cache();
-    local
-        .canonical_store()
-        .unwrap()
-        .remove_isolated_fixture()
-        .await
-        .unwrap();
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn worker_runs_authored_case_end_to_end() {
-    let mut managed = ManagedWorkerCase::acquire();
-    let (shared, local) = runtime();
-    managed.bind_database(local.canonical_store().unwrap().database());
-    let (local, operations) = bind_operations(&shared, local, "enqueuer", LeasePolicy::default());
-    let (physical, modeling) = sources();
-    let (package, case, handle) =
-        submit_single(&shared, &local, physical, modeling, settings(), 1).await;
-    drain_worker("worker-child", &managed).await;
-    let status = handle.status().await.unwrap();
-    assert_eq!(status.state, StudyState::Concluded);
-    let point = &status.points[0];
-    assert!(point.outcome.as_ref().unwrap().scientific.usable);
-    assert_eq!(point.outcome.as_ref().unwrap().attempts.len(), 1);
-    let attempt = point.attempt.as_deref().unwrap();
-    let stored = operations
-        .store()
-        .canonical_attempt(attempt)
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(stored.terminal());
-    assert_eq!(
-        stored.outcome.as_ref().map(|value| value.as_str()),
-        Some("succeeded")
-    );
-    assert_eq!(stored.worker, "worker-child");
-    assert_value(&local, &point.run, attempt, 2.).await;
-    let mut progress = local
-        .progress(&point.run, attempt, pse_columnar::CancellationToken::new())
-        .await
-        .unwrap();
-    let mut count = 0;
-    while let Some(page) = progress.next_page().await.unwrap() {
-        count += page.len();
-    }
-    assert!(count > 0, "worker native progress must be retained");
-    let diagnostics = local.observations();
-    let root = diagnostics.checkpoint_path().parent().unwrap().to_owned();
-    let owned = std::fs::read_dir(root)
-        .unwrap()
-        .filter_map(Result::ok)
-        .find_map(|entry| {
-            if entry
-                .path()
-                .extension()
-                .is_none_or(|extension| extension != "json")
-            {
-                return None;
-            }
-            let image = pse_runtime::observation::read_checkpoint(&entry.path()).ok()?;
-            let lane = image.operations.iter().find(|operation| {
-                operation.sources.iter().any(|source| {
-                    source.name == "canonical.attempt" && source.bytes == attempt.as_bytes()
-                })
-            })?;
-            assert_ne!(
-                lane.id.process_instance,
-                diagnostics.hub().process_instance()
-            );
-            assert!(lane.sources.iter().any(
-                |source| source.name == "canonical.run" && source.bytes == point.run.as_bytes()
-            ));
-            assert!(image.operations.iter().any(|operation| {
-                operation.metrics.iter().any(|metric| {
-                    metric.name == "native.joined"
-                        && metric.latest == pse_diagnostics::observation::Value::Boolean(true)
-                })
-            }));
-            Some(entry.path())
-        })
-        .expect("actual managed worker publishes its own attempt-linked checkpoint");
-    // drain_worker has reaped this exact child; this is its owned diagnostic file only.
-    std::fs::remove_file(owned).unwrap();
-    stored_seed_reused_across_processes(&local, &operations, &package, case, &point.run, attempt)
-        .await;
-    drop(progress);
-    drop(handle);
-    drop(package);
-    local.clear_program_cache();
-    local
-        .canonical_store()
-        .unwrap()
-        .remove_isolated_fixture()
-        .await
-        .unwrap();
+        assert!(count > 0, "worker native progress must be retained");
+        let diagnostics = local.observations();
+        let root = diagnostics.checkpoint_path().parent().unwrap().to_owned();
+        let owned = std::fs::read_dir(root)
+            .unwrap()
+            .filter_map(Result::ok)
+            .find_map(|entry| {
+                if entry
+                    .path()
+                    .extension()
+                    .is_none_or(|extension| extension != "json")
+                {
+                    return None;
+                }
+                let image = pse_runtime::observation::read_checkpoint(&entry.path()).ok()?;
+                let lane = image.operations.iter().find(|operation| {
+                    operation.sources.iter().any(|source| {
+                        source.name == "canonical.attempt" && source.bytes == attempt.as_bytes()
+                    })
+                })?;
+                assert_ne!(
+                    lane.id.process_instance,
+                    diagnostics.hub().process_instance()
+                );
+                assert!(lane.sources.iter().any(
+                    |source| source.name == "canonical.run" && source.bytes == point.run.as_bytes()
+                ));
+                assert!(image.operations.iter().any(|operation| {
+                    operation.metrics.iter().any(|metric| {
+                        metric.name == "native.joined"
+                            && metric.latest == pse_diagnostics::observation::Value::Boolean(true)
+                    })
+                }));
+                Some(entry.path())
+            })
+            .expect("actual managed worker publishes its own attempt-linked checkpoint");
+        // The original native owner has drained this process; this is its diagnostic file only.
+        managed.checkpoints.push(owned);
+        stored_seed_reused_across_processes(&local, &operations, &package, case, &point.run, attempt)
+            .await;
+        drop(progress);
+        drop(handle);
+        drop(package);
+        local.clear_program_cache();
+    }).catch_unwind().await;
+    managed.finish(body).await;
 }
 
 /// The child executes this same selected test only through the explicit branch.
@@ -1048,17 +869,16 @@ async fn worker_runs_authored_case_end_to_end() {
 async fn durable_submission_survives_submitting_process_exit() {
     const RECEIPT: &str = "PSE_STO_SUBMITTER_RECEIPT";
     const DATABASE: &str = "PSE_STO_SUBMITTER_DATABASE";
+    const STATE: &str = "PSE_STO_SUBMITTER_STATE";
     if let Some(receipt) = std::env::var_os(RECEIPT) {
         use std::io::Write;
         use std::os::unix::fs::OpenOptionsExt;
-        let state = std::env::var_os("PSE_SURREAL_STATE").unwrap();
+        let state = std::env::var_os(STATE).unwrap();
         let mut options =
             pse_operations::canonical::CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = std::env::var(DATABASE).unwrap();
-        let store = pse_operations::canonical::CanonicalStore::connect(&options)
-            .await
-            .unwrap();
-        store.open().await.unwrap();
+        let store = pse_operations::canonical::CanonicalStore::connect_ready(&options)
+            .await.unwrap().into_store();
         let (shared, local) = runtime_with_store(store);
         let (local, _) = bind_operations(
             &shared,
@@ -1088,125 +908,110 @@ async fn durable_submission_survives_submitting_process_exit() {
         std::process::exit(0);
     }
 
-    let mut managed = ManagedWorkerCase::acquire();
-    let (shared, local) = runtime();
-    let store = local.canonical_store().unwrap();
-    let database = store.database().to_owned();
-    let state = store.deployment_state().to_path_buf();
-    managed.bind_database(&database);
-    let directory = state.join(format!("submitter-exit-{}", uuid::Uuid::new_v4().simple()));
-    let controls =
-        pse_operations::testing::register_fixture_controls(&state, &database, &directory).unwrap();
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        std::fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&directory)
+    let mut managed = ManagedWorkerCase::new(1);
+    let body = AssertUnwindSafe(async {
+        managed.launch().await;
+        let (shared, local) = managed.runtime(false);
+        let store = local.canonical_store().unwrap();
+        let database = store.database().to_owned();
+        let state = store.deployment_state().to_path_buf();
+        let directory = state.join(format!("submitter-exit-{}", uuid::Uuid::new_v4().simple()));
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            std::fs::DirBuilder::new()
+                .mode(0o700)
+                .create(&directory)
+                .unwrap();
+        }
+        let receipt = directory.join("submitted.json");
+        let (stdout, stderr) = managed.child_logs("submitter");
+        managed.children.push(tokio::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "durable_submission_survives_submitting_process_exit", "--nocapture"])
+            .env(RECEIPT, &receipt).env(STATE, &state).env(DATABASE, &database)
+            .stdout(stdout).stderr(stderr).spawn().unwrap());
+        let output = tokio::time::timeout(Duration::from_secs(120),
+            managed.children.last_mut().unwrap().wait()).await
+            .expect("bounded submitting process; original child retained for explicit kill/reap").unwrap();
+        assert!(output.success(), "{}", String::from_utf8_lossy(
+            &std::fs::read(state.join("submitter.stderr")).unwrap()));
+        let bytes = std::fs::read(&receipt).unwrap();
+        assert!(bytes.len() < 4096);
+        let submitted: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_ne!(
+            submitted["pid"].as_u64().unwrap(),
+            u64::from(std::process::id())
+        );
+        assert_eq!(submitted["database"], database);
+        let (local, operations) =
+            bind_operations(&shared, local, "surviving-observer", LeasePolicy::default());
+        let study = pse_model::generated::identities::StudyId::from_id(
+            pse_ids::SemanticId::parse_hex(submitted["study"].as_str().unwrap()).unwrap(),
+        );
+        let handle = local.study(study);
+        assert_ne!(handle.status().await.unwrap().state, StudyState::Concluded);
+        // The submitting process is reaped before this independent worker starts.
+        let worker = managed.spawn().await;
+        let local = managed.bind_worker(local, worker);
+        let handle = local.study(study);
+        drain_worker(&handle, worker, &mut managed).await;
+        let status = handle.status().await.unwrap();
+        assert_eq!(status.state, StudyState::Concluded);
+        let point = &status.points[0];
+        assert_eq!(point.run, submitted["run"].as_str().unwrap());
+        assert!(point.outcome.as_ref().unwrap().scientific.usable);
+        assert_eq!(point.outcome.as_ref().unwrap().attempts.len(), 1);
+        let attempt = point.attempt.as_deref().unwrap();
+        let stored = operations
+            .store()
+            .canonical_attempt(attempt)
+            .await
+            .unwrap()
             .unwrap();
-    }
-    let receipt = directory.join("submitted.json");
-    let output = tokio::time::timeout(
-        Duration::from_secs(120),
-        tokio::process::Command::new(std::env::current_exe().unwrap())
-            .args([
-                "--exact",
-                "durable_submission_survives_submitting_process_exit",
-                "--nocapture",
-            ])
-            .env(RECEIPT, &receipt)
-            .env(DATABASE, &database)
-            .kill_on_drop(true)
-            .output(),
-    )
-    .await
-    .expect("bounded submitting process")
-    .unwrap();
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let bytes = std::fs::read(&receipt).unwrap();
-    assert!(bytes.len() < 4096);
-    let submitted: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert_ne!(
-        submitted["pid"].as_u64().unwrap(),
-        u64::from(std::process::id())
-    );
-    assert_eq!(submitted["database"], database);
-    let (local, operations) =
-        bind_operations(&shared, local, "surviving-observer", LeasePolicy::default());
-    let study = pse_model::generated::identities::StudyId::from_id(
-        pse_ids::SemanticId::parse_hex(submitted["study"].as_str().unwrap()).unwrap(),
-    );
-    let handle = local.study(study);
-    assert_ne!(handle.status().await.unwrap().state, StudyState::Concluded);
-    // The submitting process is reaped before this independent worker starts.
-    drain_worker("after-submitter-exit", &managed).await;
-    let status = handle.status().await.unwrap();
-    assert_eq!(status.state, StudyState::Concluded);
-    let point = &status.points[0];
-    assert_eq!(point.run, submitted["run"].as_str().unwrap());
-    assert!(point.outcome.as_ref().unwrap().scientific.usable);
-    assert_eq!(point.outcome.as_ref().unwrap().attempts.len(), 1);
-    let attempt = point.attempt.as_deref().unwrap();
-    let stored = operations
-        .store()
-        .canonical_attempt(attempt)
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(stored.terminal());
-    assert_eq!(stored.worker, "after-submitter-exit");
-    assert_eq!(
-        stored.outcome.as_ref().map(|value| value.as_str()),
-        Some("succeeded")
-    );
-    assert_value(&local, &point.run, attempt, 2.).await;
-    drop(handle);
-    pse_operations::testing::record_fixture_controls_drain(&controls, &state, &database).unwrap();
-    local
-        .canonical_store()
-        .unwrap()
-        .remove_isolated_fixture()
-        .await
-        .unwrap();
+        assert!(stored.terminal());
+        assert_eq!(stored.worker, managed.worker_identity(worker));
+        assert_eq!(
+            stored.outcome.as_ref().map(|value| value.as_str()),
+            Some("succeeded")
+        );
+        assert_value(&local, &point.run, attempt, 2.).await;
+        drop(handle);
+    }).catch_unwind().await;
+    managed.finish(body).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn durable_worker_round_trips_a_package_with_a_data_document() {
-    let mut managed = ManagedWorkerCase::acquire();
-    let (shared, local) = runtime();
-    managed.bind_database(local.canonical_store().unwrap().database());
-    let (local, operations) =
-        bind_operations(&shared, local, "data-enqueuer", LeasePolicy::default());
-    let (physical, mut modeling) = sources_of(DATA_SQUARE);
-    modeling.insert("data/target.parquet".into(), target_document());
-    let (package, _, handle) =
-        submit_single(&shared, &local, physical, modeling, settings(), 1).await;
-    assert!(
-        operations
-            .store()
-            .revision(&package.canonical_revision().unwrap().key)
-            .await
-            .unwrap()
-            .is_some()
-    );
-    drain_worker("worker-data", &managed).await;
-    let status = handle.status().await.unwrap();
-    assert_eq!(status.state, StudyState::Concluded);
-    let point = &status.points[0];
-    assert!(point.outcome.as_ref().unwrap().scientific.usable);
-    assert_value(&local, &point.run, point.attempt.as_deref().unwrap(), 3.).await;
-    drop(handle);
-    drop(package);
-    local.clear_program_cache();
-    local
-        .canonical_store()
-        .unwrap()
-        .remove_isolated_fixture()
-        .await
-        .unwrap();
+    let mut managed = ManagedWorkerCase::new(1);
+    let body = AssertUnwindSafe(async {
+        managed.launch().await;
+        let (shared, local) = managed.runtime(false);
+        let (local, operations) =
+            bind_operations(&shared, local, "data-enqueuer", LeasePolicy::default());
+        let worker = managed.spawn().await;
+        let local = managed.bind_worker(local, worker);
+        let (physical, mut modeling) = sources_of(DATA_SQUARE);
+        modeling.insert("data/target.parquet".into(), target_document());
+        let (package, _, handle) =
+            submit_single(&shared, &local, physical, modeling, settings(), 1).await;
+        assert!(
+            operations
+                .store()
+                .revision(&package.canonical_revision().unwrap().key)
+                .await
+                .unwrap()
+                .is_some()
+        );
+        drain_worker(&handle, worker, &mut managed).await;
+        let status = handle.status().await.unwrap();
+        assert_eq!(status.state, StudyState::Concluded);
+        let point = &status.points[0];
+        assert!(point.outcome.as_ref().unwrap().scientific.usable);
+        assert_value(&local, &point.run, point.attempt.as_deref().unwrap(), 3.).await;
+        drop(handle);
+        drop(package);
+        local.clear_program_cache();
+    }).catch_unwind().await;
+    managed.finish(body).await;
 }
 
 async fn stored_seed_reused_across_processes(
@@ -1324,20 +1129,18 @@ async fn long_scip_study(
 async fn wait_study_assignment(
     local: &Runtime,
     handle: &StudyHandle,
-    worker: &mut std::process::Child,
+    worker: &NativeStudyWorker,
 ) -> (String, String) {
     let key = pse_operations::canonical_studies::point_key(
         &handle.study_id().to_string(),
         OccurrenceKey(0),
     );
     until(
-        // Finite setup watchdog for a cold receiver's loaded-file identity checks
-        // during candidate preparation, before study assignment. Solver, lease, and
-        // cancellation clocks remain separate and unchanged.
+        // Finite candidate-preparation watchdog. Original application readiness
+        // is already established; assignment is not proof of native solver entry.
         Duration::from_secs(600),
         "study assignment",
         || {
-            let exited = worker.try_wait().unwrap();
             let key = &key;
             async move {
                 let point = local
@@ -1350,7 +1153,12 @@ async fn wait_study_assignment(
                 let started = pse_operations::canonical_studies::point_facts(&point)
                     .unwrap()
                     .native_started;
-                assignment_observed(started, exited)
+                if !started {
+                    assert!(worker.terminal().unwrap().is_none(),
+                        "original native application ended before assignment; diagnostics={}",
+                        worker.directory().display());
+                }
+                started
             }
         },
     )
@@ -1379,384 +1187,348 @@ async fn wait_study_assignment(
     (point.run, attempt)
 }
 
-fn assignment_observed(started: bool, exited: Option<std::process::ExitStatus>) -> bool {
-    assert!(
-        started || exited.is_none(),
-        "managed worker exited before study assignment: {exited:?}; see captured worker stderr"
-    );
-    started
-}
-
-#[test]
-fn assignment_watchdog_keeps_waiting_for_live_worker_without_native_fence() {
-    assert!(!assignment_observed(false, None));
-}
-
-#[test]
-#[should_panic(expected = "managed worker exited before study assignment")]
-fn assignment_watchdog_reports_early_worker_exit_without_native_fence() {
-    use std::os::unix::process::ExitStatusExt;
-    assignment_observed(false, Some(std::process::ExitStatus::from_raw(256)));
-}
-
-#[test]
-fn assignment_watchdog_retains_observed_native_fence_after_worker_exit() {
-    use std::os::unix::process::ExitStatusExt;
-    assert!(assignment_observed(
-        true,
-        Some(std::process::ExitStatus::from_raw(256))
-    ));
-}
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authored_policy() {
-    let mut managed = ManagedWorkerCase::acquire();
-    let (shared, local) = scip_runtime();
-    managed.bind_database(local.canonical_store().unwrap().database());
-    let policy = LeasePolicy::new(
-        Duration::from_secs(2),
-        Duration::from_millis(200),
-        64,
-        Duration::from_millis(200),
-    )
-    .unwrap();
-    let (local, operations) = bind_operations(&shared, local, "killed-enqueuer", policy);
-    let handle = long_scip_study(&shared, &local, Duration::from_secs(30), 2).await;
-    let mut worker = managed.spawn("worker-killed", 2);
-    let (run, first) = wait_study_assignment(&local, &handle, &mut worker).await;
-    managed.kill_solver();
-    assert!(!worker.wait().unwrap().success());
-    assert!(
-        !operations
+    let mut managed = ManagedWorkerCase::new(1);
+    let body = AssertUnwindSafe(async {
+        managed.launch().await;
+        let (shared, local) = managed.runtime(true);
+        let policy = LeasePolicy::new(
+            Duration::from_secs(2),
+            Duration::from_millis(200),
+            64,
+            Duration::from_millis(200),
+        )
+        .unwrap();
+        let (local, operations) = bind_operations(&shared, local, "killed-enqueuer", policy);
+        let worker = managed.spawn().await;
+        let local = managed.bind_worker(local, worker);
+        let handle = long_scip_study(&shared, &local, Duration::from_secs(30), 2).await;
+        let (run, first) = wait_study_assignment(&local, &handle, &managed.workers[worker]).await;
+        // Abruptly kill through the original retained owner. A manager signal reply
+        // is insufficient: this capability also proves the population physically drained.
+        let killed = managed.workers[worker].kill_and_drain_for_qualification(
+            Instant::now() + Duration::from_secs(45),
+        ).await.unwrap();
+        assert_eq!(killed.completed_status(), Some(128 + 9),
+            "original SIGKILL exit, separate from proof of an empty population");
+        assert!(managed.workers[worker].terminal().unwrap().is_none(),
+            "SIGKILL cannot fabricate an application native-join receipt");
+        assert!(
+            !operations
+                .store()
+                .canonical_attempt(&first)
+                .await
+                .unwrap()
+                .unwrap()
+                .terminal()
+        );
+        // NativeStudyWorker currently uses the production thirty-second lease.
+        // Expiry is authority recovery, independent of the already-proven physical drain.
+        tokio::time::sleep(Duration::from_secs(31)).await;
+        let replacement_worker = managed.spawn().await;
+        let local = managed.bind_worker(local, replacement_worker);
+        let handle = local.study(handle.study_id());
+        drain_worker(&handle, replacement_worker, &mut managed).await;
+        let lost = operations
             .store()
             .canonical_attempt(&first)
             .await
             .unwrap()
+            .unwrap();
+        assert!(lost.terminal());
+        assert_eq!(
+            lost.outcome.as_ref().map(|value| value.as_str()),
+            Some("failed")
+        );
+        let record = operations.record(&run, &first).await.unwrap();
+        assert!(record.completion.as_ref().unwrap().completion.is_none());
+        assert!(
+            record.solutions.is_empty(),
+            "unqualified staged incumbent cannot become a reusable scientific seed"
+        );
+        let mut events = local
+            .progress(&run, &first, pse_columnar::CancellationToken::new())
+            .await
+            .unwrap();
+        let mut saw_native = false;
+        while let Some(page) = events.next_page().await.unwrap() {
+            saw_native |= page
+                .iter()
+                .any(|event| event.phase == "scip.incumbent" && event.incumbent.is_some());
+        }
+        assert!(
+            saw_native,
+            "frozen failed attempt preserves actual native observations"
+        );
+        let status = handle.status().await.unwrap();
+        assert_eq!(status.state, StudyState::Concluded);
+        let point = &status.points[0];
+        assert_ne!(point.attempt.as_deref(), Some(first.as_str()));
+        assert_eq!(point.outcome.as_ref().unwrap().attempts.len(), 2);
+        let replacement = operations
+            .store()
+            .canonical_attempt(point.attempt.as_deref().unwrap())
+            .await
             .unwrap()
-            .terminal()
-    );
-    tokio::time::sleep(Duration::from_secs(3)).await;
-    drain_worker("worker-replacement", &managed).await;
-    let lost = operations
-        .store()
-        .canonical_attempt(&first)
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(lost.terminal());
-    assert_eq!(
-        lost.outcome.as_ref().map(|value| value.as_str()),
-        Some("failed")
-    );
-    let record = operations.record(&run, &first).await.unwrap();
-    assert!(record.completion.as_ref().unwrap().completion.is_none());
-    assert!(
-        record.solutions.is_empty(),
-        "unqualified staged incumbent cannot become a reusable scientific seed"
-    );
-    let mut events = local
-        .progress(&run, &first, pse_columnar::CancellationToken::new())
-        .await
-        .unwrap();
-    let mut saw_native = false;
-    while let Some(page) = events.next_page().await.unwrap() {
-        saw_native |= page
-            .iter()
-            .any(|event| event.phase == "scip.incumbent" && event.incumbent.is_some());
-    }
-    assert!(
-        saw_native,
-        "frozen failed attempt preserves actual native observations"
-    );
-    let status = handle.status().await.unwrap();
-    assert_eq!(status.state, StudyState::Concluded);
-    let point = &status.points[0];
-    assert_ne!(point.attempt.as_deref(), Some(first.as_str()));
-    assert_eq!(point.outcome.as_ref().unwrap().attempts.len(), 2);
-    let replacement = operations
-        .store()
-        .canonical_attempt(point.attempt.as_deref().unwrap())
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(replacement.terminal());
-    assert!(replacement.generation > lost.generation);
-    drop(events);
-    drop(record);
-    drop(handle);
-    // The runtime may retain physical admissions after the caller has departed.
-    // Retire that optional ownership before the store's authentic protection drain.
-    local.clear_program_cache();
-    local
-        .canonical_store()
-        .unwrap()
-        .remove_isolated_fixture()
-        .await
-        .unwrap();
+            .unwrap();
+        assert!(replacement.terminal());
+        assert!(replacement.generation > lost.generation);
+        drop(events);
+        drop(record);
+        drop(handle);
+        // The runtime may retain physical admissions after the caller has departed.
+        // Retire that optional ownership before the store's authentic protection drain.
+        local.clear_program_cache();
+    }).catch_unwind().await;
+    managed.finish(body).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn cross_process_cancel_stops_scip() {
-    let mut managed = ManagedWorkerCase::acquire();
-    let (shared, local) = scip_runtime();
-    managed.bind_database(local.canonical_store().unwrap().database());
-    let (local, operations) =
-        bind_operations(&shared, local, "cancel-enqueuer", LeasePolicy::default());
-    let handle = long_scip_study(&shared, &local, Duration::from_secs(120), 1).await;
-    let store = local.canonical_store().unwrap();
-    let study = handle.study_id().to_string();
-    let generation = store
-        .canonical_study(&study)
-        .await
-        .unwrap()
-        .unwrap()
-        .generation;
-    let operation = uuid::Uuid::new_v4().to_string();
-    let actor_key = format!("worker-control-{}", uuid::Uuid::new_v4().simple());
-    let password = uuid::Uuid::new_v4().to_string();
-    let issued = store
-        .issue_control_actor(&actor_key, &password, true, true)
-        .await
-        .unwrap();
-    let mut actor = tempfile::NamedTempFile::new().unwrap();
-    std::io::Write::write_all(
-        &mut actor,
-        &serde_json::to_vec(&serde_json::json!({
-            "key": actor_key, "password": password,
-        }))
-        .unwrap(),
-    )
-    .unwrap();
-    let receiver_state = managed
-        .selected
-        .as_ref()
-        .unwrap()
-        .receiver_state()
-        .to_path_buf();
-    let config: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(receiver_state.join("config.json")).unwrap())
-            .unwrap();
-    let endpoint = format!("http://127.0.0.1:{}", config["port"].as_u64().unwrap());
-    let mut control = std::process::Command::new(python());
-    control
-        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
-        .args([
-            "-m",
-            "scripts.tests.control_worker_cancel",
-            "--endpoint",
-            &endpoint,
-            "--namespace",
-            store.namespace(),
-            "--database",
-            store.database(),
-            "--issuing-store",
-            &issued.issuing_store,
-            "--operation",
-            &operation,
-            "--study",
-            &study,
-            "--actor",
-        ])
-        .arg(actor.path());
-    let mut worker = managed.spawn("worker-cancelled", 30);
-    let (run, attempt) = wait_study_assignment(&local, &handle, &mut worker).await;
-    let requested = tokio::time::Instant::now();
-    let reply = tokio::task::spawn_blocking(move || control.output().unwrap())
-        .await
-        .unwrap();
-    assert!(
-        reply.status.success(),
-        "{}",
-        String::from_utf8_lossy(&reply.stderr)
-    );
-    let receipt: pse_operations::canonical_control::ControlCommandReceipt =
-        serde_json::from_slice(&reply.stdout).unwrap();
-    assert_eq!(receipt.issuing_store, issued.issuing_store);
-    assert_eq!(receipt.operation_id, operation);
-    assert_eq!(receipt.study, study);
-    assert_eq!(receipt.generation, Some((generation + 1).to_string()));
-    let status = tokio::task::spawn_blocking(move || worker.wait().unwrap())
-        .await
-        .unwrap();
-    assert!(status.success(), "{status}");
-    assert!(requested.elapsed() < Duration::from_secs(30));
-    let status = handle.status().await.unwrap();
-    assert_eq!(status.state, StudyState::Concluded);
-    assert!(status.cancelled);
-    assert_eq!(status.points[0].state, StudyPointState::Cancelled);
-    assert_eq!(
-        store
+    const REQUEST: &str = "PSE_STO_CANCEL_REQUEST";
+    const RESPONSE: &str = "PSE_STO_CANCEL_RESPONSE";
+    const STATE: &str = "PSE_STO_CANCEL_STATE";
+    if let Some(request) = std::env::var_os(REQUEST) {
+        use std::io::Write;
+        use std::os::unix::fs::OpenOptionsExt;
+        let request: pse_operations::canonical_control::ControlCancelRequest =
+            serde_json::from_slice(&std::fs::read(request).unwrap()).unwrap();
+        let state = PathBuf::from(std::env::var_os(STATE).unwrap());
+        let options = pse_operations::canonical::CanonicalOptions::from_state(&state).unwrap();
+        let ready = pse_operations::canonical::CanonicalStore::connect_ready(&options).await.unwrap();
+        let store = ready.into_store();
+        let receipt = store.cancel_study_command(&request).await;
+        // Attempt connection drain even if the actual native command fails.
+        let disconnected = store.disconnect().await;
+        let receipt = receipt.unwrap();
+        disconnected.unwrap();
+        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600)
+            .open(std::env::var_os(RESPONSE).unwrap()).unwrap();
+        file.write_all(&serde_json::to_vec(&receipt).unwrap()).unwrap();
+        file.sync_all().unwrap();
+        return;
+    }
+
+    let mut managed = ManagedWorkerCase::new(1);
+    let body = AssertUnwindSafe(async {
+        managed.launch().await;
+        let (shared, local) = managed.runtime(true);
+        let (local, operations) =
+            bind_operations(&shared, local, "cancel-enqueuer", LeasePolicy::default());
+        let worker = managed.spawn().await;
+        let local = managed.bind_worker(local, worker);
+        let handle = long_scip_study(&shared, &local, Duration::from_secs(120), 1).await;
+        let store = local.canonical_store().unwrap();
+        let study = handle.study_id().to_string();
+        let generation = store
             .canonical_study(&study)
             .await
             .unwrap()
             .unwrap()
-            .generation,
-        generation + 1
-    );
-    assert_eq!(
-        operations
-            .store()
-            .canonical_attempt(&attempt)
+            .generation;
+        let request = pse_operations::canonical_control::ControlCancelRequest::issue(
+            store.issuing_store().unwrap().to_owned(), study.clone(),
+        );
+        let state = managed.service.state().to_path_buf();
+        let request_path = state.join("cancel-request.json");
+        let response_path = state.join("cancel-response.json");
+        {
+            use std::io::Write;
+            use std::os::unix::fs::OpenOptionsExt;
+            let mut file = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600)
+                .open(&request_path).unwrap();
+            file.write_all(&serde_json::to_vec(&request).unwrap()).unwrap();
+            file.sync_all().unwrap();
+        }
+        let (run, attempt) = wait_study_assignment(&local, &handle, &managed.workers[worker]).await;
+        let requested = tokio::time::Instant::now();
+        let (stdout, stderr) = managed.child_logs("cancel-control");
+        managed.children.push(tokio::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "cross_process_cancel_stops_scip", "--nocapture"])
+            .env(REQUEST, &request_path).env(RESPONSE, &response_path).env(STATE, &state)
+            .stdout(stdout).stderr(stderr).spawn().unwrap());
+        let reply = tokio::time::timeout(Duration::from_secs(30),
+            managed.children.last_mut().unwrap().wait()).await
+            .expect("native control process bounded; original child retained for explicit reap").unwrap();
+        assert!(reply.success(), "{}", String::from_utf8_lossy(
+            &std::fs::read(state.join("cancel-control.stderr")).unwrap()));
+        let receipt: pse_operations::canonical_control::ControlCommandReceipt =
+            serde_json::from_slice(&std::fs::read(&response_path).unwrap()).unwrap();
+        assert_eq!(receipt.issuing_store, request.issuing_store);
+        assert_eq!(receipt.operation_id, request.operation_id);
+        assert_eq!(receipt.study, study);
+        assert_eq!(receipt.generation, Some((generation + 1).to_string()));
+        assert_eq!(receipt.status, pse_operations::canonical_control::ControlCommandStatus::Accepted);
+        drain_worker(&handle, worker, &mut managed).await;
+        assert!(requested.elapsed() < Duration::from_secs(30));
+        let status = handle.status().await.unwrap();
+        assert_eq!(status.state, StudyState::Concluded);
+        assert!(status.cancelled);
+        assert_eq!(status.points[0].state, StudyPointState::Cancelled);
+        assert_eq!(
+            store
+                .canonical_study(&study)
+                .await
+                .unwrap()
+                .unwrap()
+                .generation,
+            generation + 1
+        );
+        assert_eq!(
+            operations
+                .store()
+                .canonical_attempt(&attempt)
+                .await
+                .unwrap()
+                .unwrap()
+                .outcome
+                .as_ref()
+                .map(|value| value.as_str()),
+            Some("cancelled")
+        );
+        // Assignment alone is not native entry. The frozen original attempt must
+        // contain an actual SCIP callback. This does not establish its ordering
+        // relative to the native control cancellation request.
+        let mut events = local
+            .progress(&run, &attempt, pse_columnar::CancellationToken::new())
             .await
-            .unwrap()
-            .unwrap()
-            .outcome
-            .as_ref()
-            .map(|value| value.as_str()),
-        Some("cancelled")
-    );
-    // Assignment alone is not native entry. The frozen original attempt must
-    // contain an actual SCIP callback. This does not establish its ordering
-    // relative to the HTTP cancellation request.
-    let mut events = local
-        .progress(&run, &attempt, pse_columnar::CancellationToken::new())
-        .await
-        .unwrap();
-    let mut saw_native = false;
-    while let Some(page) = events.next_page().await.unwrap() {
-        saw_native |= page
-            .iter()
-            .any(|event| event.phase == "scip.incumbent" && event.incumbent.is_some());
-    }
-    assert!(
-        saw_native,
-        "cancelled attempt must retain an actual SCIP callback"
-    );
-    assert!(supervisor_python("from scripts import surreal_server as s; import os,pathlib; p=pathlib.Path(os.environ['PSE_SURREAL_STATE']); s.workers_drained(p,s.config_for(p))")
-        .env("PSE_SURREAL_STATE", &receiver_state).status().unwrap().success());
-    drop(events);
-    drop(actor);
-    drop(handle);
-    local.clear_program_cache();
-    local
-        .canonical_store()
-        .unwrap()
-        .remove_isolated_fixture()
-        .await
-        .unwrap();
+            .unwrap();
+        let mut saw_native = false;
+        while let Some(page) = events.next_page().await.unwrap() {
+            saw_native |= page
+                .iter()
+                .any(|event| event.phase == "scip.incumbent" && event.incumbent.is_some());
+        }
+        assert!(
+            saw_native,
+            "cancelled attempt must retain an actual SCIP callback"
+        );
+        drop(events);
+        drop(handle);
+        local.clear_program_cache();
+    }).catch_unwind().await;
+    managed.finish(body).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
     use pse_runtime::workflow::{BindingAssignment, BindingQuantity, BindingTarget};
-    let _selected_managed = ManagedWorkerCase::acquire();
-    let profile = two_worker_fixture_state();
-    let state = profile.state().to_path_buf();
-    let mut managed = ManagedWorkerCase::acquire_at(&state);
-    const POINTS: usize = 8;
-    let store = canonical_fixture_store_at(&state).await;
-    managed.bind_database(store.database());
-    let selected = managed.selected.as_ref().unwrap();
-    assert_eq!(selected.receiver_state(), state.as_path());
-    assert_eq!(selected.allocation().native_workers, 2);
-    assert_eq!(
-        selected.allocation().native_worker_memory_bytes,
-        8_usize << 30
-    );
-    assert!(selected.allocation().execution.is_none());
-    let (shared, local) = runtime_with_store(store);
-    let (local, operations) =
-        bind_operations(&shared, local, "parallel-enqueuer", LeasePolicy::default());
-    let (physical, modeling) = sources_of(PARAMETRIC);
-    let (package, context) = package(&shared, &local, &physical, &modeling).await;
-    let case = package
-        .declarations(&local.preparation_services())
-        .await
-        .unwrap()
-        .iter()
-        .find(|d| d.name == "Root")
-        .unwrap()
-        .declaration_id;
-    let scalar = context
-        .quantities()
-        .quantity_types()
-        .find(|quantity| quantity.name.as_deref() == Some("Scalar"))
-        .unwrap();
-    let points = (0..POINTS)
-        .map(|index| {
-            let mut point = occurrence(case, index as u32, settings(), 1);
-            point.overlay.assignments.push(BindingAssignment {
-                target: BindingTarget::Path("a".into()),
-                value: BindingQuantity {
-                    magnitude: pse_model::scalars::FiniteBound::try_new(
-                        ((index + 2) * (index + 2)) as f64,
-                    )
-                    .unwrap(),
-                    quantity: scalar.id,
-                    unit: scalar.canonical_unit,
+    let mut managed = ManagedWorkerCase::new(2);
+    let body = AssertUnwindSafe(async {
+        managed.launch().await;
+        const POINTS: usize = 8;
+        assert_eq!(managed.allocation.native_workers, 2);
+        assert!(managed.allocation.native_worker_memory_bytes > 64_usize << 30);
+        assert_eq!(managed.allocation.execution.unwrap().case_lanes, 16);
+        let (shared, local) = managed.runtime(false);
+        let (local, operations) =
+            bind_operations(&shared, local, "parallel-enqueuer", LeasePolicy::default());
+        let left = managed.spawn().await;
+        let right = managed.spawn().await;
+        let local = managed.bind_worker(local, left);
+        let (physical, modeling) = sources_of(PARAMETRIC);
+        let (package, context) = package(&shared, &local, &physical, &modeling).await;
+        let case = package
+            .declarations(&local.preparation_services())
+            .await
+            .unwrap()
+            .iter()
+            .find(|d| d.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let scalar = context
+            .quantities()
+            .quantity_types()
+            .find(|quantity| quantity.name.as_deref() == Some("Scalar"))
+            .unwrap();
+        let points = (0..POINTS)
+            .map(|index| {
+                let mut point = occurrence(case, index as u32, settings(), 1);
+                point.overlay.assignments.push(BindingAssignment {
+                    target: BindingTarget::Path("a".into()),
+                    value: BindingQuantity {
+                        magnitude: pse_model::scalars::FiniteBound::try_new(
+                            ((index + 2) * (index + 2)) as f64,
+                        )
+                        .unwrap(),
+                        quantity: scalar.id,
+                        unit: scalar.canonical_unit,
+                    },
+                });
+                point
+            })
+            .collect();
+        let handle = local
+            .start_study(
+                StudyPlan {
+                    output: pse_runtime::workflow::StudyOutputDemand::Full {},
+                    sources: PackageSources {
+                        physical,
+                        modeling: vec![modeling],
+                    },
+                    inputs: pse_runtime::workflow::StudyInputs::Explicit(points),
                 },
-            });
-            point
-        })
-        .collect();
-    let handle = local
-        .start_study(
-            StudyPlan {
-                output: pse_runtime::workflow::StudyOutputDemand::Full {},
-                sources: PackageSources {
-                    physical,
-                    modeling: vec![modeling],
-                },
-                inputs: pse_runtime::workflow::StudyInputs::Explicit(points),
-            },
-            &CancelSource::new(),
-        )
-        .await
-        .unwrap();
-    let mut children = ["worker-left", "worker-right"].map(|name| managed.spawn(name, 30));
-    let statuses = tokio::task::spawn_blocking(move || {
-        children.each_mut().map(|worker| worker.wait().unwrap())
-    })
-    .await
-    .unwrap();
-    for status in statuses {
-        assert!(status.success(), "{status}");
-    }
-    let status = handle.status().await.unwrap();
-    assert_eq!(status.state, StudyState::Concluded);
-    assert_eq!(status.points.len(), POINTS);
-    let mut workers = std::collections::BTreeSet::new();
-    for (index, point) in status.points.iter().enumerate() {
-        assert_eq!(point.outcome.as_ref().unwrap().attempts.len(), 1);
-        assert!(point.outcome.as_ref().unwrap().scientific.usable);
-        let attempt = point.attempt.as_deref().unwrap();
-        let header = operations
+                &CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        until(Duration::from_secs(600), "competing workers conclude one summary", || async {
+            handle.status().await.unwrap().state == StudyState::Concluded
+        }).await;
+        // Both original owners are drained independently, even if the first fails.
+        let (left_workers, right_workers) = managed.workers.split_at_mut(right);
+        let (left_drain, right_drain) = tokio::join!(
+            left_workers[left].shutdown(Instant::now() + Duration::from_secs(45)),
+            right_workers[0].shutdown(Instant::now() + Duration::from_secs(45)),
+        );
+        left_drain.unwrap(); right_drain.unwrap();
+        managed.stop_worker(left).await;
+        managed.stop_worker(right).await;
+        let status = handle.status().await.unwrap();
+        assert_eq!(status.state, StudyState::Concluded);
+        assert_eq!(status.points.len(), POINTS);
+        let mut workers = std::collections::BTreeSet::new();
+        for (index, point) in status.points.iter().enumerate() {
+            assert_eq!(point.outcome.as_ref().unwrap().attempts.len(), 1);
+            assert!(point.outcome.as_ref().unwrap().scientific.usable);
+            let attempt = point.attempt.as_deref().unwrap();
+            let header = operations
+                .store()
+                .canonical_attempt(attempt)
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(header.terminal());
+            workers.insert(header.worker);
+            assert_value(&local, &point.run, attempt, (index + 2) as f64).await;
+        }
+        assert_eq!(
+            workers.into_iter().collect::<Vec<_>>(),
+            {
+                let mut identities = vec![managed.worker_identity(left), managed.worker_identity(right)];
+                identities.sort(); identities
+            }
+        );
+        let summary = handle.result().await.unwrap().unwrap();
+        let parent = operations
             .store()
-            .canonical_attempt(attempt)
+            .canonical_attempt(&summary.attempt)
             .await
             .unwrap()
             .unwrap();
-        assert!(header.terminal());
-        workers.insert(header.worker);
-        assert_value(&local, &point.run, attempt, (index + 2) as f64).await;
-    }
-    assert_eq!(
-        workers.into_iter().collect::<Vec<_>>(),
-        ["worker-left", "worker-right"]
-    );
-    let summary = handle.result().await.unwrap().unwrap();
-    let parent = operations
-        .store()
-        .canonical_attempt(&summary.attempt)
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        parent.outcome.as_ref().map(|value| value.as_str()),
-        Some("succeeded")
-    );
-    assert_eq!(
-        handle.result().await.unwrap().unwrap().attempt,
-        summary.attempt
-    );
-    assert_eq!(summary.points.len(), POINTS);
-    drop(handle);
-    drop(package);
-    local.clear_program_cache();
-    local
-        .canonical_store()
-        .unwrap()
-        .remove_isolated_fixture()
-        .await
-        .unwrap();
+        assert_eq!(
+            parent.outcome.as_ref().map(|value| value.as_str()),
+            Some("succeeded")
+        );
+        assert_eq!(
+            handle.result().await.unwrap().unwrap().attempt,
+            summary.attempt
+        );
+        assert_eq!(summary.points.len(), POINTS);
+        drop(handle);
+        drop(package);
+        local.clear_program_cache();
+    }).catch_unwind().await;
+    managed.finish(body).await;
 }

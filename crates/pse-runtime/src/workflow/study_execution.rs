@@ -220,7 +220,7 @@ impl super::Runtime {
                 "bounded study extent and exact modeling revision",
             ));
         }
-        let primary = self.ensure_managed_primary(cancel).await?;
+        let primary = self.managed_primary(cancel).await?;
         let handle = Box::pin(self.start_recorded_study(definition.clone(), cancel)).await?;
         let inventory = wait_study_inventory(
             handle.study_id(),
