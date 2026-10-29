@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Narrow host composition root, independent of scientific initialization.
-use pse_host::{HostError, HostManager};
+use pse_host::HostError;
 use std::{
     ffi::OsString,
     io::{self, Write},
@@ -40,7 +40,7 @@ fn run() -> Result<i32, HostError> {
         None | Some("help" | "--help" | "-h") => {
             writeln!(
                 io::stdout(),
-                "pse-host: native host capabilities\n  env --print|--explain [--json]\n  activity [UNIT.service|UNIT.scope]\n  native prepare --capabilities compiler,klu\n  run /absolute/executable [args...]\n  --version\nConstruction/update is explicit: scripts/bootstrap-host. Reads never build."
+                "pse-host: native host capabilities\n  env --print|--explain [--json]\n  activity [UNIT.service|UNIT.scope]\n  native prepare --capabilities compiler[,solver,klu,isolation,uno,petsc]\n  server prepare|select\n  run /absolute/executable [args...]\n  --version\nConstruction/update is explicit: scripts/bootstrap-host. Reads never build."
             )?;
             Ok(0)
         }
@@ -54,6 +54,7 @@ fn run() -> Result<i32, HostError> {
         }
         Some("boundary") => pse_host::boundary::run_cli(&arguments[1..]),
         Some("native") => pse_host::native::run_cli(&arguments[1..]),
+        Some("server") => pse_host::server::run_cli(&arguments[1..]),
         Some("env") => Ok(pse_host::environment::run_cli(&arguments[1..])?),
         Some("activity") => {
             if arguments.len() > 2 {
@@ -69,14 +70,10 @@ fn run() -> Result<i32, HostError> {
                 })
                 .transpose()?;
             runtime()?.block_on(async {
-                let manager = HostManager::connect_user(None).await?;
-                let observation = match name {
-                    Some(name) => manager.borrow(name).observe().await?,
-                    None => manager.current_unit().await?,
-                };
+                let observation = pse_host::activity::ActivityObservation::read(name).await;
                 serde_json::to_writer(io::stdout(), &observation).map_err(io::Error::other)?;
                 writeln!(io::stdout())?;
-                Ok(0)
+                Ok(if observation.complete() { 0 } else { 125 })
             })
         }
         Some("run") => {

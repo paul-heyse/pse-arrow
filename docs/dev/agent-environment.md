@@ -70,7 +70,7 @@ does not invalidate a successful compiler result; actual compiler failure still 
 
 ## Explicit compiler/KLU preparation
 
-The selected native profile is `compiler,klu`, supporting the existing database-free KINSOL
+The live-qualified native profile is `compiler,klu`, supporting the existing database-free KINSOL
 scientific consumer. Construct it explicitly inside native containment:
 
 ```bash
@@ -89,14 +89,26 @@ installations remain untouched. Generations are immutable and selected atomicall
 construction cannot replace a completed selection. Automatic collection is excluded: retaining
 old generations avoids Python pin/collection ledgers. Temporary owned staging may be removed
 only after its work drains. This policy controls artifact lifetime, not scientific performance.
-Bare `--native` and other provider sets remain unavailable pending their own cutovers.
+The native preparation owner also accepts compiler, solver, isolation, UNO and PETSc
+capabilities and their required combinations. `--native=CAPABILITIES` selects completed
+immutable generations; it never constructs missing providers. Bare `--native` uses
+`PSE_NATIVE_CAPABILITIES` or the retained full default `solver,klu,isolation,uno,petsc`;
+explicit `--native=` requests only native runtime settings and no provider. New provider
+construction protocols have targeted fixture coverage; the earlier compiler/KLU journeys
+remain the live scientific qualification basis until their additional consumers are exercised.
+
+`scripts/pse-host server prepare` explicitly constructs the exact patched source server in
+authenticated native containment. `server select` reads a completed immutable installation
+without source discovery or compilation. Neither command starts a database or establishes
+schema readiness/write admission; those remain with the native application and D01/D05.
+Preparation preserves old selections/generations on failure; no automatic collection occurs.
 
 ## Native foreground ownership and supported placement
 
 Configured `PSE_BUILD_MODE=unbounded` ordinary work uses all host CPUs and the declared Cargo
 jobs without a new memory cap or slot ledger. Recipe class hints do not recreate finite
 allocation policy. Explicit finite/scientific classes, `PSE_MEMORY_MAX`, custom slice requests,
-reference/timing selections, unsupported native profiles, `--store` and the retired allocation-binding
+reference/timing selections, unprepared or unknown native profiles, `--store` and the retired allocation-binding
 protocol currently refuse before command execution. Their Plan58 B/C/D/F owners must supply
 working capabilities before those workflows return; there is no Python fallback or silent
 resource downgrade. This selected wave is database-free. Existing stores and services are
@@ -132,6 +144,12 @@ physical release. A cleanup error also retains the original command status in it
 Read-only `just activity` runs directly through the native host and accepts a current/named unit,
 not arbitrary commands or retired build-stage/watch flags. It stays independent of environment
 activation, compiler preparation, database readiness and scientific initialization.
+
+The JSON answer separates the requested unit's `manager` observation from independent
+`observer` process/cgroup facts. An unavailable bus or denied manager view produces partial
+JSON with `manager_unavailable` and exit125, rather than discarding useful kernel facts or
+claiming the selected unit is inactive. Observer membership never substitutes for the named
+unit's membership and grants no stop authority.
 
 ## Native Cargo correctness
 

@@ -3,11 +3,13 @@
 //! Independent native host capabilities. A manager reply is not physical release.
 
 pub mod boundary;
+pub mod activity;
 pub mod correctness;
 pub mod environment;
 pub mod foreground;
 mod manager;
 pub mod native;
+pub mod server;
 pub use manager::{
     BorrowedUnit, HostManager, LaunchIntent, OwnedUnit, ServiceSpec, UnitObservation,
 };
