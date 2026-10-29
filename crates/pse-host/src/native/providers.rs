@@ -210,6 +210,20 @@ fn apply_provider(root: &Path, env: &Environment, kind: &str) -> Result<Environm
             }
         }
     }
+    if receipt.identity.construction.contains_key("external") {
+        // Own-prefix paths identify construction inputs, not a live dependency of
+        // the completed snapshot. Normalize an omitted path for validation only;
+        // the launch environment below receives the authenticated generation.
+        // Other recorded inputs, including tools and source-built dependencies,
+        // remain subject to the ordinary compatibility checks.
+        for key in provider_variables(kind) {
+            if !inputs.contains_key(OsStr::new(key))
+                && let Some(Some(expected)) = receipt.identity.inputs.get(*key)
+            {
+                inputs.insert((*key).into(), expected.into());
+            }
+        }
+    }
     let mut result = apply_inputs(&inputs, &receipt.identity)?;
     // Explicit preparation can admit an external provider by snapshotting it. Its original
     // selection is accepted as an input, but execution carries the immutable snapshot.
@@ -1535,6 +1549,9 @@ mod tests {
         let prefix = &prepared["solver"];
         fs::write(source.join("lib/libipopt.so"), b"external-changed").unwrap();
         fs::remove_dir_all(directory.path().join("docker")).unwrap();
+        fs::remove_dir_all(&source).unwrap();
+        env.remove(OsStr::new("IPOPT_DIR"));
+        env.remove(OsStr::new("SCIPOPTDIR"));
         let selected = select_capabilities(directory.path(), &env, "solver").unwrap();
         assert_eq!(selected[OsStr::new("IPOPT_DIR")], prefix.as_os_str());
         assert_eq!(
@@ -1545,6 +1562,14 @@ mod tests {
             select_capabilities(directory.path(), &selected, "solver").unwrap(),
             selected
         );
+        let mut original = env.clone();
+        original.insert("IPOPT_DIR".into(), source.into_os_string());
+        assert_eq!(select_capabilities(directory.path(), &original, "solver").unwrap(), selected);
+        for key in ["IPOPT_DIR", "SCIPOPTDIR"] {
+            let mut conflict = env.clone();
+            conflict.insert(key.into(), directory.path().join("different").into_os_string());
+            assert!(select_capabilities(directory.path(), &conflict, "solver").is_err());
+        }
     }
     #[test]
     fn providers_external_isolation_metadata_consumes_the_snapshot_after_source_removal() {
@@ -1582,6 +1607,7 @@ mod tests {
             0
         );
         fs::remove_dir_all(&source).unwrap();
+        env.remove(OsStr::new("PSE_ROOT_ISOLATION_DIR"));
         let selected = apply_provider(directory.path(), &env, "isolation").unwrap();
         assert_eq!(
             selected[OsStr::new("PSE_ROOT_ISOLATION_DIR")],
@@ -1600,6 +1626,16 @@ mod tests {
             "{flags}"
         );
         assert!(!flags.contains(source.to_str().unwrap()), "{flags}");
+        assert_eq!(apply_provider(directory.path(), &selected, "isolation").unwrap(), selected);
+        let mut original = env.clone();
+        original.insert("PSE_ROOT_ISOLATION_DIR".into(), source.into_os_string());
+        assert_eq!(apply_provider(directory.path(), &original, "isolation").unwrap(), selected);
+        let mut conflict = env.clone();
+        conflict.insert("PSE_ROOT_ISOLATION_DIR".into(), directory.path().join("different").into_os_string());
+        assert!(apply_provider(directory.path(), &conflict, "isolation").is_err());
+        let mut changed = env.clone();
+        changed.insert("CFLAGS".into(), "-changed".into());
+        assert!(apply_provider(directory.path(), &changed, "isolation").is_err());
     }
     #[test]
     fn providers_isolation_build_uses_pinned_archive_options_width_and_final_metadata() {
@@ -1722,6 +1758,42 @@ fi
         (directory, env, log)
     }
     #[test]
+    fn providers_external_foreign_snapshots_need_no_original_prefix_but_keep_qualification() {
+        for kind in ["uno", "petsc"] {
+            let (directory, mut env, _) = foreign_fixture(kind);
+            let source = directory.path().join("external-qualified");
+            fs::create_dir(&source).unwrap();
+            for name in required(kind) {
+                let path = source.join(name);
+                fs::create_dir_all(path.parent().unwrap()).unwrap();
+                fs::write(path, b"qualified interface").unwrap();
+            }
+            let qualification = serde_json::json!({"identity":{"pin":pin(directory.path(), kind).unwrap()}});
+            fs::write(source.join(".complete.json"), json(&qualification).unwrap()).unwrap();
+            let key = provider_variables(kind)[0];
+            env.insert(key.into(), source.clone().into_os_string());
+            let prefix = prepare_external(directory.path(), &env, kind).unwrap();
+            // A mismatched pinned source cannot replace this completed snapshot.
+            fs::write(source.join(".complete.json"), br#"{"identity":{"pin":null}}"#).unwrap();
+            assert!(prepare_external(directory.path(), &env, kind).is_err());
+            assert_eq!(selected(&env, kind).unwrap().0, prefix);
+            fs::remove_dir_all(&source).unwrap();
+            env.remove(OsStr::new(key));
+            let selected = apply_provider(directory.path(), &env, kind).unwrap();
+            assert_eq!(selected[OsStr::new(key)], prefix.as_os_str());
+            assert_eq!(apply_provider(directory.path(), &selected, kind).unwrap(), selected);
+            let mut original = env.clone();
+            original.insert(key.into(), source.into_os_string());
+            assert_eq!(apply_provider(directory.path(), &original, kind).unwrap(), selected);
+            let mut conflict = env.clone();
+            conflict.insert(key.into(), directory.path().join("different").into_os_string());
+            assert!(apply_provider(directory.path(), &conflict, kind).is_err());
+            let mut changed = env.clone();
+            changed.insert("CFLAGS".into(), "-changed".into());
+            assert!(apply_provider(directory.path(), &changed, kind).is_err());
+        }
+    }
+    #[test]
     fn providers_uno_uses_actual_cargo_highs_unit_and_one_lp64_provider() {
         let (directory, mut env, log) = foreign_fixture("uno");
         let high = directory.path().join("cargo-highs");
@@ -1772,7 +1844,13 @@ fi
         ] {
             assert!(commands.contains(name));
         }
-        assert!(select_capabilities(directory.path(), &env, "uno").is_ok());
+        let selected = select_capabilities(directory.path(), &env, "uno").unwrap();
+        let mut missing_dependency = selected.clone();
+        missing_dependency.remove(OsStr::new("IPOPT_DIR"));
+        assert!(apply_provider(directory.path(), &missing_dependency, "uno").is_err());
+        let mut changed_dependency = selected;
+        changed_dependency.insert("IPOPT_DIR".into(), directory.path().join("different-solver").into_os_string());
+        assert!(apply_provider(directory.path(), &changed_dependency, "uno").is_err());
     }
     #[test]
     fn providers_petsc_preserves_upstream_configuration_destdir_and_guard_control() {
@@ -1824,6 +1902,12 @@ esac
             assert!(commands.contains(option), "missing {option}: {commands}");
         }
         assert!(commands.contains(&format!("--prefix={}", prefix.display())));
-        assert!(select_capabilities(directory.path(), &env, "petsc").is_ok());
+        let selected = select_capabilities(directory.path(), &env, "petsc").unwrap();
+        let mut missing_dependency = selected.clone();
+        missing_dependency.remove(OsStr::new("IPOPT_DIR"));
+        assert!(apply_provider(directory.path(), &missing_dependency, "petsc").is_err());
+        let mut changed_dependency = selected;
+        changed_dependency.insert("IPOPT_DIR".into(), directory.path().join("different-solver").into_os_string());
+        assert!(apply_provider(directory.path(), &changed_dependency, "petsc").is_err());
     }
 }
