@@ -57,7 +57,7 @@ jobs:
         with:
           shared-key: governance
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
       - name: prepare the locked independent REUSE tool environment
         env:
           UV_PROJECT_ENVIRONMENT: .venv
@@ -76,7 +76,7 @@ jobs:
         with:
           shared-key: governance
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
         with:
           tool: just@1.58.0
       - name: materialize and check the shared role/skill aliases
