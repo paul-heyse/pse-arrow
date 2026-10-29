@@ -72,11 +72,11 @@ PyO3 implementation is deferred; its absence cannot block native scientific comp
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [A01](#a01) Native application contract | in progress | Native workflow owner | Accepted shared contract and complete retained scientific caller scope |
-| [A02](#a02) Incremental workspace and source workflows | in progress | Authoring/compiler owner | Native revision/edit/reuse behavior and source/history consumers |
-| [A03](#a03) Prepared local execution and results | in progress | Runtime/math owner | Typed author→prepare→execute→inspect composition independent of Python |
-| [A04](#a04) Complete scientific mode callers | in progress | Scientific workflow owners | Every supported mode constructible and failures honestly scoped |
-| [A05](#a05) Native studies and replay | in progress | Study/runtime owner | Generated studies, durable handoff and recorded-point replay |
+| [A01](#a01) Native application contract | done | Native workflow owner | Accepted shared contract and complete retained scientific caller scope |
+| [A02](#a02) Incremental workspace and source workflows | done | Authoring/compiler owner | Native revision/edit/reuse behavior and source/history consumers |
+| [A03](#a03) Prepared local execution and results | done | Runtime/math owner | Typed author→prepare→execute→inspect composition independent of Python |
+| [A04](#a04) Complete scientific mode callers | done | Scientific workflow owners | Every supported mode constructible and failures honestly scoped |
+| [A05](#a05) Native studies and replay | done | Study/runtime owner | Generated studies, durable handoff and recorded-point replay |
 | [A06](#a06) Adaptive study decision and retained strategies | done | Study strategy owner | Retained actor and native strategy callers tested; external batch ask-and-tell extension deferred to an actual consumer |
 | [A07](#a07) Consumer cutover and assurance handoff | in progress | Native workflow integrator | Replaced consumers deleted and required H journeys ready |
 
@@ -697,3 +697,54 @@ package-owned outputs under the maintainer's existing cleanup authorization. Fil
 space increased by about 100.4 GiB; prepared host tools, the canonical-service helper, extension
 image, caches outside that package and databases remained. The subsequent run includes its cold
 runtime compile cost. This is storage housekeeping, not a measured execution-speed benefit.
+
+
+### Complete fitting caller coverage and functional handoff
+
+A01–A06's native functional scope has passed its selected acceptance. A07 remains in progress
+for scope-end integration, static checks and the handoff to H; this is not completion of G's
+whole Python retirement or H's assembled series qualification. Formal ADR statuses remain
+proposed. The public native producers/callers require neither Python nor a product CLI.
+
+**Implemented and Tested:** the distinct residual-LM, all-fixed evaluation and transient-fit
+callers pass three tests, zero failures, seven excluded (run
+`60b915aa-df4e-4860-a8ad-a5fa1ee371c9`). Using
+`PSE_SCIENTIFIC_INPUTS=/tmp/plan58-reference-native-inputs.json`, the existing prepared native
+correctness route selects `--test native_scientific_modes --test native_dynamic_workflows`,
+the feature set above, and the three names `native_residual_lm_reports_actual_stopping_and_original_fit_qualification`,
+`native_all_fixed_fit_evaluates_original_sources_through_shared_completion_and_owned_tables`
+and `public_integrated_fit_preserves_analytic_rate_response_and_observation_provenance`.
+Residual-LM retains original stopping criteria, actual work and qualification; all-fixed fitting
+runs evaluation with no fabricated optimizer or counts, preserves source declarations and
+shared completion/table custody. Both reject an actual unsupported requested policy. The
+transient fit recovers rate 3 in `total(t)=2+rate*t` at its frozen parameter allowance and
+preserves scaled response/observation/unit/run/experiment provenance and qualified exports.
+Expected results remain analytic rather than copied from production responses.
+
+The corresponding Python scientific assertions retire. Their shared measurement fixture remains
+for the actual research-source consumer; the earlier dynamic simulation/storage/export case
+also remains. The generic retained Python strategy adapter still needs its non-algebraic
+receiver refusal, which has a narrow store-free control rather than another scientific test.
+That control passes one case, zero failures, with `--basetemp`, the explicit current compiled
+image and `test_native_workflow.py::test_retained_generic_strategy_adapter_refuses_fitting_preparation`.
+Its initial inherited canonical fixture refused at configuration read before provisioning;
+the final control constructs an ephemeral caller and forbids canonical allocation. No configured
+database is mutated. Native `PreparedFit` does not expose the algebraic-only method.
+
+Initial fitting test compilation attempted to propagate borrowed report/completion errors out
+of their result owner. Expected-success assertions now inspect those borrowed results while the
+owner is alive, preserving their original errors on assertion failure. No production lifetime
+contract or scientific tolerance changed. The reduced Python module build and compiled-stub
+publication also pass after deleting the redundant package-level local-study forwarding method.
+The retained flash-sweep consumer uses `LocalStudy.execute`; the native Rust core study operation,
+opaque F05 recording handoff and reports remain.
+
+The native guide now teaches Rust simulation/physical-input/fitting construction. G's
+[remaining consumer dispositions](58g-boundary-retirement-and-optional-consumers.md#remaining-scientific-consumer-dispositions)
+classify the actual F04/F05/E/G dependencies instead of implying complete facade retirement.
+A05 consumes D's already recorded sparse progression, generation/issuer/seed fencing and
+uncertain-acknowledgement controls at
+[D's native checkpoint](58d-canonical-control-and-connectivity.md#native-progression-migration-and-control-checkpoint--2026-10-29).
+Those owner tests retain their original conditions; A does not reopen paused D work or promote
+that component evidence to an unrun assembled journey. Independent bounded implementation review
+found no remaining native scientific implementation gap after these fitting additions.

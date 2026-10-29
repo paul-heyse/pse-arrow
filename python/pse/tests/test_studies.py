@@ -1043,7 +1043,7 @@ def test_flash_sweep_prepares_structure_once_per_lane(
     )
     controls = pse.StudyRunControls(maximum_points=len(temperatures))
     study = (
-        package.study(definition, controls=controls)
+        definition.execute(controls=controls)
         if ephemeral
         else runtime.execute_study(runtime.record_study(definition), controls=controls)
     )

@@ -189,26 +189,29 @@ continuous declarations. Diffsol/IDAS own stepping and consistency for the suppo
 fixed `diag(I,0)` ODE/index-1 profile. Authored finite-difference and Radau schemes lower
 to ordinary algebraic cases for simultaneous time or spatial analysis.
 
-Physical coordinate inputs are Arrow producers with the registered relation schema.
-Import its complete metadata with `pyarrow.schema(runtime.physical_input_schema(
-PhysicalInputKind.STATE_TOLERANCES))`; provide each coordinate's actual identity,
-quantity-type identity, representation-unit identity and positive Delta value. The
-existing runtime owns an immutable scalar snapshot before preparation starts.
+Physical coordinate inputs retain their registry schema, actual coordinate identity,
+quantity-type identity, representation-unit identity and positive Delta value. Native callers
+use `Runtime::physical_input_schema` and the relevant owned snapshot operation for external
+Arrow readers, or construct typed `ScientificCoordinateValue` inputs directly. Preparation
+owns an immutable scalar snapshot before execution. No Python or PyArrow construction is
+required.
 
-```python
-from pse.contracts.enums import DynamicSensitivity
+For an authored integrated case and explicit compiler/profile/limits, native simulation uses
+the same preparation and execution capabilities:
 
-simulation = package.prepare_simulation(
-    case_id,
-    pse.SimulationSettings(
-        runtime=runtime,
-        start=0.0, end=10.0, samples=[0.0, 5.0, 10.0],
-        atol=state_tolerances, parameter_scales=parameter_scales,
-        sensitivity=DynamicSensitivity.FORWARD,
-    ),
-)
-result = simulation.start().wait()
+```rust
+let services = runtime.execution_services();
+let stop = pse_runtime::CancelSource::new();
+let simulation = package.declared_simulation(
+    services.preparation(), case_id, compiler, Some(profile), limits, &stop,
+).await?;
+let trajectory = simulation.run(&services, &stop).await?;
 ```
+
+The [complete native dynamics caller](../../crates/pse-runtime/tests/native_dynamic_workflows.rs)
+constructs source, physical context and profiles, and retains event, sensitivity, terminal-prefix,
+shooting and horizon assertions. Specialized native operations do not require a uniform foreign
+handle or serialized local request.
 
 Physical Delta state tolerances are converted into the prepared state units and
 resolved numerical scales once. Characteristic parameter scales and integral tolerances
@@ -222,12 +225,17 @@ sensitivities may coexist with terminal quadratures; integral sensitivities are 
 Authored checks apply at the recorded samples and do not establish validity between them.
 
 A generated `authored.fit_cases` row binds shared parameters and experiment/output
-source paths to admitted observations and datasets. Add them with `with_fit_data` or
-load their document sections. `package.prepare_fit(fit_id, request)` consumes a required Version 1
-`PhysicalFitRequest`; its shared fitting settings contain pending physical simulation
-requests by experiment identity. Study Version 8 persists the same pending intent and
-admits it against each actual prepared model. Native replay retains the actual admitted
-integration profiles. The existing sparse fitting owner performs the fit. Steady experiments retain original equations;
+source paths to admitted observations and datasets. Add them with `with_fit_data` or load their
+document sections. Native `ModelingPackage::prepare_fit` receives `PreparationServices`, a
+`FitId`, typed `FitProfile`, compiler policy, limits and cancellation. Use
+`prepare_physical_fit` with `PhysicalFitRequest` when experiment integration controls still
+carry keyed physical coordinates. `FitPreparationDocument::profile` resolves ordinary policy;
+experiment admission remains with the actual prepared model. The
+[native fitting callers](../../crates/pse-runtime/tests/native_scientific_modes.rs) and
+[isolated covariance exchange](../../crates/pse-runtime/tests/reference_covariance_support/mod.rs)
+show complete declaration/data construction and response ownership. Study Version 8 persists
+the same pending intent and admits it against each prepared occurrence; replay retains the
+actual admitted integration profiles. The existing sparse fitting owner performs the fit. Steady experiments retain original equations;
 transient experiments integrate inline under the outer job, using limited-memory Hessians.
 Mixed experiments share the same parameter vector. Included observations need a finite
 physical value, positive uncertainty and importance. The loss is
@@ -242,7 +250,7 @@ The PC-SAFT vessel and its steady/transient/mixed fitting fixtures are authored 
 
 The shared harness discovers all authored tests and reports coverage, preparation, DoF,
 derivatives, envelopes, native execution, original checks and expectations. Pure fixtures
-can run without solver services through `ModelingConformance.pure`. Oracle text identifies
+can run without solver services through `conform_pure_request`. Oracle text identifies
 the reference supporting the authored expectation; it does not execute an upstream tool.
 
 A fixture's execution policy is authored with it: `policy { backend …; presolve …;
@@ -251,7 +259,9 @@ defaults, which the policy overrides for that fixture only. Invalid policies ref
 execution. No policy changes scientific declarations or expected outcomes.
 `just seed-conformance` runs every reference fixture once, from
 `packages/reference/conformance.toml`, and writes Arrow reports to `build/seed-conformance`.
-`python -m pse.conformance --manifest <toml> --report-dir <dir>` runs any manifest.
+`python -m pse.conformance --manifest <toml> --report-dir <dir>` remains a retiring developer
+adapter for generic manifest execution; Plan58f F05 owns its cutover independently of the
+callable native scientific operations.
 
 The report retains every discovered fixture independently of its detailed row cap.
 `complete=False`, inconclusive, cancelled and unattempted results cannot pass. Results,

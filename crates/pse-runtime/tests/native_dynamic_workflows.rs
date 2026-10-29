@@ -24,12 +24,27 @@ use pse_backend_native::{
 use pse_compiler::workspace::{ModelingCaseBindings, ModelingVariableState};
 use pse_ids::SemanticId;
 use pse_kernels::DerivativeOrder;
-use pse_model::generated::{enums::NumericalTarget, identities::DeclarationId};
+use pse_model::{
+    generated::{
+        authored::fit_cases as authored_fit,
+        enums::{ModelingAnalysisRoute, NativeBackend, NativeTermination, NumericalTarget},
+        identities::{DeclarationId, FitId, InstanceId},
+    },
+    scalars::PositiveCount,
+};
 use pse_modeling::{Bindings, Limits, analysis::Route};
+use pse_relations::{
+    columnar::RelationRow,
+    generated::runtime::{
+        computation_runs, fit_observations, fit_parameters, fitted_parameter_cells, modeling_checks,
+        resolved_numerics, response_sensitivities, simulation_samples,
+    },
+};
 use pse_runtime::{
     CancelSource,
     math::solves::{Outcome, SolverProfile},
     workflow::{
+        FitDeclarations, FitDerivatives, FitOptimizer, FitProfile,
         Horizon, HorizonController, HorizonDecision, HorizonInput, HorizonSignal, ModelingAnalysis,
         ModelingPackage, ModelingSimulation, PathBound, RunReport, RuntimeOperationRequest,
         ShootingControl, ShootingEvaluationPolicy, ShootingMethod, ShootingObjective,
@@ -449,4 +464,179 @@ async fn public_horizon_applies_controller_moves_to_analytic_plant_and_refuses_d
         Ok(())
     }).catch_unwind().await;
     settle(&context, body).await
+}
+
+const ACCUMULATION: &str = r#"package accumulation {
+  def Experiment {
+    domain t:Time from 0{s} to 1{s};
+    discretize grid on t using integrated(elements=1,order=1);
+    param rate:Scalar=3; var total[i in t]:Time;
+    eq balance[i in t]:d(total[i])/di==rate;
+    eq initial:total[0{s}]==2{s};
+    let observed[i in t]:Time=total[i];
+    annotation report observed("measurement");
+    annotation check total(total[i]>=2{s});
+  }
+  test experiment_integrated fixture {
+    dof 0; route integrated; procedure integrate;
+    integrate samples(0{s},0.5{s},1{s}) relative(global)
+      normalized_absolute(global) step(1e-4{s});
+  } { child root:Experiment=Experiment(); }
+  entity kind origin provenance {attribute title:Text;}
+  entity origin experiment {title="analytic total(t)=2 s+3*t"}
+  enum role {measured facets(measured)}
+  entity kind reading {attribute value:Time?;attribute sigma:Time?;}
+  @id("68686868686868686868686868686868")
+  entity reading measured provenance(experiment,role.measured) {value=5{s},sigma=1{s}}
+}"#;
+
+#[tokio::test]
+async fn public_integrated_fit_preserves_analytic_rate_response_and_observation_provenance() -> Result<()> {
+    let context = NativeContext::new()?;
+    let body = AssertUnwindSafe(async {
+        let package = package(&context,ACCUMULATION).await?;
+        let services = context.runtime.execution_services();
+        let case = declaration(&context,&package,"experiment_integrated").await?;
+        let fraction = pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
+        let integration = Profile {
+            method: Method::Diffsol, start: 0., end: 1., samples: vec![0.,0.5,1.],
+            rtol: fraction, atol: vec![fraction], initial_step: 1e-4,
+            parameter_scales: vec![1.], sensitivity: DynamicSensitivity::Forward,
+            ..Default::default()
+        };
+        let simulation = Box::pin(package.declared_simulation(
+            services.preparation(),case,compiler(),Some(integration.clone()),Limits::default(),&CancelSource::new(),
+        )).await?;
+        assert_eq!(simulation.contract().states.len(),1);
+        let state_budget = allowance(simulation.numerics(),NumericalTarget::Variable,simulation.contract().states[0]);
+        let handle = simulation.start(&services)?;
+        let joined = Box::pin(handle.wait()).await?;
+        assert_eq!(Box::pin(handle.wait()).await?.run_id,joined.run_id);
+        assert!(joined.usable(),"{:?}",joined.report());
+        let RunReport::Simulation(trajectory) = joined.report().unwrap()
+            else { panic!("original standalone trajectory required") };
+        assert_eq!(trajectory.report().termination,Termination::Completed);
+        assert!(trajectory.accepted() && trajectory.checks_complete());
+        let standalone = simulation_samples::Row::rows(&joined.table("runtime.simulation_samples")?)?;
+        assert_eq!(standalone.len(),6,"state and authored observation at all three samples");
+        for row in &standalone {
+            assert!([0.,0.5,1.].contains(&row.time));
+            assert!((row.value-(2.+3.*row.time)).abs() <= state_budget);
+        }
+
+        let identity = |byte| SemanticId::from_bytes([byte;16]);
+        let fit_id = FitId::from_id(identity(101));
+        let parameter_id = identity(102);
+        let experiment_id = InstanceId::from_id(identity(103));
+        let observation_id = DeclarationId::from_id(identity(104));
+        let mut declarations = FitDeclarations::default();
+        declarations.fits.push(authored_fit::Row {
+            fit_id,
+            parameters: vec![authored_fit::AuthoredFitCasesFieldParametersItem {
+                symbol_id: parameter_id, fixed: false, value: 1., lower: Some(0.), upper: Some(10.), scale: 1.,
+            }],
+            experiments: vec![authored_fit::AuthoredFitCasesFieldExperimentsItem {
+                experiment_id, case_id: case, route: ModelingAnalysisRoute::Integrated,
+                bindings: vec![authored_fit::AuthoredFitCasesFieldExperimentsItemBindingsItem {
+                    parameter_id, path: "root.rate".into(),
+                }],
+            }],
+            observations: vec![authored_fit::AuthoredFitCasesFieldObservationsItem {
+                observation_id, value_attribute: "value".into(), standard_deviation_attribute: Some("sigma".into()),
+                experiment_id, output_path: "root.observed[0{s}]".into(), time: Some(1.),
+                time_basis: None, time_unit_id: None, included: true, importance: 1.,
+            }],
+        });
+        let package = Box::pin(package.with_fit_declarations(&context.runtime.source_services(),declarations)).await?;
+        let prepared = Box::pin(package.prepare_fit(
+            services.preparation(),fit_id,
+            FitProfile {
+                optimizer: FitOptimizer::NativeNlp,
+                solver: SolverProfile {
+                    intent: SolveIntent::Optimize, selection: SolverSelection::Explicit(Backend::Ipopt),
+                    controls: Controls { hessian: HessianMode::LimitedMemory, ..Default::default() },
+                    presolve: pse_backend_native::presolve::Policy::Off,
+                    ..Default::default()
+                },
+                // The experiment's instance owns the same explicit controls; standalone
+                // coordinate identities are not copied into this native profile.
+                simulations: BTreeMap::from([(experiment_id,integration)]),
+                rank_tolerance: 1e-8, max_cells: 10_000, derivatives: FitDerivatives::Responses,
+                experiment_workers: PositiveCount::try_new(1)?, uncertainty: None,
+            },
+            compiler(),Limits::default(),&CancelSource::new(),
+        )).await?;
+        let parameter_budget = allowance(prepared.numerics(),NumericalTarget::Variable,parameter_id);
+        let target = prepared.numerics().targets.iter()
+            .find(|target| target.kind==NumericalTarget::Variable && target.id==parameter_id).unwrap();
+        let parameter_scale = target.coordinate_scale;
+        assert_eq!(parameter_scale,1.);
+        let result = prepared.start(&services)?.wait().await?;
+        assert!(result.usable(),"{:?}; {:?}",result.assessments(),result.report());
+        let RunReport::Fit(report) = result.report().unwrap() else { panic!("original transient fit required") };
+        assert_eq!(report.derivatives,FitDerivatives::Responses);
+        assert_eq!(report.hessian,HessianMode::LimitedMemory);
+        assert!(report.estimate_qualified());
+        assert!(report.checks_complete && !report.checks.is_empty());
+        assert!(report.checks.iter().all(|check| check.satisfied));
+        assert!(report.validation_error.is_none());
+        let parameters = fit_parameters::Row::rows(&result.table("runtime.fit_parameters")?)?;
+        let [parameter] = parameters.as_slice() else { panic!("one fitted rate") };
+        assert_eq!(parameter.parameter_id,parameter_id);
+        assert_eq!(parameter.scale,parameter_scale);
+        assert!(!parameter.fixed);
+        let fitted = parameter.value.unwrap();
+        // The analytic observation is 5 s at 1 s from 2 s: its unique fitted rate is 3.
+        assert!((fitted-3.).abs() <= parameter_budget,"rate={fitted}; admitted budget={parameter_budget}");
+        let policies = resolved_numerics::Row::rows(&result.table("runtime.resolved_numerics")?)?;
+        let policy = policies.iter().find(|row| row.target_kind==NumericalTarget::Variable && row.target_id==parameter_id).unwrap();
+        assert_eq!(policy.budget,parameter_budget);
+        assert_eq!(policy.coordinate_scale,parameter_scale);
+
+        let responses = response_sensitivities::Row::rows(&result.table("runtime.response_sensitivities")?)?;
+        let [response] = responses.as_slice() else { panic!("one original response") };
+        let observations = fit_observations::Row::rows(&result.table("runtime.fit_observations")?)?;
+        let [observation] = observations.as_slice() else { panic!("one original observation") };
+        assert_eq!(response.run_id,result.run_id);
+        assert_eq!(response.experiment_id,experiment_id);
+        assert_eq!(response.parameter_id,parameter_id);
+        assert_eq!(response.parameter_column,0);
+        assert_eq!(response.sample,0);
+        assert_eq!(response.time,Some(1.));
+        assert_eq!(response.parameter_unit_id,parameter.unit_id);
+        assert_eq!(observation.observation_id,observation_id.as_id());
+        assert_eq!(observation.run_id,response.run_id);
+        assert_eq!(observation.experiment_id,response.experiment_id);
+        assert!(observation.included);
+        assert_eq!(response.output_unit_id,observation.unit_id);
+        assert!((observation.prediction.unwrap()-(2.+fitted)).abs() <= state_budget);
+
+        // The published response is weighted and parameter-scaled. Here sigma=1 s,
+        // importance=1 and the scale=1, so d(total)/d(rate)=t. A material half-scale
+        // displacement checks its physical effect against the actual state allowance;
+        // local integration controls alone do not certify derivative error.
+        let delta = 0.5*parameter_scale;
+        assert!(delta>parameter_budget && delta*response.time.unwrap()>state_budget);
+        assert!(fitted+delta<=10.);
+        assert!((response.value*delta-delta*response.time.unwrap()).abs() <= state_budget);
+        let runs = computation_runs::Row::rows(&result.table("runtime.computation_runs")?)?;
+        let [run] = runs.as_slice() else { panic!("one original computation") };
+        assert!(matches!(run.termination,Some(NativeTermination::Success | NativeTermination::Acceptable)));
+        assert_eq!(run.backend,Some(NativeBackend::Ipopt));
+        assert!(run.error.is_none());
+        assert_eq!(run.estimate_qualified,Some(true));
+        assert_eq!(result.completion().unwrap().computation.as_ref(),Some(run));
+        let exported = fitted_parameter_cells::Row::rows(&result.export_fit_parameters()?)?;
+        let [exported] = exported.as_slice() else { panic!("one qualified parameter export") };
+        assert_eq!(exported.run_id,result.run_id);
+        assert_eq!(exported.fit_id,fit_id);
+        assert_eq!(exported.parameter_id,parameter_id);
+        assert_eq!(exported.value.to_bits(),fitted.to_bits());
+        assert_eq!(exported.unit_id,parameter.unit_id);
+        assert_eq!(exported.source_revision,pse_runtime::workflow::OperationSource::of(&package).revision.as_id());
+        let checks = modeling_checks::Row::rows(&result.table("runtime.modeling_checks")?)?;
+        assert!(!checks.is_empty() && checks.iter().all(|check| check.satisfied));
+        Ok(())
+    }).catch_unwind().await;
+    settle(&context,body).await
 }

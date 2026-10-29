@@ -798,19 +798,6 @@ class ModelingPackage:
         """Retain admitted scientific intent and its exact immutable source owners."""
         return LocalStudy(self._handle.admit_study(codec.encode_json(request)))
 
-    def study(
-        self, local: "LocalStudy", *, controls: StudyRunControls | None = None
-    ) -> StudyReport:
-        """Execute owned local occurrences without initializing a canonical store."""
-        if controls is not None and not isinstance(controls, StudyRunControls):
-            message = "local studies require StudyRunControls"
-            raise TypeError(message)
-        return StudyReport(
-            self._handle.study(
-                local._handle,  # noqa: SLF001 - same native ownership boundary
-                controls=None if controls is None else codec.encode_json(controls),
-            )
-        )
 
     def conform(
         self,

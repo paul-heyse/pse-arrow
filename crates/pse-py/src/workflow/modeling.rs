@@ -547,33 +547,6 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
         })
     }
-    /// Execute using the owned admitted model and physical context.
-    #[pyo3(signature=(local, *, controls=None))]
-    fn study(
-        &self,
-        py: Python<'_>,
-        local: &NativeLocalStudy,
-        controls: Option<&[u8]>,
-    ) -> PyResult<NativeStudyReport> {
-        let native::StudyRunControls { maximum_points } = documents::controls(
-            py,
-            "study",
-            controls,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let cancel = CancelSource::new();
-        let inner = blocking(
-            py,
-            &self.owner,
-            self.inner
-                .study(&self.services, &local.inner, maximum_points, &cancel),
-            || cancel.cancel(),
-        )?;
-        Ok(NativeStudyReport {
-            inner: Arc::new(inner),
-            owner: local.owner.clone(),
-        })
-    }
     fn preparation_discovery(
         &self,
         py: Python<'_>,

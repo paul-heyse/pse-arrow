@@ -171,6 +171,33 @@ settings-envelope controls pass, zero failures, with the explicit image and priv
 root. A's follow-up records the added public Jacobian/export and nonempty source-attribution
 checks and their passing focused native run. No generated output is hand-edited.
 
+### Remaining scientific consumer dispositions
+
+A's native handoff and G's complete boundary retirement are distinct claims. No retained Python
+adapter below is a construction requirement for the public native scientific callers. Their
+actual remaining consumers determine deletion; they are not a compatibility root to preserve.
+
+| Remaining consumer | Current disposition and owning cut |
+| --- | --- |
+| Python modeling/run/strategy projections and their scientific tests | Native A callers preserve supported operations. G03 removes each last adapter with its actual F04/F05 and assurance consumers; remaining composed scientific journeys belong to H, not a second Python policy implementation. |
+| `LocalStudy` admission, opaque recording handoff and `StudyReport` | F05's `scripts/thermodynamic_campaign.py` still admits, records and executes studies and consumes reports. Retain that narrow handoff until the campaign moves; native local/stored study execution needs no Python. The redundant Python package-level local `study` convenience is removed; the retained flash-sweep consumer uses the owning `LocalStudy.execute` operation. |
+| Python exact-parent reload | Actual local/adoption tests and `scripts/tests/telemetry_native_acceptance.py` / `telemetry_native_operational_acceptance.py` still call it. Native A02 reload/history is exercised; F/G own remaining consumer retirement. Calculation observation remains valuable; this does not revive build observation. |
+| Stored-result and table-stream projections | Native E01/E02 data construction is independent of mathematics. Remaining Python wrappers still retain full runtime owners; E04/G03 remove them with actual delivery/review/report consumers rather than redesign another Python owner. |
+| Calibration/uncertainty adoption and scientific reference consumers | Native per-mode fitting/sensitivity and selected isolated reference exchanges do not establish the complete composed artifact/publication/adoption journey. H owns that joined scientific acceptance; F04 retains the remaining candidate/reference separation. |
+| Generic conformance manifest/CLI and thermodynamic evidence orchestration | F05 retains their actual selection/report/campaign outcomes. Per-package native conformance and retired diagnostic result projections do not replace this developer functionality by implication. Shared diagnostic settings remain solely where this parser/document consumer needs them. |
+
+The final A04 fitting cut moves residual-LM, all-fixed and transient fitting assertions to native
+callers while preserving the still-consumed research measurement fixture and dynamic stored-result
+export test. A narrow store-free Python control retains the generic strategy adapter's actual
+non-algebraic refusal; Rust's typed fit receiver has no such algebraic method. The reduced module
+build and actual compiled-stub publication pass after removing only the package-level local-study
+forwarder. [A's functional handoff](58a-native-product-and-scientific-workflows.md#complete-fitting-caller-coverage-and-functional-handoff)
+owns the three passing native fitting callers and that retained adapter control.
+
+Complete G01/G03 acceptance still requires those owning cuts. Native API availability,
+selected scientific tests, actual optional CLI consumers and full-series qualification keep
+separate meanings. No new public CLI, PyO3 delivery or general facade is required by A.
+
 ## Selected ordinary host retirement checkpoint — 2026-10-28
 
 The B02/B03/F01/F02 wave now cuts ordinary environment/foreground/Cargo entry points to Rust.

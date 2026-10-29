@@ -24,13 +24,16 @@ mod sensitivity;
 mod degeneracy;
 
 use futures_util::FutureExt;
-use pse_backend_native::solve::{Backend, SolveIntent};
+use pse_backend_native::solve::{Backend, Qualification, SolveIntent};
 use pse_ids::SemanticId;
-use pse_relations::{columnar::RelationRow, generated::runtime::{solve_runs, solve_variables}};
+use pse_relations::{columnar::RelationRow, generated::{authored::fit_cases,
+    runtime::{fit_observations, fit_parameters, modeling_checks, solve_runs, solve_strategy_events, solve_variables}}};
 use pse_runtime::{
     CancelSource,
     math::settings::{SensitivityRequest, SolveSettings},
-    workflow::{DiagnosticOperation, JacobianDiagnosticControls, ModelingAnalysis, ModelingPackage},
+    workflow::{DiagnosticOperation, FitDeclarations, FitExecutionDocument, FitOptimizer,
+        FitPreparationDocument, FitProfile, FitProfileDocument, FitRoute, JacobianDiagnosticControls,
+        ModelingAnalysis, ModelingPackage, PreparedFit, RunReport, RunRequest},
 };
 use reference_support::{NativeContext, Result};
 use std::{collections::{BTreeMap, BTreeSet}, panic::AssertUnwindSafe, time::Duration};
@@ -41,14 +44,218 @@ fn close_to(actual: f64, expected: f64, allowance: f64) {
         "actual={actual}, analytic={expected}, allowance={allowance}");
 }
 
-fn finish(
-    outcome: std::thread::Result<Result<()>>,
+fn finish<T>(
+    outcome: std::thread::Result<Result<T>>,
     closed: Result<()>,
-) -> Result<()> {
+) -> Result<T> {
     match outcome {
         Ok(result) => { closed?; result }
         Err(panic) => { let _ = closed; std::panic::resume_unwind(panic) }
     }
+}
+
+fn measurement_fit<'a>(context: &'a NativeContext, fixed: bool)
+    -> futures_util::future::BoxFuture<'a, Result<ModelingPackage>>
+{
+    Box::pin(async move {
+        let package = context.package(
+            "package fitting {def Measurement {param length:Length=2{m};
+             annotation check length(length>0{m});}
+             entity kind origin provenance {attribute title:Text;}
+             entity origin experiment {title=\"known length\"}
+             enum role {measured facets(measured)}
+             entity kind reading {attribute value:Length?;attribute sigma:Length?;}
+             @id(\"9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d\")
+             entity reading measured provenance(experiment,role.measured)
+             {value=2{m},sigma=0.1{m}}}"
+        ).await?;
+        let case = package.declarations(&context.runtime.preparation_services()).await?
+            .iter().find(|row|row.name=="Measurement").unwrap().declaration_id;
+        let mut declarations = FitDeclarations::default();
+        declarations.fits.push(serde_json::from_value(serde_json::json!({
+            "fit_id":SemanticId::from_bytes([158;16]),
+            "parameters":[{"symbol_id":SemanticId::from_bytes([153;16]),"fixed":fixed,
+                "value":if fixed {2.} else {1.},"lower":if fixed {Some(0.)} else {None},
+                "upper":if fixed {Some(10.)} else {None},"scale":1.}],
+            "experiments":[{"experiment_id":SemanticId::from_bytes([159;16]),"case_id":case,
+                "route":"steady","bindings":[{"parameter_id":SemanticId::from_bytes([153;16]),"path":"length"}]}],
+            "observations":[{"observation_id":SemanticId::from_bytes([157;16]),
+                "value_attribute":"value","standard_deviation_attribute":"sigma",
+                "experiment_id":SemanticId::from_bytes([159;16]),"output_path":"length",
+                "time":null,"time_basis":null,"time_unit_id":null,"included":true,"importance":1.}]
+        }))?);
+        Ok(Box::pin(package.with_fit_declarations(&context.runtime.source_services(),declarations)).await?)
+    })
+}
+
+fn measurement_profile(optimizer: FitOptimizer, backend: Option<Backend>) -> Result<FitProfile> {
+    let document: FitPreparationDocument = serde_json::from_value(serde_json::json!({
+        "optimizer":optimizer,"solver":SolveSettings {
+            intent:SolveIntent::Optimize,backend,..Default::default()
+        }
+    }))?;
+    // Exercise the actual public preparation document, without adding a parallel codec.
+    let bytes = serde_json::to_vec(&document)?;
+    let decoded: FitPreparationDocument = serde_json::from_slice(&bytes)?;
+    assert_eq!(serde_json::to_value(&decoded)?,serde_json::to_value(&document)?);
+    Ok(decoded.profile()?)
+}
+
+fn prepare_measurement<'a>(context: &'a NativeContext, package: &'a ModelingPackage,
+    profile: FitProfile, cancel: &'a CancelSource)
+    -> futures_util::future::BoxFuture<'a, Result<PreparedFit>>
+{
+    Box::pin(async move {
+        Ok(Box::pin(package.prepare_fit(&context.runtime.preparation_services(),
+            SemanticId::from_bytes([158;16]).into(),profile,Default::default(),Default::default(),cancel)).await?)
+    })
+}
+
+#[tokio::test]
+async fn native_residual_lm_reports_actual_stopping_and_original_fit_qualification() -> Result<()> {
+    let context = NativeContext::new()?;
+    let outcome = AssertUnwindSafe(async {
+        let package = measurement_fit(&context,false).await?;
+        let cancel = CancelSource::new();
+        let prepared = prepare_measurement(&context,&package,
+            measurement_profile(FitOptimizer::ResidualLm,None)?,&cancel).await?;
+        assert_eq!(prepared.route(),FitRoute::ResidualLm);
+        let original_identity = prepared.identity();
+        let profile_identity = prepared.strategy_profile();
+        let strategy = prepared.numerical_strategy();
+        assert_eq!(strategy.mechanisms.len(),1);
+        assert_eq!(strategy.mechanisms[0].profile.unwrap().method,
+            pse_model::strategy::NumericalMethod::ResidualLm);
+        assert!(!strategy.mechanisms[0].support.is_empty());
+        let handle = prepared.start(&context.runtime.execution_services())?;
+        let result = handle.wait().await?;
+        assert_eq!(handle.wait().await?.run_id,result.run_id);
+        let RunRequest::Fit(request) = result.request() else {panic!("original fit request retained")};
+        assert_eq!(request.identity(),original_identity);
+        assert_eq!(request.strategy_profile(),profile_identity);
+        assert_eq!(request.route(),FitRoute::ResidualLm);
+        let RunReport::Fit(report) = result.report().unwrap() else {panic!("actual residual fit report")};
+        assert!(result.usable(),"{report:?}");
+        assert!(report.solve.is_none(),"LM must not fabricate an NLP backend report");
+        let FitExecutionDocument::ResidualLm {report:residual} = report.execution_document()
+            else {panic!("actual residual-LM execution descriptor")};
+        assert!(residual.failure.is_none());
+        assert_eq!(residual.qualification,Qualification::Stationary);
+        assert!(residual.stationarity.is_some_and(f64::is_finite));
+        let stopping = residual.stopping.unwrap();
+        assert_eq!(stopping.criteria.version(),1);
+        for threshold in [stopping.criteria.relative_cost_change(),stopping.criteria.relative_step(),
+            stopping.criteria.column_residual_cosine()] {
+            assert_eq!(threshold,30.*f64::EPSILON);
+        }
+        assert!(residual.residual_evaluations>0 && residual.residual_evaluations<=stopping.residual_evaluation_limit);
+        assert!(residual.parameter_updates<=stopping.parameter_update_limit);
+        assert!(residual.jacobian_evaluations>0);
+        assert!(report.checks_complete && report.checks.iter().all(|check|check.satisfied));
+        assert!(report.estimate_qualified());
+        assert!(result.completion().unwrap().diagnostics.is_empty());
+        assert_eq!(serde_json::to_value(report.execution_document())?["method"],"residual_lm");
+        let observations = result.table("runtime.fit_observations")?;
+        let parameters = result.table("runtime.fit_parameters")?;
+        let rows = fit_observations::Row::rows(&observations)?;
+        assert_eq!(rows.len(),1);
+        close_to(rows[0].prediction.unwrap(),2.,1e-10);
+        close_to(rows[0].objective_contribution.unwrap(),0.,1e-20);
+        // An explicit native backend is a meaningful incompatible LM request;
+        // preparation must refuse before changing the requested optimizer.
+        let error = prepare_measurement(&context,&package,
+            measurement_profile(FitOptimizer::ResidualLm,Some(Backend::Ipopt))?,&cancel).await.unwrap_err();
+        assert!(error.to_string().contains("residual LM cannot implement the requested native-only controls"),"{error}");
+        drop((result,handle,prepared,package));
+        Ok((observations,parameters))
+    }).catch_unwind().await;
+    let (observations,parameters) = finish(outcome,context.close().await)?;
+    assert_eq!(fit_observations::Row::rows(&observations)?.len(),1);
+    let parameters = fit_parameters::Row::rows(&parameters)?;
+    assert_eq!(parameters.len(),1);
+    assert!(!parameters[0].fixed);
+    close_to(parameters[0].value.unwrap(),2.,1e-10);
+    Ok(())
+}
+
+#[tokio::test]
+async fn native_all_fixed_fit_evaluates_original_sources_through_shared_completion_and_owned_tables() -> Result<()> {
+    let context = NativeContext::new()?;
+    let outcome = AssertUnwindSafe(async {
+        let package = measurement_fit(&context,true).await?;
+        let cancel = CancelSource::new();
+        let prepared = prepare_measurement(&context,&package,
+            measurement_profile(FitOptimizer::Automatic,None)?,&cancel).await?;
+        assert_eq!(prepared.route(),FitRoute::Evaluation);
+        assert_eq!(prepared.composition_request().policy,pse_model::strategy::CompositionPolicy::Auto);
+        let original_identity = prepared.identity();
+        let profile_identity = prepared.strategy_profile();
+        assert!(!profile_identity.to_prefixed().is_empty());
+        let strategy = pse_model::strategy::NumericalStrategyDocument::new(prepared.numerical_strategy())?;
+        assert_eq!(serde_json::to_value(&strategy)?["version"],4);
+        assert_eq!(strategy.strategy.mechanisms.len(),1);
+        assert!(!strategy.strategy.mechanisms[0].support.is_empty());
+        let decoded: pse_model::strategy::NumericalStrategyDocument = serde_json::from_slice(&serde_json::to_vec(&strategy)?)?;
+        assert_eq!(decoded,strategy);
+        let sources = Box::pin(package.source_tables(&context.runtime.preparation_services())).await?;
+        let fits = fit_cases::Row::rows(&sources[&fit_cases::RELATION_ID])?;
+        assert_eq!(fits.len(),1);
+        assert_eq!(&fits[0],prepared.declaration());
+        assert_eq!(fits[0].fit_id,SemanticId::from_bytes([158;16]).into());
+        assert_eq!(fits[0].parameters.len(),1);
+        assert!(fits[0].parameters[0].fixed);
+        assert_eq!(fits[0].parameters[0].value,2.);
+        assert_eq!((fits[0].parameters[0].lower,fits[0].parameters[0].upper),(Some(0.),Some(10.)));
+        let source_fit = sources[&fit_cases::RELATION_ID].clone();
+        let handle = prepared.start(&context.runtime.execution_services())?;
+        let result = handle.wait().await?;
+        assert_eq!(handle.wait().await?.run_id,result.run_id);
+        let RunRequest::Fit(request) = result.request() else {panic!("original all-fixed fit request")};
+        assert_eq!(request.identity(),original_identity);
+        assert_eq!(request.strategy_profile(),profile_identity);
+        assert_eq!(request.route(),FitRoute::Evaluation);
+        let RunReport::Fit(report) = result.report().unwrap() else {panic!("original all-fixed fit report")};
+        assert!(matches!(report.execution_document(),FitExecutionDocument::Evaluation));
+        assert!(matches!(report.profile_document(),FitProfileDocument::NotRequested));
+        assert!(report.solve.is_none() && report.residual.is_none(),"all-fixed evaluation runs no optimizer");
+        assert!(report.candidate.as_ref().is_some_and(Vec::is_empty),
+            "all-fixed evaluation has no free optimization coordinates");
+        assert_eq!(report.objective,Some(0.));
+        assert!(result.usable() && result.completion().unwrap().diagnostics.is_empty());
+        assert!(result.tables()?.contains_key(&fit_observations::RELATION_ID));
+        let observations = result.table("runtime.fit_observations")?;
+        let checks = result.table("runtime.modeling_checks")?;
+        let events = result.table("runtime.solve_strategy_events")?;
+        let observed = fit_observations::Row::rows(&observations)?;
+        assert_eq!(observed.len(),1);
+        assert_eq!(observed[0].prediction,Some(2.));
+        assert_eq!(observed[0].objective_contribution,Some(0.));
+        let parameters = fit_parameters::Row::rows(&result.table("runtime.fit_parameters")?)?;
+        assert_eq!(parameters.len(),1);
+        assert!(parameters[0].fixed);
+        assert_eq!(parameters[0].value,Some(2.));
+        let checks_rows = modeling_checks::Row::rows(&checks)?;
+        assert!(!checks_rows.is_empty() && checks_rows.iter().all(|check|check.satisfied));
+        let event_rows = solve_strategy_events::Row::rows(&events)?;
+        assert!(event_rows.iter().all(|event|event.decision_identity.is_some()));
+        let last = event_rows.last().expect("shared fit finish event");
+        assert_eq!(last.transition,Some(pse_model::generated::enums::NumericalTransition::Finish));
+        assert_eq!(last.evaluations,None,"evaluation-only completion invents no native work counts");
+        let mut unsupported = measurement_profile(FitOptimizer::Automatic,None)?;
+        unsupported.solver.presolve = pse_backend_native::presolve::Policy::from_native_options(
+            &Default::default(),[pse_backend_native::presolve::Pass::AffineElimination].into())?;
+        let error = prepare_measurement(&context,&package,unsupported,&cancel).await.unwrap_err();
+        assert!(error.to_string().contains("all-fixed fitting evaluates directly and cannot apply required native presolve passes"),
+            "{error}");
+        drop((result,handle,prepared,package));
+        Ok((observations,checks,events,source_fit))
+    }).catch_unwind().await;
+    let (observations,checks,events,source_fit) = finish(outcome,context.close().await)?;
+    assert_eq!(fit_observations::Row::rows(&observations)?[0].prediction,Some(2.));
+    assert!(modeling_checks::Row::rows(&checks)?.iter().all(|check|check.satisfied));
+    assert!(!solve_strategy_events::Row::rows(&events)?.is_empty());
+    assert!(fit_cases::Row::rows(&source_fit)?[0].parameters[0].fixed);
+    Ok(())
 }
 
 async fn analysis(

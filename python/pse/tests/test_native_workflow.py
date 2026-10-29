@@ -30,7 +30,6 @@ from pse.contracts.enums import (
     CanonicalTerminalOutcome,
     IncumbentPolicy,
     ModelingAnalysisRoute,
-    Namespace,
     NativeAssurance,
     NativeBackend,
     NativeBoundaryClass,
@@ -51,7 +50,6 @@ from pse.contracts.identities import (
     FitId,
     InstanceId,
 )
-from pse.contracts.reference import ReferenceSchemaRelationsRow
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
 from pse.tests.invalid_call import invalid_call
@@ -815,139 +813,34 @@ def _measurement_fit_package(
     return package.with_fit_declarations((fit,))
 
 
-@pytest.mark.integration
-def test_residual_lm_public_result_exposes_actual_stopping_and_original_qualification(
-    runtime: pse.Runtime, physical: pse.PhysicalContext
-) -> None:
-    package = _measurement_fit_package(runtime, physical, fixed=False)
-    prepared = package.prepare_fit(
-        FitId(identity(158)),
-        pse.PhysicalFitRequest(
-            settings=documents.FitPreparationDocumentForPhysicalSimulationRequest(
-                optimizer=documents.FitOptimizer.RESIDUAL_LM,
-                solver=pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE),
-            ),
-        ),
-    )
-    result = prepared.start().wait()
-    execution = result.fit_execution
-    assert isinstance(execution, documents.FitExecutionDocumentResidualLm)
-    report = execution.report
-    assert report.failure is None
-    assert report.qualification is NativeQualification.STATIONARY
-    assert report.stationarity is not None
-    assert result.usable
-    stopping = report.stopping
-    assert stopping is not None
-    assert stopping.criteria.version == 1
-    for threshold in (
-        stopping.criteria.relative_cost_change,
-        stopping.criteria.relative_step,
-        stopping.criteria.column_residual_cosine,
-    ):
-        assert threshold == 30.0 * sys.float_info.epsilon
-    assert 0 < report.residual_evaluations <= stopping.residual_evaluation_limit
-    assert report.parameter_updates <= stopping.parameter_update_limit
-    assert codec.decode_json(codec.encode_json(execution), type(execution)) == execution
-    rows = (
-        pa.RecordBatchReader.from_stream(result.table("runtime.fit_observations"))
-        .read_all()
-        .to_pylist()
-    )
-    assert rows[0]["prediction"] == pytest.approx(2.0)
-    assert rows[0]["objective_contribution"] == pytest.approx(0.0, abs=1e-20)
 
 
-@pytest.mark.integration
-def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
-    runtime: pse.Runtime,
-    physical: pse.PhysicalContext,
-    inspection_settings: pse.EngineSettings,
+
+
+@pytest.mark.unit
+def test_retained_generic_strategy_adapter_refuses_fitting_preparation(
+    inspection_settings: pse.EngineSettings, no_canonical_allocation: None
 ) -> None:
-    package = _measurement_fit_package(runtime, physical, fixed=True)
-    prepared = package.prepare_fit(
-        FitId(identity(158)),
-        codec.decode_json(
-            codec.encode_json(
-                {
-                    "version": 1,
-                    "settings": {
-                        "solver": pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE),
-                    },
-                }
-            ),
-            pse.PhysicalFitRequest,
-        ),
-    )
-    direct = prepared.numerical_strategy
-    assert direct.version == 4
-    assert prepared.composition_request.policy == NumericalCompositionPolicy.AUTO
-    assert codec.decode_json(codec.encode_json(direct), type(direct)) == direct
-    assert len(direct.strategy.mechanisms) == 1
-    assert direct.strategy.mechanisms[0].support
-    assert prepared.strategy_profile.to_prefixed()
-    with pytest.raises(
-        pse.InspectionError, match="numerical composition requires an algebraic solve"
-    ):
-        prepared.with_numerical_strategy(direct, (prepared,))
-    job = prepared.start()
-    result = job.wait()
-    rows = (
-        pa.RecordBatchReader.from_stream(result.table("runtime.fit_observations"))
-        .read_all()
-        .to_pylist()
-    )
-    assert rows[0]["prediction"] == 2.0
-    assert rows[0]["objective_contribution"] == 0.0
-    assert isinstance(result.fit_execution, documents.FitExecutionDocumentEvaluation)
-    profiles = result.fit_profiles
-    assert isinstance(profiles, documents.FitProfileDocumentNotRequested)
-    assert profiles.document_version == 2
-    assert job.wait().run_id == result.run_id
-    assert not result.diagnostics()
-    assert result.usable
-    with (
-        pse.registry_table(
-            "reference.schema_relations", settings=inspection_settings
-        ) as stream,
-        pa.RecordBatchReader.from_stream(stream) as reader,
-    ):
-        relations = codec.structure_rows(
-            reader.read_all().to_pylist(), ReferenceSchemaRelationsRow
+    """The retiring generic foreign handle still rejects a wrong operation family."""
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    try:
+        package = _measurement_fit_package(
+            runtime, physical_context(runtime), fixed=True
         )
-    fit_relation = next(
-        relation.relation_id
-        for relation in relations
-        if relation.namespace is Namespace.AUTHORED and relation.name == "fit_cases"
-    )
-    sources = package.source_tables()
-    fits = codec.structure_rows(
-        pa.table(sources[fit_relation]).to_pylist(), a.AuthoredFitCasesRow
-    )
-    assert len(fits) == 1
-    assert fits[0].fit_id == FitId(identity(158))
-    assert len(fits[0].parameters) == 1
-    assert fits[0].parameters[0].fixed
-    assert fits[0].parameters[0].value == 2.0
-    for stream in sources.values():
-        stream.close()
-    assert "runtime.fit_observations" in result.tables()
-    checks = (
-        pa.RecordBatchReader.from_stream(result.table("runtime.modeling_checks"))
-        .read_all()
-        .to_pylist()
-    )
-    assert checks
-    assert all(row["satisfied"] for row in checks)
-
-    events = (
-        pa.RecordBatchReader.from_stream(result.table("runtime.solve_strategy_events"))
-        .read_all()
-        .to_pylist()
-    )
-    assert all(event["decision_identity"] is not None for event in events)
-    assert events[-1]["transition"] == NumericalTransition.FINISH.value
-    assert events[-1]["evaluations"] is None
+        prepared = package.prepare_fit(
+            FitId(identity(158)),
+            pse.PhysicalFitRequest(
+                settings=documents.FitPreparationDocumentForPhysicalSimulationRequest(
+                    solver=pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE),
+                ),
+            ),
+        )
+        with pytest.raises(
+            pse.InspectionError, match="numerical composition requires an algebraic solve"
+        ):
+            prepared.with_numerical_strategy(prepared.numerical_strategy, (prepared,))
+    finally:
+        runtime.close()
 
 
 @pytest.mark.integration

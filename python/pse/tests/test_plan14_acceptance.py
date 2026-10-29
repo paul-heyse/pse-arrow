@@ -15,18 +15,15 @@ import pse
 from pse import codec
 from pse._scientific_inputs import family_packages, package_documents
 from pse.contracts import authored
-from pse.contracts import runtime as runtime_contracts
 from pse.contracts.documents import NumericalPolicy
 from pse.contracts.enums import (
     DynamicSensitivity,
     DynamicsMethod,
-    HessianMode,
     ModelingDeclarationKind,
     Namespace,
     NativeBackend,
     NativeSolveIntent,
     NumericalTarget,
-    PresolvePolicyKind,
 )
 from pse.contracts.identities import DeclarationId
 from pse.contracts.reference import ReferenceSchemaRelationsRow
@@ -133,7 +130,7 @@ def test_public_native_process_and_exact_results(
 
 
 @pytest.mark.integration
-def test_public_dynamic_and_transient_fit(
+def test_public_dynamic_stored_results_and_export(
     inspection_settings: pse.EngineSettings,
     tmp_path: Path,
     canonical_substrate: CanonicalFixture,
@@ -149,9 +146,6 @@ def test_public_dynamic_and_transient_fit(
             if p.is_file()
         }
     )
-
-    def identity(n: int) -> SemanticId:
-        return SemanticId(bytes([n]) * 16)
 
     manifest = (
         (root / "tests/fixtures/packages/minimal_explicit/package.toml")
@@ -308,134 +302,6 @@ def test_public_dynamic_and_transient_fit(
     assert destination.is_file()
     with pa.ipc.open_stream(destination) as reader:
         assert reader.read_all().equals(retained_samples)
-    converter = codec.converter()
-    fit = converter.structure(
-        {
-            "fit_id": identity(101),
-            "parameters": [
-                {
-                    "symbol_id": identity(102),
-                    "fixed": False,
-                    "value": 1.0,
-                    "lower": 0.0,
-                    "upper": 10.0,
-                    "scale": 1.0,
-                }
-            ],
-            "experiments": [
-                {
-                    "experiment_id": identity(103),
-                    "case_id": case,
-                    "route": "integrated",
-                    "bindings": [{"parameter_id": identity(102), "path": "root.rate"}],
-                }
-            ],
-            "observations": [
-                {
-                    "observation_id": identity(104),
-                    "value_attribute": "value",
-                    "standard_deviation_attribute": "sigma",
-                    "experiment_id": identity(103),
-                    "output_path": "root.observed[0{s}]",
-                    "time": 1.0,
-                    "time_basis": None,
-                    "time_unit_id": None,
-                    "included": True,
-                    "importance": 1.0,
-                }
-            ],
-        },
-        authored.AuthoredFitCasesRow,
-    )
-    package = package.with_fit_declarations((fit,))
-    # Standalone coordinate keys belong to the case instance. Each fit experiment
-    # has its own instance and consumes the integration controls authored above,
-    # with forward sensitivities selected by the fitting response owner.
-    fit_settings = pse.SolveSettings(
-        backend=NativeBackend.IPOPT,
-        intent=NativeSolveIntent.OPTIMIZE,
-        presolve=PresolvePolicyKind.OFF,
-        controls=pse.SolveControls(hessian=HessianMode.LIMITED_MEMORY),
-    )
-    assert fit_settings.numerics == numerics
-    result = (
-        package.prepare_fit(
-            fit.fit_id,
-            codec.decode_json(
-                codec.encode_json(
-                    {
-                        "version": 1,
-                        "settings": {
-                            "solver": fit_settings,
-                        },
-                    }
-                ),
-                pse.PhysicalFitRequest,
-            ),
-        )
-        .start()
-        .wait()
-    )
-    parameters = pa.table(result.table("runtime.fit_parameters")).to_pylist()
-    assert len(parameters) == 1
-    (parameter_policy,) = (
-        row
-        for row in pa.table(result.table("runtime.resolved_numerics")).to_pylist()
-        if row["target_kind"] == NumericalTarget.VARIABLE
-        and SemanticId(row["target_id"]) == fit.parameters[0].symbol_id
-    )
-    assert parameter_policy["budget"] > 0.0
-    assert parameter_policy["coordinate_scale"] == fit.parameters[0].scale
-    assert parameters[0]["value"] == pytest.approx(
-        3.0, rel=0.0, abs=parameter_policy["budget"]
-    )
-    (response,) = pa.table(result.table("runtime.response_sensitivities")).to_pylist()
-    assert response["run_id"] == bytes(result.run_id)
-    assert SemanticId(response["experiment_id"]) == fit.experiments[0].experiment_id
-    assert SemanticId(response["parameter_id"]) == fit.parameters[0].symbol_id
-    assert response["sample"] == 0
-    assert response["time"] == 1.0
-    assert response["parameter_unit_id"] == parameters[0]["unit_id"]
-    (observation,) = pa.table(result.table("runtime.fit_observations")).to_pylist()
-    assert (
-        SemanticId(observation["observation_id"]) == fit.observations[0].observation_id
-    )
-    assert observation["run_id"] == response["run_id"]
-    assert observation["experiment_id"] == response["experiment_id"]
-    assert observation["included"] is True
-    assert response["output_unit_id"] == observation["unit_id"]
-    # total(t)=2 s+rate*t is affine. The response uses production's weighted,
-    # parameter-scaled coordinates; this observation has sigma=1 s, importance=1.
-    # A half-scale rate change is material and avoids differencing integrated noise.
-    delta = 0.5 * parameter_policy["coordinate_scale"]
-    assert delta > parameter_policy["budget"]
-    upper = fit.parameters[0].upper
-    assert upper is not None
-    assert parameters[0]["value"] + delta <= upper
-    # The output is the same physical Time state admitted above. Assess the
-    # effect of the response at that resolution; this is an empirical comparison,
-    # not a derivative-error certificate inferred from local integration controls.
-    assert delta * response["time"] > state_policy["budget"]
-    assert response["value"] * delta == pytest.approx(
-        delta * response["time"], rel=0.0, abs=state_policy["budget"]
-    )
-    run = pa.table(result.table("runtime.computation_runs")).to_pylist()
-    assert len(run) == 1
-    assert run[0]["termination"] in {"success", "acceptable"}
-    assert run[0]["error"] is None
-    assert run[0]["estimate_qualified"]
-    exported = pa.table(result.export_fit_parameters()).to_pylist()
-    assert len(exported) == 1
-    assert exported[0]["value"] == parameters[0]["value"]
-    assert exported[0]["run_id"] == bytes(result.run_id)
-    assert result.completion.computation is not None
-    assert codec.document_rows(
-        (result.completion.computation,), runtime_contracts.RuntimeComputationRunsRow
-    ) == (converter.structure(run[0], runtime_contracts.RuntimeComputationRunsRow),)
-    assert result.usable
-    checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
-    assert checks
-    assert all(check["satisfied"] for check in checks)
 
 
 @pytest.mark.integration
