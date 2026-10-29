@@ -1662,11 +1662,23 @@ mod tests {
             opentelemetry::trace::SpanId::INVALID
         );
         assert_eq!(producer.links.links.len(), 1);
-        assert_eq!(producer.links.links[0].span_context, initiator_context);
+        assert!(!initiator_context.is_remote());
+        // A carrier is a propagation boundary: W3C extraction marks the
+        // preserved initiator identity as remote, including an in-process link.
+        let linked_initiator = opentelemetry::trace::SpanContext::new(
+            initiator_context.trace_id(),
+            initiator_context.span_id(),
+            initiator_context.trace_flags(),
+            true,
+            initiator_context.trace_state().clone(),
+        );
+        assert_eq!(producer.links.links[0].span_context, linked_initiator);
         assert!(continued.is_valid());
+        assert!(continued.is_remote());
         assert_eq!(continued.trace_id(), producer.span_context.trace_id());
         assert_eq!(continued.span_id(), producer.span_context.span_id());
         assert_eq!(continued.trace_flags(), producer.span_context.trace_flags());
+        assert_eq!(continued.trace_state(), producer.span_context.trace_state());
     }
 
     fn settings() -> Settings {
