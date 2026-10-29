@@ -1,509 +1,212 @@
 # Execution fit
 
-These findings concern necessary versus actual work for the supported workloads: repeated work,
-crossings, units of publication, live state, exclusion scope and recovery. They cover the
-simulator's edit/re-solve, study, dynamic and recycle workloads, under the maintainer premises of
-canonical SurrealDB, 16 coordinated lanes, and durable work that outlives its caller without a
-daemon.
+**Interface-checked. Refreshed 2026-10-29 at source `f83bac039` plus the working tree.** Decisive
+files were clean.
 
-The [collection README](README.md) gives the baseline and limits. Citations are `path::symbol`
-at `b5bdac9da`. Every owner file of DA-034, DA-035 and DA-025 has an empty diff since `cbf45ccc9`.
-S3 re-read their decisive sites at the new baseline. Unless a claim says *Measured*, costs are
-structural observations.
+**Method.** This is qualitative structural assessment under the efficiency heuristics. No
+benchmark, timing or contention measurement was run, so every cost statement here describes
+structure, not magnitude. The maintainer premises apply:
+- canonical SurrealDB/MX;
+- up to 16 SurrealDB-coordinated lanes;
+- durable work that outlives its caller without a daemon.
 
-**Evidence dates.** Earlier *refresh* paragraphs retain the input account's source and scope;
-*followup* notes and the [current revalidation table](README.md#revalidation-outcomes) identify
-this engagement's re-readings and corrections. Earlier exact counts and measurements were not
-renewed by republication.
+The findings assess how these premises are realized, not the premises themselves.
 
-## <a id="da-034"></a>DA-034 — The durable publication unit follows semantic and transport boundaries, and each unit carries the full file-intent lifecycle
+This page holds:
+- the fine-grained durable protocol ([DA-055](#da-055));
+- the retention-protection families ([DA-056](#da-056));
+- the narrowed publication and population residues ([DA-034](#da-034), [DA-035](#da-035));
+- the collection scope record ([DA-025](#da-025)).
 
-**Principles:** AP-07, DP-10, DP-19, DP-20, PS-11; H2, H8, H16, H24, H26, H27, H28; G9 (the
-edit → re-solve loop, PSE-S07).
+Build-unit and per-invocation fit appear under [DA-020](boundaries-and-composition.md#da-020),
+[DA-059](boundaries-and-composition.md#da-059) and
+[DA-043](development-tooling.md#da-043).
 
-**Refresh status:** new. It continues DA-025's concern with machinery scale in a specific
-structural form. It is distinct from DA-026, whose per-row locators are verified removed.
+## <a id="da-055"></a>DA-055 — Each study point runs the generic durable lifecycle as many guarded commits, each with a fixed prologue, against shared per-problem keys
 
-**2026-10-25 refresh: unchanged.**
-- These all still hold, and no templates changed:
-  - the relation-boundary seal in `ResultAppendQueue::push`;
-  - the separate `declare_empty_result_set` write;
-  - the file per chunk in `append_execution_batch`;
-  - the per-file protocol;
-  - `aol=sync&sync=every`.
-- No newer measurement than I30 exists.
-- New in this window: with telemetry selected, each round trip also emits up to three SDK client
-  spans:
-  - `grpc_lifecycle.rs::observe`;
-  - `RequestTrace::new("bounded")`;
-  - `RequestTrace::new("grpc")`.
+**Principles:** AP-07, DP-10, DP-19, DP-20; H2, H5, H8, H19, H22, H23, H25.
 
-  The sampler defaults to `parentbased_always_on` with queue 2048 and batch 512. Per-request
-  continuity is declared contract (Plan 52 O02/F02). Its volume therefore inherits this
-  finding's per-unit multiplication. Export granularity and loss visibility are
-  [DA-042](#da-042).
+**Status:** new on 2026-10-29 (U3). It succeeds the population-loop diagnosis that Plan56 corrected
+for creation and finalization ([DA-035](#da-035)). This finding concerns per-point execution.
 
-**Diagnosis.**
-- `ResultAppendQueue` (`workflow/result_projection.rs`) packs batches into a file only within one
-  (attempt, relation) pair:
-  - It seals at every relation boundary (`push`, when `item.name != name`).
-  - An empty relation forces a queue flush plus its own `declare_empty_result_set` write
-    (`finish_deferred`).
-- `canonical_execution.rs::append_execution_batch` gives every opaque chunk (completion, seeds,
-  progress) its own file.
-- Each file runs the complete crash-safe protocol (`pse-operations/src/canonical_files.rs`):
-  1. `reserve_file`;
-  2. two `intent_open` round trips around an instance lock;
-  3. `publish_locked`, which fsyncs the file, hard-links it and fsyncs two directories;
-  4. a `seal` write;
-  5. a persistent `.locks/<instance>.lock` that is kept after collection.
-- Metadata appends *are* grouped across relations. The per-unit cost is the file protocol.
-- The store runs synchronous persistence (`aol=sync&sync=every`).
-- The same unit serves:
-  - every progress flush (at most 64 events or 200 ms, `durable.rs`);
-  - every live-sample batch (`run.rs`);
-  - every horizon step × relation (`durable.rs::publish_horizon_step`);
-  - every 4-row study-summary page ([DA-035](#da-035)).
-- Durable execution is the *default* Python runtime. An ordinary solve publishes every
-  advertised relation under `StudyOutputDemand::Full`: up to 23 relation sets for modeling and
-  19 for fit.
+**Claim at risk.**
+- Durable studies of up to `MAXIMUM_STUDY_POINTS = 100_000` (`workflow/study.rs:26`) on 16
+  coordinated lanes.
+- PS-11: studies over many cases bind only values per case.
+
+**Owner intent.** This finding challenges a granularity that the owners selected; it is not an
+unnoticed defect.
+- Plan58's SurrealDB boundary disposition O01 routes to 58d D03, which is scheduled and in
+  progress: "complete bounded progression/action/premise handoff; competing workers, sparse
+  continuation, stale preparation".
+- 58d's state-placement table assigns candidate discovery to "bounded applicable action … no
+  local durable scheduler truth".
+- The D03 checkpoint records that `CandidateGroup` still suppresses only local duplicate
+  preparation.
+- The global capture gate in every prologue is §19.3's deliberate correction after an unguarded
+  10,000-member SSI surrogate conflicted and rolled back.
+- The 100k study ceiling and the 10k cohort cap are declared limits.
+
+**Structural cause.**
+- **Many guarded commits per point.** The unit of durable work is
+  point → run → attempt → result sets → manifest → seal → point observation, and each transition
+  is its own guarded RPC transaction. On the success path one point visits roughly a dozen or more
+  synchronous AOL/EveryAppend commits:
+  - `progress_studies` (`worker.rs:1665-1722`);
+  - `claim_prepared_study_point` (`:1963`);
+  - started and renewed;
+  - `register`, which re-reads the run (`durable.rs:1319-1328`);
+  - heartbeat and progress chunks;
+  - queued result appends (`durable.rs:1925-2012`);
+  - seeds;
+  - `terminate`, which re-reads the attempt and run (`:2030-2066`);
+  - completion chunk, close and seal;
+  - a `canonical_study` read, then `observe` (`study.rs:2159-2170`).
+- **A fixed prologue on every commit.**
+  - The deadline.
+  - A `FOR UPDATE` read of the global study capture gate (`fn::pse_workbench_v1::publication`,
+    `surreal.surql:3440-3443`).
+  - The issuer authority and module hash.
+  - History-owner registration.
+  - Schema admission appended to every script: `fn::pse_schema_v1::admit` locks the interpretation
+    marker (`surreal.surql:2375-2390`).
+  - A receipt lookup and an operation-record write.
+  - Client-side, a synchronous `config.json` read and parse ([DA-052](boundaries-and-composition.md#da-052)).
+- **A shared write guard on every claim.** Each claim calls `source_creator`, which touches
+  `source-creators:<problem>` (`pse-codegen/src/codegen/surreal_execution.rs:124-127, 389`). Every
+  point of a study shares that problem, and surrealmx validates write sets first-committer-wins.
+  `ProblemTurns` (`pse-operations/src/canonical.rs:1072-1110`) serializes mutations per problem
+  only within one process.
+- **Discovery restarts each time.** Each lane action restarts progression with
+  `continuation = None` (`worker.rs:1665`), and progression returns one action per RPC. Because
+  preparation precedes the claim, other lanes skip points that are being prepared, one RPC at a
+  time, and separate processes can duplicate preparation.
+- **Retained units are per point.** Each point retains 11 always-on summary relations
+  (`results.rs:64-83`) as separate result sets, because packing happens only within one attempt
+  and relation.
+- **The analysis bound is smaller than the study.** Cohort capture is capped at
+  `STUDY_COHORT_MAX_MEMBERS = 10_000` (`pse-schema/src/catalog/study_workbench.rs:12`), and a
+  cohort scan reads one small body per member per relation (`cohort_provider.rs:420-515`).
 
 **Consequence.**
-- **The edit → re-solve loop**, the profile's first workload, pays publication on its critical
-  path.
-  - The public `RunHandle` wait is terminal only after acknowledgement (Plan 48f).
-  - ADR-0211's Running/Publishing overlap helps a worker refill. It does not shorten an
-    interactive caller's wait.
-  - **Measured** (Plan 48f I30, `docs/plans/48f-scheduling-resources-and-result-completion.md`):
-    - five ordinary small KINSOL samples spent a median 1.47 ms in native work and a median
-      0.85 s exporting through acknowledgement ("Publication dominated this small case");
-    - conditions: a test build, a small payload, measured before Plan 49a moved the store to
-      SurrealMX with synchronous persistence;
-    - it is not a current-engine measurement and does not decompose round trips from fsyncs;
-    - the probe still exists:
-      `workflow/durable.rs::canonical_joined_publication_progress_and_ordinary_cost_probe`.
-- **Other workloads.** Fixed publication machinery scales with semantic kinds, flushes and steps
-  rather than useful bytes:
-  - a value-only study occurrence publishes about ten summary sets plus completion, seed and
-    progress files;
-  - an MPC horizon publishes relations × steps;
-  - live recording publishes one file per sample batch.
-- **Built-in retirement does not collect these units** ([DA-025](#da-025)); an external Rust
-  caller can invoke the public collection primitive.
+- Fixed protocol cost scales with the number of points, not with the scientific work, so
+  many-cheap-case sweeps are dominated by commits.
+- Additional lanes or processes add conflict on the shared per-problem key rather than
+  throughput.
+- 58d records that the 100k ceiling is unqualified and that no database speedup is measured. This
+  finding adds a static reason to doubt that ordinary large sweeps have a credible route under the
+  selected per-point unit.
+- In context, not as a separate defect: studies larger than the declared 10k cohort cap cannot be
+  analysed whole (H11).
+
+**Counterevidence and legitimacy.**
+- Science stays outside transactions (§20.6).
+- Run installation is batched, which amortizes the sequence counter (`surreal.surql:1180-1196`).
+- Result blocks are queued and batched (`result_projection.rs:138-173, 495-533`).
+- Lanes retain preparation and sources.
+- `FOR UPDATE` on the capture gate arms read-lock validation only, so it does not serialize
+  ordinary writers against each other.
+- Lost-ACK safety genuinely needs immutable receipts (§20.2).
+- 58d deliberately rejects a performance ladder.
+
+The commit count per point is approximate, and actual contention is unmeasured.
+
+## <a id="da-056"></a>DA-056 — Retention safety is spread across many owner-specific protection families, each with its own fence and settlement
+
+**Principles:** AP-05, DP-19, DP-01; H1, H25, H27.
+
+**Status:** new on 2026-10-29 (U3). The proportion judgment is interpretive.
+
+**Claim at risk.** One explicit lifecycle per durable fact, and a reclamation answer a reader can
+discover (§20.4; §0.6 "Retention and exact selection").
+
+**Structural cause.**
+- About 18 of the 90 canonical tables hold protections, obligations or reclamation state:
+  - result, capture and manifest protections;
+  - artifact obligations, reads and releases;
+  - file owners, borrowers and admission;
+  - history obligations and retirements;
+  - result and study retirements;
+  - reclaimed ranges, roots and guards.
+- Each family has its own creator/reclaim fence pair, grant/incarnation/nonce binding or
+  monotone floor.
+- `pse-operations/src/canonical_lifecycle.rs:11-55` lists seven release kinds, "each effect has a
+  different original owner". The explanation facade exists because no single model answers "why
+  is this retained?".
+- Liveness is decided two ways:
+  - attempts use leases;
+  - file owners persist boot, PID namespace, PID, start time, systemd unit and cgroup inode in
+    the canonical store (`canonical_files.rs:294-331`). That sits awkwardly with 58d's rule that
+    process state in the store is "logical intent/status only".
+- Read tickets are canonical writes, released by flag rather than deleted
+  (`surreal_files.rs:110-126`).
+
+**Consequence.**
+- Each new producer or consumer kind registers with several fences.
+- Creator fences are writes on shared keys, which feeds [DA-055](#da-055).
+- Readers pay durable writes.
+- Extension and diagnosis need several mechanisms (H27).
 
 **Counterevidence.**
-- Durable-by-default is deliberate: scope §0, §21 and ADR-0164 say "ordinary runtime construction
-  is durable". `Runtime(..., ephemeral=True)` gives an explicit store-free route. The defect is
-  the per-unit fixed cost, not durability.
-- ADR-0187 moved bulk bytes into sealed private files, for bounded RPC envelopes and lazy
-  protected reads. Its packing rule packs compatible batches from one
-  attempt/relation/schema/interpretation, up to 16 MiB. It rejected per-writer logs as extra
-  arbitration machinery.
-- An Arrow IPC file holds one schema, so one file per relation is the natural container.
-- Demanded acknowledgements flush immediately for observability.
-- These justify the file tier and the per-relation container. They do not weigh the fixed cost
-  per file for tiny, frequent units:
-  - small control receipts already stay in the database;
-  - Plan 45 groups physical-source publication by bytes.
+- ADR-0164 has a principled three-lifetime table.
+- DP-05 favors separate owners where release semantics genuinely differ.
+- Collection is bounded and restartable.
+- The explanation facade gives one read view.
+- Under the daemonless premise, a persisted owner identity is a reasonable way to detect crashed
+  owners.
 
-**Evidence.**
-- *Implemented* for the unit structure and the round-trip and fsync sequence. The coordinator
-  re-read the relation-boundary seal and the Full default.
-- *Measured* for the I30 small-case ratio, under its stated conditions.
-- Current structural amplification is *Implemented*; persistence of the historical timing
-  ratio on the current engine is an unmeasured hypothesis. Re-running the existing probe and
-  counting files, round trips and fsyncs for a Full solve, Compact occurrence and horizon would
-  measure the current consequence. Interface inspection cannot renew a historical ratio.
+It was not established that one reachability model could honor all of these semantics.
 
-**Improvement direction.**
-- Physical units chosen by flush economics and recovery need:
-  - one sealed object per attempt or per publication-lane flush, with per-member descriptors;
-  - small payloads inline in the metadata transaction;
-  - empty sets declared in the close manifest;
-  - progress and live cadence set by consumer demand.
-- An interactive caller's critical path holds only what its result requires.
-- Crash safety, exact bytes and per-run retirement semantics are kept.
+## <a id="da-034"></a>DA-034 — Above the inline threshold, each relation-sized publication unit carries the full file-intent protocol
 
-Changing ADR-0187's packing rule is the rule impact a solution would carry.
+**Principles:** AP-07; H2, H5.
 
-## <a id="da-035"></a>DA-035 — Study population operations are realized as loops of per-occurrence item operations
+**Status:** narrowed. Small units are inline at or below `RESULT_INLINE_BYTES`
+(`workflow/result_projection.rs:374-377`). Above it, units are still sealed at relation
+boundaries (`:264-271`), each with the intent/fsync lifecycle. The per-point consequence is
+absorbed into [DA-055](#da-055).
 
-**Principles:** AP-07, DP-10, DP-20, PS-11; H7, H8, H10, H11; G9 (PSE-S07, PSE-S03).
+## <a id="da-035"></a>DA-035 — Study reopen and admission reconstruction page full descriptors four rows at a time
 
-**Refresh status:** new.
+**Principles:** AP-07; H5.
 
-**2026-10-25 refresh: unchanged.**
-- These all still hold:
-  - `create_study`'s single 90 s clock and its per-point `begin_run`;
-  - `LIMIT 4`;
-  - `MAXIMUM_STUDY_POINTS`;
-  - the cohort cap of 128.
-- Commit `80a889ac1` ("keep independent study claim custody separate") is a custody correctness
-  fix. It adds a per-invocation nonce to the `study-claim:` key in `worker.rs::work_study_candidate`
-  and does not change population handling.
-
-**Diagnosis.**
-1. **Creation.**
-   - Point rows are batched at 64 rows or 2 MiB.
-   - `pse-operations/src/canonical_studies.rs::create_study` still issues one guarded
-     `begin_run` write per point. Each touches the execution, sequence and source-creator guards
-     and creates roots and edges.
-   - The whole creation runs inside one fixed `within_clock(ACTIVATION_REQUEST_TIMEOUT)` of 90 s,
-     whatever the point count.
-   - A retry restarts at point 0.
-   - The admission bound is `MAXIMUM_STUDY_POINTS = 100_000` (`workflow/study.rs`).
-2. **Finalization and observation.**
-   - `study_outcome_page` and `STUDY_DEFINITION_SQL` use `LIMIT 4`, because each row carries the
-     full descriptor (up to 512 KiB) under the 4 MiB message bound. The outcome row needs only
-     the case id and binding hash from it.
-   - `workflow/study.rs::finalize_canonical_study` turns each 4-row page into one sealed file,
-     one `append_result_block` write and one `renew_attempt` write.
-   - The joined caller re-pages every descriptor four at a time.
-3. **Analysis.**
-   - `workflow/study_workbench.rs::FrozenStudyCohort::aggregate` runs one full protected reader
-     per member and holds them all live until one DataFusion `union`.
-   - Cohorts refuse more than 64 studies or 128 occurrences.
-   - There is no population-level reader over one relation across attempts.
-
-**Consequence.** Take a value-only sweep near the admitted bound, the profile's canonical study
-workload:
-- **Creation** needs about 100k sequential guarded writes inside 90 s, under 1 ms each including
-  synchronous persistence. A timeout repeats them (H11).
-- **Finalization** produces about 25k four-row files serially (DA-034, DA-025).
-- **Analysis.** Any sweep larger than 128 points needs caller-side paging and recombination.
-
-The middle of the workload is sound: lane-parallel and structure-reusing. Its ends are not.
-
-**Counterevidence.**
-- Per-occurrence runs are the recovery and retry unit under the durability premise. Eager run
-  creation gives every occurrence durable identity before activation.
-- Bounded pages and cohorts keep every response and memory charge finite (DP-20). Decision I28
-  retains bounded canonical pages and reopens streaming only for a named consumer.
-- No architecture section declares 100k-point studies a supported workload; 100k is the
-  admission bound. A clock that does not scale with N and a descriptor-sized page still do not
-  follow from these reasons.
-
-**Evidence:**
-- *Implemented* for the loops, limits and clock scope. The coordinator re-read `create_study` and
-  the `LIMIT 4` pages.
-- Whether creation times out at large N is *Interface-checked*: no test exceeds about 132 points.
-  Creating and finalizing 10k- and 100k-point studies would settle it.
-
-**Improvement direction.**
-- Population intents expressed at set level in the store: batched creation in bounded
-  transactions with a resumable cursor, and a clock proportional to declared size.
-- Server-side projection of only the fields outcome rows need (H7).
-- The study summary published as one or a few objects.
-- A population-level reader, or a study-level columnar view, under one protection.
+**Status:** narrowed.
+- Creation is cursor-resumed (`canonical_studies.rs:1006`), and finalization and cohort premises
+  are corrected.
+- `LIMIT 4` full-descriptor paging (`canonical_studies.rs:55`) survives for reopen and admission
+  reconstruction (`workflow/study.rs:570, 1015`), which may legitimately need descriptors.
+- Per-point execution is [DA-055](#da-055).
 
 ## <a id="da-025"></a>DA-025 — Built-in retirement stops at logical cleanup; physical collection remains an explicit scope limit
 
-**Principles considered:** DP-19, DP-20, AP-07; H11, H25, H27.
-**Followup disposition at `682fc3830`: no active violation established under the selected scope.**
-
-The preceding finding overstated an implemented public primitive as a missing production route.
-`CanonicalStore::collect_file` is effectful production Rust code that can unlink eligible sealed
-payloads. Search across `crates/`, `xtask/`, `scripts/` and `python/` finds only in-repository test
-callers. Built-in `Runtime::reclaim_run_results` composes logical forgetting through the guarded
-retention owner, not file discovery/collection. External Rust callers are not excluded.
-
-The substrate guide deliberately selects no automatic collector and excludes returned disk
-space. Blueprint §20 likewise says logical collection does not establish returned disk space.
-The current reclaim API promises a bounded cleanup page, not reclaimed physical bytes. No
-supported disk-reclamation promise is disproved by the missing built-in composition.
-
-**Operational consequence retained.** Unless an external caller collects eligible files,
-logically released payloads remain in the inventory inspected by backup. Lock retention has its
-own explicit lifetime. DA-034/DA-044 own the consequences of physical publication and retained
-inventory; this scope limit does not make all payloads permanently uncollectable.
-
-**Optional improvement question.** Long-lived project use can motivate assessment of a bounded
-operator composition of discovery and the existing collector, preserving tickets, borrowers and
-backup freeze. That motivation is not proof that the no-automatic-collector decision is wrong or
-authority to reopen it. No changed collection scope, lock policy or API is selected here.
-
-**Evidence:** *Interface-checked* for the static call search, public primitive, runtime composition
-and documented scope. No collection probe or disk-space measurement ran. Preserve this identity
-and scope note; do not count it as a demonstrated open principle violation or prescribed repair.
-
-## <a id="da-044"></a>DA-044 — Backup verification runs under a fixed clock and makes repeated full content passes over an ever-growing inventory
-
-**Principles:** AP-07, DP-19, DP-20; H11, H20, H25, H27 (PSE-S07 and a long-lived Plan 51 store).
-
-**Refresh status:** new at 2026-10-25. The backup v4 internals were a prior coverage gap. The
-code dates from Plan 51 and was not changed in this window.
-
-**Diagnosis** (`scripts/surreal_server.py`).
-- **A fixed verifier clock.** `_backup` calls `freeze_payloads`, then `verify_payload_inventory`.
-  The latter runs the native verifier (`pse-canonical-recovery --verify-payload-inventory`) over
-  every sealed or attached instance under a fixed `timeout=120`, whatever the inventory size.
-- **Repeated content passes.** By S3's count, each payload byte is read about six times:
-  1. `freeze_payloads`;
-  2. the native verifier;
-  3. the `copy2` in `copy_payload_inventory`;
-  4. `checked_file` on the target;
-  5. `checked_file` on the source;
-  6. the manifest `file_digest` over the whole destination tree.
-
-  Restore validates the backup at least three times (`restore`, then twice in
-  `complete_backup_copy`).
-- **Asymmetric verification and durability.**
-  - Payload files are copied, fsynced and compared against their source
-    (`copy_payload_inventory`).
-  - The `database` tree, `.generations` and `.contexts` are copied with `shutil.copytree`, never
-    fsynced and never compared against the source. Only the destination copy is digested into
-    the manifest. The database's fidelity is checked logically at restore, through the
-    application inventory (§20).
-  - Restore fsyncs every file and directory before it advances its phase.
-- Backup is offline: it stops the store and requires drained contexts.
-
-**Consequence.**
-- Without an external collector, built-in retirement leaves logically released payloads in
-  the backup inventory ([DA-025](#da-025)); backup work grows with that retained population.
-- Past the verifier's throughput × 120 s, backup refuses. This is suspected, since it depends on
-  throughput.
-- The refusal is a raw `subprocess.TimeoutExpired`, reported by `main` as "TimeoutExpired:
-  supervisor operation failed". By then `freeze_payloads` has closed admission and set
-  `payload_frozen`. The store therefore stays frozen until an explicit reopen
-  (`open_context_admission`). That fails closed, but undiagnosed. This is the challenger's
-  reading of the control flow.
-- The fixed clock has the same form as DA-035's 90 s creation clock.
-- The missing database fsync sits inside a declared limit: §20 "does not … claim power-loss
-  durability", and the substrate guide excludes "physical power-loss survival". What remains is
-  an inconsistency with restore's own fsync discipline, not a broken contract. A restore detects a
-  damaged copy and refuses.
-
-**Counterevidence.**
-- An offline full copy is the simplest sufficient protocol for a single operator (H25).
-- The native verifier is an independent owner that checks more than the digest.
-- Restore is truthful:
-  - it refuses rather than repairs;
-  - it reports `physical_reclaimed_bytes: None`;
-  - it keeps unsettled effects;
-  - it publishes a fresh closed identity before copying and can resume.
-
-**Evidence:** *Implemented* for the fixed clock and the copy and fsync sequence; the coordinator
-re-read `_backup`, the `timeout=120` call and `copy_payload_inventory`. The six-pass count is S3's
-reading. The scale consequence is *Interface-checked*. A backup of a store holding a few hundred
-thousand payload files and tens of GB would settle it.
-
-**Improvement direction.**
-- Verification with an explicit inventory/work contract and actionable timeout/recovery state.
-  Preserve settled freeze and admission ownership; automatic thaw is not established as safe.
-- Avoid repeated content passes where copy, checksum and independent verification obligations
-  can safely share work. A single pass is a candidate, not permission to remove an independent
-  semantic check.
-- Assess any changed durability mechanism against the actual declared guarantee. Missing
-  power-loss fsync is a documented exclusion, not an established broken backup contract.
-
-**Related:** [DA-019](boundaries-and-composition.md#da-019) (backup lives in the tooling
-supervisor), [DA-025](#da-025), [DA-034](#da-034).
-
-**2026-10-25 followup at `682fc3830`.** Re-read `_backup`, payload freeze/verifier,
-copy/comparison and restore sequences. Retain the fixed clock and repeated-pass diagnosis;
-withdraw mandatory self-thaw and any implication that excluded power-loss survival is required.
-No failure or capacity threshold was reproduced, and the earlier approximate pass count was not
-promoted to a new measurement.
-
-## <a id="da-042"></a>DA-042 — Exported span granularity is selected by crate prefix, and the SDK's own drop count is compiled away
-
-**Principles:** AP-05, DP-03, DP-21.
-
-**Refresh status:** new at 2026-10-25 and narrowed before publication by challenge C10. The
-draft also claimed that per-request SDK spans and possible span loss were defects. Both are
-declared contract:
-- per-request continuity is Plan 52 O02/F02, published at blueprint revision 268;
-- §24.1 states that "final batches, or all spans from a short solve, may be absent", and that
-  health reads "retain unavailable, unsupported, lost, sampled, expired and unknown
-  observations".
-
-What survives is narrow and bounded. It is not grouped under the five causes.
-
-**Diagnosis.**
-- **Granularity is a prefix convention.**
-  - §24.1 says ordinary selected telemetry exports "coarse owner stages".
-  - `tooling/telemetry.rs::exported_owner_span` exports every span whose target starts with
-    `pse`, plus the vendored SDK lifecycle target.
-  - Spans created before Plan 52 for finite capture are therefore exported once trace export is
-    selected:
-    - per-body admission and reuse spans in `pse-compiler/.../grouped.rs::semantic_body`;
-    - per-construction spans in `pse-math/src/execution.rs`.
-  - A future `info_span!` in an inner loop would be exported automatically.
-- **The drop count that would make "lost" observable is discarded.**
-  - `BatchSpanProcessor::on_end` drops a span on a full queue with `try_send`. The SDK keeps a
-    private `dropped_spans_count`, reported only through `otel_warn!`.
-  - The workspace and the vendored SDK both build `opentelemetry_sdk` with
-    `default-features = false` and without `internal-logs`, which is in the SDK's default set, so
-    the report compiles out.
-  - `telemetry_process.py::local_status` then reports `dropped_records: "unavailable"`. That is
-    truthful under §24.1, but it is unavailable by build selection, not by library limitation.
-
-**Consequence.**
-- The "coarse stages" property depends on authors never adding an `info_span!` in an inner loop.
-- An operator who sees missing spans cannot tell queue loss from sampling or export failure.
-  Span volume does follow DA-034's per-unit round trips (see [DA-034](#da-034)), which makes queue
-  pressure plausible in long studies.
-- Science is unaffected.
-
-**Counterevidence.**
-- Spans in `pse-runtime` are coarse.
-- No inspected crate uses `trace_span!` or `debug_span!`.
-- Per-body spans fire once per distinct body per preparation, not per iteration.
-- §24.1 makes no completeness claim, and it says a processed count does not prove receipt.
-
-**Evidence:** *Implemented* for the filter, the feature selection and the SDK's private counter.
-S2, S3 and the challenger read these; S3 also read the installed `opentelemetry_sdk-0.33.1`
-source. The coordinator re-read the filter and the workspace feature list. Counting spans emitted
-against spans ingested for one Full solve and one study of about 1k points would show whether
-queue loss occurs.
-
-**Improvement direction.**
-- Exported granularity selected by declared owner stage rather than crate prefix.
-- The SDK's drop count surfaced through the existing pipeline-health read.
-
-**Related:** [DA-034](#da-034), [DA-040](structure-and-invariants.md#da-040).
-
-## <a id="da-045"></a>DA-045 — Executable project closure couples selection and admission to aggregate source-byte materialization
-
-**Principles:** AP-07, DP-10, DP-19, DP-20; H6, H16, H17, H27; G9 (selected project export or
-explanation across study/context/source history).
-
-**2026-10-25 followup at `682fc3830`: new diagnosis of unchanged implementation.** The
-independent lifecycle pass found this before reading the preceding catalogue. The preceding
-account explicitly left exchange internals largely unexamined. This is a separate live-state
-mechanism, not another instance of per-file publication cost under DA-034.
-
-**Diagnosis.** `workflow/project_closure.rs::resolve_project_closure` is the shared exact
-traversal for executable export and explanation. It:
-- collects selected modeling packages across source revisions into a `BTreeMap`;
-- for each source, creates replay JSON, obtains physical and authored documents, and clones their
-  bytes into `ResolvedClosure::documents: Vec<(String, Vec<u8>)>`;
-- retains those documents, source allocation owners, original source protections, and result and
-  artifact readers until the whole closure is returned.
-
-`project_portability.rs::project_export_resolved` completes that resolver before creating and
-copying any destination member. It then writes documents sequentially. Their aggregate output
-allowance is checked in `finish_member` after each staging write, rather than constraining the
-preceding aggregate source hydration. Results and artifacts already have more incremental copy
-routes.
-
-`Runtime::project_closure` uses the same materializing resolver to return a manifest and
-`known_source_bytes`; it discards the encoded source bodies after summing their sizes. The
-explicit descriptive-only metadata route avoids opening them, but is a different, non-executable
-contract and does not remove this behavior from executable explanation.
-
-**Consequence.** For an ordinary selected project closure spanning several revisions, live
-preparation includes the combined selected source encodings and repeated physical document bytes,
-even when the destination is sequential or the caller only needs an executable closure
-explanation. The reader/writer boundary requires aggregate residency before the first useful
-copy, and an ultimately over-budget output may incur that preparation before refusing.
-
-This is structural work/live-state amplification, not a demonstrated OOM, throughput bottleneck
-or claim that the largest admitted selection is a qualified supported workload. Its practical
-severity at ordinary exchange sizes remains unresolved. The material opportunity is to remove
-simultaneous encoded payload retention that is not required merely by exact selection or original
-scientific admission.
-
-**Counterevidence.**
-- Exact historical closure, scientific source admission, original protections, provider premises
-  and destination checksums are necessary. Executable explanation is not required to be a cheap
-  metadata read.
-- Source grants and per-document encoding limits already make pressure refuse honestly. This is
-  not an unaccounted-allocation finding. Requests bound individual selection lists to 1024 and
-  encoded documents to at most 64 MiB; neither bound promises aggregate scale qualification.
-- Materializing a small fixed closure is simple and may be proportionate. No current case size,
-  latency or peak resident memory was measured.
-
-**Evidence:** *Implemented* for the container, source loop, pre-copy resolver and late document
-output check; *Interface-checked* for the improvement opportunity and scale consequence. The
-coordinator re-read `ResolvedClosure`, `resolve_project_closure`, both explanation routes and
-`project_export_resolved::finish_member`. No export or memory probe was executed.
-
-**Improvement direction.** Separate exact closure identity/admission from simultaneous encoded
-payload hydration. Bound live encoding/copy work by useful units while retaining immutable source
-premises and protection through final manifest publication. Apply the remaining output allowance
-before unnecessary document copying. Correction should preserve exact closure/checksum and
-interruption behavior while an executable explanation or multi-revision export no longer needs
-all encoded source bodies resident together; measure benefit only if that decision needs it.
-
-**Related:** [DA-035](#da-035) also couples population intent to item representations, but has a
-different operation and physical cause. [DA-033](boundaries-and-composition.md#da-033) governs
-publication semantics, which this correction must preserve.
+**Status:** retained as a scope record, with no active violation.
+- The public collector (`pse-operations/src/canonical_files.rs:799`) has no built-in composition.
+- Plan58 confirms "no automatic collection".
 
 ## Considered and not raised
 
-**Thread and pool sizing (prior coverage gap, examined 2026-10-25).**
-- *One owner inside each process.* `env.rs` sets `native_cores` to the smaller of available
-  parallelism and the pool thread count. One `ReleaseNotifyingSemaphore` is shared by:
-  - compiler jobs;
-  - native math jobs;
-  - prepared DataFusion query roots (`pse-engine/src/session/preparation.rs::query_admission`).
-- *Native teams receive their admitted width.* MKL `Threads::enter`, the HiGHS `threads` option,
-  and explicitly sized rayon pools inside `pounce::with_threads`. BLAS and OpenMP default to 1,
-  with `MKL_DYNAMIC` authoritative.
-- *Three cross-pool gaps are suspected, not established:*
-  1. The `pse-worker` Tokio runtime uses Tokio's default worker count. Under `taskset` to 16
-     CPUs, this coincides with the budget.
-  2. DataFrame-route reads bypass CPU admission: result snapshot providers and the cohort union.
-  3. The store receives thread counts sized to 32 logical CPUs, which overlap the worker's 16
-     physical CPUs.
-- Reading the existing tokio-metrics long-delay counters during a 16-lane study with concurrent
-  workbench reads would settle them.
-
-**Merge ancestry.**
-- `project_comparison.rs::project_is_ancestor` walks history caller-side. It makes two RPCs per
-  revision, refuses at 8192 visited, and runs twice per decision.
-- That is DA-035's shape, but the cost is proportional to the distance to the base, and merges
-  are rare.
-- Withdrawn as a candidate.
-- The merge semantics are a strength: three-way merge by logical identity with typed conflicts,
-  and a compare-and-set head.
-
-**Result inspection decode.**
-- Block pruning applies before payload acquisition.
-- Each block is then decoded at full width and fully admitted, with no IPC column projection.
-- This is an H7/H19 lead, unmeasured.
-
-**The per-problem creator guard.**
-- Every protection acquisition and every creator writes `canonical_guards` /
-  `source-creators:<problem>`, which serializes creator–creator decisions
-  (`pse-operations/src/canonical.rs::ACQUIRE_PROTECTION`, `ProblemTurns`).
-- Plan 49 decision I01 measured actual 16-lane mixed work. It kept `ProblemTurns` and the shared
-  source-creator and sequence guards as necessary pacing, and found no safe excess-scope
-  replacement.
-- Plan 49a established that `FOR UPDATE` tracks observed records, not range phantoms. That rules
-  out the obvious range-read alternative.
-- A protection is a creator with respect to reclamation.
-- What would reopen it: creators added since I01 (Plan 51 project roots and research rows), and
-  per-member protections in study KPI analysis ([DA-035](#da-035)), contending measurably under
-  concurrent 16-lane work.
-- *2026-10-25.* No new kind of creator exists. Plan 55 adds a low-rate external population: each
-  MCP `result_read` or `result_inspect` call acquires one protection and so touches
-  `source-creators:<problem>`. Reading the existing `pacing_observation::conflict` counters
-  during a 16-lane study with concurrent agent paging would show whether this matters.
+- **Per-case solve preparation** re-resolves policy, class discovery and routing
+  (`math/solves.rs:3148-3260`). Class discovery is value-dependent, and a defect was not
+  established.
+- **Parallel preparation-reuse trackers** beside Salsa: runtime premise traces, `ModelingCache`,
+  a parsed-fields cache, thread-local quantity premises, and duplicated `BasisKey`/`request_hash`
+  composition. These are within [DA-030](#da-030)'s decision scope, and no stale reuse was found,
+  so DA-030 is not reopened.
+- **Per-command supervised scopes.** The native host's scope-per-command containment is
+  deliberate (ADR-0233) and unmeasured.
 
 ## Closed by decision, resolved and merged identities
 
-| ID | Refresh outcome | What establishes it |
+| ID | Outcome at `f83bac039` | Decisive evidence |
 |---|---|---|
-| <a id="da-022"></a>DA-022 | Closed by decision (I16) | Memory admission rests on hand size models: about 328 estimator functions (275 before), with ad hoc constants such as `reads.len() * 128`. I16 investigated and found that existing `HeapUsage` and generated rows account their structures, and adopted no sizing crate. Revisit trigger: a concrete unsupported allocation or graph lifecycle with fallible admission, no double charge, last-alias custody and measured overhead. |
-| <a id="da-026"></a>DA-026 | Resolved | `canonical_result_rows` is gone from the generated schema (`f1c12663e`). `workflow/result_snapshot.rs` builds a DataFusion `PruningPredicate` with `Inexact` pushdown, and scalar appends write no per-row outputs. |
-| <a id="da-027"></a>DA-027 | Resolved | `pse-modeling/src/specialize/group.rs` and its group/re-expand/re-identify cycle are deleted (`4de4c68d6`). No rendering remains in compiler identity. |
-| <a id="da-028"></a>DA-028 | Resolved structurally | Multi-output guarded regions share members across outputs (`pse-modeling/src/resolved/selection.rs::{RegionRequest, RegionOutput}`). The magnitude was never measured. |
-| <a id="da-029"></a>DA-029 | Resolved in the compiler; residue merged | Compiler projection holds no per-item linear search. The runtime scans in `require_frozen_expression` and the dynamic row lookup are manifestations of [DA-006](semantic-model-and-authority.md#da-006). |
-| <a id="da-030"></a>DA-030 | Closed by decision (I08–I10) | The cross-lane `MathService` cache and flights beside Salsa, and pointer-address keys, are retained. I08 keeps independent publication lanes, I09 keeps reached exact-key flights, and I10 adds no compiler persistence. The `selected()` firewall prevents unrelated edits from invalidating projection. No stale reuse has been demonstrated. Revisit when a stale reuse or a distinct cold-work need appears. |
+| <a id="da-022"></a>DA-022 | Closed by decision (I16) | No new unsupported-allocation evidence sought or seen |
+| <a id="da-030"></a>DA-030 | Closed by decision (I08–I10) | The always-cold MCP worker population that made it a candidate trigger was deleted (`f321e9e0f`). The 2026-10-29 preparation stream found several premise/key mechanisms but no stale reuse; revisit trigger unchanged |
+| <a id="da-042"></a>DA-042 | Resolved | Explicit owner-stage/request-span export filter and SDK loss layer (`tooling/telemetry.rs:33-37, 231, 276`) |
+| <a id="da-044"></a>DA-044 | Resolved; mechanism on a retiring path | Checkpointed recovery with a startup deadline (`scripts/surreal_server.py:7148-7235`). Backup remains in the Python supervisor; persistent backup/restore qualification belongs to 58h |
+| <a id="da-045"></a>DA-045 | Resolved | `ResolvedClosure` holds no aggregate document vector (`workflow/project_closure.rs:13-18`) |
+| <a id="da-026"></a>DA-026 | Resolved (2026-10-25) | Per-row locators removed; DataFusion pruning |
+| <a id="da-027"></a>DA-027 | Resolved (2026-10-25) | Group/re-expand cycle deleted |
+| <a id="da-028"></a>DA-028 | Resolved structurally (2026-10-25) | Multi-output guarded regions |
+| <a id="da-029"></a>DA-029 | Resolved in the compiler (2026-10-25) | Runtime scan residue later resolved with DA-006's original manifestations |
 
-The removal commit of the 2026-10-24 refresh preserves their 2026-10-21 text. DA-022's home
-moved here from the local-reasoning page.
-
-**Revisit triggers at 2026-10-25: none established as fired; one is a candidate.**
-- *DA-022.* The window adds small `HeapUsage` impls and fixed inspection reservations. The OTel
-  SDK batch queues and the blocking export clients sit outside the accounted pool, like the
-  global-allocator exclusion ADR-0046 already states. No fallible-admission need is demonstrated.
-- *DA-030.* `math.rs` adds only process counters, and no stale reuse is reported.
-  - The trigger also names "a distinct cold-work need". Always-cold MCP workers
-    ([DA-043](development-tooling.md#da-043)) are a **candidate** trigger: a new population that
-    cannot reuse in-memory preparation.
-  - Whether the need is material is unmeasured. DA-043's cold-call breakdown would decide it.
-  - A remedy that keeps a native worker alive would not touch I10. A remedy that persists
-    compiler products would reopen I10.
+Earlier full text is at source `682fc3830`.

@@ -1,484 +1,238 @@
 # Structure and invariants
 
-These findings concern three things:
-- whether distinctions, relationships, lifecycles and failure meanings have explicit,
-  enforceable representations;
-- whether those representations are declared once;
-- whether they are re-spelled in strings and conventions.
+**Interface-checked. Refreshed 2026-10-29 at source `f83bac039` plus the working tree.** Decisive
+files were clean.
 
-The [collection README](README.md) gives the baseline and limits. Citations are `path::symbol`
-at `b5bdac9da`. Where a finding's code is unchanged since `cbf45ccc9`, its earlier citations were
-premise-checked at the new baseline; each *2026-10-25 refresh* note says what was re-read.
+This page holds the primary causes in which a vocabulary, identity or transition is declared in
+one place but enforced, or re-spelled, by convention elsewhere:
+- canonical store vocabularies ([DA-007](#da-007));
+- canonical transition authority ([DA-051](#da-051));
+- identity derivation ([DA-050](#da-050));
+- failure classification ([DA-039](#da-039)).
 
-**Evidence dates.** Earlier *refresh* paragraphs retain the input account's source and scope;
-*followup* notes and the [current revalidation table](README.md#revalidation-outcomes) identify
-this engagement's re-readings and corrections. Earlier exact counts and measurements were not
-renewed by republication.
+The [integrated account](system-architecture.md) groups them under its cause about central
+vocabularies applied at consumers.
 
-## <a id="da-007"></a>DA-007 — The canonical store's meaning lives outside the registry and is re-spelled in strings in every layer
+## <a id="da-051"></a>DA-051 — Canonical transition authority is split across four representations and invoked through hand positional strings
 
-**Principles:** AP-04, AP-05, DP-01, DP-02, DP-03, DP-04, DP-07, DP-24; G1, G2.
+**Principles:** AP-04, AP-05, AP-02, DP-01, DP-02, DP-03, DP-24.
 
-**Refresh status:** retained and widened.
-- Plan 49 made attempt `phase` and `outcome` a store-enforced state machine
-  (`pse-schema/src/catalog/substrate.rs::ATTEMPT_TRANSITIONS`, generated `ASSERT`s). It coded
-  every refusal and guarded analysis-owner release (`ARTIFACT_HOLDERS`).
-- Plan 51 then added projects, branches, drafts, contexts, imports and research using the old
-  pattern.
-- Several halves of other findings merge here:
-  - the store-key half of DA-002;
-  - the artifact-profile half of DA-032;
-  - the canonical-key half of DA-005.
+**Status:** new on 2026-10-29. Two unanchored streams, durable state (U3) and structure (U4),
+reported it independently. It is distinct from [DA-007](#da-007), which owns re-spelled
+vocabularies and keys. This finding owns where a transition's *rule* lives.
 
-**2026-10-25 refresh: decisive core unchanged, item 4 widened.**
-- The catalog, the SurrealQL generators and the templates are unchanged.
-- The only registry addition is three Rust-owned telemetry vocabularies. Their placement is
-  [DA-020](boundaries-and-composition.md#da-020).
-- The v2 `ResultInspectionRequest` still keys by `run`, `attempt` and `relation` as `String`.
-  The adjacent `tooling/inspection_comparison.rs` already uses typed `RunId` and `AttemptId`.
-- The suspected evidence footprint is now known. `evidence_query/comparison.rs` decides
-  ambiguity with `identity.kind == "rust_test"`, the same literal minted in
-  `evidence_query.rs`, and SQL `e.kind='context'`.
-- Closed vocabularies inside the new *boundary documents*, as opposed to store records, are
-  [DA-040](#da-040).
+**Claim at risk.**
+- §0.6: every decision vocabulary that crosses a boundary is a registry enumeration with one Rust
+  type, and operational state is registry-generated.
+- Plan58 58d D03: "repeated action interpretation deleted".
 
-**Diagnosis.** The registry declares canonical record *shapes*: `catalog/substrate.rs` has
-329 text columns and three enumerations, and `catalog/projects.rs`, `project_imports.rs` and
-`project_contexts.rs` declare keys and kinds as text. The decision-relevant *meaning* of those
-records is authored again in each layer that touches it:
-- generator branches keyed on table names (`pse-codegen/src/codegen/surreal.rs`);
-- about 4k lines of hand-written SurrealQL in Rust string constants
-  (`codegen/surreal_*.rs`, concatenated into `generated/surreal.surql`);
-- inline SurrealQL and pre-checks in `pse-operations`;
-- `&str` store APIs;
-- exchange documents;
-- Python `str`.
+**Structural cause.** One transition, such as an attempt phase change, a claim or a study-point
+settlement, is expressed in four places:
 
-1. **Identity kinds are string conventions recovered by parsing.**
-   - Run keys are `format!("run:{run_id}")`, with `RunId` recovered by `strip_prefix` and
-     `parse_hex` (`workflow/study_execution.rs`, `workflow/worker.rs`).
-   - `AttemptId` is re-derived by hashing the key with a call-site literal
-     (`FramedHasher::new(Frame::CanonicalPayloadV1).str("scientific.attempt.lineage.v1")…`,
-     in `durable.rs` and `worker.rs`).
-   - Admission and variant runs are `study-admission:{point}` and `study-variant:{point}`.
-     The store's attempt state machine branches on
-     `string::starts_with($this.run,'study-admission:')` (`codegen/surreal.rs` ≈233).
-     These special admission/variant associations are reconstructed by prefix (DP-07).
-     Ordinary membership is not absent: `canonical_study_points` declares `study` and `run`, and
-     claim/terminal rows also have point fields. The finding does not generalize prefix-only
-     representation to every run–point relationship.
-   - The public boundary carries no key kind either.
-     - Canonical keys are bare `str` throughout `python/pse/_workflow.py`, and Plan 51 extended
-       this to project, branch, scope and operation keys.
-     - The prior account's example persists: `study(study_id: StudyId)` versus
-       `forget_study_results(study: str)`.
-2. **Store vocabularies are hand-spelled per layer.**
-   - Owner kinds (`product`, `analysis`, `artifact`, `study`, `run`, `project`, …) appear in
-     about 55 literal comparisons, and `ARTIFACT_HOLDERS` embeds SurrealQL guard text inside
-     the registry crate.
-   - Persisted artifact kinds are five literals in the reader (`workflow/artifacts.rs`) but
-     three in the registry (`ScientificArtifactKind`).
-   - Plan 51 project commands are a typed Rust enum lowered to `kind` strings and re-dispatched
-     by literal in `codegen/surreal_projects.rs`.
-   - Templates hold 53 literal `IN [...]` vocabularies, including the registry enum
-     `CanonicalTerminalOutcome` re-spelled in `surreal_execution.rs`.
-   - Research roles are `String`, with the vocabulary in `workflow/research.rs` and in the
-     template.
-3. **Field rules have two homes.**
-   - Attempt and study immutability and transitions are `pse-schema` constants.
-   - Project, import, draft-version, context and knowledge immutability and state machines are
-     18 `matches!(table, …)` branches in `codegen/surreal.rs`.
-   - Artifact and analysis `active`/`retiring`, and study `active`/`terminal`, remain unasserted
-     bool pairs.
-   - File-instance `state` is a free string, tested against a hand Rust string set
-     (`canonical_files.rs::collect_file`).
-4. **New typed contracts re-stringify registry enums.**
-   - `CanonicalResultOrigin` returns `phase: String` and `outcome: Option<String>` from a hand
-     projection query.
-   - `PackResultSelection.terminal_class` is `String`.
-   - Exchange manifests carry `codec: String`, validated by a hand `matches!`, with an
-     empty-string sentinel for "opaque schema".
-   - Omission targets are `source:`/`result:`/`artifact:` prefixed strings.
-   - The Plan 52l `ResultInspectionRequest` is `{run: String, attempt: String, relation: String}`.
-5. **Lifecycle projections are partial or misplaced.**
-   - `durable.rs` maps unknown attempt states to `TerminalClass::Failed` with a wildcard.
-   - The projections from terminal outcome to attempt state and study-point state live in the
-     *code generator* (`pse-codegen/src/codegen/rust/enums.rs`), keyed on the enum's name.
-   - `AttemptState` declares members that are never produced.
-   - Exported selections always write `PackScientificState::Unknown`, a hand Rust enum
-     (`connected_results.rs::pack_selection`). The public `pack_selection` takes usability from
-     the caller, and `validate_pack_selection` checks every field except usability. A recipient
-     therefore never sees the producer's typed decision (PS-12).
-
-**Consequence.**
-- *Change:* add a durable owner, a project command or an admission-only run kind, or version the
-  project exchange format (PSE-S04). Each needs coordinated hand edits to a catalog constant or
-  SurrealQL fragment, a generator branch, a template, inline queries, Rust `&str` APIs, exchange
-  structs and Python. No regeneration or compile check ties the spellings together. Plan 51 is
-  the demonstrated instance.
-- *Supported behavior:* most mismatches fail closed, as an absent key or unknown kind is refused.
-  Two classes can be silent:
-  - a misspelt owner-kind filter in a reclamation count returns zero rows (hypothesis);
-  - versioned exchange documents freeze string vocabularies and prefix-encoded references that a
-    later registry change cannot be checked against (DP-24).
-- *Agents and Python callers* cannot discover which string a parameter expects or which kind an
-  id is.
-
-**Footprint.**
-- *Decisive:*
-  - `pse-schema/src/catalog/{substrate,projects,project_imports,project_contexts,products}.rs`;
-  - `pse-codegen/src/codegen/{surreal,surreal_projects,surreal_execution,surreal_lifecycle}.rs`;
-  - `pse-operations/src/{canonical_execution,canonical_studies,canonical_projects,canonical_files}.rs`;
-  - `pse-runtime/src/workflow/{durable,study,study_execution,worker,artifacts,project_portability,result_selection,result_inspection}.rs`;
-  - `python/pse/_workflow.py`.
-- *Known since 2026-10-25:* evidence `kind` literals in `pse-operations/src/evidence_query{,/comparison}.rs`.
-- *Suspected:*
-  - knowledge and maintenance tables (`kind`, `phase`, `state` text);
-  - diagnostic `source_ref("canonical.run", …)` keys.
-
-**Counterevidence.**
-- §5 deliberately makes canonical lookup keys opaque and distinct from scientific ids.
-- ADR-0164 and ADR-0214 place atomic enforcement in server-side functions.
-- Both choices are sound for representation and enforcement placement.
-- What does not follow from them:
-  - that each layer owns the kind and vocabulary;
-  - that relationships are prefixes.
-
-  Overview §0.6 states the opposite rule ("every decision vocabulary that crosses a boundary is
-  a registry enumeration with one Rust type").
-- The mechanism to derive the missing pieces exists: the `__ARTIFACT_HOLDERS__` substitution and
-  enum `TYPE` literals. It is applied to a handful of cases only.
-
-**Evidence:** *Implemented* for the duplication, prefix parsing and re-stringification. The
-silent-filter consequence is a hypothesis; mutating one owner-kind spelling under the
-`pse-operations` retention tests would settle it.
-
-**Improvement direction.**
-- Canonical entity kinds declared once, each with a typed key and one mapping to its semantic id.
-- Closed store vocabularies and table classifications declared in the registry and lowered into
-  SurrealQL assertions and functions, Rust, exchange documents, backup inventory and Python.
-- Relationships carried as typed fields.
-- Field immutability and transitions declared in one home and lowered generically.
-
-**Related:**
-- [DA-033](boundaries-and-composition.md#da-033): the same templates re-author the protocol
-  envelope.
-- [DA-019](boundaries-and-composition.md#da-019): the backup inventory is a Python copy of table
-  classification.
-- [DA-005](semantic-model-and-authority.md#da-005): the boundary consequence.
-
-## <a id="da-009"></a>DA-009 — Analysis kinds have no owned operation contract; lifecycle, replay, publication and host owners each re-project kind internals
-
-**Principles:** AP-01, AP-03, DP-02, DP-08, DP-16; §E; G9 (PSE-S03).
-
-**Refresh status:** reframed. Request and result pairing is now structural: `RunOutcome` variants
-pair them, and one `RunSupervisor::start_native` serves every kind, including horizon. This
-resolves DA-012's copied supervisor and cancellation divergence. The consequence that a new kind
-threads through every consumer persists. DA-012's surviving strand, declared-procedure dispatch
-re-implemented per consumer, merges here.
-
-**2026-10-25 refresh: unchanged.**
-- A regex probe found the same footprint at both baselines: 323 per-kind arms across 38
-  production files in `pse-runtime` and `pse-py`, and 7 `_ => None` wildcards in
-  `attempt_documents.rs` and `completion.rs`.
-- The new surfaces add no per-kind arms, and they show why:
-  - `Runtime::inspect_result` selects by exact run, attempt and registry relation, and matches
-    only on Arrow `DataType`;
-  - evidence comparison is a closed operation set held by one owner.
-- An owned, kind-agnostic contract kept these surfaces from re-projecting kinds. That supports
-  this finding's improvement direction.
-
-**Diagnosis.**
-- The closed set of analysis kinds (declared case and modeling, simulation, fit, horizon, and
-  host-only shooting) appears in several layered enums with different variant sets:
-  - `RuntimeOperationRequest` and `PreparedOperation` (`workflow/operation_preparation.rs`);
-  - `OperationRequest` and `PreparedStudyOperation` (`workflow/study_operations.rs`);
-  - `RunRequest`, `RunReport` and `RunOutcome` (`workflow/run_outcome.rs`).
-- The only per-kind contract is `PairedOperation { request, finish }`.
-- Every consumer that needs a fact about a kind matches the variant and reaches into that kind's
-  private structure:
-  - **Sources, identity, provenance and inputs.** `durable.rs::{identities, request_inputs,
-    request_context, request_provenance}` (≈2345–2480). Modeling has its own frame,
-    `Frame::DurableModelingRequestV3`.
-  - **Replay constructors.** `replay.rs::ReplayDocument` carries parallel optional
-    `case_constructors`, `simulation_constructors`, `fit_constructor`, `horizon_constructor` and
-    `shooting_constructor`. "Exactly one is present" is a convention.
-  - **Numerics.** `numerics.rs`.
-  - **Native report, strategy trace and warm start.** `attempt_documents.rs` and
-    `completion.rs::RunResult::available_start`, written with `_ => None` wildcards.
-  - **Rule mapping.** `diagnostics.rs`.
-  - **Study tables and bindings.**
-  - **Per-kind accessors.** pse-py `workflow.rs` (≈3700–3980).
-- `RunResult` still carries horizon-only and modeling-only `Option` fields.
-- Declared procedures are dispatched three times with different subsets:
-  - conformance (`modeling/conformance.rs` ≈1386–1589);
-  - `modeling/declared.rs`;
-  - study bindings (`bindings.rs`, Solve only).
-- The two study executors sequence the predicted-start flow twice (`study_execution.rs`,
-  `study.rs`). The decisions inside it are pure and shared.
-
-**Consequence.** *PSE-S03* (a new dynamic analysis runnable in studies) requires:
-- about 45–50 per-kind arms in about 19 production files, by a regex scan of the Fit and
-  Simulation variants;
-- new fields and version bumps in two persisted documents;
-- four registry vocabularies;
-- host methods;
-- possibly both study executors.
-
-Wildcard arms let a new kind compile while silently lacking:
-- its native report extent and projection in attempt summaries;
-- its warm-start availability;
-- its residual qualification fields.
-
-That is G2/G6 risk where the compiler would otherwise force the decision. An extender must also
-learn how durable, replay and review owners read other kinds' internals.
-
-**Counterevidence.**
-- A small closed set of analysis modes in exhaustive Rust enums is idiomatic and
-  compiler-checked.
-- The kinds' payloads genuinely differ.
-- The process-simulator profile says no universal plugin framework is needed.
-- §E allows a genuinely new mode to change core contracts.
-- The closed set is not the defect. The defect is that about ten per-kind questions are answered
-  again in every consumer, some by wildcard. The shared run supervisor shows that consolidation
-  works once a contract exists.
-
-**Evidence:** *Implemented* for the match sites, wildcards and persisted shape. The arm counts
-are approximate (a regex scan that excludes `Self::` arms). Silent omission is inferred; no fifth
-kind was built.
-
-**Improvement direction.**
-- Each kind answers its lifecycle questions behind one owned contract: sources, identity frame,
-  provenance, numerics, native report, warm start, replay constructor and memory extent.
-- Lifecycle owners consume that contract without naming kinds.
-- Persisted documents carry one tagged per-kind constructor.
-- Declared-procedure dispatch and start composition are shared.
-
-**Related:**
-- [DA-021](local-reasoning-and-assurance.md#da-021): the flat workflow visibility that makes the
-  reach-ins possible.
-- [DA-015](boundaries-and-composition.md#da-015): host-side projection of the same operations.
-
-## <a id="da-039"></a>DA-039 — The constructor, not the meaning, classifies most workflow and math failures as invalid models
-
-**Principles:** DP-21, AP-05, DP-03, PS-04, PS-10; G3, G7, PS-G2 (attribution).
-
-**Refresh status:** new. This is DA-008's cause in the workflow and math owners; DA-008 itself is
-resolved in the persistence owner.
-
-**2026-10-25 refresh: cause unchanged; manifestations and consequences widened.**
-- Raw `contract(` occurrences in pse-runtime went from about 2,340 to about 2,363.
-  `WorkflowError::Internal` still has about ten uses, and no `internal(` was added.
-- `workflow/result_inspection.rs` went from 12 to 26 production `contract(` sites, mostly
-  integrity and internal checks:
-  - "result inspection frozen block is absent";
-  - "registered result schema fingerprint absent";
-  - "selected child disappeared".
-- That module already has a typed `ResultInspectionRefusal`. Some request admission still goes
-  through `contract()` ("inspection page limit…", "unknown result inspection relation").
-- `workflow/modeling/canonical.rs::declaration_window` adds two integrity checks the same way.
-- **Telemetry inherits the misclassification; it is not a new cause.**
-  `tooling/telemetry.rs::diagnostic` faithfully exports each leaf's `diagnostic_code()`, as
-  §23.2 requires, but it exports at WARN for every leaf and with no class. An internal defect
-  raised through `contract()` therefore appears in traces as `workflow.input`. Unregistered
-  strings such as `native.cancel.requested` share the `code` field with registry codes.
-- **The agent host adds a uniform remedy.** `scripts/capabilities/native_worker.py::scientific_error`
-  gives every native failure the remedy "Correct the selected input using its published schema"
-  and never branches on `failure_class`. A missing frozen block, which is a store-integrity
-  defect, therefore reaches the agent as `workflow.input` / `invalid_model` with an input remedy.
-  The redaction itself follows ADR-0224.
-- S1 re-verified the chain `contract` → `WorkflowInput` → `CompileMath` → `InvalidModel` at
-  `b5bdac9da`.
-
-**Diagnosis.** §23.2 separates three things:
-- request admission;
-- internal defects;
-- typed source failures.
-
-It also forbids reconstructing detail from a coarse class. The realization collapses them.
-
-1. **The workflow path.**
-   - `workflow/mod.rs::contract(message)` returns `WorkflowError::Input(String)`, coded
-     `DiagnosticCode::WorkflowInput`.
-   - The vocabulary declares that code with class `CompileMath`
-     (`pse-diagnostics/src/vocabulary.rs`).
-   - `pse-model/src/diagnostic.rs::disposition` maps `CompileMath` to
-     `BoundaryClass::InvalidModel`.
-   - About 2,050 production `contract(` calls in pse-runtime take this path. That is an estimate
-     that excludes trailing test modules; a raw grep that includes them gives about 2,340.
-   - `WorkflowError::Internal` exists but has about ten uses.
-2. **The math path.** In pse-math, `MathError::Contract(String)` (about 650 production sites)
-   maps to `MathContract`, also of class `CompileMath`. `MathError` has no internal-invariant
-   variant. pse-backend-native is better separated: `ProblemError` distinguishes `Contract`,
-   `Internal` and `Limit`.
-
-Sampled sites in all of the following categories surface as `workflow.input` / `invalid_model`,
-with the model element only in prose and empty `sources`:
-
-| Category | Example |
+| Representation | Where it lives |
 |---|---|
-| Internal invariant | `run.rs` "completion has not been captured" |
-| Resource extent | `horizon/driver.rs` deadline extent; `pse-math/src/implicit_reconstruction.rs` refinement allowance |
-| Store integrity | `study.rs` "lazy physical receipt absent" |
-| Unsupported capability | `fitting/modeling.rs` "residual LM requires …" |
-| Genuine specification error | `cases.rs` "unknown case specification"; "missing case value or resolvable start" |
+| Registry enumerations and raw SQL assertion strings | `pse-schema/src/catalog/substrate.rs:650-659` |
+| Guarded SurrealQL function bodies, authored as string constants in the generator crate and published as the "generated" protocol | 16 `pse-codegen/src/codegen/surreal_*.rs` files → 205 `DEFINE FUNCTION` in `pse-operations/src/generated/surreal.surql` |
+| Hand-written positional invocation strings with bind names in the operations crate | 155 distinct `fn::pse_*::*` calls across about 26 files. For example, `canonical_execution.rs:5564` invokes `claim` with ten positional arguments defined at `surreal_execution.rs:340`. The generated Rust (`generated/surreal.rs`) contains no `fn::pse_` call bindings |
+| Rust choreography | `workflow/durable.rs`, `workflow/worker.rs`, `workflow/study.rs` |
 
-One condition, implicit-provider lock poisoning, receives three classes: `runtime.infrastructure`
-(`pse-math/src/implicit.rs` via `MathError::Library`), `invalid_model` (`implicit_products.rs` via
-`Contract`) and a provider terminal error.
+Beyond function invocation, `pse-operations` holds about 300 hand SurrealQL statement literals
+(`SELECT`/`UPDATE`/`CREATE`/`DELETE`/`UPSERT`/`LET`, inline tests included) across 28 files. They
+use hand field lists decoded positionally; for example, a 16-field select at
+`canonical_studies.rs:2461` feeds `decode_scope_point`.
 
-**Consequence.**
-- **Durable studies.**
-  - Lazy point admission treats any failure whose class is not Infrastructure, Internal or
-    Cancelled as a scientific `StudyAdmission` refusal and persists it
-    (`workflow/study.rs` ≈1061–1083).
-  - `durable.rs::failure` marks it deterministic.
-  - The clearest manifestation needs no misclassified constructor.
-    `pse-model/src/diagnostic.rs::disposition` maps `RuntimeTimeout` and `RuntimeResourceLimit`
-    to `BoundaryClass::ResourceLimit`, which the branch does not exempt. A typed timeout or
-    resource refusal during lazy admission is therefore persisted as a scientific admission
-    refusal for that occurrence.
-  - An internal defect or resource extent raised through `contract()` ends the same way, as
-    "invalid model".
-- **Agent and Python boundary.** Under ADR-0224, source-bearing messages are private and agents
-  receive code, stage and class. A platform bug, an exhausted allowance and a missing initial
-  condition then look identical, so remedy and retry decisions cannot be made.
-- **Well-posedness attribution (PS-04).** `diagnose` reports `VariableMissingValue` and
-  structural over- or under-determination as typed findings naming every element
-  (`modeling/diagnostics.rs`). The solve path's admission (`cases.rs::require_inputs`) reports
-  only the first missing input, in prose, contrary to §23.2.
-- **Extension.** Every new refusal in a workflow or math owner defaults to the stringly
-  constructor, and nothing asks which class its meaning has.
-
-**Counterevidence.**
-- The most consequential scientific refusals are typed with sources: domain, structural
-  deficiency, applicability and native outcomes.
-- About 145 `ProblemError::internal(...)` sites in `pse-runtime/src/workflow` (for example
-  in `dynamics.rs`) classify internal invariants correctly. The separation exists; the
-  convenient default undermines it.
-- Many `contract()` sites guard practically unreachable checked-arithmetic extents.
-- "Invalid model" is correct for the genuine specification errors.
-- The share of reachable misclassified sites is unknown.
-
-**Evidence:** *Implemented* for the mapping chain and sampled sites; the coordinator re-read the
-`contract` → `WorkflowInput` → `CompileMath` → `InvalidModel` chain and the lazy-admission
-branch. The durable and agent consequences are *Interface-checked*. Either of these would settle
-the reachable share:
-- a static categorization of the constructor sites;
-- injecting a resource failure during lazy admission.
-
-**Improvement direction.**
-- Constructors whose class follows the meaning: specification refusal with affected identities
-  and rule, internal invariant, resource limit, integrity or infrastructure.
-- Formulation-time specification and well-posedness refusals projected through the same typed
-  findings `diagnose` produces.
-- One classification per failure condition across math and runtime.
-
-## <a id="da-040"></a>DA-040 — Boundary declarations stop at field types: closed vocabularies, bounds and instrument semantics are restated around generated shapes
-
-**Principles:** AP-04, AP-05, DP-01, DP-02, DP-03, DP-04, DP-24; G1.
-
-**Refresh status:** new at 2026-10-25. This finding refines integrated cause 1 by moving it one
-layer inward. Plans 52 and 55 extended the declare-once mechanism to every new cross-language
-*document shape*, which is real counterevidence to cause 1. The decision-relevant content *inside*
-those shapes is still restated per language. DA-007 keeps canonical store meaning. This finding
-covers boundary documents and telemetry declarations.
-
-**Diagnosis.**
-1. **Settings bounds and vocabularies.**
-   - The private telemetry settings wire is a Rust serde type (`tooling/telemetry.rs::Settings`)
-     generated into `scripts/generated/telemetry_settings.py`. That part is sound.
-   - The generated fields are `sampler: String`, and integers carry only `ge=0`.
-   - `Settings::validate` refuses:
-     - zero;
-     - values above 60000, 65536 and 3600000;
-     - more than 32 headers or 8192 header bytes;
-     - a batch larger than its queue.
-   - `Settings::sampler` matches six sampler names.
-   - `scripts/telemetry_config.py` restates every bound (`_integer(..., maximum=60000)` and the
-     others) and the six-name set.
-   - `scripts/telemetry_process.py` realizes the Python SDK sampler by substring tests
-     (`endswith("always_off")`, `"traceidratio" in`).
-   - The document emitter already lowers `minimum`, `maximum` and `enum` constraints
-     (`pse-codegen/src/codegen/documents.rs`). These declarations do not use them.
-2. **Evidence-comparison vocabularies.**
-   - `EvidenceSubjectComparison.classification` is a `String` over eight values. `side`,
-     `correspondence`, `status`, `coverage` and `freshness` are strings too
-     (`pse-operations/src/evidence_query/comparison.rs`).
-   - The same file declares `EvidenceComparisonSection` as a serde enum. Its
-     `BTreeMap<EvidenceComparisonSection, _>` is published as a plain JSON `object` in
-     `evidence-comparison-request.input.schema.json` and as `dict[str, …]` in Python. The
-     vocabulary is lost at the published boundary with no declared loss (AP-04).
-3. **Metric identity is positional and named twice.**
-   - `pse-operations/src/canonical_transport.rs::CanonicalStatistics` increments numbered slots.
-   - `tooling/metric_declarations.rs::QUERY_EVENTS` names those slots by array order, and
-     `telemetry.rs` zips the two.
-   - The same pattern holds for `NATIVE_EVENTS`, `PRODUCTS`, `TASK_EVENTS`, `TASK_PHASES` and
-     `PREPARATION_EVENTS`. `operational_metrics.rs::PreparationStage` indexes counters by number.
-   - Checkpoint counters use a second name for the same event (`statement_succeeded` against
-     `canonical.statements.succeeded`).
-   - Attribute keys and instrument kinds are restated in the builders beside the declaration.
-     The only test checks the declaration against itself.
-4. **The query consumer ignores declared instrument semantics.**
-   - `scripts/telemetry_investigation.py::{QueryRequest.selection, backend_request}` allows
-     `rate`, `increase` and `p95` on any stream, whatever its declared `kind` or `temporality`.
-   - Only `fraction_below` consults the declaration, for its buckets.
-   - Python host metric records and the Rust declarations are joined as untyped dictionaries
-     with different kind vocabularies (`METRIC_RECORDS`).
-   - `scripts/telemetry_metrics.py` copies producer stage vocabularies, and `bounded()`
-     collapses new values to `"unknown"`.
+**Point settlement: the trust boundary is decided; one binding gap remains.**
+- `record_study_attempt` evaluates `may_retry` client-side (`workflow/study.rs:2164`) and passes
+  `settled`, `facts` and `outcome` to the `unsafe fn observe_study_point`
+  (`canonical_studies.rs:2470-2486`).
+- That is the writer-trust boundary that proposed ADR-0164 designs: "the occurrence observation
+  writer similarly requires actual admitted kernel facts or an effect-free shared-policy refusal".
+  About twenty such `unsafe` authority entries exist, for example in `canonical_execution.rs` and
+  `canonical_selection.rs`. This audit does not treat the decided trust model as a defect. A later
+  review may challenge it.
+- The verified gap is narrower. `fn::pse_study_v1::observe` (`surreal.surql:3228-3258`) does not
+  bind the study-module hash, although progression and prepared claims do
+  (`surreal.surql:3324-3330, 3394-3405`). After a module change, settlement can therefore run
+  under a policy that claims would refuse.
 
 **Consequence.**
-- *Change:* adding a sampler or tightening a bound needs four hand edits: Rust validation, the
-  Rust match, the Python resolver and the Python SDK mapping. A mismatch is refused only when
-  the telemetry host is built.
-- *Evidence:* adding a comparison classification, such as "flaky", is invisible to the schema,
-  and any string validates.
-- *Metrics:*
-  - Inserting or reordering an event silently mislabels the exported counters.
-  - A `rate` query over a gauge returns a counter-reset-adjusted number labelled
-    `estimated_rate`. Examples of gauges: `pse_native_supervisors`;
-    `pse_runtime_executor_worker_busy`, whose Rust comment warns it is not monotonic; and the
-    host up/down counter `pse.build.active`.
-- Every manifestation fails closed or is observational. No scientific outcome is affected.
+- Adding a phase or outcome means coordinated string edits that only canonical tests against a
+  live store catch.
+- Signature or field-order drift between an invocation string and its function surfaces only at
+  runtime. No static check tying call sites to definitions was found, though an empty search does
+  not prove absence.
+- 58d D03's deletion of repeated interpretation holds for progression, and D03 remains the live
+  owner of that seam. The module-hash binding gap is outside D03's stated scope.
 
 **Counterevidence.**
-- Document shapes are generated once and versioned properly. `Wire::FlatV2` refuses an old
-  header before decoding its body.
-- Metric name, unit, description, buckets and dimension domains come from one declaration.
-- `KnowledgeQuery` uses typed enums (`KnowledgeMode`, `SubjectKind`, `RelationKind`), which
-  shows the mechanism works.
-- §23.1 says "Python owns environment resolution", and early environment-specific errors are
-  legitimate. DP-03 allows several enforcement points, but not independently maintained
-  definitions of one invariant.
-- The prose `verdict` in ADR-0225 is legitimate presentation.
+- DDL, codecs and field constraints really are generated from the registry. Registry limits are
+  substituted into templates from one owner (`surreal_execution.rs:6-37`).
+- All three placements share `pse_model::study_policy`.
+- Server-side SurrealQL cannot import Rust enumerations except through generation.
+- Store-side guarded functions are a maintainer premise. 58d names `surreal_control.rs` and
+  `surreal_studies.rs` the "one generated canonical policy owner".
 
-**Evidence:** *Implemented* for the settings bounds, the comparison schema, the metric zips and
-the query selection. S1 read these in source and parsed the schema; S2 and S5 independently
-reported the positional zips and the duplicated bounds. The coordinator re-read the `QUERY_EVENTS`
-zip, the generated settings fields and the `validate` bounds. The mislabel and `rate` consequences
-are *Interface-checked*. Two runs would settle them:
-- an in-memory meter-reader export compared against the declarations;
-- a `rate`-on-gauge request in the existing investigation acceptance.
+## <a id="da-007"></a>DA-007 — Canonical vocabularies and key schemes are declared but re-spelled in hand SurrealQL and Rust
 
-A static census of boundary-document `String` fields with literal value sets, and of
-`BTreeMap<Enum, _>` fields, would settle the suspected wider footprint.
+**Principles:** DP-01, DP-02, DP-04, AP-05.
 
-**Improvement direction.**
-- Boundary declarations carry their closed vocabularies, bounds and map-key domains, and the
-  existing emitter lowers them into JSON Schema and Python.
-- Owner counters are keyed by the declared event, not by position.
-- Consumers derive permitted query operations from the declared instrument kind and temporality.
+**Status:** reopened against Plan56's "resolved — CA02 Implemented/Tested" disposition. The
+original manifestations are narrowed: typed key kinds and declared prefix constructors now exist
+(`pse-schema/src/model/canonical.rs:105-137`; `pse-model/src/generated/canonical.rs:183-200`),
+and the admission prefix branch is gone.
 
-**Related:** [DA-007](#da-007) (the store-record counterpart), [DA-036](development-tooling.md#da-036)
-(resource meaning, where no declaration exists at all), [DA-015](boundaries-and-composition.md#da-015).
+**Remaining manifestations:**
+- **Ordinary run keys** are still minted and parsed by prefix with no declared constructor:
+  - `strip_prefix("run:")` in `workflow/worker.rs:1829-1840` and
+    `workflow/study_execution.rs:250-257`;
+  - also `study.rs:844`, `durable.rs:1274` and `research_publication.rs:204`.
+- **Hand SurrealQL re-spells enumeration subsets.**
+  - The terminal-phase pair `['terminal','terminal_compacted']` appears about 25 times across 13
+    hand-authored generator and operations files, plus `testing.rs`, rather than coming from the
+    generated `terminal()` (`pse-model/src/generated/enums.rs`). The registry's own occurrences
+    are not counted.
+  - The outcome set `['succeeded','failed','partial','cancelled']` is spelled in
+    `surreal_execution.rs:729` and `surreal_studies.rs`.
+  - About 75 literal `IN [...]` lists appear in total, for example `surreal_files.rs:32, 64, 71`.
+- **A hand inverse projection.** The registry declares `CanonicalTerminalOutcome` with forward
+  projections (`pse-schema/src/catalog/operations.rs:71-110`). The runtime hand-writes the inverse
+  `AttemptState → TerminalClass` (`workflow/durable.rs:2195-2202`).
+- **Literal membership.** Artifact-profile membership by literal names (formerly DA-032) persists.
+
+**Consequence.** Adding a member to a declared enumeration silently leaves hand subsets stale.
+**Counterevidence:** the field `TYPE` assertions are derived, and refusal codes have a registry
+(`pse-schema/src/catalog/canonical_refusals.rs`).
+
+## <a id="da-050"></a>DA-050 — Identity derivations are catalogued per frame but minted inline at consumers through uncatalogued sub-contexts
+
+**Principles:** AP-04, AP-05, DP-01, DP-04, DP-09, DP-24.
+
+**Status:** new on 2026-10-29 (U6). It also holds the name-encoded `f_<hex>` function identity
+noted under [DA-003](semantic-model-and-authority.md#da-003): an identity carried in a name and
+parsed back (`pse-modeling/src/specialize/reductions.rs:30-36`; `check.rs:948, 983`).
+
+**Claim at risk.**
+- The frame catalog: "every context is declared here and nowhere else", and "a new meaning or a
+  new derivation version is a new variant" (`pse-ids/src/derive.rs:36-43`).
+- §5: golden vectors freeze the frame spellings and digests.
+
+**Structural cause.** A few umbrella frames act as generic derivation buckets, and consumers
+distinguish meanings inside them with free-form `.str("…")` tags. Those tags are not catalogued,
+have no owner and often carry no version. Immediate in-band tags, counted conservatively:
+
+| Frame | Tags |
+|---|---|
+| `DerivedBindingV1` | 33 |
+| `EngineeringGoalV1` | 26 |
+| `CanonicalPayloadV1` | 26 |
+
+`CanonicalPayloadV1` is documented as "exact source payload bytes" (`derive.rs:476-477`). It also
+derives:
+- attempt, result-set and study population keys;
+- scientific attempt lineage;
+- physical row and path keys.
+
+The same identity is minted inline at several consumers:
+- **Attempt lineage.** `scientific.attempt.lineage.v1` is derived independently at recovery
+  (`workflow/durable.rs:692-695`) and at claim (`workflow/worker.rs:1837-1840`). Nothing ties
+  the two.
+- **Point identity.** `target::point_identity` (`math/strategy/target.rs:555-561`) is
+  re-implemented in `math/staged/driver.rs:1181-1184`.
+- **Bound-goal normalization.** The `BoundGoal` normalization identity is built separately in
+  `kkt_accuracy.rs:262-266`, `engineering_accuracy.rs:159-162` and `derived_accuracy.rs:152-155`,
+  each with a slightly different product hash.
+
+The catalog's ownership metadata is also wrong:
+- `Canonical*`, `Math*` and `ProducerV1` sit in the native-solver block (`derive.rs:424-534`) but
+  are used by operations, runtime, compiler and buildinfo.
+- About 70 frame/crate pairs are used outside their declared owner, and the generated frame
+  reference projects that unchecked metadata.
+
+§5.1's "other crates hash only through its framing APIs" is overstated. SHA-256 byte digests
+appear in `pse-operations` (`canonical_migration.rs:69`, `canonical_study_module.rs:335`,
+`native_service.rs:246`), `pse-host` and `pse-buildinfo`, without a declared second digest family.
+
+**Consequence.**
+- Changing a derivation means finding every inline copy. Divergence would silently change
+  identities or break attempt correlation without touching the catalog or its golden vectors.
+- Domain separation between meanings rests on string uniqueness across crates.
+- "Which identity is this?" cannot be answered from the catalog.
+
+**Counterevidence.**
+- Framing is length-prefixed, so the tags give real domain separation.
+- blake3 has one owner, enforced by a governance test.
+- `Frame` is a compile-checked enum.
+- §5 allows "a new projection or context string".
+- Many operations tags carry `.vN`.
+
+The problem is ownership and discoverability of derivations, not hash soundness. Tag counts come
+from an immediate-call regex, so true counts are higher. Whether the three `BoundGoal` hashes
+differ intentionally is undetermined.
+
+## <a id="da-039"></a>DA-039 — Failure classification collapses at the widest error carriers
+
+**Principles:** AP-04, AP-05, DP-02, DP-21, PS-10.
+
+**Status:** reopened against Plan56's "resolved — CA01 Implemented/Tested" disposition, and
+widened, on 2026-10-29. Plan56 fixed the producers it named and added
+`PoisonedOwner`, `Integrity`, `Internal`, `Resource` and `Unsupported` classes
+(`workflow/mod.rs:528`). Two unanchored streams found the default still decides the class, and
+the same collapse in canonical and host errors.
+
+**Claim at risk.** §23.2:
+- "request admission (`WorkflowError::Input`), internal defects and typed source failures have
+  separate contracts";
+- "workflow boundaries preserve resource, cancellation, incompatible and infrastructure
+  distinctions";
+- "formatting an error into a string does not establish its class".
+
+**Structural cause: runtime.**
+- The crate-wide helper `contract(msg) → WorkflowError::Input(String)` (`workflow/mod.rs:555-557`)
+  has about 2,390 non-test call sites, against roughly 80 constructions of the typed-category
+  variants.
+- About 270 of those calls are `contract(e.to_string())` or `contract(format!(…))`.
+- `Input` carries non-input facts, and all of them project as `DiagnosticCode::WorkflowInput`:
+  - internal invariants: "worker idle lane completed" (`worker.rs:359`);
+  - integrity mismatches: "physical document manifest paths differ";
+  - resource refusals: "chunk admission exceeded" (`worker.rs:1403-1431`).
+- `pse-math`'s error has `Contract` with no internal or integrity variant (`pse-math/src/error.rs:26`).
+
+**Structural cause: canonical store.**
+- `CanonicalError`'s `TypedDiagnostic` maps every variant except `Codec` to `RuntimeInfrastructure`
+  (`pse-operations/src/canonical.rs:468-475`).
+- The same owner's `is_infrastructure()` (`:336-371`) excludes `Refused`, `Configuration`,
+  `Interpretation`, `PayloadLimit`, `StudyCancellation` and `OperationReused`, so the owner's two
+  classifiers disagree.
+- The registry `RefusalClass` on `Refused` never reaches the diagnostic.
+- Canonical `Timeout`, `PayloadLimit` and `StudyCancellation` surface as infrastructure, not as
+  timeout, resource limit or cancellation (`workflow/diagnostics.rs:10-57`).
+- `CanonicalError::Configuration(String)` has about 337 construction sites, including serde
+  failures.
+
+**Structural cause: native service and host.**
+- `NativeServiceError` (`native_service.rs:47-49`) and `HostError` (`pse-host/src/lib.rs:61-64`)
+  are blanket infrastructure.
+- Invalid host CLI input travels as `HostError::Ownership(String)`.
+
+**Consequence.** The persisted and exported diagnostic envelope tells consumers "invalid input" for
+store-integrity or internal faults, and "infrastructure" for cancellation, timeout or payload
+limits. Classification needs prose parsing, against §23.2 and DP-21.
+
+**Counterevidence.**
+- Operational *policy* uses precise typed predicates rather than the class: `effect_is_unknown`,
+  `retryable`, `needs_fresh_premise` and `proves_source_refusal` (`canonical.rs:374-460`).
+  Behavior is therefore mostly sound; the defect is at the diagnostic and contract surface.
+- Native solver failures are exhaustively typed.
+- The governance `error_taxonomy` test checks only that `Diagnostic` exists, not adequacy.
 
 ## Resolved identities
 
-| ID | Refresh outcome | What establishes it |
+| ID | Outcome at `f83bac039` | Decisive evidence |
 |---|---|---|
-| <a id="da-008"></a>DA-008 | Resolved | Store refusals become `Refused{code, class, stage, effect}` only from thrown registry codes (`pse-operations/src/canonical.rs`, `From<surrealdb::Error>`). Every generated `THROW` is a `PSE_REFUSAL:` code. Worker loss is `CanonicalError::WorkerLost`, with effect taken from facts. Residues: summary recovery still recognizes a lost writer by a field conjunction (`study.rs` ≈1786). The development stores' hand SurrealQL (`pse-operations/src/{evidence,knowledge}.rs`) throws free text, which is a [DA-020](boundaries-and-composition.md#da-020) manifestation. |
-| <a id="da-010"></a>DA-010 | Resolved | `CovarianceOrigin::{QualifiedFit, External}`. `ParameterCovariance::verified_fit` requires a reconciled certified content hash. External covariance is explicitly uncertified and checked for PSD, with units carried (`math/settings.rs`; `uncertainty/psd.rs`). |
-| <a id="da-011"></a>DA-011 | Resolved | The generated document catalogue and versions (`pse-py/src/generated/documents.rs`). The boundary-schema fingerprint is checked at import (`python/pse/_build.py`). |
+| <a id="da-008"></a>DA-008 | Resolved (2026-10-25) | Typed store refusals from thrown registry codes |
+| <a id="da-009"></a>DA-009 | Resolved | Per-kind `RequestFacts` (`workflow/run_outcome.rs:33-75`); tagged `ReplayConstructor` (`replay.rs:439, 487`; `8943cf557`). The remaining wildcards match outcome variants within one kind. A workspace-wide arm recount was not repeated |
+| <a id="da-010"></a>DA-010 | Resolved (2026-10-25) | Covariance origin, PSD and authentication |
+| <a id="da-011"></a>DA-011 | Resolved (2026-10-25) | Generated document catalogue. Its Python consumers are retiring with the Python generator (dirty tree) |
+| <a id="da-040"></a>DA-040 | Resolved | Enum-keyed metric attribute values (`tooling/metric_declarations.rs:351-371, 433-438`); estimators refused by declared kind and temporality (`scripts/telemetry_investigation.py:271-300`) |
 
-The removal commit of this refresh preserves their 2026-10-21 text.
+Earlier full text is at source `682fc3830`.

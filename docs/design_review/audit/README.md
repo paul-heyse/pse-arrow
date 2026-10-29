@@ -1,263 +1,337 @@
 # Design principle audit
 
-## Scoped host-foundation refresh — 2026-10-28
+This is the living diagnostic account of design-principle alignment in the implemented simulator
+and its development tooling. Start with the [integrated system account](system-architecture.md)
+and follow its six causes to the primary findings on the topic pages.
 
-The [development-tooling supplement](development-tooling.md#scoped-t01-host-foundation-refresh--2026-10-28)
-re-reads source `50f07ea6fe757db362e4e9c1ec0c11e04545d75c` for Plan58 T01's host/bootstrap,
-service/borrower and compiler-cache boundaries. It preserves DA-036/037 identities, corrects
-older profile/default and direct-test-borrower premises, and retains the observed Python
-composition/per-compiler custody cause. No new ID is allocated. Earlier counts, the
-whole-system account, DA-043's full capability footprint and the separate test account are not
-renewed. No tests, builds, services or measurements ran. The publishing revision is separate
-from this inspected source baseline; the coordinator owns selected work and status.
+## Whole-system refresh — 2026-10-29
 
-## Scoped execution and database refresh — 2026-10-28
+**Conclusion.** Plan56 corrected most of the preceding account. Its covariance-permission,
+compiler-target, settlement, capability, closure and backup findings are resolved at current
+source. Plan58 has since rebuilt large parts of the system in Rust.
 
-The [scoped account](study-execution-and-database-boundary.md) inspects `64a217de2`
-plus current operations inherited-response/activity corrections and controls. It does
-not renew the whole-system baseline below. It allocates
-[DA-046](study-execution-and-database-boundary.md#da-046) for metadata access's scientific
-composition dependency and [DA-047](study-execution-and-database-boundary.md#da-047) for
-differing poll/destruction attribution. The next available identity is DA-048.
-Named DA-033/034/035/042 premises are corrected at current sites; other manifestations
-are not silently closed. No tests, builds, services or measurements ran. The separate
-test account and owning plans retain their own qualification boundaries.
+The current misalignment is concentrated in six integrated causes:
+1. scientific permission is owned for only part of what the system derives;
+2. the orchestration crate interprets and composes what lower owners determine;
+3. declared vocabularies, identities and transitions are applied by convention at consumers;
+4. durable work pays a generic, fine-grained protocol per study point;
+5. placement and generation follow build reach rather than responsibility, and machinery outlives
+   its consumers;
+6. the cutover moves entrypoints rather than responsibilities, so host policies have two live
+   authorities.
 
-This is the living diagnostic account of alignment gaps in the implemented simulator and its
-development tooling. Start with the [integrated system account](system-architecture.md), then
-follow its improvement questions to the primary findings below.
-
-## Followup conclusion
-
-The preceding audit was **not merely a catalogue of localized defects**. Its authority,
-composition and execution-fit diagnoses describe consequential cross-owner problems, and most
-survive source revalidation. However, its emphasis and some conclusions needed correction:
-
-- **A missed scientific permission chain changes the picture.** A fit rejected by original
-  scientific checks can retain covariance that invocation evidence marks unavailable, while
-  result projection and both local and persisted reuse expose it as qualified fit covariance.
-  The refusal is absent from propagation output. This widens
-  [DA-038](semantic-model-and-authority.md#da-038). Strong component-level science does not
-  establish consistent end-to-end permission.
-- **Exchange has another physical work problem.** Executable project closure/explanation holds
-  aggregate selected source encodings before copying or returning a manifest
-  ([DA-045](execution-fit.md#da-045)). Exact source admission and protection remain necessary;
-  aggregate residency is a separate choice. Practical severity is unmeasured.
-- **Several earlier claims were too broad.** Proposed ADR status and Tested evidence can coexist;
-  the current transport supplement is identifiable; differing path consumers and liveness
-  policies can be legitimate. Physical collection has a public Rust primitive and no supported returned-space promise.
-  Optional strict producer receipts were conflated with mandatory outer lineage. A universal
-  lifecycle envelope and automatic backup thaw were not established remedies. The primary
-  findings now carry these corrections, not just this summary.
-
-The clearest improvement targets are coherent scientific permission through derived products,
-owned operation/meaning contracts at consumed boundaries, deliberate product/tooling ownership,
-and complete-workload choices for publication, populations, exchange and agent reads. These are
-properties for later solution comparison, not adopted implementation packages or priorities.
+The mathematics layer, typed solver outcomes, library-first numerics, store-side guarded
+progression and the native host's ownership model are real strengths. The
+[system account](system-architecture.md#six-integrated-causes) explains how the six causes
+interact.
 
 ## Baseline and method
 
-- **Audited source:** `682fc3830f8a370f0995544af5adf821e4be9ab9`, 2026-10-25; clean when fixed.
-- **Publication:** a later commit, recorded by Git. Included uncommitted production changes: none.
-- **Input account:** source `b5bdac9da763bf1a70f20b0599de0edad8a955f9`, published at
-  `c02f68670`. Earlier account and challenge text remain recoverable there and at `2257311c0`.
-- **Intervening committed changes:** audit text, MCP acceptance tests and their assessment
-  documentation. Product implementation is unchanged. The new diagnoses and corrections are
-  missed or miscalibrated judgments, not new production regressions.
-- **Concurrent changes excluded:** later committed and uncommitted codegen Markdown and
-  test/build tooling changes,
-  including Arrow validation, native-test currency, setup reporting, archives, telemetry/service
-  settlement and report custody, and their tests.
-  Decisive observations of overlapping files are read against the fixed source revision; those
-  changes are not attributed to the audited source or included in the audit publication commit.
-  A consuming solution review must reconcile those later owner changes before relying on an
-  affected finding.
+- **Audited source:** `f83bac0399d1d815b6ce91b692158b965fa054c7`, 2026-10-29, plus the working
+  tree.
+- **Included uncommitted changes, by path class:**
+  - `pse-host` agent hooks, doctor, diagnostic tools and telemetry service (untracked when read);
+  - the deletion of the Python generators from `pse-codegen`/`xtask/src/codegen`;
+  - new `xtask/src/development/*` modules;
+  - hook wiring in `AGENTS.md`, `.claude/settings.json` and `.codex/hooks.json`;
+  - the justfile, Cargo manifests and a few runtime test files.
+- **Also dirty:** `pse-runtime/src/host_operations/project.rs`, which removes the PyO3 method
+  projection (DA-015).
+- **Reconciliation:** HEAD advanced to `fbf08a43c` during the engagement.
+  - `f3a05e0be` records the `pse-host` modules the streams read as untracked.
+  - `fbf08a43c` adds a native boundary acceptance test target. `pse-runtime/Cargo.toml:69` is
+    unchanged.
+  - Decisive files for the other findings were unchanged.
+- **Not included:**
+  - concurrent edits to the Plan58 companion documents;
+  - the deletion of `scripts/thermodynamic_campaign.py`;
+  - later uncommitted edits to `pse-runtime/src/math/portable.rs` and
+    `pse-buildinfo/src/identity.rs` that remove the Python producer role. Those bear on DA-024
+    and are noted there.
+- **Publication:** a later commit, recorded by Git. The inspected source baseline is distinct from
+  it.
+- **Input account:** whole-system source `682fc3830` (2026-10-25). Its scoped refreshes are the
+  study and database boundary at `64a217de2` and T01 host foundation at `50f07ea6f`, published at
+  `8fed0a30c`. Earlier text is recoverable there.
 - **Standard:** Core 3.4; efficiency heuristics 1.0; process-simulator profile 1.5; pse-arrow
-  binding through [standard.toml](../design_principles/standard.toml). Test-assessment companion
-  1.2 applies where original scientific checks and assurance are examined.
-- **Scope:** the whole implemented product and development tooling. The separate test account
-  keeps its own baseline; relevant assurance was inspected without refreshing it wholesale.
-- **Maintainer premises retained:** canonical SurrealDB; sixteen coordinated lanes; durable work
-  across callers/processes without a daemon; one local operator; uncapped ordinary build mode.
+  binding ([standard.toml](../design_principles/standard.toml)). Test-assessment 1.2 applied only
+  where tests were read as assurance; the [test account](../test-audit/README.md) owns test
+  findings.
+- **Scope:** the whole production system and development tooling:
+  - all crates;
+  - `python/pse` where it is still a supported path;
+  - `xtask` and the generators;
+  - the justfile and the scripts still reached from it.
+
+  Retiring Python mechanisms were judged structurally: does each still hold live authority, and
+  does the native replacement inherit its cause.
+- **Maintainer premises retained:**
+  - canonical SurrealDB/MX;
+  - up to 16 SurrealDB-coordinated lanes;
+  - durable work that outlives its caller, without a daemon;
+  - uncapped ordinary builds;
+  - CLIs and MCP optional, PyO3 deferred;
+  - no library refused.
+
   These do not exempt their realization from assessment.
 
-Two fresh, read-only design reviewers first formed independent conclusions without reading the
-old audit catalogue: one followed scientific meaning and model-to-result consumers; the other
-followed lifecycle, execution, history/exchange and tooling. Their initial conclusions were
-returned before they received the catalogue for reconciliation. The coordinator inspected
-cross-owner contracts, general findings and decisive sources of the new/widened/corrected claims.
+**Method.**
+1. **Architecture-as-built map.** The coordinator first mapped the system from the
+   architecture overview, ADR-0233, Plan58 and its companions, the workspace dependency graph and
+   five end-to-end journeys.
+2. **Six unanchored streams.** Fresh read-only design reviewers, who did not read the prior
+   account, each took one cross-owner system question:
+   - U1: scientific meaning and authority;
+   - U2: numerical execution and solver integration;
+   - U3: durable state and retained data;
+   - U4: structure and composition;
+   - U5: host and tooling;
+   - U6: cross-cutting contracts.
+3. **Revalidation.** A seventh stream (R1) revalidated every DA identity against current source.
+4. **Gap streams.** The coverage check found two owners only touched in passing, so two more
+   unanchored streams covered them:
+   - U7: the declaration and data layer;
+   - U8: the model preparation pipeline.
+5. **Verification and synthesis.** The coordinator verified each consequential claim at its
+   decisive source before adopting it, merged candidates by structural cause, and checked them
+   against decision-closed findings. For example, U8's parallel reuse trackers fall within
+   DA-030's decision.
+6. **Challenge.** A fresh challenger reviewed the drafted account ([below](#challenge-reconciliation)).
 
-The independent passes found real strengths as well as gaps. Reconciliation covered every active
-finding and the bounded bases of resolved/merged findings; decision-closed mechanisms were not
-reopened without new evidence. A subsequent fresh challenge examined the resulting account.
-Its outcome is recorded under [Challenge reconciliation](#challenge-reconciliation).
+**Evidence limits.** This is static architectural diagnosis, labelled **Interface-checked**.
+- No product tests, solver runs, services, fault injection, benchmarks or numerical reference
+  campaign ran.
+- Read-only probes: `cargo metadata`/`cargo tree --offline --locked`, git history, grep/rg, and
+  an approximate static Python import walk.
+- Counts come from those searches and are lower bounds or approximations where noted.
+- Cost and contention statements are structural and unmeasured.
+- No overall alignment certificate is issued.
+- `just turn-end`/`hygiene` were not run; audits do not own repository health.
 
-**Evidence limits.** This is source-based architectural diagnosis. No product tests, solver runs,
-export/backup fault probes, benchmarks or numerical reference campaign were run. Static searches,
-source/diff inspection and documentation consistency checks establish their named scope only.
-Previous measurements and exact censuses retain their original date/conditions; an unchanged file
-is not a newly executed test. Topic pages retain earlier evidence explicitly and identify followup
-re-readings. No overall alignment certificate or gate-acceptance verdict is issued.
+## New findings
 
-**Publication checks, separate from source evidence:** the audit-local reference/identity check
-found 158 local links, 45 unique DA anchors and zero errors; `git diff --check --
-docs/design_review/audit` found zero whitespace errors. `just turn-end --live` exited zero, but
-its safe-fix Ruff step printed nine remaining findings in concurrent `scripts/test_resources.py`
-against a zero target. That is not a clean lint claim; those findings are outside this diagnostic
-engagement and were not repaired or included in its commit. No product qualification follows.
+| ID | Finding | Primary home | Integrated cause |
+|---|---|---|---|
+| [DA-048](semantic-model-and-authority.md#da-048) | Only fit statistics have an owned product permission; other derived products are qualified by their consumers | Semantic model | 1 |
+| [DA-049](semantic-model-and-authority.md#da-049) | Study, review and portability boundaries summarize permission in lossy, unenforced vocabularies | Semantic model | 1 |
+| [DA-050](structure-and-invariants.md#da-050) | Identity derivations are catalogued per frame but minted inline at consumers through uncatalogued sub-contexts | Structure | 3 |
+| [DA-051](structure-and-invariants.md#da-051) | Canonical transition authority is split across four representations and invoked through hand positional strings; settlement omits the module-hash binding | Structure | 3 |
+| [DA-052](boundaries-and-composition.md#da-052) | Durable and service documents outside the exported set re-implement versioning and interpretation by hand | Boundaries | 3 |
+| [DA-053](boundaries-and-composition.md#da-053) | Analysis modes compose native admission, routing, execution control and lane custody themselves | Boundaries | 2 |
+| [DA-054](boundaries-and-composition.md#da-054) | Local and durable studies orchestrate the same occurrence semantics in two executors | Boundaries | 2 |
+| [DA-055](execution-fit.md#da-055) | Each study point runs the generic durable lifecycle as many guarded commits against shared per-problem keys | Execution fit | 4 |
+| [DA-056](execution-fit.md#da-056) | Retention safety is spread across many owner-specific protection families | Execution fit | 4 |
+| [DA-057](development-tooling.md#da-057) | Native replacements move entrypoints one consumer at a time, so host policies keep a second live authority or interpreter | Development tooling | 6 |
+| [DA-058](development-tooling.md#da-058) | The edit guard depends on an explicitly built executable; its protected-path set is hand-maintained in several places | Development tooling | 6 |
+| [DA-059](boundaries-and-composition.md#da-059) | The declaration pipeline emits every projection for every relation family; retiring consumers anchor part of it | Boundaries | 5 |
+| [DA-060](boundaries-and-composition.md#da-060) | Data-layer mechanisms and declared invariants outlive their consumers | Boundaries | 5 |
 
-## How the standard informed this followup
-
-All seven architectural foundations remain applicable. The investigation used supported journeys
-and credible changes to test separation, contracts, composition, model adequacy, authoritative
-behavior, enforceable structure, local reasoning and physical execution fit. The DP refinements
-helped distinguish repeated semantic decisions from legitimate projections and distinct policies.
-
-The scientific profile directed attention beyond adapter status maps: original checks, model
-validity/applicability, derived-product qualification and downstream interpretation. Sampled
-PS-02 envelopes and PS-13 shared conformance machinery have positive source evidence, with no
-claim of complete scientific reference coverage. G9 consequences are structural; quantitative
-capacity or speed claims remain unmeasured. No principle count or file-size score substitutes for
-that judgment.
-
-## Challenge reconciliation
-
-A third fresh read-only reviewer challenged the draft against exact source `682fc3830`, its
-strongest legitimacy and the original account. The two principal additions survived source and
-call-order challenge. The following material corrections were accepted and integrated in the
-primary pages and synthesis:
-
-| Challenge | Reconciled result |
-|---|---|
-| DA-025 treated a missing built-in composition as a violated supported promise | Public collection and explicit returned-space/no-automatic-collector scope are retained; no active violation established |
-| DA-024 conflated mandatory provenance, local admission and optional strict receipt qualification | Separate those routes and their roles; withdraw the broad purposelessness/unconditional-cost claim |
-| DA-005 asserted physical meaning could not be recovered from any bundle | Executable bundles preserve authored physical documents; retain the missing direct result-reader projection |
-| DA-043 charged Runtime construction to every native call | Supplied-only comparison/profile capture return after currency/import but before Runtime construction |
-| DA-041 demanded a patch series/family and called regeneration impossible | Require truthful recoverable edits; retain mechanisms as solution candidates and withdraw impossibility |
-| DA-033/037 retained universal-envelope/liveness wording beside their narrowing | Reconcile the earlier paragraphs: shared facts do not erase different lifecycle/owner policies |
-| DA-034 labelled a historical ratio's persistence Interface-checked | Current structure is source-established; the current timing ratio remains unmeasured |
-
-The coordinator re-read the load-bearing covariance, executable-closure, optional-receipt,
-physical-bundle, native-worker early-return and historical-measurement evidence. The challenger
-found no further established substantive omission in its bounded inspection; this is not proof
-of absence. No challenge was resolved by product mutation or a qualification claim.
+The next available identity is **DA-061**. Retired identities are never reused.
 
 ## Revalidation outcomes
 
-| ID | Followup disposition at `682fc3830` | Evidence and limits |
+| ID | Outcome at `f83bac039` | Primary home |
 |---|---|---|
-| DA-001 | Resolved; residue merged | The typed resolved IR owns syntax; runtime name lookup → [DA-006](semantic-model-and-authority.md#da-006) |
-| DA-002 | Resolved; residue merged | Modeling derivations catalogued; runtime re-mints → DA-006; store keys → DA-007 |
-| [DA-003](semantic-model-and-authority.md#da-003) | Retained | Handwritten selected-source inventory and distinct lexical binding rules |
-| DA-004 | Resolved | Generated artifact and owner enums |
-| [DA-005](semantic-model-and-authority.md#da-005) | Retained; export claim corrected | Direct result-reader projection missing; executable bundles retain recoverable authored physical context |
-| [DA-006](semantic-model-and-authority.md#da-006) | Retained | Mode target reconstruction, skipped dynamic nominal hints, name scans and identity re-mints |
-| [DA-007](structure-and-invariants.md#da-007) | Retained; precision corrected | Store vocabularies and special prefix associations restated; ordinary study membership is explicit |
-| DA-008 | Resolved, bounded correction retained | Typed store refusals/effect knowledge remain; no new fault injection |
-| [DA-009](structure-and-invariants.md#da-009) | Retained | Kind-specific lifecycle questions independently projected; shared typed supervisor remains a strength |
-| DA-010 | Resolved for authentication/PSD | Original fit permission gap is now traced under DA-038, not a reopened forgery diagnosis |
-| DA-011 | Resolved, bounded correction retained | Generated catalogue and import fingerprint remain; new catalogue census not repeated |
-| DA-012 | Resolved; residue merged | One run supervisor; dispatch strand → DA-009 |
-| DA-013 | Resolved | One pure prediction policy |
-| DA-014 | Closed by decision | Parameter-valued points; other kinds refused (I22, RC12) |
-| [DA-015](boundaries-and-composition.md#da-015) | Retained | Hand host bindings/defaults persist; generated CLI and inspection requests are counterevidence |
-| DA-016 | Narrowed and merged | Residue → [DA-017](boundaries-and-composition.md#da-017) |
-| [DA-017](boundaries-and-composition.md#da-017) | Retained at sampled seams | KINSOL static/admitted capability split, exposed PETSc refusals and dynamics attribution wildcard |
-| DA-018 | Closed by decision (I23) | No new patch-semantics evidence; decision not reopened |
-| [DA-019](boundaries-and-composition.md#da-019) | Retained; fidelity wording corrected | Deployment mirrors/frozen glob remain; database destination checksums are not source-byte comparison |
-| [DA-020](boundaries-and-composition.md#da-020) | Retained | Product/tooling change propagation established; a particular crate split is not selected |
-| [DA-021](local-reasoning-and-assurance.md#da-021) | Retained | Runtime-carrying values and broad workflow visibility; no new exact census |
-| [DA-022](execution-fit.md#da-022) | Closed by decision (I16) | No concrete new unsupported-allocation evidence; no renewed sizing campaign |
-| [DA-023](local-reasoning-and-assurance.md#da-023) | Narrowed; false grounds withdrawn | Stale current mechanism text remains; proposed/Tested coexistence, transport supplement and differing path roles are legitimate |
-| [DA-024](local-reasoning-and-assurance.md#da-024) | Broad diagnosis not established | Optional strict receipts, local admission and mandatory outer lineage differ; public portable composition has a role |
-| [DA-025](execution-fit.md#da-025) | No active violation established | Public collector plus explicit returned-space/no-automatic-collector scope; optional operator-composition question retained |
-| DA-026 | Resolved | Per-row locators removed; DataFusion pruning |
-| DA-027 | Resolved | Group/re-expand cycle deleted |
-| DA-028 | Resolved structurally | Multi-output guarded regions |
-| DA-029 | Resolved in the compiler; residue merged | Runtime scans → DA-006 |
-| [DA-030](execution-fit.md#da-030) | Closed by decision (I08–I10) | No stale reuse shown; cold-worker need remains unmeasured, not an automatically fired trigger |
-| DA-031 | Resolved; residue merged | Compiler view policy; inline role admission → DA-006 |
-| DA-032 | Narrowed and merged | Artifact-profile literals → DA-007 |
-| [DA-033](boundaries-and-composition.md#da-033) | Retained; remedy narrowed | Concrete settlement/effect-knowledge divergence; no proof every owner needs one universal envelope |
-| [DA-034](execution-fit.md#da-034) | Retained structurally | Per-relation/chunk fixed publication protocol; I30 stays historical |
-| [DA-035](execution-fit.md#da-035) | Retained with scale limit | Population item loops and fixed clock; admission bound is not qualified supported scale |
-| [DA-036](development-tooling.md#da-036) | Retained; headline narrowed | Finite profile values restated and conformance settings determine production allocation; existing host policy credited |
-| [DA-037](development-tooling.md#da-037) | Retained; policy distinction corrected | Cyclic coupling and repeated observations; different launcher/manager/drain policies are not inherently wrong |
-| [DA-038](semantic-model-and-authority.md#da-038) | Widened materially | Missed covariance publication/reuse permission chain; aggregate and composite acceptance seams retained |
-| [DA-039](structure-and-invariants.md#da-039) | Retained | Constructor classification reaches lazy scientific admission and agent remedies; no failure injection |
-| [DA-040](structure-and-invariants.md#da-040) | Retained | Closed boundary vocabularies, bounds and positional metric meaning restated |
-| [DA-041](local-reasoning-and-assurance.md#da-041) | Retained; remedy unselected | Direct prose/bytes contradictions; archive counts inherited, no mandatory patch format/family |
-| [DA-042](execution-fit.md#da-042) | Retained, bounded | Prefix-selected span export and unavailable drop observation; permitted loss remains legitimate |
-| [DA-043](development-tooling.md#da-043) | Retained; cost attribution corrected | Shared process/currency/import prefix; Runtime construction is operation-specific; no current timing |
-| [DA-044](execution-fit.md#da-044) | Retained; remedy narrowed | Fixed verifier clock and repeated passes; safe recovery, not mandatory self-thaw or excluded durability |
-| [DA-045](execution-fit.md#da-045) | New diagnosis of unchanged code | Executable closure/export retains all selected source encodings before copying |
+| DA-001, 002, 004 | Resolved (2026-10-25); stubs kept | [Semantic](semantic-model-and-authority.md#resolved-merged-and-moved-identities) |
+| [DA-003](semantic-model-and-authority.md#da-003) | **Reopened**. The lookup rule is still authored in four places | Semantic |
+| DA-005 | Resolved (physical context projected) | Semantic |
+| [DA-006](semantic-model-and-authority.md#da-006) | **Reopened and re-scoped**. Obligation lowering, fixture policy and the omnibus specialized product | Semantic |
+| [DA-007](structure-and-invariants.md#da-007) | **Reopened** against Plan56's resolved disposition and narrowed. Run-key prefixes; hand SurrealQL subsets; hand inverse projection | Structure |
+| DA-008, 010, 011 | Resolved (2026-10-25) | Structure |
+| DA-009 | Resolved (per-kind request facts; tagged replay) | Structure |
+| DA-012, 013, 016 | Resolved or merged (2026-10-25) | Boundaries |
+| DA-014, 018 | Closed by decision; not re-examined | Boundaries |
+| DA-015 | Premise largely retired (MCP, CLI generator and catalogue deleted); `pse-py` residue retires under 58g G03 | Boundaries |
+| DA-017 | Resolved. Non-algebraic selection is part of DA-053 | Boundaries |
+| [DA-019](boundaries-and-composition.md#da-019) | Narrowed; live on a retiring path (Python supervisor is the operator store path) | Boundaries |
+| [DA-020](boundaries-and-composition.md#da-020) | **Reopened** against Plan56's resolved disposition. Relocated to the host root and foundations | Boundaries |
+| [DA-021](local-reasoning-and-assurance.md#da-021) | **Reopened** against Plan56's resolved disposition and widened (runtime breadth, cycles, visibility) | Local reasoning |
+| DA-022 | Closed by decision (I16) | Execution fit |
+| [DA-023](local-reasoning-and-assurance.md#da-023) | **Reopened and widened**. Sections omit the host layer and lag Plan58 ownership | Local reasoning |
+| [DA-024](local-reasoning-and-assurance.md#da-024) | Live on a retiring path (producer qualification reachable only from `pse-py`) | Local reasoning |
+| [DA-025](execution-fit.md#da-025) | Retained as a scope record | Execution fit |
+| DA-026–029 | Resolved (2026-10-25) | Execution fit |
+| DA-030 | Closed by decision (I08–I10); candidate trigger deleted; no stale reuse found | Execution fit |
+| DA-033 | Resolved (shared exact settlement) | Boundaries |
+| [DA-034](execution-fit.md#da-034), [DA-035](execution-fit.md#da-035) | Narrowed; per-point consequence absorbed by DA-055 | Execution fit |
+| DA-036 | Resolved for authority; residue merged into DA-057 | Development tooling |
+| DA-037 | Merged into DA-057 | Development tooling |
+| DA-038 | Resolved for covariance; uncovered derived products are DA-048 | Semantic |
+| [DA-039](structure-and-invariants.md#da-039) | **Reopened** against Plan56's resolved disposition and widened to canonical, native-service and host errors | Structure |
+| DA-040 | Resolved (enum-keyed metrics) | Structure |
+| DA-041 | Resolved (truthful vendored delta record) | Local reasoning |
+| DA-042 | Resolved | Execution fit |
+| [DA-043](development-tooling.md#da-043) | **Reopened** against Plan56's resolved disposition. Inherited by native entrypoints (per-invocation revalidation and executable digests) | Development tooling |
+| DA-044 | Resolved; mechanism on a retiring path | Execution fit |
+| DA-045 | Resolved | Execution fit |
+| [DA-046](study-execution-and-database-boundary.md#da-046) | Inherited and corrected by the native CLI; `pse-py` path retiring | Study/database |
+| [DA-047](study-execution-and-database-boundary.md#da-047) | Retained | Study/database |
 
-The historical whole-account population allocates DA-001–DA-045. Subsequent allocations
-and the next available identity are recorded in the scoped refresh above. Retired IDs
-are never reused.
-DA-038 owns the missed covariance-permission diagnosis. DA-010 stays resolved for its narrower
-content-authentication/external-origin/PSD correction; this distinction prevents duplicate homes.
+DA-031 and DA-032 remain resolved or merged as recorded on the semantic page. Every identity keeps
+its anchor on its page.
 
-## Strengths to preserve
+## Principle coverage
 
-The independent discovery passes directly found governing mechanisms, not merely descriptive
-schemas:
+Each principle was assessed explicitly by at least one stream. The coordinator verified the gap
+outcomes. "Aligned" means no structural gap was found in the inspected scope; it is not
+certification.
 
-- Checked modeling functions retain physical validity, applicability claims and strict domains.
-  Definitions, contextual values and temporary initialization overlays remain distinct.
-- Typed resolved regions, complete preparation keys and single-flight reuse separate immutable
-  preparation from changing values. No new stale-reuse evidence was found.
-- Original candidate assessment gates engineering-goal assessment. Dynamics checks original
-  initial coordinates and cumulative inventory/flux closure. Their existence does not settle
-  every derived-result permission, as DA-038 now demonstrates.
-- A shared typed run supervisor and pure study policy serve the supported operations. Adapter
-  qualification/status internals keep the preceding audit's bounded evidence; they were not
-  comprehensively requalified here.
-- Exact immutable effect identities, guarded publication, original-owner protection, indexed
-  bounded history compaction and caller/activity/connection separation remain meaningful strengths.
-- Public covariance content reconciliation, explicit external provenance and PSD admission are
-  real controls, although they do not supply missing scientific permission.
-- Generated boundary shapes, strict version admission, protected result decoding, a derived
-  capability CLI and native library use reduce hand interpretation at several boundaries.
+| Principle | Outcome | Where |
+|---|---|---|
+| AP-01 Separation of concerns | Gap | Causes 2 and 5: DA-020, DA-021, DA-006, DA-053 |
+| AP-02 Stable contracts | Gap | DA-049, DA-051, DA-052, DA-053, DA-060 |
+| AP-03 Composition | Gap | DA-006, DA-053, DA-054. Host boundary composition aligned |
+| AP-04 Domain model and authority | Core chain aligned; gaps at derived products and seams | DA-048, DA-003, DA-051, DA-039, DA-023 |
+| AP-05 Explicit structure | Gap | DA-053 (fail-open scopes), DA-007, DA-058, DA-060 |
+| AP-06 Local reasoning | Gap | DA-021, DA-053, DA-047. Cancellation and effect predicates are strengths |
+| AP-07 Execution fit | Gap (structural, unmeasured) | DA-055, DA-056, DA-059, DA-020, DA-043 |
+| DP-01 One authority per fact | Gap | DA-003, DA-006, DA-007, DA-048, DA-050, DA-057 |
+| DP-02 Distinctions are types | Gap | DA-039, DA-049, DA-052, DA-006 (fixture policy) |
+| DP-03 Invariants have enforcement points | Gap | DA-049, DA-051, DA-058, DA-060 |
+| DP-04 Layered identity | Gap | DA-050; pointer identity in a reuse key (within DA-030's decision) |
+| DP-05 Definitions/bindings/results separate | Mostly aligned | Value overlays, `PreparedCase::rebind`. Derived-product permission is not separated per product (DA-048) |
+| DP-06 Author structure once | Partial | One registry declaration; generic accumulators. Canonical transitions are authored in four representations (DA-051) |
+| DP-07 Relationship kinds | Aligned (not deep) | Connections separate from generated rows |
+| DP-08 Operations carry contracts | Partial | `SpecializedModel` has no consumer contract (DA-006); DA-047 |
+| DP-09 One reuse mechanism | Within a decision; one gap | Several premise/key trackers beside Salsa (DA-030 closed by decision, no stale reuse found). Identity re-minting threatens key consistency (DA-050) |
+| DP-10 Prepare once, cross coarsely | Gap | DA-055, DA-043; preparation itself aligned |
+| DP-11 Precision and determinism | Aligned | Fixed formal-symbol pool; no `target-cpu=native` |
+| DP-12 Recursion and iteration semantics | Not assessed in depth | Strategy driver and recycle owners only skimmed |
+| DP-13 Library first | Aligned in numerics; gap in data layer | Solver/numerics strengths; DA-060 engine wrapping; DA-052 hand JSON beside `cargo_metadata` |
+| DP-14 Built-ins and thin adapters | Mostly aligned | Direct DataFusion providers; DA-060 |
+| DP-15 Qualify library boundaries | Mostly aligned | Capability records for algebraic adapters. Non-algebraic selection is owner-decided (§18.1, ADR-0209) |
+| DP-16 Minimize bespoke machinery | Gap | DA-053, DA-057, DA-059, DA-060 |
+| DP-17 Module boundaries follow ownership | Gap | DA-020, DA-021, DA-053 |
+| DP-18 Declared effects | Partial | Pure compiler and modeling; ambient thread-local premise capture; reads write tickets (declared) |
+| DP-19 Owned workspaces and outcomes | Aligned on truthfulness; gap in proportion | DA-055, DA-056 |
+| DP-20 Bounded, coordinated concurrency | Partial | One pool; split admission ledgers (DA-057); shared hot keys (DA-055) |
+| DP-21 Structured diagnostics | Gap | DA-039; DA-024 and DA-047 (producer and attribution lineage) |
+| DP-22 Labelled claims | Aligned (sampled) | Plan and ADR evidence labels; not a code property |
+| DP-23 Verification matches risk | Test account | See [test account](../test-audit/README.md) |
+| DP-24 Explicit, discoverable evolution | Gap | DA-023, DA-050, DA-051, DA-052, DA-059, DA-060 |
+| PS-01 Dimensioned quantities | Aligned | Quantity contracts on ports, `CasePlan` slots, covariance reuse |
+| PS-02 Material systems and validity | Aligned; one gap | Envelope and applicability owners; fitted-parameter publication leaves applicability unchanged (DA-048) |
+| PS-03 Conservation | Aligned in modeling; gap in lowering | DA-006 |
+| PS-04 Well-posed before solving | Aligned; minor | One structural analysis; backend recomputes the mode rule twice (`structural.rs`) |
+| PS-05 Topology, structure and solve order distinct | Aligned | `pse-structural` split |
+| PS-06 Formulation domain and smoothness | Aligned | Original guards, §7.3 owner |
+| PS-07 Derivatives and scaling | Derivatives aligned; scaling ownership gap | DA-006 |
+| PS-08 Initialization and convergence | Aligned (light) | Compiler-owned start precedence; strategy driver |
+| PS-09 Solver selection by class | Aligned for algebraic classes | Explicit no-fallback routing. Non-algebraic selection is owner-decided (§18.1, ADR-0209), not assessed as a gap |
+| PS-10 Truthful outcomes | Aligned for solves; gap for operational failures | DA-039 |
+| PS-11 One model across modes | Partial | DA-053, DA-054 |
+| PS-12 Honest results | Gap | DA-048, DA-049 |
+| PS-13 Shared checks and reference validation | Aligned | Shared closure, applicability and conformance checks. Reference coverage is the test account's |
+
+## Challenge reconciliation
+
+A fresh read-only challenger reviewed the full draft against current source and the owner
+documents. It raised 19 challenges. The coordinator verified the material ones at source and
+integrated all of them:
+
+| Challenge | Reconciled result |
+|---|---|
+| DA-020 misread `pse-model`'s 27k generated runtime family as canonical rows, and overstated host reach | Canonical rows are about 8.3k lines and consumed by no mathematics crate. The normal dependents of `pse-host` are `pse-runtime` → `pse-py`; `pse-operations` reaches it only in service/test builds. Revision 311's "heavy developer composition stays under xtask" cited as owner intent |
+| DA-051 treated ADR-0164's designed writer-trust boundary as an unnoticed gap | Settlement trust is recorded as decided, open to a later review challenge. The retained gap is that `observe` omits the study-module hash binding that claims carry. About 300 hand SurrealQL statements added to the footprint |
+| DA-055 omitted the live owner of its granularity | 58d D03 (O01), the state-placement table and §19.3's capture-gate rationale cited. The 10k and 100k bounds treated as declared limits. The cause is restated as a challenge to the selected unit |
+| DA-053 called ADR-0209's decided fitting selector a gap, and said "no owner composes" | Non-algebraic selection is withdrawn as owner-decided. Restated: twelve literals, seven inside `MathService` and five in modes that bypass it |
+| DA-023 claimed the sections never mention the host | Narrowed: §21.7 describes a Proposed host root, and the §1.1/§3.2 inventories omit the crate. `pse-admission`'s absence from §1.1 added |
+| DA-059 claimed 58g names none of the projections; mixed in JSON Schemas; inconsistent counts | 58g's projection-consumer row cited; the gap narrowed to per-family emission declarations. JSON Schemas moved out. Counts restated with method and limits |
+| DA-048 ignored the gating of own-prediction propagation and §19.2's product-local validity design | Narrowed to: modeling-step propagated covariance without recorded permission; sensitivities and Hessians by consumer conjunction; no relational projection of governing permission |
+| Lineage labels silently contradicted Plan56's "resolved" dispositions | DA-007, 020, 021, 039 and 043 are now labelled reopened against Plan56, like DA-003, 006 and 023 |
+| DA-057 called duplicate interpreters "authorities", and missed Plan58 I01/T02 | Rows split into writable authorities and duplicate interpreters. I01 ("no bridge") and T02 added. Reconciled with DA-036's resolution |
+| DA-043 sat under the cutover cause; DA-003's fourth site was an identity encoding | DA-043 moved to bounded findings. The `f_<hex>` identity's primary home is DA-050 |
+| DA-049 path ambiguity; DA-054's non-sequitur and misquoted ADR-0190 | Path qualified; divergence sentence dropped; ADR-0190 quoted exactly |
+| DA-058 undercounted the protected-path copies and missed a false AGENTS.md claim | At least seven copies listed. The deny-list overstatement added. The hook exit contract cited |
+| Quantities (runtime lines, host share, `pse-env` uses, terminal literals) | Qualified: about 259k non-test runtime lines; host artifact code about 40% of about 19k; 119 mentions of `pse-env`, 79 of them wrappers; about 25 hand terminal literals |
+| The coverage table disagreed with finding principle lists (DP-05/06/09/17/21/24) | Rows reconciled |
+| Architecture cited by line number; baseline text inconsistent; stale justfile line | Section identifiers used. Baseline records `fbf08a43c` and the extra dirty paths. Line re-anchored |
+
+The challenger confirmed the core citations of DA-048…DA-060 and of the reopened findings. It also
+confirmed the revalidation spot checks (DA-017, DA-033, DA-045) and that Plan58 cites no DA
+identity. Its omission leads were integrated: `pse-admission` coverage, hand SurrealQL statements
+and instruction drift. No challenge was resolved by product mutation or a qualification claim.
 
 ## Scope, coverage and limits
 
-**Re-read in the followup:** model checking and resolved preparation; representative solve,
-initialization, fit, dynamics, assessment and covariance consumers; operation/lifecycle
-projections; store declarations and generator/template seams; deployment, retention and physical
-collection composition; history compaction and project closure/export; backup freeze/copy/restore;
-resource policies and tooling imports; native MCP prerequisites/currency; telemetry declarations
-and export selection; current-intent and vendored-record claims.
+**Inspected, by stream (depth varied; each stream lists its own read and skimmed owners):**
 
-**Inherited or limited:** exact whole-tree counts, numerical patch semantics, broad adapter status
-mapping, comprehensive compiler absence claims and the old archival upstream diff figures. The
-preceding 2026-10-25 account's evidence remains available at `c02f68670`; the new source baseline
-does not silently renew those measurements or detailed coverage.
+| Area | Owners |
+|---|---|
+| Scientific meaning | Completion, run, fitting, uncertainty, studies, inspection, portability, research publication |
+| Numerical execution | Backend execution seam and routing, structural admission, runtime solves, strategy, shooting, fitting oracles |
+| Durable state | Canonical execution, studies and progression, migration, files, generated SurrealQL, worker, durable, study |
+| Structure | The whole workspace graph, runtime module tree, codegen/xtask generators, host and operations edges |
+| Host and tooling | All of `pse-host`, justfile routing, `scripts/pse-env`/`pse-host`, sampled Python policy scripts, `.config` |
+| Contracts | `pse-ids`, `pse-diagnostics`, error enums, boundary documents, section truthfulness |
+| Declaration and data | Codegen, `pse-schema`, `pse-relations`, `pse-engine`, `pse-rules`, `pse-columnar` consumers |
+| Preparation | `pse-modeling`, `pse-compiler`, `pse-quantity`, `pse-kernels`, runtime modeling and preparation |
 
-**Unresolved/unexamined:** exhaustive numerical correctness and independent reference coverage of
-all scientific packages; all property envelopes; server-internal CPU work; full telemetry
-alert/investigation/selection and specialist bodies; remaining vendor-tree semantics; current
-latency, memory, contention, scale and interruption manifestations. The newly added exchange
-finding establishes a structural realization, not its dominant operational cost.
+**Not inspected, or only lightly:**
+- `pse-admission` beyond its authoring-driver entry and physical admission plans. It joins
+  `pse-engine`, `pse-rules`, `pse-relations` and `pse-modeling`;
+- the sys crates beyond their manifests;
+- `pse-math` assembly internals;
+- `pse-authoring` parser internals;
+- horizon, surrogate and `native_child` internals;
+- the KINSOL and IDAS adapter bodies;
+- the `pse-engine` admission internals;
+- the `pse-relations` validators;
+- canonical staging, project import and explanations;
+- `xtask` evidence and knowledge;
+- most Python script internals;
+- the `pse-py` mapping in depth (retiring).
 
-An area without a finding is not thereby aligned. The account states improvement opportunities
-without authorizing repairs, selecting a universal registry/framework, changing maintainer
-constraints, or starting a solution review or qualification campaign.
+Not established anywhere:
+- numerical correctness;
+- property-envelope completeness;
+- server-internal CPU work;
+- latency, memory and contention magnitudes.
+
+An area without a finding is not thereby aligned.
+
+**Unresolved questions relevant to the remaining Plan58 scope:**
+- Should propagated covariance, sensitivities and fitted-parameter publication carry an owned
+  product permission? Should that permission be relationally readable (DA-048)?
+- Which canonical transitions should the store decide itself, rather than accept from the caller?
+  Should guarded functions have generated call bindings (DA-051)?
+- What unit of guarded commit fits many-cheap-case durable studies under the coordination premise
+  (DA-055)?
+- Which F tools belong in the cold host root? Should product crates depend on all of it (DA-020)?
+- Does ADR-0164's writer-trust model for occurrence observation and terminal sealing still fit?
+  If so, should `observe` at least bind the study-module hash (DA-051)?
+- Should each remaining cutover move a responsibility with every consumer, so that compatibility
+  seams are not built (DA-057)?
+- Which generated projections, engine capabilities and declared invariants have a consumer after
+  `pse-py` retires (DA-059, DA-060)?
+- When does the architecture amendment that names the host layer land (DA-023)?
+
+**Disposition owner.** Plan56 owned DA-001…DA-045 and is complete. Eight of its "resolved"
+dispositions are reopened here with surviving-cause rationale:
+- DA-003, 006, 007, 020, 021, 023, 039 and 043.
+
+Plan58 does not adopt DA findings, and DA-046…DA-060 have no disposition owner. Live Plan58 owners
+overlap some of them without citing them:
+- 58d D03 (O01) for DA-051 and DA-055;
+- 58g G03 and revision 311 (`2232bfa02`) for the retiring-path records DA-015, DA-019, DA-024,
+  DA-046 and DA-059. This account selects no owner, authorizes
+no repair and starts no solution review.
 
 ## Reading and ownership
 
 | Page | Primary findings |
 |---|---|
-| [Integrated system account](system-architecture.md) | Consequence-oriented synthesis, scenarios, counterevidence and improvement directions |
-| [Semantic model and authority](semantic-model-and-authority.md) | DA-003, DA-005, DA-006, DA-038 |
-| [Structure and invariants](structure-and-invariants.md) | DA-007, DA-009, DA-039, DA-040 |
-| [Boundaries and composition](boundaries-and-composition.md) | DA-015, DA-017, DA-019, DA-020, DA-033 |
-| [Local reasoning and assurance](local-reasoning-and-assurance.md) | DA-021, DA-023, DA-024, DA-041 |
-| [Execution fit](execution-fit.md) | DA-025, DA-034, DA-035, DA-042, DA-044, DA-045; closed DA-022/DA-030 |
-| [Development tooling](development-tooling.md) | DA-036, DA-037, DA-043 |
+| [Integrated system account](system-architecture.md) | Six causes, interactions, scenarios, foundation narrative, improvement directions |
+| [Semantic model and authority](semantic-model-and-authority.md) | DA-003, DA-006, DA-048, DA-049 |
+| [Structure and invariants](structure-and-invariants.md) | DA-007, DA-039, DA-050, DA-051 |
+| [Boundaries and composition](boundaries-and-composition.md) | DA-019, DA-020, DA-052, DA-053, DA-054, DA-059, DA-060 |
+| [Local reasoning and assurance](local-reasoning-and-assurance.md) | DA-021, DA-023, DA-024 |
+| [Execution fit](execution-fit.md) | DA-025, DA-034, DA-035, DA-055, DA-056; closed DA-022/DA-030 |
+| [Development tooling](development-tooling.md) | DA-043, DA-057, DA-058 |
+| [Study execution and database boundary](study-execution-and-database-boundary.md) | DA-046, DA-047 |
 
 This collection owns diagnosis. Reviews own alternative remedies, plans own scheduled work and
-closure evidence, and architectural owners/ADRs own accepted design and rationale. The
-[audit skill](../../../.codex/skills/design-principle-audit/SKILL.md) and
+closure evidence, and architectural owners and ADRs own accepted design and rationale. The
+[audit skill](../../../.codex/skills/design-principle-audit/SKILL.md) and the
 [binding](../design_principles/binding/pse-arrow.md#design-principle-audit) govern the process.
 Refresh in place, preserve identities and lineage, and keep earlier exact accounts in Git.

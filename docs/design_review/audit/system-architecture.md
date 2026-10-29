@@ -1,334 +1,352 @@
 # Integrated system account
 
-**Interface-checked unless explicitly marked · 2026-10-25 followup · source
-`682fc3830f8a370f0995544af5adf821e4be9ab9`.**
+**Interface-checked. Refreshed 2026-10-29 at source `f83bac039` plus the working tree.** The
+[README](README.md) records the baseline, method, coverage and limits. This page is the synthesis
+a reviewer should read first. Primary findings live on the topic pages.
 
-The [collection README](README.md) owns the baseline, method and coverage limits. The preceding
-account is preserved at `c02f68670`, against source `b5bdac9da`. Its broad architectural
-observations are evidence to challenge, not boundaries on this followup.
+## Judgment on the preceding account
 
-## Judgment on the preceding audit
+The account at source `682fc3830` (2026-10-25) was never refreshed after Plan56. Plan56 claimed
+every DA-003…DA-045 resolved, closed by decision or superseded, and current source confirms most
+of those claims:
+- compiler-owned mode targets;
+- projected physical context;
+- the covariance permission chain;
+- shared exact settlement;
+- typed solver capability;
+- streamed project closure;
+- checkpointed backup verification;
+- enum-keyed metrics.
 
-The previous audit identified consequential structural problems. Its treatment of mode
-formulation, operation ownership, store/host semantics, physical publication units and tooling
-coupling goes beyond isolated tidy-ups. Those diagnoses mostly survive independent discovery
-and source revalidation.
+Plan58 then deleted or replaced the mechanisms behind several others: the Python MCP, the per-call
+native worker, Python-spawned supervision and build observation.
 
-Its strongest simplification—"the scientific core is well governed; governance weakens toward
-the rim"—was too reassuring at the level of a complete scientific operation. Independent
-inspection found a fit-to-covariance-to-propagation path whose permission disagrees with original
-completion and invocation evidence ([DA-038](semantic-model-and-authority.md#da-038)). The
-component owners and their local checks are real strengths. Their existence does not settle
-which downstream products may claim qualified scientific provenance.
+The old account's five integrated causes are therefore not the current picture. Two were largely
+resolved: fixed lifecycle work at incidental boundaries, and inconsistent consumption of producer
+decisions. The other three moved:
+- product/tooling placement moved into the new host root;
+- declared shapes not owning meaning moved onto hand SurrealQL and transition seams;
+- the flat workflow ownership space grew.
 
-The followup also found an unexamined aggregate materialization boundary in executable project
-exchange ([DA-045](execution-fit.md#da-045)). That has a different physical cause from the
-previous per-file publication findings. Its practical severity remains unmeasured.
-
-Conversely, several earlier claims treated different responsibilities as one fact, or moved too
-quickly from a valid diagnosis to universal machinery. Correcting those overstatements matters:
-more generation, one envelope or one alive/dead policy is not automatically better alignment.
-The improvement points below are justified properties of the implemented system; solution
-selection and adoption priority remain separate.
+Fresh unanchored streams then found causes the old account did not frame:
+- a fine-grained durable protocol per study point;
+- derived-product permission outside fit statistics;
+- per-mode composition of native execution;
+- the cutover pattern itself.
 
 ## The system as built
 
 ```mermaid
-flowchart LR
-    A[Authored physical definitions] --> M[Checked resolved model]
-    M --> C[Prepared immutable products]
-    C --> N[Native execution and local evidence]
-    N --> Q[Original scientific completion]
-    Q --> R[Run and invocation permission]
-    N --> D[Derived fit mathematics]
-    D --> U[Covariance publication and reuse]
-    Q -. permission not consistently consumed .-> U
-    R --> P[Durable publication and readers]
-    U --> P
-    S[Canonical SurrealDB and payload custody] <--> P
-    H[Python, CLI and MCP hosts] <--> P
-    T[Deployment and developer tooling] --> S
-    T --> H
+flowchart TB
+  subgraph Foundations
+    diag[pse-diagnostics<br/>+ process facts, telemetry settings]
+    ids[pse-ids] --> diag
+    q[pse-quantity] --> ids
+    voc[pse-vocabulary]
+    col[pse-columnar]
+  end
+  subgraph Declaration
+    schema[pse-schema registry] --> col
+    model[pse-model<br/>generated rows + canonical rows + study policy] --> q
+    rel[pse-relations<br/>~199k generated Arrow] --> schema
+  end
+  subgraph Mathematics
+    auth[pse-authoring] --> model
+    mod[pse-modeling] --> auth
+    comp[pse-compiler Salsa] --> mod
+    math[pse-math Symbolica] --> model
+    be[pse-backend-native<br/>solver adapters] --> math
+  end
+  subgraph Data
+    eng[pse-engine DataFusion] --> rel
+    ops[pse-operations<br/>SurrealDB client + guarded protocol] --> rel
+  end
+  host[pse-host<br/>host control + dev tools + artifact construction] --> diag
+  ops --> host
+  rt[pse-runtime<br/>composition root: workflow, math effects, durable, export, tooling, bins] --> comp
+  rt --> be
+  rt --> ops
+  rt --> eng
+  rt --> host
+  py[pse-py retiring] --> rt
+  xtask[xtask] --> rt
+  pyscripts[scripts/*.py<br/>supervisor, admission, telemetry, runners] -. retained consumers .-> host
 ```
 
-This is an ownership/meaning picture, not a complete call graph. Canonical SurrealDB, durable
-cross-process work and the selected concurrency/host premises remain fixed.
+The diagram makes four points:
+- **The mathematics layer stays clean.** It has no Arrow, DataFusion, SurrealDB or PyO3 edges
+  (`cargo tree` probe), and solvers are opt-in features.
+- **`pse-runtime` composes everything.** It holds scientific methods, numerical qualification,
+  durable workers, export, telemetry exporters, review tooling and three operator binaries.
+- **`pse-host` sits beside it.** It is lean in dependencies (no Arrow, Python or database), but
+  `pse-runtime`, and through it `pse-py`, links all of it. `pse-operations` reaches it only in
+  service and test builds.
+- **Python persists behind retained consumers.** About 86 of 141 top-level scripts remain
+  reachable from recipes. The 11.6k-line store supervisor is still the operator path for the
+  canonical service, backup and restore.
 
-- The core owns physical meaning, resolved syntax, guards, selected dependencies, library
-  preparation and original assessment. Sampled domain models govern behavior rather than merely
-  describing result schemas.
-- Runtime owns scientific workflow legitimately; it is not required to be a thin composition
-  root. Some internal responsibilities nevertheless have broad visibility and runtime closure
-  dependencies ([DA-021](local-reasoning-and-assurance.md#da-021)).
-- Canonical operations own guarded state, exact effects and protected payloads. Those guarantees
-  are distinct from the physical units and repeated work used to realize them.
-- Multiple public hosts are legitimate. They should preserve consumed meaning without
-  independently reconstructing operation defaults, admission or scientific permission.
-- Tooling and product responsibilities cross in both directions: production deployment uses
-  tooling owners, while evidence/knowledge and diagnostic contracts propagate through product
-  and foundation builds ([DA-019](boundaries-and-composition.md#da-019),
-  [DA-020](boundaries-and-composition.md#da-020)).
+**Representative journeys:**
+
+| Journey | Route at this baseline |
+|---|---|
+| Author → solve → result | Text → `pse-authoring` → admission/selection (runtime `SourceIndex`) → `pse-modeling` check/specialize → `pse-compiler` Salsa → typed math → per-mode routing composition (runtime) → `pse-backend-native` adapter → original-space qualification → completion → retained IPC |
+| Fit → covariance → publication | Fit oracle and LM or NLP in runtime → `Completion.products` (fit statistics only) → covariance reuse gated by product permission → parameter publication gated by `estimate_qualified` → re-admitted DSL |
+| Durable study | Store-side progression (one action per RPC) → prepared claim (shared per-problem guard) → `DurableAttempt` → about a dozen guarded commits → `observe` (study-module hash unbound) |
+| Retained read/export | Protected IPC snapshot → direct DataFusion `TableProvider`s; canonical header rows rebuilt through Arrow for `pse-py` |
+| Developer command | `scripts/pse-env` → `pse-host boundary` (composes environment, capacity, tool digests) → foreground scope; retained recipes go to Python supervisors |
 
 ## How the system serves its functional target
 
-**Edit → re-solve.** Complete immutable preparation and value rebinding are strengths. Durable
-publication is intentionally part of ordinary runtime behavior. Its current packing pays the
-full file-intent protocol per relation/chunk/flush ([DA-034](execution-fit.md#da-034)). This is
-a concrete structural opportunity on the caller's critical path, without a claim that a
-historical timing ratio still holds on the current engine.
+The governing scientific mechanisms are strong, and the causes below sit around them:
+- **Typed outcomes.** Native termination, candidate availability, independent original-space
+  quality and certificates stay separate (`pse-backend-native/src/solve.rs`).
+- **Library-first numerics.** pounce-sens/FERAL KKT, HiGHS tears, KINSOL recycle, pounce-presolve,
+  IBEX, the Levenberg–Marquardt crate, Diffsol/IDAS, Symbolica.
+- **One typed construction path into mathematics** that takes no source syntax.
+- **Preserved domain obligations.** Original guards are kept before simplification, and
+  derivative contracts carry provenance.
+- **Value/structure separation.** `PreparedCase::rebind` keeps values out of Salsa.
+- **Completion computed once at join.** Covariance reuse is permission-gated.
+- **Store-side guarded progression** with schema-epoch fencing, and quiescent migration that
+  still settles original attempts.
+- **One study policy in three placements.**
+- **Shared exact settlement and immutable receipts.**
+- **Honest DataFusion providers** over protected IPC snapshots.
+- **Native host ownership** that is typed and fails closed.
 
-**Same model, multiple analyses.** Definitions and immutable overlays serve solve, dynamics,
-fitting and initialization. Runtime still reconstructs some mode-specific target meaning and
-can skip a dynamic nominal hint ([DA-006](semantic-model-and-authority.md#da-006)). Fit
-derived-product permission does not consistently follow original completion. These are
-cross-mode/consumer gaps inside an otherwise meaningful model architecture.
+## Six integrated causes
 
-**Studies and retained history.** Lane execution and shared study policy are well composed.
-Creation, descriptor paging, summary finalization and cohort reading retain item-sized physical
-operations ([DA-035](execution-fit.md#da-035)). Indexed bounded history compaction is positive
-counterevidence to a claim that all history management is unstructured. Built-in logical
-retirement does not compose physical collection; the public Rust primitive does exist
-([DA-025](execution-fit.md#da-025)). Backup consequently sees retained payloads unless an external
-caller collects them; it verifies the inventory under a fixed clock
-([DA-044](execution-fit.md#da-044)).
+### 1. Scientific permission is owned for only part of what the system derives
 
-**Recycles and dynamics.** Prior library-owned recycle and adapter-status evidence remains
-bounded positive evidence. The followup sampled immutable initialization overlays, original
-initial-coordinate checks and cumulative inventory/flux closure. It did not requalify numerical
-libraries or every sensitivity/event behavior. Correct native completion does not authorize
-unqualified downstream scientific claims.
+[DA-048](semantic-model-and-authority.md#da-048), [DA-049](semantic-model-and-authority.md#da-049).
 
-**Project exchange.** Exact selected source/result/artifact closure, protections and manifest-last
-publication are strengths. Executable closure resolves and retains all selected source encodings
-before sequential copying; executable explanation incurs the same materialization. Descriptive-only
-metadata already has a narrow route. DA-045 concerns avoidable simultaneous live encoding, not
-removal of admission or turning executable explanation into an unchecked metadata read.
+The completion owns product permission for fit covariance and intervals only. Every other
+derived product gets its verdict from the consumer that projects it:
+- sensitivities, reduced Hessians and propagated covariance;
+- fitted-parameter publication;
+- study aggregates, review packs and project bundles.
 
-**Agent/developer loop.** Generated inspection documents, exact protected selections, byte-bound
-pages and a derived CLI are improvements. Every native call still pays a new child lifecycle and
-extension currency reconstruction ([DA-043](development-tooling.md#da-043)). Physical result
-meaning lacks a direct reader projection despite recoverable authored context in executable bundles ([DA-005](semantic-model-and-authority.md#da-005)), while the
-failure constructor can hide whether the needed response is an input correction, resource
-recovery or infrastructure repair ([DA-039](structure-and-invariants.md#da-039)).
+No relational projection of the governing permission exists. Consumers reconstruct conjunctions
+(`run.rs`), keep their own relation tables (`result_inspection.rs`), collapse qualifiers into
+`usable` (`ScientificFacts`), or pass a caller-supplied state that validation skips
+(`pack_selection`). DA-038's correction for covariance shows the mechanism works where it is
+owned. The gap is coverage and projection.
 
-## Five integrated causes
+### 2. The composition root interprets what lower owners determine, and composes their protocols by convention
 
-These explanations connect concrete findings. They do not establish that every member needs the
-same abstraction, registry, lifecycle or placement. A common cause must survive the distinction
-between different semantic scopes and genuine shared facts.
+[DA-006](semantic-model-and-authority.md#da-006), [DA-003](semantic-model-and-authority.md#da-003),
+[DA-053](boundaries-and-composition.md#da-053), [DA-054](boundaries-and-composition.md#da-054),
+[DA-021](local-reasoning-and-assurance.md#da-021).
 
-### 1. Declared shapes do not own all the behaviorally significant meaning crossing a boundary
+Three manifestations:
+- **Preparation.** The runtime lowers accuracy, scale, closure and conservation obligations from
+  the raw `SpecializedModel`, separately for steady and dynamic modes. It parses fixture policy at
+  use and keeps its own copy of the lookup rule.
+- **Numerical execution.** Routing requirements and admission are composed at twelve sites: seven
+  inside `MathService` and five in workflow modes that bypass it. Modes build their own
+  `Execution` and thread lanes. Execution control rides on thread-locals that proceed when no
+  owner is installed.
+- **Studies.** Two executors orchestrate the same occurrence semantics.
 
-Generated schemas and documents have one shape owner. Closed vocabularies, bounds, key kinds,
-metric identities and some operation defaults are still authored independently around them
-([DA-007](structure-and-invariants.md#da-007), [DA-040](structure-and-invariants.md#da-040),
-[DA-015](boundaries-and-composition.md#da-015)). Deployment/profile mirrors extend this
-mechanism across Python and Rust (DA-019, [DA-036](development-tooling.md#da-036)).
+Underneath all three is a crate whose modules import one another in both directions and expose
+hundreds of crate-visible items. That makes it cheap to re-implement a lower owner's rule inline
+and hard to notice that it was done. AP-03's test, "orchestration without independently
+interpreting their rules", fails at each of these seams. The legitimate core stays: value
+binding needs case observations, and native callbacks need ambient context.
 
-The consequence is repeated semantic decisions when a supported capability changes, not merely
-similar-looking code. Ordinary study membership is explicitly represented; only specific
-admission/variant associations were found reconstructed by prefix. Several enforcement points
-are legitimate when they realize the same rule.
+### 3. Declared vocabularies, identities and transitions are applied by convention at consumers
 
-Settlement illustrates the boundary: common request/effect semantics diverge between project
-and research operations ([DA-033](boundaries-and-composition.md#da-033)), but long-lived attempts,
-staged imports and finite creation windows have genuinely different atomicity obligations.
-A shared semantic contract is needed where meaning coincides; one universal envelope has not
-been justified.
+[DA-051](structure-and-invariants.md#da-051), [DA-007](structure-and-invariants.md#da-007),
+[DA-050](structure-and-invariants.md#da-050), [DA-039](structure-and-invariants.md#da-039),
+[DA-052](boundaries-and-composition.md#da-052).
 
-### 2. Fixed lifecycle work is paid at incidental semantic or call boundaries
+The central owners are good, and generation stops short of the consumers in each case:
+- **Registry.** It owns enumerations, but hand SurrealQL re-spells subsets 25+ times. 155
+  guarded functions are invoked through hand positional strings, and about 300 hand statements
+  decode positional field lists. `observe` does not bind the study-module hash that claims bind.
+  The writer-trust boundary itself is decided by ADR-0164.
+- **Frame catalog.** It owns hash contexts, but identities are minted inline through uncatalogued
+  tags, and attempt lineage is derived twice.
+- **Diagnostic vocabulary.** It is well typed, but a `contract()` helper with about 2,390 call
+  sites, and blanket canonical and host mappings, decide the class.
+- **Boundary documents.** The typed regime covers exported documents only; durable completions
+  and the service `config.json` are versioned and read by hand.
 
-Every scientific relation, opaque chunk or progress flush can acquire a complete physical file
-protocol (DA-034). Study population operations repeat item operations and descriptor-heavy pages
-(DA-035). Agent pages repeat process/currency/import preparation (DA-043). Backup makes repeated
-whole-inventory passes under a fixed verifier clock (DA-044).
+Each instance is small. Together they mean that a declared meaning does not reach the place where
+behavior depends on it, so drift surfaces only at runtime or in prose.
 
-These compound: per-item publication enlarges retained inventory, which built-in retirement does
-not physically collect, and backup re-examines it. Bounded responses and honest timeout refusal
-do not establish a fit physical route for ordinary growth. Conversely, the largest admission
-constant does not establish a supported capacity SLA or prove a timeout.
+### 4. Durable work pays a generic, fine-grained protocol per unit of scientific work
 
-DA-045 adds a separate live-state problem: the export boundary retains aggregate encoded source
-payload before an otherwise sequential copy. It is related execution-fit reasoning, not the
-same per-file mechanism. Required full source admission, independent verification and immutable
-protection must survive any more economical realization.
+[DA-055](execution-fit.md#da-055), [DA-056](execution-fit.md#da-056),
+[DA-034](execution-fit.md#da-034), [DA-035](execution-fit.md#da-035).
 
-### 3. Product/tooling placement follows existing generation and hosting reach
+Under the canonical-store premise, each study point:
+- runs the full run/attempt/result/seal/observe lifecycle as roughly a dozen guarded commits;
+- pays a fixed prologue on each one: capture gate, schema admission, history registration,
+  receipt, and a client-side `config.json` read;
+- contends on a per-problem creator guard shared by all lanes.
 
-Scientific deployment depends on supervisor/configuration formats located in development tools,
-while disposable evidence/knowledge contracts and analytics reach product/foundation builds
-(DA-019/020). The previous unused-producer argument over-attributed mandatory startup work to the optional
-strict route. Public portable composition and native-child exploration have legitimate roles;
-[DA-024](local-reasoning-and-assurance.md#da-024) now records that bounded correction, rather than
-an established purposelessness finding.
+Retention safety adds about 18 protection tables with distinct fences. The cohort analysis bound
+(10k) is a tenth of the study bound (100k); both are declared limits.
 
-This matters when changing a developer corpus or executor role propagates through unrelated
-product owners, and when modifying production lifecycle behavior requires test-resource and
-agent tooling context. A specific crate split is not the diagnosis. Product observability is a
-real product responsibility even when its current module is named `tooling`.
+The granularity is owner-selected: Plan58 O01 routes it to 58d D03 (bounded progression; in
+progress), and the capture gate is §19.3's deliberate SSI fix. This cause therefore challenges a
+live owner's chosen unit rather than reporting an unnoticed defect. The premise itself
+(SurrealDB coordination, no daemon, 16 lanes) is not in question. The question is whether the unit of guarded commit fits a
+many-cheap-case workload. Nothing is measured.
 
-### 4. Consumers repeatedly answer kind-specific lifecycle questions across broad workflow internals
+### 5. Placement follows build reach and generator reach, and mechanisms outlive their consumers
 
-One typed `RunOutcome` and one run supervisor are strengths. Sources, provenance, replay,
-report extent, warm starts and host access still depend on kind matches in multiple owners,
-including omission-permitting wildcards ([DA-009](structure-and-invariants.md#da-009)).
-Broad workflow visibility makes these reach-ins easy (DA-021).
+[DA-020](boundaries-and-composition.md#da-020), [DA-059](boundaries-and-composition.md#da-059),
+[DA-060](boundaries-and-composition.md#da-060).
 
-An ordinary extension must therefore understand several consumers' interpretations rather than
-add its owned answers at an established seam. A genuinely new domain concept may legitimately
-change core contracts; file count or exhaustive enums alone do not establish a violation.
-The kind-agnostic inspection/comparison contracts show that some new consumers can avoid this
-propagation entirely.
+- **The host root.** It collects whatever must build cold: host control, developer tools and
+  artifact construction. `pse-runtime` links all of it. Revision 311 keeps "heavy developer
+  composition" under xtask, and whether the doctor and service operators count as heavy is open.
+- **Foundations.** `pse-model` carries about 8k lines of canonical rows beneath the mathematics
+  layer, which consumes none of them. `pse-diagnostics`
+  carries process supervision and telemetry beneath everything.
+- **The generator** emits every projection for every relation family. Only about seven of 90
+  canonical Arrow modules are referenced by production code, all for `pse-py`. Canonical tables
+  get a placeholder snapshot class.
+- **Data-layer machinery from earlier eras persists:**
+  - about 260 declared invariants, executed only for fixtures;
+  - a catalog resolver whose crate is gone;
+  - DML, schema-transform and migration machinery that §20.5 disowns;
+  - an engine provider framework that the live providers bypass.
 
-### 5. A producer's decision is not consistently consumed through scientific and public interpretation
+The common pattern is that a crate boundary or a generator loop decides where code lives and how
+much of it exists, rather than the responsibility and its consumers.
 
-Compiler classification is not fully consumed by formulation (DA-006); expression-role rules
-are restated ([DA-003](semantic-model-and-authority.md#da-003)); published adapter capability
-can differ from admission ([DA-017](boundaries-and-composition.md#da-017)); physical context
-and scientific permission do not reach every reader (DA-005/038); failure meaning follows the
-constructor rather than the condition (DA-039).
+### 6. The cutover moves entrypoints, not responsibilities
 
-The missed covariance chain makes the consequence concrete. Original checks reject a fit;
-invocation evidence withholds its derived products; result rows and covariance constructors use
-successful local mathematics as certification; downstream propagation publishes qualified-fit
-origin without the original refusal. Authentic content and PSD are necessary but answer a
-different question. An explicitly weaker conditional covariance interpretation could be valid,
-but every consumer must represent that scope consistently.
+[DA-057](development-tooling.md#da-057), [DA-058](development-tooling.md#da-058),
+[DA-023](local-reasoning-and-assurance.md#da-023);
+retiring-path records: [DA-019](boundaries-and-composition.md#da-019),
+[DA-024](local-reasoning-and-assurance.md#da-024), [DA-046](study-execution-and-database-boundary.md#da-046).
+Test-side counterpart: [DTA-063](../test-audit/test-execution-system.md#dta-063)/[DTA-064](../test-audit/test-execution-system.md#dta-064).
 
-This pattern cannot be corrected by adding another result field while leaving consumers free to
-reconstruct or ignore the governing decision.
+Plan58 slices replace frontdoors: environment, hooks, doctor, telemetry service, worker roots. The
+retained Python consumers keep the full Python policy graph. Each host policy therefore has a
+second writable authority, or a duplicate interpreter of one declaration:
+- server pin;
+- admission ledger;
+- capacity profile;
+- telemetry selection and state directory;
+- compiler-cache rule;
+- doctor;
+- force-validation resolver;
+- service `config.json`.
 
-## Bounded findings outside the five causes
+The compatibility seams native code builds to interoperate are further declarations to retire:
+reading the Python ledger, reproducing Python JSON spelling, importing Python-built releases.
+Plan58's own I01 rule ("no bridge") names exactly these seams. Meanwhile the §1.1 and §3.2
+inventories omit the `pse-host` crate, although §21.7 describes a Proposed host root. The agent
+instructions also name a retired hook and overstate the settings deny list. This is a declared transition. The diagnosis is about its unit and the length
+of the period with two authorities, not about its existence.
 
-- **Current-contract navigation** ([DA-023](local-reasoning-and-assurance.md#da-023)) retains
-  actual obsolete semantic-lowering/rebind descriptions and duplicated mutable role settings.
-  Proposed ADR status, Tested evidence and ADR-0214's explicit transport supplement are
-  legitimate. They no longer serve as grounds for a general authority failure.
-- **Vendored source records** ([DA-041](local-reasoning-and-assurance.md#da-041)) contradict
-  actual source edits. The IDAS numerical correction is declared and has existing tests;
-  re-vendoring/rebase records are incomplete. Archive hunk counts remain earlier evidence.
-- **Telemetry export policy** ([DA-042](execution-fit.md#da-042)) uses a target-prefix convention
-  and omits available SDK internal loss reporting. Required per-request continuity, permitted
-  loss and truthful unavailable observations remain counterevidence. Science is unaffected.
+## Bounded findings outside the six causes
 
-Their bounded nature does not make them worthless. They should not displace the scientific
-permission and whole-operation questions above.
+- [DA-043](development-tooling.md#da-043): native entrypoints revalidate the same inputs on every
+  invocation. Examples are system-tool digests per `pse-env` crossing, and a digest of the whole
+  executable on every project CLI call, with two hash schemes for one kind of fact. It is a fixed
+  per-call cost, the shape of the earlier "fixed work at incidental boundaries" cause, in native
+  code.
+- [DA-047](study-execution-and-database-boundary.md#da-047): poll-only attribution scoping.
+- [DA-025](execution-fit.md#da-025): a scope record. Physical collection has no built-in
+  composition.
 
-## Cross-cutting pattern: moved causes and structural attractors
+## Interactions
 
-Introducing an owner does not force every consumer to use its meaning. Selected compiler
-products, adapter capabilities and completion decisions coexist with older interpretations at
-some runtime/public seams. The missed covariance path is a further example of a local authority
-whose scope was not followed through publication and reuse.
+| Interaction | Effect |
+|---|---|
+| 2 ↔ 3 | Broad crate visibility (DA-021) makes inline identity minting (DA-050) and stringly classification (DA-039) the path of least resistance |
+| 1 ↔ 2 | Derived-product verdicts are computed in projection code (DA-048) because the runtime owns both projection and product |
+| 3 ↔ 4 | Hand invocation strings (DA-051) and the shared creator guard both sit on the per-point protocol path (DA-055). Generating typed bindings would not reduce commits |
+| 3 ↔ 6 | Hand-read `config.json` (DA-052) is also a two-writer, two-language contract (DA-057) |
+| 5 ↔ 6 | The host root grows because it is the only cold-buildable place, and native replacements land there one consumer at a time |
+| 2 ↔ 4 | Two study executors (DA-054) mean durable studies forgo staged native reuse, which concentrates cost in the per-point protocol |
+| 5 ↔ 2 | `pse-runtime`'s unconditional tooling and host edges (DA-020) widen the compile unit that cause 2 already entangles |
 
-The preceding account's historical Plan 49/52–55 counts suggested where change propagated. They
-were not re-counted here and are not evidence of intrinsic architectural severity. Direct source
-counterexamples matter more: generated document shapes, a derived CLI, kind-agnostic inspection,
-shared study policy and library-owned mathematics already keep some changes local.
+Repairing one finding at a seam can leave the boundary deficient. For example, centralizing
+`Requirements` construction (DA-053) without an owned execution-control contract would leave
+fail-open ambient scopes in place.
 
-The correction target is the mechanism that permits repeat interpretation or unnecessary work,
-not an exhaustive conversion of strings to enums or protocols to one generic framework. A
-better abstraction must preserve genuinely different lifecycle, assurance and scientific scopes.
+## Moved causes
+
+| Earlier cause (2026-10-25) | Where it is now |
+|---|---|
+| Declared shapes don't own boundary meaning | Narrowed; moved to hand SurrealQL, transition seams and unregistered documents (cause 3) |
+| Fixed lifecycle work at incidental boundaries | Largely resolved. New native instances: per-invocation digests (DA-043) and the per-point protocol (cause 4) |
+| Product/tooling placement follows reach | Relocated to `pse-host` and foundations (cause 5) |
+| Consumers re-answer kind-specific lifecycle questions | Kind half resolved (DA-009). The visibility half persists (DA-021, cause 2) |
+| Producer decisions not consistently consumed | Resolved for targets, lexical binding, capability, physical context and covariance. Failure classification persists (DA-039), and derived-product permission is a new scope (DA-048) |
 
 ## Hypotheses contradicted by the evidence
 
-- **The old audit was only local.** Its major ownership and execution-fit findings are systemic
-  and mostly survive independent revalidation.
-- **Local scientific checks establish coherent end-to-end scientific permission.** DA-038's
-  missed covariance chain contradicts this stronger conclusion.
-- **Rejected original checks make every covariance calculation mathematically invalid.** Not
-  established. Point-estimate eligibility and covariance qualification are deliberately distinct;
-  inconsistent scope and lost refusal are the finding.
-- **Physical collection has no production implementation.** A public Rust collector exists.
-  No built-in retirement/operator composition invokes it in the inspected repository, and returned
-  disk space is explicitly outside selected scope. No active violation is established by that fact.
-- **All lifecycle owners should differ only in domain predicates.** Different atomicity and
-  recovery obligations make this an unproved remedy.
-- **No in-repository replay consumer makes all producer machinery purposeless and mandatory at
-  startup.** Public portable composition has a role; strict receipts are optional; consumed outer
-  attestation and local receiving admission are distinct. A specific avoidable startup step
-  requires its own evidence (DA-024).
-- **Physical context is unrecoverable from any exported bundle.** Executable project bundles
-  include original physical source documents. The direct Python/MCP readable-result projection
-  is the established usability gap (DA-005).
-- **Different zombie answers prove an error.** Launcher, manager and descendant-drain policies
-  answer different questions. Repeated authenticated observations and cyclic coupling remain.
-- **Proposed plus Tested is contradictory, or two transport decisions are both active.** Formal
-  acceptance differs from implementation evidence, and ADR-0214 explicitly supplements the older
-  decision. Current mechanism-text drift is narrower.
-- **Executable closure may skip scientific admission because explanation returns only metadata.**
-  That changes the contract. DA-045 concerns simultaneous encoding retention while keeping
-  admission and source protection.
-- **Backup timeout should automatically reopen admission.** Safety of that recovery policy was
-  not established. The requirement is explicit, actionable and ownership-preserving recovery.
+- **"The mathematics layer has leaked data or persistence dependencies."** Not so: there are no
+  Arrow, DataFusion, SurrealDB or PyO3 edges in its normal closure.
+- **"Solver outcomes are inferred from strings."** No production use-point parses status strings.
+- **"Python still performs mathematics or reinterprets results."** `python/pse/_runs.py` defers to
+  native completion. Python product code is now mostly generated contracts.
+- **"Preparation reuse is stale or keyed unsafely."** Several premise and key mechanisms exist
+  beside Salsa, but no stale reuse was found. DA-030's decision stands.
+- **"The host crate imports heavy product dependencies."** Its normal closure is diagnostics and
+  buildinfo only. The problem is the reverse edge (cause 5).
 
 ## Representative change and failure scenarios
 
-| Scenario | What the source establishes | Improvement question |
+| Scenario | Causes exercised | What happens structurally |
 |---|---|---|
-| Fit converges numerically but fails an original authored check; another analysis consumes its covariance | Invocation says unavailable; local/persisted covariance and propagation omit original refusal (DA-038) | Which owned permission, or explicit conditional qualification, governs every consumer? |
-| Change nominal/accuracy target meaning across steady and dynamic modes | Runtime reconstructs targets and can skip unsupported dynamic nominal hints (DA-006) | Can modes consume one declared inventory and explicit differences? |
-| Add an analysis within the supported operation family | Lifecycle consumers re-project per-kind facts despite a shared supervisor (DA-009/021) | Can each kind own its answers without a universal plugin framework? |
-| Grow a value-only study or retained project history | Item creation/finalization, retained files and fixed backup verifier compose amplification (DA-034/035/025/044) | Which physical units remove work while preserving exact recovery and publication? |
-| Explain/export several exact source revisions | All source encodings remain live before sequential copy or explanation (DA-045) | Can exact identity/admission be retained without aggregate encoded-byte residency? |
-| Page native results after an edit | Repeated currency/process/import work, opaque physical context and coarse failure remedies (DA-043/005/039) | Can the requested read preserve currency and scientific meaning with proportionate preparation? |
-| Change settlement behavior or execution-profile meaning | Similar shared facts are redefined across owners/languages (DA-033/036/019) | Which semantics are actually shared, and which lifecycle rules must remain distinct? |
+| Add a new derived analysis product, such as a second-order sensitivity | 1, 2 | No product permission entry. Each consumer (run summary, inspection, analysis graph, review pack) decides usability itself |
+| Add a terminal outcome or attempt phase | 3 | Registry, about 25 hand SurrealQL literals across 13 files, the hand inverse projection and Rust choreography need coordinated edits that only live-store tests catch |
+| Run a 50k-point cheap-case durable study on 16 lanes | 4 | About a dozen guarded commits per point, contention on one creator guard, and a cohort analysis capped at 10k |
+| Add a routing input, such as a new budget | 2 | Twelve hand-built `Requirements` literals (five outside `MathService`) and per-mode `Execution` assembly |
+| Change the SurrealDB patch list or a capacity profile | 6 | Two writable declarations, Rust and Python, with native code reproducing Python spelling |
+| Change a canonical-only table field | 5 | Regenerates and recompiles `pse-relations`/`pse-model` Arrow projections that have no consumer, plus the hydration image |
+| Edit the agent edit guard | 5, 6 | Rebuilds `pse-runtime`, `pse-py` and runtime dependents. Unprepared worktrees run without the guard |
+| A canonical timeout or payload limit reaches a user | 3 | Reported as infrastructure, not as timeout or resource limit, so a consumer must parse prose |
 
-## The development tooling layer
+## How each foundation was investigated
 
-The tooling is a full audit subject, not a secondary exception to the principles. It has real
-product participants and responsibilities: durable deployment, supervised resources, agent
-reads, evidence and developer feedback. It also has legitimate library composition, isolation,
-source fencing and generated schemas.
-
-The consequential gaps are product/tooling change propagation (DA-019/020), finite-profile
-restatement and authority direction (DA-036), cyclic lifecycle coupling (DA-037), and per-call
-preparation/currency (DA-043). The existence of many scripts, services or ledger files is not
-itself a violation. Shared process observations can support different owner policies, and an
-uncapped maintainer-selected host mode is not a defect.
+- **AP-01, separation.** Investigated through crate and module dependency direction, runtime
+  breadth, host contents and the placement of foundation rows. Gaps: causes 2 and 5.
+- **AP-02, contracts.** Investigated through backend-seam imports, the open `pack_selection`, the
+  SurrealQL invocation seam and hand-read documents. Gaps: causes 1–3.
+- **AP-03, composition.** Investigated through per-mode routing, obligation lowering and the two
+  study executors. Gap: cause 2. The host boundary composition was found aligned.
+- **AP-04, domain model and authority.** Investigated through the authoring → result chain,
+  permission and the lookup rule. The core chain is aligned. Gaps: causes 1–3.
+- **AP-05, explicit structure.** Investigated through ambient fail-open scopes, unenforced
+  vocabularies, the edit guard and declared-but-unexecuted invariants. Gaps: causes 2, 3, 5 and 6.
+- **AP-06, local reasoning.** Investigated through module cycles, visibility and ambient task
+  locals. Gap: cause 2. Typed cancellation and effect predicates are strengths.
+- **AP-07, execution fit.** Investigated qualitatively through the per-point protocol, build
+  units, per-invocation digests and uniform emission. Gaps: causes 4 and 5. Nothing was measured.
+- **Profile (PS-01…PS-13).** Each principle was assessed by at least one stream; see the
+  [README coverage statement](README.md#principle-coverage).
 
 ## Improvement directions
 
-These are correction properties and observable boundaries, not selected alternatives or an
-implementation backlog. The order explains consequence; it is not an adoption decision.
-
-1. **Make scientific permission compose through derived products and reuse.** Follow the existing
-   rejected-fit fixture through invocation, exported validity, local and persisted covariance,
-   own-prediction and downstream propagation. Every result must either consume the governing
-   original permission or carry its explicit weaker conditional scope and refusal. Retain
-   diagnostic computation without silently upgrading its scientific authority (DA-038).
-2. **Make operation meaning govern all its representations.** Author shared vocabularies,
-   identity relations, bounds and admission/effect semantics once at an appropriate owner;
-   mechanically derive projections where useful. Preserve legitimate host/environment checks and
-   different lifecycle obligations. Changing one shared rule should not require rediscovering its
-   independent interpretations (DA-003/006/007/015/017/019/033/036/039/040).
-3. **Localize ordinary extensions and independently understandable policy.** Give kinds owned
-   lifecycle facts, narrow workflow interfaces and explicit policy inputs. Preserve the shared
-   supervisor, typed pairs and pure policies. Verify locality with an ordinary supported
-   extension, distinguishing a genuinely new core concept (DA-009/021/038).
-4. **Choose physical work and live-state units for complete operations.** Separate per-relation
-   meaning from physical publication packing, population intent from descriptor-sized pages,
-   exact closure from aggregate encoding, and a read page from a full process/build-preparation
-   lifecycle. Retain crash safety, original checks, immutable source premises and drain. A
-   structural simplification does not establish a measured speed or capacity gain
-   (DA-034/035/043/044/045).
-5. **Give product and tooling dependencies deliberate direction.** Keep shared contracts under
-   their actual consumers; ensure declared feature partitions hold; distinguish product
-   observability from development review and optional producer roles from consumed outer lineage. Share authenticated process observations while keeping
-   distinct launcher/manager/drain policies and reducing cyclic knowledge (DA-019/020/037; DA-024 bounds the optional-producer question).
-6. **Make supported operational limits and evidence truthful.** Keep logical retention distinct
-   from physical collection, expose actionable backup failure/recovery state, reconcile stale
-   current mechanism text, and describe edited dependency sources accurately. Preserve formal
-   decision status separately from implementation evidence (DA-025/044/023/041/042).
+These are properties for a later solution review, not adopted designs or priorities:
+- Every derived scientific product, including propagated and published ones, carries an owned
+  permission, and that permission is relationally readable.
+- Analysis modes consume one owned composition of routing, admission and execution control, and
+  a missing owner refuses.
+- Obligation lowering and fixture-policy typing live with the model and compiler products.
+- Canonical transitions are invoked through generated typed bindings, and the store decides the
+  facts it can decide.
+- Identity derivations and failure classes are owned where they are minted.
+- The unit of guarded commit fits many-cheap-case studies under the existing coordination
+  premise.
+- Crate placement follows responsibility. Generator emission follows declared consumers, and
+  machinery without consumers retires.
+- Each cutover moves a responsibility with all its consumers, and the architecture sections name
+  the host layer.
 
 ## Limits of this account
 
-This followup establishes source-level architectural consequences and their correction
-properties. It does not execute scientific, backup, export, cancellation or scale journeys.
-No timing, memory, throughput or capacity benefit was measured. Previous measurement and
-upstream-diff records retain their exact original conditions.
-
-Sampled PS-02 validity envelopes and PS-13 shared conformance machinery support positive bounded
-judgments. Complete independent numerical/reference coverage, all native patch semantics, server
-CPU work and the remaining telemetry/specialist internals remain outside demonstrated coverage.
-Neither strong components nor absence of additional findings establishes complete alignment.
+This is static architectural diagnosis. No tests, solver runs, services, fault injection or
+measurements ran. Counts come from grep and regex searches and are lower bounds or approximations
+where noted. An area without a finding is not thereby aligned. The [README](README.md#scope-coverage-and-limits)
+lists the uninspected owners.
