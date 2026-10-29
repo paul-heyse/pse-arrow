@@ -371,3 +371,68 @@ test incorrectly expected that general read to succeed and was corrected without
 production admission. Exact receipts and post-activation payload counts retain the duplicate-file
 check. This exercises a current-schema epoch migration; D's earlier real v2-to-v3 controls keep
 their separate scope. Worker-process death and other C integration/retirement obligations remain.
+
+## Native scientific worker closeout — 2026-10-29
+
+**Implemented:** `NativeStudyWorker` retains the original native unit intent before uncertain
+launch, authenticates application readiness against the exact schema-ready service and lends
+only an identity-pinned observer to runtime callers. The worker directly builds the shared
+Rust runtime and calls `Runtime::serve`. Python receiver launch/authorization/allocation
+construction are deleted from this path. Its terminal receipt separately records native join
+and operation failure; original physical unit release never substitutes for that receipt.
+After serving and native shutdown, final-owner connection seal/drain joins outstanding client
+work instead of treating an early `ConnectionBusy` refusal as terminal teardown. Protected
+readers and ordinary shared-client busy refusal retain their existing contracts.
+
+**Tested:** force-validated correctness nextest through
+`scripts/pse-env --native=compiler,solver,klu -- scripts/cargo-bin/cargo-pse-correctness nextest
+run --locked --no-fail-fast -p pse-runtime --features
+native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-scip`, with explicit private
+module receipt/helper and already-built native worker selectors, covers the following composed
+selection against the zero-failure baseline:
+
+- `--lib --bin pse-worker --test native_study --test native_worker_lifecycle --test worker`,
+  selecting native-worker handoff controls, production-profile controls, the worker CLI,
+  all native-study/lifecycle controls and two worker scientific cases: initially 27/29 passed,
+  with two real final-transport busy failures. The existing final-owner drain correction passes
+  both failed cases together (run `bbb57980-3967-454b-a907-089eaa4773ea`). The other 27 pass in
+  run `1b1a127e-42da-47f6-8faa-6e88a0f0b362`; no single final 29-case rerun is claimed.
+- The five additional `worker` cases preserve target-document science, explicit stored-seed
+  reuse and changed-start observations (three passes in the first selection), actual native
+  cross-process cancellation (pass in `6bcb0113-f852-4bf5-a3c6-e15b7e67591f`) and actual solver
+  SIGKILL/lease-expiry recovery (pass in `e294b48b-9095-42eb-9a49-43604f8c7ee4`). All seven current
+  worker cases therefore have composed targeted passing evidence, not a full-series campaign.
+
+The actual killed SCIP case retains its original incumbent observations, failed original
+attempt, absent completion/seed and `Unknown` effects. Even an authored allowance of two
+attempts does not authorize retry: shared `may_retry` additionally requires a transient failure
+and absent/idempotent effects. The migrated legacy assertion incorrectly expected a second
+attempt and was corrected to require exactly one original attempt and no successor attempt.
+A further assertion initially queried the entire history rather than the range after that
+original generation; its cursor now expresses the intended check. Neither correction changes
+production retry/eligibility policy. The separate admitted-entry process-death control retains
+an unresolved original dependency while explicitly independent authored work executes under
+the replacement owner. Repeated native preparation/solve sessions are not counted as separate
+canonical attempts. Cancellation may truthfully return typed `Math(Cancelled)` after actual
+join; it is not required to manufacture a successful scheduling result.
+
+Earlier failures also exposed invalid nextest-injected service environment names, a genuinely
+insufficient fixed fixture pool, and an OS main-thread stack overflow. Test-only runner metadata
+projection, production literal-environment validation, pool-derived workstation construction
+and a qualified application-root stack correct those distinct causes. Successful fixtures are
+physically drained/disposed; failed private diagnostics and configured user data are preserved.
+No warning, skip-as-success, serial host restriction or reduced test width supplied acceptance.
+
+After the scoped lint representation fixes, the actual end-to-end `worker` case passes again
+on the final tree (run `9c6aaff3-a83f-446d-a812-2ea14f0bbc7c`, one passed, six excluded, zero
+failures/warnings), using the same force-validated feature/environment closure above. A first
+final-confirmation command omitted `PSE_NATIVE_STUDY_WORKER` and refused before child launch;
+it supplies no scientific acceptance. The corrected explicit selector uses the already-built
+worker. This confirms the compact Rust progression payloads without repeating the full campaign.
+
+This is a maintainer-requested stop checkpoint. C01–C06 and whole B/C/D remain in progress.
+The source-migrated library managed cases still require replacement of historical fixture/context
+construction and their own execution; these process results do not qualify them. Remaining
+provider/server and scientific/PyO3/reference consumers, lazy/cold population breadth, other
+solver classes and assembled H acceptance remain open. Persistent-production recovery,
+performance and capacity benefits are unmeasured/unqualified. No broad run remains active.

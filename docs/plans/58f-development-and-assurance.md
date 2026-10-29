@@ -477,3 +477,51 @@ unusable. The native route keeps the original selected governance package and or
 without creating another runner. `just check-package xtask --bin xtask` passes with zero
 warnings/errors. The comprehensive governance aggregate is not run mid-plan; its generation
 and family checks retain their normal scope-end qualification point.
+
+## Native worker assurance closeout — 2026-10-29
+
+[58c's closeout](58c-runtime-lifecycles.md#native-scientific-worker-closeout--2026-10-29)
+owns the composed native-worker selection: all seven retained process journeys, the native
+study/cancellation/death controls, lifecycle bootstrap and protocol/profile controls have the
+recorded targeted evidence. This does not execute the still-historical library managed fixtures
+or supply assembled B/C/D/H acceptance. The actual worker startup/construction and 192 GB host
+selection belong to [58b](58b-bootstrap-and-host-control.md#native-scientific-owner-and-workstation-closeout--2026-10-29).
+
+**Tested:** `scripts/pse-env --native=compiler,solver,klu -- .venv/bin/python -m unittest
+scripts.tests.test_execution_profiles` passes all five actual profile/materialization controls
+against zero failures. The initial non-native invocation failed to load the already native-linked
+operator's MKL library; selecting its real prepared native environment resolves that execution
+premise. No library was replaced or globally re-resolved.
+
+**Tested:** pinned `.venv/bin/ruff check --config pyproject.toml` and `.venv/bin/pyrefly check
+--min-severity warn`, through `scripts/pse-env --`, pass the changed scientific-input router,
+execution-profile tests and all four independent oracle scripts with zero diagnostics.
+The standalone `-I` oracles use the same explicit external IDAES/Pyomo dynamic-API typing boundary
+as the existing isolated parity harness. Their local typed exchange records/control remain
+checked. Direct scripts are not import packages, and upstream imports intentionally follow
+protocol/pin validation. Formatting and error-message layout corrections preserve the already
+qualified scientific comparisons; no candidate import or new oracle was introduced.
+
+Work pauses here at the maintainer's request. Remaining reference families, historical fixture
+construction, selected native/static breadth and whole-series qualification retain their
+existing F/H owners; no speed improvement, full powerset or persistent-recovery result is claimed.
+
+**Tested:** the native correctness wrapper's `clippy --locked -p pse-runtime -p pse-host
+-p pse-operations --lib --bin pse-worker --test native_study --test native_worker_lifecycle
+--test worker --features pse-runtime/native-study-tests,pse-runtime/product-operators,
+pse-runtime/solver-kinsol,pse-runtime/solver-ipopt,pse-runtime/solver-scip -- -D warnings`,
+through the same `compiler,solver,klu` environment, passes against zero warnings/errors.
+Large canonical progression/claim payloads and owner-transfer error causes are now boxed;
+original typed ownership and `into_parts` remain intact. A remaining one-element legacy
+artifact-validation loop is simplified. Callers and the progression test helper consume the
+same original values. No lint allowance replaces these Rust representation fixes. These
+selected targets include Rust type checking; they do not establish the unselected workspace
+feature matrix or complete `just hygiene`.
+
+**Tested:** root `scripts/pse-env -- just turn-end` passes ADR indexing and repository formatting
+against zero failures. Formatting other files changed earlier in this authorized turn introduces
+no additional functional scope. Python AST comparison confirms that other formatted Python
+files retain their behavior; the three oracle changes only factor unreachable error strings.
+The owning plan checkpoints and current-work index now record the requested pause, exact targeted
+results and remaining obligations. No full-workspace hygiene/powerset or performance campaign
+was launched, and no test is intentionally left running.

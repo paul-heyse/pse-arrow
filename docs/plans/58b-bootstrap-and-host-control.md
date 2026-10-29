@@ -767,3 +767,36 @@ real escaped-descendant control pass together: correctness nextest `pse-host --l
 `real_owned_unit_sigkill_drains_original_escaped_population`, 2 passed, 132 excluded, zero
 failures/warnings (run `e0a1c791-17e5-46c2-855a-73e80b47c812`). This corrects failure retention;
 it adds no application-join or scientific-success claim.
+
+## Native scientific owner and workstation closeout — 2026-10-29
+
+The application now explicitly constructs `NativeStudyWorker` from the actual canonical
+service's `SchemaReady`, immutable worker image, environment, allocation and sustained settings.
+Its performing owner exists before launch; runtime callers receive only its original
+invocation/process-pinned borrow. Private application readiness binds the exact store/schema
+fence and policy. Python receiver lookup, subprocess launch and allocation JSON construction
+are removed from the scientific worker path. The worker directly constructs Rust services and
+calls `Runtime::serve`. Native process fixtures use private native canonical services and
+original host capabilities, without contacting configured user state.
+
+The maintainer's 192 GB workstation selection now defaults to the existing reference declaration:
+128 GiB scientific pool, 140 GiB process, 160 GiB aggregate including storage/observer; interactive
+request capacity is 128 GiB. Pool-derived compiler/retention limits replace unrelated fixed
+workspace/cache limits at worker construction. Fixture workers divide the same envelope and
+account the actual observer pool before launch. Ordinary work remains unbounded, 32 compiler
+jobs/16 test lanes; explicitly selected finite/timing profiles retain their meaning. All observed
+editor ancestor `memory.max`/`memory.high` values were `max`. These ceilings do not preallocate
+RAM or establish a speed benefit.
+
+A separate child abort was an actual main-stack overflow, not exhausted host RAM. The root
+now joins an application thread with at least the existing qualified 32 MiB mathematical stack;
+Tokio threads use that same selection and larger explicit values survive. Scientific shutdown
+uses the existing final-connection owner drain after native joins, preserving ordinary busy
+refusal and protected readers. [58c's closeout](58c-runtime-lifecycles.md#native-scientific-worker-closeout--2026-10-29)
+owns the composed targeted evidence and corrected test assumptions.
+
+This is a stop checkpoint, not B02–B05 completion. Remaining host/provider/server consumers,
+legacy library-fixture construction, long-hold packaging and assembled qualification remain
+open. No worktree required merging or deletion: only main existed and no conflicts were present.
+Workers concluded; no push is authorized. The source/settings changes do not resize existing
+services or reconstruct existing user data.

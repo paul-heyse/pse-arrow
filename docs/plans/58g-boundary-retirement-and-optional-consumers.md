@@ -189,3 +189,21 @@ candidate parity tests. [58f's reference cutover](58f-development-and-assurance.
 owns their preserved scientific assertions, independent oracles, adverse controls and targeted
 results. Together with the earlier degeneracy exchange, these remove four candidate families;
 the remaining actual parity support and scientific Python/PyO3 consumers keep G01/G03 open.
+
+## Scientific worker boundary cut and stop checkpoint — 2026-10-29
+
+The Rust scientific path no longer locates/starts a Python primary receiver or invokes Python
+to construct its allocation. `NativeStudyWorker` owns the actual process and lends a bound
+observer to callers. The child directly constructs the Rust runtime and serves canonical work;
+its private handoff is supplied only by the native performing owner. The obsolete standalone
+`pse-worker` recipe is removed; `worker-test` exercises the native route. Process journeys use
+private native services, exact prepared module selection and original typed kill/drain authority.
+The test-only environment projection removes runner metadata with invalid service variable names;
+production environment preflight validates names/values and preserves literal values.
+
+Existing library-level managed fixture cases are source-migrated but still consume historical
+fixture/context construction and are not accepted by these process results. Remaining Python
+store/provider helpers, scientific/PyO3 callers and other independent-reference families retain
+their actual consumers and open G01/G03 ownership. Historical receiver metadata is not falsely
+claimed deleted. [58c](58c-runtime-lifecycles.md#native-scientific-worker-closeout--2026-10-29)
+owns targeted results; the whole Plan58 B/C/D/G selection remains incomplete and paused.

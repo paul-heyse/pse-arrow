@@ -26,14 +26,18 @@ The [coordinator checkpoint](58-rust-owned-system.md#execution-checkpoint--2026-
 and [D01/D05 checkpoint](58d-canonical-control-and-connectivity.md#native-progression-migration-and-control-checkpoint--2026-10-29)
 own implementation, tested prerequisites and remaining acceptance. Ordinary/finite native
 containment, provider selection and the isolated canonical service/readiness/migration slice
-have focused passing evidence. The prior assignments concluded in main; the expanded B/C/D execution is now active there.
+have focused passing evidence. The prior assignments concluded in main; expanded B/C/D execution is now paused at the maintainer's closeout request.
 B02–B05 and D01–D05 remain in progress. Frozen-v2/successor migration, native root settlement,
 bounded canonical worker progression and the actual two-worker scientific consumer have focused
 passing evidence. G02's MCP/catalogue retirement is complete; the Python HTTP control client
 also retires with its native replacement. The refreshed development extension and compiled
 declarations agree. Native module preparation now supplies a typed service handoff. Remaining
 host/product/reference cutovers and selected assembled qualification remain open; no full-series
-completion is claimed.
+completion is claimed. The
+[native scientific-worker closeout](58c-runtime-lifecycles.md#native-scientific-worker-closeout--2026-10-29)
+records the latest native primary cut, composed targeted evidence and remaining fixture/assembled
+obligations. The workstation defaults now use the existing 128 GiB pool/140 GiB worker envelope;
+ordinary builds/tests remain uncapped at 32 jobs/16 lanes. No speed benefit is measured.
 
 Plan57 and its companions are superseded historical evidence, temporarily retained for existing
 ADR, architecture and review readers. Their old package tables are no longer active lifecycle

@@ -517,3 +517,19 @@ closed, real ingress/publisher drain precedes successor activation, and a retain
 cannot write or reinterpret its failed readback as settled absence. C owns its command and
 bounded result interpretation. This current-schema epoch case complements the separate actual
 v2-to-v3 tests; it does not close all D01–D05 consumer or assembled qualification obligations.
+
+## Native scientific composition closeout — 2026-10-29
+
+The selected scientific worker consumes the actual service's schema-ready capability directly;
+its handoff/readiness retain the exact epoch, issuer and database rather than rediscovering a
+Python receiver context. Original native/application completion, canonical attempt settlement
+and physical process drain remain separate. The process's final connection now uses the existing
+terminal-owner seal/drain route after scientific owners join; ordinary shared-client disconnect
+keeps its immediate live-activity refusal. This does not widen schema or mutation authority.
+
+[58c's closeout](58c-runtime-lifecycles.md#native-scientific-worker-closeout--2026-10-29)
+owns the targeted cancellation, worker-death, retained observations and unknown-effect evidence.
+[58b](58b-bootstrap-and-host-control.md#native-scientific-owner-and-workstation-closeout--2026-10-29)
+owns process construction and the workstation policy. D01–D05 remain in progress for remaining
+consumers and selected assembled qualification. Work is paused at the maintainer's request;
+no broad persistent-recovery, performance or full-series campaign is running.

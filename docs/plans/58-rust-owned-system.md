@@ -364,3 +364,16 @@ schema-v3 while scientific interpretation remains v10. Historical original targe
 must settle as target-v2 receipts, never silently retarget to v3 or mint current readiness.
 New declarations and consumers share one unreleased v3 target; no existing user store is
 migrated or reset by implementing or testing this scope.
+
+## Maintainer closeout and pause — 2026-10-29
+
+Implementation is paused after concluding the current assignments in main. The
+[58b native scientific owner/workstation checkpoint](58b-bootstrap-and-host-control.md#native-scientific-owner-and-workstation-closeout--2026-10-29),
+[58c targeted lifecycle closeout](58c-runtime-lifecycles.md#native-scientific-worker-closeout--2026-10-29)
+and [58d composition checkpoint](58d-canonical-control-and-connectivity.md#native-scientific-composition-closeout--2026-10-29)
+retain the current implementation, evidence and next obligations. B/C/D remain in progress;
+this checkpoint does not promote source-migrated historical fixtures, focused tests or the
+native primary cut into whole-series acceptance. G02 stays complete; other G/F consumers
+retain their actual owners. No worktree remains to integrate, no push is authorized and
+no broad qualification/performance campaign is running. Resume from those checkpoints rather
+than relaunching earlier interrupted runs or reconstructing the configured user database.
