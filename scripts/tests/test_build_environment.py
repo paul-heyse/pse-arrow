@@ -114,7 +114,7 @@ class BuildEnvironmentTests(unittest.TestCase):
         self.assertEqual(env["RUSTC_WRAPPER"], "")
         self.assertEqual(env["RUSTC_WORKSPACE_WRAPPER"], "")
 
-    def test_cache_has_dedicated_owner_and_keeps_incremental(self) -> None:
+    def test_cache_uses_native_client_and_keeps_incremental(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             binary = Path(directory) / "sccache"
             binary.write_bytes(b"managed executable")
@@ -138,14 +138,12 @@ class BuildEnvironmentTests(unittest.TestCase):
         self.assertEqual(env["SCCACHE_CLIENT_SIDE"], "1")
         self.assertEqual(env["SCCACHE_DIRECT"], "false")
         self.assertEqual(env["SCCACHE_CONF"], str(build.ROOT / ".config/sccache.toml"))
-        self.assertEqual(env["RUSTC_WRAPPER"], str(build.ROOT / "scripts/sccache"))
+        self.assertEqual(env["RUSTC_WRAPPER"], env["PSE_SCCACHE_BINARY"])
         own = {"RUSTC_WRAPPER": "/custom/sccache", "SCCACHE_DIR": "/user/cache"}
         configured = build.configure(build.ROOT, own)
         self.assertEqual(configured["SCCACHE_DIR"], own["SCCACHE_DIR"])
         self.assertEqual(configured["PSE_SCCACHE_BINARY"], "/custom/sccache")
-        self.assertEqual(
-            configured["RUSTC_WRAPPER"], str(build.ROOT / "scripts/sccache")
-        )
+        self.assertEqual(configured["RUSTC_WRAPPER"], "/custom/sccache")
 
     def test_frame_override_survives_nested_setup_and_lsp_projection(self) -> None:
         original = {
@@ -214,7 +212,7 @@ class BuildEnvironmentTests(unittest.TestCase):
         selected = {"PSE_SCCACHE_BINARY": "/chosen/sccache"}
         env = build.configure(build.ROOT, selected, cache="on")
         self.assertEqual(env["PSE_SCCACHE_BINARY"], selected["PSE_SCCACHE_BINARY"])
-        self.assertEqual(env["RUSTC_WRAPPER"], str(build.ROOT / "scripts/sccache"))
+        self.assertEqual(env["RUSTC_WRAPPER"], env["PSE_SCCACHE_BINARY"])
         self.assertEqual(build.configure(build.ROOT, env), env)
         with self.assertRaisesRegex(ValueError, "conflicting"):
             build.configure(build.ROOT, {**selected, "RUSTC_WRAPPER": "/other/sccache"})
@@ -229,31 +227,6 @@ class BuildEnvironmentTests(unittest.TestCase):
             patch.object(build.shutil, "which", return_value="/legacy/sccache"),
         ):
             self.assertNotIn("RUSTC_WRAPPER", build.configure(build.ROOT, {}))
-
-    def test_foreground_cache_survives_nested_recipe_configuration(self) -> None:
-        selected = {
-            "RUSTC_WRAPPER": str(build.ROOT / "scripts/sccache"),
-            "PSE_SCCACHE_BINARY": "/installed/sccache",
-            "PSE_NATIVE_COMPILER_CACHE": str(build.ROOT / "scripts/sccache"),
-            "SCCACHE_SERVER_UDS": "/campaign/cache.sock",
-            "SCCACHE_NO_DAEMON": "1",
-            "SCCACHE_MAX_FRAME_LENGTH": "134217728",
-            build.FOREGROUND_CACHE: "/campaign/cache.sock",
-        }
-        env = build.configure(build.ROOT, selected, cache="on")
-        self.assertEqual(env["RUSTC_WRAPPER"], "/installed/sccache")
-        self.assertEqual(env["PSE_NATIVE_COMPILER_CACHE"], "/installed/sccache")
-        self.assertEqual(env["SCCACHE_SERVER_UDS"], "/campaign/cache.sock")
-        self.assertEqual(env["SCCACHE_CLIENT_SIDE"], "1")
-        self.assertEqual(env["SCCACHE_MAX_FRAME_LENGTH"], "134217728")
-        self.assertEqual(build.configure(build.ROOT, env), env)
-        for extra in (
-            {build.FOREGROUND_CACHE: ""},
-            {build.FOREGROUND_CACHE: "/other/cache.sock"},
-            {"SCCACHE_NO_DAEMON": "0"},
-        ):
-            with self.assertRaisesRegex(ValueError, "foreground compiler cache"):
-                build.configure(build.ROOT, {**selected, **extra}, cache="on")
 
     def test_cache_modes_that_escape_supervision_fall_back_before_setup(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `d75865b144631e358ca8baad83b071cac71fd6d47cc42494caa4c2f2e4d0dd3f`.
+Catalogue content revision: `de389a1cfc25fdfd1c1ad930e218019bc39873ad46a3afc951a57e4df0114917`.
 
 ## Domains
 
@@ -2697,7 +2697,7 @@ Exposure: **native**. Owner: `scripts/build_environment.py`. Declaration source:
   "invocation_lifetime": null,
   "owner": "scripts/build_environment.py",
   "prerequisites": [],
-  "reason": "Canonical scoped compilation uses the check owner; cache experiments, uncached builds and compiler observers retain distinct populations and native artifacts.",
+  "reason": "Canonical scoped compilation uses native Cargo unit selection and compiler caching; build observation and bespoke build campaigns are retired.",
   "requirements": [],
   "route": [
     "just",
@@ -8384,7 +8384,7 @@ Exposure: **native**. Owner: `scripts/experiments.py`. Declaration source: [scri
 
 ```json
 {
-  "description": "Explicit archive/replay, regression/comparison, fixture isolation and canonical portability/recovery controls.",
+  "description": "Explicit archive/replay, paired report comparison, fixture isolation and canonical portability/recovery controls.",
   "domain": "experiments",
   "effects": "Experiments execute selected workloads and own distinct archives, worktrees and database resources; cleanup retains native lifetime rules.",
   "exposure": "native",
@@ -8397,7 +8397,7 @@ Exposure: **native**. Owner: `scripts/experiments.py`. Declaration source: [scri
   "invocation_lifetime": null,
   "owner": "scripts/experiments.py",
   "prerequisites": [],
-  "reason": "Canonical archive/inspect/replay shares kernels/historical identity; bisect, comparison, database populations and recovery retain distinct native owners.",
+  "reason": "Canonical archive/inspect/replay shares kernels/historical identity; paired historical comparison, database populations and recovery retain distinct native owners.",
   "requirements": [],
   "route": [
     "just",
@@ -84682,7 +84682,7 @@ Exposure: **native**. Owner: `scripts/assertion_sensitivity.py`. Declaration sou
 
 ### `workload-observation` — Workload observation and retained results
 
-Exposure: **native**. Owner: `scripts/activity.py`. Declaration source: [scripts/activity.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/activity.py).
+Exposure: **native**. Owner: `scripts/pse-host`. Declaration source: [scripts/pse-host](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/pse-host).
 
 ```json
 {
@@ -84697,7 +84697,7 @@ Exposure: **native**. Owner: `scripts/activity.py`. Declaration source: [scripts
   ],
   "id": "workload-observation",
   "invocation_lifetime": null,
-  "owner": "scripts/activity.py",
+  "owner": "scripts/pse-host",
   "prerequisites": [],
   "reason": "Canonical detached watch/results consume authentic owners; reference-run setup/drain and direct live observers remain distinct native operations.",
   "requirements": [],
@@ -84705,7 +84705,7 @@ Exposure: **native**. Owner: `scripts/activity.py`. Declaration source: [scripts
     "just",
     "activity"
   ],
-  "source": "scripts/activity.py",
+  "source": "scripts/pse-host",
   "title": "Workload observation and retained results",
   "work_owner": null,
   "worker_calls": [],

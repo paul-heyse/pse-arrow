@@ -120,7 +120,7 @@ def quality_tool_names() -> list[str]:
 def native_library_path() -> Path | None:
     """The solver library directory native recipes put on the library path, if prepared.
 
-    ``scripts/native-execution-env.sh`` exports ``$IPOPT_DIR/lib`` because the extracted
+    The native provider environment selects ``$IPOPT_DIR/lib`` because the extracted
     solver libraries carry the image's own runpath (``/opt/pse-solvers/lib``), which
     hides the extension's rpath from their dependencies. The prefix is ``IPOPT_DIR`` when
     set, else the one ``native_cache.py`` has already extracted; this never runs docker.

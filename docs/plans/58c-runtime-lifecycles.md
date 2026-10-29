@@ -75,7 +75,7 @@ control plan; selective result and delivery custody belong to the results plan.
 | [C01](#c01) Settle lifecycle composition | planned | Runtime integrator | Exact-source root comparison decided and shared contracts accepted |
 | [C02](#c02) Native operation ownership | planned | Runtime/math owner | Observer/stop/join behavior implemented and targeted tests pass |
 | [C03](#c03) Shared preparation and worker admission | planned | Runtime worker owner | Producer/waiter and nested admission behavior integrated |
-| [C04](#c04) Service-root shutdown and host handoff | planned | Runtime/host integrators | Admission sealed, failures retained and actual owned work drained |
+| [C04](#c04) Service-root shutdown and host handoff | in progress | Runtime/host integrators | Admission sealed, failures retained and actual owned work drained |
 | [C05](#c05) Publication and delivery settlement | planned | Runtime/control/results integrators | Native completion, durable publication and output release remain distinct |
 | [C06](#c06) Consumer cutover and qualification handoff | planned | Runtime integrator | Replaced wrappers deleted and H scenarios ready |
 
@@ -196,3 +196,24 @@ stop/reconcile, failure during cleanup and retained-output journeys, then scope-
 production implementation, probes, tests and builds are **not_run** in this planning task. Zero remains the execution failure baseline;
 no prior interrupted run supplies new acceptance credit. C completion requires migrated consumers, immediate replacement deletions and
 the coordinator's H evidence, not merely a successful cancellation request.
+
+## Selected host handoff checkpoint — 2026-10-28
+
+The database-free B02/B03 wave implements C04's foreground process/physical fixture handoff.
+Native performing capabilities keep private construction, original intent/bus reference/kernel
+identity, explicit settlement and combined failures; borrowed capabilities cannot stop units.
+Caller-only/workload scopes and the same-image exec gate replace Python foreground coordination
+for selected ordinary commands. Cancellation preserves one startup and one drain deadline and
+attempts all independent cleanup. SIGKILL release is enforced by manager dependencies, including
+escaped/TERM-ignoring descendants; no Python or database owner must remain alive for cleanup.
+Native tests establish their own private parent application scopes so their cleanup cannot
+acquire authority over an enclosing test runner. Parent-application stop and witnessed gated
+startup death now have real-manager controls through the normal command boundary.
+
+**Tested:** the standard admitted foreground suite passes 10 tests and manager suite passes 9 tests
+against zero failures, including one launch reference across repeated reconciliation. The
+request Debug redaction control also passes. [58b](58b-bootstrap-and-host-control.md#selected-wave-verification-and-outcome--2026-10-28)
+owns final assembled evidence and remaining fault cases. These host/process controls do not
+qualify broader runtime blocking-native cancellation/destruction, durable worker roots,
+scientific fixture orchestration or C04/C01–C06 package completion. No canonical service was
+stopped/restarted to supply these fixtures. Existing data and unknown services were preserved.

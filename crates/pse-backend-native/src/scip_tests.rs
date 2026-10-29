@@ -1623,7 +1623,7 @@ fn genuinely_infeasible_model_still_reports_infeasible() {
 /// ```
 ///
 /// `infeasible` means the defect remains; `optimal solution found` means it is fixed. The
-/// pinned binary is `$SCIPOPTDIR/bin/scip` after `source scripts/native-execution-env.sh`,
+/// pinned binary is `$SCIPOPTDIR/bin/scip` with the prepared native provider environment,
 /// and PySCIPOpt's `Model.readProblem` reads the same file.
 #[test]
 fn scip_falsely_proves_the_bt_pr_liquid_tpd_infeasible() {

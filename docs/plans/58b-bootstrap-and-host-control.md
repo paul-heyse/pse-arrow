@@ -147,8 +147,8 @@ a universal publication protocol.
 | [B01](#b01) | done | 58b | Reviewed root and independent seed |
 | [B02](#b02) | in progress | 58b | Typed user-manager and kernel observation |
 | [B03](#b03) | in progress | 58b | Environment/admission/launch callers migrated |
-| [B04](#b04) | planned | 58b | Service/compiler consumers integrated |
-| [B05](#b05) | planned | 58b | Cold-start and host journey acceptance |
+| [B04](#b04) | in progress | 58b | Service/compiler consumers integrated |
+| [B05](#b05) | in progress | 58b | Cold-start and host journey acceptance |
 
 <a id="b01"></a>
 ### B01 — Establish the independent construction root
@@ -208,68 +208,111 @@ records/fixtures after all writers move; do not delete retained user data or unr
 
 ## Verification and handoff
 
-**Proposed:** all packages and their tests. During future implementation, use the applicable
+**Proposed:** remaining package scope and its broader qualification. During implementation, use the applicable
 `just check-package <host-package>` and `just unit-package <host-package> <filter>` routes;
 pure bootstrap tests must not select unrelated Arrow validation roots. B05 contributes host
 journeys to the coordinator's H scope-end qualification, after all functional scope is ready.
-[H](58h-qualification-and-publication.md) owns integration, hygiene and manual checks; no build, test or host mutation was run
-to author this document. Closure updates the environment/architecture owners through the
+[H](58h-qualification-and-publication.md) owns integration, hygiene and manual checks; initial plan authoring performed no build, test or
+host mutation. The execution checkpoint below records subsequent implementation. Closure updates the environment/architecture owners through the
 decision route and records supported host/API limits. No speed or reliability gain is measured.
 
 ## Execution checkpoint — 2026-10-28
 
-T01/T02 are established under proposed ADR-0233 and the scoped combined formal review;
-formal ADR status is unchanged. B01 delivers `pse-host` and explicit `scripts/bootstrap-host`
-installation to `target/host-tools/pse-host`. Construction bypasses retiring Python compiler
-wrappers, refuses unsupported target overrides and atomically publishes only a completed
-executable. Missing/stale tooling never triggers a rebuild from help/read paths.
+T01/T02 remain established under proposed ADR-0233 and the scoped combined formal review;
+formal ADR status is unchanged. The next selected wave is B02/B03 ordinary foreground ownership
+plus necessary C04/F01/F02/G slices. Its first consumer is database-free: D01/D05 readiness,
+optional MCP/PyO3 facades and a broader product CLI are not prerequisites or selected additions.
 
-B02 has a native service-performing prototype: authenticated user-manager PID/UID and kernel
-view, exact original intent/job correlation, retained unit reference, invocation/process facts,
-original cgroup descriptor and explicit stop/drain. Manager namespace/root links are unreadable
-for this non-dumpable user manager: the supported view proof instead requires singleton kernel
-PID coordinates, unchanged raw start ticks, matching root cgroup2 mount/device and exact
-manager/proc cgroup mapping. Unsupported views refuse. Cgroup removal uses authenticated
-original-view evidence rather than assuming directory link-count behavior.
+B01 now publishes `pse-host` and `cargo-pse-correctness` together under one immutable generation,
+selected atomically through `target/host-tools/current`. A checkout-local explicit-update lock
+covers construction/copy/publication/cleanup, without entering ordinary admission or being
+inherited by Cargo. Failed/interrupted construction preserves the last completed selection;
+post-publication interruption cannot erase its selected pair. Prior published generations stay
+available to running commands. Arbitrary concurrent external source/artifact mutation is not a
+supported publication baseline. Reads/help/launch never construct tools or hash source trees.
 
-Mutation is supported only for freshly created private units with one controller. Unique
-private intents, held manager references and `Restart=no` exclude internally supported unit
-replacement. Observed drift refuses. The manager has no atomic StopUnit-if-InvocationID API;
-concurrent external same-UID restart/reconfiguration is unsupported, not proven safe. Borrowed
-existing units are observation-only. Independent implementation advice accepts this bounded
-prototype premise; it does not close B02's broader fault/consumer obligations.
+B02/B03 now perform native foreground execution through `scripts/pse-env`, with recipes,
+direnv, the SessionStart hook and Cargo aliases migrated. A same-image gated child is spawned
+before controller relocation; caller-only and workload scopes share the authenticated prior
+slice, workload lifetime binds to caller lifetime, and caller lifetime retains the prior
+application-unit dependency. Exec release follows exact population checks. Raw Unix argv/env/cwd,
+pipes, controlling terminal, original exits and signals stay local to exec, not D-Bus text.
+Nested commands authenticate the actual native workload and exec within it. Markers grant no
+ownership. Startup and drain each retain one absolute deadline; independent settlement errors
+are combined. A manager stop reply alone never proves descendant release.
 
-B03 currently delivers a native environment component and explicit personal activation, not
-the production caller cutover. It preserves OS-string mappings, precedence, explicit empties,
-selected native compiler inputs and deferred/redacted personal values. Explain does not source
-personal code; export explicitly activates. Derived private paths can use typed child mappings;
-shell rendering refuses disclosure. Existing pse-env, direnv, recipes and first-party Python
-host owners remain current pending their integrated migration/deletion. No Python fallback was
-added to the new native owner. Foreground stdio, broader scope/service observation and complete
-consumer/fixture retirement remain open. B04 and B05 remain planned; the working D readiness
-and native cache/compiler consumer slices have not been delivered by these primitives.
+Services and scopes acquire one `AddRef` atomically at launch. Reconciliation checks the original
+intent/invocation and this exact bus client's `Unit.Refs`, never another recursive `RefUnit`.
+Repeated reconciliation adds no references; successful release invalidates duplicate handles'
+mutation/observation authority. Manager/proc/cgroup view authentication and same-UID external
+restart/reconfiguration limits from the initial prototype remain: systemd255 has no atomic
+StopUnit-if-InvocationID API. Existing units are borrowed read-only.
 
-Initial compile failures exposed zbus6 builder API differences. Actual host tests then exposed
-removed-cgroup handling and non-dumpable manager-view premises; those corrections retain
-refusal on genuine uncertainty. A subsequent fast-exit run exposed job-result versus child-exit
-attribution. Correlated job results now remain separate from native exit; subscription is established once per shared manager connection. The concurrent regression retains each outcome and settles all siblings. Earlier failed tests receive no
-acceptance credit; only the current scoped results establish their named behavior. All owned
-failed fixture records were authenticated and retired without touching existing store data.
+The selected path supports configured unbounded ordinary sharing, existing docs environments
+and native cache auto/on/off. It retains common slice ancestry and default task constraints and
+refuses displaced finite/custom CPU/memory/cpuset/task limits. Explicit finite/scientific classes,
+custom placement, provider/native setup, reference/timing admission and store readiness currently
+refuse, with no command launch or Python fallback. Already-known unsupported command/caller
+selections refuse before personal activation. Personal-file-derived selections necessarily follow
+that explicit evaluation. These unfinished modes receive no acceptance credit.
 
-**Implemented:** B01 host package/seed, bounded B02 private-service capabilities and B03
-native environment primitives. **Tested:** `scripts/pse-env -- cargo test --locked -p pse-host
---lib --test bootstrap -- --test-threads=16` passed 23 library and five bootstrap tests,
-zero failures/ignored/warnings against baseline zero. The library set includes 16 concurrent
-fast-failing private service invocations, actual escaped-descendant drain and original exits.
-The actual seed/help also ran with Python absent from PATH, no virtualenv and inherited
-Python wrappers injected; a missing `ld.mold` fixture alias was corrected before that pass.
-Installed CLI returned original exit7 and SIGTERM143 with independent empty/inactive readback.
-Normal/build dependency inspection found none of Arrow/DataFusion, math/runtime, DB,
-product schema/codegen or PyO3. `just ready` and `just turn-end` passed against zero.
-These are focused component results, not B02–B05 completion or series qualification.
+Activation evaluates personal settings once and validates a complete private NUL transfer before
+changing parent shell values. Printed activation code and explanation contain no private values;
+explanation never evaluates personal code. Native compiler settings select installed sccache
+without a Python per-compiler watcher. Optional telemetry uses the one SDK-independent Rust
+settings contract and native OTEL/local-state resolver; invalid telemetry cannot block computation.
+The existing declared libtest stack is selected natively. 58f owns detailed configuration and
+correctness semantics; 58g owns scoped retirements and remaining legacy consumers.
 
-Next work is B02's remaining uncertainty/reuse/creation-cancellation cases and B03's foreground
-I/O/caller-death containment, native activation policy and real caller/configuration migration.
-Native D schema-ready/write-admission and F compiler-cache consumers remain necessary for B04.
-No existing canonical store was restarted/reset. No broader scientific/native matrix, hygiene
-or performance campaign ran. Quantitative benefits remain unmeasured.
+B04 has its native compiler/cache consumer slice; service schema-ready/write-admission remains
+D-owned and outside this database-free wave. B05 has targeted real-manager ownership journeys,
+not its entire fault matrix. Remaining B02/B05 evidence includes D-Bus acknowledgement-loss,
+disconnect/restart/reuse/view-denial controls, kill between individual scope attachments,
+creation-specific SIGINT/SIGTERM and exact-budget/failed-sibling fault injection. TTY coverage
+establishes descriptor/control-terminal preservation, not a resize/job-control matrix.
+
+## Selected wave verification and outcome — 2026-10-28
+
+**Implemented:** the selected native ordinary frontdoors, coherent tool publication, foreground
+ownership, shared telemetry resolver, native Cargo/nextest correctness composition and scoped
+build-observation/compiler-wrapper retirement. B02–B05 remain in progress; these components do
+not close every package, unmigrated caller or Plan58 as a whole.
+
+**Tested:** focused native owner journeys exercised actual user-manager scopes/services on this
+Linux host, including controller SIGKILL, a witnessed blocked exec gate, prior application stop,
+a TERM-ignoring setsid descendant, nested membership, raw payload/TTY and 126/127/exit7/signal143.
+Repeated service reconciliation followed by one release and 16 concurrent fast-failing services
+also pass. The final assembled `scripts/pse-env -- cargo t -p pse-host --lib --test activation --test
+bootstrap --test boundary --test correctness --test foreground --no-fail-fast` passes 83 tests
+across 6 binaries, zero failures/skips, with 16 default physical lanes and the restore-cargo setup
+passing. This is selected local host/component acceptance, not scientific/system qualification.
+All failure baselines are zero; no ignored/skipped result is accepted as a pass.
+
+Native direct `pse-columnar --lib` correctness check passes for an actual Arrow/DataFusion closure;
+`just check-package pse-runtime` passes after the shared settings extraction. Focused telemetry,
+activation, stack, bootstrap interruption/concurrent-update, no-Python-frontdoor and correctness
+protocol controls pass. Native Nextest controls challenge inherited discovery markers, private
+graph stdout, actual test-attempt Cargo restoration, invalid graph and unsupported reuse/workspace
+or configuration overrides. 58f/58g record their corresponding retained controls.
+
+Initial failures exposed guard/restoration bypasses, numeric manager reference accounting and
+fixture cleanup accidentally borrowing enclosing test containment; all were corrected before the
+named passes. A legacy build-environment module test unexpectedly entered a Docker solver-image
+path and was stopped at exit143; it provides no acceptance credit. Its selected pure configuration
+class subsequently passes 15 tests after the direct-cache-client expectations and absolute-path
+selection were corrected. No broad solver, scientific, database, feature, parity or performance
+campaign was resumed. Export delivery and cache-loss behavior have no new live qualification.
+Existing canonical stores/services and authored/reference evidence were preserved. Quantitative
+benefits remain unmeasured. H owns broad integrated/static/scientific qualification.
+
+`just ready` passes after final dependency/activation integration. Explicit owner generation
+refreshed the capability reference/CLI through `scripts.capabilities.reference` and
+`scripts.capabilities.cli_codegen`; full native-provider code generation remains unavailable
+and was not run. No partial generator publication is allowed before that refusal. `just turn-end` passes the ADR-index/format bundle against zero. Final independent user-manager
+readback lists no remaining `pse-host-*` or `pse-foreground-*` units, and no owned test campaign
+remains active. Later focused controls also pass for prefix help/refusal-before-activation and
+private TOML diagnostic redaction. Scope-end H remains open.
+
+Final normal/build dependency-tree inspection of `pse-host` excludes Arrow/DataFusion,
+Symbolica/mathematical runtime, SurrealDB, product schema/codegen and PyO3. The shared telemetry
+contract therefore does not reverse the cold-root dependency direction.

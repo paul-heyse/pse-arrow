@@ -30,10 +30,8 @@ from opentelemetry.sdk.metrics.export import (
 )
 
 from scripts import (
-    build_observation,
     pressure_observation,
     telemetry_metrics,
-    validation,
 )
 from scripts.tests.telemetry_operational_acceptance import validate_points, validate_sdk
 from scripts.validation_scope import Gate
@@ -67,58 +65,6 @@ class HostMetricTests(unittest.TestCase):
             for scope in resource.scope_metrics
             for metric in scope.metrics
         }
-
-    def test_cumulative_counts_histogram_boundaries_and_producer_cardinality(
-        self,
-    ) -> None:
-        for index in range(100):
-            self.host.build_record("compiler-artifact", index % 2 == 0)
-            self.host.build_stage("arbitrary-id-" + str(index))
-        self.host.build_record("not-a-cargo-record")
-        # Test filtering itself as well as the producer vocabulary. The discarded
-        # value must not create separate SDK aggregations.
-        for index in range(30):
-            self.host.build_records.add(
-                1, {"record": "compiler-message", "invocation": str(index)}
-            )
-        for duration in (0.001, 0.0011, 0.01, 1801.0):
-            self.host.build_started()
-            self.host.build_finished(duration, 0)
-        first = self.collect()
-        second = self.collect()
-        self.assertEqual(
-            first["pse.build.records"].aggregation_temporality,
-            AggregationTemporality.CUMULATIVE,
-        )
-        self.assertEqual(
-            sum(p.value for p in first["pse.build.records"].data_points), 130
-        )
-        self.assertEqual(
-            sum(p.value for p in second["pse.build.records"].data_points), 130
-        )
-        self.assertEqual(len(first["pse.build.records"].data_points), 2)
-        self.assertEqual(
-            {k for p in first["pse.build.records"].data_points for k in p.attributes},
-            {"record"},
-        )
-        self.assertEqual(
-            {
-                p.attributes["freshness"]: p.value
-                for p in first["pse.build.artifacts"].data_points
-            },
-            {"fresh": 50, "nonfresh": 50},
-        )
-        stages = first["pse.build.stage.observations"].data_points
-        self.assertEqual(
-            [(dict(p.attributes), p.value) for p in stages],
-            [({"stage": "unknown"}, 100)],
-        )
-        self.assertEqual(first["pse.build.active"].data_points[0].value, 0)
-        histogram = first["pse.build.duration"].data_points[0]
-        self.assertEqual(histogram.explicit_bounds, telemetry_metrics.DURATION_BUCKETS)
-        self.assertEqual(histogram.count, 4)
-        self.assertAlmostEqual(histogram.sum, 1801.0121)
-        self.assertEqual(histogram.bucket_counts, (1, 2, 0, 0, 0, 0, 0, 0, 1))
 
     def test_ambient_delta_does_not_override_selected_export_policy(self) -> None:
         captured: list[MetricsData] = []
@@ -177,10 +123,18 @@ class HostMetricTests(unittest.TestCase):
             "unsampled"
         ) as span:
             self.assertFalse(span.is_recording())
-            self.host.build_record("build-finished")
-        self.assertEqual(self.collect()["pse.build.records"].data_points[0].value, 1)
+            self.host.engineering_stages.add(
+                1, {"stage": "execution", "status": "passed", "failure_class": "none"}
+            )
+        self.assertEqual(
+            self.collect()["pse.engineering.stages"].data_points[0].value, 1
+        )
 
-    def test_real_failed_child_build_and_assessment_populations(self) -> None:
+    def test_real_failed_child_and_assessment_populations(self) -> None:
+        from scripts import (
+            validation,
+        )
+
         with (
             tempfile.TemporaryDirectory() as directory,
             patch.object(telemetry_metrics, "host_metrics", return_value=self.host),
@@ -221,20 +175,6 @@ class HostMetricTests(unittest.TestCase):
                 "checks": [result, reused],
             }
             self.host.assessment_finished(receipt)
-            command = [
-                sys.executable,
-                "-c",
-                'import json; print(json.dumps({"reason":"compiler-artifact","fresh":True})); print(json.dumps({"reason":"build-finished","success":False})); raise SystemExit(5)',
-            ]
-            self.assertEqual(
-                build_observation.run_command(
-                    command, env={**os.environ, "XDG_STATE_HOME": directory}
-                ),
-                5,
-            )
-            records = build_observation.observations(root / "pse-arrow/host-admission")
-            self.assertEqual(records[0]["fresh_artifacts"], 1)
-            self.assertEqual(records[0]["cache"]["hits"], "unknown")
         data = self.collect()
         populations = {}
         for point in data["pse.assessment.gates"].data_points:
@@ -255,10 +195,6 @@ class HostMetricTests(unittest.TestCase):
         )
         self.assertEqual(cases[("outcome", "not_run")], 1)
         self.assertEqual(data["pse.assessment.duration"].data_points[0].count, 1)
-        self.assertEqual(
-            data["pse.build.duration"].data_points[0].attributes["failure_class"],
-            "compile",
-        )
         self.assertEqual(
             data["pse.engineering.stages"].data_points[0].attributes["failure_class"],
             "compile",
@@ -385,20 +321,24 @@ class OperationalAcceptanceOracleTests(unittest.TestCase):
             "exported_span_ids": [],
             "metric_exports": [
                 {
-                    "name": "pse.build.records",
+                    "name": "pse.engineering.stages",
                     "data": {
                         "aggregation_temporality": 2,
                         "data_points": [
                             {
                                 **common,
                                 "value": 3,
-                                "attributes": {"record": "compiler-message"},
+                                "attributes": {
+                                    "stage": "execution",
+                                    "status": "passed",
+                                    "failure_class": "none",
+                                },
                             }
                         ],
                     },
                 },
                 {
-                    "name": "pse.build.duration",
+                    "name": "pse.engineering.stage.duration",
                     "data": {
                         "aggregation_temporality": 2,
                         "data_points": [
@@ -429,7 +369,7 @@ class OperationalAcceptanceOracleTests(unittest.TestCase):
         }
 
     def answer(
-        self, rows: list[dict], stream: str = "pse_build_records"
+        self, rows: list[dict], stream: str = "pse_engineering_stages"
     ) -> QueryAnswer:
         from scripts.telemetry_investigation import QueryAnswer  # noqa: PLC0415
 
@@ -464,7 +404,9 @@ class OperationalAcceptanceOracleTests(unittest.TestCase):
             "_timestamp": 2000,
             "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
             "value": 3,
-            "record": "compiler-message",
+            "stage": "execution",
+            "status": "passed",
+            "failure_class": "none",
         }
 
     def test_literal_sdk_and_backend_oracles_reject_changed_totals_and_reset(
@@ -473,12 +415,15 @@ class OperationalAcceptanceOracleTests(unittest.TestCase):
         produced = self.fixture()
         self.assertEqual(
             validate_sdk(produced),
-            {"pse.build.records": 1_000_000, "pse.build.duration": 1_000_000},
+            {
+                "pse.engineering.stages": 1_000_000,
+                "pse.engineering.stage.duration": 1_000_000,
+            },
         )
         validate_points(
             self.answer([self.row()]),
             produced,
-            "pse_build_records",
+            "pse_engineering_stages",
             exact_timestamps=True,
         )
         for changes in (
@@ -491,7 +436,7 @@ class OperationalAcceptanceOracleTests(unittest.TestCase):
                 validate_points(
                     self.answer([{**self.row(), **changes}]),
                     produced,
-                    "pse_build_records",
+                    "pse_engineering_stages",
                     exact_timestamps=True,
                 )
         incorrect = copy.deepcopy(produced)
@@ -526,16 +471,16 @@ class OperationalAcceptanceOracleTests(unittest.TestCase):
             ]
         ]
         validate_points(
-            self.answer(rows, "pse_build_duration_bucket"),
+            self.answer(rows, "pse_engineering_stage_duration_bucket"),
             self.fixture(),
-            "pse_build_duration_bucket",
+            "pse_engineering_stage_duration_bucket",
             exact_timestamps=True,
         )
         with self.assertRaises(RuntimeError):
             validate_points(
-                self.answer(rows[:-1], "pse_build_duration_bucket"),
+                self.answer(rows[:-1], "pse_engineering_stage_duration_bucket"),
                 self.fixture(),
-                "pse_build_duration_bucket",
+                "pse_engineering_stage_duration_bucket",
             )
 
 

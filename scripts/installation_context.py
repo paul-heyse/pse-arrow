@@ -586,11 +586,11 @@ def capture(root: Path, env: dict[str, str]) -> tuple[dict, dict]:
             if value:
                 path = Path(value)
                 roots.add(path if path.is_absolute() else root / path)
-    # A managed cache wrapper executes these owners; changed behavior invalidates
-    # its build identity even though the wrapper path is unchanged.
+    # Legacy installer identity retains its remaining environment owners. The
+    # native cache executable is already captured as an actual tool above.
     owners = {
         name: sha(Path(__file__).resolve().parent / name)
-        for name in ("compiler_cache.py", "build_environment.py", "pse_env.py")
+        for name in ("build_environment.py", "pse_env.py")
     }
     context = {
         "schema": SCHEMA,

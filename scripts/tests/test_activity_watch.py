@@ -5,28 +5,41 @@
 # ruff: noqa: PT009, PT027 -- stdlib setup controls
 from __future__ import annotations
 
-import contextlib
-import io
-import json
 import subprocess
-import sys
 import tempfile
 import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import activity_watch as watch
 from scripts import (
-    activity,
     operation_lifetime,
     service_borrowers,
     test_resources,
     test_run,
 )
-from scripts import activity_watch as watch
 
 
 class WatchTests(unittest.TestCase):
+    def test_scientific_terminal_snapshot_has_no_build_observer_dependency(
+        self,
+    ) -> None:
+        result = {
+            "terminal": {"complete": True},
+            "run_path": "/run/exact",
+            "registry": "/registry",
+            "terminal_identity": "original",
+        }
+        with patch.object(watch.run_inspection, "product_result", return_value=result):
+            observed = watch.snapshot(
+                {"kind": "run", "handle": "exact", "registry": "/registry"},
+                time.monotonic() + 1,
+            )
+        self.assertEqual(observed["state"], "result-complete")
+        self.assertEqual(observed["result_reference"]["terminal_identity"], "original")
+        self.assertEqual(set(observed), {"state", "run", "result_reference"})
+
     def test_cursor_wait_change_and_reconnect_current_state(self) -> None:
         selected = {"kind": "unit", "handle": "pse-exact.scope"}
         first = watch.watch(
@@ -131,7 +144,7 @@ class WatchTests(unittest.TestCase):
             self.assertEqual(admitted["snapshot"]["attempt"]["allocation"], "b" * 32)
             self.assertIsNone(admitted["snapshot"]["result_reference"])
 
-    def test_product_terminal_is_genuine_even_if_build_observation_unavailable(
+    def test_product_terminal_comes_from_scientific_result(
         self,
     ) -> None:
         with (
@@ -152,12 +165,7 @@ class WatchTests(unittest.TestCase):
                 },
                 "runner",
             )
-            with patch.object(
-                watch.build_observation,
-                "observations",
-                side_effect=PermissionError("snapshot denied"),
-            ):
-                result = watch.watch(selected, cursor=before["cursor"])
+            result = watch.watch(selected, cursor=before["cursor"])
             self.assertEqual(result["snapshot"]["state"], "result-complete")
             self.assertEqual(
                 result["snapshot"]["result_reference"]["run_path"], str(path)
@@ -166,7 +174,7 @@ class WatchTests(unittest.TestCase):
                 result["snapshot"]["result_reference"]["terminal_identity"],
                 test_resources.storage().terminal(path.stem)[0],
             )
-            self.assertIn("denied", result["snapshot"]["build_error"])
+            self.assertNotIn("builds", result["snapshot"])
 
     def test_product_process_disappearance_does_not_supply_terminal(self) -> None:
         with (
@@ -188,72 +196,6 @@ class WatchTests(unittest.TestCase):
                 watch.snapshot(selected, time.monotonic() + 1)["state"],
                 "observation-lost",
             )
-
-    def test_interrupted_cli_detaches_and_leaves_actual_child_alive(self) -> None:
-        with subprocess.Popen(
-            [sys.executable, "-c", "import time; time.sleep(10)"]
-        ) as child:
-            try:
-                output = io.StringIO()
-                with (
-                    patch.object(watch, "watch", side_effect=KeyboardInterrupt),
-                    contextlib.redirect_stdout(output),
-                ):
-                    code = activity.main(["--watch", "--unit", "pse-live.scope"])
-                self.assertEqual(code, 130)
-                self.assertEqual(
-                    json.loads(output.getvalue())["workload_action"], "none"
-                )
-                self.assertIsNone(child.poll())
-            finally:
-                child.terminate()
-                child.wait(timeout=2)
-
-    def test_cli_is_independent_of_admission_compiler_and_global_units(self) -> None:
-        output = io.StringIO()
-        with (
-            patch.object(activity, "units", side_effect=AssertionError("global units")),
-            patch.object(
-                activity.pse_env.host,
-                "acquire",
-                side_effect=AssertionError("admission"),
-            ),
-            patch.object(
-                activity.pse_env.build_environment,
-                "configure",
-                side_effect=AssertionError("compiler"),
-            ),
-            patch.object(
-                operation_lifetime,
-                "unit_observation",
-                side_effect=OSError("manager unavailable"),
-            ),
-            contextlib.redirect_stdout(output),
-        ):
-            self.assertEqual(
-                activity.main(
-                    ["--watch", "--unit", "pse-live.scope", "--max-wait", "0"]
-                ),
-                1,
-            )
-        self.assertEqual(
-            json.loads(output.getvalue())["snapshot"]["state"],
-            "observation-unavailable",
-        )
-
-    def test_cli_requires_single_exact_owner(self) -> None:
-        for args in (
-            ["--watch"],
-            ["--watch", "--unit", "pse-a.scope", "--unit", "pse-b.scope"],
-            ["--watch", "--run", "a" * 32, "--attempt", "b" * 32],
-            ["--cursor", "x"],
-        ):
-            with (
-                contextlib.redirect_stderr(io.StringIO()),
-                self.assertRaises(SystemExit) as refused,
-            ):
-                activity.main(args)
-            self.assertEqual(refused.exception.code, 2)
 
 
 if __name__ == "__main__":

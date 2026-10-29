@@ -378,8 +378,6 @@ PYTHON_EXTENSION_SUPPORT_INPUTS = (
     ".envrc.local",
     ".config/build.toml",
     ".config/sccache.toml",
-    "scripts/sccache",
-    "scripts/compiler_cache.py",
     "scripts/python_extension.py",
     "scripts/native_tests.py",
     "scripts/arrow_validation.py",

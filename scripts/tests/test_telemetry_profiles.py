@@ -39,7 +39,7 @@ def suspect() -> dict:
     return {
         "request": {
             "signal": "metrics",
-            "metric": "pse_build_records",
+            "metric": "pse_engineering_stages",
             "service_instance_id": "observed-service",
             "start_time_us": 1,
             "end_time_us": 2,
@@ -49,7 +49,7 @@ def suspect() -> dict:
             "configuration_id": "configuration",
             "backend_version": "1.1.2",
             "backend_process": {"pid": 11, "start": "backend-incarnation"},
-            "stream": "pse_build_records",
+            "stream": "pse_engineering_stages",
             "signal": "metrics",
             "start_time_us": 1,
             "end_time_us": 2,

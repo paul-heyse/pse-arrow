@@ -36,7 +36,6 @@ if TYPE_CHECKING:
     )
 
 from scripts import (
-    build_environment,
     producer_deployment,
     telemetry_metrics,
     validation_receipts,
@@ -63,14 +62,12 @@ def _invalid_protocol(message: str) -> Never:
 def command_env() -> dict[str, str]:
     # xtask can invoke just, which can invoke this runner. Cargo's parent package
     # variables are not valid inputs to nested builds (including uv/maturin).
-    return build_environment.configure(
-        Path(__file__).resolve().parents[1],
-        {
-            key: value
-            for key, value in os.environ.items()
-            if not key.startswith(("CARGO_PKG_", "CARGO_MANIFEST_"))
-        },
-    )
+    # The invoking native boundary already selected compiler and host inputs.
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith(("CARGO_PKG_", "CARGO_MANIFEST_"))
+    }
 
 
 def relevant_environment(source: Mapping[str, str] | None = None) -> dict[str, str]:

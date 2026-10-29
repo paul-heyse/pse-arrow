@@ -57,10 +57,10 @@ EXPECTED_BACKEND_BUCKETS = {
     "inf": 3,
 }
 STREAMS = (
-    "pse_build_records",
-    "pse_build_duration_count",
-    "pse_build_duration_sum",
-    "pse_build_duration_bucket",
+    "pse_engineering_stages",
+    "pse_engineering_stage_duration_count",
+    "pse_engineering_stage_duration_sum",
+    "pse_engineering_stage_duration_bucket",
 )
 TIMEOUT_SECONDS = 30.0
 
@@ -109,7 +109,10 @@ def producer(
         for resource in data.resource_metrics:
             for scope in resource.scope_metrics:
                 for metric in scope.metrics:
-                    if metric.name in {"pse.build.records", "pse.build.duration"}:
+                    if metric.name in {
+                        "pse.engineering.stages",
+                        "pse.engineering.stage.duration",
+                    }:
                         selected.append(mapping(json.loads(metric.to_json())))
         with lock:
             exports.extend(selected)
@@ -150,8 +153,16 @@ def producer(
                     }
                 )
                 attributes = {"fixture.invocation_id": f"private-{index}"}
-                host.build_records.add(1, {"record": "compiler-message", **attributes})
-                host.build_duration.record(
+                host.engineering_stages.add(
+                    1,
+                    {
+                        "stage": "execution",
+                        "status": "passed",
+                        "failure_class": "none",
+                        **attributes,
+                    },
+                )
+                host.engineering_duration.record(
                     value, {"status": "passed", "failure_class": "none", **attributes}
                 )
         for provider in lifetime.providers:
@@ -222,13 +233,14 @@ def validate_sdk(produced: dict[str, object]) -> dict[str, int]:
             "operational.sdk_start_changed_without_reset",
         )
         starts[name] = start
-        if name == "pse.build.records":
+        if name == "pse.engineering.stages":
             require(
                 point["value"] == 3
-                and point["attributes"] == {"record": "compiler-message"},
+                and point["attributes"]
+                == {"stage": "execution", "status": "passed", "failure_class": "none"},
                 "operational.sdk_counter_population_changed",
             )
-        elif name == "pse.build.duration":
+        elif name == "pse.engineering.stage.duration":
             require(
                 point["count"] == 3
                 and math.isclose(
@@ -246,7 +258,7 @@ def validate_sdk(produced: dict[str, object]) -> dict[str, int]:
                 "operational.sdk_histogram_dimensions_changed",
             )
     require(
-        set(starts) == {"pse.build.records", "pse.build.duration"},
+        set(starts) == {"pse.engineering.stages", "pse.engineering.stage.duration"},
         "operational.sdk_metrics_absent",
     )
     return starts
@@ -276,7 +288,9 @@ def validate_points(
         "operational.metric_claim_changed",
     )
     instrument = (
-        "pse.build.records" if stream == "pse_build_records" else "pse.build.duration"
+        "pse.engineering.stages"
+        if stream == "pse_engineering_stages"
+        else "pse.engineering.stage.duration"
     )
     export_times = {
         int(str(point["time_unix_nano"])) // 1000
@@ -313,29 +327,29 @@ def validate_points(
                 timestamp in export_times,
                 "operational.original_point_timestamp_changed",
             )
-        if stream == "pse_build_records":
+        if stream == "pse_engineering_stages":
             require(
-                row.get("value") == 3 and row.get("record") == "compiler-message",
+                row.get("value") == 3 and row.get("stage") == "execution",
                 "operational.backend_counter_changed",
             )
-        elif stream == "pse_build_duration_count":
+        elif stream == "pse_engineering_stage_duration_count":
             require(
                 row.get("value") == 3, "operational.backend_histogram_count_changed"
             )
-        elif stream == "pse_build_duration_sum":
+        elif stream == "pse_engineering_stage_duration_sum":
             require(
                 math.isclose(
                     float(str(row.get("value"))), 0.0211, rel_tol=0, abs_tol=1e-12
                 ),
                 "operational.backend_histogram_sum_changed",
             )
-        elif stream == "pse_build_duration_bucket":
+        elif stream == "pse_engineering_stage_duration_bucket":
             require(
                 str(row.get("le")) in EXPECTED_BACKEND_BUCKETS
                 and row.get("value") == EXPECTED_BACKEND_BUCKETS[str(row.get("le"))],
                 "operational.backend_bucket_population_changed",
             )
-    if stream == "pse_build_duration_bucket":
+    if stream == "pse_engineering_stage_duration_bucket":
         require(
             {str(row.get("le")) for row in answer.records}
             == set(EXPECTED_BACKEND_BUCKETS),

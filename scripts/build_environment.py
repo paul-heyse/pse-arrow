@@ -52,7 +52,11 @@ def selected_cache_binary(root: Path, environment: Mapping[str, str]) -> str | N
         and Path(wrapper).name == "sccache"
         and Path(wrapper).resolve() != managed
     ):
-        chosen = shutil.which(wrapper, path=environment.get("PATH")) or wrapper
+        chosen = (
+            wrapper
+            if Path(wrapper).is_absolute()
+            else shutil.which(wrapper, path=environment.get("PATH")) or wrapper
+        )
         if explicit and Path(explicit).resolve() != Path(chosen).resolve():
             raise ValueError(
                 "conflicting RUSTC_WRAPPER and PSE_SCCACHE_BINARY selections"
@@ -264,7 +268,7 @@ def configure(
         if not binary and cache == "on":
             raise ValueError("cache requested but sccache is not installed")
         if binary:
-            env["RUSTC_WRAPPER"] = str(root / "scripts/sccache")
+            env["RUSTC_WRAPPER"] = binary
             env["PSE_SCCACHE_BINARY"] = binary
     if cache == "on" and not env.get("RUSTC_WRAPPER"):
         raise ValueError("cache requested but RUSTC_WRAPPER explicitly disables it")
@@ -305,31 +309,15 @@ def configure(
                 ),
             )
     if wrapper and Path(wrapper).name == "sccache":
-        # The cache daemon has a distinct supervised light lifetime. Compiler
-        # processes remain in the caller's allocation; the wrapper verifies the
-        # admitted daemon generation and contains sccache's lazy-start fallback.
-        managed = root / "scripts/sccache"
+        # Unmigrated frontend builders use the same native client directly.
+        # There is no Python per-compiler watcher or cache-continuity veto.
         real = selected_cache_binary(root, env)
         if not real:
-            raise ValueError(
-                "managed compiler cache requires its exact installed binary"
-            )
+            raise ValueError("compiler cache requires its selected native executable")
         env["PSE_SCCACHE_BINARY"] = real
-        foreground = env.get(FOREGROUND_CACHE)
-        if foreground is not None and (
-            not foreground
-            or foreground != env.get("SCCACHE_SERVER_UDS")
-            or env.get("SCCACHE_NO_DAEMON") != "1"
-        ):
-            raise ValueError(
-                "foreground compiler cache requires its selected endpoint and NO_DAEMON=1"
-            )
-        # Explicit experiments own their foreground service in the operation's
-        # allocation. Nested recipe setup must retain that same endpoint.
-        selected = real if foreground is not None else str(managed)
-        env["RUSTC_WRAPPER"] = selected
+        env["RUSTC_WRAPPER"] = real
         if env.get("PSE_NATIVE_COMPILER_CACHE"):
-            env["PSE_NATIVE_COMPILER_CACHE"] = selected
+            env["PSE_NATIVE_COMPILER_CACHE"] = real
     # Each checkout, git worktrees included, builds into its own target directory. A
     # directory inherited from another checkout is not an override for this one: a
     # long-running agent or editor process started under that checkout's direnv carries

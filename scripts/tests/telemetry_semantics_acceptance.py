@@ -52,7 +52,10 @@ def produce(state: Path, output: Path) -> None:
         for resource in data.resource_metrics:
             for scope in resource.scope_metrics:
                 for metric in scope.metrics:
-                    if metric.name in {"pse.build.records", "pse.build.duration"}:
+                    if metric.name in {
+                        "pse.engineering.stages",
+                        "pse.engineering.stage.duration",
+                    }:
                         exports.append(mapping(json.loads(metric.to_json())))
         return original(exporter, data, timeout_millis=timeout_millis, **kwargs)
 
@@ -83,8 +86,15 @@ def produce(state: Path, output: Path) -> None:
                             "value": value,
                         }
                     )
-                    host.build_records.add(1, {"record": "compiler-message"})
-                    host.build_duration.record(
+                    host.engineering_stages.add(
+                        1,
+                        {
+                            "stage": "execution",
+                            "status": "passed",
+                            "failure_class": "none",
+                        },
+                    )
+                    host.engineering_duration.record(
                         value,
                         {
                             "status": "passed",
@@ -201,7 +211,7 @@ async def run(state: Path, output: Path) -> int:
         counter_points = [
             records(mapping(metric["data"])["data_points"])[0]
             for metric in metrics
-            if metric["name"] == "pse.build.records"
+            if metric["name"] == "pse.engineering.stages"
         ][:3]
         require(
             [point["value"] for point in counter_points] == [3, 6, 9],
@@ -220,11 +230,11 @@ async def run(state: Path, output: Path) -> int:
         )
         requests: dict[str, QueryRequest] = {}
         for kind, metric in (
-            ("rate", "pse_build_records"),
-            ("increase", "pse_build_records"),
-            ("p95", "pse_build_duration"),
-            ("fraction_below", "pse_build_duration"),
-            ("exemplars", "pse_build_duration_bucket"),
+            ("rate", "pse_engineering_stages"),
+            ("increase", "pse_engineering_stages"),
+            ("p95", "pse_engineering_stage_duration"),
+            ("fraction_below", "pse_engineering_stage_duration"),
+            ("exemplars", "pse_engineering_stage_duration_bucket"),
         ):
             requests[kind] = QueryRequest.model_validate(
                 {
@@ -242,10 +252,10 @@ async def run(state: Path, output: Path) -> int:
                 }
             )
         for key, stream in (
-            ("points", "pse_build_records"),
-            ("histogram_count", "pse_build_duration_count"),
-            ("histogram_sum", "pse_build_duration_sum"),
-            ("histogram_buckets", "pse_build_duration_bucket"),
+            ("points", "pse_engineering_stages"),
+            ("histogram_count", "pse_engineering_stage_duration_count"),
+            ("histogram_sum", "pse_engineering_stage_duration_sum"),
+            ("histogram_buckets", "pse_engineering_stage_duration_bucket"),
         ):
             requests[key] = QueryRequest(
                 signal="metrics",
@@ -307,7 +317,7 @@ async def run(state: Path, output: Path) -> int:
         histograms = [
             records(mapping(metric["data"])["data_points"])[0]
             for metric in metrics
-            if metric["name"] == "pse.build.duration"
+            if metric["name"] == "pse.engineering.stage.duration"
         ][:3]
         for index, point in enumerate(histograms, 1):
             require(

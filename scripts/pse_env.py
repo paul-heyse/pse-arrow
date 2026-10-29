@@ -20,7 +20,6 @@ Exit status: the command's own; 125 when this boundary fails (with a ``pse-env:`
 
 from __future__ import annotations
 
-import argparse
 import contextlib
 import functools
 import json
@@ -1266,159 +1265,10 @@ def require_enclosing_owner(env: Mapping[str, str], *, no_scope: bool) -> None:
         raise BoundaryError("--no-scope requires an actual admitted enclosing owner")
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="pse-env", description=__doc__)
-    parser.add_argument("--print", action="store_true", dest="print_exports")
-    parser.add_argument("--explain", action="store_true")
-    parser.add_argument(
-        "--json", action="store_true", help="structured selection with --explain"
-    )
-    parser.add_argument(
-        "--docs",
-        action="store_true",
-        help="select the provisioned docs-only environment (never syncs)",
-    )
-    parser.add_argument("--native", nargs="?", const="__default__", default=None)
-    parser.add_argument("--no-scope", action="store_true")
-    parser.add_argument(
-        "--resource-class",
-        choices=RESOURCE_CLASSES,
-    )
-    parser.add_argument(
-        "--recipe-default-class",
-        choices=RESOURCE_CLASSES,
-        help="launch class when neither an explicit option nor caller/local value selects one",
-    )
-    parser.add_argument("--bind-allocation", help=argparse.SUPPRESS)
-    parser.add_argument(
-        "--store",
-        action="store_true",
-        help="require a serving canonical server at $PSE_SURREAL_STATE first",
-    )
-    parser.add_argument("command", nargs=argparse.REMAINDER)
-    args = parser.parse_args(argv)
-    if args.docs and args.native is not None:
-        parser.error("--docs and --native select different environments")
-    if args.json and not args.explain:
-        parser.error("--json requires --explain")
-    if args.print_exports and args.explain:
-        parser.error("--print and --explain select different operations")
-    caller = dict(os.environ)
-    requested: list[str] | None = None
-    if args.native is not None:
-        value = (
-            caller.get("PSE_NATIVE_CAPABILITIES", "solver,klu,isolation,uno,petsc")
-            if args.native == "__default__"
-            else args.native
-        )
-        requested = [item for item in value.split(",") if item]
-        if any(item not in operation.CAPABILITIES for item in requested):
-            parser.error(f"unknown native capability in {value!r}")
-    command = args.command[1:] if args.command[:1] == ["--"] else args.command
-    try:
-        if args.print_exports:
-            sys.stdout.write(render(ROOT, caller, docs=args.docs))
-            if args.docs:
-                print(
-                    "pse-env: explicit --docs selects .venv-docs; ordinary product selector is overridden",
-                    file=sys.stderr,
-                )
-            for note in refusals(caller, compose(ROOT, caller), ANNOUNCED):
-                print(note, file=sys.stderr)
-            return 0
-        if args.explain:
-            description = operation_description(
-                ROOT,
-                caller,
-                requested,
-                command=command,
-                docs=args.docs,
-                resource_class=args.resource_class,
-                recipe_default_class=args.recipe_default_class,
-            )
-            sys.stdout.write(
-                json.dumps(description, indent=2) + "\n"
-                if args.json
-                else explain(description)
-            )
-            return 0
-        if not command:
-            parser.error("give a command after --, or use --print/--explain")
-        env = compose(ROOT, caller)
-        if args.docs:
-            prior = env.get("UV_PROJECT_ENVIRONMENT")
-            env = documentation_environment(ROOT, env)
-            if prior != env["UV_PROJECT_ENVIRONMENT"]:
-                print(
-                    f"pse-env: refused UV_PROJECT_ENVIRONMENT={prior}: explicit --docs; using {env['UV_PROJECT_ENVIRONMENT']}",
-                    file=sys.stderr,
-                )
-            provisioning = command in (
-                [
-                    "uv",
-                    "sync",
-                    "--locked",
-                    "--only-group",
-                    "docs",
-                    "--no-install-project",
-                ],
-                [
-                    "uv",
-                    "sync",
-                    "--project",
-                    str(ROOT),
-                    "--locked",
-                    "--only-group",
-                    "docs",
-                    "--no-install-project",
-                ],
-            )
-            if not provisioning and not (venv(ROOT, env) / "bin/python").is_file():
-                raise BoundaryError(  # noqa: TRY301 -- boundary reports selection failure before admission or command effects
-                    "documentation interpreter missing; run just bootstrap-docs"
-                )
-        if args.resource_class:
-            env["PSE_RESOURCE_CLASS"] = args.resource_class
-        elif host.MARKER not in env:
-            env["PSE_RESOURCE_CLASS"] = selected_resource_class(
-                command,
-                env,
-                native=requested is not None,
-                default=args.recipe_default_class,
-            )
-        if args.bind_allocation:
-            allocation = required_allocation(env, handoff=True)
-            allocation.bind(args.bind_allocation)
-            # User managers can enforce memory/CPU quota without a delegated
-            # cpuset controller. Bind inherited scheduler affinity on the child.
-            os.sched_setaffinity(0, host.cpu_set(allocation.profile.cores))
-        for note in refusals(caller, env, ANNOUNCED):
-            print(note, file=sys.stderr)
-        if args.store:
-            env["PSE_REQUIRE_STORE"] = "1"
-        if env.get("PSE_REQUIRE_STORE"):
-            require_store(env)
-            if host.inherit(env) is not None:
-                env.pop("PSE_REQUIRE_STORE", None)
-        status = unexecutable(command, env)
-        if status is not None:
-            return status
-        require_enclosing_owner(env, no_scope=args.no_scope)
-        if host.inherit(env) is not None:
-            placement(env, native=requested is not None)
-        if requested is not None:
-            return native(ROOT, requested, command, env, scope=not args.no_scope)
-        prefix = [] if args.no_scope else placement(env, native=False)
-        if not prefix:
-            return execute(command, env)
-        return owned_scope([*prefix, *command], env)
-    except BoundaryError as error:
-        print(f"pse-env: {error}", file=sys.stderr)
-        return FAILURE
-    except Exception as error:
-        print(f"pse-env: {type(error).__name__}: {error}", file=sys.stderr)
-        return FAILURE
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    print(
+        "pse-env: the Python command owner is retired; use scripts/pse-env. "
+        "Unmigrated service/frontend helpers are not a fallback for native refusals.",
+        file=sys.stderr,
+    )
+    raise SystemExit(125)

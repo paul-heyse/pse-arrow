@@ -267,38 +267,6 @@ class RecipeArgumentTests(unittest.TestCase):
                 )
                 self.assertIn("light", (root / "wrapper.txt").read_text().splitlines())
 
-    def test_composed_activity_survives_unavailable_admission(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            env = self.fixture(root)
-            (root / "scripts/pse-env").write_text("exit 125\n")
-            for module in (ROOT / "scripts").glob("*.py"):
-                if module.name not in {
-                    "__init__.py",
-                    "activity.py",
-                    "solver-images.py",
-                }:
-                    (root / "scripts" / module.name).symlink_to(module)
-            (root / "scripts/activity.py").write_text(
-                (ROOT / "scripts/activity.py").read_text()
-            )
-            (root / "bin/systemctl").write_text(
-                "#!/bin/sh\necho 'user manager unavailable' >&2\nexit 1\n"
-            )
-            (root / "bin/systemctl").chmod(0o700)
-            result = subprocess.run(
-                ["just", "activity", "--json"],
-                cwd=root,
-                env=env,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            self.assertEqual(result.returncode, 1, result.stderr)
-            report = json.loads(result.stdout)
-            self.assertIn("unavailable", json.dumps(report))
-            self.assertFalse((root / "wrapper.txt").exists())
-
     def test_composed_result_reads_spaced_path_and_literal_gate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

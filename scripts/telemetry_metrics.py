@@ -2,8 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Bounded host metric populations and process-owned Python SDK policy.
 
-Exact identities, source intervals and uncertainty remain in the build, assessment
-and pressure owners. Instruments aggregate owner facts, never trace-derived work.
+Exact identities, source intervals and uncertainty remain in the assessment and pressure owners. Instruments aggregate owner facts, never trace-derived work.
 Python SDK 1.45.1 Views filter keys but do not limit attribute cardinality: every
 dimension below also has a finite producer vocabulary.
 """
@@ -36,13 +35,6 @@ PRESSURE_MAX_AGE_SECONDS = 30.0
 STAGES = frozenset(
     {
         "unknown",
-        "cargo",
-        "compiler",
-        "linker",
-        "build-script",
-        "cache-client",
-        "cargo-lock-wait",
-        "build-finished",
         "discovery",
         "setup",
         "execution",
@@ -104,10 +96,6 @@ FAILURE_CLASSES = (
     )
     | STAGES
 )
-BUILD_RECORDS = frozenset(
-    {"compiler-artifact", "compiler-message", "build-script-executed", "build-finished"}
-)
-FRESHNESS = frozenset({"fresh", "nonfresh"})
 GATE_POPULATIONS = frozenset(
     {"declared", "unattempted", "executed", "reused", "outcome"}
 )
@@ -144,8 +132,6 @@ class MetricDeclaration:
             "failure_class": FAILURE_CLASSES,
             "mode": MODES,
             "suite": SUITES,
-            "record": BUILD_RECORDS,
-            "freshness": FRESHNESS,
             "population": GATE_POPULATIONS
             if self.name == "pse.assessment.gates"
             else CASE_POPULATIONS,
@@ -165,41 +151,6 @@ class MetricDeclaration:
 
 
 METRIC_DECLARATIONS = (
-    MetricDeclaration(
-        "pse.build.records",
-        "counter",
-        "{record}",
-        "Recognized Cargo JSON records, once per actual child stream record",
-        ("record",),
-    ),
-    MetricDeclaration(
-        "pse.build.artifacts",
-        "counter",
-        "{artifact}",
-        "Cargo compiler-artifact records with explicit fresh boolean; freshness is not compiler-cache hit/miss",
-        ("freshness",),
-    ),
-    MetricDeclaration(
-        "pse.build.stage.observations",
-        "counter",
-        "{observation}",
-        "Changed observed Cargo stages; sampled proc observations are not a complete timeline",
-        ("stage",),
-    ),
-    MetricDeclaration(
-        "pse.build.active",
-        "up_down_counter",
-        "{build}",
-        "Actual Cargo children observed by this host process, from spawn to settled exit",
-    ),
-    MetricDeclaration(
-        "pse.build.duration",
-        "histogram",
-        "s",
-        "Actual Cargo child lifetime observed by this host process",
-        ("status", "failure_class"),
-        DURATION_BUCKETS,
-    ),
     MetricDeclaration(
         "pse.assessment.gates",
         "counter",
@@ -355,15 +306,6 @@ class HostMetrics:
             d = declarations[name]
             return meter.create_histogram(name, unit=d.unit, description=d.population)
 
-        self.build_records = counter("pse.build.records")
-        self.build_artifacts = counter("pse.build.artifacts")
-        self.build_stages = counter("pse.build.stage.observations")
-        self.build_active = meter.create_up_down_counter(
-            "pse.build.active",
-            unit="{build}",
-            description=declarations["pse.build.active"].population,
-        )
-        self.build_duration = histogram("pse.build.duration")
         self.assessment_gates = counter("pse.assessment.gates")
         self.assessment_cases = counter("pse.assessment.cases")
         self.assessment_duration = histogram("pse.assessment.duration")
@@ -375,13 +317,6 @@ class HostMetrics:
             unit="%",
             description=declarations["pse.host.pressure"].population,
         )
-
-    def build_record(self, reason: str, fresh: object = None) -> None:
-        if reason not in BUILD_RECORDS:
-            return
-        self.build_records.add(1, {"record": reason})
-        if reason == "compiler-artifact" and type(fresh) is bool:
-            self.build_artifacts.add(1, {"freshness": "fresh" if fresh else "nonfresh"})
 
     @contextmanager
     def stage(self, stage: str) -> Generator[dict[str, str]]:
@@ -414,30 +349,6 @@ class HostMetrics:
             self.engineering_duration.record(
                 max(0, time.monotonic() - started), dimensions
             )
-
-    def build_stage(self, stage: str) -> None:
-        self.build_stages.add(1, {"stage": bounded(stage, STAGES)})
-
-    def build_started(self) -> None:
-        self.build_active.add(1)
-
-    def build_finished(self, seconds: float, code: int | None) -> None:
-        self.build_active.add(-1)
-        self.build_duration.record(
-            max(0, seconds),
-            {
-                "status": "passed"
-                if code == 0
-                else "interrupted"
-                if code is None or code < 0
-                else "failed",
-                "failure_class": "none"
-                if code == 0
-                else "interruption"
-                if code is None or code < 0
-                else "compile",
-            },
-        )
 
     def assessment_finished(self, receipt: dict) -> None:
         """Called once by the performing final-publication owner, never by readers.

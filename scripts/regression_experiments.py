@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Finite historical regression searches and explicitly paired measurement inspection."""
+"""Read-only inspection of explicitly paired historical measurement reports."""
 
 from __future__ import annotations
 
@@ -8,450 +8,13 @@ import argparse
 import hashlib
 import json
 import math
-import os
-import shutil
 import statistics
-import subprocess
 import sys
-import time
-import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Never
-
-if not __package__:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from scripts import build_measurements, native_operation, validation
-
-ROOT = Path(__file__).resolve().parents[1]
-PREDICATE = "authoring-load-package"
-TEST_SOURCE = Path("crates/pse-admission/tests/authoring_load_package.rs")
-TEST_NAME = (
-    "explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans"
-)
-BINARY = "pse-admission::authoring_load_package"
-SUBJECT = BINARY + "::" + TEST_NAME
-
-
-def _invalid_protocol(message: str) -> Never:
-    """Keep this owner's document/observation refusals in its ValueError contract."""
-    raise ValueError(message)
 
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def git(root: Path, *args: str) -> str:
-    return subprocess.check_output(["git", *args], cwd=root, text=True).strip()
-
-
-def run_owned(command: list[str], cwd: Path, log: Path) -> tuple[int, dict]:
-    """Borrow placement and physical drain from the existing workload owner."""
-    observation: dict = {}
-    with log.open("w") as stream:
-        code = native_operation.run_child_scope(
-            command,
-            dict(os.environ),
-            cwd=cwd,
-            observation=observation,
-            stdout=stream.fileno(),
-            stderr=subprocess.STDOUT,
-        )
-    return code, observation
-
-
-def classify_product(result: dict) -> int:
-    """Only the declared test's ordinary assertion failure is the bad predicate."""
-    terminal = result.get("terminal")
-    process = result.get("process", {})
-    rows = result.get("report_rows", [])
-    if (
-        result.get("phase") != "frozen"
-        or not isinstance(terminal, dict)
-        or terminal.get("complete") is not True
-        or result.get("report_errors")
-        or result.get("selected_count") != 1
-        or result.get("selected_unreported_count") != 0
-        or not isinstance(process, dict)
-        or process.get("forwarded_signal") is not None
-        or len(rows) != 1
-        or rows[0].get("class") != BINARY
-        or rows[0].get("name") != TEST_NAME
-    ):
-        return 128
-    row = rows[0]
-    if row.get("status") == "passed" and result.get("workload_exit") == 0:
-        return 0
-    if result.get("setup_failures") or row.get("failure_kind") == "infrastructure":
-        return 128  # Setup failure is not evidence that this revision is bad.
-    if (
-        row.get("status") == "failure"
-        and result.get("workload_exit") in {1, 100}
-        and result.get("predicate_execution", {}).get("failure_type")
-        == "test failure with exit code 101"
-    ):
-        return 1
-    return 128
-
-
-def predicate_execution(result: dict, report: Path) -> dict:
-    """Read nextest's structured failure variant from the authenticated JUnit.
-
-    nextest 0.9.146, aggregator/junit.rs non_success_kind_and_type distinguishes
-    ExitCode(101) from abort, timeout and leaked handles. Do not search log text.
-    The terminal owner's recorded digest binds this small adapter observation.
-    """
-    expected = result.get("artifacts", {}).get(report.name)
-    if expected != digest(report):
-        raise ValueError("predicate report differs from the frozen product artifact")
-    tree = ET.parse(report)  # noqa: S314 -- authenticated locally generated report
-    cases = list(tree.iter("testcase"))
-    if (
-        len(cases) != 1
-        or cases[0].get("classname") != BINARY
-        or cases[0].get("name") != TEST_NAME
-    ):
-        raise ValueError(
-            "predicate report does not contain exactly the declared subject"
-        )
-    case = cases[0]
-    if any(
-        case.findall(tag)
-        for tag in ("rerunFailure", "flakyFailure", "rerunError", "flakyError")
-    ):
-        raise ValueError("predicate requires one attempt per bounded trial")
-    failures = case.findall("failure")
-    if len(failures) > 1:
-        raise ValueError("ambiguous predicate failure variants")
-    return {
-        "report": str(report),
-        "sha256": expected,
-        "failure_type": failures[0].get("type") if failures else None,
-    }
-
-
-def rust_trial(checkout: Path, output: Path) -> dict:
-    """Adapt the one supported pure Rust consumer to preparation/result owners.
-
-    This controller is imported from outside the candidate checkout. Historical
-    code supplies the selected product, never the predicate or runner adapter.
-    Native/schema journeys need their own supported adapter, not this pure route.
-    """
-    from scripts import (  # noqa: PLC0415 -- selected operation owner; source-only discovery must not prepare this lifecycle
-        arrow_validation,
-        native_tests,
-        run_inspection,
-        test_resources,
-        test_run,
-        validation_receipts,
-    )
-
-    native_tests.ROOT = checkout
-    test_run.ROOT = checkout
-    provenance = output / "native.json"
-    selection = output / "selected.json"
-    environment = arrow_validation.rust_test_environment(os.environ)
-    # No target override: this checkout owns its ordinary Cargo target directory.
-    if "CARGO_TARGET_DIR" in environment:
-        raise ValueError("historical checkout refuses an inherited target override")
-    for key in (
-        test_resources.MARKER,
-        "PSE_NATIVE_PROVENANCE",
-        test_run.RUST_OBSERVER,
-        "PSE_WORKER_BINARY",
-        "PSE_SURREAL_STATE",
-        "PSE_TEST_EXECUTION_PROFILE",
-    ):
-        environment.pop(key, None)
-    command = [
-        "cargo",
-        "nextest",
-        "run",
-        "--locked",
-        "-p",
-        "pse-admission",
-        "--test",
-        "authoring_load_package",
-        "--no-fail-fast",
-        "--retries",
-        "0",
-        "-E",
-        f"test(={TEST_NAME})",
-    ]
-    execution, _worker = native_tests.ordinary_rust_capture(
-        command,
-        provenance,
-        selection,
-        environment,
-        effects="native-local",
-    )
-    inventory = validation_receipts.native_inventory(selection.read_text())
-    selected = test_run.rust_selected(inventory)
-    if [(item["binary_id"], item["name"]) for item in selected] != [
-        (BINARY, TEST_NAME)
-    ]:
-        raise ValueError("historical selection differs from the exact predicate")
-    environment["PSE_NATIVE_PROVENANCE"] = str(provenance)
-    environment[test_run.EXECUTION_EFFECTS] = "native-local"
-    # Verify the same prepared closure before composing the existing invocation.
-    native_tests.prepared_rust_inventory(execution, environment, inventory=inventory)
-    path = test_resources.invocation("rust", selected)
-    command, report = test_run.rust_report_command(
-        path, ["cargo", "nextest", "run", *execution]
-    )
-    test_run.execute_selected(
-        path,
-        command,
-        environment,
-        report,
-        selected=[{"class": BINARY, "name": TEST_NAME}],
-        details={"preparation": str(provenance)},
-    )
-    result = run_inspection.product_result(str(path))
-    result["predicate_execution"] = predicate_execution(result, report)
-    return result
-
-
-def evaluate(checkout: Path, output: Path, expected: str, repetitions: int) -> int:
-    """Git's 0/good, 1/bad, 125/untestable, 128+/abort protocol."""
-    output.mkdir(parents=True, exist_ok=False)
-    outcome: dict = {
-        "commit": git(checkout, "rev-parse", "HEAD"),
-        "predicate": PREDICATE,
-        "predicate_source_sha256": expected,
-        "trials": [],
-        "code": 128,
-    }
-    try:
-        source = checkout / TEST_SOURCE
-        if not source.is_file() or digest(source) != expected:
-            outcome.update(
-                code=125, reason="historical predicate source is unsupported"
-            )
-            return 125
-        for repetition in range(repetitions):
-            trial = output / str(repetition)
-            trial.mkdir()
-            result = rust_trial(checkout, trial)
-            code = classify_product(result)
-            outcome["trials"].append(
-                {
-                    "code": code,
-                    "result": {
-                        key: result.get(key)
-                        for key in (
-                            "kind",
-                            "registry",
-                            "invocation",
-                            "run_path",
-                            "terminal_identity",
-                        )
-                    },
-                    "subject": SUBJECT,
-                    "predicate_execution": result.get("predicate_execution"),
-                }
-            )
-            if code >= 128:
-                outcome.update(code=code, reason="incomplete or infrastructure result")
-                return code
-        codes = {trial["code"] for trial in outcome["trials"]}
-        code = codes.pop() if len(codes) == 1 else 125
-        outcome.update(
-            code=code,
-            reason="consistent trials"
-            if code != 125
-            else "mixed trials are inconclusive",
-        )
-    except (
-        OSError,
-        ValueError,
-        TypeError,
-        KeyError,
-        ET.ParseError,
-        subprocess.SubprocessError,
-    ) as error:
-        outcome.update(
-            code=128, reason=f"infrastructure: {type(error).__name__}: {error}"
-        )
-        return 128
-    else:
-        return code
-    finally:
-        validation.write_json(output / "predicate.json", outcome)
-
-
-def freeze_controller(output: Path) -> Path:
-    directory = output / "controller"
-    directory.mkdir()
-    return build_measurements.snapshot(ROOT, directory)
-
-
-def remove_owned(path: Path, identity: tuple[int, int]) -> None:
-    stat = path.lstat()
-    if (
-        path.is_symlink()
-        or (stat.st_dev, stat.st_ino) != identity
-        or stat.st_uid != os.getuid()
-    ):
-        raise ValueError("owned checkout identity changed; cleanup refused")
-    shutil.rmtree(path)
-
-
-def bisect(args: argparse.Namespace) -> tuple[int, dict]:
-    source = args.repo.resolve()
-    good = git(source, "rev-parse", "--verify", args.good + "^{commit}")
-    bad = git(source, "rev-parse", "--verify", args.bad + "^{commit}")
-    if good != args.good or bad != args.bad:
-        raise ValueError("good and bad must be full exact commit IDs")
-    if good == bad:
-        raise ValueError("good and bad must differ")
-    subprocess.run(
-        ["git", "merge-base", "--is-ancestor", good, bad], cwd=source, check=True
-    )
-    output = args.output.resolve()
-    output.mkdir(mode=0o700, parents=True, exist_ok=False)
-    result: dict = {
-        "predicate": PREDICATE,
-        "good": good,
-        "bad": bad,
-        "repetitions": args.repetitions,
-        "status": "aborted",
-        "code": 128,
-        "premise": "monotone behavior of the exact selected predicate; a narrowed commit is a causal lead",
-        "processes": [],
-        "cleanup": "retained",
-        "predicate_results": [],
-    }
-    checkout = output / "checkout"
-    checkout_identity = None
-    drained = True
-
-    def execute(command: list[str], cwd: Path, log: Path) -> int:
-        nonlocal drained
-        previous = drained
-        drained = False  # Exceptions cannot authorize cleanup with an older witness.
-        code, observation = run_owned(command, cwd, log)
-        result["processes"].append(observation)
-        drained = previous and observation.get("owned_drain") == "complete"
-        return code
-
-    try:
-        controller = freeze_controller(output)
-        expected = digest(controller / TEST_SOURCE)
-        result["controller"] = str(controller)
-        result["predicate_source_sha256"] = expected
-        result["controller_source"] = str(output / "controller/original-source.json")
-        code = execute(
-            [
-                "git",
-                "clone",
-                "--quiet",
-                "--no-hardlinks",
-                "--no-checkout",
-                str(source),
-                str(checkout),
-            ],
-            output,
-            output / "clone.log",
-        )
-        if code or not drained:
-            result["code"] = max(code, 128)
-            return result["code"], result
-        stat = checkout.stat()
-        checkout_identity = stat.st_dev, stat.st_ino
-        trials = output / "predicates"
-        trials.mkdir()
-        launcher = [
-            sys.executable,
-            str(controller / "scripts/regression_experiments.py"),
-            "_evaluate",
-            "--checkout",
-            str(checkout),
-            "--output",
-            str(trials),
-            "--expected",
-            expected,
-            "--repetitions",
-            str(args.repetitions),
-        ]
-        # Verify endpoint declarations before trusting them as Git facts.
-        for name, revision, expected_code in (("good", good, 0), ("bad", bad, 1)):
-            git(checkout, "checkout", "--quiet", "--detach", revision)
-            code = execute(launcher, checkout, output / f"endpoint-{name}.log")
-            if not drained:
-                result.update(code=128, reason="endpoint physical drain unconfirmed")
-                return 128, result
-            if code != expected_code:
-                result.update(
-                    code=code if code >= 128 else 125,
-                    status="aborted" if code >= 128 else "inconclusive",
-                    reason=f"{name} endpoint did not establish its declared predicate",
-                )
-                return result["code"], result
-        git(checkout, "bisect", "start", bad, good)
-        code = execute(
-            ["git", "bisect", "run", *launcher],
-            checkout,
-            output / "bisect.log",
-        )
-        results = [
-            json.loads(path.read_text())
-            for path in sorted(trials.glob("*/predicate.json"))
-        ]
-        result["predicate_results"] = [
-            str(path) for path in sorted(trials.glob("*/predicate.json"))
-        ]
-        result["git_log"] = git(checkout, "bisect", "log")
-        aborted = (
-            any(item["code"] >= 128 for item in results) or code >= 128 or not drained
-        )
-        if not aborted and code == 0:
-            result.update(
-                status="narrowed",
-                code=0,
-                causal_lead=git(checkout, "rev-parse", "refs/bisect/bad"),
-            )
-        elif not aborted and any(item["code"] == 125 for item in results):
-            goods = git(
-                checkout, "for-each-ref", "--format=%(objectname)", "refs/bisect/good-*"
-            ).splitlines()
-            candidates = git(
-                checkout, "rev-list", "refs/bisect/bad", "--not", *goods
-            ).splitlines()
-            result.update(status="inconclusive", code=125, possible_commits=candidates)
-        else:
-            result.update(status="aborted", code=max(code, 128))
-    except (
-        OSError,
-        ValueError,
-        TypeError,
-        KeyError,
-        subprocess.SubprocessError,
-    ) as error:
-        result.update(
-            status="aborted",
-            code=128,
-            reason=f"infrastructure: {type(error).__name__}: {error}",
-        )
-        return 128, result
-    else:
-        return result["code"], result
-    finally:
-        if checkout_identity is not None and args.cleanup and drained:
-            try:
-                remove_owned(checkout, checkout_identity)
-                result["cleanup"] = "owned checkout removed after complete drain"
-            except (OSError, ValueError) as error:
-                result["cleanup"] = f"retained: {error}"
-        elif args.cleanup and not drained:
-            result["cleanup"] = "retained: physical drain unconfirmed"
-        if (output / "predicates").is_dir():
-            result["predicate_results"] = [
-                str(path)
-                for path in sorted((output / "predicates").glob("*/predicate.json"))
-            ]
-        validation.write_json(output / "bisect.json", result)
 
 
 def positive(value: object) -> float:
@@ -715,7 +278,7 @@ def compare(path: Path, max_relative_spread: float) -> dict:
                 value, actual, reference = measurement(pair[side], path.parent)
                 key = reference["sha256"], reference["sample"]
                 if key in membership:
-                    _invalid_protocol("sample membership is reused across pairs")
+                    raise ValueError("sample membership is reused across pairs")
                 membership.add(key)
                 values[side] = value
                 all_conditions.append(actual)
@@ -797,54 +360,25 @@ def compare(path: Path, max_relative_spread: float) -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    search = commands.add_parser("bisect")
-    search.add_argument("--repo", type=Path, default=ROOT)
-    search.add_argument("--good", required=True)
-    search.add_argument("--bad", required=True)
-    search.add_argument("--predicate", choices=(PREDICATE,), required=True)
-    search.add_argument("--output", type=Path, required=True)
-    search.add_argument("--repetitions", type=int, default=1)
-    search.add_argument("--cleanup", action="store_true")
     paired = commands.add_parser("compare")
     paired.add_argument("--pairs", type=Path, required=True)
     paired.add_argument("--output", type=Path, required=True)
     paired.add_argument("--max-relative-spread", type=float, default=0.1)
-    internal = commands.add_parser("_evaluate", help=argparse.SUPPRESS)
-    internal.add_argument("--checkout", type=Path, required=True)
-    internal.add_argument("--output", type=Path, required=True)
-    internal.add_argument("--expected", required=True)
-    internal.add_argument("--repetitions", type=int, required=True)
     args = parser.parse_args(argv)
-    if args.command in {"bisect", "_evaluate"} and not 1 <= args.repetitions <= 20:
-        parser.error("repetitions must be between 1 and 20")
     try:
-        if args.command == "_evaluate":
-            return evaluate(
-                args.checkout,
-                args.output / str(time.time_ns()),
-                args.expected,
-                args.repetitions,
-            )
-        if args.command == "bisect":
-            code, result = bisect(args)
-        else:
-            if (
-                not math.isfinite(args.max_relative_spread)
-                or args.max_relative_spread < 0
-            ):
-                parser.error("max relative spread must be finite and nonnegative")
-            result = compare(args.pairs, args.max_relative_spread)
-            with args.output.open("x") as destination:
-                json.dump(result, destination, indent=2)
-                destination.write("\n")
-            code = 0 if result["status"] == "descriptive" else 125
+        if not math.isfinite(args.max_relative_spread) or args.max_relative_spread < 0:
+            parser.error("max relative spread must be finite and nonnegative")
+        result = compare(args.pairs, args.max_relative_spread)
+        with args.output.open("x") as destination:
+            json.dump(result, destination, indent=2)
+            destination.write("\n")
+        code = 0 if result["status"] == "descriptive" else 125
         print(json.dumps(result, indent=2))
     except (
         OSError,
         ValueError,
         TypeError,
         KeyError,
-        subprocess.SubprocessError,
     ) as error:
         print(f"regression-experiments: {error}", file=sys.stderr)
         return 128

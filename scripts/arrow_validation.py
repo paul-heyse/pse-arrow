@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Compose correctness commands from Cargo's actual target/host unit graph.
+"""Legacy graph helpers for unmigrated frontend builders, pending their Plan58 cutover.
+
+The public command entry point has retired; native correctness owns generic commands.
 
 No package root is added. Cargo owns optional/target/dev dependency selection and
 feature resolution; manifests own opt-in propagation. The second graph establishes
@@ -9,7 +11,6 @@ actual validation-capable Arrow leaf features, rather than trusting a feature's 
 
 from __future__ import annotations
 
-import os
 import shlex
 import subprocess
 import sys
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts import build_observation, host_admission
+from scripts import host_admission
 
 
 def rust_test_environment(environment: Mapping[str, str]) -> dict[str, str]:
@@ -447,18 +448,11 @@ def manifest_options(args: Sequence[str]) -> list[str]:
     return result
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
-    if args[:1] == ["--"]:
-        args.pop(0)
-    try:
-        command = compose(["cargo", *args])
-    except (ValidationError, msgspec.DecodeError) as error:
-        print(f"arrow-validation: {error}", file=sys.stderr)
-        return 2
-    print("arrow-validation: " + shlex.join(command), file=sys.stderr, flush=True)
-    return build_observation.run_command(command, env=rust_test_environment(os.environ))
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    print(
+        "arrow-validation: the Python command entry point is retired; use "
+        "scripts/cargo-bin/cargo-pse-correctness. Unmigrated frontend builders remain "
+        "outside the accepted Plan58 native scope.",
+        file=sys.stderr,
+    )
+    raise SystemExit(125)

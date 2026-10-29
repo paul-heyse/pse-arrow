@@ -215,7 +215,18 @@ cannot keep the Python controller as a fallback. Existing non-host report/artifa
 remain only after removing their old-host dependencies. Plans53/54 keep historical evidence
 and unrelated work; changed fixture and cache-continuity assumptions route through ADR-0233.
 
-B01's independent native host/seed is now delivered; 58b owns focused component evidence and
-B02/B03 partial state. B04/B05 and unselected companion scope remain open. The first integrated
-consumer cutover still must replace real callers and delete the Python owner; primitives do
-not establish that outcome. Shared status remains here and in 58b, not in a second execution ledger.
+The subsequent selected database-free ordinary wave now connects the native host to actual
+pse-env/direnv/hook/Just/Cargo consumers, two-scope caller-death containment, native cache and
+telemetry configuration, generic Cargo/nextest correctness and scoped G retirement. The
+[58b checkpoint](58b-bootstrap-and-host-control.md#execution-checkpoint--2026-10-28) owns current
+supported placement, targeted results and remaining host evidence; C/F/G companions retain their
+own selected-slice status. Their full packages remain in progress where broader service,
+frontend, fixture, developer or retirement obligations remain. No D readiness slice was needed
+for the first consumer, and no database reset or service cutover was performed.
+
+Unsupported finite/scientific/provider/store/reference modes explicitly refuse without a Python
+fallback. Unmigrated Python helper libraries remain only for their later owning cutovers, not as
+accepted alternate entry points. Python pse-env/Arrow command entry points, native export shims,
+per-compiler watcher and bespoke build-observation/measurement paths have retired. The native
+ordinary consumer transition is concrete; it does not establish all-series or package completion.
+H's broad qualification remains unselected. Shared status stays here and in existing companions.

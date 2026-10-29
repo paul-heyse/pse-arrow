@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 from scripts import (
-    build_observation,
     host_admission,
     operation_lifetime,
     run_inspection,
@@ -160,8 +159,7 @@ def _snapshot_body(selected: dict, deadline: float) -> dict:
             if host_admission.caller_alive(result["producer"])
             else "observation-lost"
         )
-    # The result reader is authority; missing or returned Cargo observations
-    # cannot turn an open product invocation into successful completion.
+    # The scientific result reader owns terminal completion.
     value: dict[str, object] = {
         "state": state,
         "run": result,
@@ -173,19 +171,6 @@ def _snapshot_body(selected: dict, deadline: float) -> dict:
         if terminal is not None
         else None,
     }
-    try:
-        value["builds"] = [
-            item
-            for item in build_observation.observations(host_admission.root_path())
-            if item.get("invocation_declaration")
-            in {result["run_path"], result["invocation"]}
-        ]
-        value["build_coverage"] = (
-            "matching snapshots within owner's latest 100; no transition history"
-        )
-    except (OSError, ValueError) as error:
-        value["builds"] = None
-        value["build_error"] = str(error)
     return value
 
 

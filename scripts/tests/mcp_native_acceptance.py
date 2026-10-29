@@ -1177,7 +1177,7 @@ def telemetry_queries(recorder: Recorder, hold_seconds: int) -> None:
         if hold_seconds and operational == 0:
             answer = json.loads(
                 (recorder.output / "operational/acceptance.json").read_text()
-            )["always_on"]["canonical_mcp"]["pse_build_records"]
+            )["always_on"]["canonical_mcp"]["pse_engineering_stages"]
             write(
                 recorder.output / "host-ready.json",
                 {
@@ -1188,7 +1188,12 @@ def telemetry_queries(recorder: Recorder, hold_seconds: int) -> None:
                         "state": str(fixture.state),
                         "request": answer["request"],
                     },
-                    "expected_record": {"record": "compiler-message", "value": 3},
+                    "expected_record": {
+                        "stage": "execution",
+                        "status": "passed",
+                        "failure_class": "none",
+                        "value": 3,
+                    },
                     "original_metric_answer": str(
                         recorder.output / "operational/acceptance.json"
                     ),

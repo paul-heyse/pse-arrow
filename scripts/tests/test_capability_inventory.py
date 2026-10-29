@@ -104,7 +104,7 @@ class InventoryTests(unittest.TestCase):
             "knowledge-recall": ("knowledge", "scripts/knowledge_store.py"),
             "build-cache": ("environment", "scripts/build_environment.py"),
             "validation-selection": ("validation", "scripts/select.py"),
-            "workload-observation": ("execution", "scripts/activity.py"),
+            "workload-observation": ("execution", "scripts/pse-host"),
             "scientific-diagnostics": ("diagnostics", "python/pse/diagnostics.py"),
             "database-tooling": ("storage", "scripts/surreal_server.py"),
             "projects-revisions": (

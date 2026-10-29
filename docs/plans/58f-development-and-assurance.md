@@ -132,8 +132,8 @@ ingestion needs an explicit disposition of queue/failure alerts rather than assu
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [F01](#f01) | planned | 58f | Retained direct development/configuration operations and native settings resolution |
-| [F02](#f02) | planned | 58f | Native tool delegation, Arrow closure selection and typed fixture composition |
+| [F01](#f01) | in progress | 58f | Retained direct development/configuration operations and native settings resolution |
+| [F02](#f02) | in progress | 58f | Native tool delegation, Arrow closure selection and typed fixture composition |
 | [F03](#f03) | planned | 58f | Rust generators/docs/governance consumers and retired Python emission |
 | [F04](#f04) | planned | 58f | Proportionate evidence and independent native-candidate scientific assurance |
 | [F05](#f05) | planned | 58f | Integrated bridge retirement and native developer acceptance |
@@ -269,4 +269,44 @@ Arrow force-validation for actual consuming closures. Generation is part of its 
 F05 contributes a developer journey to [H's](58h-qualification-and-publication.md) scope-end integration/hygiene/manual
 qualification after all functional scope; it does not start a campaign per package. H also
 owns numerical/reference evidence and measurements. No build, test or dependency update ran.
-Structural dependency removal is planned; time, memory and reliability gains remain unmeasured.
+Broader structural dependency removal remains scheduled; the checkpoint below records the selected
+native cutover. Time, memory and reliability gains remain unmeasured.
+
+## Selected native host and correctness checkpoint — 2026-10-28
+
+The database-free B02/B03 wave implements the necessary F01/F02 subset, not all retained
+developer operations. Native environment resolution selects compiler/cache inputs, the existing
+libtest stack declaration and useful OTEL/local configuration. SDK-independent telemetry
+Settings/SignalSettings/sampler validation now have one Rust owner in `pse-diagnostics`;
+`pse-runtime` reexports that same type and retains SDK construction. Private resolved settings
+travel only to the child mapping. Parent activation, help, explanation and Debug do not expose
+them. Invalid optional telemetry produces a safe status and cannot block computation. No new
+SDK, collector, mandatory CLI or monitoring system was introduced.
+
+Generic Cargo aliases and check/unit recipes now use `cargo-pse-correctness`. Cargo unit graphs
+select actual normal/build/host/dev closure; necessary opt-ins attach only to selected consuming
+roots and final Arrow leaves/root identities are checked. Pure host scope adds no relation
+root. Nextest remains the parser/scheduler. Since Cargo overwrites `CARGO` for external commands,
+the composer invokes installed cargo-nextest directly with an invocation-local native Cargo
+adapter; graph stdout stays private and compiler JSON remains the original stream. Compiler
+requests always validate even in a discovery-marked environment. One static native setup
+restores Cargo for attempts. This slice supports source-build run/list in the selected checkout;
+foreign workspaces, manifest/config/tool-config overrides and archive/prebuilt/reused/rerun paths
+refuse before runner launch. No copied complete nextest grammar or per-test supervisor was added.
+
+The generic unit path no longer enters the Python selector, invocation permission table or
+success-gated fixture retention. Native physical fixtures construct private performing/borrowed
+capabilities and settle independently of scientific assertions. Broader scientific fixture/report
+and non-generic frontend migrations remain their owning F/C/G work; their current source does
+not qualify this native path or gain fallback authority.
+
+**Tested:** actual native `cargo c` and `just unit-package pse-host correctness_` pass, including
+8 selected correctness unit controls. Native Nextest's correctness process suite passes 12 tests
+against zero failures, including actual test-attempt Cargo restoration, contamination and
+foreign/config/reuse refusal. An actual Arrow-consuming `pse-columnar --lib` check and
+`just check-package pse-runtime` pass. Native resolver 6, shared contract 3 and activation 7 controls
+pass; the host environment-filter run passes 18 tests. Final assembled host evidence belongs to
+[58b](58b-bootstrap-and-host-control.md#selected-wave-verification-and-outcome--2026-10-28).
+Export delivery, actual cache-service-loss timing, full developer feature parity, candidate/oracle
+migration, codegen/governance retirement and H qualification remain unclaimed. Source changes
+were not accompanied by a broad feature/solver/scientific campaign or performance measurement.

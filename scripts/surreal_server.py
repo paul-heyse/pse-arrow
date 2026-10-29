@@ -743,7 +743,6 @@ def publish_generation(
         raise SupervisorError(str(error)) from error
     sources = [
         *(root / name for name in owned),
-        root / "scripts/sccache",
         *sorted((root / "scripts/surrealdb-source").glob("*.patch")),
     ]
     for relative in GENERATION_CONFIGURATION:
@@ -774,7 +773,7 @@ def publish_generation(
         target = pending / source.relative_to(root)
         target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         shutil.copyfile(source, target)
-        target.chmod(0o700 if source == root / "scripts/sccache" else 0o600)
+        target.chmod(0o600)
     if prepared_inputs is not None:
         with (pending / "native-environment.json").open("xb") as output:
             output.write(prepared_inputs)

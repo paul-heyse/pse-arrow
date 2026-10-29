@@ -26,7 +26,6 @@ from unittest.mock import MagicMock, patch
 
 from scripts import (
     build_environment,
-    build_measurements,
     host_admission,
     operation_lifetime,
     pse_env,
@@ -2018,51 +2017,6 @@ class NativeOperationTests(unittest.TestCase):
             operation.run(["sh", "-c", "kill -TERM $$"], dict(os.environ)),
             128 + signal.SIGTERM,
         )
-
-    def test_build_timing_observes_authentic_setup_child_and_scope_drain(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory)
-            environment = self.fixture_environment(output / "cache")
-            environment[operation.BUILD_TIMING] = str(output / "native-operation.json")
-            program = "from scripts import native_operation as n; from scripts import operation_lifetime; import os; assert n.current() is not None; assert n.BUILD_TIMING not in os.environ"
-            command = self.fixture_command(
-                [
-                    sys.executable,
-                    "-m",
-                    "scripts.native_operation",
-                    "--capabilities",
-                    "",
-                    "--",
-                    sys.executable,
-                    "-c",
-                    program,
-                ],
-                environment,
-            )
-            started = time.monotonic()
-            result = subprocess.run(
-                command, cwd=cache.ROOT, env=environment, check=False
-            )
-            native = json.loads((output / "native-operation.json").read_text())
-            self.assertEqual(result.returncode, 0)
-            self.assertEqual(native["requested_capabilities"], [])
-            self.assert_fixture_scope(native["owner"]["scope"], live=False)
-            # Mirror pse-env's outer launcher: the exact allocation release
-            # verifies its units before native ownership proves terminal drain.
-            allocation = pse_env.host.inherit(environment)
-            self.assertIsNotNone(allocation)
-            assert allocation is not None
-            self.assertTrue(allocation.release())
-            self.await_drain(native["owner"])
-            self.assertEqual(
-                build_measurements.complete_operation(output, started, 0), 0
-            )
-            receipt = json.loads((output / "complete-operation.json").read_text())
-            self.assertEqual(receipt["status"], "passed")
-            self.assertEqual(receipt["phases"]["final_drain"]["status"], "passed")
-            self.assertGreaterEqual(receipt["wall_seconds"], 0)
-            self.assertEqual(native["setup_status"], "passed")
-            self.assertEqual(native["child_exit_code"], 0)
 
     def test_actual_zero_capability_entry_owns_child_before_command(self) -> None:
         program = "from scripts import native_operation as n; from scripts import operation_lifetime; import json; p=n.owner_record(); print(json.dumps({'active':p is not None,'scope':n._record(p)['scope'],'args':__import__('sys').argv[1:]}))"

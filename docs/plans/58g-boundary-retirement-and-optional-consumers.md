@@ -25,9 +25,9 @@ The current facade, control client, generated documents/stubs, native worker bri
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| G01 | planned | 58g | Retained/lost behavior and integrated caller/declaration deletion boundaries classified |
+| G01 | in progress | 58g | Retained/lost behavior and integrated caller/declaration deletion boundaries classified |
 | G02 | planned | 58g | Python MCP and its bridges removed with retained consumer cutovers |
-| G03 | planned | 58g | Required Python product projections and operating dependencies retired with their declarations and consumers |
+| G03 | in progress | 58g | Required Python product projections and operating dependencies retired with their declarations and consumers |
 | G04 | planned | 58g | Future optional binding seam defined; unnecessary ABI/catalogue/frontends explicitly unselected |
 
 <a id="g01"></a>
@@ -69,3 +69,40 @@ RMCP remains deferred until a concrete agent workflow earns it beyond direct API
 ## Verification and handoff
 
 **Proposed:** G01–G04. No runtime execution or product qualification occurred for this amendment. H receives retained/lost outcomes, final dependency closures and actual integrated caller/declaration deletions. Optional consumers cannot hold native core completion open. Applicable rule/architecture changes precede dependent implementation; this document does not change ADR status or authorize data disposal.
+
+## Selected ordinary host retirement checkpoint — 2026-10-28
+
+The B02/B03/F01/F02 wave now cuts ordinary environment/foreground/Cargo entry points to Rust.
+Direnv, the SessionStart hook, Just shell/interpreters, Cargo aliases and generic check/unit
+recipes call the native owner. Python pse-env and Arrow command entries explicitly refuse;
+no Python compatibility launch or native-guard fallback was added. Four Python-evaluating native
+export scripts and the Python per-compiler cache watcher/launcher and their dedicated watcher
+tests are deleted. Remaining frontend compiler configuration selects the real native sccache
+client; it cannot veto valid output on cache-service death. Frozen installer source lists and
+validation support declarations no longer require the deleted compiler wrapper.
+
+Bespoke build observation/measurement/cache-probe producers and dedicated tests, old Python
+activity CLI, build-only telemetry instruments/stages and derivative clients are deleted.
+`just activity` now reads current/named manager ownership directly. Detached scientific result
+watches/cursors, pressure observations, generic engineering telemetry, historical paired-report
+comparison and independent scientific/reference assets remain. Regression-report comparison is
+read-only; old execution/bisect/frozen-controller experiment machinery is removed. Corresponding
+recipes/inventory declarations were reconciled; capability reference output was regenerated
+through its owner. No authored inputs, databases, cache contents or historical result evidence
+were deleted by source retirement.
+
+Retirement is deliberately scoped: legacy `pse_env`, `host_admission`, `native_operation`,
+`operation_lifetime`, `systemd_environment`, frontend graph helpers and related report/native
+fixture libraries still have unmigrated D/F/product consumers. They are not an accepted
+alternative for this native path. G01/G03 remain in progress; G02's Python MCP/product facade
+removal and G04's optional consumers were not expanded by this wave. Source-only report
+readers retain old-run interpretation; their existence does not establish native host coverage.
+Remaining callers must migrate or intentionally retire with their owning integrated cuts.
+
+**Tested:** retained telemetry/watch controls pass 20 tests and report/investigation/inventory
+controls pass 26 tests against zero failures. The legacy per-compiler watcher suite and replaced
+command/controller tests retired with their mechanism; replacement acceptance comes from native
+owner controls, not ported expectations of deleted machinery. The interrupted broader legacy
+build-environment test has no acceptance credit; its relevant pure configuration class passes
+15 tests. Live telemetry backend/export acceptance and full frontend retirement are not claimed.
+H owns joined static, scientific and system qualification after the selected functional scope.

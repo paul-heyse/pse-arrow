@@ -58,15 +58,15 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
 
     def test_metric_points_filter_before_backend_expansion(self) -> None:
         selected = self.request(
-            metric="pse_build_duration", metric_filters={"status": "failed"}
+            metric="pse_engineering_stage_duration", metric_filters={"status": "failed"}
         )
-        _, body = backend_request("default", "pse_build_duration", selected)
+        _, body = backend_request("default", "pse_engineering_stage_duration", selected)
         assert body is not None
         query = body["query"]
         assert isinstance(query, dict)
         self.assertEqual(
             query["sql"],
-            "SELECT * FROM \"pse_build_duration\" WHERE status = 'failed' ORDER BY _timestamp",
+            "SELECT * FROM \"pse_engineering_stage_duration\" WHERE status = 'failed' ORDER BY _timestamp",
         )
 
     def test_native_attribute_uses_original_domain_and_owned_backend_name(self) -> None:
@@ -279,7 +279,9 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
         ]:
             selected = self.request(
                 kind=kind,
-                metric="pse_build_duration" if kind == "p95" else "pse_build_records",
+                metric="pse_engineering_stage_duration"
+                if kind == "p95"
+                else "pse_engineering_stages",
             )
             response = {
                 "status": "success",
@@ -297,12 +299,16 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
         unsupported = await self.answer(
             {"status": "success", "data": {"result": []}},
             selected=self.request(
-                metric="pse_build_duration", kind="fraction_below", threshold=0.0101
+                metric="pse_engineering_stage_duration",
+                kind="fraction_below",
+                threshold=0.0101,
             ),
         )
         self.assertEqual(unsupported.status, "unsupported")
         selected = self.request(
-            metric="pse_build_duration", kind="fraction_below", threshold=0.01
+            metric="pse_engineering_stage_duration",
+            kind="fraction_below",
+            threshold=0.01,
         )
         observed = await self.answer(
             {"status": "success", "data": {"result": [{"values": [[1, "0.6667"]]}]}},
@@ -312,7 +318,7 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(observed.unit, "1")
         duration = await self.answer(
             {"hits": [{"value": 0.01}]},
-            selected=self.request(metric="pse_build_duration_sum"),
+            selected=self.request(metric="pse_engineering_stage_duration_sum"),
         )
         self.assertIsNone(
             duration.unit,
@@ -349,8 +355,8 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
                 self.request(**override)
         path, body = backend_request(
             "default",
-            "pse_build_records",
-            self.request(metric="pse_build_records", kind="rate"),
+            "pse_engineering_stages",
+            self.request(metric="pse_engineering_stages", kind="rate"),
         )
         self.assertIn("start=1.0", path)
         self.assertIn("end=121.0", path)
@@ -358,12 +364,14 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_instrument_refusals_precede_backend_or_service_access(self) -> None:
         cases = [
-            ("pse_build_active", "rate", "metric_requires_monotonic_counter"),
-            ("pse_build_active", "increase", "metric_requires_monotonic_counter"),
             ("pse_host_pressure", "rate", "metric_temporality_not_cumulative"),
-            ("pse_build_records", "p95", "metric_requires_monotonic_histogram"),
+            ("pse_engineering_stages", "p95", "metric_requires_monotonic_histogram"),
             ("unknown_stream", "increase", "metric_instrument_not_declared"),
-            ("pse_build_duration_sum", "p95", "metric_instrument_not_declared"),
+            (
+                "pse_engineering_stage_duration_sum",
+                "p95",
+                "metric_instrument_not_declared",
+            ),
             ("pse_owner_interval", "exemplars", "metric_exemplars_not_supported"),
         ]
         with (
