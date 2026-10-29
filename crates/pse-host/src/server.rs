@@ -640,6 +640,22 @@ fn publish_pointer(profile: &Path, generation: &PreparedServer) -> Result<(), Ho
     let name = generation.generation.file_name().and_then(OsStr::to_str).ok_or_else(|| invalid("invalid server generation name"))?;
     atomic_record(&profile.join("current.json"), &Pointer { schema: 1, recipe: generation.recipe.clone(), generation: name.into(), receipt_sha256: digest(&generation.generation.join(".complete.json"))? })
 }
+/// Reopen an exact generation at an external process boundary without following
+/// the mutable current selection or consulting source inputs.
+pub fn reopen_generation(generation: &Path, recipe: &str) -> Result<PreparedServer, HostError> {
+    let parent = generation.parent();
+    if !generation.is_absolute()
+        || generation.components().any(|part| !matches!(part, Component::RootDir | Component::Normal(_)))
+        || !hexadecimal(recipe, 64)
+        || !generation.file_name().and_then(OsStr::to_str).is_some_and(|name| hexadecimal(name, 32))
+        || parent.and_then(Path::file_name) != Some(OsStr::new(recipe))
+        || parent.and_then(Path::parent).and_then(Path::file_name) != Some(OsStr::new("generations"))
+    {
+        return Err(invalid("invalid exact server generation identity"));
+    }
+    validate(generation, recipe, None)?;
+    Ok(PreparedServer { generation: generation.to_path_buf(), recipe: recipe.to_owned() })
+}
 /// Select a completed immutable executable without running tools or reading source inputs.
 /// Missing or corrupt selection fails closed; it never builds or chooses a fallback.
 pub fn select(environment: &Environment) -> Result<PreparedServer, HostError> {
@@ -901,6 +917,20 @@ mod tests {
         let selected = select(&fixture.environment).unwrap();
         assert_eq!(selected.generation(), prepared.generation());
         assert!(capture(&selected.executable(), &args(&["version"]), fixture.directory.path(), &fixture.environment).unwrap().contains(VERSION));
+    }
+    #[test]
+    fn server_reopen_retains_exact_generation_without_current_selection_or_sources() {
+        let fixture = fixture();
+        let prepared = prepared(&fixture);
+        fs::remove_file(fixture.profile.join("current.json")).unwrap();
+        fs::remove_dir_all(&fixture.root).unwrap();
+        let reopened = reopen_generation(prepared.generation(), prepared.recipe()).unwrap();
+        assert_eq!(reopened.executable(), prepared.executable());
+        assert!(reopen_generation(prepared.generation(), &"0".repeat(64)).is_err());
+        assert!(reopen_generation(&prepared.generation().join(".."), prepared.recipe()).is_err());
+        let executable = prepared.executable();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(reopen_generation(prepared.generation(), prepared.recipe()).is_err());
     }
     #[test]
     fn server_failed_native_build_preserves_selection_and_diagnostics() {
