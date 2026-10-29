@@ -4,8 +4,11 @@
 
 pub mod activity;
 pub mod admission;
+pub mod agent_hooks;
 pub mod boundary;
 pub mod correctness;
+pub mod diagnostic_tools;
+pub mod doctor;
 pub mod environment;
 pub mod foreground;
 mod manager;
@@ -63,3 +66,5 @@ pse_diagnostics::impl_diagnostic! {
 
 /// Passive native process telemetry selection.
 pub mod telemetry;
+/// Explicit persistent local telemetry service operator.
+pub mod telemetry_service;

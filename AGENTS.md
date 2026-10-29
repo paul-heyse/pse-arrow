@@ -310,7 +310,7 @@ never in a home directory.
   are immutable; supersede them (`just adr-supersede`) instead.
 - The generated paths in prime directive 2, `external/`, `build/`, `target/`.
 
-A `PreToolUse` hook (`scripts/agent-hooks.py`) blocks edits to all of these, and
+A native `PreToolUse` hook (`scripts/pse-host agent-hook guard`) blocks edits to all of these, and
 `.claude/settings.json` denies them again; neither is a shell sandbox, so follow the same
 policy for every other action. When a change to the architecture sections or an accepted ADR
 is genuinely the work, authorize it visibly — create an untracked `.design-edit` file stating

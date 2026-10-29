@@ -43,7 +43,8 @@ keep it accurate when you change them.
   reads/help/launch never rebuild it. See the environment guide for supported host premises.
 - **Status meanings.** `125` is the boundary's own failure, with a `pse-env:` line naming the
   fix; keep a command's own exit status and signals intact.
-- **Hooks.** `scripts/agent-hooks.py` is the only hook script (`just lint-agents` checks the
-  wiring). End-of-turn automation stays removed (ADR-0161).
+- **Hooks.** `scripts/pse-host agent-hook` owns edit guarding and session activation
+  (`just lint-agents` checks the wiring). Prepare the native host explicitly before use.
+  End-of-turn automation stays removed (ADR-0161).
 - **Checks.** Exercise a changed capability once, in its revealing case; the script tests run
   with `just setup-test`, `just native-setup-unit` and `just surreal-test`. Do not add lints.

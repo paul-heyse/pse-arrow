@@ -804,6 +804,25 @@ services or reconstruct existing user data.
 
 ## Remaining host activation continuation — 2026-10-29
 
+The native development host now also supplies edit/session hooks, read-only doctor,
+exact diagnostic tool selection/installation and an explicit local telemetry service owner.
+Installed collector/backend units use a separate authenticated persistent-unit capability;
+they cannot be adopted as transient `OwnedUnit`s. Explicit inactive-unit authentication uses
+systemd's temporary `RefUnit`/`UnrefUnit` pair; passive inspection never loads or pins a unit.
+Each current command owns a fresh manager connection. Concurrent external reconfiguration
+is unsupported, and login enablement remains an explicit external systemd operation.
+
+The focused host selection passes 28 controls, including a real private user-unit
+start/stop, wrong-owner refusal and original cgroup drain. Installer controls cover pinned
+archive-derived provenance for tools lacking a declared binary hash, non-overwrite, changed
+inputs and bounded decoding of unrelated archive members. Stop attempts each independently
+authenticated service and retains all failures. These correct three findings from independent
+implementation review. Doctor composes the same verifier before executing optional managed
+tools; its real CLI reports no unavailable required prerequisite and does not repair optional
+unreceipted tools or start a service. The native tool pair was explicitly rebuilt/published.
+Existing services, queues, backend rules/data and configured scientific state were untouched.
+Remaining caller retirement and whole B–G acceptance retain their owning package boundaries.
+
 The remaining B–G selection resumes host work without restarting delivered scientific or
 schema-ready prerequisites. External provider activation now separates own-prefix construction
 inputs from launch. A missing old prefix selects the authenticated immutable generation;
