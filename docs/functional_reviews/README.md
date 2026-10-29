@@ -1,5 +1,25 @@
 # Functional opportunity reviews
 
+The [agent-first Rust CLI review](rust-agent-cli-2026-10-29.md) responds to the retirement of
+the Python CLI, MCP and `pse-py` boundary. It mines one day of deduplicated Codex sessions
+(the [probe](probes/rust-agent-cli-log-miner-2026-10-29.py) reproduces every count). It proposes
+one clap-based `pse` front door over the existing owners, with:
+- a versioned, summary-first output and failure contract with two exit classes;
+- daemon-free owned runs with a file ledger and history;
+- intent-level `test`/`check` verbs that own blueprint §24.1's reconciled verdict;
+- fixture resolution;
+- a derived catalog, citation resolution, scaffolds, briefs and reading aids.
+
+Development-environment opportunities beyond the CLI cover:
+- quieter Codex activation;
+- generated role instructions;
+- immediate no-CLI fixes;
+- safer bulk edits;
+- host-tool pruning.
+
+It records rule impacts against Plan58, ADR-0233 and CLAUDE.md. It changes no plan,
+implementation or qualification status.
+
 The [SurrealDB state, execution and coordination review](surrealdb-state-execution-boundaries-2026-10-29.md)
 compares the two supplied placement proposals with Plan58 and the effective patched database.
 It recommends complete bounded canonical progression, explicit native preparation/physical
