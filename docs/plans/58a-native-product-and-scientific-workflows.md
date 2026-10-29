@@ -543,3 +543,43 @@ E01/E02 still own residual-limit and payload-custody/reclamation controls. H own
 scientific/reference and scope-end static/manual qualification; it has not run for this scope.
 Unrelated paused B/C/D work is not reopened. Native capabilities and selected passing cuts
 must not be reported as complete first-party Python retirement or full-series acceptance.
+
+### Native read and observation follow-up
+
+**Implemented:** passive `StudyObserver` retains the same narrow read capability as snapshots
+and cohorts; independent read callers can construct/reconnect it without a mathematical runtime.
+Three protected-result unit controls use private native service ownership instead of the old
+Python fixture registry. Their original scientific/protection assertions remain, and the
+fixture explicitly selects the existing engine Contract-observation policy. Its module gate
+is `native-study-tests`, matching the actual private-service prerequisite.
+
+**Tested:** four tests pass, zero failures, 1617 excluded, with the same explicit prepared
+production module/private service helper and:
+
+```sh
+scripts/pse-env --native=compiler,solver,klu -- \
+  scripts/cargo-bin/cargo-pse-correctness nextest run --locked -p pse-runtime \
+  --test native_repeated_analysis --lib \
+  --features native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-scip,solver-highs,solver-diffsol \
+  -E 'binary(native_repeated_analysis) | test(result_pruning_tests::)' --no-fail-fast
+```
+
+The repeated-analysis case now checks passive observation before execution and reconnect,
+foreign issuer/context refusal, observation-only cancellation, bounded cohort export, exact
+protected detail export and typed aggregate export after scientific shutdown. The three library
+controls cover inexact residuals before limit/projection, the complete selected universe after
+stream exhaustion, configured pool/state, physical predicate reuse and protected-schema pruning
+without native batch decode. All use authenticated private state, not the configured database.
+
+The enabled library-test feature combination exposed a horizon test-cleanup type mismatch:
+successful abandonment returns its original row, while settlement consumes unit success.
+Mapping that success to unit preserves its original errors. Export receiver assertions also
+needed the actual wire contract: canonical export metadata is distinct from a registry relation,
+and its manifest field carries a digest rather than the storage key. The corrected assertions
+check original export attribution and exact generated fields/arrays without weakening registry
+admission. No production wire format or scientific tolerance changed.
+
+A07's next cut removes the replaced Python frozen-cohort/passive-observer projection and its
+polling state machine, with its method declarations, generator sources, outputs and actual
+consumers. Existing native ProjectAction wire outcomes receive their own retained consumer;
+the core Rust API remains independent of a CLI. Remaining frontend, E and H work stays open.

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Passive bounded study telemetry: exact per-attempt streams, never a study execution owner.
 use super::{
-    ProgressCheckpointDocument, ProgressEventDocument, Runtime, StudyCohortMemberPage,
+    ProgressCheckpointDocument, ProgressEventDocument, RetainedDataServices, Runtime, StudyCohortMemberPage,
     StudyCohortPageRequest, StudyCohortReceipt, StudyCohortRequest, StudyWorkbenchFilter,
     StudyWorkbenchHeader, WorkflowError, contract,
 };
@@ -169,7 +169,7 @@ pub struct StudyObservationPage {
 /// Observer resources contain no study handle, worker, cancellation lease or dispatch route.
 #[derive(Debug)]
 pub struct StudyObserver {
-    runtime: Runtime,
+    services: RetainedDataServices,
     cursor: StudyObservationCursor,
     live: BTreeMap<(String, String), Arc<pse_backend_native::solve::Progress>>,
     cancel: CancellationToken,
@@ -186,6 +186,16 @@ fn context(document: &StudyObservationStatus) -> Result<StudyObservationContext,
     })
 }
 impl Runtime {
+    /// Observe existing study state using this caller's retained-data capabilities.
+    pub async fn observe_study(
+        &self,
+        request: StudyObservationRequest,
+        cursor: Option<StudyObservationCursor>,
+    ) -> Result<StudyObserver, WorkflowError> {
+        self.retained_data_services().observe_study(request, cursor).await
+    }
+}
+impl RetainedDataServices {
     /// Open or reconnect selected existing owners. This performs no coordination or science.
     pub async fn observe_study(
         &self,
@@ -264,7 +274,7 @@ impl Runtime {
             },
         };
         Ok(StudyObserver {
-            runtime: self.clone(),
+            services: self.clone(),
             cursor,
             live: BTreeMap::new(),
             cancel: CancellationToken::new(),
@@ -324,7 +334,7 @@ impl StudyObserver {
     }
     /// Poll only this complete selected bounded study and its existing original attempt owners.
     pub async fn poll(&mut self) -> Result<StudyObservationPage, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = self.services.admit_activity()?;
         activity.scope(self.poll_checked()).await
     }
     async fn poll_checked(&mut self) -> Result<StudyObservationPage, WorkflowError> {
@@ -332,7 +342,7 @@ impl StudyObserver {
             return Err(contract("study observer closed"));
         }
         let status = self
-            .runtime
+            .services
             .freeze_study_cohort(StudyCohortRequest {
                 filter: StudyWorkbenchFilter {
                     study: Some(self.cursor.request.study.clone()),
@@ -357,7 +367,7 @@ impl StudyObserver {
         let mut attempts = Vec::new();
         for (run, revision) in runs {
             let Some(generation) = self
-                .runtime
+                .services
                 .canonical_store()?
                 .workbench_run_generation(&run)
                 .await?
@@ -365,7 +375,7 @@ impl StudyObserver {
                 continue;
             };
             let page = self
-                .runtime
+                .services
                 .canonical_store()?
                 .canonical_attempt_page(&run, None, generation)
                 .await?;
@@ -419,7 +429,7 @@ impl StudyObserver {
             let mut continuity = StudyObservationContinuity::CatchUp;
             let summary = if parent && attempt.terminal {
                 let original = self
-                    .runtime
+                    .services
                     .canonical_store()?
                     .canonical_attempt(&attempt.key)
                     .await?
@@ -448,7 +458,7 @@ impl StudyObserver {
                 position.history_complete = true;
             } else if attempt.terminal && !position.history_complete && remaining > 0 {
                 let history = match self
-                    .runtime
+                    .services
                     .progress(&position.run, &position.attempt, self.cancel.child_token())
                     .await
                 {

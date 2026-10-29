@@ -103,6 +103,22 @@ that selected passing evidence and G the deleted Python aggregate projection. Re
 sealed-payload/reclamation and full E01/E02 acceptance remain open; these are not implied by
 the narrower passing consumer.
 
+The native passive study observer now retains `RetainedDataServices` too. It can open and
+reconnect through an independently constructed read caller after all mathematical services
+close; attaching local progress still retains no run cancellation lease. Runtime convenience
+composition delegates to that same implementation. The three result-pruning controls now
+construct private `NativeCanonicalService` fixtures and math-free data capabilities, removing
+their old Python fixture-registry/global-state dependency. Their explicit engine assembly
+selects existing Contract observation so DataFusion task propagation does not depend on
+mathematical startup side effects.
+
+**Tested:** [A's native read/observation checkpoint](58a-native-product-and-scientific-workflows.md#native-read-and-observation-follow-up)
+records four passing controls, zero failures. The formerly unexercised residual-before-limit,
+complete selected universe after stream consumption, configured-state/pool, native predicate
+reuse and protected-pruning controls now have selected acceptance. Frozen page/detail/aggregate
+exports and passive reconnect run after scientific shutdown. Broader sealed-payload concurrent
+reclamation, cancellation/delivery custody and assembled E/H qualification remain open.
+
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [E01](#e01) | in progress | Result selection and decode owners | Retained reads construct from actual data capabilities without SourceServices/math. |

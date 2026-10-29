@@ -36,6 +36,7 @@ use pse_runtime::{
         StudyCohortRelation, StudyCohortRequest, StudyCohortScanState, StudyDefinition,
         StudyHandle, StudyInputs, StudyKpiRequest, StudyOutputDemand, StudyPoint,
         StudyPointPolicy, StudyState, StudyStatus, StudyWorkbenchFilter, WorkerSettings,
+        StudyObservationRequest, StudyObservationContinuity,
         WorkflowError,
         sampling::{DesignCoordinate, DesignKind, DesignRequest},
     },
@@ -701,6 +702,132 @@ async fn assert_wrong_pool_refused(cohort: &FrozenStudyCohort, coordinates: &Coo
     assert_eq!((progress.active_scans, progress.included, progress.pending), (0, 0, 2));
 }
 
+async fn assert_passive_observation(data: &RetainedDataServices, study: &str) {
+    let request = StudyObservationRequest {
+        study: study.into(), maximum_members: 2, maximum_events: 512,
+    };
+    let mut observer = data.observe_study(request.clone(), None).await.unwrap();
+    let page = observer.poll().await.unwrap();
+    assert_eq!(page.status.header.study, study);
+    assert!(page.status.header.terminal && !page.status.header.cancelled);
+    assert_eq!(page.status.members.members.len(), 2);
+    let parent = page.sources.iter().find(|source|
+        source.position.run == page.cursor.context.run
+    ).expect("original parent source");
+    assert_eq!(parent.continuity, StudyObservationContinuity::HistoryUnavailable);
+    assert!(parent.position.history_complete && parent.events.is_empty());
+    assert!(matches!(parent.coverage, Some(pse_runtime::workflow::ProgressCoverage::Unknown {})));
+    let cursor = observer.cursor();
+    observer.close();
+    assert!(observer.poll().await.is_err());
+
+    let mut foreign = cursor.clone();
+    foreign.issuing_store.push_str("-foreign");
+    assert!(data.observe_study(request.clone(), Some(foreign)).await.is_err());
+    let mut wrong = cursor.clone();
+    wrong.context.source.push_str("-other");
+    assert!(data.observe_study(request.clone(), Some(wrong)).await.is_err());
+    let mut reconnected = data.observe_study(request, Some(cursor.clone())).await.unwrap();
+    let continued = reconnected.poll().await.unwrap();
+    assert_eq!(continued.cursor.context, cursor.context);
+    assert!(!continued.status.header.cancelled);
+    reconnected.observation_token().cancel();
+    assert!(reconnected.follow(Duration::ZERO).await.is_err());
+    reconnected.close();
+    // Observation close/cancellation never changes the governing scientific state.
+    let mut current = data.observe_study(cursor.request, None).await.unwrap();
+    assert!(!current.poll().await.unwrap().status.header.cancelled);
+    current.close();
+}
+
+async fn assert_captured_exports(
+    data: &RetainedDataServices,
+    cohort: &FrozenStudyCohort,
+    definition: &StudyDefinition,
+    study: &str,
+    coordinates: &Coordinates,
+    expected: &[solve_variables::Row],
+) {
+    let output = tempfile::tempdir().unwrap();
+    let refused = output.path().join("refused.ndjson");
+    assert!(cohort.export_pages(&refused, 1, &CancellationToken::new()).await.is_err());
+    assert!(!refused.exists());
+    assert!(output.path().join("refused.ndjson.incomplete").is_file());
+    let pages = output.path().join("cohort.ndjson");
+    let bytes = cohort.export_pages(&pages, 1 << 20, &CancellationToken::new()).await.unwrap();
+    assert_eq!(bytes, std::fs::metadata(&pages).unwrap().len());
+    let records = std::fs::read_to_string(pages).unwrap().lines()
+        .map(|line| serde_json::from_str::<pse_runtime::workflow::StudyCohortExportRecord>(line).unwrap())
+        .collect::<Vec<_>>();
+    assert!(matches!(records.last(), Some(pse_runtime::workflow::StudyCohortExportRecord::Receipt(receipt))
+        if receipt.capture == cohort.receipt().capture && receipt.member_count == 2));
+    assert_eq!(records.iter().map(|record| match record {
+        pse_runtime::workflow::StudyCohortExportRecord::Members(page) => page.members.len(),
+        _ => 0,
+    }).sum::<usize>(), 2);
+
+    let detail = output.path().join("detail.arrow");
+    let mut reader = cohort.result(0, "runtime.solve_variables", 0, u64::MAX, CancellationToken::new())
+        .await.unwrap();
+    let original_run = reader.selection().run().key.clone();
+    let original_attempt = reader.selection().attempt().key.clone();
+    let original_manifest = reader.selection().manifest().digest.clone();
+    reader.export_ipc_bounded(&detail, 1 << 20, &CancellationToken::new()).await.unwrap();
+    reader.close();
+    let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(std::fs::File::open(detail).unwrap(), None).unwrap();
+    let mut position = 0;
+    for batch in stream {
+        let batch = batch.unwrap();
+        // Portable export adds its own canonical attribution metadata. It is
+        // not a raw registry relation and must not be admitted as one.
+        let schema = batch.schema();
+        for (key, expected) in [
+            ("pse.canonical.run", original_run.as_str()),
+            ("pse.canonical.attempt", original_attempt.as_str()),
+            ("pse.canonical.manifest", original_manifest.as_str()),
+            ("pse.canonical.relation", "runtime.solve_variables"),
+        ] {
+            assert_eq!(schema.metadata().get(key).map(String::as_str), Some(expected));
+        }
+        let end = position + batch.num_rows();
+        let mut builder = solve_variables::Builder::new(&data.validation_context()).unwrap();
+        for row in expected.get(position..end).expect("export cannot add original rows") {
+            builder.push(row.clone()).unwrap();
+        }
+        let original = builder.finish().unwrap();
+        assert_eq!(schema.fields(), original.batch().schema().fields());
+        assert_eq!(batch.columns(), original.batch().columns(),
+            "export retains exact original variables, tolerances and provenance");
+        position = end;
+    }
+    assert_eq!(position, expected.len());
+
+    let analysis = output.path().join("aggregate.arrow");
+    let exported = data.export_study_analysis(request(definition, study, true),
+        &kpi(coordinates, coordinates.variable), &analysis, &CancellationToken::new()).await.unwrap();
+    assert_eq!((exported.included, exported.unavailable), (2, 0));
+    assert_eq!(exported.output.as_ref(), Some(&analysis));
+    let file = datafusion::arrow::ipc::reader::FileReader::try_new(std::fs::File::open(analysis).unwrap(), None).unwrap();
+    let mut rows = 0;
+    for batch in file {
+        let batch = batch.unwrap();
+        for row in 0..batch.num_rows() {
+            let mean = batch.column_by_name("mean").unwrap().as_any().downcast_ref::<Float64Array>().unwrap();
+            let count = batch.column_by_name("count").unwrap().as_any().downcast_ref::<Int64Array>().unwrap();
+            assert!(!mean.is_null(row) && !count.is_null(row));
+            assert_eq!(count.value(row), 2);
+            assert!((mean.value(row) - 2.5).abs() <= 1e-7);
+            for (field, expected) in [("quantity_id", coordinates.quantity), ("unit_id", coordinates.unit)] {
+                let ids = batch.column_by_name(field).unwrap().as_any().downcast_ref::<FixedSizeBinaryArray>().unwrap();
+                assert!(!ids.is_null(row));
+                assert_eq!(ids.value(row), expected.as_bytes());
+            }
+            rows += 1;
+        }
+    }
+    assert_eq!(rows, 1);
+}
+
 async fn compare(
     original: &FrozenStudyCohort,
     corrected: &FrozenStudyCohort,
@@ -868,6 +995,12 @@ fn journey<'a>(science: &'a mut Science, service: &'a mut NativeCanonicalService
         let pending = data.0.freeze_study_cohort(request(&original_definition, &original_study, false))
             .await.unwrap();
         let pending_before = captured(&pending, false).await;
+        let mut passive = data.0.observe_study(StudyObservationRequest {
+            study: original_study.clone(), maximum_members: 2, maximum_events: 8,
+        }, None).await.unwrap();
+        assert!(!passive.poll().await.unwrap().status.header.cancelled);
+        passive.close();
+        assert!(!original_handle.status().await.unwrap().cancelled);
         let original_status = execute(science, [1, 2], &original_handle).await;
         let original = data.0.freeze_study_cohort(request(&original_definition, &original_study, true))
             .await.unwrap();
@@ -977,6 +1110,7 @@ fn journey<'a>(science: &'a mut Science, service: &'a mut NativeCanonicalService
         // Settle every scientific producer and native lane before relational
         // comparison. Frozen cohorts retain their original protected payloads.
         science.close().await.unwrap();
+        assert_passive_observation(&data.0, &original_study).await;
         assert_eq!(captured(&original, true).await, frozen_before);
         assert_eq!(captured(&pending, false).await, pending_before);
         let (_, after) = science_rows(&data.0, &original_status, &original_definition, 4.).await;
@@ -984,6 +1118,8 @@ fn journey<'a>(science: &'a mut Science, service: &'a mut NativeCanonicalService
         assert_aggregate(&pending, &coordinates, None).await;
         assert_aggregate(&original, &coordinates, Some([2., 3.])).await;
         assert_aggregate(&corrected, &coordinates, Some([3., 14_f64.sqrt()])).await;
+        assert_captured_exports(&data.0, &original, &original_definition, &original_study,
+            &coordinates, &original_rows[&POINT_KEYS[0]]).await;
         assert_wrong_pool_refused(&original, &coordinates).await;
         compare(&original, &corrected, &coordinates).await;
         // A second fresh native query must select the same protected original

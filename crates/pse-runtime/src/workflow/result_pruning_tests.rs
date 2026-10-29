@@ -4,7 +4,8 @@
 //! Protected-provider replacement controls through the actual immutable snapshot owner.
 #![allow(
     unsafe_code,
-    reason = "isolated canonical fixtures explicitly assert partial scientific availability"
+    clippy::print_stderr,
+    reason = "private fixtures assert partial availability and retain independent cleanup failures"
 )]
 
 use super::*;
@@ -14,18 +15,53 @@ use datafusion::{
     logical_expr::{col, lit},
     prelude::SessionContext,
 };
+use futures_util::{FutureExt, future::BoxFuture};
 use pse_model::generated::identities::RunId;
-use pse_operations::canonical_execution::{
-    AttemptFence, RunRequest, SeedEligibility, TerminalClass,
+use pse_operations::{
+    canonical::CanonicalStore,
+    canonical_execution::{AttemptFence, RunRequest, SeedEligibility, TerminalClass},
+    native_service::{NativeCanonicalService, NativeModuleSource, NativeServiceSpec},
 };
 use pse_relations::generated::runtime::fit_parameters;
+use std::{panic::AssertUnwindSafe, path::PathBuf, time::{Duration, Instant}};
 
 #[derive(Debug)]
 struct RetainedReadConfiguration;
 
-async fn pruning_fixture(
-    name: &str,
-) -> Result<(RetainedDataServices, AttemptFence), Box<dyn std::error::Error + Send + Sync>> {
+fn private_service() -> NativeCanonicalService {
+    let environment = std::env::vars_os().collect();
+    let helper = PathBuf::from(
+        std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
+            .expect("explicit already-built native-service helper"),
+    );
+    assert!(
+        helper.is_absolute() && helper.is_file(),
+        "build -p pse-operations --features native-service --bin pse-canonical-service first"
+    );
+    let module_record = PathBuf::from(
+        std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT")
+            .expect("explicit prepared production module receipt"),
+    );
+    let module = pse_host::study_module::select(
+        &module_record,
+        pse_host::study_module::Variant::Production,
+    ).unwrap();
+    let service = NativeCanonicalService::new(NativeServiceSpec {
+        server: pse_host::server::select(&environment).unwrap(),
+        helper,
+        module_source: NativeModuleSource::Prepared(module),
+        state_parent: std::env::temp_dir(),
+    }).unwrap();
+    eprintln!(
+        "result-pruning private state={} original_service={}",
+        service.state().display(), service.intent().unit()
+    );
+    service
+}
+
+fn retained_data(
+    store: CanonicalStore,
+) -> Result<RetainedDataServices, Box<dyn std::error::Error + Send + Sync>> {
     // Construct the actual read owner without SharedRuntime, MathService or preparation.
     let pool: Arc<dyn pse_columnar::MemoryPool> =
         Arc::new(pse_columnar::GreedyMemoryPool::new(256 << 20));
@@ -35,10 +71,16 @@ async fn pruning_fixture(
         pool,
         "retained-read-control",
         datafusion::execution::session_state::SessionStateBuilder::from(native.state()),
-    ).with_extension(Arc::new(RetainedReadConfiguration)));
+    ).with_extension(Arc::new(RetainedReadConfiguration))
+        .with_observation(pse_engine::session::assurance::ObservationPolicy::Contract));
     let model = factory.bind_model(pse_schema::shared_registry()?)?;
-    let store = pse_operations::testing::canonical_fixture_store()?;
-    let runtime = RetainedDataServices::new(store, model)?;
+    Ok(RetainedDataServices::new(store, model)?)
+}
+
+async fn publish_pruning_fixture(
+    runtime: &RetainedDataServices,
+    name: &str,
+) -> Result<AttemptFence, Box<dyn std::error::Error + Send + Sync>> {
     let store = runtime.canonical_store()?;
     let source = store.edit(name, None, "source", &[]).await?;
     store
@@ -55,7 +97,7 @@ async fn pruning_fixture(
         })
         .await?;
     let fence = store
-        .claim_run(name, "claim", "worker", std::time::Duration::from_secs(60))
+        .claim_run(name, "claim", "worker", Duration::from_secs(60))
         .await?;
     let acknowledgments = super::super::durable::PublicationAcks::new(&runtime.pool());
     let mut position = super::super::result_projection::ResultStreamPosition::default();
@@ -108,12 +150,53 @@ async fn pruning_fixture(
         )
     }
     .await?;
-    Ok((runtime, fence))
+    Ok(fence)
+}
+
+type PruningCase = for<'a> fn(&'a RetainedDataServices, &'a AttemptFence) -> BoxFuture<'a, ()>;
+
+async fn pruning_fixture(name: &'static str, body: PruningCase) {
+    let mut service = private_service();
+    let outcome = AssertUnwindSafe(service.run(
+        Instant::now() + Duration::from_secs(240),
+        |service| Box::pin(async move {
+            service.launch(Instant::now() + Duration::from_secs(90)).await?;
+            let data = retained_data(service.ready()?.store().clone()).unwrap();
+            // Fixture publication and the complete test body stay inside the
+            // physical service owner. A panic still seals this read caller and
+            // joins result releases before run() disconnects and drains it.
+            let outcome = AssertUnwindSafe(async {
+                let fence = publish_pruning_fixture(&data, name).await.unwrap();
+                body(&data, &fence).await;
+            }).catch_unwind().await;
+            data.close();
+            let releases = pse_operations::testing::drain_result_releases(
+                data.canonical_store().unwrap(),
+            ).await;
+            if let Err(error) = &releases {
+                eprintln!("result-pruning read cleanup failed: {error}; state={}", service.state().display());
+            }
+            if let Err(panic) = outcome { std::panic::resume_unwind(panic); }
+            releases?;
+            Ok(())
+        }),
+    )).catch_unwind().await;
+    // run() attempts every original connection/process settlement before
+    // returning or resuming a panic. Dispose only this authenticated private
+    // state, on both paths, and retain the exact failure and path on refusal.
+    let disposal = service.dispose();
+    if let Err(error) = &disposal {
+        eprintln!("result-pruning private cleanup failed: {error}; state={}", service.state().display());
+    }
+    match outcome {
+        Err(panic) => std::panic::resume_unwind(panic),
+        Ok(result) => { result.unwrap(); disposal.unwrap(); }
+    }
 }
 
 #[tokio::test]
 async fn canonical_pruning_inexact_residual_precedes_limit_and_predicate_projection() {
-    let (runtime, fence) = pruning_fixture("res-inexact-limit").await.unwrap();
+    pruning_fixture("res-inexact-limit", |runtime, fence| Box::pin(async move {
     let reader = runtime
         .results(
             "res-inexact-limit",
@@ -235,11 +318,12 @@ async fn canonical_pruning_inexact_residual_precedes_limit_and_predicate_project
     pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap())
         .await
         .unwrap();
+    })).await;
 }
 
 #[tokio::test]
 async fn canonical_selection_reuses_one_physical_plan_for_pages_unknown_facts_and_residual() {
-    let (runtime, fence) = pruning_fixture("res-plan-reuse").await.unwrap();
+    pruning_fixture("res-plan-reuse", |runtime, fence| Box::pin(async move {
     let reader = runtime
         .results(
             "res-plan-reuse",
@@ -309,7 +393,7 @@ async fn canonical_selection_reuses_one_physical_plan_for_pages_unknown_facts_an
     .await;
     let metrics = observed
         .reader()
-        .snapshot(std::time::Duration::from_secs(60))
+        .snapshot(Duration::from_secs(60))
         .metrics;
     assert_eq!(
         metrics
@@ -323,11 +407,12 @@ async fn canonical_selection_reuses_one_physical_plan_for_pages_unknown_facts_an
     pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap())
         .await
         .unwrap();
+    })).await;
 }
 
 #[tokio::test]
 async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_batch_decode() {
-    let (runtime, fence) = pruning_fixture("res-protected-prune").await.unwrap();
+    pruning_fixture("res-protected-prune", |runtime, fence| Box::pin(async move {
     let reader = runtime
         .results(
             "res-protected-prune",
@@ -358,7 +443,7 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
     .unwrap();
     let facts = observed
         .reader()
-        .snapshot(std::time::Duration::from_secs(60));
+        .snapshot(Duration::from_secs(60));
     let count = |name: &str| {
         facts
             .metrics
@@ -501,4 +586,5 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
     pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap())
         .await
         .unwrap();
+    })).await;
 }

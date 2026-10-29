@@ -1400,6 +1400,6 @@ mod decoder_lane_inquiry {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(all(test, feature = "native-study-tests"))]
 #[path = "result_pruning_tests.rs"]
 mod result_pruning_tests;

@@ -1987,7 +1987,7 @@ impl Loop {
                     "horizon control closed before finalization",
                 )))
                 .await;
-            result = WorkflowError::settle(result, record.attempt.map_err(WorkflowError::Shared));
+            result = WorkflowError::settle(result, record.attempt.map(|_| ()).map_err(WorkflowError::Shared));
         }
         WorkflowError::settle(result, self.admitted.close_sources().await)
     }
