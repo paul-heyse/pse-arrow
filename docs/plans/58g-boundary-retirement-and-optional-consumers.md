@@ -29,6 +29,52 @@ replacement capabilities work. This adds no automatic engine migration or blanke
 
 ## Package state
 
+| Package | Status | Owner | Completion |
+| --- | --- | --- | --- |
+| G01 | in progress | 58g | Retained/lost behavior and integrated caller/declaration deletion boundaries classified |
+| G02 | done | 58g | Python MCP, global catalogue, frontend sessions and generated clients retired; joined native consumer qualification remains with B/C/D/H |
+| G03 | in progress | 58g | Required Python product projections and operating dependencies retired with their declarations and consumers |
+| G04 | planned | 58g | Future optional binding seam defined; unnecessary ABI/catalogue/frontends explicitly unselected |
+
+### Remaining developer cutover dispositions — 2026-10-29
+
+The retained conformance and thermodynamic campaign capabilities are callable Rust owners
+under `xtask::development`. Native conformance additionally has a thin command. The old
+thermodynamic measurement command and its mechanism tests retire; the native caller supplies
+its original Runtime and selects local or recorded execution explicitly. H owns the exact
+[thermodynamic scenario handoff](58h-qualification-and-publication.md#native-thermodynamic-campaign-handoff--2026-10-29),
+including original preparation/resource conditions and full failed-science custody. Four
+native campaign controls pass; the two-occurrence mixed-result control uses a real built-in
+Clarabel solve with independently true/false authored checks, not fabricated success rows.
+
+The remaining G cut uses these dispositions, without promising a replacement command for
+every obsolete developer interface:
+
+| Former responsibility | Retained owner or deliberate reduction |
+| --- | --- |
+| Python assessment/checkpoint/resumable-run and global test permission/terminal ledgers | Native Cargo/nextest results and native enclosing fixtures; the duplicate assessment journal and bespoke result command retire. Historical reports remain readable as original files. |
+| Python generation, extension/stub/source currency and product packaging | Native declarations and explicit generation; Python product delivery retires. A future optional adapter requires a concrete consumer. |
+| Developer evidence/knowledge imports and analysis | Existing native typed snapshots, protected detail/review APIs, source-only corpus construction and canonical tooling index. Legacy assessment/measurement adapters and HTML/plot presentation conveniences retire; original raw reports are preserved, with no automatic historical conversion claim. |
+| Managed diagnostic installers and local collector/backend service | Native exact-pin installer and explicit service owner; credentials, queues, data and failure metrics retain their actual owners. Login enablement remains an external systemd action. Separate alert-rule administration, active debugger/profiler convenience commands and generic Trace Processor execution wrappers retire; existing backend rules/data remain untouched. Native calculation capture, query specification, frozen inspection and actual-tool interoperability remain. |
+| Automated cargo-geiger wrapper | Retired: its implicit clean and lack of a target-directory CLI cannot operate safely in the live target under the checkout contract. Native unsafe-surface declarations/governance remain; no copied-workspace framework is introduced for this optional report. |
+| Build-specific observability, archive/replay and measurement orchestration | Retired with specific scenarios transferred to H before deletion. Ordinary compiler output and native calculation observation keep separate meanings. |
+
+These are scoped retirement choices during authorized execution, not evidence that all caller
+deletions or package exits are complete. Existing databases, retained evidence and independent
+reference inputs are outside disposal scope.
+
+Two retained Python scientific assertion populations now have actual native executable
+callers in `native_boundary_acceptance`. The managed Ipopt caller runs two occurrences on
+an external worker and verifies exact run/attempt detail attribution, nonempty acknowledged
+prefixes and incomplete parent coverage. The SCIP caller imposes the original one-MiB foreign
+solver allowance, verifies the real memory-limit terminal, absent candidate/feasibility/seed
+permission and nine null candidate values, then compares the complete durable scientific
+rows. Both use fresh native services and settle original owners after assertion failure as
+well as success. The first two-case run passes managed detail but exposes an incidental
+local-versus-relational variable ordering assumption; comparing both full keyed populations
+fixes that assertion, and the targeted SCIP rerun passes. This preserves both original
+scientific boundaries without retaining a Python controller or qualifying H's full campaigns.
+
 The obsolete Python fresh-process observer measurement driver is retired under the explicit
 maintainer disposition. [H's scenario handoff](58h-qualification-and-publication.md#retired-observer-driver-scenario-handoff--2026-10-29)
 preserves the exact original source, KINSOL/POUNCE/IDAS inputs and expectations, nine mode
@@ -36,12 +82,6 @@ comparisons, calculation observation/custody and reporting requirements. Histori
 remain historical; no replacement campaign ran. This removes one measurement consumer, not
 all remaining scientific Python callers or H obligations.
 
-| Package | Status | Owner | Completion |
-| --- | --- | --- | --- |
-| G01 | in progress | 58g | Retained/lost behavior and integrated caller/declaration deletion boundaries classified |
-| G02 | done | 58g | Python MCP, global catalogue, frontend sessions and generated clients retired; joined native consumer qualification remains with B/C/D/H |
-| G03 | in progress | 58g | Required Python product projections and operating dependencies retired with their declarations and consumers |
-| G04 | planned | 58g | Future optional binding seam defined; unnecessary ABI/catalogue/frontends explicitly unselected |
 
 <a id="g01"></a>
 ### G01 — Select outcomes and deletion boundaries
