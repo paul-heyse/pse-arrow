@@ -143,7 +143,7 @@ ingestion needs an explicit disposition of queue/failure alerts rather than assu
 | --- | --- | --- | --- |
 | [F01](#f01) | in progress | 58f | Retained direct development/configuration operations and native settings resolution |
 | [F02](#f02) | in progress | 58f | Native tool delegation, Arrow closure selection and typed fixture composition |
-| [F03](#f03) | planned | 58f | Rust generators/docs/governance consumers and retired Python emission |
+| [F03](#f03) | in progress | 58f | Rust generators/docs/governance consumers and retired Python emission |
 | [F04](#f04) | planned | 58f | Proportionate evidence and independent native-candidate scientific assurance |
 | [F05](#f05) | planned | 58f | Integrated bridge retirement and native developer acceptance |
 | [F06](#f06) | deferred | 58f | Discrete explanation inquiry only when an actual consumer justifies it |
@@ -389,3 +389,18 @@ contract checking no longer selects native providers. Compiled stub comparison p
 the current explicit library; the older installed extension still mismatches the registry and
 is not newly qualified. This distinction does not roll back generated declarations or authorize
 restoring retired Python orchestration.
+
+## Native protocol generation checkpoint — 2026-10-29
+
+The retained gRPC borrowed-wire generator now parses the pinned supplier's Rust AST with
+the existing Syn dependency. It extracts message/oneof fields and typed RPC responses,
+including streaming responses, and refuses unsupported fixed-width/map shapes. The Python
+parser and its invocation are deleted. Protocol tags, integer widths and output ownership
+remain with the supplier and existing validator; no second protocol declaration was added.
+
+**Tested:** the explicit xtask binary selection (`just unit-package xtask
+codegen::grpc_wire --bin xtask`) passes three targeted controls against zero failures.
+The earlier default library-target selection found no tests and supplies no acceptance.
+Full `just codegen` completed all ten schema targets; the emitted borrowed-wire Rust bytes
+are unchanged. Remaining F03 metadata/governance and Python-emission retirement retains
+its own scope. This generation slice does not establish assembled B/C/D qualification.
