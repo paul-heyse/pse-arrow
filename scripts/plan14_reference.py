@@ -8,7 +8,7 @@ import hashlib
 import json
 from decimal import Decimal, localcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, TypedDict
+from typing import TYPE_CHECKING, Protocol, TypedDict, cast
 
 import numpy as np
 import pyarrow as pa
@@ -33,6 +33,20 @@ class FlashModel(Protocol):
     def get_Ar01(  # noqa: N802 -- upstream spelling
         self, temperature: float, density: float, composition: NDArray[np.float64]
     ) -> float: ...
+
+
+class SaftCoefficients(Protocol):
+    """Fields exposed by teqp's dynamically exported pybind coefficient class."""
+
+    m: float
+    sigma_Angstrom: float
+    epsilon_over_k: float
+
+
+def saft_coefficients() -> SaftCoefficients:
+    """Construct the original extension class through its explicit typed boundary."""
+    constructor = cast("type[SaftCoefficients]", vars(teqp)["SAFTCoeffs"])
+    return constructor()
 
 
 def caloric(coefficients: list[float], temperature: float) -> tuple[float, float]:
@@ -135,7 +149,7 @@ def main() -> None:
     ig = [ig_rows[subject] for subject in subjects]
     coeffs = []
     for row in pc:
-        coefficient = teqp.SAFTCoeffs()
+        coefficient = saft_coefficients()
         coefficient.m = row["m"]
         coefficient.sigma_Angstrom = row["sigma"] * 1e10
         coefficient.epsilon_over_k = row["epsilon"]

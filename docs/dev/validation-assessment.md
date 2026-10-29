@@ -115,6 +115,13 @@ they gain no service shutdown/disposal authority. Exact service/child settlement
 the performing owner. Failed, interrupted or unproved scientific joins retain the fixture for
 diagnosis rather than infer safe disposal. See [targeted fixture controls](surreal-substrate.md#targeted-fixture-controls).
 
+Independent Python reference typing uses the actual environments, with no product extension:
+`just typecheck` checks ordinary/oracle sources through `.venv-parity` (Python3.13), then the
+three teqp reference files through `build/plan14-reference` (Python3.12). Explicitly prepare
+those environments with `UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --only-group
+parity --python 3.13` and `UV_PROJECT_ENVIRONMENT=build/plan14-reference uv sync --locked
+--only-group thermo-reference --python 3.12`. These checks do not run a reference campaign.
+
 ### Selected behavioral investigations
 
 `just features-combinations` and `just features-no-default` use pinned cargo-hack 0.6.45 with

@@ -59,7 +59,7 @@ def main() -> int:
             x_scale=1.0,
             loss="linear",
         )
-        checks[f"seed{index}.success"] = bool(result.success)
+        checks[f"seed{index}.success"] = result.success
         comparisons = {
             field: comparison(float(value), frozen[field])
             for field, value in zip(("a", "k"), result.x, strict=True)
@@ -80,7 +80,7 @@ def main() -> int:
         runs.append(
             {
                 "seed": list(seed),
-                "success": bool(result.success),
+                "success": result.success,
                 "status": result.status,
                 "message": result.message,
                 "nfev": result.nfev,

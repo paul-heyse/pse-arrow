@@ -146,25 +146,13 @@ mypy-init-return = true
 allow-star-arg-any = false
 
 [tool.ruff.lint.flake8-type-checking]
-# attrs/msgspec classes evaluate annotations at runtime (the import-time Any lint); TC
-# rules must not move their imports under TYPE_CHECKING.
-runtime-evaluated-base-classes = [
-  "msgspec.Struct",
-  "scripts.host_contracts.Contract",
-  "scripts.report_contracts.Contract",
-]
-runtime-evaluated-decorators = [
-  "attrs.define",
-  "attrs.frozen",
-  "attr.s",
-  "attr.define",
-  "attr.frozen",
-]
+# The independent reference wire evaluates msgspec fields at import time.
+runtime-evaluated-base-classes = ["msgspec.Struct"]
 
-[tool.ruff.lint.flake8-pytest-style]
-fixture-parentheses = false
-mark-parentheses = false
-parametrize-names-type = "tuple"
+[tool.ruff.lint.pep8-naming]
+# Literal fields of IDAES's NRTL state and teqp's coefficient API; protocols must
+# name the external members exactly, rather than rename their scientific meaning.
+extend-ignore-names = ["eq_Gij_coeff", "eq_A", "eq_B", "sigma_Angstrom"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "parents"

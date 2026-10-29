@@ -2,19 +2,56 @@
 # Copyright (c) 2026 Paul Heyse
 """Freeze one independently evaluated IDAES SRK vapor into declared Parquet schemas."""
 
+from collections.abc import Collection, Mapping
 from copy import deepcopy
 from math import log
 from pathlib import Path
+from typing import Protocol, cast
 
 import idaes
 import pyarrow as pa
 import pyarrow.parquet as pq
-from idaes.models.properties.modular_properties.base.generic_property import (
-    GenericParameterBlock,
-)
+from idaes.models.properties.modular_properties.base import generic_property
 from idaes.models.properties.modular_properties.eos.ceos import CubicType
 from idaes.models.properties.modular_properties.examples.BT_PR import configuration
+from pyomo.core.base.var import IndexedVar, VarData
+from pyomo.core.expr.numeric_expr import NumericValue
 from pyomo.environ import ConcreteModel, value
+
+
+class SrkState(Protocol):
+    """The exact dynamically generated state members consumed by this oracle."""
+
+    flow_mol: VarData
+    temperature: VarData
+    pressure: VarData
+    component_list: Collection[str]
+    phase_component_set: Collection[tuple[str, str]]
+    mole_frac_comp: IndexedVar
+    mole_frac_phase_comp: IndexedVar
+    dens_mol_phase: Mapping[str, NumericValue]
+    compress_fact_phase: Mapping[str, NumericValue]
+    fug_coeff_phase_comp: Mapping[tuple[str, str], NumericValue]
+
+
+class SrkStates(Protocol):
+    """Original indexed state block retained on the Pyomo model."""
+
+    def __getitem__(self, index: int) -> SrkState: ...
+
+
+class SrkParameters(Protocol):
+    """The selected parameter block's state construction boundary."""
+
+    def build_state_block(
+        self, indices: list[int], *, defined_state: bool
+    ) -> SrkStates: ...
+
+
+class SrkFactory(Protocol):
+    """IDAES registers this constructor through declare_process_block_class."""
+
+    def __call__(self, **settings: object) -> SrkParameters: ...
 
 
 def main() -> None:
@@ -25,9 +62,14 @@ def main() -> None:
         phase["equation_of_state_options"]["type"] = CubicType.SRK
     settings["parameter_data"]["SRK_kappa"] = settings["parameter_data"].pop("PR_kappa")
     model = ConcreteModel()
-    model.parameters = GenericParameterBlock(**settings)
-    model.states = model.parameters.build_state_block([0], defined_state=True)
-    state = model.states[0]
+    parameter_block = cast(
+        "SrkFactory", vars(generic_property)["GenericParameterBlock"]
+    )
+    parameters = parameter_block(**settings)
+    model.parameters = parameters
+    states = parameters.build_state_block([0], defined_state=True)
+    model.states = states
+    state = states[0]
     state.flow_mol.set_value(1)
     state.temperature.set_value(450)
     state.pressure.set_value(100000)
@@ -71,7 +113,9 @@ def main() -> None:
         {
             "j": cas,
             "fraction": 0.5,
-            "ln_phi": log(value(state.fug_coeff_phase_comp["Vap", species])),
+            "ln_phi": log(
+                cast("float", value(state.fug_coeff_phase_comp["Vap", species]))
+            ),
         }
         for species, cas in (("benzene", "71-43-2"), ("toluene", "108-88-3"))
     ]

@@ -112,7 +112,7 @@ def main() -> int:
             rtol=1e-11,
             atol=1e-12,
         )
-        checks[f"{method}.success"] = bool(solution.success)
+        checks[f"{method}.success"] = solution.success
         comparisons: dict[str, object] = {}
         for index, field in enumerate(("reactant", "temperature")):
             for point, time in enumerate(TIMES):
@@ -125,7 +125,7 @@ def main() -> int:
                 checks[f"{method}.{key}"] = bool(result["passed"])
         outputs.append(solution.y)
         runs[method] = {
-            "success": bool(solution.success),
+            "success": solution.success,
             "message": solution.message,
             "nfev": solution.nfev,
             "njev": solution.njev,

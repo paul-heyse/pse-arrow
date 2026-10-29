@@ -88,7 +88,7 @@ def main() -> int:
             rtol=1e-12,
             atol=1e-12,
         )
-        checks[f"{method}.success"] = bool(solution.success)
+        checks[f"{method}.success"] = solution.success
         c = float(solution.y[0, -1])
         values = {"concentration_mol_per_m3": c, "temperature_K": temperature(c)}
         comparisons = {
@@ -105,7 +105,7 @@ def main() -> int:
         )
         outputs.append(list(values.values()))
         runs[method] = {
-            "success": bool(solution.success),
+            "success": solution.success,
             "message": solution.message,
             "nfev": solution.nfev,
             "njev": solution.njev,

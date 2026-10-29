@@ -17,8 +17,13 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import msgspec
+
+if TYPE_CHECKING:
+    from pyomo.core.base.param import ScalarParam
+    from pyomo.core.base.var import ScalarVar
 
 
 class SensitivityCase(msgspec.Struct, forbid_unknown_fields=True):
@@ -159,24 +164,22 @@ def sipopt_prediction(case: SensitivityCase) -> dict[str, float]:
         pyo.SolverFactory("ipopt_sens").available(False), "Pyomo cannot see ipopt_sens"
     )
     model = pyo.ConcreteModel()
-    model.a = pyo.Param(initialize=case.nominal["a"], mutable=True)
-    model.b = pyo.Param(initialize=case.nominal["b"], mutable=True)
-    model.x = pyo.Var(initialize=case.initial)
-    model.y = pyo.Var(initialize=case.initial)
-    model.z = pyo.Var(bounds=case.z_bounds, initialize=case.initial)
-    model.coupling = pyo.Constraint(expr=model.x + model.y == model.a)
-    model.cost = pyo.Objective(
-        expr=0.5 * model.x**2
-        + model.y**2
-        - model.b * model.x
-        + 0.5 * model.z**2
-        + model.a * model.z
-    )
+    a = cast("ScalarParam", pyo.Param(initialize=case.nominal["a"], mutable=True))
+    b = cast("ScalarParam", pyo.Param(initialize=case.nominal["b"], mutable=True))
+    x = cast("ScalarVar", pyo.Var(initialize=case.initial))
+    y = cast("ScalarVar", pyo.Var(initialize=case.initial))
+    z = cast("ScalarVar", pyo.Var(bounds=case.z_bounds, initialize=case.initial))
+    model.a, model.b = a, b
+    model.x, model.y, model.z = x, y, z
+    model.coupling = pyo.Constraint(expr=x + y == a)
+    model.cost = pyo.Objective(expr=0.5 * x**2 + y**2 - b * x + 0.5 * z**2 + a * z)
     solved = sensitivity_calculation(
-        "sipopt", model, [model.a, model.b], [case.perturbed["a"], case.perturbed["b"]]
+        "sipopt", model, [a, b], [case.perturbed["a"], case.perturbed["b"]]
     )
     prediction = {
-        name: float(pyo.value(solved.sens_sol_state_1[getattr(solved, name)]))
+        name: float(
+            cast("float", pyo.value(solved.sens_sol_state_1[getattr(solved, name)]))
+        )
         for name in case.variables
     }
     require(

@@ -18,8 +18,12 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import msgspec
+
+if TYPE_CHECKING:
+    from pyomo.core.base.var import ScalarVar
 
 
 class LinearRow(msgspec.Struct, forbid_unknown_fields=True):
@@ -170,11 +174,14 @@ def reference_sets(case: LinearCase) -> list[RowSet]:
     require(pyo.SolverFactory("ipopt").available(False), "Pyomo cannot see ipopt")
     require(pyo.SolverFactory("scip").available(False), "Pyomo cannot see SCIP")
     model = pyo.ConcreteModel()
+    variables = {}
     for name, value in zip(case.variables, case.point, strict=True):
-        model.add_component(name, pyo.Var(initialize=value))
+        variable = cast("ScalarVar", pyo.Var(initialize=value))
+        model.add_component(name, variable)
+        variables[name] = variable
     for row in case.rows:
         expression = sum(
-            coefficient * model.component(variable)
+            coefficient * variables[variable]
             for coefficient, variable in zip(
                 row.coefficients, case.variables, strict=True
             )

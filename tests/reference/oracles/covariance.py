@@ -17,8 +17,12 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import msgspec
+
+if TYPE_CHECKING:
+    from pyomo.core.base.var import ScalarVar
 
 
 class LineCase(msgspec.Struct, forbid_unknown_fields=True):
@@ -171,7 +175,7 @@ def parmest_reference(case: LineCase) -> Reference:
     config.reconfig(idaes.cfg)
     require(pyo.SolverFactory("ipopt").available(False), "Pyomo cannot see ipopt")
 
-    class LineExperiment(Experiment):  # type: ignore[misc]
+    class LineExperiment(Experiment):
         """One independently constructed, annotated measurement."""
 
         def __init__(self, x: float, y: float) -> None:
@@ -179,20 +183,23 @@ def parmest_reference(case: LineCase) -> Reference:
 
         def get_labeled_model(self) -> pyo.ConcreteModel:
             model = pyo.ConcreteModel()
-            model.a = pyo.Var(initialize=1.0)
-            model.b = pyo.Var(initialize=1.0)
-            model.a.fix()
-            model.b.fix()
-            model.y = pyo.Var(initialize=self.y)
-            model.response = pyo.Constraint(expr=model.y == model.a + model.b * self.x)
-            model.experiment_outputs = pyo.Suffix(direction=pyo.Suffix.LOCAL)
-            model.experiment_outputs.update([(model.y, self.y)])
-            model.unknown_parameters = pyo.Suffix(direction=pyo.Suffix.LOCAL)
-            model.unknown_parameters.update(
-                (parameter, pyo.value(parameter)) for parameter in (model.a, model.b)
-            )
-            model.measurement_error = pyo.Suffix(direction=pyo.Suffix.LOCAL)
-            model.measurement_error.update([(model.y, case.sigma)])
+            a = cast("ScalarVar", pyo.Var(initialize=1.0))
+            b = cast("ScalarVar", pyo.Var(initialize=1.0))
+            model.a, model.b = a, b
+            a.fix()
+            b.fix()
+            y = cast("ScalarVar", pyo.Var(initialize=self.y))
+            model.y = y
+            model.response = pyo.Constraint(expr=y == a + b * self.x)
+            outputs = pyo.Suffix(direction=pyo.Suffix.LOCAL)
+            model.experiment_outputs = outputs
+            outputs.update([(y, self.y)])
+            parameters = pyo.Suffix(direction=pyo.Suffix.LOCAL)
+            model.unknown_parameters = parameters
+            parameters.update((parameter, pyo.value(parameter)) for parameter in (a, b))
+            error = pyo.Suffix(direction=pyo.Suffix.LOCAL)
+            model.measurement_error = error
+            error.update([(y, case.sigma)])
             return model
 
     estimator = parmest.Estimator(

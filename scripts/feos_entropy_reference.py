@@ -13,7 +13,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import teqp
 
-from scripts.plan14_reference import caloric, write_reference
+from scripts.plan14_reference import caloric, saft_coefficients, write_reference
 
 
 class ReferenceCase(TypedDict):
@@ -49,7 +49,7 @@ def main() -> None:
         coefficients = []
         for index in indices:
             row = pc[index]
-            coefficient = teqp.SAFTCoeffs()
+            coefficient = saft_coefficients()
             coefficient.m = row["m"]
             coefficient.sigma_Angstrom = row["sigma"] * 1e10
             coefficient.epsilon_over_k = row["epsilon"]

@@ -15,10 +15,60 @@ import math
 import shutil
 import sys
 from pathlib import Path
-from typing import TextIO
+from typing import TYPE_CHECKING, Protocol, TextIO, cast
 from unittest.mock import patch
 
 import msgspec
+
+if TYPE_CHECKING:
+    import pyomo.dae as dae
+    import pyomo.environ as pyo
+    from idaes.models.control.controller import ControllerType
+    from pyomo.core.base.var import IndexedVar, VarData
+
+
+class Derivatives(Protocol):
+    """Scalar derivative entries at the declared flowsheet times."""
+
+    def __getitem__(self, time: float, /) -> VarData:
+        """Return the original derivative variable at one physical time."""
+        ...
+
+
+class Controller(Protocol):
+    """Components supplied by IDAES's dynamically declared PID block."""
+
+    gain_p: IndexedVar
+    gain_i: IndexedVar
+    setpoint: IndexedVar
+    mv_ref: IndexedVar
+    mv_integral_component: IndexedVar
+
+
+class Flowsheet(Protocol):
+    """The exact dynamic flowsheet components constructed by this oracle."""
+
+    time: dae.ContinuousSet
+    y: IndexedVar
+    u: IndexedVar
+    dy: Derivatives
+    ctrl: Controller
+    plant: pyo.Constraint
+
+
+class ControllerFactory(Protocol):
+    """Constructor exported dynamically by IDAES's process-block decorator."""
+
+    def __call__(
+        self,
+        *,
+        process_var: pyo.Var,
+        manipulated_var: pyo.Var,
+        controller_type: ControllerType,
+        calculate_initial_integral: bool,
+    ) -> Controller:
+        """Construct the selected native IDAES controller component."""
+        ...
 
 
 class LoopCase(msgspec.Struct, forbid_unknown_fields=True):
@@ -201,7 +251,8 @@ def petsc_response(case: LoopCase) -> list[float]:
     from idaes import config
     from idaes.core import FlowsheetBlock
     from idaes.core.solvers import petsc
-    from idaes.models.control.controller import ControllerType, PIDController
+    from idaes.models.control import controller
+    from idaes.models.control.controller import ControllerType
 
     # Match the original parity environment: retain the explicitly prepared
     # solver prefix ahead of the bundled IDAES (PETSc) fallback.
@@ -209,32 +260,42 @@ def petsc_response(case: LoopCase) -> list[float]:
     config.reconfig(idaes.cfg)
     model = pyo.ConcreteModel()
     end = case.samples_seconds[-1]
-    model.fs = FlowsheetBlock(dynamic=True, time_set=[0, end], time_units=pyo.units.s)
-    model.fs.y = pyo.Var(model.fs.time, initialize=case.initial_process)
-    model.fs.u = pyo.Var(model.fs.time, initialize=case.bias)
-    model.fs.dy = dae.DerivativeVar(model.fs.y, wrt=model.fs.time)
+    fs = cast(
+        "Flowsheet",
+        FlowsheetBlock(dynamic=True, time_set=[0, end], time_units=pyo.units.s),
+    )
+    model.fs = fs
+    fs.y = cast("IndexedVar", pyo.Var(fs.time, initialize=case.initial_process))
+    fs.u = cast("IndexedVar", pyo.Var(fs.time, initialize=case.bias))
+    fs.dy = cast("Derivatives", dae.DerivativeVar(fs.y, wrt=fs.time))
 
-    @model.fs.Constraint(model.fs.time)
-    def plant(block: pyo.Block, time: float) -> object:
+    def plant(block: Flowsheet, time: float) -> object:
+        """Retain the original first-order plant equation at every time."""
         return case.tau_seconds * block.dy[time] == block.u[time] - block.y[time]
 
-    model.fs.ctrl = PIDController(
-        process_var=model.fs.y,
-        manipulated_var=model.fs.u,
+    fs.plant = pyo.Constraint(fs.time, rule=plant)
+
+    # IDAES exports this class through declare_process_block_class at import time.
+    pid_controller = cast("ControllerFactory", vars(controller)["PIDController"])
+    fs.ctrl = pid_controller(
+        process_var=fs.y,
+        manipulated_var=fs.u,
         controller_type=ControllerType.PI,
         calculate_initial_integral=False,
     )
-    pyo.TransformationFactory("dae.finite_difference").apply_to(
-        model.fs, nfe=4, wrt=model.fs.time, scheme="BACKWARD"
-    )
-    model.fs.ctrl.gain_p.fix(case.kp)
-    model.fs.ctrl.gain_i.fix(case.kp / case.ti_seconds)
-    model.fs.ctrl.setpoint.fix(case.setpoint)
-    model.fs.ctrl.mv_ref.fix(case.bias)
-    model.fs.ctrl.mv_integral_component[0].fix(
+    transformation = pyo.TransformationFactory("dae.finite_difference")
+    if transformation is None:
+        message = "Pyomo finite-difference transformation is unavailable"
+        raise ValueError(message)
+    transformation.apply_to(fs, nfe=4, wrt=fs.time, scheme="BACKWARD")
+    fs.ctrl.gain_p.fix(case.kp)
+    fs.ctrl.gain_i.fix(case.kp / case.ti_seconds)
+    fs.ctrl.setpoint.fix(case.setpoint)
+    fs.ctrl.mv_ref.fix(case.bias)
+    fs.ctrl.mv_integral_component[0].fix(
         case.kp * case.initial_integral_seconds / case.ti_seconds
     )
-    model.fs.y[0].fix(case.initial_process)
+    fs.y[0].fix(case.initial_process)
     reader = petsc.petsc_binary_io()
     require(reader is not None, "PETSc trajectory reader is unavailable")
     handles: list[TextIO] = []
@@ -251,7 +312,7 @@ def petsc_response(case: LoopCase) -> list[float]:
         ownership.enter_context(patch.object(reader, "open", reader_open, create=True))
         result = petsc.petsc_dae_by_time_element(
             model,
-            time=model.fs.time,
+            time=fs.time,
             ts_options={
                 "--ts_type": "bdf",
                 "--ts_bdf_order": 3,
@@ -264,8 +325,12 @@ def petsc_response(case: LoopCase) -> list[float]:
                 "--ts_save_trajectory": 1,
             },
         )
-        trajectory = result.trajectory.interpolate(case.samples_seconds)
-        values = [float(value) for value in trajectory.get_vec(model.fs.y[end])]
+        saved = result.trajectory
+        if saved is None:
+            message = "PETSc did not retain the requested trajectory"
+            raise ValueError(message)
+        trajectory = saved.interpolate(case.samples_seconds)
+        values = [float(value) for value in trajectory.get_vec(fs.y[end])]
     require(
         len(values) == len(case.samples_seconds), "PETSc sample coverage incomplete"
     )
