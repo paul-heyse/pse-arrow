@@ -546,7 +546,7 @@ codegen-units = 1
 [workspace.metadata.pse]
 blueprint = "docs/authoritative_design/blueprint.md"
 unsafe-allowlist = [
-  "pse-host",           # ADR-0233: early command-fds inherited-descriptor ownership initialization only.
+  "pse-host",           # ADR-0233: early inherited-descriptor initialization and owned cgroup-event AsyncFd registration.
   "xtask",              # ADR-0164: composition-owned worker deployment qualification.
   "pse-operations",     # ADR-0164: admitted scientific publication and completion writer assertions.
   "pse-compiler",       # ADR-0164: test-only mint for compiler-issued recipe controls.

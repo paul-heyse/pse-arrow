@@ -11,13 +11,13 @@ use pse_diagnostics::process_facts::{ProcessIdentity, ProcessRead, ProcessReader
 use serde::Serialize;
 use std::{
     fs::File,
-    io::{self, Read},
+    io::{self, Read, Seek, SeekFrom},
     os::unix::fs::MetadataExt,
     path::{Component, Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
-use zbus::{Connection, OwnedVariant, Variant, proxy::CacheProperties};
+use zbus::{Connection, OwnedObjectPath, OwnedVariant, Variant, proxy::CacheProperties};
 use zbus_systemd::systemd1::{ManagerProxy, ScopeProxy, ServiceProxy, SliceProxy, UnitProxy};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -229,6 +229,9 @@ impl HostManager {
         Ok(result)
     }
     fn validate_view(&self) -> Result<(), HostError> {
+        if self.connection.is_closed() {
+            return Err(HostError::Ownership("original manager connection closed".into()));
+        }
         if std::fs::read_link("/proc/thread-self/ns/cgroup")? != self.cgroup_namespace {
             return Err(HostError::Ownership(
                 "observer cgroup namespace changed".into(),
@@ -478,26 +481,23 @@ impl HostManager {
                 property("BindsTo", vec![binds_to.to_owned()])?,
                 property("After", vec![binds_to.to_owned()])?,
             ];
-            let job = manager
-                .start_transient_unit(intent.unit.clone(), "fail".into(), properties, vec![])
-                .await?;
-            loop {
-                let signal = removed
-                    .next()
-                    .await
-                    .ok_or_else(|| HostError::Ownership("scope job stream closed".into()))?;
-                let args = signal.args()?;
-                if args.job() == &job {
-                    if args.unit() != &intent.unit || args.result() != "done" {
-                        return Err(HostError::Ownership(format!(
-                            "scope activation: {}",
-                            args.result()
-                        )));
-                    }
-                    break;
-                }
+            let result = launch_job(
+                intent,
+                manager.start_transient_unit(intent.unit.clone(), "fail".into(), properties, vec![]),
+                removed.by_ref().map(|signal| {
+                    let args = signal.args()?;
+                    Ok(JobEvent {
+                        job: args.job().clone(),
+                        unit: args.unit().to_owned(),
+                        result: args.result().to_owned(),
+                    })
+                }),
+            )
+            .await?;
+            if result != "done" {
+                return Err(unknown_launch(intent, format!("scope activation: {result}")));
             }
-            self.reconcile_inner(intent).await
+            self.reconcile_inner(intent).await.map_err(|error| unknown_launch(intent, error))
         })
         .await
         .map_err(|_| HostError::UnknownLaunch {
@@ -516,7 +516,7 @@ impl HostManager {
                 "launch deadline already expired; not submitted".into(),
             ));
         }
-        tokio::time::timeout_at(deadline.into(), self.start_service_inner(spec, deadline))
+        tokio::time::timeout_at(deadline.into(), self.start_service_inner(spec))
             .await
             .map_err(|_| HostError::UnknownLaunch {
                 unit: spec.intent.unit.clone(),
@@ -526,7 +526,6 @@ impl HostManager {
     async fn start_service_inner(
         &self,
         spec: &ServiceSpec,
-        deadline: Instant,
     ) -> Result<OwnedUnit, HostError> {
         self.validate_view()?;
         if !spec.executable.is_absolute() {
@@ -553,50 +552,19 @@ impl HostManager {
             property("ExecStart", vec![(executable.to_owned(), argv, false)])?,
             property("Environment", spec.environment.clone())?,
         ];
-        let job = match tokio::time::timeout_at(
-            deadline.into(),
-            manager.start_transient_unit(
-                spec.intent.unit.clone(),
-                "fail".into(),
-                properties,
-                vec![],
-            ),
+        let job_result = launch_job(
+            &spec.intent,
+            manager.start_transient_unit(spec.intent.unit.clone(), "fail".into(), properties, vec![]),
+            removed.by_ref().map(|signal| {
+                let args = signal.args()?;
+                Ok(JobEvent {
+                    job: args.job().clone(),
+                    unit: args.unit().to_owned(),
+                    result: args.result().to_owned(),
+                })
+            }),
         )
-        .await
-        {
-            Ok(Ok(job)) => job,
-            result => {
-                return Err(HostError::UnknownLaunch {
-                    unit: spec.intent.unit.clone(),
-                    detail: format!("{result:?}"),
-                });
-            }
-        };
-        let job_result = loop {
-            let signal = tokio::time::timeout_at(deadline.into(), removed.next())
-                .await
-                .map_err(|_| HostError::UnknownLaunch {
-                    unit: spec.intent.unit.clone(),
-                    detail: "job outcome deadline".into(),
-                })?
-                .ok_or_else(|| HostError::UnknownLaunch {
-                    unit: spec.intent.unit.clone(),
-                    detail: "job signal stream closed".into(),
-                })?;
-            let args = signal.args()?;
-            if args.job() == &job {
-                if args.unit() != &spec.intent.unit {
-                    return Err(HostError::UnknownLaunch {
-                        unit: spec.intent.unit.clone(),
-                        detail: "correlated job names a different unit".into(),
-                    });
-                }
-                // Management-job failure can race a successfully execed child
-                // that already exited nonzero. It neither erases native outcome
-                // nor removes responsibility to settle the original unit.
-                break args.result().to_owned();
-            }
-        };
+        .await?;
         let mut owned =
             self.reconcile_inner(&spec.intent)
                 .await
@@ -612,17 +580,7 @@ impl HostManager {
             .connection
             .unique_name()
             .ok_or_else(|| HostError::Ownership("native bus client identity absent".into()))?;
-        if !unit
-            .refs()
-            .await?
-            .iter()
-            .any(|name| name == client.as_str())
-        {
-            return Err(HostError::Ownership(
-                "original launch client's unit reference absent".into(),
-            ));
-        }
-        Ok(())
+        require_original_reference(Some(client.as_str()), &unit.refs().await?)
     }
     /// Recover the exact original intent through its existing launch-client reference.
     /// Reconciliation never repeats launch or increments systemd's recursive references.
@@ -639,6 +597,7 @@ impl HostManager {
             })?
     }
     async fn reconcile_inner(&self, intent: &LaunchIntent) -> Result<OwnedUnit, HostError> {
+        self.validate_view()?;
         let unit = self.unit(&intent.unit).await?;
         if unit.description().await? != intent.description {
             return Err(HostError::Ownership(
@@ -676,6 +635,9 @@ impl HostManager {
             observation.completed_status().is_some()
                 || matches!(observation.active_state.as_str(), "inactive" | "failed"),
         )?;
+        self.validate_view()?;
+        require_original_identity(intent, &unit.description().await?, &observation.invocation, &unit.invocation_id().await?)?;
+        self.require_reference(&unit).await?;
         Ok(OwnedUnit {
             manager: self.clone(),
             intent: intent.clone(),
@@ -687,6 +649,61 @@ impl HostManager {
             reference_released: false,
         })
     }
+}
+
+fn unknown_launch(intent: &LaunchIntent, detail: impl std::fmt::Display) -> HostError {
+    HostError::UnknownLaunch { unit: intent.unit.clone(), detail: detail.to_string() }
+}
+
+struct JobEvent {
+    job: OwnedObjectPath,
+    unit: String,
+    result: String,
+}
+
+// A small protocol seam: the real signal subscription is installed before dispatch.
+// Tests feed recorded job inputs; no alternate manager or launch mechanism is introduced.
+async fn launch_job(
+    intent: &LaunchIntent,
+    dispatch: impl Future<Output = Result<OwnedObjectPath, zbus::Error>>,
+    events: impl futures_util::Stream<Item = Result<JobEvent, zbus::Error>>,
+) -> Result<String, HostError> {
+    let job = dispatch.await.map_err(|error| unknown_launch(intent, error))?;
+    futures_util::pin_mut!(events);
+    while let Some(event) = events.next().await {
+        let event = event.map_err(|error| unknown_launch(intent, error))?;
+        if event.job != job {
+            continue;
+        }
+        if event.unit != intent.unit {
+            return Err(unknown_launch(intent, "correlated job names a different unit"));
+        }
+        // Job outcome does not replace the original process outcome. Reconciliation
+        // must still recover and settle an already-execed nonzero child.
+        return Ok(event.result);
+    }
+    Err(unknown_launch(intent, "job signal stream closed"))
+}
+
+fn require_original_reference(client: Option<&str>, refs: &[String]) -> Result<(), HostError> {
+    if !client.is_some_and(|client| refs.iter().any(|name| name == client)) {
+        return Err(HostError::Ownership("original launch client's unit reference absent".into()));
+    }
+    Ok(())
+}
+
+fn require_original_identity(
+    intent: &LaunchIntent,
+    description: &str,
+    expected: &[u8],
+    actual: &[u8],
+) -> Result<(), HostError> {
+    if description != intent.description || expected.len() != 16
+        || expected.iter().all(|byte| *byte == 0) || expected != actual
+    {
+        return Err(HostError::Ownership("original unit description/invocation changed or absent".into()));
+    }
+    Ok(())
 }
 
 fn singleton_pid(status: &str, expected: u32) -> Result<(), HostError> {
@@ -829,11 +846,11 @@ impl OwnedUnit {
             ));
         }
         let result = self.manager.observe(&self.intent.unit).await?;
-        self.manager
-            .require_reference(&self.manager.unit(&self.intent.unit).await?)
-            .await?;
-        if result.invocation != self.invocation {
-            return Err(HostError::Ownership("unit invocation changed".into()));
+        let unit = self.manager.unit(&self.intent.unit).await?;
+        self.manager.require_reference(&unit).await?;
+        require_original_identity(&self.intent, &unit.description().await?, &self.invocation, &result.invocation)?;
+        if unit.invocation_id().await? != result.invocation {
+            return Err(HostError::Ownership("unit changed after ownership observation".into()));
         }
         if result.main_pid != 0 {
             let current = ProcessReader::default().process(result.main_pid);
@@ -871,6 +888,18 @@ impl OwnedUnit {
     ) -> Result<UnitObservation, HostError> {
         self.observe().await?;
         let manager = self.manager.manager().await?;
+        let unit = self.manager.unit(&self.intent.unit).await?;
+        let properties = zbus::fdo::PropertiesProxy::builder(&self.manager.connection)
+            .destination(self.manager.owner.as_str())
+            .path(unit.inner().path().to_owned())
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?;
+        // Install both wake sources before StopUnit. Signals only trigger uncached
+        // rereads: neither a job completion nor a population notification proves release.
+        let mut changed = properties.receive_properties_changed().await?;
+        let events = self.group.watch()?;
+        self.observe().await?;
         tokio::time::timeout_at(
             deadline.into(),
             manager.stop_unit(self.intent.unit.clone(), "replace".into()),
@@ -887,14 +916,18 @@ impl OwnedUnit {
                 self.reference_released = true;
                 return Ok(observation);
             }
-            if Instant::now() >= deadline {
-                return Err(HostError::Deadline(
-                    "physical drain; original ownership retained".into(),
-                ));
+            tokio::select! {
+                signal = changed.next() => {
+                    signal.ok_or_else(|| HostError::Ownership("original unit notification stream closed; ownership retained".into()))?.args()?;
+                }
+                result = GroupEvents::changed(events.as_ref()) => result?,
+                () = self.manager.connection.closed() => {
+                    return Err(HostError::Ownership("original manager connection closed; ownership retained".into()));
+                }
             }
-            tokio::time::sleep(Duration::from_millis(10)).await;
         }
     }
+
     /// Establish the exact initial scope population before releasing the exec gate.
     pub async fn assert_population(&self, expected: &[u32]) -> Result<(), HostError> {
         self.observe().await?;
@@ -1047,6 +1080,32 @@ impl Group {
             )),
         }
     }
+    #[allow(unsafe_code, reason = "Tokio registration owns the original cgroup.events File for its whole lifetime")]
+    fn watch(&self) -> Result<Option<GroupEvents>, HostError> {
+        let Some(directory) = self.directory.as_ref() else { return Ok(None); };
+        let fd = match rustix::fs::openat(
+            directory,
+            "cgroup.events",
+            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NONBLOCK | rustix::fs::OFlags::NOFOLLOW,
+            rustix::fs::Mode::empty(),
+        ) {
+            Ok(fd) => fd,
+            Err(rustix::io::Errno::NOENT) if self.empty()? => return Ok(None),
+            Err(error) => return Err(io::Error::from(error).into()),
+        };
+        // Establish the kernfs notification generation before epoll registration.
+        // Later changes are acknowledged by seeking and reading this same file.
+        let mut file = File::from(fd);
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+        parse_population(&contents)?;
+        // SAFETY: AsyncFd takes exclusive ownership of this File. No raw fd is
+        // exposed, replaced or closed until AsyncFd unregisters and drops it.
+        let descriptor = unsafe {
+            tokio::io::unix::AsyncFd::register_with_interest(file, tokio::io::Interest::PRIORITY)
+        }.map_err(io::Error::from)?;
+        Ok(Some(GroupEvents { descriptor }))
+    }
     fn empty(&self) -> Result<bool, HostError> {
         let Some(directory) = self.directory.as_ref() else {
             return Ok(self.path.as_os_str().is_empty() || !self.path.try_exists()?);
@@ -1069,6 +1128,33 @@ impl Group {
         parse_population(&contents)
     }
 }
+#[derive(Debug)]
+struct GroupEvents {
+    descriptor: tokio::io::unix::AsyncFd<File>,
+}
+impl GroupEvents {
+    fn read(&self) -> Result<(), HostError> {
+        let mut file = self.descriptor.get_ref();
+        let mut contents = String::new();
+        let read = file.seek(SeekFrom::Start(0))
+            .and_then(|_| file.read_to_string(&mut contents));
+        match read {
+            Ok(_) => { parse_population(&contents)?; Ok(()) }
+            // Kernfs invalidates the original opened file on group removal. It is
+            // still only a wakeup; Group::empty validates original removal next.
+            Err(error) if error.raw_os_error() == Some(rustix::io::Errno::NODEV.raw_os_error()) => Ok(()),
+            Err(error) => Err(error.into()),
+        }
+    }
+    async fn changed(events: Option<&Self>) -> Result<(), HostError> {
+        let Some(events) = events else { return std::future::pending().await; };
+        let mut ready = events.descriptor.ready(tokio::io::Interest::PRIORITY | tokio::io::Interest::ERROR).await?;
+        ready.clear_ready();
+        // Read this same opened file to acknowledge its kernel notification generation.
+        events.read()
+    }
+}
+
 fn parse_population(contents: &str) -> Result<bool, HostError> {
     let entries: Vec<_> = contents
         .lines()
@@ -1086,6 +1172,155 @@ fn parse_population(contents: &str) -> Result<bool, HostError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn job_event(job: &str, unit: &str, result: &str) -> Result<JobEvent, zbus::Error> {
+        Ok(JobEvent { job: job.try_into().unwrap(), unit: unit.to_owned(), result: result.to_owned() })
+    }
+
+    #[tokio::test]
+    async fn job_completion_before_ack_ignores_unrelated_jobs_and_retains_nonzero_outcome() {
+        let intent = LaunchIntent::fresh().unwrap();
+        let (send, receive) = tokio::sync::mpsc::unbounded_channel();
+        let dispatch = async {
+            // The manager completes and emits signals before the method reply arrives.
+            send.send(job_event("/job/2", "unrelated.service", "done")).unwrap();
+            send.send(job_event("/job/1", intent.unit(), "failed")).unwrap();
+            tokio::task::yield_now().await;
+            Ok("/job/1".try_into().unwrap())
+        };
+        let events = futures_util::stream::unfold(receive, |mut receive| async {
+            receive.recv().await.map(|event| (event, receive))
+        });
+        assert_eq!(launch_job(&intent, dispatch, events).await.unwrap(), "failed");
+    }
+
+    #[tokio::test]
+    async fn lost_launch_ack_retains_original_intent_without_replaying() {
+        let intent = LaunchIntent::fresh().unwrap();
+        let dispatched = AtomicU64::new(0);
+        let dispatch = async {
+            dispatched.fetch_add(1, Ordering::Relaxed);
+            Err(zbus::Error::Failure("acknowledgement lost after dispatch".into()))
+        };
+        let result = launch_job(&intent, dispatch, futures_util::stream::empty()).await;
+        assert!(matches!(result, Err(HostError::UnknownLaunch { unit, .. }) if unit == intent.unit));
+        assert_eq!(dispatched.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn disconnect_or_mismatched_job_never_confers_launch_authority() {
+        let intent = LaunchIntent::fresh().unwrap();
+        for events in [
+            vec![],
+            vec![Err(zbus::Error::Failure("connection closed".into()))],
+            vec![job_event("/job/1", "reused.service", "done")],
+        ] {
+            let result = launch_job(
+                &intent,
+                async { Ok("/job/1".try_into().unwrap()) },
+                futures_util::stream::iter(events),
+            ).await;
+            assert!(matches!(result, Err(HostError::UnknownLaunch { unit, .. }) if unit == intent.unit));
+        }
+    }
+
+    #[test]
+    fn original_reference_requires_exact_live_launch_client() {
+        let refs = vec![":1.21".to_owned(), ":1.22".to_owned()];
+        for _ in 0..3 {
+            assert!(require_original_reference(Some(":1.21"), &refs).is_ok());
+        }
+        assert_eq!(refs.len(), 2);
+        for client in [None, Some(":1.2"), Some(":1.23")] {
+            assert!(require_original_reference(client, &refs).is_err());
+        }
+        assert!(require_original_reference(Some(":1.21"), &[]).is_err());
+    }
+
+    #[test]
+    fn original_identity_rejects_unit_reuse_and_missing_invocation() {
+        let intent = LaunchIntent::fresh().unwrap();
+        let original = [1_u8; 16];
+        assert!(require_original_identity(&intent, &intent.description, &original, &original).is_ok());
+        assert!(require_original_identity(&intent, "another launch", &original, &original).is_err());
+        for replacement in [vec![], vec![0; 16], vec![2; 16], vec![1; 15]] {
+            assert!(require_original_identity(&intent, &intent.description, &original, &replacement).is_err());
+        }
+        assert!(require_original_identity(&intent, &intent.description, &[0; 16], &[0; 16]).is_err());
+    }
+
+    #[test]
+    fn absent_cgroup_requires_original_terminal_observation() {
+        assert!(Group::open("", false).is_err());
+        let absent = Group::open("", true).unwrap();
+        assert!(absent.empty().unwrap());
+        assert!(absent.check_path("").is_ok());
+        assert!(absent.check_path("/unrelated.scope").is_err());
+        // A regular directory never supplies kernel population authority.
+        let fixture = tempfile::tempdir().unwrap();
+        let file = File::open(fixture.path()).unwrap();
+        assert_ne!(rustix::fs::fstatfs(&file).unwrap().f_type, 0x6367_7270);
+    }
+
+    #[tokio::test]
+    async fn real_user_manager_view_changes_refuse_before_launch() {
+        let manager = HostManager::connect_user(None).await.unwrap();
+        let spec = ServiceSpec {
+            intent: LaunchIntent::fresh().unwrap(),
+            executable: "/bin/sleep".into(), arguments: vec!["30".into()], environment: vec![],
+        };
+        let mut denied = manager.clone();
+        denied.cgroup_root.1 = denied.cgroup_root.1.wrapping_add(1);
+        assert!(matches!(denied.start_service(&spec, Instant::now() + Duration::from_secs(5)).await, Err(HostError::Ownership(_))));
+        let mut reused = manager.clone();
+        reused.manager_process.start_ticks = reused.manager_process.start_ticks.wrapping_add(1);
+        assert!(matches!(reused.start_service(&spec, Instant::now() + Duration::from_secs(5)).await, Err(HostError::Ownership(_))));
+        assert!(manager.reconcile_if_present(&spec.intent, Instant::now() + Duration::from_secs(5)).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn real_user_manager_disconnect_refuses_launch_without_effect() {
+        let manager = HostManager::connect_user(None).await.unwrap();
+        manager.connection.clone().close().await.unwrap();
+        let spec = ServiceSpec {
+            intent: LaunchIntent::fresh().unwrap(),
+            executable: "/bin/sleep".into(), arguments: vec!["30".into()], environment: vec![],
+        };
+        assert!(matches!(manager.start_service(&spec, Instant::now() + Duration::from_secs(5)).await, Err(HostError::Ownership(_))));
+    }
+
+    #[tokio::test]
+    async fn real_original_cgroup_notifies_population_change() {
+        let manager = HostManager::connect_user(None).await.unwrap();
+        let spec = ServiceSpec {
+            intent: LaunchIntent::fresh().unwrap(),
+            executable: "/bin/sleep".into(), arguments: vec!["0.1".into()], environment: vec![],
+        };
+        let mut owned = manager.start_service(&spec, Instant::now() + Duration::from_secs(10)).await.unwrap();
+        let checked: Result<(), HostError> = async {
+            if owned.group.empty()? {
+                return Err(HostError::Ownership("sleep fixture was already empty".into()));
+            }
+            let events = owned.group.watch()?;
+            if events.is_none() {
+                return Err(HostError::Ownership("original cgroup watcher absent".into()));
+            }
+            // The fixture exits after the kernel's cgroup notification coalescing
+            // interval. Immediate StopUnit may remove the group before that timer
+            // fires; the production path also listens for manager state changes.
+            let notified = tokio::time::timeout(Duration::from_secs(5), GroupEvents::changed(events.as_ref())).await;
+            notified.map_err(|_| HostError::Deadline("original cgroup kernel notification".into()))??;
+            if !owned.group.empty()? || owned.released() {
+                return Err(HostError::Ownership("kernel notification lacks original empty population or falsely released ownership".into()));
+            }
+            // Removal can race the acknowledgement at either seek or read.
+            if let Some(events) = events.as_ref() { events.read()?; }
+            Ok(())
+        }.await;
+        let cleanup = owned.stop_and_drain(Instant::now() + Duration::from_secs(10)).await;
+        assert!(checked.is_ok(), "{checked:?}");
+        assert!(cleanup.is_ok(), "{cleanup:?}");
+    }
+
     #[tokio::test]
     async fn real_user_manager_owns_and_drains_escaped_descendants() {
         let manager = HostManager::connect_user(None).await.unwrap();
