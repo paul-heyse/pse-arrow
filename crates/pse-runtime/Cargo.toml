@@ -178,3 +178,7 @@ required-features = ["solver-kinsol"]
 [[test]]
 name = "native_study"
 required-features = ["native-study-tests", "solver-kinsol"]
+
+[[test]]
+name = "reference_degeneracy_exchange"
+required-features = ["solver-highs"]

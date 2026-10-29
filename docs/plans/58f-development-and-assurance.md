@@ -144,7 +144,7 @@ ingestion needs an explicit disposition of queue/failure alerts rather than assu
 | [F01](#f01) | in progress | 58f | Retained direct development/configuration operations and native settings resolution |
 | [F02](#f02) | in progress | 58f | Native tool delegation, Arrow closure selection and typed fixture composition |
 | [F03](#f03) | in progress | 58f | Rust generators/docs/governance consumers and retired Python emission |
-| [F04](#f04) | planned | 58f | Proportionate evidence and independent native-candidate scientific assurance |
+| [F04](#f04) | in progress | 58f | Proportionate evidence and independent native-candidate scientific assurance |
 | [F05](#f05) | planned | 58f | Integrated bridge retirement and native developer acceptance |
 | [F06](#f06) | deferred | 58f | Discrete explanation inquiry only when an actual consumer justifies it |
 
@@ -414,3 +414,25 @@ to explicit preparation, while retained selection uses original immutable record
 no Python constructor, state-file selector bridge between Rust owners, or new schema authority.
 Historical artifact readers and the unselected long-hold construction gap retain their stated
 owners; this does not close remaining F03 tooling/generation work.
+
+## First isolated native reference exchange — 2026-10-29
+
+The degenerate-Jacobian candidate now runs public Rust source admission, diagnostic preparation,
+source mapping and HiGHS analysis directly. An explicit case/result message goes to an isolated
+IDAES/Pyomo process; it imports neither `pse`, generated product types nor fixture adapters.
+The oracle builds its own equations and preserves row-set/multiplier/completeness interpretation
+and declared dependency pins. Deliberately wrong multipliers, missing results/sets, incomplete
+or reducible answers and mixed later successes remain visible individual outcomes. Reference
+environment absence fails rather than skipping. Original native resources close after scientific
+or oracle failure. The corresponding Python-candidate parity test is deleted; other families
+and their still-needed support remain for their actual cutovers.
+
+**Tested:** `scripts/pse-env --native=compiler,solver --` followed by the correctness nextest
+command `-p pse-runtime --locked --test reference_degeneracy_exchange --features solver-highs`,
+with the extracted solver prefix first on PATH and explicit `PSE_DEGENERACY_REFERENCE_PYTHON`,
+passes one exchange against zero failures, no excluded tests and no warnings (run
+`20c51f94-db8a-4718-aff0-d5e90519e6c3`). The reference uses the declared IDAES 2.13.0/Pyomo 6.10.1
+environment and actual SCIP. Initial feature/visibility warnings were corrected by compiling
+fixture mechanisms only for their actual consumers and narrowing test-support visibility.
+This qualifies the bounded five-row scientific comparison and its adverse controls, not all
+parity families or G03 completion. No Python candidate proxy or product CLI was introduced.
