@@ -106,20 +106,23 @@ def design_edit_authorized(root: Path) -> bool:
 def session_env(root: Path) -> int:
     """Claude SessionStart: give later Bash commands the checkout environment.
 
-    Appends `scripts/pse_env.py --print` output (ordinary exports, local values as deferred
-    reads) to $CLAUDE_ENV_FILE. A failure never blocks the session.
+    Append the native boundary's fixed activation program to $CLAUDE_ENV_FILE.
+    Personal values remain in its private transfer, never this persisted shell source.
+    A failure never blocks the session.
     """
     target = os.environ.get("CLAUDE_ENV_FILE")
     if not target:
         return 0
     try:
-        if str(root) not in sys.path:
-            sys.path.insert(0, str(root))
-        from scripts import pse_env  # noqa: PLC0415 -- the shared environment boundary
-
-        text = pse_env.render(root, dict(os.environ), complete=True)
+        result = subprocess.run(
+            [str(root / "scripts/pse-env"), "--print"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         with Path(target).open("a") as output:
-            output.write(text)
+            output.write(result.stdout)
     except Exception as exc:
         print(f"pse-env: session environment unavailable: {exc}", file=sys.stderr)
     return 0
@@ -145,7 +148,7 @@ def session_root(default: Path) -> Path:
         check=False,
     )
     candidate = Path(top.stdout.strip()) if top.returncode == 0 else None
-    if candidate is not None and (candidate / "scripts/pse_env.py").is_file():
+    if candidate is not None and (candidate / "scripts/pse-env").is_file():
         return candidate
     return default
 

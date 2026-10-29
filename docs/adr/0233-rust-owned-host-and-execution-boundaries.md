@@ -149,3 +149,33 @@ assesses the target under the selected standard.
 
 - 2026-10-28: Proposed for authorized Plan58 T01/T02 and native host execution. No implementation
   or formal ADR acceptance is established by this record.
+
+### Foreground scope and descriptor realization — 2026-10-28
+
+The authorized integrated cutover selects a caller-only scope and a workload scope bound by
+BindsTo/After, using actual pidfds. A same-executable gated trampoline is spawned before
+controller relocation, then execs the raw workload only after authenticated attachment. Gate
+EOF prevents untrusted execution after controller loss during startup; manager dependencies
+provide containment after release. Authenticated nested work reuses its actual workload.
+Finite or uncertain ancestry is refused before effects; no second admission service is added.
+
+The command-fds0.3.3 library owns descriptor mapping. Its one early inherited-descriptor
+initialization requires a documented unsafe call before runtime/owned descriptor creation;
+permit that site only in pse-host, with the workspace allowlist reason pointing here. This is
+an OS descriptor-ownership binding, not arbitrary unsafe application work. Mapping collisions
+and unexpected descriptors refuse. Workload exec closes private gate/control descriptors.
+The implementation and actual startup/controller-death races remain targeted proof obligations.
+
+The F02 native Cargo adapter captures actual nextest source-build Cargo selection and validates
+its unit graph before compiling. Source-build-only support refuses binary-reuse bypasses before
+launch. One static Nextest setup restores real Cargo for tests; no per-test supervisor or
+second CLI grammar is selected. This extends the existing responsibility, not a universal
+operation catalogue. Existing formal acceptance and ADR status remain scoped/proposed.
+
+Transient service/scope creation sets `AddRef` once atomically. Reconciliation validates
+original description/invocation and this exact bus client's membership in `Unit.Refs`;
+it never issues `RefUnit`, whose systemd sender references are recursive. Observation and
+mutation recheck the original held client reference; successful unref relinquishes authority.
+Failed or repeated reconciliation adds no references. Unknown creation retains the original
+intent and client lifetime and never replays launch or reference acquisition. Targeted
+implementation tests cover repeated reconciliation followed by a single release.

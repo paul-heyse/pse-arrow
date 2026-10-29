@@ -1,0 +1,10 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# A single native setup action; direct nextest without a correctness context is unchanged.
+set -eu
+if [ -z "${PSE_CORRECTNESS_REAL_CARGO-}" ]; then
+    exit 0
+fi
+: "${PSE_CORRECTNESS_EXECUTABLE:?missing invocation correctness executable}"
+exec "$PSE_CORRECTNESS_EXECUTABLE" --nextest-test-env

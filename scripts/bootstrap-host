@@ -11,16 +11,32 @@ if [ -n "${CARGO_TARGET_DIR-}" ] || [ -n "${CARGO_BUILD_TARGET_DIR-}" ] || [ -n 
 fi
 # A cold checkout must not enter the retiring interpreter compiler wrappers.
 unset RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER CARGO_BUILD_RUSTC_WRAPPER CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER
-cargo build --locked --package pse-host --bin pse-host
 selected="$root/target/host-tools"
 mkdir -p "$selected"
-staged=$(mktemp "$selected/.pse-host.XXXXXXXX")
-trap 'rm -f -- "$staged"' EXIT
+# Only explicit updates serialize, per checkout. Cargo and installed tools never
+# inherit this descriptor; ordinary workload/admission is independent.
+exec 9>"$selected/.update.lock"
+flock 9
+cargo build --locked --package pse-host --bins 9>&-
+staged=$(mktemp -d "$selected/generation.XXXXXXXX")
+discard_incomplete() {
+    # A signal can arrive after the atomic switch and before traps are cleared.
+    # Never remove a generation that the selector has already published.
+    if [ "$(readlink -- "$selected/current" 2>/dev/null || :)" != "$(basename -- "$staged")" ]; then
+        rm -rf -- "$staged"
+    fi
+}
+trap discard_incomplete EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
-cp -- "$root/target/debug/pse-host" "$staged"
-chmod 700 "$staged"
-"$staged" --version
-mv -f -- "$staged" "$selected/pse-host"
+for tool in pse-host cargo-pse-correctness; do
+    cp -- "$root/target/debug/$tool" "$staged/$tool"
+    chmod 700 "$staged/$tool"
+    "$staged/$tool" --version 9>&-
+done
+# One selector publishes the completed pair. Running commands keep their actual
+# immutable executable path, including nextest's invocation-local Cargo adapter.
+ln -s "$(basename -- "$staged")" "$staged/selection"
+mv -Tf -- "$staged/selection" "$selected/current"
 trap - EXIT HUP INT TERM

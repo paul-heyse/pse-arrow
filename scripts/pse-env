@@ -1,11 +1,7 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-# The checkout's environment and placement boundary; see scripts/pse_env.py.
-script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-checkout_python="$script_directory/../.venv/bin/python"
-if [[ -x "$checkout_python" ]]; then
-    exec "$checkout_python" "$script_directory/pse_env.py" "$@"
-fi
-# Bootstrap can prepare a checkout before its pinned environment exists.
-exec python3 "$script_directory/pse_env.py" "$@"
+# Selection only; environment and foreground policy belong to the native host.
+set -eu
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+exec "$root/scripts/pse-host" boundary "$@"

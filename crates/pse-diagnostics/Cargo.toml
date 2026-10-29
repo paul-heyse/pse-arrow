@@ -26,7 +26,9 @@ serde.workspace = true
 schemars.workspace = true
 rustix.workspace = true
 procfs-core.workspace = true
+http.workspace = true
+url.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 allocation-counter.workspace = true
-serde_json.workspace = true

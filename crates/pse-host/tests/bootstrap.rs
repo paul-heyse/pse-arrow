@@ -23,7 +23,7 @@ fn checkout() -> tempfile::TempDir {
     )
     .unwrap();
     fs::write(
-        root.path().join("target/host-tools/pse-host"),
+        root.path().join("target/host-tools/current"),
         "previous completed selection",
     )
     .unwrap();
@@ -52,7 +52,7 @@ fn failed_construction_preserves_completed_selection() {
     let result = seed(root.path()).output().unwrap();
     assert_eq!(result.status.code(), Some(47));
     assert_eq!(
-        fs::read_to_string(root.path().join("target/host-tools/pse-host")).unwrap(),
+        fs::read_to_string(root.path().join("target/host-tools/current")).unwrap(),
         "previous completed selection"
     );
 }
@@ -65,6 +65,10 @@ fn successful_construction_publishes_only_completed_executable() {
     );
     let artifact = "#!/bin/sh\nprintf 'completed native selection\\n'\n";
     executable(&root.path().join("target/debug/pse-host"), artifact);
+    executable(
+        &root.path().join("target/debug/cargo-pse-correctness"),
+        artifact,
+    );
     let result = seed(root.path()).output().unwrap();
     assert!(
         result.status.success(),
@@ -72,14 +76,23 @@ fn successful_construction_publishes_only_completed_executable() {
         String::from_utf8_lossy(&result.stderr)
     );
     assert_eq!(
-        fs::read_to_string(root.path().join("target/host-tools/pse-host")).unwrap(),
+        fs::read_to_string(root.path().join("target/host-tools/current/pse-host")).unwrap(),
         artifact
     );
     assert_eq!(
         fs::read_dir(root.path().join("target/host-tools"))
             .unwrap()
+            .filter(|entry| entry.as_ref().unwrap().file_name() != ".update.lock")
             .count(),
-        1
+        2
+    );
+    assert_eq!(
+        fs::read_to_string(
+            root.path()
+                .join("target/host-tools/current/cargo-pse-correctness")
+        )
+        .unwrap(),
+        artifact
     );
 }
 #[test]
@@ -96,7 +109,7 @@ fn foreign_target_cannot_publish_stale_local_artifact() {
         .unwrap();
     assert!(!result.status.success());
     assert_eq!(
-        fs::read_to_string(root.path().join("target/host-tools/pse-host")).unwrap(),
+        fs::read_to_string(root.path().join("target/host-tools/current")).unwrap(),
         "previous completed selection"
     );
 }
@@ -112,15 +125,106 @@ fn invalid_completed_artifact_preserves_previous_selection() {
     let result = seed(root.path()).output().unwrap();
     assert_eq!(result.status.code(), Some(69));
     assert_eq!(
-        fs::read_to_string(root.path().join("target/host-tools/pse-host")).unwrap(),
+        fs::read_to_string(root.path().join("target/host-tools/current")).unwrap(),
         "previous completed selection"
     );
     assert_eq!(
         fs::read_dir(root.path().join("target/host-tools"))
             .unwrap()
+            .filter(|entry| entry.as_ref().unwrap().file_name() != ".update.lock")
             .count(),
         1
     );
+}
+#[test]
+fn incomplete_pair_cannot_publish_the_new_host_alone() {
+    let root = checkout();
+    executable(&root.path().join("bin/cargo"), "#!/bin/sh\nexit 0\n");
+    executable(
+        &root.path().join("target/debug/pse-host"),
+        "#!/bin/sh\nexit 0\n",
+    );
+    executable(
+        &root.path().join("target/debug/cargo-pse-correctness"),
+        "#!/bin/sh\nexit 71\n",
+    );
+    let result = seed(root.path()).output().unwrap();
+    assert_eq!(result.status.code(), Some(71));
+    assert_eq!(
+        fs::read_to_string(root.path().join("target/host-tools/current")).unwrap(),
+        "previous completed selection"
+    );
+    assert_eq!(
+        fs::read_dir(root.path().join("target/host-tools"))
+            .unwrap()
+            .filter(|entry| entry.as_ref().unwrap().file_name() != ".update.lock")
+            .count(),
+        1
+    );
+}
+#[test]
+fn interruption_after_atomic_switch_keeps_the_completed_pair() {
+    let root = checkout();
+    executable(&root.path().join("bin/cargo"), "#!/bin/sh\nexit 0\n");
+    executable(
+        &root.path().join("bin/mv"),
+        "#!/bin/sh\n/bin/mv \"$@\" || exit $?\nkill -TERM \"$PPID\"\n",
+    );
+    let artifact = "#!/bin/sh\nexit 0\n";
+    for tool in ["pse-host", "cargo-pse-correctness"] {
+        executable(&root.path().join("target/debug").join(tool), artifact);
+    }
+    let result = seed(root.path()).output().unwrap();
+    assert!(result.status.code() == Some(143) || result.status.signal() == Some(15));
+    for tool in ["pse-host", "cargo-pse-correctness"] {
+        assert_eq!(
+            fs::read_to_string(root.path().join("target/host-tools/current").join(tool)).unwrap(),
+            artifact
+        );
+    }
+}
+#[test]
+fn concurrent_updates_publish_complete_pairs_and_preserve_prior_generations() {
+    let root = checkout();
+    executable(
+        &root.path().join("bin/cargo"),
+        r#"#!/bin/sh
+mkdir constructing || exit 89
+trap 'rmdir constructing' EXIT
+sleep 0.05
+for tool in pse-host cargo-pse-correctness; do
+    printf '#!/bin/sh\nexit 0\n' > "target/debug/$tool"
+    chmod 700 "target/debug/$tool"
+done
+"#,
+    );
+    let first = seed(root.path()).spawn().unwrap();
+    let second = seed(root.path()).spawn().unwrap();
+    for child in [first, second] {
+        let result = child.wait_with_output().unwrap();
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+    let generations: Vec<_> = fs::read_dir(root.path().join("target/host-tools"))
+        .unwrap()
+        .map(Result::unwrap)
+        .filter(|entry| entry.file_type().unwrap().is_dir())
+        .collect();
+    assert_eq!(generations.len(), 2);
+    for generation in generations {
+        for tool in ["pse-host", "cargo-pse-correctness"] {
+            assert!(
+                Command::new(generation.path().join(tool))
+                    .arg("--version")
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+    }
 }
 #[test]
 fn interrupted_construction_cannot_publish_a_stale_artifact() {
@@ -136,7 +240,7 @@ fn interrupted_construction_cannot_publish_a_stale_artifact() {
     let result = seed(root.path()).output().unwrap();
     assert!(result.status.code() == Some(143) || result.status.signal() == Some(15));
     assert_eq!(
-        fs::read_to_string(root.path().join("target/host-tools/pse-host")).unwrap(),
+        fs::read_to_string(root.path().join("target/host-tools/current")).unwrap(),
         "previous completed selection"
     );
 }

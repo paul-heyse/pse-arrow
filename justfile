@@ -4,7 +4,8 @@
 # paths and tool paths, and bare tools read the same configuration (`scripts/pse-env --
 # <cmd>` for the environment, `cargo c`/`cargo t` for force-validated checks and tests).
 # Workload recipe lines run through scripts/pse-env: the checkout environment under any
-# inherited shell, in its own memory-capped scope (PSE_MEMORY_MAX, PSE_SLICE).
+# inherited shell, with native foreground ownership. Finite/scientific placement
+# remains unavailable until its selected Plan58 owner is implemented.
 #
 # Finding a recipe: `just --list --group <tier>`, `just --usage <recipe>` (parameters),
 # `just --show <recipe>` (body), `just --dump --dump-format json` (everything, structured).
@@ -142,12 +143,12 @@ experiment *args:
 [group('env')]
 [doc('Explicitly build the product allocation materializer used before managed deployment effects')]
 deployment-build:
-    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p pse-runtime --bin pse-deployment --no-default-features --locked
+    scripts/pse-env --native= -- scripts/cargo-bin/cargo-pse-correctness build -p pse-runtime --bin pse-deployment --no-default-features --locked
 
 [group('env')]
 [doc('Initialize a clean canonical database; ordinary runtime opening never installs schema')]
 canonical-init state:
-    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p pse-operations --bin pse-canonical-init --no-default-features --locked
+    scripts/pse-env --native= -- scripts/cargo-bin/cargo-pse-correctness build -p pse-operations --bin pse-canonical-init --no-default-features --locked
     "{{ py }}" scripts/surreal_server.py initialize --state {{ quote(state) }} --initializer-command "{{ justfile_directory() }}/target/debug/pse-canonical-init" {{ quote(state) }}
 
 [group('local')]
@@ -165,7 +166,7 @@ evidence *args:
 [group('local')]
 [doc('Explicitly build the dedicated project metadata operator')]
 project-build:
-    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p pse-runtime --bin pse-project --no-default-features --features product-operators --locked
+    scripts/pse-env --native= -- scripts/cargo-bin/cargo-pse-correctness build -p pse-runtime --bin pse-project --no-default-features --features product-operators --locked
 
 [group('local')]
 [doc('Use owned project metadata commands; --state selects the existing canonical deployment')]
@@ -188,8 +189,8 @@ surreal-fixture-test:
 [doc('Source-built canonical schema, source/product and gated offline recovery control')]
 [positional-arguments]
 canonical-recovery-test *args:
-    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p pse-operations --bin pse-canonical-recovery --locked
-    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin pse-canonical-recovery-fixture --no-default-features --features canonical-tools --locked
+    scripts/pse-env --native= -- scripts/cargo-bin/cargo-pse-correctness build -p pse-operations --bin pse-canonical-recovery --locked
+    scripts/pse-env --native= -- scripts/cargo-bin/cargo-pse-correctness build -p xtask --bin pse-canonical-recovery-fixture --no-default-features --features canonical-tools --locked
     "{{ py }}" -m scripts.tests.canonical_recovery_check target/debug/pse-canonical-recovery-fixture --payload-verifier target/debug/pse-canonical-recovery "$@"
 
 [group('local')]
@@ -224,7 +225,7 @@ producer-identity *args:
 [doc('Focused producer identity tests including irrelevant test edits and consumed-input changes')]
 [positional-arguments]
 producer-identity-test *args:
-    scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p xtask --bin xtask --no-default-features --locked -E 'test(producer_)' "$@"
+    scripts/pse-env --native -- scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p xtask --bin xtask --no-default-features --locked -E 'test(producer_)' "$@"
 
 [group('local')]
 [doc('Capture reviewed deployment roles and install the actual observed Maturin Cargo realization')]
@@ -242,24 +243,24 @@ producer-deployment-unit:
 [doc('Generator identity, unchanged-output and physical fixture controls')]
 [positional-arguments]
 codegen-unit-test *args:
-    scripts/pse-env --native=compiler,solver -- "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p xtask --bin xtask --locked --features full-codegen -E 'test(codegen::tests::) | test(codegen::physical::tests::)' "$@"
+    scripts/pse-env --native=compiler,solver -- scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p xtask --bin xtask --locked --features full-codegen -E 'test(codegen::tests::) | test(codegen::physical::tests::)' "$@"
 
 [group('local')]
 [doc('Focused explicit Python target selection controls without solver discovery')]
 [positional-arguments]
 python-runner-unit-test *args:
-    "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p xtask --bin xtask --no-default-features --locked -E 'test(python_selection_)' "$@"
+    scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p xtask --bin xtask --no-default-features --locked -E 'test(python_selection_)' "$@"
 
 [group('local')]
 [doc('Worker CLI admission budgets against the configured managed process allocation')]
 [positional-arguments]
 worker-cli-unit-test *args:
-    scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p pse-runtime --bin pse-worker --locked --features product-operators,native-solvers "$@"
+    scripts/pse-env --native -- scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p pse-runtime --bin pse-worker --locked --features product-operators,native-solvers "$@"
 
 [group('local')]
 [doc('Miri controls for the pure qualified scientific reconstruction authority')]
 scientific-replay-miri:
-    "{{ py }}" -m scripts.arrow_validation miri test -p pse-ids --lib --locked scientific_replay::tests
+    scripts/cargo-bin/cargo-pse-correctness miri test -p pse-ids --lib --locked scientific_replay::tests
 
 [group('local')]
 [doc('Run canonical execution actions in a supervised native worker; e.g. --until-idle --maximum-actions 100')]
@@ -274,8 +275,8 @@ pse-worker *args:
 [script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 worker-test *args:
-    scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation build -p pse-runtime --bin pse-worker --locked --no-default-features --features product-operators,native-solvers
-    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin xtask --locked --no-default-features --features canonical-tools
+    scripts/pse-env --native -- scripts/cargo-bin/cargo-pse-correctness build -p pse-runtime --bin pse-worker --locked --no-default-features --features product-operators,native-solvers
+    scripts/pse-env --native= -- scripts/cargo-bin/cargo-pse-correctness build -p xtask --bin xtask --locked --no-default-features --features canonical-tools
     PSE_WORKER_BINARY="$PWD/target/debug/pse-worker" scripts/pse-env --native --store -- "{{ py }}" scripts/select.py --features pse-runtime/native-solvers integration pse-runtime worker "$@"
 
 # ---------------------------------------------------------------- discovery --
@@ -343,13 +344,13 @@ lint-toml:
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 clippy-default *args:
-    "{{ py }}" -m scripts.arrow_validation clippy --keep-going --workspace --all-targets --locked "$@" -- -D warnings
+    scripts/cargo-bin/cargo-pse-correctness clippy --keep-going --workspace --all-targets --locked "$@" -- -D warnings
 
 [group('local')]
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 clippy-no-default *args:
-    "{{ py }}" -m scripts.arrow_validation clippy --keep-going --workspace --all-targets --locked --no-default-features "$@" -- -D warnings
+    scripts/cargo-bin/cargo-pse-correctness clippy --keep-going --workspace --all-targets --locked --no-default-features "$@" -- -D warnings
 
 [group('local')]
 lint-actions:
@@ -384,35 +385,35 @@ register-lint:
 
 [group('local')]
 codegen-relations-check:
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only relations --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only relations --check
 
 [group('mutating')]
 [doc('Generate Rust contracts only, without physical fixtures or compiler workflows')]
 codegen-rust-contracts:
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
 
 [group('local')]
 codegen-rust-contracts-check:
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts --check
 
 [group('mutating')]
 [doc('Generate physical fixtures through lower admission, without Runtime or solver construction')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "functional", "--", "bash", "-euo", "pipefail")]
 codegen-physical:
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only physical
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only physical
 
 [group('local')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "functional", "--", "bash", "-euo", "pipefail")]
 codegen-physical-check:
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only physical --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only physical --check
 
 [group('local')]
 codegen-python-check:
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only python --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only python --check
 
 [group('local')]
 codegen-docs-check:
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only docs --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only docs --check
 
 [group('local')]
 [doc('Compare the complete canonical MCP reference without invoking operations or changing files')]
@@ -427,21 +428,21 @@ codegen-capability-cli-check:
 [group('local')]
 [doc('The canonical native schema and codecs match a fresh regeneration')]
 codegen-surreal-check:
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal --check
 
 [group('local')]
 codegen-bindgen-check:
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --features native-abi --locked -- codegen --only bindgen --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features native-abi --locked -- codegen --only bindgen --check
 
 [group('local')]
 [doc('The published document and authoring JSON Schemas and the Python document types match a fresh derivation from the owning crates (ADR-0116)')]
 codegen-schemas-check:
-    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --features product-schemas,force-validate --locked -- codegen --only schemas --check
+    scripts/pse-env --native= -- scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features product-schemas,force-validate --locked -- codegen --only schemas --check
 
 [group('local')]
 [positional-arguments]
 governance-tests *args:
-    "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p pse-tests-governance --locked "$@"
+    scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p pse-tests-governance --locked "$@"
 
 [group('local')]
 audit-dependencies:
@@ -468,62 +469,62 @@ features-no-default:
 [group('local')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 doctest-release:
-    "{{ py }}" -m scripts.arrow_validation test --no-fail-fast --doc --workspace --exclude pse-py --locked --release
+    scripts/cargo-bin/cargo-pse-correctness test --no-fail-fast --doc --workspace --exclude pse-py --locked --release
 
 [group('local')]
 [doc('Measure current native consolidation, including diagnostic campaigns with an open acceptance barrier')]
 bench-consolidation-native:
     mkdir -p "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}"
     cargo tree -p pse-benches --locked --features pse-benches/force-validate -e features --format '{p} features=[{f}]' > "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/force-validation-features.txt"
-    "{{ py }}" -m scripts.arrow_validation bench --no-fail-fast -p pse-benches --bench native_consolidation --locked
+    scripts/cargo-bin/cargo-pse-correctness bench --no-fail-fast -p pse-benches --bench native_consolidation --locked
 
 [group('local')]
 [doc('cargo check, workspace, all targets')]
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 check *args:
-    "{{ py }}" -m scripts.arrow_validation check --keep-going --workspace --all-targets --locked "$@"
+    scripts/cargo-bin/cargo-pse-correctness check --keep-going --workspace --all-targets --locked "$@"
 
 [group('local')]
 [doc('Compile one library during a bounded architectural replacement; no tests or dev dependencies')]
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 check-library pkg *args:
-    "{{ py }}" -m scripts.arrow_validation check --keep-going -p "$1" --lib --locked "${@:2}"
+    scripts/cargo-bin/cargo-pse-correctness check --keep-going -p "$1" --lib --locked "${@:2}"
 
 [group('local')]
 [doc('Compile one package and its test sources without executing tests')]
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 check-package pkg *args:
-    "{{ py }}" -m scripts.arrow_validation check --keep-going -p "$1" --all-targets --locked "${@:2}"
+    scripts/cargo-bin/cargo-pse-correctness check --keep-going -p "$1" --all-targets --locked "${@:2}"
 
 [group('local')]
 [doc('Compile a named Rust test target without executing tests during the architectural pivot')]
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 check-test pkg target *args:
-    "{{ py }}" -m scripts.arrow_validation check --keep-going -p "$1" --test "$2" --locked "${@:3}"
+    scripts/cargo-bin/cargo-pse-correctness check --keep-going -p "$1" --test "$2" --locked "${@:3}"
 
 [group('local')]
 [doc('Compile one linked native test target without executing its journeys')]
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 check-native-test pkg target features:
-    scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation check -p "$1" --test "$2" --locked --features "$3"
+    scripts/pse-env --native -- scripts/cargo-bin/cargo-pse-correctness check -p "$1" --test "$2" --locked --features "$3"
 
 [group('local')]
 [doc('Compile selected native package targets without replacing running test executables')]
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 check-native-package pkg features capabilities="solver,klu,isolation,uno,petsc":
-    scripts/pse-env --native="$3" -- "{{ py }}" -m scripts.arrow_validation check -p "$1" --all-targets --locked --features "$2"
+    scripts/pse-env --native="$3" -- scripts/cargo-bin/cargo-pse-correctness check -p "$1" --all-targets --locked --features "$2"
 
 [group('local')]
 [doc('Run selected functional controls in one Rust test target with explicit Arrow validation')]
 [positional-arguments]
 functional-test-target pkg target filter *args:
-    "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p "$1" --test "$2" --locked -E "$3" "${@:4}"
+    scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p "$1" --test "$2" --locked -E "$3" "${@:4}"
 
 [group('local')]
 [doc('clippy with -D warnings, workspace, all targets (default and --no-default-features)')]
@@ -540,27 +541,40 @@ fmt-check:
 [doc('Rust tests via nextest with Arrow force_validate on')]
 [positional-arguments]
 test *args:
-    "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} --workspace --locked "$@"
+    scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} --workspace --locked "$@"
 
 [group('local')]
 [doc('Rust tests for one package')]
 [positional-arguments]
 test-package pkg *args:
-    "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p "$1" --locked "${@:2}"
+    scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p "$1" --locked "${@:2}"
 
 [group('local')]
-[doc('Unit tests of one package: a bare word means test(word); extra -p widens; prints the command (scripts/select.py)')]
-[script("bash", "scripts/pse-env", "--recipe-default-class", "exclusive", "--", "bash", "-euo", "pipefail")]
+[doc('Library units of one package: a bare word means test(word); extra -p widens; native Nextest owns selection')]
+[script("bash", "scripts/pse-env", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 unit-package pkg filter *args:
-    python3 scripts/select.py unit "$@"
+    package="$1"
+    filter="$2"
+    shift 2
+    if [[ "$filter" =~ ^[A-Za-z0-9_]+(::[A-Za-z0-9_]+)*(::)?$ ]]; then filter="test($filter)"; fi
+    command=(scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p "$package" --lib --locked -E "$filter" "$@")
+    printf '%q ' "${command[@]}"
+    printf '\n'
+    exec "${command[@]}"
 
 [group('local')]
-[doc('Explicit isolated library-unit selection in one workspace feature graph; review the filter to exclude product journeys')]
-[script("bash", "scripts/pse-env", "--recipe-default-class", "exclusive", "--", "bash", "-euo", "pipefail")]
+[doc('Explicit library units in one workspace feature graph; native Nextest owns selection')]
+[script("bash", "scripts/pse-env", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 unit-libraries filter *args:
-    python3 scripts/select.py workspace "$@"
+    filter="$1"
+    shift
+    if [[ "$filter" =~ ^[A-Za-z0-9_]+(::[A-Za-z0-9_]+)*(::)?$ ]]; then filter="test($filter)"; fi
+    command=(scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} --workspace --lib --locked -E "$filter" "$@")
+    printf '%q ' "${command[@]}"
+    printf '\n'
+    exec "${command[@]}"
 
 
 
@@ -568,7 +582,7 @@ unit-libraries filter *args:
 [group('local')]
 [doc('Resolve newly declared library profiles without updating unrelated dependency selections')]
 resolve-math-profiles:
-    "{{ py }}" -m scripts.arrow_validation check -p pse-math
+    scripts/cargo-bin/cargo-pse-correctness check -p pse-math
 
 [group('local')]
 [doc('Resolve existing pinned dependencies offline after workspace edge changes')]
@@ -585,25 +599,18 @@ lock-python:
 [doc('Isolated engine and assurance units; no storage/compiler/solver journeys')]
 [positional-arguments]
 dev-native-engine *args:
-    "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p pse-testkit -p pse-engine --lib --locked -E 'package(pse-testkit) and test(native_unit_) or package(pse-engine) and (test(session::config::tests::) or test(cache_service::policy::tests::) or test(session::execution::tests::))' "$@"
+    scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p pse-testkit -p pse-engine --lib --locked -E 'package(pse-testkit) and test(native_unit_) or package(pse-engine) and (test(session::config::tests::) or test(cache_service::policy::tests::) or test(session::execution::tests::))' "$@"
 
 [group('local')]
 [doc('Static manifest/error governance units; no product execution')]
 [positional-arguments]
 dev-native-boundaries *args:
-    "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p pse-tests-governance --test every_crate_registered --test dependency_pins --test dependency_floors --test error_taxonomy --locked "$@"
+    scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p pse-tests-governance --test every_crate_registered --test dependency_pins --test dependency_floors --test error_taxonomy --locked "$@"
 
 [group('local')]
 [doc('Check resolved N06 ownership and deletions without executing product code')]
 engine-boundary-check:
     cargo metadata --format-version 1 --locked --offline | .venv/bin/python scripts/native-engine-boundaries.py
-
-[group('local')]
-[doc('Measure current isolated cold/warm/body/API builds, cache reuse and optional recovery; executes no tests')]
-[positional-arguments]
-[script("bash", "-euo", "pipefail")]
-bench-builds output *args:
-    "{{ py }}" -m scripts.build_measurements "$@"
 
 [group('local')]
 [doc('Bounded native generation, operation admission and surviving-child lifecycle units')]
@@ -614,7 +621,7 @@ native-setup-unit:
 [doc('Unit control for pinned Ipopt C linking and ABI widths; no solver execution')]
 [script]
 unit-ipopt-abi:
-    exec scripts/pse-env --native=solver -- "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p pse-ipopt-sys --lib --locked --features pse-ipopt-sys/link -E 'test(abi_tests::)'
+    exec scripts/pse-env --native=solver -- scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p pse-ipopt-sys --lib --locked --features pse-ipopt-sys/link -E 'test(abi_tests::)'
 
 [group('local')]
 [doc('Prepare source-pinned validated root isolation with FILIB and bundled SoPlex')]
@@ -636,14 +643,14 @@ native-pipeline-prepare kind:
 unit-pipeline-binding kind *args:
     case {{ quote(kind) }} in uno|petsc) ;; *) exit 2 ;; esac
     shift
-    exec scripts/pse-env --native={{ quote(kind) }} -- "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p "pse-{{ kind }}-sys" --lib --locked --features "pse-{{ kind }}-sys/link" -E 'package(pse-{{ kind }}-sys)' "$@"
+    exec scripts/pse-env --native={{ quote(kind) }} -- scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p "pse-{{ kind }}-sys" --lib --locked --features "pse-{{ kind }}-sys/link" -E 'package(pse-{{ kind }}-sys)' "$@"
 
 [group('local')]
 [doc('Compile a scoped native pipeline adapter with its qualified foreign prefix')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 check-pipeline-native kind:
     case {{ quote(kind) }} in uno|petsc) ;; *) exit 2 ;; esac
-    exec scripts/pse-env --native={{ quote(kind) }} -- "{{ py }}" -m scripts.arrow_validation check --keep-going -p pse-backend-native -p pse-runtime --all-targets --locked --features 'pse-backend-native/{{ kind }}'
+    exec scripts/pse-env --native={{ quote(kind) }} -- scripts/cargo-bin/cargo-pse-correctness check --keep-going -p pse-backend-native -p pse-runtime --all-targets --locked --features 'pse-backend-native/{{ kind }}'
 
 [group('local')]
 [doc('Targeted safe native pipeline adapter controls with a qualified foreign prefix')]
@@ -652,25 +659,25 @@ check-pipeline-native kind:
 unit-pipeline-native kind filter *args:
     case {{ quote(kind) }} in uno|petsc) ;; *) exit 2 ;; esac
     shift 2
-    exec scripts/pse-env --native={{ quote(kind) }} -- "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p pse-backend-native --lib --locked --features 'pse-backend-native/{{ kind }}' -E {{ quote(filter) }} "$@"
+    exec scripts/pse-env --native={{ quote(kind) }} -- scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p pse-backend-native --lib --locked --features 'pse-backend-native/{{ kind }}' -E {{ quote(filter) }} "$@"
 
 [group('local')]
 [doc('Compile native solver adapters and unit contracts; no solver journeys')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 check-solver-contracts:
-    "{{ py }}" -m scripts.arrow_validation check --keep-going -p pse-backend-native -p pse-runtime -p pse-compiler --all-targets --locked --features pse-runtime/native-solvers
+    scripts/cargo-bin/cargo-pse-correctness check --keep-going -p pse-backend-native -p pse-runtime -p pse-compiler --all-targets --locked --features pse-runtime/native-solvers
 
 [group('local')]
 [doc('Static lint of the linked native workspace, conformance and benchmark consumers')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 lint-solver-contracts:
-    "{{ py }}" -m scripts.arrow_validation clippy --keep-going --no-deps --workspace --all-targets --locked --features pse-py/native-solvers,pse-tests-conformance/native-acceptance,pse-benches/native-process -- -D warnings
+    scripts/cargo-bin/cargo-pse-correctness clippy --keep-going --no-deps --workspace --all-targets --locked --features pse-py/native-solvers,pse-tests-conformance/native-acceptance,pse-benches/native-process -- -D warnings
 
 [group('local')]
 [doc('Native callback, upload, status, ABI and lifetime units; no native convergence journeys')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "exclusive", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 unit-native-contracts:
-    "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p pse-backend-native -p pse-ipopt-sys -p pse-compiler -p pse-structural -p pse-runtime -p pse-math --lib --locked --features pse-runtime/native-solvers -E 'package(pse-backend-native) | package(pse-compiler) | package(pse-math) | test(abi_tests::) | test(flowsheet::tests::) | test(initialization::tests::) | test(math::tests::) | test(workflow::tests::)'
+    scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p pse-backend-native -p pse-ipopt-sys -p pse-compiler -p pse-structural -p pse-runtime -p pse-math --lib --locked --features pse-runtime/native-solvers -E 'package(pse-backend-native) | package(pse-compiler) | package(pse-math) | test(abi_tests::) | test(flowsheet::tests::) | test(initialization::tests::) | test(math::tests::) | test(workflow::tests::)'
 
 
 
@@ -679,7 +686,7 @@ unit-native-contracts:
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 doctest:
     # Cargo cannot run doctests for the pse-py cdylib target.
-    "{{ py }}" -m scripts.arrow_validation test --no-fail-fast --doc --workspace --exclude pse-py --locked
+    scripts/cargo-bin/cargo-pse-correctness test --no-fail-fast --doc --workspace --exclude pse-py --locked
 
 [group('local')]
 [doc('rustdoc for the workspace with warnings as errors')]
@@ -697,7 +704,7 @@ codegen-check:
 [doc('Compare every Rust-owned generated target in one full-codegen invocation; report independent failures')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=compiler,solver", "--", "bash", "-euo", "pipefail")]
 codegen-all-check:
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --features full-codegen,force-validate --locked -- codegen --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --features full-codegen,force-validate --locked -- codegen --check
 
 [group('local')]
 [doc('One resolved version per family, equal to the pins; shared packages match the evidence lockfiles')]
@@ -766,7 +773,7 @@ py-sync-native-correctness profile="dev":
 [doc('Compile the linked public native Python boundary with Arrow validation')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 check-native-python:
-    "{{ py }}" -m scripts.arrow_validation check -p pse-py --locked --features force-validate,native-solvers
+    scripts/cargo-bin/cargo-pse-correctness check -p pse-py --locked --features force-validate,native-solvers
 
 [group('local')]
 [doc('Targeted Python native workflow units under the explicit linked solver runtime')]
@@ -781,7 +788,7 @@ py-native-contracts:
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 python-stubs *args:
-    scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- python-stubs "$@"
+    scripts/pse-env --native -- scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- python-stubs "$@"
 
 [group('local')]
 [doc('ruff format in check mode')]
@@ -913,12 +920,12 @@ coverage output="" *args:
 [group('manual')]
 [doc('Every benchmark runs once (no timing gate)')]
 bench-smoke:
-    "{{ py }}" -m scripts.arrow_validation test --no-fail-fast --benches -p pse-benches --locked
+    scripts/cargo-bin/cargo-pse-correctness test --no-fail-fast --benches -p pse-benches --locked
 
 [group('local')]
 [doc('Native cache, round and reuse benchmark measurements')]
 bench-cache:
-    "{{ py }}" -m scripts.arrow_validation bench --no-fail-fast -p pse-benches --bench native_cache --locked
+    scripts/cargo-bin/cargo-pse-correctness bench --no-fail-fast -p pse-benches --bench native_cache --locked
 
 [group('manual')]
 [doc('Identifiers named in docs resolve in the extracted API facts')]
@@ -983,7 +990,7 @@ features-powerset:
 [doc('Tests under the release profile (catches optimisation-dependent paths)')]
 [positional-arguments]
 test-release *args:
-    "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} --workspace --locked --cargo-profile release "$@"
+    scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} --workspace --locked --cargo-profile release "$@"
 
 [group('manual')]
 [doc('Mutation testing for one file')]
@@ -1055,11 +1062,12 @@ fmt:
 [doc('Regenerate relations, Python contracts, docs/generated, the canonical native schema and codecs, the Ipopt bindings')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "functional", "--", "bash", "-euo", "pipefail")]
 codegen:
+    scripts/pse-env --native=compiler,solver -- /bin/true
     # Contracts and the canonical schema first: the full generator's package loader
     # compiles against them, so a registry change never needs a separate bootstrap.
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
-    scripts/pse-env --native=compiler,solver -- "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --features full-codegen,force-validate --locked -- codegen
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
+    scripts/pse-env --native=compiler,solver -- scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --features full-codegen,force-validate --locked -- codegen
     "{{ py }}" -m scripts.capabilities.reference
     "{{ py }}" -m scripts.capabilities.cli_codegen
 
@@ -1069,10 +1077,10 @@ codegen:
 [script]
 codegen-contracts:
     unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only python
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only docs
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only python
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only docs
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
     "{{ py }}" -m scripts.capabilities.reference
     "{{ py }}" -m scripts.capabilities.cli_codegen
 
@@ -1243,9 +1251,9 @@ codegen-contracts-check:
     python3 -m scripts.validation --group codegen-contracts-check
 
 [group('local')]
-[doc('Targeted runner selection, report, reuse, policy and measurement-CSV units')]
+[doc('Targeted retained runner selection, report and policy units')]
 unit-consolidation-tools:
-    "{{ py }}" -m unittest scripts.tests.test_validation scripts.tests.test_execution_contracts scripts.tests.test_build_measurements
+    "{{ py }}" -m unittest scripts.tests.test_validation scripts.tests.test_execution_contracts
 
 
 
@@ -1254,24 +1262,24 @@ unit-consolidation-tools:
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 check-native-contracts *args:
-    "{{ py }}" -m scripts.arrow_validation check --keep-going --workspace --all-targets --locked "$@"
+    scripts/cargo-bin/cargo-pse-correctness check --keep-going --workspace --all-targets --locked "$@"
 
 [group('discovery')]
 [doc('Compile and enumerate exact workspace test identities without executing them')]
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 list-native-contracts *args:
-    "{{ py }}" -m scripts.arrow_validation nextest list --workspace --locked --message-format json "$@"
+    scripts/cargo-bin/cargo-pse-correctness nextest list --workspace --locked --message-format json "$@"
 
 [group('local')]
 [doc('Lint the N07-N08 implementation and consumer test sources without execution')]
 lint-native-contracts:
-    "{{ py }}" -m scripts.arrow_validation clippy --keep-going -p pse-engine -p pse-schema -p pse-compiler -p pse-rules -p pse-backend-native -p pse-runtime -p pse-benches --all-targets --locked -- -D warnings
+    scripts/cargo-bin/cargo-pse-correctness clippy --keep-going -p pse-engine -p pse-schema -p pse-compiler -p pse-rules -p pse-backend-native -p pse-runtime -p pse-benches --all-targets --locked -- -D warnings
 
 [group('local')]
 [doc('Lint the native data pivot and every consumer, without executing test journeys')]
 lint-native-data:
-    "{{ py }}" -m scripts.arrow_validation clippy --keep-going --workspace --all-targets --locked -- -D warnings
+    scripts/cargo-bin/cargo-pse-correctness clippy --keep-going --workspace --all-targets --locked -- -D warnings
 
 
 
@@ -1285,7 +1293,7 @@ python-stubs-check:
         exit 125
     fi
     echo "python-stubs-check: compares python/pse/_native.pyi with the installed extension; rebuild it (just py-sync) if the Rust API changed since" >&2
-    exec scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- python-stubs --check
+    exec scripts/pse-env --native -- scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- python-stubs --check
 
 # Exhaustive generated annotation checks are explicit, not package import work.
 [group('local')]
@@ -1373,12 +1381,7 @@ build-frontend threads +args:
 [doc('Run an existing recipe with compiler wrappers explicitly disabled')]
 [positional-arguments]
 build-uncached +args:
-    python3 -m scripts.build_environment --cache off -- just "$@"
-
-[group('local')]
-[doc('Qualify sccache parser and incremental pass-through in a disposable cache')]
-build-cache-probe:
-    "{{ py }}" -m scripts.build_cache_probe
+    exec scripts/pse-env --cache off -- just "$@"
 
 [group('local')]
 [doc('Preview the Rust tests a change can reach (rdeps of changed packages) and what that misses; --run runs them')]
@@ -1394,11 +1397,11 @@ result run *args:
     exec "{{ py }}" -m scripts.validation_result "$@"
 
 [group('discovery')]
-[doc('What runs now: pse-* scopes, canonical servers and workers, Cargo processes in this checkout, slice limits (read-only; --json)')]
+[doc('Read actual current or named systemd scope/service ownership without workload admission or compiler setup')]
 [positional-arguments]
 [script("bash", "-euo", "pipefail")]
 activity *args:
-    exec python3 scripts/activity.py "$@"
+    exec scripts/pse-host activity "$@"
 
 [group('discovery')]
 [doc('Serve the canonical source-only capability interface over STDIO; no startup setup or workload admission')]
@@ -1471,7 +1474,7 @@ unit-native-selected filter *args:
 [doc('Compile the native process measurement target with pinned native environment and force validation')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 check-native-process-bench:
-    scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation check -p pse-benches --bench native_process --locked --features pse-benches/native-process
+    scripts/pse-env --native -- scripts/cargo-bin/cargo-pse-correctness check -p pse-benches --bench native_process --locked --features pse-benches/native-process
 
 [group('local')]
 [doc('Targeted native package units with explicitly selected adapter features')]
@@ -1491,7 +1494,7 @@ unit-native-capability-package pkg features capabilities filter *args:
 [doc('Focused default-feature refusal controls; keeps the real serial QDLDL absence branch')]
 [positional-arguments]
 feature-absence *args:
-    "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} --locked "$@"
+    scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} --locked "$@"
 
 [group('local')]
 [doc('Full workspace native feature graph with Arrow force validation; nextest owns selection')]

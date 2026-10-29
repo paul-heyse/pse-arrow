@@ -2,7 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Independent native host capabilities. A manager reply is not physical release.
 
+pub mod boundary;
+pub mod correctness;
 pub mod environment;
+pub mod foreground;
 mod manager;
 pub use manager::{
     BorrowedUnit, HostManager, LaunchIntent, OwnedUnit, ServiceSpec, UnitObservation,
@@ -51,3 +54,6 @@ pse_diagnostics::impl_diagnostic! {
     code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
     forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
+
+/// Passive native process telemetry selection.
+pub mod telemetry;

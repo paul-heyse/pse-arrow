@@ -20,6 +20,8 @@ pub use supervised_child::{DrainFailurePolicy, StderrCapture, SupervisedChild, S
 
 pub mod inspection;
 pub mod observation;
+/// SDK-independent process-host telemetry settings.
+pub mod telemetry_settings;
 
 mod vocabulary;
 pub use vocabulary::{

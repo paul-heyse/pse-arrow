@@ -29,279 +29,103 @@ afresh for each top-level shell; nested Just/compiler/native children preserve t
 already selected by their workload owner. A shell opened before that bridge update may still
 carry its old startup mapping: use a fresh activated shell for propagation checks.
 
-## One environment boundary: `scripts/pse-env`
+## One native environment and foreground boundary
 
-Workload recipe lines and scripts run through `scripts/pse-env` (the justfile's
-`set shell` and `set script-interpreter`), and any workload command can use it directly.
-The fixed read-only `just activity` observer runs directly, without workload admission or
-compiler preparation, so unavailable admission remains diagnosable. Invoke it without an
-outer `scripts/pse-env` wrapper; it accepts only its observer options. Failed observations
-are reported as unavailable with partial independent observations retained.
-
-Recipe arguments remain positional data. A composed recipe supports a native mode across
-all stages or rejects it before effects: `just codegen` publishes the full target and accepts
-no arguments; `just codegen-check` compares it without first refreshing outputs.
-
-Any workload command can use the environment boundary directly:
+The selected Plan58 ordinary path is `scripts/pse-env`, a shell exec adapter over
+`pse-host boundary`. It starts no Python controller, schema client, database or scientific
+runtime. Construct or update the native tools explicitly with `scripts/bootstrap-host`.
+The seed builds only locked `pse-host` binaries, validates both completed executables and
+atomically selects one immutable pair in `target/host-tools/current`. A failed or interrupted
+update preserves the previous pair. Running commands and nextest adapters keep their actual
+executable generation. Help, reads and ordinary launches never rebuild missing tooling.
 
 ```bash
-scripts/pse-env -- <command>               # checkout environment + its own capped scope
-scripts/pse-env --native -- <command>      # plus the linked solver environment
-scripts/pse-env --native=solver -- <cmd>   # only the capabilities named
-scripts/pse-env --store -- <command>       # first require a serving canonical server
-scripts/pse-env --docs -- <command>        # provisioned docs-only Python environment
-scripts/pse-env --explain [--native]       # what a command would get, and why
-scripts/pse-env --explain --json --native -- cargo build --profile producer
-                                         # structured selection before effects
-scripts/pse-env --print                    # shell exports (direnv, the Claude hook)
+scripts/pse-env -- <command>          # native environment and owned foreground execution
+scripts/pse-env --docs -- <command>   # select already provisioned .venv-docs
+scripts/pse-env --cache off -- <cmd>  # explicitly disable compiler wrapping
+scripts/pse-env --cache on -- <cmd>   # require supported installed native sccache
+scripts/pse-env --explain --json      # source-free, redacted provisional selections
+scripts/pse-env --print               # fixed Bash activation program, no private values
+scripts/pse-host activity [UNIT]      # direct current/named unit observation, no admission
 ```
 
-The launcher itself uses the checkout `.venv/bin/python` when available, before
-performing host admission or inspecting native module archives. System Python is only
-a bootstrap fallback before that environment exists. Allocation-binding reentry retains that
-same controller interpreter, independently of the selected workload environment. A docs-only
-command therefore uses `.venv-docs` for publication while host allocation control keeps its
-checkout-installed typed contracts.
+Recipes, direnv and the Claude SessionStart hook select this same native owner. Composition
+preserves command selections over caller values, caller values over personal `.envrc.local`,
+and personal values over repository defaults. Explicit empty values remain selections.
+Personal shell evaluation happens once per explicit activation in an isolated shell. `--print`
+itself never evaluates it: the returned fixed Bash program obtains a complete private NUL
+transfer, waits for a successful producer and validates the whole mapping before changing the
+parent shell. The transfer is data, never evaluated shell source. Failed activation leaves
+parent environment values unchanged. Private values do not appear in the printed program,
+explanation or debug formatting. Explanation leaves unread personal selections unresolved.
 
-**Composition, in precedence order:** command options, then values the caller already has,
-then `.envrc.local` (personal, gitignored) for anything unset, then repository defaults:
-`PSE_PYTHON` from `.python-version`, `UV_PROJECT_ENVIRONMENT=.venv` with its `bin` first on
-`PATH`, a local `/opt/pse-solvers` stack's tools, `PSE_SURREAL_STATE` (the supervisor's
-default state), and the compiler/cache configuration of `scripts/build_environment.py`
-(sccache wrapper, LLVM, jobs). Empty values pass through; composing twice changes nothing.
-The [build-performance guide](build-performance.md) owns managed compiler-cache installation,
-default/override selection and its verification. Agent defaults do not export
-`CARGO_TERM_COLOR`; an explicit caller value is preserved, and existing sessions must be
-refreshed to pick up configuration changes.
+The native environment selects checkout-local optional Python paths, the declared Cargo width,
+existing native compiler inputs and installed native sccache directly. It does not provision
+`.venv`/`.venv-docs`, synchronize packages or start a canonical server. Missing optional cache
+in auto mode means direct compilation; explicit invalid cache selection refuses. Unsupported
+sccache logging/distribution selections compile directly in auto mode and refuse in required
+mode. The old Python per-compiler wrapper is not selected. Cache service disappearance alone
+does not invalidate a successful compiler result; actual compiler failure still propagates.
+`--cache off` disables wrapping even when an inherited explicit cache binary is missing.
 
-**Refused overrides.** Some values are corrected to keep compiler supervision and checkout
-isolation: a `CARGO_TARGET_DIR` that names another checkout or this one's default `target/`
-(choose one with `PSE_CARGO_TARGET_DIR`), `CLANG_PATH`/`LLVM_CONFIG_PATH`, the sccache
-client-side and direct-mode pins. Native setup owns `MKL_CBWR`, `MKL_DYNAMIC` and
-`OMP_CANCELLATION` (ADR-0108) and the prefixes it prepares. A replaced value is reported
-(`pse-env: refused NAME=value: reason; using ...`): agent-chosen ones on every command, the rest
-by `--explain`.
+## Native foreground ownership and supported placement
 
-**Native defaults you can override.** Native commands default `OMP_NUM_THREADS`,
-`OPENBLAS_NUM_THREADS` and `MKL_NUM_THREADS` to `1` and take `OMP_PROC_BIND`, `OMP_PLACES`
-and `HWLOC_COMPONENTS` from the solver image. A caller value wins; `off` removes the variable,
-and the choice survives nested native setup. Assessment gates pin their required single-thread
-budget; case measurements record the thread settings used.
+Configured `PSE_BUILD_MODE=unbounded` ordinary work uses all host CPUs and the declared Cargo
+jobs without a new memory cap or slot ledger. Recipe class hints do not recreate finite
+allocation policy. Explicit finite/scientific classes, `PSE_MEMORY_MAX`, custom slice requests,
+reference/timing selections, `--native[=...]`, `--store` and the retired allocation-binding
+protocol currently refuse before command execution. Their Plan58 B/C/D/F owners must supply
+working capabilities before those workflows return; there is no Python fallback or silent
+resource downgrade. This selected wave is database-free. Existing stores and services are
+preserved. `--docs` selects an existing environment only.
 
-**Secrets.** `--print` never contains a `.envrc.local` value: local keys are rendered as
-deferred reads that source the file at use. `--explain` never evaluates local shell
-configuration, imports the extension, prepares a provider or opens admission metadata.
-When `.envrc.local` exists, absent caller selections are marked unresolved; reported
-defaults and tool paths are provisional where that file could affect them. An execution
-owner can supply its already evaluated local mapping to `operation_description`, using
-the same compiler and native-runtime selectors as execution. Only selected nonsecret
-configuration is exposed. Provider reuse remains unknown until actual admission.
-Use `doctor` or `activity` for live readiness/ownership observations. `--json` requires
-`--explain`; build arguments are intent, separate from actual installer-child evidence.
+For a top-level supported app-scope caller, the host starts a same-image child behind a private
+exec gate, creates a caller-only scope and a separate workload scope in the actual prior slice,
+and binds workload lifetime to caller lifetime. Only after containment and population are
+established does it release the gate. The prior application unit remains a lifetime dependency.
+The gate closes without execution if the controller dies during startup; after release the user
+manager stops the workload if the controller dies, including SIGKILL. The child locally execs
+raw Unix argv/environment/cwd with inherited stdio and controlling terminal; no payload is
+serialized through D-Bus and no TTY relay or resident supervisor is introduced.
 
-For strict producer preparation, `just producer-deployment <new-output-directory>`
-captures runtime/worker roles and lets Maturin select the Python Cargo child. The private
-single-use observer records actual argv/cwd/SDK/compiler context and seals raw evidence
-before permitting installation. It does not run a sibling Python compilation. Ordinary
-`py-sync` remains ordinary editable installation. Historical inspection uses
-`target/debug/xtask producer-history-verify <role-build-evidence.json.closure>` and reads
-protected dep-info, inputs, graph and artifact association without live Cargo paths.
-Historical success never grants current receiving freshness; final actual artifact/input
-checks still refuse changed earlier roles. A target-local strict-operation guard is acquired before dependency setup and follows actual writer descendants. Executor families refresh once before role captures; exact same-operation compilation evidence can support later Fresh use. Unknown families, changed original outputs/premises and failed/incomplete operations refuse; retry uses a new output operation. This guard does not exclude arbitrary bare Cargo or replace host admission. Within this existing strict command, source/SDK/native qualification and final current-path association retain their conservative semantics. The maintainer withdrew Plan39’s additional all-role campaign, environment/source-completeness and compiler/launcher/installer phase-proof targets; no deferred work or revisit obligation is created. Ordinary development uses its functional build/install/test routes.
+Nested calls authenticate actual manager scope identity, native role/dependencies and current
+kernel membership, then exec within that containment. An environment marker grants no authority.
+`--no-scope` requires this actual enclosing native workload; it cannot bypass containment.
+Uncertain views, unsupported/dedicated prior placement and displaced finite CPU/memory/cpuset or
+custom lower task constraints refuse. Common slice ancestry and the user manager's default task
+limit remain; splitting ordinary scopes is not finite aggregate allocation accounting.
 
-**Exit status** is the command's own (pse-env replaces itself with it). `125` means the
-boundary failed — the line starting `pse-env:` says why and what to run; `126`/`127` mean the
-command cannot be executed or was not found. Signal deaths report `128+N`.
+Startup has one absolute deadline. Cleanup has one absolute drain deadline and attempts every
+independent settlement, preserving the original operation failure alongside cleanup failures.
+A completed manager stop job or direct-child exit is insufficient: the bound original cgroup
+must become physically empty. Each private workload has an explicit manager stop grace within
+the drain budget. Existing borrowed units are observation-only. Private manager mutation supports
+one controller per fresh intent; external same-UID restart/reconfiguration is unsupported because
+systemd255 offers no atomic StopUnit-if-InvocationID operation.
 
-## Documentation environment
+Exit status is the original command status or `128+signal`; missing/unexecutable commands retain
+127/126. Boundary or unresolved cleanup failure returns125 and names the failure without claiming
+physical release. A cleanup error also retains the original command status in its diagnostic.
+Read-only `just activity` runs directly through the native host and accepts a current/named unit,
+not arbitrary commands or retired build-stage/watch flags. It stays independent of environment
+activation, compiler preparation, database readiness and scientific initialization.
 
-`--docs` explicitly selects `.venv-docs`, provisioned by `just bootstrap-docs` with
-`uv sync --locked --only-group docs --no-install-project`. It visibly replaces an inherited
-product environment selector and rejects paths that alias the product environment before
-effects. The normal `.venv`, its installed extension and ordinary dependency groups remain
-independent. Documentation recipes and direct documentation consumers select this mode;
-normal document reads never synchronize packages or initialize native capabilities.
-The [documentation guide](documentation.md) owns metadata, scope-query and retirement usage.
+## Native Cargo correctness
 
-## Placement and memory
+`cargo c`, `cargo t` and the generic check/unit recipes select the native correctness executable.
+It asks pinned Cargo for the actual compiler unit graph, including host/build and selected-root
+dev units, adds necessary validation opt-ins to only consuming selected roots, then verifies the
+final root identity and Arrow leaves before compilation. Pure closures stay pure. Unknown graph
+coverage refuses; graph stdout remains private and compiler JSON stays unchanged for nextest.
 
-Commands acquire a registered host allocation before their systemd user scope starts.
-`.config/agent-capacity.toml` owns bounded memory partitions and physical-core
-lanes; `scripts/host_admission.py` coordinates independent sessions under private XDG
-state. The finite aggregate parent initially caps cooperating work at 160 GiB. Every
-declared profile can use all sixteen physical cores and their thirty-two SMT CPUs.
-Timing excludes competing functional/build work instead of dividing the workstation
-into smaller CPU partitions. Kernel quotas account for all thirty-two logical CPUs;
-inherited scheduler affinity enforces placement when the user manager has no delegated
-cpuset controller.
-
-A machine-local `export PSE_BUILD_MODE=unbounded` in `.envrc.local` selects all ordinary
-work defaults without an OS memory budget or startup memory-pressure guard, including
-native Python/test orchestration whose command name is not recognized as a compiler.
-Ordinary build owners may overlap without an admission count ceiling, each sharing all sixteen
-physical cores with a 3200% CPU quota across thirty-two logical CPUs. Ownership and liveness
-remain tracked; scientific timing/reference exclusions retain their distinct contracts.
-Cargo's declared default is thirty-two jobs;
-an explicit `CARGO_BUILD_JOBS`
-remains a caller choice. Build allocations live under `psebuild.slice`, outside the
-bounded `pse.slice` hierarchy. Their scopes omit `MemoryMax` and `MemorySwapMax` and
-verify actual `memory.max=max` through every ancestor, including the cgroup root.
-A finite ancestor refuses this mode instead of substituting a RAM-sized cap.
-
-Resident functional/timing store counts are declared by `store_slots` beside each
-lane's existing `store_gib` in `.config/agent-capacity.toml`. Each admitted store retains
-its complete finite charge. An unknown prior owner still occupies its slot; admitting
-another deployment never settles or frees the first deployment's effects.
-
-Ordinary server setup derives its default server allowance from the functional
-store declaration. Its default joint envelope is 48 GiB with one 32 GiB native
-worker; explicit server overrides still consume that same envelope. Exclusive
-admission includes its declared store and light-role allowances alongside the
-controller budget, and enforces the resulting aggregate at both finite memory
-ancestors. Timing and reference execution use their own declared capacities.
-
-Compile-heavy aggregate recipes (`clippy`, `hygiene`, `quality`, `governance` and
-`features-powerset`) select the compile default at their entry. Their nested commands
-retain that admitted owner, so an ordinary functional parent does not restrict a later
-compiler leaf. Explicit caller resource selections retain precedence.
-
-Run separate Clippy feature graphs sequentially: concurrent default/native Clippy runs
-have formed a read/write artifact-lock upgrade cycle on the pinned Cargo implementation.
-Independent ordinary builds and functional work may still overlap. Native provider
-preparation can also wait for an active Cargo artifact writer; this does not lower the
-declared compiler-job count.
-
-Explicit `--resource-class`, `PSE_RESOURCE_CLASS` and finite `PSE_MEMORY_MAX` choices
-keep their existing precedence; local mode changes ordinary defaults only. Managed-primary,
-reference and timing routes keep their selected bounded allocations and isolation.
-In particular, `--resource-class compile` selects the finite 24 GiB profile even when
-`PSE_BUILD_MODE=unbounded`. It is not an uncapped compiler hint. For an ad hoc composer use
-`scripts/pse-env --recipe-default-class compile -- <command>`; for a compile aggregate
-whose recipe already enters that boundary, run the recipe directly. An extra outer wrapper
-must not impose a finite profile on the recipe's uncapped default. Two 2026-10-24 Clippy
-attempts hit this explicit 24 GiB limit; systemd's `oom-kill` records, rather than host
-memory exhaustion or a test timeout, established their interruption cause.
-Build owners conflict with live timing/reference owners. Registration, authentic
-cgroup/handoff binding, cancellation and descendant drain apply equally to both modes;
-an unobserved child still retains its owner. The ordinary canonical test observer uses
-the uncapped build owner while retaining its finite scientific pool declaration. Managed
-receiver/worker roles retain their finite role limits; an actual narrower scientific
-child cap is never widened by the ordinary build policy.
-
-Light commands use a 2 GiB slot, compilation a 24 GiB slot, ordinary functional work
-one of sixteen 40 GiB functional slots, and wide work two of those slots. Native scientific selections
-with a 64 GiB observer pool use the named exclusive-observer partition. Functional concurrency is declared by `[functional].slots` (maintainer-selected 16); admitted owners share the full CPU set. Per-task/aggregate memory limits, resident-store counts and exclusive/timing rules are separate controls. Pure Python
-unit selections bypass that observer. Reference preserves its original 160 GiB
-partition, 128 GiB pool and sixteen lanes. The runner builds and enumerates native
-artifacts before entering its selected observer; the observer executes admitted binaries.
-Rust test runners default `RUST_MIN_STACK` to the `[test-runner]` stack declaration
-in `.config/agent-capacity.toml` (16 MiB), preserve an explicit positive finite byte
-count, and record it in native provenance. This libtest thread setting is separate
-from production native-job stack policy.
-
-Cargo defaults to the allocation's usable logical CPU count, up to its declared
-thirty-two jobs. Nextest and ordinary pytest default to sixteen physical lanes.
-Each default respects actual usable affinity and any finite ancestor CPU quota;
-the full workstation allocation supplies 3200% CPU time so SMT is usable without
-an accidental 1600% throttle. An explicit caller
-environment or CLI width remains an override inside the kernel allocation. Nested
-allocations recompute repository-supplied defaults for their own narrower placement.
-Per-case resource weights, small fixtures and scientific-owner exclusions describe
-native demand or test correctness; they are not lower host CPU ceilings. Do not
-introduce smaller default CPU partitions, compiler-job limits, memory budgets or
-serialization of independent work on this workstation.
-Nextest's timing-sensitive exclusive controls reserve `num-test-threads`, the actual
-configured scheduler width, so changing the allocation does not weaken exclusion.
-
-The managed `scripts/sccache` wrapper gives the shared cache daemon its own finite
-8 GiB light-service allocation. Its immutable binary/configuration/frame identity selects a private
-socket; readiness verifies the actual process, unit invocation and socket peer. Compiler
-children remain in the build allocation. Completed builds can therefore release capacity
-while the cache stays resident. `PSE_SCCACHE_BINARY` identifies the installed executable;
-the wrapper never administers the global cache server or deletes cache materials.
-
-The pinned cache client can lazily start a server after a connection race. The wrapper
-contains that fallback in its client process group and refuses the result if the admitted
-service dies. This bounds surviving work; it does not establish that no transient fork
-or cache effect occurred during the race. Explicit measurement servers keep their own
-foreground lifecycle and endpoint. Their internal `PSE_SCCACHE_FOREGROUND` selection binds
-that socket with `SCCACHE_NO_DAEMON=1`; nested environment composition preserves the owned
-endpoint instead of redirecting compilation to the shared service. Ordinary managed statistics
-use the authenticated service endpoint, which can differ from the exported socket setting.
-The installed external SurrealDB server uses
-[package selection](surreal-substrate.md#installed-external-server-reuse), separate from these
-compiler-cache contexts. Ordinary setup/tests reuse it or require explicit installation;
-worktree and runtime environment changes never trigger an external source build.
-
-`PSE_MEMORY_MAX` requests a positive finite cap. Requests above 40 GiB consume two
-functional slots; above 80 GiB requires exclusive heavy admission. A larger request
-also raises its aggregate ancestor after checking physical capacity and nominal
-non-agent headroom. Nested commands reuse the actual owner, and cannot silently
-request more than an enclosing role or ancestor provides. Start that work in a
-widened allocation instead. Nested light and compile jobs keep the enclosing CPU
-lane rather than selecting a new functional lane. `off` and `infinity` are not finite
-`PSE_MEMORY_MAX` values; use the explicit ordinary build mode for uncapped work.
-Missing supervision and unverifiable ownership are refused in either mode. Memory ceilings and pressure observations do not reserve RAM
-or exclude unrelated projects.
-
-Capacity remains charged until every registered kernel group drains, including a
-child whose launcher died. Resource/evidence pins survive capacity release. Only
-explicitly owned, drained resident services may be parked for exclusive admission;
-unknown services remain preserved and count as external pressure. The user-manager
-unit installed by `just slice-install` supplies CPU weight and pressure monitoring;
-the host owner materializes the selected bounded aggregate before finite-class execution.
-
-Persistent storage is separately charged: a functional or timing caller acquires its
-store allocation independently of the caller's execution slot. Exclusive modes charge
-borrowed storage inside their aggregate envelope. Storage readiness verifies its own
-unit/cgroup, memory cap, finite CPU quota and affinity; it does not require the caller's
-receiver placement. The host ledger retains a resident store's charge while a qualified
-automatic restart is pending. A restart rebinds that charged owner only after the prior
-storage lifetime drains; unknown ownership remains a refusal.
-
-Timing work selects both the timing host class and a dedicated timing store/context.
-`setup --execution-profile timing` records that service class; using
-`--resource-class timing` alone does not convert the functional store. Cross-lane
-context registration is refused. The [local substrate guide](surreal-substrate.md)
-shows dedicated-state setup and owns the stopped reconfiguration, readmission and
-recovery routes. Recovery qualification uses its own administrative probe database,
-so it also works when isolated tests have never created the base canonical database.
-
-An ordinary native observer temporarily borrows its caller's control-memory limit. After
-verified observer drain, it restores the exact prior finite limit only while the caller's
-unit, cgroup, invocation and inode still match. A surviving or unobservable observer keeps
-its charge and the control limit. Compilation and scientific execution still require their
-respective admitted profiles; restoring a limit does not enlarge an allocation.
-
-Foreground observer handoffs belong to their launching native operation. Cancellation
-fences pending handoffs before stopping each bound observer whose unit, invocation,
-cgroup and inode still match, then joins the direct payload and requires actual drain.
-The operation's creator also settles foreground handoffs before retiring its ownership,
-including when a child reports interruption without signalling that creator. Parent-owned
-observer supervisors use separate sessions so a gate process-group kill cannot preempt
-their drain handlers; nested borrowers do not retire their creator's handoffs.
-A late binding records its scope and refuses payload execution after that fence.
-An unbound launch remains charged until its authentic binding and drain can be observed;
-unknown or replaced bound lifetimes retain their charges and pins and surface a cancellation
-failure. Persistent primary services and independently launched durable workers keep
-their separate lifetime owners; cancelling a foreground assessment does not stop them.
-
-`just activity` (read-only; `--json`) lists the `pse-*` scopes and services with memory, age
-and command, canonical servers and workers, Cargo processes in this checkout and the slice
-limits. It is not a lock: a bare Cargo lock owner is reported as unknown.
-Use repeated exact `--unit <name.service|name.scope>` options to inspect only selected
-units, with `--json` for selection/completeness fields. Selected mode bypasses the global
-unit listing; a disappeared selected unit is unavailable while healthy independent
-observations remain. Errors include bounded manager stderr and endpoint context.
-Observation never grants drain, signal or cleanup authority.
-
-If an empty owned scope stays active and its user-manager journal reports inotify
-`ENOSPC`, check `fs.inotify.max_user_watches` and `fs.inotify.max_user_instances`.
-This is watch exhaustion, distinct from free disk space. On this workstation the
-maintainer raised the runtime limits to 524288 watches and 1024 instances during
-Plan37 qualification. During Plan57 qualification, renewed watch exhaustion required
-1048576 runtime watches; instances remained 1024. Preserve exact drain requirements; increasing a cleanup timeout
-cannot restore missing manager notifications. These runtime settings reset on reboot.
+For nextest, the native composer invokes the installed `cargo-nextest` runner directly because
+Cargo overwrites `CARGO` for external subcommands. An invocation-local native Cargo adapter sees
+nextest's actual translated compiler arguments. One static setup restores actual Cargo for test
+attempts. Source-build run/list in this checkout are supported; reused archives/binaries, foreign
+workspaces and workspace/tool configuration overrides refuse before runner launch. Compiler
+requests remain graph-validated even if a caller supplied a nextest phase marker. Nextest retains
+its native argument grammar and test scheduling; no Python selector, fixture permission registry,
+per-test supervisor or generated runner configuration is inserted into the generic unit path.
 
 ## Builds in one checkout
 

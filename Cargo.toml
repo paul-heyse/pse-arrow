@@ -142,6 +142,7 @@ datafusion-pruning = "=55.1.0"
 datafusion-optimizer = "=55.1.0"
 
 url = { version = "=2.5.8", features = ["serde"] }
+percent-encoding = "=2.3.2"
 
 # Required by DataFusion 55 (^0.13.2); 0.14.x exists on crates.io and must not be taken.
 object_store = "=0.13.2"
@@ -410,6 +411,7 @@ rustix = { version = "=1.1.5", features = [
   "process",
   "event",
 ] }
+command-fds = "=0.3.3"
 cargo_metadata = "=0.23.1"
 clap = { version = "=4.6.7", features = ["derive"] }
 regex = "=1.13.1"
@@ -544,6 +546,7 @@ codegen-units = 1
 [workspace.metadata.pse]
 blueprint = "docs/authoritative_design/blueprint.md"
 unsafe-allowlist = [
+  "pse-host",           # ADR-0233: early command-fds inherited-descriptor ownership initialization only.
   "xtask",              # ADR-0164: composition-owned worker deployment qualification.
   "pse-operations",     # ADR-0164: admitted scientific publication and completion writer assertions.
   "pse-compiler",       # ADR-0164: test-only mint for compiler-issued recipe controls.

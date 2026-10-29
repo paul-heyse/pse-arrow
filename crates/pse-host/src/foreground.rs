@@ -1,0 +1,392 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! Foreground process ownership through private native scopes and an exec gate.
+use crate::{HostError, HostManager, LaunchIntent, OwnedUnit, environment::Environment};
+use command_fds::{CommandFdExt, FdMapping};
+use std::{
+    ffi::OsString,
+    io::{Read, Write},
+    os::unix::process::{CommandExt, ExitStatusExt},
+    path::{Path, PathBuf},
+    process::{Child, Command},
+    time::{Duration, Instant},
+};
+
+/// Exact Unix process request; no shell or D-Bus text conversion touches its payload.
+pub struct ForegroundRequest {
+    /// Executable followed by raw operating-system arguments.
+    pub command: Vec<OsString>,
+    /// Complete selected child environment.
+    pub environment: Environment,
+    /// Child working directory, including non-Unicode paths.
+    pub cwd: PathBuf,
+    /// Require authenticated enclosing native containment; never create a sibling.
+    pub require_enclosing: bool,
+    /// One absolute deadline covering all startup stages.
+    pub startup_deadline: Instant,
+    /// Maximum settlement duration, minted once when settlement begins.
+    pub drain_timeout: Duration,
+}
+
+impl std::fmt::Debug for ForegroundRequest {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ForegroundRequest")
+            .field("argument_count", &self.command.len())
+            .field("environment_count", &self.environment.len())
+            .field("require_enclosing", &self.require_enclosing)
+            .field("startup_deadline", &self.startup_deadline)
+            .field("drain_timeout", &self.drain_timeout)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Run the same-image gated child, before constructing any async runtime.
+/// This internal protocol grants no manager mutation authority.
+#[allow(
+    unsafe_code,
+    reason = "command-fds requires early initialization before descriptors are owned"
+)]
+pub fn trampoline(arguments: &[OsString]) -> Result<i32, HostError> {
+    if arguments.is_empty() {
+        return Err(HostError::Ownership(
+            "empty foreground trampoline command".into(),
+        ));
+    }
+    // SAFETY: the binary dispatches here before creating a runtime or opening any
+    // descriptors. Only standard descriptors are owned by Rust at this point.
+    unsafe {
+        command_fds::inherited::init_inherited_fds()?;
+    }
+    let descriptor = command_fds::inherited::take_fd_ownership(3)
+        .map_err(|error| HostError::Ownership(format!("foreground gate: {error}")))?;
+    let mut gate = std::fs::File::from(descriptor);
+    let mut release = [0_u8; 1];
+    match gate.read_exact(&mut release) {
+        Ok(()) if release == [1] => {}
+        Ok(()) => {
+            return Err(HostError::Ownership(
+                "invalid foreground gate release".into(),
+            ));
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(125),
+        Err(error) => return Err(error.into()),
+    }
+    drop(gate);
+    exec_result(Command::new(&arguments[0]).args(&arguments[1..]).exec())
+}
+
+fn exec_result(error: std::io::Error) -> Result<i32, HostError> {
+    match error.kind() {
+        std::io::ErrorKind::NotFound => Ok(127),
+        std::io::ErrorKind::PermissionDenied => Ok(126),
+        _ => Err(error.into()),
+    }
+}
+
+fn pidfd(pid: u32) -> Result<std::os::fd::OwnedFd, HostError> {
+    let raw = i32::try_from(pid)
+        .map_err(|_| HostError::Ownership("process identity exceeds kernel PID range".into()))?;
+    let pid = rustix::process::Pid::from_raw(raw)
+        .ok_or_else(|| HostError::Ownership("invalid process identity".into()))?;
+    Ok(
+        rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty())
+            .map_err(std::io::Error::from)?,
+    )
+}
+
+fn preflight(group: &str, default_tasks_max: u64) -> Result<(), HostError> {
+    let relative = group
+        .strip_prefix('/')
+        .ok_or_else(|| HostError::Ownership("nonabsolute placement".into()))?;
+    if Path::new(relative)
+        .components()
+        .any(|part| !matches!(part, std::path::Component::Normal(_)))
+    {
+        return Err(HostError::Ownership("uncertain current cgroup path".into()));
+    }
+    let current = Path::new("/sys/fs/cgroup").join(relative);
+    // Shared slice ancestry is retained explicitly. Refuse leaf policies which
+    // sibling placement would escape. Missing CPU/cpuset files mean that the
+    // controller is not enabled in this leaf and ancestor limits are inherited.
+    for file in [
+        "memory.max",
+        "memory.high",
+        "memory.swap.max",
+        "cpu.max",
+        "cpuset.cpus",
+        "cpuset.mems",
+    ] {
+        match std::fs::read_to_string(current.join(file)) {
+            Ok(value) => {
+                let supported = if file.starts_with("cpuset.") {
+                    value.trim().is_empty()
+                } else {
+                    value.split_whitespace().next() == Some("max")
+                };
+                if !supported {
+                    return Err(HostError::Ownership(format!(
+                        "custom leaf {file} requires a separate native placement owner"
+                    )));
+                }
+            }
+            Err(error)
+                if error.kind() == std::io::ErrorKind::NotFound && !file.starts_with("memory.") => {
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+    let tasks = std::fs::read_to_string(current.join("pids.max"))?;
+    if tasks.trim() != "max" && tasks.trim().parse::<u64>().ok() != Some(default_tasks_max) {
+        return Err(HostError::Ownership(
+            "custom leaf task limit requires a separate native placement owner".into(),
+        ));
+    }
+    // Moving the caller must not itself empty the prior lifetime unit. This
+    // supported entry uses the surviving application scope, never a dead binding.
+    let own_pid = std::process::id().to_string();
+    let population = std::fs::read_to_string(
+        Path::new("/sys/fs/cgroup")
+            .join(relative)
+            .join("cgroup.procs"),
+    )?;
+    if !population.lines().any(|pid| pid != own_pid) {
+        return Err(HostError::Ownership(
+            "dedicated prior scope cannot anchor the foreground owner".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn status(status: std::process::ExitStatus) -> i32 {
+    status
+        .code()
+        .unwrap_or_else(|| 128 + status.signal().unwrap_or(0))
+}
+fn settle_result(
+    operation: Result<i32, HostError>,
+    cleanup: Result<(), HostError>,
+) -> Result<i32, HostError> {
+    match (operation, cleanup) {
+        (result, Ok(())) => result,
+        (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
+            operation: Box::new(operation),
+            cleanup: Box::new(cleanup),
+        }),
+        (Ok(code), Err(cleanup)) => Err(HostError::Ownership(format!(
+            "original foreground status {code}; cleanup failed: {cleanup}"
+        ))),
+    }
+}
+async fn reap(child: &mut Child, deadline: Instant) -> Result<(), HostError> {
+    loop {
+        if child.try_wait()?.is_some() {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err(HostError::Deadline("foreground child reap".into()));
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+}
+
+/// Execute in authenticated enclosing containment or establish caller-owned
+/// scopes. The manager, rather than a resident helper, enforces caller death.
+pub async fn run(mut request: ForegroundRequest) -> Result<i32, HostError> {
+    if request.command.is_empty() {
+        return Err(HostError::Ownership("empty foreground command".into()));
+    }
+    let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
+    let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    let manager = tokio::time::timeout_at(
+        request.startup_deadline.into(),
+        HostManager::connect_user(None),
+    )
+    .await
+    .map_err(|_| HostError::Deadline("foreground manager startup".into()))??;
+    let current = tokio::time::timeout_at(request.startup_deadline.into(), manager.current_unit())
+        .await
+        .map_err(|_| HostError::Deadline("foreground placement authentication".into()))??;
+    let native = tokio::time::timeout_at(
+        request.startup_deadline.into(),
+        manager.native_workload(&current),
+    )
+    .await
+    .map_err(|_| HostError::Deadline("enclosing workload authentication".into()))??;
+    if native {
+        return exec_result(
+            Command::new(&request.command[0])
+                .args(&request.command[1..])
+                .env_clear()
+                .envs(request.environment)
+                .current_dir(request.cwd)
+                .exec(),
+        );
+    }
+    if request.require_enclosing {
+        return Err(HostError::Ownership(
+            "--no-scope requires authenticated enclosing native workload containment".into(),
+        ));
+    }
+    let (slice, slice_group, default_tasks_max) = tokio::time::timeout_at(
+        request.startup_deadline.into(),
+        manager.foreground_placement(&current),
+    )
+    .await
+    .map_err(|_| HostError::Deadline("foreground slice authentication".into()))??;
+    preflight(&current.control_group, default_tasks_max)?;
+    let owner_intent = LaunchIntent::fresh_scope()?;
+    let workload_intent = LaunchIntent::fresh_scope()?;
+    request.environment.insert(
+        "PSE_HOST_WORKLOAD_UNIT".into(),
+        workload_intent.unit().into(),
+    );
+    let (gate_read, mut gate_write) = std::io::pipe()?;
+    let mut command = Command::new("/proc/self/exe");
+    command
+        .arg("__foreground-exec")
+        .args(&request.command)
+        .env_clear()
+        .envs(&request.environment)
+        .current_dir(&request.cwd);
+    command
+        .fd_mappings(vec![FdMapping {
+            parent_fd: gate_read.into(),
+            child_fd: 3,
+        }])
+        .map_err(|error| HostError::Ownership(error.to_string()))?;
+    // Spawn while still in the old scope: the owner must contain only this controller.
+    let mut child = command.spawn()?;
+    drop(command);
+    let child_pid = child.id();
+    let mut owner: Option<OwnedUnit> = None;
+    let mut workload: Option<OwnedUnit> = None;
+    let mut cancellation = None;
+    let operation = async {
+        let caller_fd = pidfd(std::process::id())?;
+        let workload_fd = pidfd(child_pid)?;
+        let startup = async {
+            owner = Some(manager.start_scope(&owner_intent, caller_fd, &current.unit, &slice, request.startup_deadline, request.drain_timeout.saturating_sub(Duration::from_secs(1))).await?);
+            owner.as_ref().ok_or_else(|| HostError::Ownership("owner missing after activation".into()))?.assert_population(&[std::process::id()]).await?;
+            workload = Some(manager.start_scope(&workload_intent, workload_fd, owner_intent.unit(), &slice, request.startup_deadline, request.drain_timeout.saturating_sub(Duration::from_secs(1))).await?);
+            workload.as_ref().ok_or_else(|| HostError::Ownership("workload missing after activation".into()))?.assert_population(&[child_pid]).await?;
+            for unit in [&owner, &workload].into_iter().flatten() {
+                let observed = unit.observe().await?;
+                if Path::new(&observed.control_group).parent() != Some(Path::new(&slice_group)) {
+                    return Err(HostError::Ownership("new scope escaped selected slice ancestry".into()));
+                }
+            }
+            Ok::<(), HostError>(())
+        };
+        let startup = tokio::time::timeout_at(request.startup_deadline.into(), startup);
+        tokio::pin!(startup);
+        // Do not drop an in-flight D-Bus effect on cancellation: finish observing
+        // that same launch under its original deadline, keeping the gate closed.
+        tokio::select! {
+            biased;
+            _ = interrupt.recv() => { cancellation = Some(130); startup.await.map_err(|_| HostError::Deadline("absolute foreground startup".into()))??; },
+            _ = terminate.recv() => { cancellation = Some(143); startup.await.map_err(|_| HostError::Deadline("absolute foreground startup".into()))??; },
+            result = &mut startup => result.map_err(|_| HostError::Deadline("absolute foreground startup".into()))??,
+        }
+        if let Some(code) = cancellation { return Ok(code); }
+        if child.try_wait()?.is_some() { return Err(HostError::Ownership("gated workload exited before release".into())); }
+        gate_write.write_all(&[1])?;
+        loop {
+            if let Some(exit) = child.try_wait()? { return Ok(status(exit)); }
+            tokio::select! {
+                _ = interrupt.recv() => return Ok(130),
+                _ = terminate.recv() => return Ok(143),
+                () = tokio::time::sleep(Duration::from_millis(5)) => {},
+            }
+        }
+    }.await;
+    drop(gate_write);
+    let drain_deadline = Instant::now() + request.drain_timeout;
+    // Reconcile every possibly submitted intent, including interrupted replies.
+    // Authoritative absence is distinct from a failed/unknown observation.
+    let workload_recovery = if workload.is_none() {
+        match manager
+            .reconcile_if_present(&workload_intent, drain_deadline)
+            .await
+        {
+            Ok(unit) => {
+                workload = unit;
+                Ok(())
+            }
+            Err(error) => Err(error),
+        }
+    } else {
+        Ok(())
+    };
+    let owner_recovery = if owner.is_none() {
+        match manager
+            .reconcile_if_present(&owner_intent, drain_deadline)
+            .await
+        {
+            Ok(unit) => {
+                owner = unit;
+                Ok(())
+            }
+            Err(error) => Err(error),
+        }
+    } else {
+        Ok(())
+    };
+    let drained = if let Some(unit) = &mut workload {
+        unit.stop_and_drain(drain_deadline).await.map(|_| ())
+    } else {
+        Ok(())
+    };
+    // Settle independent resources even when a previous settlement failed.
+    let killed = match child.try_wait() {
+        Ok(None) => child.kill().map_err(HostError::from),
+        Ok(Some(_)) => Ok(()),
+        Err(error) => Err(error.into()),
+    };
+    let reaped = reap(&mut child, drain_deadline).await;
+    let released = if let Some(unit) = &mut owner {
+        unit.release_reference(drain_deadline).await
+    } else {
+        Ok(())
+    };
+    let cleanup = [
+        workload_recovery,
+        owner_recovery,
+        drained,
+        killed,
+        reaped,
+        released,
+    ]
+    .into_iter()
+    .fold(Ok(()), |all, next| match (all, next) {
+        (Ok(()), result) | (result, Ok(())) => result,
+        (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
+            operation: Box::new(operation),
+            cleanup: Box::new(cleanup),
+        }),
+    });
+    settle_result(operation, cleanup)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn request_debug_redacts_environment_arguments_and_cwd() {
+        let request = ForegroundRequest {
+            command: vec!["/secret/command".into(), "argument-secret".into()],
+            environment: [("TOKEN".into(), "environment-secret".into())]
+                .into_iter()
+                .collect(),
+            cwd: "/secret/directory".into(),
+            require_enclosing: false,
+            startup_deadline: Instant::now(),
+            drain_timeout: Duration::from_secs(1),
+        };
+        let rendered = format!("{request:?}");
+        assert!(!rendered.contains("secret"));
+        assert!(
+            rendered.contains("argument_count: 2") && rendered.contains("environment_count: 1")
+        );
+    }
+}

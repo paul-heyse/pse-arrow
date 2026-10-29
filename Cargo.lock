@@ -1280,6 +1280,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "command-fds"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b60b5124979fccd9addd89d8b97a1d6eebb4950694520c75ddd722535ea443f"
+dependencies = [
+ "nix",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "compression-codecs"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6421,6 +6431,7 @@ version = "0.0.1"
 dependencies = [
  "allocation-counter",
  "event-listener",
+ "http",
  "miette",
  "pin-project-lite",
  "procfs-core",
@@ -6430,6 +6441,7 @@ dependencies = [
  "serde_json",
  "strum",
  "thiserror 2.0.21",
+ "url",
 ]
 
 [[package]]
@@ -6466,8 +6478,10 @@ dependencies = [
 name = "pse-host"
 version = "0.0.1"
 dependencies = [
+ "command-fds",
  "futures-util",
  "miette",
+ "percent-encoding",
  "pse-diagnostics",
  "rustix 1.1.5",
  "serde",
@@ -6476,6 +6490,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "toml",
+ "uuid",
  "zbus",
  "zbus_systemd",
 ]

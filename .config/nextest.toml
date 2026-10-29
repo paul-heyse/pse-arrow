@@ -3,6 +3,16 @@
 # cargo-nextest configuration. nextest does not run doctests: every gate pairs
 # `cargo nextest run` with `cargo test --doc --workspace --locked`.
 
+# Restore Cargo for test execution after invocation-local graph composition.
+experimental = ["setup-scripts"]
+
+[scripts.setup.restore-cargo]
+command = { command-line = "scripts/nextest-test-env", relative-to = "workspace-root" }
+
+[[profile.default.scripts]]
+filter = "all()"
+setup = "restore-cargo"
+
 [test-groups]
 # Pool-owning solver, engineering and runtime cases share one budget. Each
 # consumes both ownership tokens, so only one scientific process runs per observer.

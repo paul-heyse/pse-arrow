@@ -35,8 +35,14 @@ retained ADRs, and the current qualification basis is summarized in
 packets and reviews are not a backlog and authorize nothing.
 
 [Current work](docs/plans/README.md) links the owning plans, packet status and remaining
-decision work. New work starts only when the maintainer authorizes it. Build a target
-directly and remove replaced code/callers/tests without compatibility APIs or a second
+decision work. The active Plan58 ordinary command, activation and generic Cargo
+correctness routes now use the independent native host. Prepare it explicitly with
+`scripts/bootstrap-host`; help/read/launch never builds it. This wave supports configured
+unbounded ordinary work and existing docs environments. `--native`, `--store`, explicit finite
+or scientific placement, and reference/timing admission currently refuse while their Plan58
+owners are unfinished. Do not bypass that refusal through the retiring Python controllers.
+The environment guide records supported placement and unfinished consumer cutovers. New work
+starts only when the maintainer authorizes it. Build a target directly and remove replaced code/callers/tests without compatibility APIs or a second
 production path. Correctness tests retain explicit force-validation. Full library
 eligibility remains in force.
 

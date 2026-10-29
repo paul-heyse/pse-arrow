@@ -17,10 +17,11 @@ The mechanics are in [the agent environment guide](../../docs/dev/agent-environm
 keep it accurate when you change them.
 
 - **One environment boundary.** Recipes, direnv, the Claude SessionStart hook and the native
-  helpers all take their environment from `scripts/pse_env.py`. Add a default or a correction
-  there, not in a recipe or a second script, and keep the precedence: command options,
-  caller values, `.envrc.local`, repository defaults. A value the boundary must replace is
-  reported (`pse-env: refused …`), never silently overwritten.
+  helpers all take their environment from native `pse-host::environment` through
+  `scripts/pse-env`. Add defaults there, not in a recipe or a second script, and keep the
+  precedence: command options, caller values, `.envrc.local`, repository defaults. Explicit
+  unsupported resource selections refuse before command execution; no Python fallback is
+  permitted.
 - **Recipes are thin.** A recipe composes the real tool, passes `*args` through, prints what
   it runs when it builds a command, and leaves selection visible to Cargo/nextest. Native
   recipes declare capabilities with `[script("bash", "scripts/pse-env", "--native=…", "--",
@@ -34,15 +35,14 @@ keep it accurate when you change them.
   read/control endpoint without lifetime workload admission or startup setup. It accepts no
   arbitrary executable. Selected effectful operations must retain their native environment,
   admission and lifetime owners; presentation changes do not grant execution permission.
-- **Placement owns resource policy.** Workload commands run in their own supervised scope;
-  this workstation's selected unbounded mode covers all ordinary work, including native
-  Python/test orchestration, with all 16 physical cores, 32 logical compiler jobs and no OS
-  memory cap. Do not add lower default CPU/job limits, memory budgets, serialization of
-  independent work or another wrapper. Explicit operator choices and native scientific
-  demand/exclusion contracts retain their separate meanings.
-  Builders call `pse_env.placement()` per command (a transient unit name
-  cannot be reused). Host admission uses short kernel-held allocation metadata exclusion;
-  never hold a machine-wide or fd-inheriting lock through a workload, RPC or drain.
+- **Placement owns resource policy.** The selected ordinary native path uses configured
+  unbounded sharing, all 16 physical cores and 32 logical compiler jobs without a slot ledger
+  or new OS memory cap. Explicit finite/scientific/native-provider/store/timing selections
+  currently refuse while their Plan58 owner is unfinished; do not silently downgrade them.
+  Native scopes and original kernel population establish physical ownership/release. Nested
+  commands reuse actual authenticated native containment, never an environment marker alone.
+  `scripts/bootstrap-host` explicitly publishes the completed immutable native tool pair;
+  reads/help/launch never rebuild it. See the environment guide for supported host premises.
 - **Status meanings.** `125` is the boundary's own failure, with a `pse-env:` line naming the
   fix; keep a command's own exit status and signals intact.
 - **Hooks.** `scripts/agent-hooks.py` is the only hook script (`just lint-agents` checks the

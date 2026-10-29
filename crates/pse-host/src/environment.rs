@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Pure child-environment selection. Personal shell evaluation belongs to the caller.
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     ffi::{OsStr, OsString},
     path::{Component, Path, PathBuf},
 };
@@ -37,6 +37,8 @@ pub struct EnvironmentSettings {
     pub python: String,
     /// Declared ordinary Cargo width, not a host allocation ceiling.
     pub jobs: String,
+    /// Finite libtest worker stack, independent of host admission or CPU width.
+    pub rust_stack_bytes: usize,
     /// Native managed sccache executable when actually installed.
     pub cache_binary: Option<PathBuf>,
     /// Declared disk-cache size.
@@ -77,7 +79,8 @@ fn default(env: &mut Environment, key: &str, value: impl Into<OsString>) {
 fn read_toml(path: &Path) -> Result<toml::Value, EnvironmentError> {
     let value = std::fs::read_to_string(path)
         .map_err(|error| failure(format!("cannot read {}: {error}", path.display())))?;
-    toml::from_str(&value).map_err(|error| failure(format!("invalid {}: {error}", path.display())))
+    // TOML errors can quote private configuration source, including credentials.
+    toml::from_str(&value).map_err(|_| failure(format!("invalid configuration {}", path.display())))
 }
 fn field<'a>(value: &'a toml::Value, path: &[&str]) -> Result<&'a toml::Value, EnvironmentError> {
     path.iter().try_fold(value, |current, key| {
@@ -117,6 +120,22 @@ fn prepend(env: &mut Environment, name: &str, path: &Path) -> Result<(), Environ
     Ok(())
 }
 
+fn rust_stack_bytes(value: &OsStr) -> Result<usize, EnvironmentError> {
+    let value = value
+        .to_str()
+        .ok_or_else(|| failure("RUST_MIN_STACK must be a positive finite byte count"))?;
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(failure(
+            "RUST_MIN_STACK must be a positive finite byte count",
+        ));
+    }
+    value
+        .parse::<usize>()
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| failure("RUST_MIN_STACK must be a positive finite byte count"))
+}
+
 fn lexical_path(path: &Path) -> PathBuf {
     let mut result = PathBuf::new();
     for component in path.components() {
@@ -142,6 +161,17 @@ impl EnvironmentSettings {
             .filter(|jobs| *jobs > 0)
             .ok_or_else(|| failure("build.jobs must be positive"))?
             .to_string();
+        let rust_stack_bytes = match get(inputs, "RUST_MIN_STACK") {
+            Some(value) => rust_stack_bytes(value)?,
+            None => {
+                let capacity = read_toml(&root.join(".config/agent-capacity.toml"))?;
+                field(&capacity, &["test-runner", "rust_thread_stack_mib"])?.as_integer()
+                    .and_then(|mib| usize::try_from(mib).ok())
+                    .and_then(|mib| mib.checked_mul(1 << 20))
+                    .filter(|bytes| *bytes > 0)
+                    .ok_or_else(|| failure("test-runner.rust_thread_stack_mib must be a positive finite integer MiB"))?
+            }
+        };
         let version = string_field(&tools, &["sccache", "version"])?;
         let member = string_field(&tools, &["sccache", "member"])?;
         let installed = base(inputs, "XDG_DATA_HOME", ".local/share")?
@@ -233,6 +263,7 @@ impl EnvironmentSettings {
                 .trim()
                 .to_owned(),
             jobs,
+            rust_stack_bytes,
             cache_binary,
             cache_size: string_field(&build, &["cache_size"])?,
             cache_frame: frame,
@@ -253,9 +284,6 @@ pub struct EnvironmentPlan {
     pub values: Environment,
     /// Local shell selections were not supplied by the caller.
     pub local_unresolved: bool,
-    root: PathBuf,
-    local_keys: BTreeSet<OsString>,
-    command_keys: BTreeSet<OsString>,
 }
 
 impl std::fmt::Debug for EnvironmentPlan {
@@ -290,6 +318,14 @@ pub fn compose_with_cache(
     env.extend(caller.clone());
     env.extend(command.clone());
     default(&mut env, "PSE_PYTHON", &settings.python);
+    default(
+        &mut env,
+        "RUST_MIN_STACK",
+        settings.rust_stack_bytes.to_string(),
+    );
+    rust_stack_bytes(
+        get(&env, "RUST_MIN_STACK").ok_or_else(|| failure("missing Rust stack selection"))?,
+    )?;
     default(&mut env, "UV_PROJECT_ENVIRONMENT", ".venv");
     let state =
         base(&env, "XDG_STATE_HOME", ".local/state")?.join("pse-arrow/surreal-functional-v2");
@@ -381,6 +417,11 @@ pub fn compose_with_cache(
     }
     let sccache = get(&env, "RUSTC_WRAPPER")
         .is_some_and(|value| Path::new(value).file_name() == Some(OsStr::new("sccache")));
+    if cache == CacheMode::On && !sccache {
+        return Err(failure(
+            "requested cache conflicts with the selected compiler wrapper",
+        ));
+    }
     if sccache {
         if !settings.cache_compatible {
             if cache == CacheMode::On {
@@ -430,9 +471,6 @@ pub fn compose_with_cache(
     Ok(EnvironmentPlan {
         values: env,
         local_unresolved: settings.local_pending && local.is_empty(),
-        root: settings.root.clone(),
-        local_keys: local.keys().cloned().collect(),
-        command_keys: command.keys().cloned().collect(),
     })
 }
 
@@ -453,14 +491,41 @@ pub fn resolve_with_local(
     local: Option<&Environment>,
     command: &Environment,
 ) -> Result<EnvironmentPlan, EnvironmentError> {
+    resolve_with_options(root, caller, local, command, CacheMode::Auto, false)
+}
+
+/// Resolve a native child mapping with explicit cache and documentation selections.
+pub fn resolve_with_options(
+    root: &Path,
+    caller: &Environment,
+    local: Option<&Environment>,
+    command: &Environment,
+    cache: CacheMode,
+    docs: bool,
+) -> Result<EnvironmentPlan, EnvironmentError> {
+    let mut command = command.clone();
+    if docs {
+        insert(
+            &mut command,
+            "UV_PROJECT_ENVIRONMENT",
+            root.join(".venv-docs").into_os_string(),
+        );
+    }
+    let command = &command;
     let empty = Environment::new();
     let selected_local = local.unwrap_or(&empty);
     let mut selected = selected_local.clone();
     selected.extend(caller.clone());
     selected.extend(command.clone());
+    if cache == CacheMode::Off {
+        selected.remove(OsStr::new("PSE_SCCACHE_BINARY"));
+        insert(&mut selected, "RUSTC_WRAPPER", "");
+    }
     let mut settings = EnvironmentSettings::load(root, &selected)?;
     settings.local_pending &= local.is_none();
-    compose(&settings, caller, selected_local, command)
+    let mut plan = compose_with_cache(&settings, caller, selected_local, command, cache)?;
+    crate::telemetry::configure(&mut plan.values);
+    Ok(plan)
 }
 
 /// Personal shell exports obtained only through an explicitly requested activation.
@@ -601,8 +666,19 @@ pub fn activate(
     caller: &Environment,
     command: &Environment,
 ) -> Result<EnvironmentPlan, EnvironmentError> {
+    activate_with_options(root, caller, command, CacheMode::Auto, false)
+}
+
+/// Explicit activation; documentation selection does not create or synchronize an environment.
+pub fn activate_with_options(
+    root: &Path,
+    caller: &Environment,
+    command: &Environment,
+    cache: CacheMode,
+    docs: bool,
+) -> Result<EnvironmentPlan, EnvironmentError> {
     let local = evaluate_local(root, caller)?;
-    resolve(root, caller, local.values(), command)
+    resolve_with_options(root, caller, Some(local.values()), command, cache, docs)
 }
 
 fn quote(value: &OsStr) -> Result<String, EnvironmentError> {
@@ -627,70 +703,169 @@ fn identifier(value: &OsStr) -> Result<&str, EnvironmentError> {
     Ok(value)
 }
 impl EnvironmentPlan {
-    /// Render personal values as deferred reads, never as literal secrets.
-    pub fn render_exports(&self, caller: &Environment) -> Result<String, EnvironmentError> {
+    /// Serialize changes only into a private NUL transfer, never shell program text.
+    pub fn activation_transfer(&self, caller: &Environment) -> Result<Vec<u8>, EnvironmentError> {
+        use std::os::unix::ffi::OsStrExt as _;
         if self.local_unresolved {
-            return Err(failure(
-                "personal selections are unresolved; an explicit activation owner must supply the evaluated local map before rendering exports",
-            ));
+            return Err(failure("personal selections have not been evaluated"));
         }
-        for name in [
-            "HOME",
-            "PATH",
-            "UV_PROJECT_ENVIRONMENT",
-            "XDG_STATE_HOME",
-            "XDG_DATA_HOME",
-            "XDG_CACHE_HOME",
-            "PSE_LLVM_PREFIX",
-        ] {
-            if self.local_keys.contains(OsStr::new(name))
-                && !caller.contains_key(OsStr::new(name))
-                && !self.command_keys.contains(OsStr::new(name))
-            {
-                return Err(failure(
-                    "personal path selections require the native child mapping; shell rendering cannot disclose derived private values",
-                ));
-            }
-        }
-        let mut lines = Vec::new();
+        let mut bytes = b"pse-activation-1\0".to_vec();
         for (key, value) in &self.values {
-            if caller.get(key) == Some(value) && !self.command_keys.contains(key) {
+            if caller.get(key) == Some(value) || key.as_bytes().starts_with(b"PSE_NATIVE_") {
                 continue;
             }
-            let name = identifier(key)?;
-            if name.starts_with("PSE_NATIVE_") {
-                continue;
+            identifier(key)?;
+            if value.as_bytes().contains(&0) {
+                return Err(failure("environment values cannot contain NUL bytes"));
             }
-            if self.local_keys.contains(key)
-                && !caller.contains_key(key)
-                && !self.command_keys.contains(key)
-            {
-                lines.push(format!("[ -n \"${{{name}+x}}\" ] || {{ {name}=\"$(. {} >/dev/null 2>&1; printf %s \"${{{name}-}}\")\" && export {name}; }}",quote(self.root.join(".envrc.local").as_os_str())?));
-            } else {
-                lines.push(format!("export {name}={}", quote(value)?));
-            }
+            bytes.push(b'+');
+            bytes.extend_from_slice(key.as_bytes());
+            bytes.push(b'=');
+            bytes.extend_from_slice(value.as_bytes());
+            bytes.push(0);
         }
         for key in caller.keys().filter(|key| !self.values.contains_key(*key)) {
-            lines.push(format!("unset {}", identifier(key)?));
+            identifier(key)?;
+            bytes.push(b'-');
+            bytes.extend_from_slice(key.as_bytes());
+            bytes.push(0);
         }
-        Ok(lines.join("\n") + "\n")
+        bytes.extend_from_slice(b"pse-activation-end\0\0");
+        Ok(bytes)
     }
 }
 
-/// Fixed environment command: explanation is read-only; export is explicit personal activation.
+/// Fixed Bash program. Private values are read once from a pipe after the caller evaluates it.
+pub fn activation_script(
+    executable: &Path,
+    root: &Path,
+    docs: bool,
+    cache: CacheMode,
+) -> Result<String, EnvironmentError> {
+    let command = format!(
+        "{} env --activation-data --root {} --cache {}{}",
+        quote(executable.as_os_str())?,
+        quote(root.as_os_str())?,
+        match cache {
+            CacheMode::Auto => "auto",
+            CacheMode::On => "on",
+            CacheMode::Off => "off",
+        },
+        if docs { " --docs" } else { "" }
+    );
+    Ok(ACTIVATION_SCRIPT.replace("@PRODUCER@", &command))
+}
+
+// The payload is data, never eval input. Read and wait before touching the caller mapping.
+const ACTIVATION_SCRIPT: &str = r#"__pse_activate() {
+    local __pse_trace=0
+    case $- in *x*) __pse_trace=1; set +x;; esac
+    local __pse_fd __pse_pid __pse_status=0 __pse_record __pse_key __pse_decl __pse_flags
+    local -a __pse_records=()
+    local -A __pse_seen=()
+    if exec {__pse_fd}< <(@PRODUCER@); then
+        __pse_pid=$!
+        if ! mapfile -d '' -t __pse_records <&"$__pse_fd"; then __pse_status=125; fi
+        exec {__pse_fd}<&-
+        if ! wait "$__pse_pid"; then __pse_status=125; fi
+    else
+        __pse_status=125
+    fi
+    if (( __pse_status == 0 )); then
+        if (( ${#__pse_records[@]} < 3 )) || [[ ${__pse_records[0]} != pse-activation-1 || ${__pse_records[-2]} != pse-activation-end || -n ${__pse_records[-1]} ]]; then
+            __pse_status=125
+        else
+            unset '__pse_records[-1]' '__pse_records[-1]' '__pse_records[0]'
+            for __pse_record in "${__pse_records[@]}"; do
+                case $__pse_record in
+                    +*=*) __pse_key=${__pse_record%%=*}; __pse_key=${__pse_key:1};;
+                    -*) __pse_key=${__pse_record:1};;
+                    *) __pse_status=125; break;;
+                esac
+                if [[ ! $__pse_key =~ ^[a-zA-Z_][a-zA-Z_0-9]*$ || $__pse_key == __pse_* || ${__pse_seen[$__pse_key]+present} ]]; then
+                    __pse_status=125; break
+                fi
+                __pse_seen[$__pse_key]=1
+                if __pse_decl=$(declare -p "$__pse_key" 2>/dev/null); then
+                    __pse_flags=${__pse_decl#declare -}; __pse_flags=${__pse_flags%% *}
+                    case $__pse_flags in *r*|*a*|*A*|*n*) __pse_status=125; break;; esac
+                fi
+            done
+        fi
+    fi
+    if (( __pse_status == 0 )); then
+        for __pse_record in "${__pse_records[@]}"; do
+            case $__pse_record in
+                +*) export "${__pse_record:1}";;
+                -*) unset "${__pse_record:1}";;
+            esac
+        done
+    fi
+    if (( __pse_trace )); then set -x; fi
+    return "$__pse_status"
+}
+if __pse_activate; then
+    unset -f __pse_activate
+else
+    unset -f __pse_activate
+    false
+fi
+"#;
+
+/// Fixed environment command: explanation and script generation never evaluate personal code.
 pub fn run_cli(arguments: &[OsString]) -> Result<i32, EnvironmentError> {
-    let print = arguments.iter().any(|argument| argument == "--print");
-    let explain = arguments.iter().any(|argument| argument == "--explain");
-    let json = arguments.iter().any(|argument| argument == "--json");
-    if arguments
-        .iter()
-        .any(|argument| argument != "--print" && argument != "--explain" && argument != "--json")
-        || (print && explain)
-        || (json && !explain)
-    {
-        return Err(failure("expected --print or --explain [--json]"));
+    let mut print = false;
+    let mut explain = false;
+    let mut json = false;
+    let mut transfer = false;
+    let mut docs = false;
+    let mut selected_root = None;
+    let mut cache = CacheMode::Auto;
+    let mut args = arguments.iter();
+    while let Some(argument) = args.next() {
+        match argument.to_str() {
+            Some("--help" | "-h") => {
+                use std::io::Write as _;
+                std::io::stdout()
+                    .lock()
+                    .write_all(b"env --print|--explain [--json] [--docs] [--cache auto|on|off]\n")
+                    .map_err(|error| failure(error.to_string()))?;
+                return Ok(0);
+            }
+            Some("--print") => print = true,
+            Some("--explain") => explain = true,
+            Some("--json") => json = true,
+            Some("--activation-data") => transfer = true,
+            Some("--docs") => docs = true,
+            Some("--root") => {
+                selected_root = Some(PathBuf::from(
+                    args.next()
+                        .ok_or_else(|| failure("--root requires a path"))?,
+                ))
+            }
+            Some("--cache") => {
+                cache = match args.next().and_then(|arg| arg.to_str()) {
+                    Some("auto") => CacheMode::Auto,
+                    Some("on") => CacheMode::On,
+                    Some("off") => CacheMode::Off,
+                    _ => return Err(failure("--cache requires auto, on or off")),
+                }
+            }
+            _ => {
+                return Err(failure(
+                    "expected --print or --explain [--json] [--docs] [--cache auto|on|off]",
+                ));
+            }
+        }
     }
-    let mut root = std::env::current_dir().map_err(|error| failure(error.to_string()))?;
+    if u8::from(print) + u8::from(explain) + u8::from(transfer) != 1
+        || (json && !explain)
+        || (selected_root.is_some() && !transfer)
+    {
+        return Err(failure("select exactly one environment operation"));
+    }
+    let mut root = selected_root
+        .unwrap_or(std::env::current_dir().map_err(|error| failure(error.to_string()))?);
     while !root.join(".config/diagnostic-tools.toml").is_file() {
         if !root.pop() {
             return Err(failure(
@@ -699,18 +874,27 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, EnvironmentError> {
         }
     }
     let caller = std::env::vars_os().collect();
-    let plan = if print {
-        activate(&root, &caller, &Environment::new())?
-    } else {
-        resolve_with_local(&root, &caller, None, &Environment::new())?
-    };
     let output = if print {
-        plan.render_exports(&caller)?
-    } else if arguments
-        .iter()
-        .all(|argument| argument == "--explain" || argument == "--json")
-    {
-        let selected: [&str; 8] = [
+        activation_script(
+            &std::env::current_exe().map_err(|error| failure(error.to_string()))?,
+            &root,
+            docs,
+            cache,
+        )?
+        .into_bytes()
+    } else if transfer {
+        use std::os::unix::fs::FileTypeExt as _;
+        let kind = std::fs::metadata("/proc/self/fd/1")
+            .map_err(|error| failure(error.to_string()))?
+            .file_type();
+        if !kind.is_fifo() && !kind.is_socket() {
+            return Err(failure("activation data requires a private pipe"));
+        }
+        activate_with_options(&root, &caller, &Environment::new(), cache, docs)?
+            .activation_transfer(&caller)?
+    } else {
+        let plan = resolve_with_options(&root, &caller, None, &Environment::new(), cache, docs)?;
+        let selected: [&str; 9] = [
             "PSE_BUILD_MODE",
             "CARGO_BUILD_JOBS",
             "RUSTC_WRAPPER",
@@ -719,23 +903,23 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, EnvironmentError> {
             "PSE_SURREAL_STATE",
             "UV_PROJECT_ENVIRONMENT",
             "PSE_PYTHON",
+            "PSE_TELEMETRY_CONFIGURATION_STATUS",
         ];
         let values: BTreeMap<_, _> = selected
             .into_iter()
             .map(|name| (name, get(&plan.values, name).and_then(OsStr::to_str)))
             .collect();
-        serde_json::to_string_pretty(
+        (serde_json::to_string_pretty(
             &serde_json::json!({"local_unresolved":plan.local_unresolved,"selections":values}),
         )
         .map_err(|error| failure(error.to_string()))?
-            + "\n"
-    } else {
-        return Err(failure("expected --print or --explain [--json]"));
+            + "\n")
+            .into_bytes()
     };
     use std::io::Write as _;
     std::io::stdout()
         .lock()
-        .write_all(output.as_bytes())
+        .write_all(&output)
         .map_err(|error| failure(error.to_string()))?;
     Ok(0)
 }
@@ -743,6 +927,15 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, EnvironmentError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn environment_invalid_toml_does_not_quote_private_configuration() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("private.toml");
+        std::fs::write(&path, "credential = 'private-credential-value\n").unwrap();
+        let error = read_toml(&path).unwrap_err().to_string();
+        assert!(!error.contains("private-credential-value"));
+        assert!(error.contains("invalid configuration"));
+    }
     fn map(values: &[(&str, &str)]) -> Environment {
         values
             .iter()
@@ -754,6 +947,7 @@ mod tests {
             root: "/checkout".into(),
             python: "3.14.8".into(),
             jobs: "32".into(),
+            rust_stack_bytes: 16 << 20,
             cache_binary: Some("/tools/sccache".into()),
             cache_size: "100G".into(),
             cache_frame: "268435456".into(),
@@ -885,19 +1079,30 @@ mod tests {
         );
     }
     #[test]
-    fn local_secret_is_deferred_and_unresolved_render_refuses() {
+    fn local_secret_is_private_transfer_and_unresolved_transfer_refuses() {
         let caller = map(&[("HOME", "/home/test")]);
         let mut settings = settings();
         settings.local_pending = true;
         let local = map(&[("API_TOKEN", "secret-do-not-render")]);
         let plan = compose(&settings, &caller, &local, &Environment::new()).unwrap();
-        let rendered = plan.render_exports(&caller).unwrap();
+        let rendered = activation_script(
+            Path::new("/native/host"),
+            Path::new("/checkout"),
+            false,
+            CacheMode::Auto,
+        )
+        .unwrap();
         assert!(!rendered.contains("secret-do-not-render"));
-        assert!(rendered.contains("API_TOKEN="));
+        assert!(
+            plan.activation_transfer(&caller)
+                .unwrap()
+                .split(|byte| *byte == 0)
+                .any(|part| part == b"+API_TOKEN=secret-do-not-render")
+        );
         assert!(
             compose(&settings, &caller, &Environment::new(), &Environment::new())
                 .unwrap()
-                .render_exports(&caller)
+                .activation_transfer(&caller)
                 .is_err()
         );
     }
@@ -949,6 +1154,11 @@ mod tests {
         )
         .unwrap();
         std::fs::write(root.path().join(".config/sccache.toml"), "").unwrap();
+        std::fs::write(
+            root.path().join(".config/agent-capacity.toml"),
+            "[test-runner]\nrust_thread_stack_mib=16\n",
+        )
+        .unwrap();
         root
     }
     #[test]
@@ -983,6 +1193,97 @@ mod tests {
         insert(&mut caller, "PSE_SCCACHE_BINARY", script.into_os_string());
         assert!(EnvironmentSettings::load(root.path(), &caller).is_err());
     }
+    #[test]
+    fn cache_off_skips_stale_cache_selection_and_on_refuses_foreign_wrapper() {
+        let root = declaration_fixture();
+        let caller = map(&[
+            ("HOME", root.path().to_str().unwrap()),
+            ("PSE_SCCACHE_BINARY", "/missing/cache"),
+        ]);
+        let off = resolve_with_options(
+            root.path(),
+            &caller,
+            Some(&Environment::new()),
+            &Environment::new(),
+            CacheMode::Off,
+            false,
+        )
+        .unwrap();
+        assert_eq!(get(&off.values, "RUSTC_WRAPPER"), Some(OsStr::new("")));
+        assert!(
+            compose_with_cache(
+                &settings(),
+                &map(&[
+                    ("HOME", "/home/test"),
+                    ("RUSTC_WRAPPER", "/foreign/wrapper")
+                ]),
+                &Environment::new(),
+                &Environment::new(),
+                CacheMode::On
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn rust_stack_uses_one_policy_scalar_and_preserves_valid_explicit_bytes() {
+        let root = declaration_fixture();
+        let mut caller = map(&[("HOME", root.path().to_str().unwrap())]);
+        let defaults = resolve(
+            root.path(),
+            &caller,
+            &Environment::new(),
+            &Environment::new(),
+        )
+        .unwrap();
+        assert_eq!(
+            get(&defaults.values, "RUST_MIN_STACK"),
+            Some(OsStr::new("16777216"))
+        );
+        insert(&mut caller, "RUST_MIN_STACK", "0004096");
+        assert_eq!(
+            get(
+                &resolve(
+                    root.path(),
+                    &caller,
+                    &Environment::new(),
+                    &Environment::new()
+                )
+                .unwrap()
+                .values,
+                "RUST_MIN_STACK"
+            ),
+            Some(OsStr::new("0004096"))
+        );
+        for invalid in ["", "0", "-1", "1.5", " 1024", "18446744073709551616"] {
+            insert(&mut caller, "RUST_MIN_STACK", invalid);
+            assert!(
+                resolve(
+                    root.path(),
+                    &caller,
+                    &Environment::new(),
+                    &Environment::new()
+                )
+                .is_err()
+            );
+        }
+        caller.remove(OsStr::new("RUST_MIN_STACK"));
+        std::fs::write(
+            root.path().join(".config/agent-capacity.toml"),
+            "[test-runner]\nrust_thread_stack_mib=0\n",
+        )
+        .unwrap();
+        assert!(
+            resolve(
+                root.path(),
+                &caller,
+                &Environment::new(),
+                &Environment::new()
+            )
+            .is_err()
+        );
+    }
+
     #[test]
     fn empty_evaluated_local_map_is_not_an_unread_file() {
         let root = declaration_fixture();
@@ -1027,9 +1328,15 @@ mod tests {
             std::fs::read(root.path().join("activation-counter")).unwrap(),
             b"hit"
         );
-        let shell = plan.render_exports(&caller).unwrap();
+        let shell = activation_script(
+            Path::new("/native/host"),
+            root.path(),
+            false,
+            CacheMode::Auto,
+        )
+        .unwrap();
         assert!(!shell.contains("private-local-secret"));
-        assert!(shell.contains("API_TOKEN="));
+        assert!(plan.activation_transfer(&caller).is_ok());
     }
     #[test]
     fn activation_keeps_private_derived_paths_in_the_typed_mapping() {
@@ -1046,7 +1353,7 @@ mod tests {
             root.path()
                 .join("private-state/pse-arrow/surreal-functional-v2")
         );
-        assert!(plan.render_exports(&caller).is_err());
+        assert!(plan.activation_transfer(&caller).is_ok());
     }
     #[test]
     fn activation_does_not_expose_shell_error_output_or_accept_early_success_exit() {
@@ -1098,6 +1405,7 @@ mod native_wrapper_reentry {
             root: "/checkout".into(),
             python: "3.14.8".into(),
             jobs: "32".into(),
+            rust_stack_bytes: 16 << 20,
             cache_binary: Some("/tools/sccache".into()),
             cache_size: "100G".into(),
             cache_frame: "268435456".into(),

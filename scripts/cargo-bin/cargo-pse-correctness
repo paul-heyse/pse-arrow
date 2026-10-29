@@ -1,12 +1,12 @@
-#!/usr/bin/env python3
+#!/bin/sh
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Cargo external command used by the scoped correctness aliases."""
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from scripts.arrow_validation import main
-
-# Cargo supplies the external subcommand name as its first argument.
-raise SystemExit(main(sys.argv[2:]))
+# Cargo's external-subcommand argv convention is consumed by the native binary.
+set -eu
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
+tool="$root/target/host-tools/current/cargo-pse-correctness"
+if [ ! -x "$tool" ]; then
+    echo "pse-correctness: native tools are not prepared; run scripts/bootstrap-host explicitly" >&2
+    exit 125
+fi
+exec "$tool" "$@"

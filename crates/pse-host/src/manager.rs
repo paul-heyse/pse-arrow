@@ -18,7 +18,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use zbus::{Connection, OwnedVariant, Variant, proxy::CacheProperties};
-use zbus_systemd::systemd1::{ManagerProxy, ScopeProxy, ServiceProxy, UnitProxy};
+use zbus_systemd::systemd1::{ManagerProxy, ScopeProxy, ServiceProxy, SliceProxy, UnitProxy};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 const DESTINATION: &str = "org.freedesktop.systemd1";
@@ -32,6 +32,12 @@ pub struct LaunchIntent {
     description: String,
 }
 impl LaunchIntent {
+    /// Fresh native foreground scope identity.
+    pub fn fresh_scope() -> Result<Self, HostError> {
+        let mut value = Self::fresh()?;
+        value.unit = value.unit.replace(".service", ".scope");
+        Ok(value)
+    }
     /// Original unique unit name, without construction authority.
     pub fn unit(&self) -> &str {
         &self.unit
@@ -285,21 +291,37 @@ impl HostManager {
             return Err(HostError::Ownership("kernel boot changed".into()));
         }
         let unit = self.unit(name).await?;
-        let service = ServiceProxy::builder(&self.connection)
-            .destination(self.owner.as_str())
-            .path(unit.inner().path().to_owned())
-            .cache_properties(CacheProperties::No)
-            .build()
-            .await?;
         let invocation = unit.invocation_id().await?;
+        let (main_pid, exit_code, exit_status, control_group) = if name.ends_with(".scope") {
+            let scope = ScopeProxy::builder(&self.connection)
+                .destination(self.owner.as_str())
+                .path(unit.inner().path().to_owned())
+                .cache_properties(CacheProperties::No)
+                .build()
+                .await?;
+            (0, 0, 0, scope.control_group().await?)
+        } else {
+            let service = ServiceProxy::builder(&self.connection)
+                .destination(self.owner.as_str())
+                .path(unit.inner().path().to_owned())
+                .cache_properties(CacheProperties::No)
+                .build()
+                .await?;
+            (
+                service.main_pid().await?,
+                service.exec_main_code().await?,
+                service.exec_main_status().await?,
+                service.control_group().await?,
+            )
+        };
         let observation = UnitObservation {
             unit: name.to_owned(),
             active_state: unit.active_state().await?,
             sub_state: unit.sub_state().await?,
-            main_pid: service.main_pid().await?,
-            exit_code: service.exec_main_code().await?,
-            exit_status: service.exec_main_status().await?,
-            control_group: service.control_group().await?,
+            main_pid,
+            exit_code,
+            exit_status,
+            control_group,
             invocation: invocation.clone(),
         };
         if unit.invocation_id().await? != invocation {
@@ -308,6 +330,180 @@ impl HostManager {
             ));
         }
         Ok(observation)
+    }
+    /// Authenticate the current process membership against the same native manager.
+    pub async fn current_unit(&self) -> Result<UnitObservation, HostError> {
+        self.validate_view()?;
+        let path = self
+            .manager()
+            .await?
+            .get_unit_by_pid(std::process::id())
+            .await?;
+        let unit = UnitProxy::builder(&self.connection)
+            .destination(self.owner.as_str())
+            .path(path)
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?;
+        let observation = self.observe(&unit.id().await?).await?;
+        if observation.control_group != process_group(std::process::id())? {
+            return Err(HostError::Ownership(
+                "current process and manager membership disagree".into(),
+            ));
+        }
+        Ok(observation)
+    }
+    /// Resolve the prior scope's actual slice and manager's ordinary task limit.
+    pub async fn foreground_placement(
+        &self,
+        observed: &UnitObservation,
+    ) -> Result<(String, String, u64), HostError> {
+        if !observed.unit.ends_with(".scope") {
+            return Err(HostError::Ownership(
+                "foreground entry requires an application scope".into(),
+            ));
+        }
+        let unit = self.unit(&observed.unit).await?;
+        let scope = ScopeProxy::builder(&self.connection)
+            .destination(self.owner.as_str())
+            .path(unit.inner().path().to_owned())
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?;
+        let slice = scope.slice().await?;
+        let slice_unit = self.unit(&slice).await?;
+        let slice_proxy = SliceProxy::builder(&self.connection)
+            .destination(self.owner.as_str())
+            .path(slice_unit.inner().path().to_owned())
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?;
+        let group = slice_proxy.control_group().await?;
+        if Path::new(&observed.control_group).parent() != Some(Path::new(&group)) {
+            return Err(HostError::Ownership(
+                "prior application scope does not have the selected slice as its direct parent"
+                    .into(),
+            ));
+        }
+        Ok((
+            slice,
+            group,
+            self.manager().await?.default_tasks_max().await?,
+        ))
+    }
+    /// Authenticate the native workload role using manager dependency facts;
+    /// an environment marker alone never establishes enclosing containment.
+    pub async fn native_workload(&self, observed: &UnitObservation) -> Result<bool, HostError> {
+        let Some(nonce) = observed
+            .unit
+            .strip_prefix("pse-host-")
+            .and_then(|value| value.strip_suffix(".scope"))
+        else {
+            return Ok(false);
+        };
+        let unit = self.unit(&observed.unit).await?;
+        if unit.description().await? != format!("pse-host original {nonce}") {
+            return Ok(false);
+        }
+        for parent in unit.binds_to().await? {
+            let Some(parent_nonce) = parent
+                .strip_prefix("pse-host-")
+                .and_then(|value| value.strip_suffix(".scope"))
+            else {
+                continue;
+            };
+            let owner = self.unit(&parent).await?;
+            if owner.description().await? == format!("pse-host original {parent_nonce}")
+                && unit.after().await?.contains(&parent)
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+    /// Reconcile a generated intent, distinguishing authoritative absence from uncertainty.
+    pub async fn reconcile_if_present(
+        &self,
+        intent: &LaunchIntent,
+        deadline: Instant,
+    ) -> Result<Option<OwnedUnit>, HostError> {
+        tokio::time::timeout_at(deadline.into(), async {
+            self.validate_view()?;
+            match self.unit(intent.unit()).await {
+                Err(HostError::Manager(zbus::Error::MethodError(name, _, _)))
+                    if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit" =>
+                {
+                    Ok(None)
+                }
+                Err(error) => Err(error),
+                Ok(_) => self.reconcile(intent, deadline).await.map(Some),
+            }
+        })
+        .await
+        .map_err(|_| HostError::Deadline("original scope reconciliation".into()))?
+    }
+    /// Create one private scope from a kernel process descriptor, never a recycled PID.
+    pub async fn start_scope(
+        &self,
+        intent: &LaunchIntent,
+        pidfd: std::os::fd::OwnedFd,
+        binds_to: &str,
+        slice: &str,
+        deadline: Instant,
+        stop_timeout: Duration,
+    ) -> Result<OwnedUnit, HostError> {
+        if Instant::now() >= deadline {
+            return Err(HostError::Deadline(
+                "scope launch expired before dispatch".into(),
+            ));
+        }
+        tokio::time::timeout_at(deadline.into(), async {
+            self.validate_view()?;
+            let manager = self.manager().await?;
+            let mut removed = manager.receive_job_removed().await?;
+            let fd = zbus::wire::Fd::from(pidfd);
+            let properties = vec![
+                property("AddRef", true)?,
+                property("Description", intent.description.clone())?,
+                property("Slice", slice.to_owned())?,
+                property("PIDFDs", vec![fd])?,
+                property("KillMode", "control-group".to_owned())?,
+                property("CollectMode", "inactive-or-failed".to_owned())?,
+                property(
+                    "TimeoutStopUSec",
+                    u64::try_from(stop_timeout.as_micros()).map_err(|_| {
+                        HostError::Ownership("scope timeout exceeds manager range".into())
+                    })?,
+                )?,
+                property("BindsTo", vec![binds_to.to_owned()])?,
+                property("After", vec![binds_to.to_owned()])?,
+            ];
+            let job = manager
+                .start_transient_unit(intent.unit.clone(), "fail".into(), properties, vec![])
+                .await?;
+            loop {
+                let signal = removed
+                    .next()
+                    .await
+                    .ok_or_else(|| HostError::Ownership("scope job stream closed".into()))?;
+                let args = signal.args()?;
+                if args.job() == &job {
+                    if args.unit() != &intent.unit || args.result() != "done" {
+                        return Err(HostError::Ownership(format!(
+                            "scope activation: {}",
+                            args.result()
+                        )));
+                    }
+                    break;
+                }
+            }
+            self.reconcile_inner(intent).await
+        })
+        .await
+        .map_err(|_| HostError::UnknownLaunch {
+            unit: intent.unit.clone(),
+            detail: "absolute scope startup deadline".into(),
+        })?
     }
     /// Start a new native service, binding its identity before returning a performing capability.
     pub async fn start_service(
@@ -411,7 +607,25 @@ impl HostManager {
         owned.launch_job_result = Some(job_result);
         Ok(owned)
     }
-    /// Recover only the exact original acknowledged/uncertain intent, without repeating launch.
+    async fn require_reference(&self, unit: &UnitProxy<'_>) -> Result<(), HostError> {
+        let client = self
+            .connection
+            .unique_name()
+            .ok_or_else(|| HostError::Ownership("native bus client identity absent".into()))?;
+        if !unit
+            .refs()
+            .await?
+            .iter()
+            .any(|name| name == client.as_str())
+        {
+            return Err(HostError::Ownership(
+                "original launch client's unit reference absent".into(),
+            ));
+        }
+        Ok(())
+    }
+    /// Recover the exact original intent through its existing launch-client reference.
+    /// Reconciliation never repeats launch or increments systemd's recursive references.
     pub async fn reconcile(
         &self,
         intent: &LaunchIntent,
@@ -439,7 +653,10 @@ impl HostManager {
                 "unit invocation identity absent".into(),
             ));
         }
-        self.manager().await?.ref_unit(intent.unit.clone()).await?;
+        // StartTransientUnit atomically establishes this exact bus client's
+        // reference (AddRef). Reconciliation is observational: RefUnit counts
+        // recursively, so calling it here would leak on retries and failures.
+        self.require_reference(&unit).await?;
         let process = if observation.main_pid == 0 {
             None
         } else {
@@ -454,20 +671,11 @@ impl HostManager {
                 }
             }
         };
-        let group = match Group::open(
+        let group = Group::open(
             &observation.control_group,
-            observation.completed_status().is_some(),
-        ) {
-            Ok(group) => group,
-            Err(error) => {
-                if let Err(cleanup) = self.manager().await?.unref_unit(intent.unit.clone()).await {
-                    return Err(HostError::Ownership(format!(
-                        "{error}; unit reference cleanup: {cleanup}"
-                    )));
-                }
-                return Err(error);
-            }
-        };
+            observation.completed_status().is_some()
+                || matches!(observation.active_state.as_str(), "inactive" | "failed"),
+        )?;
         Ok(OwnedUnit {
             manager: self.clone(),
             intent: intent.clone(),
@@ -476,6 +684,7 @@ impl HostManager {
             group,
             launch_job_result: None,
             released: false,
+            reference_released: false,
         })
     }
 }
@@ -589,7 +798,7 @@ impl BorrowedUnit {
     }
 }
 
-/// Performing ownership of an original service; failure retains this capability.
+/// Performing ownership of an original private service or scope; failure retains this capability.
 #[must_use = "owned units require explicit stop/drain; dropping a handle does not establish release"]
 #[derive(Debug)]
 pub struct OwnedUnit {
@@ -600,6 +809,7 @@ pub struct OwnedUnit {
     group: Group,
     launch_job_result: Option<String>,
     released: bool,
+    reference_released: bool,
 }
 impl OwnedUnit {
     /// Correlated management-job result, distinct from the actual child exit.
@@ -613,7 +823,15 @@ impl OwnedUnit {
     }
     /// Observe only while the original unit invocation remains selected.
     pub async fn observe(&self) -> Result<UnitObservation, HostError> {
+        if self.reference_released {
+            return Err(HostError::Ownership(
+                "owned unit capability already relinquished".into(),
+            ));
+        }
         let result = self.manager.observe(&self.intent.unit).await?;
+        self.manager
+            .require_reference(&self.manager.unit(&self.intent.unit).await?)
+            .await?;
         if result.invocation != self.invocation {
             return Err(HostError::Ownership("unit invocation changed".into()));
         }
@@ -666,6 +884,7 @@ impl OwnedUnit {
             {
                 manager.unref_unit(self.intent.unit.clone()).await?;
                 self.released = true;
+                self.reference_released = true;
                 return Ok(observation);
             }
             if Instant::now() >= deadline {
@@ -675,6 +894,57 @@ impl OwnedUnit {
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
+    }
+    /// Establish the exact initial scope population before releasing the exec gate.
+    pub async fn assert_population(&self, expected: &[u32]) -> Result<(), HostError> {
+        self.observe().await?;
+        let directory = self
+            .group
+            .directory
+            .as_ref()
+            .ok_or_else(|| HostError::Ownership("initial scope directory absent".into()))?;
+        let fd = rustix::fs::openat(
+            directory,
+            "cgroup.procs",
+            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NOFOLLOW,
+            rustix::fs::Mode::empty(),
+        )
+        .map_err(io::Error::from)?;
+        let mut contents = String::new();
+        File::from(fd).read_to_string(&mut contents)?;
+        let mut actual = contents
+            .lines()
+            .map(|line| {
+                line.parse::<u32>().map_err(|error| {
+                    HostError::Ownership(format!("invalid cgroup population: {error}"))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        actual.sort_unstable();
+        let mut expected = expected.to_vec();
+        expected.sort_unstable();
+        if actual != expected {
+            return Err(HostError::Ownership(
+                "initial scope population differs".into(),
+            ));
+        }
+        Ok(())
+    }
+    /// Release the manager reference without stopping the controller's own scope.
+    /// Scope lifetime remains its population; dependent workloads bind to that lifetime.
+    pub async fn release_reference(&mut self, deadline: Instant) -> Result<(), HostError> {
+        tokio::time::timeout_at(deadline.into(), async {
+            self.observe().await?;
+            self.manager
+                .manager()
+                .await?
+                .unref_unit(self.intent.unit.clone())
+                .await?;
+            self.reference_released = true;
+            Ok(())
+        })
+        .await
+        .map_err(|_| HostError::Deadline("owner reference settlement".into()))?
     }
     /// Whether explicit physical settlement succeeded, never inferred from Drop.
     pub fn released(&self) -> bool {
@@ -945,6 +1215,40 @@ mod tests {
             }
         }
         assert!(failures.is_empty(), "{failures:#?}");
+    }
+    #[tokio::test]
+    async fn repeated_original_reconciliation_never_adds_manager_references() {
+        let manager = HostManager::connect_user(None).await.unwrap();
+        let spec = ServiceSpec {
+            intent: LaunchIntent::fresh().unwrap(),
+            executable: "/bin/sh".into(),
+            arguments: vec!["-c".into(), "exit 7".into()],
+            environment: vec![],
+        };
+        let deadline = Instant::now() + Duration::from_secs(15);
+        let mut original = manager.start_service(&spec, deadline).await.unwrap();
+        let duplicate = manager.reconcile(&spec.intent, deadline).await.unwrap();
+        let second = manager.reconcile(&spec.intent, deadline).await.unwrap();
+        original.stop_and_drain(deadline).await.unwrap();
+        // One unref must remove the original sender completely, regardless of
+        // how often that same original intent was reconciled.
+        let retained = match manager.unit(spec.intent.unit()).await {
+            Ok(unit) => unit.refs().await.unwrap().iter().any(|name| {
+                Some(name.as_str()) == manager.connection.unique_name().map(|value| value.as_str())
+            }),
+            Err(HostError::Manager(zbus::Error::MethodError(name, _, _)))
+                if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit" =>
+            {
+                false
+            }
+            Err(error) => panic!("original unit reference observation failed: {error}"),
+        };
+        assert!(
+            !retained,
+            "reconciliation added an extra numeric sender reference"
+        );
+        assert!(duplicate.observe().await.is_err());
+        assert!(second.observe().await.is_err());
     }
     #[test]
     fn manager_view_rejects_nested_or_ambiguous_pid_mounts() {

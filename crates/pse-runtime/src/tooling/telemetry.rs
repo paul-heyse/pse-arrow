@@ -17,7 +17,7 @@ use opentelemetry_sdk::{
     propagation::TraceContextPropagator,
     trace::{SdkTracerProvider, SpanProcessor},
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::{
     collections::{BTreeMap, HashMap},
     sync::{Arc, Mutex, OnceLock},
@@ -320,45 +320,19 @@ impl SpanProcessor for ObservedBatchProcessor {
     }
 }
 
-/// A configuration/initialization failure never changes a scientific outcome.
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
-#[error("telemetry initialization refused: {0}")]
-#[diagnostic(code(config::invalid))]
-pub struct TelemetryError(pub String);
+pub use pse_diagnostics::telemetry_settings::{
+    SETTINGS_ENV, SETTINGS_VERSION, Settings, SignalSettings, TelemetryError, TelemetrySampler,
+};
+#[cfg(test)]
+use pse_diagnostics::telemetry_settings::{
+    TELEMETRY_METRIC_INTERVAL_MAX_MS, TELEMETRY_MINIMUM, TELEMETRY_QUEUE_MAX, TELEMETRY_RATIO_MAX,
+    TELEMETRY_RATIO_MIN, TELEMETRY_TIMEOUT_MAX_MS,
+};
 
-/// Private resolved telemetry wire version.
-pub const SETTINGS_VERSION: u32 = 1;
-
-// Scalar bounds are shared by runtime admission and the generated bootstrap schema.
-const TELEMETRY_MINIMUM: u64 = 1;
-const TELEMETRY_TIMEOUT_MAX_MS: u64 = 60_000;
-const TELEMETRY_QUEUE_MAX: usize = 65_536;
-const TELEMETRY_METRIC_INTERVAL_MAX_MS: u64 = 3_600_000;
-const TELEMETRY_RATIO_MIN: f64 = 0.0;
-const TELEMETRY_RATIO_MAX: f64 = 1.0;
-
-/// Standard sampler selection shared with embedding process hosts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum TelemetrySampler {
-    /// Sample every root span.
-    AlwaysOn,
-    /// Sample no root span.
-    AlwaysOff,
-    /// Sample roots by their trace ID and configured ratio.
-    #[serde(rename = "traceidratio")]
-    TraceIdRatio,
-    /// Honor the parent, sampling every root span.
-    #[serde(rename = "parentbased_always_on")]
-    ParentBasedAlwaysOn,
-    /// Honor the parent, sampling no root span.
-    #[serde(rename = "parentbased_always_off")]
-    ParentBasedAlwaysOff,
-    /// Honor the parent, sampling roots by trace ID and ratio.
-    #[serde(rename = "parentbased_traceidratio")]
-    ParentBasedTraceIdRatio,
+trait SdkSampler {
+    fn sdk(self, argument: f64) -> opentelemetry_sdk::trace::Sampler;
 }
-impl TelemetrySampler {
+impl SdkSampler for TelemetrySampler {
     fn sdk(self, argument: f64) -> opentelemetry_sdk::trace::Sampler {
         use opentelemetry_sdk::trace::Sampler;
         match self {
@@ -371,154 +345,6 @@ impl TelemetrySampler {
                 Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(argument)))
             }
         }
-    }
-}
-
-/// Resolved signal settings; environment precedence belongs to the host resolver.
-#[derive(Clone, Deserialize, Serialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SignalSettings {
-    /// Whether the host selected this signal.
-    pub enabled: bool,
-    /// Fully resolved signal URL; private and never rendered.
-    pub endpoint: Option<String>,
-    /// Resolved authentication/transport headers; never rendered.
-    pub headers: HashMap<String, String>,
-    /// Actual transport request timeout in milliseconds.
-    #[schemars(range(min = TELEMETRY_MINIMUM, max = TELEMETRY_TIMEOUT_MAX_MS))]
-    pub timeout_ms: u64,
-}
-/// Shared Python/Rust host settings. Credentials are never Debug; serialization is private launcher transport.
-#[derive(Clone, Deserialize, Serialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct Settings {
-    /// Shared host settings document version.
-    #[schemars(extend("const" = SETTINGS_VERSION))]
-    pub schema_version: u32,
-    /// Process-wide telemetry disable selection.
-    pub disabled: bool,
-    /// Resolved trace selection.
-    pub traces: SignalSettings,
-    /// Resolved log selection.
-    pub logs: SignalSettings,
-    /// Resolved metric selection.
-    pub metrics: SignalSettings,
-    /// Shared process/service attributes; SDK attributes are Rust-owned.
-    pub resource: BTreeMap<String, String>,
-    /// Incarnation shared with the embedding Python host in this actual process.
-    pub process_incarnation: String,
-    /// SDK finite batch queue capacity.
-    #[schemars(range(min = TELEMETRY_MINIMUM, max = TELEMETRY_QUEUE_MAX))]
-    pub max_queue_size: usize,
-    /// SDK maximum items per export batch.
-    #[schemars(range(min = TELEMETRY_MINIMUM, max = TELEMETRY_QUEUE_MAX))]
-    pub max_export_batch_size: usize,
-    /// SDK periodic batch delay.
-    #[schemars(range(min = TELEMETRY_MINIMUM, max = TELEMETRY_TIMEOUT_MAX_MS))]
-    pub schedule_delay_ms: u64,
-    /// Host-requested SDK shutdown wait; transport deadlines remain independent.
-    #[schemars(range(min = TELEMETRY_MINIMUM, max = TELEMETRY_TIMEOUT_MAX_MS))]
-    pub export_timeout_ms: u64,
-    /// Dedicated metric reader interval.
-    #[schemars(range(min = TELEMETRY_MINIMUM, max = TELEMETRY_METRIC_INTERVAL_MAX_MS))]
-    pub metric_export_interval_ms: u64,
-    /// Standard sampler name selected by the host resolver.
-    pub sampler: TelemetrySampler,
-    /// Ratio argument for ratio-based samplers.
-    #[schemars(range(min = TELEMETRY_RATIO_MIN, max = TELEMETRY_RATIO_MAX))]
-    pub sampler_argument: f64,
-}
-impl std::fmt::Debug for SignalSettings {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SignalSettings")
-            .field("enabled", &self.enabled)
-            .field("timeout_ms", &self.timeout_ms)
-            .finish_non_exhaustive()
-    }
-}
-impl std::fmt::Debug for Settings {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Settings")
-            .field("disabled", &self.disabled)
-            .field("traces", &self.traces)
-            .field("logs", &self.logs)
-            .field("metrics", &self.metrics)
-            .finish_non_exhaustive()
-    }
-}
-impl Settings {
-    /// Parse and validate the bounded resolved host document without rendering secrets.
-    pub fn from_json(json: &str) -> Result<Self, TelemetryError> {
-        if json.len() > 65536 {
-            return Err(TelemetryError("settings exceed 64 KiB".into()));
-        }
-        let settings: Self = serde_json::from_str(json)
-            .map_err(|_| TelemetryError("invalid resolved settings document".into()))?;
-        settings.validate()?;
-        Ok(settings)
-    }
-    fn validate(&self) -> Result<(), TelemetryError> {
-        if self.schema_version != SETTINGS_VERSION
-            || self.process_incarnation.is_empty()
-            || self.resource.get("service.instance.id") != Some(&self.process_incarnation)
-            || (self.max_queue_size < TELEMETRY_MINIMUM as usize
-                || self.max_queue_size > TELEMETRY_QUEUE_MAX)
-            || self.max_export_batch_size < TELEMETRY_MINIMUM as usize
-            || self.max_export_batch_size > TELEMETRY_QUEUE_MAX
-            || self.max_export_batch_size > self.max_queue_size
-            || (self.schedule_delay_ms < TELEMETRY_MINIMUM
-                || self.schedule_delay_ms > TELEMETRY_TIMEOUT_MAX_MS)
-            || (self.export_timeout_ms < TELEMETRY_MINIMUM
-                || self.export_timeout_ms > TELEMETRY_TIMEOUT_MAX_MS)
-            || (self.metric_export_interval_ms < TELEMETRY_MINIMUM
-                || self.metric_export_interval_ms > TELEMETRY_METRIC_INTERVAL_MAX_MS)
-            || !self.sampler_argument.is_finite()
-            || !(TELEMETRY_RATIO_MIN..=TELEMETRY_RATIO_MAX).contains(&self.sampler_argument)
-        {
-            return Err(TelemetryError(
-                "invalid shared identity, schema or batch bounds".into(),
-            ));
-        }
-        for signal in [&self.traces, &self.logs, &self.metrics] {
-            if signal.timeout_ms < TELEMETRY_MINIMUM || signal.timeout_ms > TELEMETRY_TIMEOUT_MAX_MS
-            {
-                return Err(TelemetryError("signal timeout outside host bounds".into()));
-            }
-            if signal.headers.len() > 32
-                || signal
-                    .headers
-                    .iter()
-                    .map(|(key, value)| key.len() + value.len())
-                    .sum::<usize>()
-                    > 8192
-                || signal.headers.iter().any(|(key, value)| {
-                    reqwest::header::HeaderName::from_bytes(key.as_bytes()).is_err()
-                        || reqwest::header::HeaderValue::from_str(value).is_err()
-                })
-            {
-                return Err(TelemetryError("invalid bounded signal headers".into()));
-            }
-            if signal.enabled && !self.disabled && signal.endpoint.is_none() {
-                return Err(TelemetryError("enabled signal lacks endpoint".into()));
-            }
-            if let Some(endpoint) = &signal.endpoint {
-                let url = reqwest::Url::parse(endpoint)
-                    .map_err(|_| TelemetryError("invalid signal endpoint".into()))?;
-                if !matches!(url.scheme(), "http" | "https")
-                    || url.host_str().is_none()
-                    || !url.username().is_empty()
-                    || url.password().is_some()
-                    || url.query().is_some()
-                    || url.fragment().is_some()
-                {
-                    return Err(TelemetryError("unsupported signal transport".into()));
-                }
-            }
-        }
-        Ok(())
-    }
-    fn sampler(&self) -> opentelemetry_sdk::trace::Sampler {
-        self.sampler.sdk(self.sampler_argument)
     }
 }
 
@@ -648,8 +474,6 @@ pub(crate) fn diagnostic(error: &dyn pse_diagnostics::TypedDiagnostic, owner: &'
 
 /// Child-launch context is a separate diagnostic environment field, never request source.
 pub const CHILD_CARRIER_ENV: &str = "PSE_NATIVE_TRACE_CONTEXT";
-/// Resolved host settings passed only by selected fixed executable launchers.
-pub const SETTINGS_ENV: &str = "PSE_NATIVE_TELEMETRY_SETTINGS";
 
 /// Process-host handles. Shutdown only after native owners settle, outside async execution.
 static ACTIVE_SETTINGS: OnceLock<Settings> = OnceLock::new();
@@ -1051,7 +875,7 @@ impl Host {
             Some(
                 SdkTracerProvider::builder()
                     .with_resource(resource.clone())
-                    .with_sampler(settings.sampler())
+                    .with_sampler(settings.sampler.sdk(settings.sampler_argument))
                     .with_span_processor(ObservedBatchProcessor::new(
                         opentelemetry_sdk::trace::BatchSpanProcessor::builder(exporter)
                             .with_batch_config(batch)
