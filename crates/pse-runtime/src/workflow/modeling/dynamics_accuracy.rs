@@ -1196,7 +1196,7 @@ fn point_arithmetic_inputs(
 impl ModelingSimulation {
     fn point_uncertainty(
         &self,
-        math: &Arc<crate::math::MathService>,
+        _math: &Arc<crate::math::MathService>,
         request: PointUncertaintyRequest<'_>,
     ) -> Result<Option<(f64, ContentHash)>, ProblemError> {
         // The no-isolation backend has no point enclosure capability, so this request

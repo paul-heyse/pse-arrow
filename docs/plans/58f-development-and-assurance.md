@@ -436,3 +436,36 @@ environment and actual SCIP. Initial feature/visibility warnings were corrected 
 fixture mechanisms only for their actual consumers and narrowing test-support visibility.
 This qualifies the bounded five-row scientific comparison and its adverse controls, not all
 parity families or G03 completion. No Python candidate proxy or product CLI was introduced.
+
+## Native fitting, sensitivity and PID reference cutover — 2026-10-29
+
+The covariance, sensitivity and authored-control PID candidates now execute through the public
+local Rust construction/preparation/run surface. Their isolated reference processes import no
+candidate product, generated product types or candidate fixture adapters. The weighted-fit
+parmest estimates and inverse-information covariance retain their original physical units,
+ordering and separate comparison precision; the sIPOPT comparison retains original-coordinate
+KKT increments, frozen engineering allowances and active-bound validity. The PID candidate
+admits the real captured control-library source and retains the original sample times, gains,
+initial conditions, exact-response and IDAES/PETSc comparisons. Each exchange retains wrong,
+missing/incomplete and mixed-result outcomes. Corresponding Python candidate tests are deleted;
+other parity families and their actual shared consumers remain open F04/G03 work.
+
+The PID test uses the existing invocation capsule reader and loader-derived package closure;
+no second capture reader, package catalogue or Python producer is required for this native path.
+The explicit producer remains `cargo run --locked -p xtask --features
+physical-admission,force-validate -- scientific-inputs tests/fixtures/scientific-inputs.toml
+<output>`. Select that output with `PSE_SCIENTIFIC_INPUTS`. The parity input family now records
+its native runtime consumer; ordinary unrelated runtime tests still do not request it.
+
+**Tested:** with `scripts/pse-env --native=compiler,solver,klu --`, the extracted Ipopt prefix
+on PATH, each `PSE_{COVARIANCE,SENSITIVITY,PID}_REFERENCE_PYTHON` selecting the locked isolated
+reference interpreter and the prepared capsule above, correctness nextest `-p pse-runtime
+--locked --test reference_covariance_exchange --test reference_sensitivity_exchange --test
+reference_pid_exchange --features solver-ipopt,solver-diffsol --no-fail-fast` passes all three
+exchanges, zero failures/skips/warnings (run `597cd536-420a-4bc7-beee-02896d7e2113`). The
+scientific-input routing unit selection passes 13 controls against zero failures. An initial
+command omitted the prepared KLU capability and failed before test execution; selecting the
+actual required native closure resolves it. The narrower Diffsol build exposed an unused
+fallback parameter, now named as unused, and the shared test context is separated from the
+primitive-package helper rather than suppressing unused-helper warnings. These are bounded
+reference results, not all-parity, complete B/C/D or persistent-deployment qualification.

@@ -183,3 +183,9 @@ G02's functional retirement is complete. G01/G03, the still-used scientific Pyth
 parity candidate isolation and remaining host/runtime/control consumers are separate open work.
 These focused results do not establish assembled B/C/D/H or live exporter acceptance, and no
 performance benefit is measured. Formal ADR statuses remain unchanged.
+
+The native covariance, sensitivity and authored PID exchanges now replace their three Python
+candidate parity tests. [58f's reference cutover](58f-development-and-assurance.md#native-fitting-sensitivity-and-pid-reference-cutover--2026-10-29)
+owns their preserved scientific assertions, independent oracles, adverse controls and targeted
+results. Together with the earlier degeneracy exchange, these remove four candidate families;
+the remaining actual parity support and scientific Python/PyO3 consumers keep G01/G03 open.

@@ -325,7 +325,7 @@ roots = [
   "packages/reference/physical",
 ]
 documents = []
-consumers = ["pse-py"]
+consumers = ["pse-py", "pse-runtime"]
 projection = "authentic-transport"
 substitutions = []
 

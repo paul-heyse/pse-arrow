@@ -29,6 +29,7 @@ ROLE = "PSE_SCIENTIFIC_INPUTS"
 # Other packages retain conservative package demand until their owners are reviewed.
 RUST_TEST_OWNERS = {
     "pse-runtime": (
+        "reference_pid_exchange::",
         "workflow::modeling::forms_tests::",
         "workflow::modeling::conformance::",
         "workflow::strategies::conditional::reference_fixture::",
