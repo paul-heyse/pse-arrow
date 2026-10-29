@@ -469,3 +469,11 @@ actual required native closure resolves it. The narrower Diffsol build exposed a
 fallback parameter, now named as unused, and the shared test context is separated from the
 primitive-package helper rather than suppressing unused-helper warnings. These are bounded
 reference results, not all-parity, complete B/C/D or persistent-deployment qualification.
+
+The retained `xtask governance` launcher now delegates directly to the native
+`cargo-pse-correctness nextest` owner. Its old Python Arrow-validation command is already
+retired and unconditionally refuses; retaining that call made the advertised aggregate
+unusable. The native route keeps the original selected governance package and ordinary exits,
+without creating another runner. `just check-package xtask --bin xtask` passes with zero
+warnings/errors. The comprehensive governance aggregate is not run mid-plan; its generation
+and family checks retain their normal scope-end qualification point.
