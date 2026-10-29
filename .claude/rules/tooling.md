@@ -37,8 +37,10 @@ keep it accurate when you change them.
   admission and lifetime owners; presentation changes do not grant execution permission.
 - **Placement owns resource policy.** The selected ordinary native path uses configured
   unbounded sharing, all 16 physical cores and 32 logical compiler jobs without a slot ledger
-  or new OS memory cap. Explicit finite/scientific/native-provider/store/timing selections
-  currently refuse while their Plan58 owner is unfinished; do not silently downgrade them.
+  or new OS memory cap. Explicit finite selections retain original physical containment and
+  charge until actual drain; native providers select only completed preparation. Unsupported
+  selections refuse rather than silently downgrade. The environment guide records current
+  acceptance and remaining Plan58 obligations.
   Native scopes and original kernel population establish physical ownership/release. Nested
   commands reuse actual authenticated native containment, never an environment marker alone.
   `scripts/bootstrap-host` explicitly publishes the completed immutable native tool pair;

@@ -366,45 +366,68 @@ deadlines and drain rather than claim those duties from transport shutdown alone
 ## Native host dependency execution checkpoint — 2026-10-29
 
 The maintainer's full [58b execution](58b-bootstrap-and-host-control.md#execution-dependencies)
-includes working D01/D05 prerequisites for native service composition. The current source
-candidate adds connection-only schema-ready construction, transaction-bound version/epoch
-admission and explicit ordered quiescent migration from the preserved adjacent predecessor.
-Original attempt settlement and custody cleanup remain possible while new work is closed.
-Migration retains its original request and activation receipt through uncertain acknowledgement;
-configuration or health checks do not prove quiescence. The legacy predecessor cannot fence
-already-running historical binaries and requires an actual deployment-owned ingress closure
-and native join before transformation.
+includes working D01/D05 prerequisites for native service composition. D01 and D05 remain
+**in progress**. Source delivery, live fixture acceptance and whole-package acceptance remain
+distinct. The latest bounded implementation is integrated in `f28e0e373`.
 
-The initial scoped compile exposed type/API mismatches in native value extraction and error
-construction. These are corrected using the existing typed result contracts; no permissive
-conversion layer was added. The replaced unused context helper is deleted.
+**Implemented:** connection-only schema-ready construction, transaction-bound version/epoch
+admission and ordered quiescent migration from the preserved adjacent predecessor. Original
+attempt settlement and custody cleanup remain possible while new work is closed. Migration
+retains its original request/activation receipt through uncertain acknowledgement. The legacy
+predecessor cannot fence historical binaries: actual deployment-owned ingress closure and native
+join precede transformation. Private fresh-fixture predecessor installation is native-service
+only, checks actual catalog absence and is not an arbitrary existing-store installer.
 
-**Tested:** `just check-package pse-operations` passes without warnings;
-`just unit-package pse-operations schema_` passes8 controls (seven new, one existing name
-match), `just unit-package pse-operations canonical_script::tests --features
-canonical-maintenance` passes7, and `just unit-package pse-operations
-schema_migration_transactions_parse --features canonical-maintenance` passes1. All use the
-scoped correctness route and have zero failures. Parser coverage includes legacy pending and
-quiescence transactions and the full generated declaration/module-proof/activation transaction.
-Final rust-contracts, surreal, Python and docs generation groups all publish successfully.
+The optional native-service fixture uses the exact prepared server generation and original
+process, manager, socket and module identities. Private 0600 payloads carry credentials;
+D-Bus argv/environment do not. A distinct bound ingress service owns an actual canonical
+connection and closes/joins it before its original-identity drain receipt. Migration joins
+ingress while leaving the database available; final shutdown attempts all independent owners
+under the original deadline. Closure is terminal, disposal retains ownership on failure, and
+neither Drop nor a timeout supplies successful cleanup. The host crate remains database-free.
 
-A native isolated service fixture and real migration controls remain required.
-Neither source delivery, syntax validation nor generated declarations establishes a successful
-migration, stale-writer refusal or whole-D01/D05 completion. The SDK/API/gRPC responsibility
-comparison, broader control consumers and H qualification retain their existing obligations.
+Retained test/fixture callers now pass plain query bodies or typed prepared scripts, rather
+than complete transactions inside the new framing. Held transactions retain actual schema
+bindings; peer result slots match framing. Negative initialization/cancellation/issuer tests
+again reach their intended failure conditions. Interpretation/digest classification remains
+precise. The private append-submission boundary boxes its Send future once without changing
+payload custody, clocks or settlement. No recursion-limit increase or unchecked Send was added.
 
-Independent source review found retained test/fixture consumers still passing complete
-transactions through the newly framed ordinary-query boundary. Those consumers now use plain
-bodies or typed prepared scripts as appropriate. Held transactions retain the actual opened
-schema bindings, and synthetic peers emit the corresponding transaction result slots.
-Initialization/cancellation and issuer-change controls again reach their intended failure
-conditions; missing schema admission must not masquerade as their expected refusal. The
-specific interpretation/digest error classification is preserved.
+The real retained server parser requires a quoted password value for credential DDL; the
+native RPC boundary uses the library SQL value encoder. Errors retain private forensic detail
+while automatic diagnostics redact it and preserve typed finality/uncertainty. The isolated
+server also retains its explicit files/surrealism capability and narrow module bucket profile.
+Initial live failures exposed these premises and a missing predecessor backend binding; all
+were repaired. Earlier failed fresh states/logs remain preserved, without acceptance credit.
 
-The expanded compile initially reported four fixture qualification warnings and a deeply nested
-async Send-type warning. The former are corrected; the private owned append-submission boundary
-now returns a boxed Send future without changing payload custody, clock or settlement behavior.
-No recursion-limit increase or unchecked Send implementation was introduced. Focused native
-schema/script/transport/lifetime controls subsequently pass64 tests with zero failures and no
-compiler warnings. This remains protocol/component evidence with native-service disabled;
-existing live database cases and actual migrations receive no acceptance credit from it.
+**Tested:** `just check-package pse-operations --features native-service` passes without
+warnings. The final correctness-routed selection below passes 78 tests, 420 excluded, zero
+failures, run `e55eeb41-47ca-4a9b-aefe-8a07bba0bcfa`:
+
+```bash
+scripts/pse-env -- sh -c '
+  export PSE_NATIVE_FIXTURE_MODULE_STATE="$PSE_SURREAL_STATE"
+  exec scripts/cargo-bin/cargo-pse-correctness nextest run --no-fail-fast --locked \
+    -p pse-operations --lib --test native_service \
+    --features native-service,canonical-tests,canonical-maintenance,test-support \
+    -E "test(canonical::migration::tests::) | test(canonical_script::tests::) | test(canonical::transport::tests::) | test(canonical::transport::lifetime_tests::) | test(native_service::tests) | test(study_module_private_copy) | test(schema_migration_drain) | binary(native_service)" \
+    --success-output immediate-final
+'
+```
+
+This includes the earlier 64 schema/script/transport/lifetime controls and 9 native fixture/module/
+drain controls, plus all five actual isolated service cases: current-epoch migration and ready
+reconstruction; adjacent-predecessor migration only after native join; process stop independent
+of database transport; foreign-listener refusal; and cleanup after an intentional body panic.
+The panic diagnostic is an asserted failure-path stimulus, not a failed test. Live controls copy
+only the configured module artifact into fresh private state. Independent readback finds all
+eight original service units not-found/inactive/MainPID 0, all successful disposable states gone
+and no finite reservations. Existing configured stores and foreign listeners remain untouched.
+
+Generated rust-contracts, SurrealQL, Python/docs and document-schema outputs match their owners.
+Optional-feature all-targets Clippy with the same four features passes with `-D warnings`.
+These results establish the working fixture/readiness prerequisite for B04 stage 5, not whole
+D01/D05 or H acceptance. Actual server stale-epoch/in-flight commit races, lost-acknowledgement/
+restart matrix, existing-store migration, broader SDK/API/gRPC responsibility comparison and
+remaining retained consumers are still open. Full durable-production recovery, numerical and
+performance qualification remain outside this checkpoint.

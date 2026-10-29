@@ -280,3 +280,14 @@ No new lifecycle framework or long-lived worker policy is selected. The public l
 uses existing lane shutdown for final fixture settlement, including on assertion failure.
 [58a's local checkpoint](58a-native-product-and-scientific-workflows.md#native-local-operation-checkpoint--2026-10-28)
 owns the composed acceptance and limits; this does not close the broader C packages.
+
+
+## Native service shutdown handoff — 2026-10-29
+
+C04's additional host slice now owns ordinary workload/service forests and the isolated canonical
+fixture's terminal closure, original ingress/connection join, failure-retaining parallel shutdown
+and explicit disposable-state retirement. Actual process-stop and intentional-body-panic controls
+pass with original units independently absent afterward. [58d's checkpoint](58d-canonical-control-and-connectivity.md#native-host-dependency-execution-checkpoint--2026-10-29)
+owns the final command and live limits; [58b](58b-bootstrap-and-host-control.md#current-execution-handoff--2026-10-29)
+owns host acceptance and next consumer migration. C04 remains in progress; this does not qualify
+arbitrary blocking solver cancellation, shared-store shutdown or durable worker-root policy.

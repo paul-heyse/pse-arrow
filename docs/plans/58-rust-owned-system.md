@@ -329,3 +329,15 @@ service readiness, schema application and H qualification receive no new accepta
 No new guarantee reduction, data reset, global resource ledger, mandatory frontend or
 performance threshold is selected. Formal ADR status remains unchanged; newly selected
 engine/transport/privilege contracts must follow the decision route before dependent code.
+
+
+## Native host execution handoff — 2026-10-29
+
+Current assignments have concluded at the maintainer's request; changes are integrated in main
+and no auxiliary worktree or test campaign remains. [58b's current handoff](58b-bootstrap-and-host-control.md#current-execution-handoff--2026-10-29)
+owns host verification, source/lint closeout and remaining stage 5/6 obligations. [58d](58d-canonical-control-and-connectivity.md#native-host-dependency-execution-checkpoint--2026-10-29)
+owns the working native service/readiness/migration prerequisite, including the final 78-test
+selection with all five live cases passing. These slices unblock a selected retained canonical
+consumer without requiring whole-D completion. B02–B05 and D01/D05 remain in progress; C04/F02
+have contributing slices only. Remaining Python consumer retirement, broader host/fault/provider
+acceptance and H qualification are open. No whole-series or performance claim follows.

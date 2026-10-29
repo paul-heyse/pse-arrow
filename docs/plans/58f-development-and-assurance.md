@@ -373,3 +373,19 @@ installed extension. The actual introspection owner regenerates the stub and pro
 there is no source-parser replacement, hand-edited generated file or new publishing pipeline.
 [58a's local checkpoint](58a-native-product-and-scientific-workflows.md#native-local-operation-checkpoint--2026-10-28)
 owns assembled evidence. Other developer/generation work and H remain open.
+
+
+## Native fixture and closeout handoff — 2026-10-29
+
+F02 now has a working isolated Rust canonical fixture with explicit original-owner cleanup and
+schema-ready admission; the final native-service selection passes all five live cases alongside
+its protocol/unit controls. [58d](58d-canonical-control-and-connectivity.md#native-host-dependency-execution-checkpoint--2026-10-29)
+owns the command and limits. This unblocks a retained consumer migration rather than requiring a
+new universal fixture/runner layer. F02 and broader developer-consumer retirement remain open.
+
+[58b's current handoff](58b-bootstrap-and-host-control.md#current-execution-handoff--2026-10-29)
+records completed type/lint/generation repairs and exact qualification limits. Annotation-only
+contract checking no longer selects native providers. Compiled stub comparison passes against
+the current explicit library; the older installed extension still mismatches the registry and
+is not newly qualified. This distinction does not roll back generated declarations or authorize
+restoring retired Python orchestration.

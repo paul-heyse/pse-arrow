@@ -117,27 +117,36 @@ admission under an original owned allocation slice, with separate workload contr
 authenticated nested borrowing. The shared journal contains finite reservations only; original
 physical drain precedes release. Ordinary gate admission participates in exclusive/timing
 exclusion without a numerical reservation. Current targeted assembled evidence covers the
-light envelope and nested borrowing; broader resident/reference/timing acceptance remains in
-Plan58b. Cross-parent ordinary placement, unprepared or unknown native profiles, `--store` and
-the retired allocation-binding protocol still refuse before command execution. There is no
-Python fallback or silent resource downgrade. Existing stores and services are preserved.
+light envelope, nested borrowing, controller TERM/KILL and ordinary service forests; broader
+resident/reference/timing acceptance remains in Plan58b. Explicit ordinary placement requires
+authenticated original target/constraint preservation; incompatible cross-parent requests,
+unprepared or unknown native profiles, `--store` and the retired allocation-binding protocol
+still refuse before command execution. There is no Python fallback or silent resource downgrade. Existing stores and services are preserved.
 `--docs` selects an existing environment only.
 
 For a top-level supported app-scope caller, the host starts a same-image child behind a private
-exec gate, creates a caller-only scope and a separate workload scope in the actual prior slice,
-and binds workload lifetime to caller lifetime. Only after containment and population are
-established does it release the gate. The prior application unit remains a lifetime dependency.
+exec gate and creates a caller-only scope in the actual prior slice. Ordinary work and bound
+sibling services share a fresh operation slice under the selected target; finite work uses its
+original allocation slice. Both hierarchies bind to the original caller lifetime, without adding
+a numerical budget to ordinary work. Only after containment and population are established
+does it release the gate. The prior application unit remains a lifetime dependency.
 The gate closes without execution if the controller dies during startup; after release the user
 manager stops the workload if the controller dies, including SIGKILL. The child locally execs
 raw Unix argv/environment/cwd with inherited stdio and controlling terminal; no payload is
 serialized through D-Bus and no TTY relay or resident supervisor is introduced.
+
+Manager-spawned sibling services use typed `ExecStartEx` with `no-env-expand`; literal argv
+is not shell source. The manager preserves specifiers when persisting this property, so callers
+must not manually percent-escape the D-Bus argv. Private service payloads carry credentials
+without placing them in argv or the manager environment.
 
 Nested calls authenticate actual manager scope identity, native role/dependencies and current
 kernel membership, then exec within that containment. An environment marker grants no authority.
 `--no-scope` requires this actual enclosing native workload; it cannot bypass containment.
 Uncertain views, unsupported/dedicated prior placement and displaced finite CPU/memory/cpuset or
 custom lower task constraints refuse. Common slice ancestry and the user manager's default task
-limit remain; splitting ordinary scopes is not finite aggregate allocation accounting.
+limit remain; grouping ordinary workloads/services supplies physical ownership, not finite
+allocation accounting.
 
 Startup has one absolute deadline. Cleanup has one absolute drain deadline and attempts every
 independent settlement, preserving the original operation failure alongside cleanup failures.

@@ -19,12 +19,16 @@ The maintainer has authorized T01/T02 and the entire 58b scope, including necess
 prerequisite and consumer-retirement slices. Its [execution dependencies](58b-bootstrap-and-host-control.md#execution-dependencies)
 separate native host admission, provider preparation, physical server construction and working
 D01/D05 readiness; package progress remains with 58b and the contributing companions.
-The [coordinator checkpoint](58-rust-owned-system.md#execution-checkpoint--2026-10-28) and
-[58b checkpoint](58b-bootstrap-and-host-control.md#execution-checkpoint--2026-10-28) own current
-implementation and remaining acceptance. The database-free ordinary native frontdoors and
-Cargo correctness cutover are now implemented with focused host/component evidence; broader
-package obligations and unsupported native/store/finite workflows remain explicit. Other series
-scope and broad qualification remain unselected; no historical campaign was restarted.
+The [coordinator checkpoint](58-rust-owned-system.md#execution-checkpoint--2026-10-28),
+[58b current handoff](58b-bootstrap-and-host-control.md#current-execution-handoff--2026-10-29)
+and [D01/D05 checkpoint](58d-canonical-control-and-connectivity.md#native-host-dependency-execution-checkpoint--2026-10-29)
+own implementation, tested prerequisites and remaining acceptance. Ordinary/finite native
+containment, provider selection and the isolated canonical service/readiness/migration slice
+have focused passing evidence. Current assignments are concluded and integrated; no auxiliary
+worktree or campaign remains. B02–B05 and D01/D05 remain in progress. The next useful delivery
+is one retained Rust canonical consumer through the working native fixture, with its replaced
+Python orchestration removed. Full series qualification remains open; the older installed
+Python extension is explicitly distinct from the checked current compiled API.
 
 Plan57 and its companions are superseded historical evidence, temporarily retained for existing
 ADR, architecture and review readers. Their old package tables are no longer active lifecycle
