@@ -2025,6 +2025,25 @@ impl BorrowedService {
     }
 }
 
+async fn settle_signal_and_drain(
+    signal: Result<(), HostError>,
+    drain: impl Future<Output = Result<UnitObservation, HostError>>,
+    deadline: Instant,
+) -> Result<UnitObservation, HostError> {
+    // Retain the signal result outside the cancellable drain future, including
+    // when the same original absolute clock expires during physical settlement.
+    let drain = tokio::time::timeout_at(deadline.into(), drain).await
+        .map_err(|_| HostError::Deadline("absolute kill/drain deadline; original ownership retained".into()))
+        .and_then(|result| result);
+    match (signal, drain) {
+        (Ok(()), result) => result,
+        (Err(operation), Ok(_)) => Err(operation),
+        (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
+            operation: Box::new(operation), cleanup: Box::new(cleanup),
+        }),
+    }
+}
+
 /// Performing ownership of an original private service or scope; failure retains this capability.
 #[must_use = "owned units require explicit stop/drain; dropping a handle does not establish release"]
 #[derive(Debug)]
@@ -2132,24 +2151,15 @@ impl OwnedUnit {
         &mut self,
         deadline: Instant,
     ) -> Result<UnitObservation, HostError> {
-        tokio::time::timeout_at(deadline.into(), async {
-            self.observe_bound(true).await?;
-            let unit = self.manager.unit(&self.intent.unit).await?;
-            let signal = tokio::time::timeout_at(deadline.into(), unit.kill("all".into(), 9))
-                .await
-                .map_err(|_| HostError::Deadline("original kill reply; ownership retained".into()))
-                .and_then(|result| result.map_err(HostError::from));
-            let drain = self.stop_and_drain_inner(deadline).await;
-            match (signal, drain) {
-                (Ok(()), result) => result,
-                (Err(operation), Ok(_)) => Err(operation),
-                (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
-                    operation: Box::new(operation), cleanup: Box::new(cleanup),
-                }),
-            }
-        })
-        .await
-        .map_err(|_| HostError::Deadline("absolute kill/drain deadline; original ownership retained".into()))?
+        tokio::time::timeout_at(deadline.into(), self.observe_bound(true))
+            .await.map_err(|_| HostError::Deadline("original kill identity; ownership retained".into()))??;
+        let unit = tokio::time::timeout_at(deadline.into(), self.manager.unit(&self.intent.unit))
+            .await.map_err(|_| HostError::Deadline("original kill unit; ownership retained".into()))??;
+        let signal = tokio::time::timeout_at(deadline.into(), unit.kill("all".into(), 9))
+            .await
+            .map_err(|_| HostError::Deadline("original kill reply; ownership retained".into()))
+            .and_then(|result| result.map_err(HostError::from));
+        settle_signal_and_drain(signal, self.stop_and_drain_inner(deadline), deadline).await
     }
     /// Request stop and prove the original cgroup empty before reporting release.
     pub async fn stop_and_drain(
@@ -3043,6 +3053,16 @@ mod tests {
             Err(error) => panic!("resident reference observation failed: {error}"),
         };
         assert!(!retained, "read-only borrow retained a manager reference after owned drain");
+    }
+    #[tokio::test]
+    async fn owned_kill_retains_signal_failure_when_original_drain_deadline_expires() {
+        let error = settle_signal_and_drain(
+            Err(HostError::Ownership("original signal reply rejected".into())),
+            std::future::pending(), Instant::now() + Duration::from_millis(10),
+        ).await.unwrap_err();
+        assert!(matches!(error, HostError::Settlement { operation, cleanup }
+            if matches!(*operation, HostError::Ownership(ref text) if text == "original signal reply rejected")
+                && matches!(*cleanup, HostError::Deadline(_))));
     }
     #[tokio::test]
     async fn real_owned_unit_sigkill_drains_original_escaped_population() {

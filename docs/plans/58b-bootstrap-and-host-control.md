@@ -756,3 +756,14 @@ control against zero failures, 132 excluded, no warnings (run
 cgroup, and release follows actual empty population rather than leader exit. This supplies the
 physical primitive needed to replace raw-name Python/systemctl killing in retained native
 scientific fixtures; their caller cutover and application-level qualification remain separate.
+
+Independent implementation review found that an outer timeout could discard a failed kill
+reply while a subsequent drain remained pending. The signal result now lives outside the
+cancellable drain future; each phase uses the same original deadline and the final settlement
+combines both failures. The typed native worker also retains a proven physical release even
+when the original signal operation fails. The focused kill-error/stalled-drain control and
+real escaped-descendant control pass together: correctness nextest `pse-host --lib --locked
+--no-fail-fast`, filters `owned_kill_retains_signal_failure` and
+`real_owned_unit_sigkill_drains_original_escaped_population`, 2 passed, 132 excluded, zero
+failures/warnings (run `e0a1c791-17e5-46c2-855a-73e80b47c812`). This corrects failure retention;
+it adds no application-join or scientific-success claim.
