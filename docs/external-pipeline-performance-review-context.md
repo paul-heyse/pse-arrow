@@ -234,7 +234,7 @@ The authored input, actual returned route and observed phase determine which app
 | Native observations and callback/linear attribution | `crates/pse-backend-native/src/observation.rs`, `solve/observations.rs`, `callback.rs`, `kinsol/linear_work.rs`, `pounce/observed.rs`, `petsc/logging.rs` and adapter-specific counters |
 | Live evidence, joins, frozen analysis and packs | `crates/pse-runtime/src/observation.rs`, `invocation.rs`, `capture/`, `inspection.rs`, `frozen_inspection.rs`, `review_analysis/`, `review_query.rs`, `review_pack/`; `workflow/review_context/` and `review_export.rs` |
 | Relational/Arrow instrumentation and schemas | `crates/pse-engine/src/session/`; `crates/pse-schema/src/catalog/diagnostic_evidence.rs`; generated diagnostic relations under `pse-model`/`pse-relations` |
-| Python access and observer probes | `crates/pse-py/src/diagnostics.rs`; `python/pse/diagnostics.py`, `_diagnostic_query.py`; `python/pse/tests/test_review_observer_fit.py` and selected result/Arrow tests |
+| Python access and observer probes | `crates/pse-py/src/diagnostics.rs`; `python/pse/diagnostics.py`, `_diagnostic_query.py`; historical `2232bfa02:python/pse/tests/test_review_observer_fit.py` (scenarios transferred to Plan58 H) and selected result/Arrow tests |
 
 Dependency declarations and exact pins are in `Cargo.toml`, `Cargo.lock` and the Python
 manifests. The local `native-solver-libraries`, `symbolica-faer-oximo` and other library

@@ -129,3 +129,38 @@ Selection retains the explicit external-prefix inputs recorded by those provider
 This preparation removes the observed missing-provider prerequisite; it does not retrospectively
 run or pass either matrix campaign. A owns the ensuing Clippy results. The actual H matrix,
 reference and full assembled qualification remain separately selectable work.
+
+## Retired observer-driver scenario handoff — 2026-10-29
+
+The maintainer authorized retirement of obsolete Python measurement drivers during G, while
+replacement measurement campaigns remain H work. The exact original driver is retained in
+Git at `2232bfa02:python/pse/tests/test_review_observer_fit.py`; its existing results retain
+original conditions. The native replacement must preserve these requirements before claiming
+comparable observation evidence:
+
+| Scientific case | Inputs and independent expectation | Retained comparison |
+| --- | --- | --- |
+| KINSOL root | Original `diagnostic_native_solve` authored root fixture; result value 3, relative/absolute tolerance 0.001. | Native termination, attempt work and original KINSOL counter population agree across observation modes. |
+| POUNCE optimization | Minimize `(x-1)^2`, start 0.5, bounds [0,3], presolve off; optimum 1 at tolerance 0.001. | Same usable result, termination and work; include factor/refinement/linear-call detail families. |
+| IDAS integration | `dx/dt=2`, `x(0)=1 s`, interval [0,1] s, samples 0/0.5/1 s, rtol 0.001, coordinate atol 0.001 Time and parameter scale 1 Scalar, no sensitivity. | Values `1+2t`, original computation status and per-segment native counters; do not sum counters across reinitialization. |
+
+Each case runs in a fresh process for observation off, ordinary and selected detail. Fresh
+spill/diagnostic directories do not imply cold compiler/OS caches. One observation per mode
+is descriptive, with no timing/statistical acceptance threshold. Retain actual wall/process-CPU
+intervals, serialized artifact sizes and Linux process-lifetime peak RSS with their scopes.
+The old one-thread scientific fixtures are explicit scenario settings, not host parallelism caps.
+
+Selected detail requests complete root-evaluation/native-owner-return families, plus the
+case-specific families above, sampling every event with boundary thread CPU, 30-second duration
+and 16 MiB memory/output budgets. Preserve admitted bounds or explicitly report a changed
+contract. Related-operation traversal was bounded at 64; four passive inspection rounds must
+leave original metrics/timestamps and the scientific attempt summary unchanged. Detail paging
+was at most 32 pages of 128 records, with readable-prefix/truncation status explicit. Off mode
+has no fabricated zero-work observation. Ordinary/detail IDAS hub counters agree when available;
+curtailment/disabled coverage is distinct from retained segment statistics.
+
+Freeze context, original invocation, operation snapshots and detail pages before supplied-only
+analysis and review-pack export. Original scientific usability, values, terminal, work and
+counter populations must survive inspection/copy/analysis/export unchanged. Runtime/native
+owners settle on failure as well as success; retained Arrow/report bytes keep their original
+custody. No replacement measurement or H acceptance is established by this documentation handoff.

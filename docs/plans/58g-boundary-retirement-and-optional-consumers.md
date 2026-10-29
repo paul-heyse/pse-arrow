@@ -29,6 +29,13 @@ replacement capabilities work. This adds no automatic engine migration or blanke
 
 ## Package state
 
+The obsolete Python fresh-process observer measurement driver is retired under the explicit
+maintainer disposition. [H's scenario handoff](58h-qualification-and-publication.md#retired-observer-driver-scenario-handoff--2026-10-29)
+preserves the exact original source, KINSOL/POUNCE/IDAS inputs and expectations, nine mode
+comparisons, calculation observation/custody and reporting requirements. Historical results
+remain historical; no replacement campaign ran. This removes one measurement consumer, not
+all remaining scientific Python callers or H obligations.
+
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | G01 | in progress | 58g | Retained/lost behavior and integrated caller/declaration deletion boundaries classified |
