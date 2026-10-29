@@ -133,6 +133,15 @@ pub(crate) struct FiniteParentRequest<'a> {
     pub isolated: bool,
 }
 
+#[derive(Debug)]
+struct BoundServiceContext {
+    enclosing:UnitObservation,
+    original:UnitBinding,
+    slice:String,
+    parent:UnitBinding,
+    controls:ResourceControls,
+}
+
 /// Complete native service request. The executable is passed directly, without shell parsing.
 #[derive(Clone, Debug)]
 pub struct ServiceSpec {
@@ -439,6 +448,39 @@ impl HostManager {
         }
         Ok(observation)
     }
+    /// Resolve explicit workload-only placement without starting, configuring or
+    /// stopping another unit. Existing target limits are intentionally inherited.
+    /// Moving out of source ancestors is supported only when their CPU, memory,
+    /// swap, cpuset, task and I/O maximum controls are unrestricted.
+    pub async fn ordinary_placement(&self,current:&UnitObservation,requested:&str,deadline:Instant)->Result<OrdinaryPlacement,HostError> {
+        tokio::time::timeout_at(deadline.into(),async {
+            self.validate_view()?;
+            let source=self.observe(&current.unit).await?;
+            if source.invocation!=current.invocation || source.control_group!=current.control_group { return Err(HostError::Ownership("original ordinary source placement changed".into())); }
+            let (_,source_group,_)=self.foreground_placement(&source).await?;
+            if !requested.ends_with(".slice") { return Err(HostError::Ownership("ordinary target is not a slice".into())); }
+            let unit=self.unit(requested).await?;
+            if unit.id().await?!=requested { return Err(HostError::Ownership("ordinary target must identify its actual slice directly".into())); }
+            let target=self.observe(requested).await?;
+            if target.active_state!="active" || target.invocation.len()!=16 || target.invocation.iter().all(|byte|*byte==0) {
+                return Err(HostError::Ownership("ordinary target slice is not an active original incarnation".into()));
+            }
+            let group=Group::open(&target.control_group,false)?;
+            let source=Group::path(&source_group)?;
+            let common=source.ancestors().find(|ancestor|group.path.starts_with(ancestor)).ok_or_else(||HostError::Ownership("ordinary target has no common authenticated hierarchy".into()))?;
+            let mut displaced=Vec::new();
+            for ancestor in source.ancestors().take_while(|ancestor|*ancestor!=common) {
+                let relative=ancestor.strip_prefix("/sys/fs/cgroup").map_err(|_|HostError::Ownership("ordinary source escaped unified cgroup root".into()))?;
+                let value=format!("/{}",relative.to_str().ok_or_else(||HostError::Ownership("ordinary source coordinates are not UTF-8".into()))?);
+                let source=Group::open(&value,false)?;
+                source.require_unrestricted_placement()?;
+                displaced.push(source);
+            }
+            let placement=OrdinaryPlacement {manager:self.identity_key(),slice:requested.to_owned(),invocation:target.invocation,control_group:target.control_group,group,displaced};
+            placement.validate(self,deadline).await?;
+            Ok(placement)
+        }).await.map_err(|_|HostError::Deadline("ordinary target placement".into()))?
+    }
     /// Resolve the prior scope's actual slice and manager's ordinary task limit.
     pub async fn foreground_placement(
         &self,
@@ -613,16 +655,106 @@ impl HostManager {
                 "launch deadline already expired; not submitted".into(),
             ));
         }
-        tokio::time::timeout_at(deadline.into(), self.start_service_inner(spec))
+        tokio::time::timeout_at(deadline.into(), self.start_service_inner(spec,None,deadline))
             .await
             .map_err(|_| HostError::UnknownLaunch {
                 unit: spec.intent.unit.clone(),
                 detail: "absolute launch deadline".into(),
             })?
     }
+    /// Start one original service bound to this process's authenticated native
+    /// workload scope. The parent is borrowed: no stop/reference authority is
+    /// granted over it. Systemd enforces BindsTo/After; application readiness and
+    /// exact executable-body environment remain their respective owners' work.
+    pub async fn start_service_bound(&self,spec:&ServiceSpec,enclosing:&BorrowedUnit,controls:&ResourceControls,deadline:Instant)->Result<OwnedUnit,HostError> {
+        if Instant::now()>=deadline { return Err(HostError::Deadline("bound service launch already expired; not submitted".into())); }
+        tokio::time::timeout_at(deadline.into(),async {
+            if enclosing.manager.identity_key()!=self.identity_key() { return Err(HostError::Ownership("bound service parent belongs to another manager".into())); }
+            let selected=enclosing.observe().await?;
+            let current=self.current_unit().await?;
+            if current.unit!=selected.unit || current.invocation!=selected.invocation || current.control_group!=selected.control_group
+                || !current.unit.ends_with(".scope") || current.active_state!="active" || !self.native_workload(&current).await?
+            { return Err(HostError::Ownership("bound service requires this process's original native workload scope".into())); }
+            let (slice,parent_group,_)=self.foreground_placement(&current).await?;
+            let parent=self.observe(&slice).await?;
+            let original=Group::open(&current.control_group,false)?;
+            let parent_group=Group::open(&parent_group,false)?;
+            let binding=BoundServiceContext {
+                original:UnitBinding {invocation:current.invocation.clone(),group:current.control_group.clone(),device:original.device,inode:original.inode},
+                enclosing:current,slice,parent:UnitBinding {invocation:parent.invocation,group:parent.control_group,device:parent_group.device,inode:parent_group.inode},controls:controls.clone(),
+            };
+            self.validate_bound_service(&binding,deadline).await?;
+            self.start_service_inner(spec,Some(&binding),deadline).await
+        }).await.map_err(|_|unknown_launch(&spec.intent,"absolute bound service startup deadline"))?
+    }
+    async fn validate_bound_service(&self,binding:&BoundServiceContext,deadline:Instant)->Result<(),HostError> {
+        let current=self.current_unit().await?;
+        if current.unit!=binding.enclosing.unit || current.invocation!=binding.original.invocation || current.control_group!=binding.original.group
+            || current.active_state!="active" || !self.native_workload(&current).await?
+        { return Err(HostError::Ownership("original bound-service caller changed".into())); }
+        let source=Group::open(&current.control_group,false)?;
+        let parent=self.observe(&binding.slice).await?;
+        let group=Group::open(&parent.control_group,false)?;
+        if source.device!=binding.original.device || source.inode!=binding.original.inode
+            || parent.invocation!=binding.parent.invocation || parent.control_group!=binding.parent.group
+            || group.device!=binding.parent.device || group.inode!=binding.parent.inode
+        { return Err(HostError::Ownership("original bound-service containment changed".into())); }
+        let mut needs_lease=false;
+        for name in ["memory.max","memory.high","memory.swap.max","cpu.max","cpuset.cpus","cpuset.mems","io.max"] {
+            let source_value=source.control(name)?;
+            let parent_value=group.control(name)?;
+            if source_value.as_deref().map(str::trim)==parent_value.as_deref().map(str::trim) { continue; }
+            if let Some(value)=source_value.as_deref() {
+                if unrestricted_placement_control(name,value).is_ok() { continue; }
+                if matches!(name,"memory.high" | "cpuset.mems" | "io.max") {
+                    return Err(HostError::Ownership(format!("bound service would leave unsupported source {name} policy")));
+                }
+                needs_lease=true;
+            }
+        }
+        let tasks=source.limit("pids.max")?;
+        if tasks!=u64::MAX && tasks!=self.manager().await?.default_tasks_max().await? && tasks!=group.limit("pids.max")? {
+            return Err(HostError::Ownership("bound service would leave an explicit source task envelope".into()));
+        }
+        if needs_lease {
+            // A sibling service cannot inherit a workload leaf's aggregate cap.
+            // Only the existing, authenticated private allocation can cover the
+            // combined caller/helper population; this creates no new reservation.
+            let environment=std::env::vars_os().collect();
+            let coordinator=crate::admission::Coordinator::ordinary(&environment)?;
+            let lease=coordinator.inherit(&environment,self,None,&current,deadline).await?.ok_or_else(||HostError::Ownership("bound service lacks an authenticated shared allocation envelope".into()))?;
+            if lease.allocation_slice()!=Some(binding.slice.as_str()) || group.limit("memory.max")?>lease.profile().allocation || group.limit("memory.swap.max")?!=0 {
+                return Err(HostError::Ownership("bound service shared allocation envelope changed".into()));
+            }
+            let allowed=lease.profile().controls()?;
+            if let Some(quota)=allowed.cpu_quota_per_sec_usec {
+                if group.cpu_quota()?>quota { return Err(HostError::Ownership("bound service shared CPU envelope changed".into())); }
+            }
+        }
+        if let Some(value) = binding.controls.memory_max {
+            if value == 0 || value > group.limit("memory.max")? {
+                return Err(HostError::Ownership("bound service cannot enlarge its actual memory envelope".into()));
+            }
+        }
+        if let Some(value) = binding.controls.memory_swap_max {
+            if value > group.limit("memory.swap.max")? {
+                return Err(HostError::Ownership("bound service cannot enlarge its actual swap envelope".into()));
+            }
+        }
+        if let Some(quota)=binding.controls.cpu_quota_per_sec_usec {
+            if quota==0 || quota>group.cpu_quota()? { return Err(HostError::Ownership("bound service cannot enlarge its actual CPU quota".into())); }
+        }
+        if !binding.controls.allowed_cpus.is_empty() {
+            let cpus=group.control("cpuset.cpus.effective")?.ok_or_else(||HostError::Ownership("bound service CPU set envelope unavailable".into()))?;
+            if !mask_subset(&binding.controls.allowed_cpus,&cpu_mask(&cpus)?) { return Err(HostError::Ownership("bound service cannot enlarge its actual CPU set".into())); }
+        }
+        Ok(())
+    }
     async fn start_service_inner(
         &self,
         spec: &ServiceSpec,
+        binding: Option<&BoundServiceContext>,
+        deadline: Instant,
     ) -> Result<OwnedUnit, HostError> {
         self.validate_view()?;
         if !spec.executable.is_absolute() {
@@ -638,7 +770,7 @@ impl HostManager {
         argv.extend(spec.arguments.iter().cloned());
         let manager = self.manager().await?;
         let mut removed = manager.receive_job_removed().await?;
-        let properties = vec![
+        let mut properties = vec![
             property("AddRef", true)?,
             property("Description", spec.intent.description.clone())?,
             property("Type", "exec".to_owned())?,
@@ -649,6 +781,10 @@ impl HostManager {
             property("ExecStart", vec![(executable.to_owned(), argv, false)])?,
             property("Environment", spec.environment.clone())?,
         ];
+        if let Some(binding)=binding {
+            self.validate_bound_service(binding,deadline).await?;
+            properties.extend(bound_service_properties(binding)?);
+        }
         let job_result = launch_job(
             &spec.intent,
             manager.start_transient_unit(spec.intent.unit.clone(), "fail".into(), properties, vec![]),
@@ -670,6 +806,12 @@ impl HostManager {
                     detail: format!("job result {job_result}; {error}"),
                 })?;
         owned.launch_job_result = Some(job_result);
+        if let Some(binding)=binding {
+            let observed=owned.observe().await.map_err(|error|unknown_launch(&spec.intent,error))?;
+            if Group::path(&observed.control_group)?.parent()!=Some(Group::path(&binding.parent.group)?.as_path()) {
+                return Err(unknown_launch(&spec.intent,"bound service escaped its authenticated allocation parent"));
+            }
+        }
         Ok(owned)
     }
     /// Construct a private allocation ancestor through the same original-unit owner.
@@ -965,6 +1107,37 @@ impl HostManager {
     }
 }
 
+fn bound_service_properties(binding:&BoundServiceContext)->Result<Vec<(String,OwnedVariant)>,HostError> {
+    let mut properties=vec![property("BindsTo",vec![binding.enclosing.unit.clone()])?,property("After",vec![binding.enclosing.unit.clone()])?,property("Slice",binding.slice.clone())?];
+    properties.extend(binding.controls.properties()?);
+    Ok(properties)
+}
+fn mask_subset(selected:&[u8],allowed:&[u8])->bool {
+    selected.iter().enumerate().all(|(index,selected)|selected & !allowed.get(index).copied().unwrap_or(0)==0)
+}
+fn cpu_mask(value:&str)->Result<Vec<u8>,HostError> {
+    let mut mask=Vec::new();
+    for range in value.trim().split(',') {
+        let (first,last)=range.split_once('-').unwrap_or((range,range));
+        let first=first.parse::<u32>().map_err(|_|HostError::Ownership("CPU set observation malformed".into()))?;
+        let last=last.parse::<u32>().map_err(|_|HostError::Ownership("CPU set observation malformed".into()))?;
+        if last<first || last>65535 { return Err(HostError::Ownership("CPU set observation exceeds supported host range".into())); }
+        mask.resize(mask.len().max(last as usize/8+1),0);
+        for cpu in first..=last { mask[cpu as usize/8] |= 1 << (cpu%8); }
+    }
+    Ok(mask)
+}
+
+fn unrestricted_placement_control(name:&str,value:&str)->Result<(),HostError> {
+    let unrestricted=match name {
+        "memory.max" | "memory.high" | "memory.swap.max" | "pids.max"=>value.trim()=="max",
+        "cpu.max"=>value.split_whitespace().next()==Some("max"),
+        "cpuset.cpus" | "cpuset.mems" | "io.max"=>value.trim().is_empty(),
+        _=>false,
+    };
+    if unrestricted { Ok(()) } else { Err(HostError::Ownership(format!("ordinary relocation would escape source {name} policy"))) }
+}
+
 fn finite_parent_update(current:u64,swap:u64,requested:u64)->Option<u64> {
     let desired=if current==u64::MAX { requested } else {current.max(requested)};
     (current!=desired || swap!=0).then_some(desired)
@@ -1138,6 +1311,38 @@ where
     T: Into<Variant<'static>>,
 {
     Ok((name.to_owned(), OwnedVariant::try_from(value.into())?))
+}
+
+/// Read-only placement into an already active user-manager slice. This grants
+/// no permission to change or stop the selected slice or its other children.
+#[derive(Debug)]
+pub struct OrdinaryPlacement {
+    manager: String,
+    slice: String,
+    invocation: Vec<u8>,
+    control_group: String,
+    group: Group,
+    displaced: Vec<Group>,
+}
+impl OrdinaryPlacement {
+    /// Authenticated actual target slice name.
+    pub fn slice(&self)->&str { &self.slice }
+    /// Original opened target cgroup coordinates.
+    pub fn control_group(&self)->&str { &self.control_group }
+    /// Recheck before opening the workload gate; the target may not be replaced,
+    /// and displaced source ancestors may not acquire a finite resource policy.
+    pub async fn validate(&self,manager:&HostManager,deadline:Instant)->Result<(),HostError> {
+        tokio::time::timeout_at(deadline.into(),async {
+            if manager.identity_key()!=self.manager { return Err(HostError::Ownership("ordinary placement manager identity changed".into())); }
+            let observed=manager.observe(&self.slice).await?;
+            if observed.active_state!="active" || observed.invocation!=self.invocation || observed.control_group!=self.control_group {
+                return Err(HostError::Ownership("ordinary target slice incarnation changed".into()));
+            }
+            self.group.require_present()?;
+            for group in &self.displaced { group.require_present()?; group.require_unrestricted_placement()?; }
+            Ok(())
+        }).await.map_err(|_|HostError::Deadline("ordinary placement validation".into()))?
+    }
 }
 
 /// A borrowed unit has read authority only, with no method to stop it.
@@ -1422,6 +1627,47 @@ impl Group {
             )),
         }
     }
+    fn control(&self,name:&str)->Result<Option<String>,HostError> {
+        let directory=self.directory.as_ref().ok_or_else(||HostError::Ownership("original cgroup descriptor absent".into()))?;
+        let descriptor=match rustix::fs::openat(directory,name,rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NOFOLLOW,rustix::fs::Mode::empty()) {
+            Ok(descriptor)=>descriptor,
+            Err(rustix::io::Errno::NOENT)=>return Ok(None),
+            Err(error)=>return Err(io::Error::from(error).into()),
+        };
+        let mut value=String::new();
+        File::from(descriptor).read_to_string(&mut value)?;
+        Ok(Some(value))
+    }
+    fn cpu_quota(&self)->Result<u64,HostError> {
+        let Some(value)=self.control("cpu.max")? else { return Ok(u64::MAX); };
+        let fields=value.split_whitespace().collect::<Vec<_>>();
+        let [quota,period]=fields.as_slice() else { return Err(HostError::Ownership("CPU quota observation malformed".into())); };
+        if *quota=="max" { return Ok(u64::MAX); }
+        let quota=quota.parse::<u64>().map_err(|_|HostError::Ownership("CPU quota value malformed".into()))?;
+        let period=period.parse::<u64>().ok().filter(|period|*period>0).ok_or_else(||HostError::Ownership("CPU quota period malformed".into()))?;
+        u64::try_from(u128::from(quota)*1_000_000/u128::from(period)).map_err(|_|HostError::Ownership("CPU quota observation overflow".into()))
+    }
+    fn require_present(&self)->Result<(),HostError> {
+        let meta=std::fs::metadata(&self.path)?;
+        if self.directory.is_none() || meta.dev()!=self.device || meta.ino()!=self.inode {
+            return Err(HostError::Ownership("ordinary placement cgroup identity changed".into()));
+        }
+        Ok(())
+    }
+    fn require_unrestricted_placement(&self)->Result<(),HostError> {
+        let directory=self.directory.as_ref().ok_or_else(||HostError::Ownership("ordinary source cgroup descriptor absent".into()))?;
+        for name in ["memory.max","memory.high","memory.swap.max","cpu.max","cpuset.cpus","cpuset.mems","pids.max","io.max"] {
+            let descriptor=match rustix::fs::openat(directory,name,rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NOFOLLOW,rustix::fs::Mode::empty()) {
+                Ok(descriptor)=>descriptor,
+                Err(rustix::io::Errno::NOENT) if matches!(name,"cpu.max" | "cpuset.cpus" | "cpuset.mems" | "io.max")=>continue,
+                Err(error)=>return Err(io::Error::from(error).into()),
+            };
+            let mut value=String::new();
+            File::from(descriptor).read_to_string(&mut value)?;
+            unrestricted_placement_control(name,&value)?;
+        }
+        Ok(())
+    }
     fn limit(&self,name:&str)->Result<u64,HostError> {
         let directory=self.directory.as_ref().ok_or_else(||HostError::Ownership("original resident cgroup directory unavailable".into()))?;
         let fd=rustix::fs::openat(directory,name,rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NOFOLLOW,rustix::fs::Mode::empty()).map_err(io::Error::from)?;
@@ -1522,6 +1768,32 @@ fn parse_population(contents: &str) -> Result<bool, HostError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn ordinary_relocation_rejects_displaced_shared_bounds_instead_of_copying_them() {
+        for name in ["memory.max","memory.high","memory.swap.max","pids.max"] {
+            assert!(unrestricted_placement_control(name,"max\n").is_ok());
+            assert!(unrestricted_placement_control(name,"171798691840\n").is_err());
+            assert!(unrestricted_placement_control(name,"").is_err());
+        }
+        assert!(unrestricted_placement_control("cpu.max","max 100000\n").is_ok());
+        assert!(unrestricted_placement_control("cpu.max","3200000 100000\n").is_err());
+        for name in ["cpuset.cpus","cpuset.mems","io.max"] {
+            assert!(unrestricted_placement_control(name,"\n").is_ok());
+            assert!(unrestricted_placement_control(name,"0-31").is_err());
+        }
+    }
+    #[tokio::test]
+    async fn real_ordinary_placement_authenticates_existing_parent_without_mutation() {
+        let manager=HostManager::connect_user(None).await.unwrap();
+        let current=manager.current_unit().await.unwrap();
+        let (slice,group,_)=manager.foreground_placement(&current).await.unwrap();
+        let target=manager.ordinary_placement(&current,&slice,Instant::now()+Duration::from_secs(5)).await.unwrap();
+        assert_eq!(target.slice(),slice);
+        assert_eq!(target.control_group(),group);
+        target.validate(&manager,Instant::now()+Duration::from_secs(5)).await.unwrap();
+        let missing=format!("pse-missing-{}.slice",NEXT.fetch_add(1,Ordering::Relaxed));
+        assert!(manager.ordinary_placement(&current,&missing,Instant::now()+Duration::from_secs(5)).await.is_err());
+    }
     #[test]
     fn sufficient_owned_parent_limits_require_no_update_and_widening_never_lowers() {
         let gib=1_u64 << 30;

@@ -88,6 +88,7 @@ pse-structural = { path = "crates/pse-structural" }
 pse-kernels = { path = "crates/pse-kernels" }
 pse-backend-native = { path = "crates/pse-backend-native" }
 pse-diagnostics = { path = "crates/pse-diagnostics" }
+pse-host = { path = "crates/pse-host" }
 pse-vocabulary = { path = "crates/pse-vocabulary" }
 pse-runtime = { path = "crates/pse-runtime" }
 pse-ipopt-sys = { path = "crates/pse-ipopt-sys" }

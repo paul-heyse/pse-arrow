@@ -33,6 +33,8 @@ test-support = []
 canonical-tests = []
 # Parse-only server libraries; ordinary scientific runtime does not select these.
 canonical-maintenance = ["dep:surrealdb-syn", "dep:surrealdb-sql"]
+# Application-owned isolated native canonical service; the host remains DB-free.
+native-service = ["dep:pse-host"]
 
 [dependencies]
 datafusion-execution.workspace = true
@@ -43,6 +45,7 @@ rustix.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
 pse-diagnostics.workspace = true
+pse-host = { workspace = true, optional = true }
 pse-columnar.workspace = true
 pin-project-lite.workspace = true
 pse-ids.workspace = true
@@ -101,3 +104,13 @@ path = "src/bin/pse-canonical-recovery.rs"
 [[bin]]
 name = "pse-canonical-init"
 path = "src/bin/pse-canonical-init.rs"
+
+[[bin]]
+name = "pse-canonical-service"
+path = "src/bin/pse-canonical-service.rs"
+required-features = ["native-service"]
+
+[[test]]
+name = "native_service"
+path = "tests/native_service.rs"
+required-features = ["native-service"]

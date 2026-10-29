@@ -590,3 +590,11 @@ workspace-dependency warning from the pending native-service consumer declaratio
 Rust warnings. Full source compilation remains unperformed. D01/D05's focused implementation,
 generation and parser results are recorded at its [own checkpoint](58d-canonical-control-and-connectivity.md#native-host-dependency-execution-checkpoint--2026-10-29);
 actual isolated service/migration acceptance remains next.
+
+The actual pinned solver image also prepares successfully through the new native constructor
+and selects its sealed generation. A selected solver-only boundary finds the Ipopt/SCIP headers
+and resolves the Ipopt shared library's dynamic dependencies without missing libraries.
+This establishes real image extraction and runtime selection, not a solver calculation,
+numerical parity, cancellation campaign or performance benefit. Other new provider source
+builds and their scientific consumers remain unqualified. Existing provider generations and
+stores are preserved.

@@ -99,6 +99,45 @@ impl SchemaReady {
     pub fn into_store(self) -> CanonicalStore { self.store }
 }
 impl CanonicalStore {
+    /// The native fixture owner calls this only for its newly created private
+    /// deployment. Actual catalog absence is required; no existing canonical
+    /// schema or records can be replaced and no caller supplies SQL.
+    #[cfg(feature = "native-service")]
+    pub(crate) async fn install_pre_epoch_fixture(options: &CanonicalOptions) -> Result<(), CanonicalError> {
+        let store = Self::connect(options).await?;
+        let installed = async {
+            if !store.initialization_required().await? {
+                return Err(invalid("predecessor installation requires a fresh owned canonical catalog"));
+            }
+            store.provision_context().await?;
+            if hash(PRE_EPOCH_DECLARATION.as_bytes()) != pse_schema::catalog::substrate::PRE_EPOCH_DECLARATION_SHA256 {
+                return Err(invalid("frozen predecessor declaration differs from its recorded bytes"));
+            }
+            let module = super::study_module::StudyModuleReceipt::read(&store.state_path)?;
+            let body = format!("{}{}\nCREATE canonical_interpretations:current SET key='current',interpretation=$interpretation,schema_digest=$schema_digest,study_module_sha256=$study_module_sha256,issuing_store=<string>rand::uuid::v4(),payload_incarnation=$payload_incarnation;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;", module.declarations(false), PRE_EPOCH_DECLARATION);
+            let mut bindings = Object::new();
+            bindings.insert("interpretation", wire::INTERPRETATION);
+            bindings.insert("schema_digest", pse_schema::catalog::substrate::PRE_EPOCH_SCHEMA_DIGEST);
+            bindings.insert("study_module_sha256", module.sha256.clone());
+            bindings.insert("payload_incarnation", store.files.incarnation.clone());
+            let maintenance = SchemaMaintenance { store: store.clone() };
+            if maintenance.execute::<Option<bool>>(&body, "true", bindings).await? != Some(true) {
+                return Err(CanonicalError::IncompleteResponse);
+            }
+            let actual = maintenance.inspect().await?;
+            if !actual.predecessor.legacy() || actual.predecessor.study_module_sha256 != module.sha256
+                || actual.predecessor.payload_incarnation != store.files.incarnation {
+                return Err(CanonicalError::IncompleteResponse);
+            }
+            Ok(())
+        }.await;
+        let drained = store.drain_owned_connection().await;
+        match (installed, drained) {
+            (Ok(()), Ok(())) => Ok(()),
+            (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error),
+            (Err(error), Err(cleanup)) => Err(CanonicalError::MigrationDrain { failures: vec![error, cleanup] }),
+        }
+    }
     /// Connect and establish current schema, issuer and module premises without science services.
     pub async fn connect_ready(options: &CanonicalOptions) -> Result<SchemaReady, CanonicalError> {
         let store = Self::connect(options).await?;
@@ -441,6 +480,17 @@ mod tests {
             changed.insert(key, "unknown-reader");
             assert!(matches!(SchemaFence::from_marker(&changed), Err(CanonicalError::Interpretation { expected: actual, observed }) if actual == expected && observed == "unknown-reader"));
         }
+    }
+    #[test]
+    fn schema_migration_drain_classification_retains_nested_effect_uncertainty() {
+        let definite = CanonicalError::MigrationDrain { failures: vec![invalid("original native owner was not joined")] };
+        assert!(definite.is_infrastructure());
+        assert!(!definite.effect_is_unknown());
+        assert!(!definite.retryable());
+        let uncertain = CanonicalError::MigrationDrain { failures: vec![definite, CanonicalError::MigrationDrain { failures: vec![CanonicalError::Timeout] }] };
+        assert!(uncertain.is_infrastructure());
+        assert!(uncertain.effect_is_unknown());
+        assert!(!uncertain.retryable());
     }
     #[test]
     fn schema_migration_requests_bind_exact_predecessor_operation_and_target() {

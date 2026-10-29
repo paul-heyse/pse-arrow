@@ -6630,6 +6630,7 @@ dependencies = [
  "pse-columnar",
  "pse-diagnostics",
  "pse-engine",
+ "pse-host",
  "pse-ids",
  "pse-model",
  "pse-relations",

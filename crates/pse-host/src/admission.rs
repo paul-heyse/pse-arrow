@@ -120,7 +120,7 @@ impl Profile {
 
 /// Validated policy and caller selection, before any manager effect.
 #[derive(Clone, Debug)]
-pub struct Selection { policy: Policy, profile: Profile, slice: String, explicit_class: bool }
+pub struct Selection { policy: Policy, profile: Profile, slice: String, explicit_class: bool, ordinary_target: Option<String> }
 impl Selection {
     /// Command selection wins over caller environment, then recipe/default and local mode.
     pub fn load(root: &Path, environment: &Environment, explicit: Option<&str>, recipe: Option<&str>) -> Result<Self, HostError> {
@@ -150,7 +150,9 @@ impl Selection {
         } else if direct.is_none() && mode == "unbounded" && request.is_none()
             && matches!(name.as_str(),"light" | "compile" | "functional" | "wide" | "exclusive" | "build")
         { name = "build".into(); }
-        let slice = value(environment,"PSE_SLICE")?.unwrap_or("pse.slice");
+        let requested_slice=value(environment,"PSE_SLICE")?;
+        let ordinary_target=requested_slice.filter(|slice|!slice.is_empty() && *slice!="none").map(str::to_owned);
+        let slice=requested_slice.unwrap_or("pse.slice");
         if name != "build" && slice != "pse.slice" && (!slice.starts_with("pse-") || !slice_syntax(slice)) {
             return Err(invalid("finite placement must preserve the declared pse.slice aggregate ancestry"));
         }
@@ -158,7 +160,7 @@ impl Selection {
         let all_cores = policy.functional_cores.iter().chain(&policy.timing_cores).copied().collect::<BTreeSet<_>>().into_iter().collect::<Vec<_>>();
         if name == "build" {
             if amount.is_some() { return Err(invalid("unbounded build cannot take PSE_MEMORY_MAX; select a finite class")); }
-            return Ok(Self { policy, profile: Profile { name, memory:0,lane:"build".into(),slots:0,cores:all_cores,exclusive:false,aggregate:0,allocation:0 }, slice:slice.to_owned(), explicit_class:explicit.is_some() });
+            return Ok(Self { policy, profile: Profile { name, memory:0,lane:"build".into(),slots:0,cores:all_cores,exclusive:false,aggregate:0,allocation:0 }, slice:slice.to_owned(), explicit_class:explicit.is_some(),ordinary_target });
         }
         if matches!(name.as_str(),"light" | "compile" | "functional" | "wide" | "exclusive") {
             if let Some(amount) = amount {
@@ -196,7 +198,7 @@ impl Selection {
         let aggregate = checked_gib(policy.aggregate_gib)?.max(allocation);
         let maximum = total.checked_sub(checked_gib(policy.non_agent_headroom_gib)?).ok_or_else(|| invalid("non-agent headroom exceeds memory"))?;
         if aggregate > maximum { return Err(invalid("requested aggregate exceeds host memory after non-agent allowance")); }
-        Ok(Self { policy, profile: Profile {name,memory,lane:lane.into(),slots,cores,exclusive,aggregate,allocation}, slice:slice.to_owned(), explicit_class:explicit.is_some() })
+        Ok(Self { policy, profile: Profile {name,memory,lane:lane.into(),slots,cores,exclusive,aggregate,allocation}, slice:slice.to_owned(), explicit_class:explicit.is_some(),ordinary_target })
     }
     /// Select child environment before spawning its closed gate. These strings
     /// grant no authority until actual reservation and original scope binding.
@@ -213,6 +215,11 @@ impl Selection {
     pub fn profile(&self) -> &Profile { &self.profile }
     /// Configured finite parent. Ordinary foreground placement retains its actual parent.
     pub fn slice(&self) -> &str { &self.slice }
+    /// Only an explicit ordinary target requests relocation; absent, empty and
+    /// `none` selections retain the caller's authenticated actual parent.
+    pub fn requested_ordinary_target(&self)->Option<&str> {
+        self.profile.ordinary().then_some(self.ordinary_target.as_deref()).flatten()
+    }
     /// Policy admission duration; callers intersect it with their original startup deadline.
     pub fn admission_timeout(&self) -> Duration { Duration::from_secs(self.policy.admission_seconds) }
     fn conflict(&self, rows: impl Iterator<Item = Profile>, ordinary_live: bool) -> Option<String> {
@@ -794,6 +801,21 @@ mod tests {
         for key in ["HOME","XDG_STATE_HOME"] { if let Some(value)=std::env::var_os(key) { environment.insert(key.into(),value); } }
         let coordinator=Coordinator::open(Path::new("/first-checkout"),&environment).unwrap();
         (runtime,environment,coordinator)
+    }
+    #[test]
+    fn ordinary_target_distinguishes_explicit_slice_from_default_and_preservation() {
+        let mut environment=Environment::from([("PSE_BUILD_MODE".into(),"unbounded".into())]);
+        let load=|environment:&Environment|Selection::from_policy(policy(),environment,None,None,256*GIB).unwrap();
+        assert_eq!(load(&environment).requested_ordinary_target(),None);
+        for preserve in ["", "none"] {
+            environment.insert("PSE_SLICE".into(),preserve.into());
+            assert_eq!(load(&environment).requested_ordinary_target(),None);
+        }
+        for selected in ["pse.slice","app.slice","app-custom.slice"] {
+            environment.insert("PSE_SLICE".into(),selected.into());
+            assert_eq!(load(&environment).requested_ordinary_target(),Some(selected));
+        }
+        assert_eq!(selected(Some("light"),None,"unbounded").requested_ordinary_target(),None);
     }
     #[test]
     fn borrowed_resident_requires_original_metadata_identity_and_actual_resource_bounds() {

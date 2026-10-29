@@ -30,6 +30,9 @@ pub mod canonical_studies;
 pub mod canonical_study_workbench;
 /// Shared deployment identity and strict owner projections.
 pub mod deployment;
+/// Explicit isolated native canonical service construction and physical settlement.
+#[cfg(feature = "native-service")]
+pub mod native_service;
 mod ids;
 /// Clock, response and lifetime composition for independently owned native clients.
 pub mod transport;

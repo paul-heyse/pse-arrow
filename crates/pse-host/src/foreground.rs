@@ -225,6 +225,13 @@ async fn run_owned(mut request: ForegroundRequest, coordinator: Coordinator, sel
     .await
     .map_err(|_| HostError::Deadline("enclosing workload authentication".into()))??;
     if native {
+        if let Some(requested) = selection.as_ref().and_then(Selection::requested_ordinary_target) {
+            let (actual, _, _) = tokio::time::timeout_at(request.startup_deadline.into(), manager.foreground_placement(&current))
+                .await.map_err(|_| HostError::Deadline("nested placement authentication".into()))??;
+            if requested != actual {
+                return Err(HostError::Ownership("nested ordinary placement cannot leave authenticated enclosing containment".into()));
+            }
+        }
         let inherited = coordinator.inherit(&request.environment, &manager, selection.as_ref(), &current, request.startup_deadline).await?;
         if inherited.is_none() && selection.as_ref().is_some_and(|selection| !selection.profile().ordinary()) {
             return Err(HostError::Ownership("nested finite selection requires an authenticated existing allocation; start it from an application scope".into()));
@@ -249,12 +256,10 @@ async fn run_owned(mut request: ForegroundRequest, coordinator: Coordinator, sel
     )
     .await
     .map_err(|_| HostError::Deadline("foreground slice authentication".into()))??;
-    if let Some(selection) = selection.as_ref().filter(|selection| selection.profile().ordinary()) {
-        let requested = selection.slice();
-        if !matches!(requested, "" | "none" | "pse.slice") && requested != slice {
-            return Err(HostError::Ownership("ordinary custom placement must match the authenticated application parent; cross-parent relocation remains unavailable".into()));
-        }
-    }
+    let ordinary_placement = match selection.as_ref().and_then(Selection::requested_ordinary_target) {
+        Some(requested) => Some(manager.ordinary_placement(&current, requested, request.startup_deadline).await?),
+        None => None,
+    };
     preflight(&current.control_group, default_tasks_max)?;
     let owner_intent = LaunchIntent::fresh_scope()?;
     let workload_intent = LaunchIntent::fresh_scope()?;
@@ -298,8 +303,10 @@ async fn run_owned(mut request: ForegroundRequest, coordinator: Coordinator, sel
             owner = Some(manager.start_scope(&owner_intent, caller_fd, &current.unit, &slice, request.startup_deadline, request.drain_timeout.saturating_sub(Duration::from_secs(1))).await?);
             owner.as_ref().ok_or_else(|| HostError::Ownership("owner missing after activation".into()))?.assert_population(&[std::process::id()]).await?;
             if let Some(permit) = &permit { permit.bind(owner.as_ref().ok_or_else(||HostError::Ownership("owner missing".into()))?, request.startup_deadline).await?; }
-            let workload_slice = permit.as_ref().and_then(Permit::allocation_slice).unwrap_or(&slice);
-            let workload_group = if workload_slice == slice { slice_group.clone() } else { manager.observe(workload_slice).await?.control_group };
+            let workload_slice = permit.as_ref().and_then(Permit::allocation_slice)
+                .or_else(|| ordinary_placement.as_ref().map(|placement| placement.slice())).unwrap_or(&slice);
+            let workload_group = if let Some(placement) = &ordinary_placement { placement.control_group().to_owned() }
+                else if workload_slice == slice { slice_group.clone() } else { manager.observe(workload_slice).await?.control_group };
             let controls = match &permit { Some(permit) => permit.profile().controls()?, None => crate::ResourceControls::default() };
             workload = Some(manager.start_scope_controlled(&workload_intent, workload_fd, owner_intent.unit(), workload_slice, request.startup_deadline, request.drain_timeout.saturating_sub(Duration::from_secs(1)), &controls).await?);
             workload.as_ref().ok_or_else(|| HostError::Ownership("workload missing after activation".into()))?.assert_population(&[child_pid]).await?;
@@ -313,6 +320,7 @@ async fn run_owned(mut request: ForegroundRequest, coordinator: Coordinator, sel
             let unit = workload.as_ref().ok_or_else(||HostError::Ownership("workload missing".into()))?;
             if let Some(permit) = &permit { permit.bind(unit, request.startup_deadline).await?; }
             else { coordinator.admit_ordinary(&manager, &unit.observe().await?, request.startup_deadline).await?; }
+            if let Some(placement) = &ordinary_placement { placement.validate(&manager, request.startup_deadline).await?; }
             Ok::<(), HostError>(())
         };
         let startup = tokio::time::timeout_at(request.startup_deadline.into(), startup);

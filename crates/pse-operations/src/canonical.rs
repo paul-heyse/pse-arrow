@@ -334,6 +334,7 @@ impl From<surrealdb_types::Error> for CanonicalError {
 impl CanonicalError {
     /// Infrastructure termination is distinct from a scientific/domain refusal.
     pub fn is_infrastructure(&self) -> bool {
+        if matches!(self, Self::MigrationDrain { .. }) { return true; }
         if let Self::SettlementUnresolved {
             source, readback, ..
         } = self
@@ -370,6 +371,7 @@ impl CanonicalError {
     /// owner must settle original receipts before granting replay.
     pub fn effect_is_unknown(&self) -> bool {
         match self {
+            Self::MigrationDrain { failures } => failures.iter().any(Self::effect_is_unknown),
             Self::StoreFailure { effect, .. } | Self::Refused { effect, .. } => {
                 *effect == FailureEffect::Unknown
             }

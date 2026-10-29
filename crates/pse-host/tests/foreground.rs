@@ -311,6 +311,56 @@ exit 7
 }
 
 #[test]
+fn foreground_ordinary_explicit_target_preserves_owner_and_refuses_nested_escape() {
+    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
+    let manager = runtime.block_on(pse_host::HostManager::connect_user(None)).unwrap();
+    let intent = pse_host::LaunchIntent::fresh_allocation("app.slice").unwrap();
+    let mut target = runtime.block_on(manager.start_slice(&intent, &pse_host::ResourceControls::default(), Instant::now() + Duration::from_secs(15))).unwrap();
+    let original = runtime.block_on(target.observe()).unwrap();
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let temp = tempfile::tempdir().unwrap();
+        let observation = temp.path().join("placement");
+        let escaped = temp.path().join("must-not-execute");
+        let mut command = host();
+        command.current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
+            .env("PSE_BUILD_MODE", "unbounded").env_remove("PSE_HOST_ALLOCATION")
+            .env_remove("PSE_MEMORY_MAX").env("PSE_SLICE", intent.unit())
+            .args(["boundary", "--resource-class", "build", "--", "/bin/sh", "-ec", r#"
+cat /proc/self/cgroup > "$1"
+cat "/proc/$PPID/cgroup" >> "$1"
+"$2" boundary --resource-class build -- /bin/cat /proc/self/cgroup >> "$1"
+set +e
+/usr/bin/env PSE_SLICE=app.slice "$2" boundary --resource-class build -- /usr/bin/touch "$3"
+status=$?
+set -e
+test "$status" -eq 125
+test -z "${PSE_HOST_ALLOCATION-}"
+group=$(sed -n 's/^0:://p' /proc/self/cgroup)
+cat "/sys/fs/cgroup$group/memory.max" >> "$1"
+"#, "fixture"]).arg(&observation).arg(env!("CARGO_BIN_EXE_pse-host")).arg(&escaped);
+        let mut child = Guard::top_level(&mut command);
+        let status = child.wait().unwrap();
+        let mut errors = String::new();
+        child.stderr.take().unwrap().read_to_string(&mut errors).unwrap();
+        assert!(status.success(), "{errors}");
+        assert!(!escaped.exists());
+        let document = fs::read_to_string(observation).unwrap();
+        let rows = document.lines().collect::<Vec<_>>();
+        assert_eq!(rows.len(), 4, "{document}");
+        assert_eq!(rows[0], rows[2], "nested work must retain actual target containment");
+        let group = rows[0].strip_prefix("0::").unwrap();
+        assert_eq!(Path::new(group).parent(), Some(Path::new(&original.control_group)));
+        assert!(!rows[1].contains(intent.unit()), "controller must retain its prior parent");
+        assert_eq!(rows[3], "max", "ordinary work must not acquire a new leaf cap");
+        record_fresh_group(&mut child, group);
+        wait_empty(group);
+    }));
+    let cleanup = runtime.block_on(target.stop_and_drain(Instant::now() + Duration::from_secs(15)));
+    assert!(cleanup.is_ok(), "original target cleanup failed after body success={}: {cleanup:?}", result.is_ok());
+    if let Err(panic) = result { std::panic::resume_unwind(panic); }
+}
+
+#[test]
 fn foreground_finite_controller_death_drains_original_work_and_reclaims_only_afterward() {
     for signal in [rustix::process::Signal::TERM, rustix::process::Signal::KILL] {
         let temp = tempfile::tempdir().unwrap();

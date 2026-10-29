@@ -12,7 +12,7 @@ mod manager;
 pub mod native;
 pub mod server;
 pub use manager::{
-    BorrowedUnit, HostManager, LaunchIntent, OwnedUnit, ResourceControls, ServiceSpec, UnitObservation,
+    BorrowedUnit, HostManager, LaunchIntent, OrdinaryPlacement, OwnedUnit, ResourceControls, ServiceSpec, UnitObservation,
 };
 
 /// A host boundary failure, never a scientific outcome.
