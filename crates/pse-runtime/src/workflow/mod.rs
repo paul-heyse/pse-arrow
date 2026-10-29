@@ -366,6 +366,15 @@ impl AdmissionEffect {
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.
 #[derive(Debug, thiserror::Error)]
 pub enum WorkflowError {
+    /// Original operation failure and a separately attempted settlement failure.
+    #[error("operation failed: {operation}; settlement also failed: {cleanup}")]
+    Settlement {
+        /// Original operation or earlier settlement cause.
+        #[source]
+        operation: Box<WorkflowError>,
+        /// Independently retained settlement cause.
+        cleanup: Box<WorkflowError>,
+    },
     /// The admitted primary drained or changed before finalization; records remain recoverable.
     #[error(
         "study {study} execution is unavailable: its admitted managed primary cannot finish this dispatch; durable records require explicit recovery"
@@ -496,7 +505,7 @@ impl From<BoundaryDiagnostic> for WorkflowError {
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
     code(this) {match this {Self::Input(_)|Self::DocumentDecode(_)|Self::RecordingUnavailable|Self::CallerClosed=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)|Self::StudyExecutionUnavailable{..}=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Resource(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Integrity(_)|Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Unsupported(_)=>Some(pse_diagnostics::DiagnosticCode::NativeUnsupported),Self::Typed(_)=>None,_=>None}},
-    forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::DocumentDecode(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)|Self::ScientificRefusal(e)=>Some(e.as_ref()),Self::Admission{cause,..}=>Some(cause.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::StudyCreationUnsettled{source,..}|Self::ArtifactTransferUnsettled{source,..}=>Some(source.as_ref()),_=>None}},
+    forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::DocumentDecode(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)|Self::ScientificRefusal(e)=>Some(e.as_ref()),Self::Admission{cause,..}=>Some(cause.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Settlement{operation,..}=>Some(operation.as_ref()),Self::StudyCreationUnsettled{source,..}|Self::ArtifactTransferUnsettled{source,..}=>Some(source.as_ref()),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
 pub(crate) fn scientific_refusal(

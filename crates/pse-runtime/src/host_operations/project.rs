@@ -48,7 +48,8 @@ pub fn default_batch_size() -> usize {
 fn project_document_bytes() -> usize {
     PROJECT_DOCUMENT_BYTES
 }
-fn cohort_export_bytes() -> u64 {
+/// Default bounded byte extent for an operator's frozen study-cohort export.
+pub fn cohort_export_bytes() -> u64 {
     16 * 1024 * 1024
 }
 fn project_branch_name() -> String {

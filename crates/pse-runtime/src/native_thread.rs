@@ -98,4 +98,27 @@ mod tests {
             assert!(observed.load(Ordering::Acquire));
         }
     }
+    #[tokio::test]
+    async fn dispatch_callback_failure_joins_native_tls_before_original_panic_escapes() {
+        let destroyed = Arc::new(AtomicBool::new(false));
+        let joined = Arc::new(AtomicBool::new(false));
+        let thread_destroyed = destroyed.clone();
+        let joined_destroyed = destroyed.clone();
+        let observed = joined.clone();
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            NativeThread::spawn(
+                "pse-dispatch-callback-failure", 2 << 20, ExecutionContext::capture(),
+                || panic!("original dispatch callback failure"),
+                move || {
+                    assert!(joined_destroyed.load(Ordering::Acquire));
+                    observed.store(true, Ordering::Release);
+                },
+                move || { FOREIGN.set(Some(Destruction(thread_destroyed))); },
+            )
+        }));
+        let original = match outcome { Err(panic) => panic, Ok(_) => panic!("dispatch callback must fail") };
+        assert_eq!(original.downcast_ref::<&str>(), Some(&"original dispatch callback failure"));
+        assert!(destroyed.load(Ordering::Acquire));
+        assert!(joined.load(Ordering::Acquire));
+    }
 }

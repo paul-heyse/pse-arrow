@@ -69,3 +69,54 @@ pub(crate) fn spawn_pool_worker(
     }
     builder.spawn(|| thread.run())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn partial_team_failure_joins_every_started_worker_including_failed_sibling() {
+        let (exiting, exited) = std::sync::mpsc::channel();
+        let (release, gate) = std::sync::mpsc::channel();
+        let (finished, outcome) = std::sync::mpsc::channel();
+        // Always release the owned destructor before joining on assertion failure.
+        struct Release(Option<std::sync::mpsc::Sender<()>>);
+        impl Drop for Release {
+            fn drop(&mut self) {
+                if let Some(release) = self.0.take() { let _ = release.send(()); }
+            }
+        }
+        let mut release = Release(Some(release));
+        let construction = std::thread::spawn(move || {
+            let mut index = 0;
+            let mut gate = Some(gate);
+            let result = JoinedPool::new(3, 2 << 20, |thread| {
+                index += 1;
+                match index {
+                    1 => Ok(std::thread::spawn(move || {
+                        thread.run();
+                        panic!("first native team worker failed during exit");
+                    })),
+                    2 => {
+                        let gate = gate.take().unwrap();
+                        let exiting = exiting.clone();
+                        Ok(std::thread::spawn(move || {
+                            thread.run();
+                            exiting.send(()).unwrap();
+                            gate.recv().unwrap();
+                        }))
+                    }
+                    _ => Err(std::io::Error::other("partial team construction refused")),
+                }
+            });
+            finished.send(result.map(|_| ())).unwrap();
+        });
+        exited.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+        assert!(matches!(outcome.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)),
+            "failed sibling cannot bypass the remaining native worker join");
+        release.0.take().unwrap().send(()).unwrap();
+        let result = outcome.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+        assert!(matches!(result, Err(MathError::Library(message)) if message.contains("partial team construction refused")));
+        construction.join().unwrap();
+    }
+}

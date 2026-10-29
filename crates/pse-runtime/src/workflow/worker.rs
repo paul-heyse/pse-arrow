@@ -362,6 +362,26 @@ where
     .await
     .0
 }
+fn retain_failure(failure: &mut Option<WorkflowError>, next: WorkflowError) {
+    *failure = Some(match failure.take() {
+        None => next,
+        Some(operation) => WorkflowError::Settlement {
+            operation: Box::new(operation),
+            cleanup: Box::new(next),
+        },
+    });
+}
+
+fn settle_worker_result<T>(result: Result<T, WorkflowError>, cleanup: Option<WorkflowError>) -> Result<T, WorkflowError> {
+    match (result, cleanup) {
+        (result, None) => result,
+        (Ok(_), Some(error)) => Err(error),
+        (Err(operation), Some(cleanup)) => Err(WorkflowError::Settlement {
+            operation: Box::new(operation), cleanup: Box::new(cleanup),
+        }),
+    }
+}
+
 /// The actual lane state is returned after every drained action, including errors.
 async fn serve_owned_lanes<S, F, Fut>(
     settings: WorkerSettings,
@@ -473,13 +493,11 @@ where
                             // may refill once this handoff obtains publication.
                             refill = true;
                         } else {
-                            failure.get_or_insert_with(|| {
-                                contract("worker duplicate publication handoff")
-                            });
+                            retain_failure(&mut failure, contract("worker duplicate publication handoff"));
                             drain.cancel();
                         }
                     } else {
-                        failure.get_or_insert_with(|| contract("worker publication lane absent"));
+                        retain_failure(&mut failure, contract("worker publication lane absent"));
                         drain.cancel();
                     }
                 }
@@ -492,7 +510,7 @@ where
                             waiting.retain(|waiting_lane| *waiting_lane != lane);
                         }
                         publication::State::Idle => {
-                            failure.get_or_insert_with(|| contract("worker idle lane completed"));
+                            retain_failure(&mut failure, contract("worker idle lane completed"));
                             drain.cancel();
                         }
                     }
@@ -513,17 +531,13 @@ where
                             match count.checked_add(1) {
                                 Some(next) => count = next,
                                 None => {
-                                    failure.get_or_insert_with(|| {
-                                        contract("worker processed count overflow")
-                                    });
+                                    retain_failure(&mut failure, contract("worker processed count overflow"));
                                     drain.cancel();
                                 }
                             }
                         }
                         Err(error) => {
-                            if failure.is_none() {
-                                failure = Some(error);
-                            }
+                            retain_failure(&mut failure, error);
                             drain.cancel();
                         }
                     }
@@ -1240,6 +1254,32 @@ mod lane_tests {
         );
         assert_eq!(issued, 2);
         assert_eq!(drained.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn worker_retains_every_issued_lane_failure_after_drain() {
+        let stop = crate::CancelSource::new();
+        let returned = Arc::new(AtomicUsize::new(0));
+        let mut issued = 0;
+        let result = serve_lanes(WorkerSettings::default(), 2, &stop, |_, drain| {
+            let lane = issued;
+            issued += 1;
+            let returned = returned.clone();
+            async move {
+                if lane != 0 { drain.cancelled().await; }
+                returned.fetch_add(1, Ordering::SeqCst);
+                Err(contract(format!("original lane {lane} failure")))
+            }
+        }).await;
+        let error = result.unwrap_err();
+        assert_eq!(returned.load(Ordering::SeqCst), 2);
+        let WorkflowError::Settlement { operation, cleanup } = error else { panic!("missing independent lane cause") };
+        assert!(operation.to_string().contains("original lane 0 failure"));
+        assert!(cleanup.to_string().contains("original lane 1 failure"));
+        let error = settle_worker_result::<()>(Err(*operation), Some(*cleanup)).unwrap_err();
+        assert!(error.to_string().contains("original lane 0 failure"));
+        assert!(error.to_string().contains("original lane 1 failure"));
+        assert!(!error.boundary_diagnostic().causes.is_empty());
     }
 
     #[tokio::test]
@@ -2447,16 +2487,11 @@ impl Runtime {
                 .await;
                 let mut close_failure = None;
                 for lane in &mut owners {
-                    if let Err(error) = lane.close().await
-                        && close_failure.is_none()
-                    {
-                        close_failure = Some(error);
+                    if let Err(error) = lane.close().await {
+                        retain_failure(&mut close_failure, error);
                     }
                 }
-                if let Some(error) = close_failure {
-                    return Err(error);
-                }
-                result
+                settle_worker_result(result, close_failure)
             })
             .await
     }

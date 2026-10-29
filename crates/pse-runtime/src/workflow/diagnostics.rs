@@ -77,6 +77,11 @@ impl super::WorkflowError {
 impl DiagnosticProjection for super::WorkflowError {
     fn boundary_diagnostic(&self, stage: DiagnosticStage) -> BoundaryDiagnostic {
         match self {
+            Self::Settlement { operation, cleanup } => {
+                let mut diagnostic = DiagnosticProjection::boundary_diagnostic(operation.as_ref(), stage);
+                diagnostic.causes.push(DiagnosticProjection::boundary_diagnostic(cleanup.as_ref(), stage));
+                diagnostic
+            }
             Self::Boundary(d) | Self::ScientificRefusal(d) => d.as_ref().clone(),
             Self::Admission { effect, cause } => {
                 let mut diagnostic =
