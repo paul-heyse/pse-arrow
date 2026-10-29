@@ -349,3 +349,25 @@ against zero failures, two excluded, no warnings (run `85a97867-f496-4102-b677-4
 This closes the bounded admitted-entry cancellation gap above, while actual worker crash,
 migration-crossing publication, broader populations and arbitrary blocking foreign solvers
 retain their separate acceptance obligations.
+
+## Publication across closed schema admission — 2026-10-29
+
+**Tested:** the private native-service library control
+`native_old_publisher_settles_while_migration_is_closed_before_successor_activation` passes
+against zero failures, 505 excluded, no warnings (correctness nextest, `pse-operations --lib
+--locked --features canonical-tests,native-service,canonical-maintenance,test-support`, run
+`be363ce5-400d-4d8f-b48e-c2520545341e`). It closes real schema admission while an original
+attempt and preconstructed sealed payload remain live. Fresh claims/cancellation and new
+connections refuse; stopping actual ingress alone cannot establish publisher quiescence.
+The failed quiescence attempt leaves admission closed. The original append commits despite a
+lost ACK/readback, exact replay retains its file/attempt/request identity, and original terminal
+settlement remains permitted. After physical publisher disconnect, the same migration resumes,
+activates a successor epoch and fences an independently retained old connection.
+
+The payload remains explicit `Partial` transport output with no reusable scientific seed;
+activation neither reruns science nor upgrades usability. Diagnostic payload inventory correctly
+refuses during closure because it is not an original-attempt settlement operation; the initial
+test incorrectly expected that general read to succeed and was corrected without widening
+production admission. Exact receipts and post-activation payload counts retain the duplicate-file
+check. This exercises a current-schema epoch migration; D's earlier real v2-to-v3 controls keep
+their separate scope. Worker-process death and other C integration/retirement obligations remain.

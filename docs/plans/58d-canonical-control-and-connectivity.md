@@ -510,3 +510,10 @@ passes two controls against zero failures, 17 excluded, no warnings (run
 physical restart and settles its unchanged v2 receipt without granting current readiness;
 the same old module still refuses v3 activation, while explicit prepared-target upgrade passes.
 The review assessed committed native core correctness, not completion of remaining scope.
+
+D05 now also has the [actual publication-crossing control](58c-runtime-lifecycles.md#publication-across-closed-schema-admission--2026-10-29):
+closed admission permits only exact original-attempt settlement, unsuccessful quiescence stays
+closed, real ingress/publisher drain precedes successor activation, and a retained stale client
+cannot write or reinterpret its failed readback as settled absence. C owns its command and
+bounded result interpretation. This current-schema epoch case complements the separate actual
+v2-to-v3 tests; it does not close all D01–D05 consumer or assembled qualification obligations.
