@@ -46,6 +46,7 @@ tokio-util.workspace = true
 tracing.workspace = true
 pse-diagnostics.workspace = true
 pse-host = { workspace = true, optional = true }
+pse-buildinfo.workspace = true
 pse-columnar.workspace = true
 pin-project-lite.workspace = true
 pse-ids.workspace = true

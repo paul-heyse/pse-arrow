@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import io
 import json
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -108,52 +107,6 @@ def fixture_inputs(receipt: dict[str, object]) -> dict[str, object]:
 
 
 class ModuleAdmissionTests(unittest.TestCase):
-    def test_long_hold_source_provenance_binds_feature_manifest_and_packer(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as scratch:
-            binary = Path(scratch) / "builder"
-            binary.write_bytes(b"controlled builder")
-            server = {
-                "binary": str(binary),
-                "binary_sha256": module.surreal_source.digest(binary),
-                "surrealism_sdk_version": "0.6.4",
-            }
-            metadata = {
-                "packages": [
-                    {
-                        "id": "module",
-                        "manifest_path": str(module.ROOT / module.CRATE / "Cargo.toml"),
-                        "source": None,
-                    }
-                ],
-                "resolve": {"nodes": [{"id": "module", "deps": []}]},
-            }
-            with patch.object(
-                module, "_command", return_value=json.dumps(metadata)
-            ) as command:
-                inputs = module.source_inputs(
-                    server, qualification=True, long_hold=True
-                )
-            self.assertIn(
-                "pse-study-module/module-qualification-long-hold",
-                command.call_args.args[0],
-            )
-            self.assertEqual(inputs["features"], ["module-qualification-long-hold"])
-            self.assertEqual(inputs["kind"], module.LONG_HOLD_KIND)
-            self.assertEqual(
-                inputs["packaging"],
-                {
-                    "variant": "qualification-long-hold-v1",
-                    "packer_sha256": module.surreal_source.digest(
-                        Path(module.__file__)
-                    ),
-                    "manifest_sha256": module.surreal_source.digest(
-                        module.ROOT / module.LONG_HOLD_MANIFEST
-                    ),
-                },
-            )
-
     def test_long_hold_requires_exact_variant_limits_features_and_packaging(
         self,
     ) -> None:
@@ -190,88 +143,6 @@ class ModuleAdmissionTests(unittest.TestCase):
                 module.inspect_archive(
                     Path(str(receipt["artifact"])), qualification=True
                 )
-
-    def test_long_hold_packaging_changes_only_manifest_and_is_deterministic(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as scratch:
-            root = Path(scratch)
-            receipt = fixture_module(root / "source", qualification=True)
-            source = Path(str(receipt["artifact"]))
-            one, two = root / "one.surli", root / "two.surli"
-            shutil.copyfile(source, one)
-            shutil.copyfile(source, two)
-
-            def members(path: Path) -> dict[str, bytes]:
-                with module.tarfile.open(path, mode="r|zst") as archive:
-                    result: dict[str, bytes] = {}
-                    for item in archive:
-                        stream = archive.extractfile(item)
-                        assert stream is not None
-                        result[item.name] = stream.read()
-                    return result
-
-            original = members(source)
-            module._package_long_hold(one)  # noqa: SLF001 -- exercise manifest-only packaging, independently of compilation
-            module._package_long_hold(two)  # noqa: SLF001 -- repeat the same packaging to verify reproducibility
-            self.assertEqual(one.read_bytes(), two.read_bytes())
-            changed = members(one)
-            self.assertEqual(set(changed), module.MEMBERS)
-            for name in module.MEMBERS - {"surrealism/surrealism.toml"}:
-                self.assertEqual(changed[name], original[name])
-            self.assertEqual(
-                changed["surrealism/surrealism.toml"],
-                (module.ROOT / module.LONG_HOLD_MANIFEST).read_bytes(),
-            )
-            module.inspect_archive(one, qualification=True, long_hold=True)
-            hostile = fixture_module(
-                root / "hostile", qualification=True, exports={"study::readiness"}
-            )
-            with self.assertRaisesRegex(module.ModuleError, "exports differ"):
-                module._package_long_hold(Path(str(hostile["artifact"])))  # noqa: SLF001 -- prove invalid CLI output is refused before repacking
-
-    def test_long_hold_build_selects_feature_and_publishes_exact_receipt(self) -> None:
-        with tempfile.TemporaryDirectory() as scratch:
-            root = Path(scratch)
-            source = fixture_module(root / "source", qualification=True)
-            selected = fixture_module(
-                root / "selected", qualification=True, long_hold=True
-            )
-            inputs = fixture_inputs(selected)
-
-            def build(arguments: list[str]) -> str:
-                self.assertIn("module-qualification-long-hold", arguments)
-                shutil.copyfile(
-                    Path(str(source["artifact"])),
-                    Path(arguments[arguments.index("--out") + 1]),
-                )
-                return ""
-
-            with (
-                patch.object(module, "source_inputs", return_value=inputs),
-                patch.object(module, "_command", side_effect=build) as command,
-            ):
-                receipt = module.install(
-                    {"binary": "/controlled/builder"},
-                    root / "tools",
-                    qualification=True,
-                    long_hold=True,
-                )
-                self.assertEqual(receipt["kind"], module.LONG_HOLD_KIND)
-                self.assertEqual(receipt["limits"], module.LONG_HOLD_LIMITS)
-                self.assertEqual(
-                    module.verify(receipt, qualification=True, long_hold=True), receipt
-                )
-                self.assertEqual(
-                    module.install(
-                        {"binary": "/controlled/builder"},
-                        root / "tools",
-                        qualification=True,
-                        long_hold=True,
-                    ),
-                    receipt,
-                )
-                command.assert_called_once()
 
     def test_production_accepts_only_its_exact_readonly_export(self) -> None:
         with tempfile.TemporaryDirectory() as scratch:
@@ -368,22 +239,22 @@ class ModuleAdmissionTests(unittest.TestCase):
             with self.assertRaisesRegex(module.ModuleError, "symlinks"):
                 module.verify(receipt)
 
-    def test_changed_sources_refuse_publication_after_build(self) -> None:
-        with tempfile.TemporaryDirectory() as scratch:
-            root = Path(scratch)
-            receipt = fixture_module(root / "fixture")
-            inputs = fixture_inputs(receipt)
-            with (
-                patch.object(
-                    module,
-                    "source_inputs",
-                    side_effect=[inputs, {**inputs, "changed": True}],
-                ),
-                patch.object(module, "_command"),
-                self.assertRaisesRegex(module.ModuleError, "changed during"),
-            ):
-                module.install({"binary": "/controlled/builder"}, root / "tools")
-            self.assertFalse(any((root / "tools/modules").glob("*/module.json")))
+    def test_retired_construction_refuses_before_any_effect(self) -> None:
+        with (
+            patch("subprocess.run") as command,
+            patch.object(module.surreal_source, "digest") as digest,
+            patch.object(Path, "mkdir") as mkdir,
+        ):
+            for options in ({}, {"qualification": True}, {"qualification": True, "long_hold": True}):
+                with self.subTest(options=options), self.assertRaisesRegex(
+                    module.ModuleError, "construction is retired"
+                ):
+                    module.install({}, Path("/unused/module-construction"), **options)
+            with self.assertRaisesRegex(module.ModuleError, "construction is retired"):
+                module.main()
+            command.assert_not_called()
+            digest.assert_not_called()
+            mkdir.assert_not_called()
 
 
 if __name__ == "__main__":

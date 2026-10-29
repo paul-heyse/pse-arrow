@@ -24,10 +24,11 @@ fn service() -> NativeCanonicalService {
     NativeCanonicalService::new(NativeServiceSpec {
         server: pse_host::server::select(&environment).unwrap(),
         helper,
-        module_source_state: PathBuf::from(
-            std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE")
-                .expect("explicit private module receipt selector"),
-        ),
+        module_source: if let Some(record) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
+            crate::native_service::NativeModuleSource::Prepared(pse_host::study_module::select(&PathBuf::from(record),pse_host::study_module::Variant::Production).unwrap())
+        } else {
+            crate::native_service::NativeModuleSource::RecordedState(PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE").expect("explicit private module receipt selector")))
+        },
         state_parent: std::env::temp_dir(),
     })
     .unwrap()

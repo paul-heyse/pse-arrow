@@ -7,7 +7,7 @@
 )]
 use pse_operations::{
     canonical::{CanonicalOptions, CanonicalStore},
-    native_service::{NativeCanonicalService, NativeServiceError, NativeServiceSpec},
+    native_service::{NativeCanonicalService, NativeModuleSource, NativeServiceError, NativeServiceSpec},
 };
 use std::{
     path::PathBuf,
@@ -17,15 +17,16 @@ use std::{
 fn fixture_spec() -> Result<NativeServiceSpec, NativeServiceError> {
     let environment = std::env::vars_os().collect();
     let server = pse_host::server::select(&environment)?;
-    let module_source_state = PathBuf::from(
-        std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE").ok_or(NativeServiceError::Refused(
-            "explicit private original module receipt state is required",
-        ))?,
-    );
+    let module_source = if let Some(record) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
+        NativeModuleSource::Prepared(pse_host::study_module::select(PathBuf::from(record).as_path(), pse_host::study_module::Variant::Production)?)
+    } else {
+        NativeModuleSource::RecordedState(PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE")
+            .ok_or(NativeServiceError::Refused("explicit prepared receipt or historical module state required"))?))
+    };
     Ok(NativeServiceSpec {
         server,
         helper: PathBuf::from(env!("CARGO_BIN_EXE_pse-canonical-service")),
-        module_source_state,
+        module_source,
         state_parent: std::env::temp_dir(),
     })
 }
@@ -385,8 +386,8 @@ async fn native_service_retained_nonempty_v2_reopens_then_migrates_with_original
 async fn native_service_original_v2_target_and_old_module_resume_after_restart() {
     use pse_operations::canonical::migration::SchemaMigrationRequest;
     let mut spec = fixture_spec().unwrap();
-    spec.module_source_state = PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_STATE")
-        .expect("explicit retained original module selector"));
+    spec.module_source = NativeModuleSource::RecordedState(PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_STATE")
+        .expect("explicit retained original module selector")));
     let mut service = NativeCanonicalService::new_pre_epoch_fixture(spec).unwrap();
     let state = service.state().to_owned();
     let original = service.run(Instant::now()+Duration::from_secs(180), |service| Box::pin(async move {
@@ -427,9 +428,13 @@ async fn native_service_original_v2_target_and_old_module_resume_after_restart()
 #[tokio::test]
 async fn native_service_retained_v2_old_module_upgrades_to_explicit_prepared_target() {
     let mut spec = fixture_spec().unwrap();
-    spec.module_source_state = PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_STATE").expect("explicit old module source state required"));
-    let target = PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_TARGET_MODULE_STATE").expect("explicit new module source state required"));
-    let mut service = NativeCanonicalService::new_v2_upgrade_fixture(spec, &target).unwrap();
+    spec.module_source = NativeModuleSource::RecordedState(PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_STATE").expect("explicit old module source state required")));
+    let target = if let Some(record) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
+        NativeModuleSource::Prepared(pse_host::study_module::select(&PathBuf::from(record),pse_host::study_module::Variant::Production).unwrap())
+    } else {
+        NativeModuleSource::RecordedState(PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_TARGET_MODULE_STATE").expect("explicit new module source state required")))
+    };
+    let mut service = NativeCanonicalService::new_v2_upgrade_fixture(spec, target).unwrap();
     let state = service.state().to_path_buf();
     let configuration: serde_json::Value = serde_json::from_slice(&std::fs::read(state.join("config.json")).unwrap()).unwrap();
     let old_hash = configuration["study_module"]["sha256"].as_str().unwrap().to_owned();

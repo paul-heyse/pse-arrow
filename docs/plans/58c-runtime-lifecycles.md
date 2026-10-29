@@ -310,8 +310,9 @@ connections and ingresses concurrently before stopping their required server, un
 original deadline and with failures from both stages retained. A real multi-connection journey
 exposed the former stop-versus-release RPC race; the corrected cancellation journey passes.
 
-**Tested:** the force-validated native `pse-runtime --test native_study` target with
-`native-study-tests,solver-kinsol`, compiler/KLU preparation and private service/module selectors
+**Tested:** `scripts/pse-env --native=compiler,klu -- scripts/cargo-bin/cargo-pse-correctness
+nextest run --no-fail-fast -p pse-runtime --locked --test native_study --features
+native-study-tests,solver-kinsol`, with private service/module selectors,
 passes two controls against zero failures (run `9271e114-b1bf-42b8-b635-8caacee6915b`). These cover
 two competing workers, actual two-point KINSOL continuation, independent variable/residual
 answers, recorded source/point/attempt lineage, bounded connection-only browsing, protected

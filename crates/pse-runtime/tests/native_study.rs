@@ -30,9 +30,13 @@ fn service() -> NativeCanonicalService {
     let environment=std::env::vars_os().collect();
     let helper=PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER").expect("explicit already-built native-service helper"));
     assert!(helper.is_absolute() && helper.is_file(), "build -p pse-operations --features native-service --bin pse-canonical-service first");
-    let module_source_state=PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE").expect("explicit private module receipt selector"));
+    let module_source = if let Some(record) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
+        pse_operations::native_service::NativeModuleSource::Prepared(pse_host::study_module::select(&PathBuf::from(record),pse_host::study_module::Variant::Production).unwrap())
+    } else {
+        pse_operations::native_service::NativeModuleSource::RecordedState(PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE").expect("explicit private module receipt selector")))
+    };
     let service=NativeCanonicalService::new(NativeServiceSpec {
-        server:pse_host::server::select(&environment).unwrap(), helper, module_source_state,
+        server:pse_host::server::select(&environment).unwrap(), helper, module_source,
         state_parent:std::env::temp_dir(),
     }).unwrap();
     eprintln!("scientific native fixture state={} original_service={}",service.state().display(),service.intent().unit());

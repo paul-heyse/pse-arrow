@@ -1,22 +1,18 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Build and authenticate the immutable, capability-free study policy module.
+"""Historical receipt readers for retained immutable study policy artifacts.
 
-The released CLI owns WASI compilation, exports extraction and .surli packaging.
-This owner adds locked source provenance and private immutable publication; database
-installation remains part of the canonical schema activation transaction.
+Construction belongs to pse-host study-module prepare. Legacy supervisor callers
+fail before module construction effects until their native consumer handoff lands.
 """
 
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import os
 import stat
-import subprocess
 import tarfile
-import tempfile
 import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -102,25 +98,6 @@ def _input_digest(inputs: Mapping[str, object]) -> str:
     ).hexdigest()
 
 
-def _command(arguments: list[str]) -> str:
-    environment = dict(os.environ)
-    environment.pop("BASH_ENV", None)
-    result = subprocess.run(
-        arguments,
-        cwd=ROOT,
-        env=environment,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if result.returncode:
-        raise ModuleError(
-            f"Module build command failed ({result.returncode}): {arguments[0]}\n"
-            + result.stderr[-12000:]
-        )
-    return result.stdout
-
-
 def _variant(qualification: bool, long_hold: bool) -> tuple[str, list[str]]:
     if long_hold and not qualification:
         raise ModuleError("Long-hold is available only for explicit qualification")
@@ -129,130 +106,6 @@ def _variant(qualification: bool, long_hold: bool) -> tuple[str, list[str]]:
     return (
         (QUALIFICATION_KIND, ["module-qualification"]) if qualification else (KIND, [])
     )
-
-
-def source_inputs(
-    server: Mapping[str, object],
-    *,
-    qualification: bool = False,
-    long_hold: bool = False,
-) -> dict[str, object]:
-    """Record the declared local dependency closure and exact resolved lockfile."""
-    if server.get("surrealism_sdk_version") != surreal_source.SURREALISM_SDK:
-        raise ModuleError("Module builder does not carry the selected Surrealism SDK")
-    binary = Path(str(server.get("binary", "")))
-    binary_digest = _identity(server.get("binary_sha256"))
-    if not binary.is_file() or surreal_source.digest(binary) != binary_digest:
-        raise ModuleError("Module builder binary differs from its admitted receipt")
-    kind, features = _variant(qualification, long_hold)
-    feature_arguments = (
-        ["--features", ",".join("pse-study-module/" + feature for feature in features)]
-        if features
-        else []
-    )
-    metadata = _object(
-        json.loads(
-            _command(
-                [
-                    "cargo",
-                    "metadata",
-                    "--locked",
-                    "--format-version",
-                    "1",
-                    "--filter-platform",
-                    TARGET,
-                    "--manifest-path",
-                    str(ROOT / CRATE / "Cargo.toml"),
-                    *feature_arguments,
-                ]
-            )
-        )
-    )
-    packages = metadata.get("packages")
-    resolve = _object(metadata.get("resolve"))
-    nodes = resolve.get("nodes")
-    if not isinstance(packages, list) or not isinstance(nodes, list):
-        raise ModuleError("Module dependency inventory is unavailable")
-    packages_by_id: dict[str, dict[str, object]] = {}
-    nodes_by_id: dict[str, dict[str, object]] = {}
-    selected: str | None = None
-    for value in packages:
-        package = _object(value)
-        identity = package.get("id")
-        if not isinstance(identity, str):
-            raise ModuleError("Module package identity is unavailable")
-        packages_by_id[identity] = package
-        if package.get("manifest_path") == str(ROOT / CRATE / "Cargo.toml"):
-            selected = identity
-    for value in nodes:
-        node = _object(value)
-        identity = node.get("id")
-        if not isinstance(identity, str):
-            raise ModuleError("Module resolved node identity is unavailable")
-        nodes_by_id[identity] = node
-    if selected is None:
-        raise ModuleError("Selected study module is absent from its workspace")
-    pending = [selected]
-    visited: set[str] = set()
-    sources: dict[str, str] = {}
-    while pending:
-        identity = pending.pop()
-        if identity in visited:
-            continue
-        visited.add(identity)
-        package = packages_by_id[identity]
-        dependencies = nodes_by_id[identity].get("deps")
-        if not isinstance(dependencies, list):
-            raise ModuleError("Module resolved dependency edges are unavailable")
-        for value in dependencies:
-            dependency = _object(value)
-            kinds = dependency.get("dep_kinds")
-            target = dependency.get("pkg")
-            if not isinstance(kinds, list) or not isinstance(target, str):
-                raise ModuleError("Module dependency kind or identity is unavailable")
-            if any(_object(kind).get("kind") != "dev" for kind in kinds):
-                pending.append(target)
-        if package.get("source") is not None:
-            continue
-        manifest = package.get("manifest_path")
-        if not isinstance(manifest, str):
-            raise ModuleError("Module local package manifest is unavailable")
-        directory = Path(manifest).parent
-        if not directory.is_relative_to(ROOT):
-            raise ModuleError("Module local dependency escaped its declared workspace")
-        for path in sorted(directory.rglob("*")):
-            if any(
-                part in {"target", ".git", "__pycache__"}
-                for part in path.relative_to(directory).parts
-            ):
-                continue
-            if path.is_symlink():
-                raise ModuleError("Module source inputs must not traverse symlinks")
-            if path.is_file():
-                sources[str(path.relative_to(ROOT))] = surreal_source.digest(path)
-    for relative in (
-        "Cargo.toml",
-        "Cargo.lock",
-        "rust-toolchain.toml",
-        ".cargo/config.toml",
-    ):
-        sources[relative] = surreal_source.digest(ROOT / relative)
-    inputs: dict[str, object] = {
-        "kind": kind,
-        "features": features,
-        "sdk_version": surreal_source.SURREALISM_SDK,
-        "target": TARGET,
-        "profile": "release",
-        "builder_sha256": binary_digest,
-        "sources": sources,
-    }
-    if long_hold:
-        inputs["packaging"] = {
-            "variant": "qualification-long-hold-v1",
-            "packer_sha256": surreal_source.digest(Path(__file__)),
-            "manifest_sha256": sources[str(LONG_HOLD_MANIFEST)],
-        }
-    return inputs
 
 
 def _configuration(value: object, *, long_hold: bool = False) -> None:
@@ -436,37 +289,6 @@ def verify(
     return receipt
 
 
-def _package_long_hold(artifact: Path) -> None:
-    """Replace only the declared probe timeout after the official CLI built WASM.
-
-    The released CLI has no config override. Its exact three-member package is
-    authenticated first; deterministic headers and the companion declaration are
-    the only packaging changes, with no source-tree or compiled-component edits.
-    """
-    inspect_archive(artifact, qualification=True)
-    replacement = artifact.with_suffix(".long-hold.surli")
-    with (
-        tarfile.open(artifact, mode="r|zst") as source,
-        tarfile.open(replacement, mode="w|zst") as target,
-    ):
-        for member in source:
-            if member.name == "surrealism/surrealism.toml":
-                payload = (ROOT / LONG_HOLD_MANIFEST).read_bytes()
-            else:
-                stream = source.extractfile(member)
-                if stream is None:
-                    raise ModuleError("Module archive member is unavailable")
-                payload = stream.read(member.size + 1)
-                if len(payload) != member.size:
-                    raise ModuleError("Module archive member extent changed")
-            header = tarfile.TarInfo(member.name)
-            header.size = len(payload)
-            header.mode = 0o644
-            target.addfile(header, io.BytesIO(payload))
-    inspect_archive(replacement, qualification=True, long_hold=True)
-    replacement.replace(artifact)
-
-
 def install(
     server: Mapping[str, object],
     tool_root: Path,
@@ -474,130 +296,26 @@ def install(
     qualification: bool = False,
     long_hold: bool = False,
 ) -> dict[str, object]:
-    """Build once with the pinned CLI, then publish a private immutable artifact."""
-    kind, features = _variant(qualification, long_hold)
-    inputs = source_inputs(server, qualification=qualification, long_hold=long_hold)
-    modules = tool_root / "modules"
-    modules.mkdir(mode=0o700, parents=True, exist_ok=True)
-    directory = modules / _input_digest(inputs)
-    if directory.exists():
-        receipt = _object(json.loads((directory / "module.json").read_text()))
-        if receipt.get("inputs") != inputs:
-            raise ModuleError("Module cached inputs differ")
-        return verify(receipt, qualification=qualification, long_hold=long_hold)
-    with tempfile.TemporaryDirectory(prefix="pending-", dir=modules) as scratch:
-        pending = Path(scratch)
-        artifact = pending / "study.surli"
-        lock_digest = surreal_source.digest(ROOT / "Cargo.lock")
-        feature_arguments = ["--features", ",".join(features)] if features else []
-        _command(
-            [
-                str(ROOT / "scripts/pse-env"),
-                "--recipe-default-class",
-                "compile",
-                "--",
-                str(server["binary"]),
-                "module",
-                "build",
-                *feature_arguments,
-                "--out",
-                str(artifact),
-                str(ROOT / CRATE),
-            ]
-        )
-        if (
-            surreal_source.digest(ROOT / "Cargo.lock") != lock_digest
-            or source_inputs(server, qualification=qualification, long_hold=long_hold)
-            != inputs
-        ):
-            raise ModuleError(
-                "Module sources or locked dependencies changed during its build"
-            )
-        if long_hold:
-            _package_long_hold(artifact)
-            if source_inputs(server, qualification=True, long_hold=True) != inputs:
-                raise ModuleError("Module sources changed during its packaging")
-        inspect_archive(artifact, qualification=qualification, long_hold=long_hold)
-        artifact.chmod(0o400)
-        receipt: dict[str, object] = {
-            "kind": kind,
-            "artifact": str(directory / "study.surli"),
-            "sha256": surreal_source.digest(artifact),
-            "bytes": artifact.stat().st_size,
-            "sdk_version": surreal_source.SURREALISM_SDK,
-            "abi": ABI,
-            "inputs": inputs,
-            "limits": dict(LONG_HOLD_LIMITS if long_hold else LIMITS),
-        }
-        record = pending / "module.json"
-        with record.open("w") as output:
-            json.dump(receipt, output, sort_keys=True)
-            output.write("\n")
-            output.flush()
-            os.fsync(output.fileno())
-        record.chmod(0o600)
-        with artifact.open("rb") as output:
-            os.fsync(output.fileno())
-        # Rename a fully constructed generation; an interrupted build is never
-        # an admitted artifact and cannot overwrite another completed generation.
-        try:
-            pending.rename(directory)
-        except FileExistsError as error:
-            existing = verify(
-                _object(json.loads((directory / "module.json").read_text())),
-                qualification=qualification,
-                long_hold=long_hold,
-            )
-            if existing != receipt:
-                raise ModuleError(
-                    "Concurrent module generation differs from the exact completed artifact"
-                ) from error
-            return existing
-        descriptor = os.open(modules, os.O_DIRECTORY)
-        try:
-            os.fsync(descriptor)
-        finally:
-            os.close(descriptor)
-    return verify(receipt, qualification=qualification, long_hold=long_hold)
+    """Refuse the retired constructor before commands, hashing or file changes.
+
+    Existing surreal_server callers must hand off an explicitly prepared native
+    receipt; they do not authorize a second constructor or an implicit native run.
+    """
+    raise ModuleError(
+        "Python study-module construction is retired; explicitly run "
+        "scripts/pse-env -- scripts/pse-host study-module prepare and hand its "
+        "module.json receipt to the native fixture/operations owner. Legacy "
+        "surreal_server construction callers still require consumer cutover."
+    )
 
 
 def main() -> int:
-    """Explicit artifact preparation; this command never starts or mutates a database."""
-    import argparse  # noqa: PLC0415 -- CLI dependencies stay outside the retained verifier path.
-
-    # The supervisor imports this verifier; only the CLI may load it reciprocally.
-    from scripts import surreal_server  # noqa: PLC0415
-
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tool-root", type=Path)
-    parser.add_argument("--qualification", action="store_true")
-    parser.add_argument(
-        "--long-hold",
-        action="store_true",
-        help="Build the separately admitted six-second qualification package",
+    """Refuse the retired CLI without importing or invoking a supervisor."""
+    raise ModuleError(
+        "Python study-module construction is retired; use "
+        "scripts/pse-env -- scripts/pse-host study-module prepare "
+        "(or just surreal-module)."
     )
-    arguments = parser.parse_args()
-    if arguments.long_hold and not arguments.qualification:
-        parser.error("--long-hold requires --qualification")
-    root = arguments.tool_root or surreal_server.default_tool_root()
-    receipt = install(
-        surreal_server.install(None, root),
-        root,
-        qualification=arguments.qualification,
-        long_hold=arguments.long_hold,
-    )
-    print(
-        json.dumps(
-            {
-                "kind": receipt["kind"],
-                "artifact": receipt["artifact"],
-                "sha256": receipt["sha256"],
-                "bytes": receipt["bytes"],
-            },
-            sort_keys=True,
-        )
-    )
-    return 0
 
 
 if __name__ == "__main__":

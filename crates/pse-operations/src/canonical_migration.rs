@@ -1024,7 +1024,7 @@ LET $pse_migration_receipt=CREATE ONLY type::record('canonical_maintenance_activ
 "#;
 
 /// Fixed-row actual-transaction controls, available only to explicitly selected fixtures.
-#[cfg(feature = "test-support")]
+#[cfg(all(feature = "test-support", feature = "native-service"))]
 mod schema_fence_control {
     use super::*;
     use crate::transport::client::{Client, HeldTransaction, RequestContext, Root};
@@ -1113,7 +1113,7 @@ mod schema_fence_control {
         }
     }
 }
-#[cfg(feature = "test-support")]
+#[cfg(all(feature = "test-support", feature = "native-service"))]
 pub use schema_fence_control::SchemaFenceWrite;
 
 #[cfg(test)]

@@ -693,8 +693,46 @@ telemetry import control now passes in its 31-test retained unittest selection. 
 qualify the scientific Python facade or live exporters. The Python HTTP control client and
 its dedicated orchestration retire in D04 while scientific/cohort assertions are preserved.
 
-B02–B05 remain in progress. Explicit native study-module construction is the next bootstrap
-cut so that a fresh native service does not depend on Python to prepare its read-only module.
+B02–B05 remain in progress. Explicit native study-module construction and typed fixture
+handoff are now implemented and tested below; a fresh native service no longer needs the
+Python constructor to prepare its read-only module.
 Remaining host/test/reference/service callers, resident/reference/timing placement and broader
 provider/assembled acceptance retain the existing owners. No performance benefit or full
 cold-source scientific/provider matrix is claimed.
+
+## Native module preparation checkpoint — 2026-10-29
+
+`pse-host study-module prepare` now uses the selected released CLI for WASI compilation,
+export extraction and packaging, with GNU tar inspecting bounded package members. Explicit
+construction captures source/tool/recipe inputs and publishes a private immutable generation
+without replacement. Source-free retained selection returns a prepared Rust capability.
+`NativeModuleSource::Prepared` transfers it directly into native service construction and
+module-changing migration fixtures. The shared wire record belongs to `pse-buildinfo`; its
+declaration is not duplicated in host/client types, and ordinary clients do not link the
+host controller. Historical recorded-state sources remain explicit replay inputs.
+
+Python module construction/repackaging and their mechanism-specific tests are retired;
+the remaining historical readers/constants have eight passing unittest controls. Legacy
+supervisor constructor calls refuse before effects until their owning cutovers. Production
+and ordinary qualification artifacts retain separate identities. New six-second long-hold
+construction currently refuses; its next retained consumer must settle an official CLI or
+library-owned packaging realization, while old artifacts remain readable. This limitation
+does not block the production module or the delivered native scientific journey.
+
+**Tested:** `just unit-package pse-host study_module` passes eight controls against zero
+failures, 124 excluded (run `38c96793-1a49-4ec0-9009-d48a167d67f6`). Initial failures exposed
+the need to set the owned staging directory explicitly private before publication and to
+clear a staged receipt before deliberately repeating a failed publication; both are corrected.
+`scripts/bootstrap-host` explicitly publishes the updated tools. Actual native preparation
+produces the same 648,136-byte production module identity used by the scientific consumer.
+No database or existing artifact is modified by preparation.
+
+**Tested:** the two native KINSOL study journeys pass using the new prepared receipt path
+(run `12af4bdd-3483-4ff8-8665-c8857f8ddc9f`). After moving the shared declaration to its metadata
+owner, four module-admission unit controls and two private service controls pass against zero
+failures (run `650718fc-abf7-4b77-90d7-dca2ec6963cb`); an unused import warning was corrected.
+The final direct-capability `native_service` selection covering current activation, actor HTTP,
+prepared-claim recovery and old-module upgrade passes four controls against zero failures,
+15 excluded, with no warnings (run `1c842d19-8844-4cf6-ac7f-c8baa2904570`). `just ready` passes
+after the two internal dependency edges; no package version was changed. Broader B/H and
+remaining legacy supervisor/provider consumer retirement remain open.

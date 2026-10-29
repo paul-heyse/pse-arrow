@@ -40,7 +40,7 @@ fn run() -> Result<i32, HostError> {
         None | Some("help" | "--help" | "-h") => {
             writeln!(
                 io::stdout(),
-                "pse-host: native host capabilities\n  env --print|--explain [--json]\n  activity [UNIT.service|UNIT.scope]\n  native prepare --capabilities compiler[,solver,klu,isolation,uno,petsc]\n  server prepare|select\n  run /absolute/executable [args...]\n  --version\nConstruction/update is explicit: scripts/bootstrap-host. Reads never build."
+                "pse-host: native host capabilities\n  env --print|--explain [--json]\n  activity [UNIT.service|UNIT.scope]\n  native prepare --capabilities compiler[,solver,klu,isolation,uno,petsc]\n  server prepare|select\n  study-module prepare|select\n  run /absolute/executable [args...]\n  --version\nConstruction/update is explicit: scripts/bootstrap-host. Reads never build."
             )?;
             Ok(0)
         }
@@ -55,6 +55,7 @@ fn run() -> Result<i32, HostError> {
         Some("boundary") => pse_host::boundary::run_cli(&arguments[1..]),
         Some("native") => pse_host::native::run_cli(&arguments[1..]),
         Some("server") => pse_host::server::run_cli(&arguments[1..]),
+        Some("study-module") => pse_host::study_module::run_cli(&arguments[1..]),
         Some("env") => Ok(pse_host::environment::run_cli(&arguments[1..])?),
         Some("activity") => {
             if arguments.len() > 2 {

@@ -118,7 +118,7 @@ surreal command *args:
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 surreal-module *args:
-    "{{ py }}" -m scripts.surrealism_module "$@"
+    scripts/pse-host study-module prepare "$@"
 
 [group('env')]
 [doc('Run pinned beta tooling in an explicitly registered namespace fixture')]

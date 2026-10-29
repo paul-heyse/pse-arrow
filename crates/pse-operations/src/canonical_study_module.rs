@@ -11,30 +11,22 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
     io::Read,
-    path::{Path, PathBuf},
+    path::Path,
 };
+#[cfg(test)]
+use std::path::PathBuf;
+
+use pse_buildinfo::study_module::{ModuleLimits, StudyModuleRecord};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, serde::Serialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct StudyModuleReceipt {
-    kind: String,
-    artifact: PathBuf,
-    pub(crate) sha256: String,
-    bytes: u64,
-    sdk_version: String,
-    abi: u32,
-    inputs: serde_json::Map<String, serde_json::Value>,
-    limits: ModuleLimits,
+#[serde(transparent)]
+pub(crate) struct StudyModuleReceipt(StudyModuleRecord);
+impl std::ops::Deref for StudyModuleReceipt {
+    type Target = StudyModuleRecord;
+    fn deref(&self) -> &Self::Target { &self.0 }
 }
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq, serde::Serialize)]
-#[serde(deny_unknown_fields)]
-struct ModuleLimits {
-    max_memory_bytes: u64,
-    max_pool_size: u32,
-    max_execution_time_ms: u64,
-    max_kv_entries: u64,
-    max_kv_value_bytes: u64,
-    strict_timeout: bool,
+impl std::ops::DerefMut for StudyModuleReceipt {
+    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
 }
 struct ModuleDeclaration {
     abi: u32,
@@ -92,6 +84,10 @@ fn invalid(message: impl std::fmt::Display) -> CanonicalError {
     CanonicalError::Configuration(format!("study module: {message}"))
 }
 impl StudyModuleReceipt {
+    #[cfg(feature = "native-service")]
+    pub(crate) fn from_prepared(receipt: pse_host::study_module::StudyModuleReceipt) -> Self {
+        Self(receipt.into_record())
+    }
     /// The same selected module limits constrain its server runtime. These are
     /// guest-policy limits, independent of native host workload placement.
     #[cfg(feature = "native-service")]
@@ -488,7 +484,7 @@ pub(super) mod tests {
             .map(|byte| format!("{byte:02x}"))
             .collect();
         let declared = ModuleDeclaration::read().unwrap();
-        StudyModuleReceipt {
+        StudyModuleReceipt(StudyModuleRecord {
             kind: "pse-study-module-v1".into(),
             artifact,
             sha256,
@@ -500,7 +496,7 @@ pub(super) mod tests {
                 serde_json::Value::String("fixture".into()),
             )]),
             limits: declared.limits,
-        }
+        })
     }
     struct Fixture {
         state: PathBuf,

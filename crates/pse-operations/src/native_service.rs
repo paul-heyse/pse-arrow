@@ -139,6 +139,22 @@ impl std::fmt::Display for ViewerBootstrapFailure {
 // Deliberately no Error::source: the original SQL-bearing cause is private.
 impl std::error::Error for ViewerBootstrapFailure {}
 
+/// Original prepared module, or an explicitly selected historical receipt source.
+#[derive(Clone, Debug)]
+pub enum NativeModuleSource {
+    /// Direct Rust construction/admission capability; no JSON selector is needed.
+    Prepared(pse_host::study_module::StudyModuleReceipt),
+    /// Historical state contributes its original immutable module receipt only.
+    RecordedState(PathBuf),
+}
+impl NativeModuleSource {
+    fn into_canonical(self) -> Result<StudyModuleReceipt, CanonicalError> {
+        match self {
+            Self::Prepared(receipt) => Ok(StudyModuleReceipt::from_prepared(receipt)),
+            Self::RecordedState(state) => StudyModuleReceipt::read(&state),
+        }
+    }
+}
 /// Explicit already-prepared inputs; construction performs no source build or discovery.
 #[derive(Clone, Debug)]
 pub struct NativeServiceSpec {
@@ -146,8 +162,8 @@ pub struct NativeServiceSpec {
     pub server: PreparedServer,
     /// Explicit application helper executable built with native-service.
     pub helper: PathBuf,
-    /// Existing private state supplies the selected original module receipt only.
-    pub module_source_state: PathBuf,
+    /// Exact prepared native capability or retained historical module source.
+    pub module_source: NativeModuleSource,
     /// Parent for a newly created private disposable directory.
     pub state_parent: PathBuf,
 }
@@ -541,7 +557,7 @@ impl NativeCanonicalService {
     /// The existing configured source stores supply immutable artifacts only.
     /// # Errors
     /// Private artifact admission, immutable copy or fixture construction fails.
-    pub fn new_v2_upgrade_fixture(spec: NativeServiceSpec, target_source: &Path) -> Result<Self, NativeServiceError> {
+    pub fn new_v2_upgrade_fixture(spec: NativeServiceSpec, target_source: NativeModuleSource) -> Result<Self, NativeServiceError> {
         Self::new_with_target(spec, InitialSchema::SchemaV2, Some(target_source))
     }
     fn new_with_schema(
@@ -553,7 +569,7 @@ impl NativeCanonicalService {
     fn new_with_target(
         spec: NativeServiceSpec,
         initial_schema: InitialSchema,
-        target_source: Option<&Path>,
+        target_source: Option<NativeModuleSource>,
     ) -> Result<Self, NativeServiceError> {
         if !spec.helper.is_absolute() || !spec.helper.is_file() {
             return Err(NativeServiceError::Refused(
@@ -567,13 +583,13 @@ impl NativeCanonicalService {
             .tempdir_in(root)?;
         let path = temporary.path().canonicalize()?;
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700))?;
-        let module = StudyModuleReceipt::read(&spec.module_source_state)?;
+        let module = spec.module_source.into_canonical()?;
         private_write(&path.join("original-module-receipt.json"), &module)?;
         let module_root = path.join(if target_source.is_some() { "modules" } else { "module" });
         let (module, target) = if let Some(target_source) = target_source {
             private_directory(&module_root)?;
             let old = module.copy_into_private(&path, &module_root.join("predecessor"))?;
-            let target = StudyModuleReceipt::read(target_source)?;
+            let target = target_source.into_canonical()?;
             private_write(&path.join("target-module-source-receipt.json"), &target)?;
             let target = target.copy_into_private(&path, &module_root.join("target"))?;
             if target.sha256 == old.sha256 { return Err(NativeServiceError::Refused("module upgrade fixture requires distinct old and target artifacts")); }

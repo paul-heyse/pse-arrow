@@ -24,6 +24,8 @@ pub const PROFILE: &str = env!("PSE_PROFILE");
 mod loader_scope;
 
 pub mod identity;
+/// Immutable study-module publication metadata shared by native producers and readers.
+pub mod study_module;
 pub use identity::{
     DEPLOYMENT_RECEIPT_VERSION, DeploymentAssociation, FileObservation, LOCAL_RUNTIME_VERSION,
     LocalRuntimeObservation, LocalRuntimeRole, OuterObservation, loaded_module_path,

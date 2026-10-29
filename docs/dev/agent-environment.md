@@ -108,6 +108,24 @@ tuple and copied binary/lockfile bytes, preserves the original release receipt a
 provenance, and publishes a separate immutable native generation. Later selection depends on
 that generation, rather than the old source directory or a fabricated new build context.
 
+`just surreal-module` delegates explicit production module preparation to
+`pse-host study-module prepare`. The already selected released server CLI owns WASI compilation,
+export extraction and packaging; GNU tar supplies bounded archive inspection. Preparation
+publishes immutable private package bytes and their original provenance without starting a
+database. `study-module select --receipt /absolute/module.json` admits retained bytes without
+building or consulting current source. Callers can pass the returned Rust capability directly
+to `NativeModuleSource::Prepared`; the native service copies it into its own private state.
+The shared receipt declaration belongs to `pse-buildinfo`, keeping ordinary canonical clients
+independent of the host controller. Historical state receipt reads remain explicit for replay.
+
+`--qualification` prepares a separately identified probe artifact, never a production module.
+New six-second `--long-hold` preparation currently refuses before effects because the released
+CLI has no configuration override; retained long-hold artifacts remain readable/selectable.
+Its next consumer must settle an official CLI or library-owned packaging realization before
+claiming that qualification. The Python constructor/repacker is retired; legacy supervisor
+construction calls refuse until their native consumer handoff, rather than creating a second
+builder. Host tools must be explicitly refreshed after source edits with `scripts/bootstrap-host`.
+
 ## Native foreground ownership and supported placement
 
 Configured `PSE_BUILD_MODE=unbounded` ordinary work uses all host CPUs and the declared Cargo

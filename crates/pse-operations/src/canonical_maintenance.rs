@@ -430,7 +430,7 @@ impl CanonicalStore {
                             .collect(),
                         interpretation: wire::INTERPRETATION.into(),
                         schema_digest: wire::SCHEMA_DIGEST.into(),
-                        study_module_sha256: module.sha256,
+                        study_module_sha256: module.sha256.clone(),
                         namespace: self.namespace.clone(),
                         database: self.database.clone(),
                         instance_id: config

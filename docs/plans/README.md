@@ -22,15 +22,18 @@ records the integrated sequence and migration baseline. Its [execution dependenc
 separate native host admission, provider preparation, physical server construction and working
 D01/D05 readiness; package progress remains with 58b and the contributing companions.
 The [coordinator checkpoint](58-rust-owned-system.md#execution-checkpoint--2026-10-28),
-[58b current handoff](58b-bootstrap-and-host-control.md#current-execution-handoff--2026-10-29)
-and [D01/D05 checkpoint](58d-canonical-control-and-connectivity.md#native-host-dependency-execution-checkpoint--2026-10-29)
+[58b current handoff](58b-bootstrap-and-host-control.md#native-physical-owner-continuation--2026-10-29)
+and [D01/D05 checkpoint](58d-canonical-control-and-connectivity.md#native-progression-migration-and-control-checkpoint--2026-10-29)
 own implementation, tested prerequisites and remaining acceptance. Ordinary/finite native
 containment, provider selection and the isolated canonical service/readiness/migration slice
 have focused passing evidence. The prior assignments concluded in main; the expanded B/C/D execution is now active there.
-B02–B05 and D01/D05 remain in progress. Current work establishes the frozen-v2/successor
-migration contract, native root settlement and bounded canonical worker progression, with
-actual consumer integration and replaced-Python deletion. Full series qualification remains open; the older installed
-Python extension is explicitly distinct from the checked current compiled API.
+B02–B05 and D01–D05 remain in progress. Frozen-v2/successor migration, native root settlement,
+bounded canonical worker progression and the actual two-worker scientific consumer have focused
+passing evidence. G02's MCP/catalogue retirement is complete; the Python HTTP control client
+also retires with its native replacement. The refreshed development extension and compiled
+declarations agree. Native module preparation now supplies a typed service handoff. Remaining
+host/product/reference cutovers and selected assembled qualification remain open; no full-series
+completion is claimed.
 
 Plan57 and its companions are superseded historical evidence, temporarily retained for existing
 ADR, architecture and review readers. Their old package tables are no longer active lifecycle

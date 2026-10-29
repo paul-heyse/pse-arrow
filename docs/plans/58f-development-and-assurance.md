@@ -404,3 +404,13 @@ The earlier default library-target selection found no tests and supplies no acce
 Full `just codegen` completed all ten schema targets; the emitted borrowed-wire Rust bytes
 are unchanged. Remaining F03 metadata/governance and Python-emission retirement retains
 its own scope. This generation slice does not establish assembled B/C/D qualification.
+
+## Native module producer handoff — 2026-10-29
+
+F03 now consumes the explicit Rust study-module producer and shared metadata declaration;
+[58b](58b-bootstrap-and-host-control.md#native-module-preparation-checkpoint--2026-10-29)
+owns its construction, typed handoff, retirement and targeted results. Source hashing belongs
+to explicit preparation, while retained selection uses original immutable records. There is
+no Python constructor, state-file selector bridge between Rust owners, or new schema authority.
+Historical artifact readers and the unselected long-hold construction gap retain their stated
+owners; this does not close remaining F03 tooling/generation work.
