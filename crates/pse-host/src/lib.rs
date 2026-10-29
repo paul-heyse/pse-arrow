@@ -12,7 +12,7 @@ mod manager;
 pub mod native;
 pub mod server;
 pub use manager::{
-    BorrowedUnit, HostManager, LaunchIntent, OrdinaryPlacement, OwnedUnit, ResourceControls,
+    BorrowedService, BorrowedUnit, HostManager, LaunchIntent, OrdinaryPlacement, OwnedUnit, ResourceControls,
     ServiceSpec, UnitObservation,
 };
 

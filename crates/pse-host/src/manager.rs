@@ -1373,62 +1373,78 @@ impl HostManager {
             if group.empty()? {
                 continue;
             }
-            let unit = self.unit(&name).await?;
-            let fragment = PathBuf::from(unit.fragment_path().await?);
-            let service = ServiceProxy::builder(&self.connection)
-                .destination(self.owner.as_str())
-                .path(unit.inner().path().to_owned())
-                .cache_properties(CacheProperties::No)
-                .build()
-                .await?;
-            let starts = service.exec_start().await?;
-            let [(executable, arguments, _, _, _, _, _, _, _, _)] = starts.as_slice() else {
-                return Err(HostError::Ownership(
-                    "resident cache has an ambiguous launch declaration".into(),
-                ));
-            };
-            let process = match ProcessReader::default().process(observed.main_pid) {
-                ProcessRead::Present(facts)
-                    if facts.identity.boot_id == self.boot
-                        && process_group(observed.main_pid)? == observed.control_group =>
-                {
-                    facts.identity
-                }
-                _ => {
-                    return Err(HostError::Ownership(
-                        "resident cache original process identity unavailable".into(),
-                    ));
-                }
-            };
-            let facts = ResidentServiceFacts {
-                binding: UnitBinding {
-                    invocation: observed.invocation.clone(),
-                    group: observed.control_group.clone(),
-                    device: group.device,
-                    inode: group.inode,
-                },
-                observation: observed,
-                executable: executable.clone(),
-                arguments: arguments.clone(),
-                fragment,
-                slice: service.slice().await?,
-                memory_max: service.memory_max().await?,
-                memory_swap_max: service.memory_swap_max().await?,
-                kernel_memory_max: group.limit("memory.max")?,
-                kernel_memory_swap_max: group.limit("memory.swap.max")?,
-                process,
-            };
-            self.validate_resident(&facts).await?;
+            let facts = self.resident_service_facts(observed).await?;
             result.push(facts);
         }
         Ok(result)
     }
+    /// Capture actual launch, process and containment facts without acquiring a
+    /// manager reference or authority over a separately owned service.
+    async fn resident_service_facts(
+        &self,
+        observed: UnitObservation,
+    ) -> Result<ResidentServiceFacts, HostError> {
+        if !observed.unit.ends_with(".service") || observed.active_state != "active" {
+            return Err(HostError::Ownership(
+                "resident borrow requires a live original service".into(),
+            ));
+        }
+        let group = Group::open(&observed.control_group, false)?;
+        let unit = self.unit(&observed.unit).await?;
+        let fragment = PathBuf::from(unit.fragment_path().await?);
+        let service = ServiceProxy::builder(&self.connection)
+            .destination(self.owner.as_str())
+            .path(unit.inner().path().to_owned())
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?;
+        let starts = service.exec_start().await?;
+        let [(executable, arguments, _, _, _, _, _, _, _, _)] = starts.as_slice() else {
+            return Err(HostError::Ownership(
+                "resident service has an ambiguous launch declaration".into(),
+            ));
+        };
+        let process = match ProcessReader::default().process(observed.main_pid) {
+            ProcessRead::Present(facts)
+                if facts.identity.boot_id == self.boot
+                    && process_group(observed.main_pid)? == observed.control_group =>
+            {
+                facts.identity
+            }
+            _ => {
+                return Err(HostError::Ownership(
+                    "resident service original process identity unavailable".into(),
+                ));
+            }
+        };
+        let facts = ResidentServiceFacts {
+            binding: UnitBinding {
+                invocation: observed.invocation.clone(),
+                group: observed.control_group.clone(),
+                device: group.device,
+                inode: group.inode,
+            },
+            observation: observed,
+            executable: executable.clone(),
+            arguments: arguments.clone(),
+            fragment,
+            slice: service.slice().await?,
+            memory_max: service.memory_max().await?,
+            memory_swap_max: service.memory_swap_max().await?,
+            kernel_memory_max: group.limit("memory.max")?,
+            kernel_memory_swap_max: group.limit("memory.swap.max")?,
+            process,
+        };
+        self.validate_resident(&facts).await?;
+        Ok(facts)
+    }
     pub(crate) async fn validate_resident(
         &self,
         facts: &ResidentServiceFacts,
-    ) -> Result<(), HostError> {
+    ) -> Result<UnitObservation, HostError> {
         let observed = self.observe(&facts.observation.unit).await?;
-        if observed.invocation != facts.binding.invocation
+        if observed.active_state != "active"
+            || observed.invocation != facts.binding.invocation
             || observed.control_group != facts.binding.group
             || observed.main_pid != facts.process.pid
         {
@@ -1466,13 +1482,14 @@ impl HostManager {
                 "borrowed resident original launch/resource facts changed".into(),
             ));
         }
-        if !matches!(ProcessReader::default().process(observed.main_pid),ProcessRead::Present(current) if current.identity==facts.process)
+        if process_group(observed.main_pid)? != facts.binding.group
+            || !matches!(ProcessReader::default().process(observed.main_pid),ProcessRead::Present(current) if current.identity==facts.process)
         {
             return Err(HostError::Ownership(
                 "borrowed resident original process changed".into(),
             ));
         }
-        Ok(())
+        Ok(observed)
     }
     /// Configure the declared shared finite ancestor. The caller holds only the
     /// dedicated configuration lock, never the admission journal lock.
@@ -1983,6 +2000,31 @@ impl BorrowedUnit {
     }
 }
 
+/// Read-only borrowing of a native owner's original live service. This carries
+/// no manager reference, placement, stop or release authority. The service may
+/// end at any time; a borrow never extends its owner's lifetime or readiness.
+#[derive(Clone, Debug)]
+pub struct BorrowedService {
+    manager: HostManager,
+    facts: ResidentServiceFacts,
+}
+impl BorrowedService {
+    /// Original unit name for diagnostics; a name alone grants no capability.
+    pub fn unit(&self) -> &str {
+        &self.facts.observation.unit
+    }
+    /// Recheck the original launch, manager/process identity, kernel group and
+    /// resource facts under the caller's existing absolute deadline.
+    pub async fn observe(&self, deadline: Instant) -> Result<UnitObservation, HostError> {
+        if Instant::now() >= deadline {
+            return Err(HostError::Deadline("resident borrow observation".into()));
+        }
+        tokio::time::timeout_at(deadline.into(), self.manager.validate_resident(&self.facts))
+        .await
+        .map_err(|_| HostError::Deadline("resident borrow observation".into()))?
+    }
+}
+
 /// Performing ownership of an original private service or scope; failure retains this capability.
 #[must_use = "owned units require explicit stop/drain; dropping a handle does not establish release"]
 #[derive(Debug)]
@@ -2047,6 +2089,29 @@ impl OwnedUnit {
         }
         self.group.check_path(&result.control_group)?;
         Ok(result)
+    }
+    /// Lend read-only access to this original live service. Only the native
+    /// owner can mint it; configured names and old allocation records cannot
+    /// adopt a service, transfer ownership or extend its physical lifetime.
+    pub async fn borrow_service(&self, deadline: Instant) -> Result<BorrowedService, HostError> {
+        if Instant::now() >= deadline {
+            return Err(HostError::Deadline("resident borrow construction".into()));
+        }
+        tokio::time::timeout_at(deadline.into(), async {
+            let observed = self.observe().await?;
+            let facts = self.manager.resident_service_facts(observed).await?;
+            if facts.binding.invocation != self.invocation
+                || facts.binding.device != self.group.device
+                || facts.binding.inode != self.group.inode
+                || self.process.as_ref() != Some(&facts.process)
+            {
+                return Err(HostError::Ownership("resident borrow differs from original owner".into()));
+            }
+            self.observe().await?;
+            Ok(BorrowedService { manager: self.manager.clone(), facts })
+        })
+        .await
+        .map_err(|_| HostError::Deadline("resident borrow construction".into()))?
     }
     /// Request stop and prove the original cgroup empty before reporting release.
     pub async fn stop_and_drain(
@@ -2866,6 +2931,80 @@ mod tests {
         assert!(borrowed.is_ok(), "{borrowed:?}");
         assert!(cleanup.is_ok(), "{cleanup:?}");
         assert!(owned.released());
+    }
+    #[tokio::test]
+    async fn real_native_resident_borrow_pins_original_facts_without_owning_lifetime() {
+        let manager = HostManager::connect_user(None).await.unwrap();
+        let spec = ServiceSpec {
+            intent: LaunchIntent::fresh().unwrap(),
+            executable: "/bin/sleep".into(),
+            arguments: vec!["60".into()],
+            environment: vec![],
+        };
+        let deadline = Instant::now() + Duration::from_secs(15);
+        let mut owner = manager.start_service(&spec, deadline).await.unwrap();
+        let checked: Result<BorrowedService, HostError> = async {
+            let expired = owner.borrow_service(Instant::now()).await;
+            if !matches!(expired, Err(HostError::Deadline(_))) {
+                return Err(HostError::Ownership("expired resident borrow was accepted".into()));
+            }
+            let borrowed = owner.borrow_service(deadline).await?;
+            let cloned = borrowed.clone();
+            let observed = cloned.observe(deadline).await?;
+            if observed.unit != spec.intent.unit || borrowed.unit() != spec.intent.unit {
+                return Err(HostError::Ownership("resident borrow selected another service".into()));
+            }
+            if !matches!(borrowed.observe(Instant::now()).await, Err(HostError::Deadline(_))) {
+                return Err(HostError::Ownership("resident borrow extended its deadline".into()));
+            }
+            let mut changed = Vec::new();
+            let mut other = borrowed.clone();
+            other.facts.binding.invocation = vec![0; 16];
+            changed.push(other);
+            let mut other = borrowed.clone();
+            other.facts.binding.inode = other.facts.binding.inode.wrapping_add(1);
+            changed.push(other);
+            let mut other = borrowed.clone();
+            other.facts.process.start_ticks = other.facts.process.start_ticks.wrapping_add(1);
+            changed.push(other);
+            let mut other = borrowed.clone();
+            other.facts.arguments.push("different original argv".into());
+            changed.push(other);
+            let mut other = borrowed.clone();
+            other.facts.memory_max = other.facts.memory_max.wrapping_add(1);
+            changed.push(other);
+            for other in changed {
+                if other.observe(deadline).await.is_ok() {
+                    return Err(HostError::Ownership("resident borrow accepted changed original facts".into()));
+                }
+            }
+            // Borrow failures do not alter the real owner or its original service.
+            owner.observe().await?;
+            drop(cloned);
+            Ok(borrowed)
+        }.await;
+        // Settle even if any borrowing assertion failed. A surviving borrow
+        // never pins the manager reference or delays the owner's physical drain.
+        let cleanup = owner.stop_and_drain(deadline).await;
+        let after_stop = match &checked {
+            Ok(borrowed) => Some(borrowed.observe(deadline).await),
+            Err(_) => None,
+        };
+        let remint = owner.borrow_service(deadline).await;
+        assert!(checked.is_ok(), "{checked:?}");
+        assert!(cleanup.is_ok(), "{cleanup:?}");
+        assert!(owner.released());
+        assert!(matches!(after_stop, Some(Err(_))), "{after_stop:?}");
+        assert!(remint.is_err(), "{remint:?}");
+        let retained = match manager.unit(spec.intent.unit()).await {
+            Ok(unit) => unit.refs().await.unwrap().iter().any(|name| {
+                Some(name.as_str()) == manager.connection.unique_name().map(|value| value.as_str())
+            }),
+            Err(HostError::Manager(zbus::Error::MethodError(name, _, _)))
+                if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit" => false,
+            Err(error) => panic!("resident reference observation failed: {error}"),
+        };
+        assert!(!retained, "read-only borrow retained a manager reference after owned drain");
     }
     #[tokio::test]
     async fn real_user_manager_keeps_original_child_exit() {

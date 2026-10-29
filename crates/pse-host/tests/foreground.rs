@@ -269,7 +269,9 @@ wait
             assert!(Instant::now() < deadline, "bound service descendant did not become ready");
             tokio::time::sleep(Duration::from_millis(5)).await;
         }
-        let observed = service.observe().await.unwrap();
+        let borrowed = service.borrow_service(deadline).await.unwrap();
+        let observed = borrowed.observe(deadline).await.unwrap();
+        assert_eq!(observed.invocation, service.observe().await.unwrap().invocation);
         fs::write(directory.join("ready-pending"), format!("{}\n{}\n{}\n", current.control_group, observed.control_group, service.intent().unit())).unwrap();
         fs::rename(directory.join("ready-pending"), directory.join("ready")).unwrap();
         while !directory.join("release").exists() { tokio::time::sleep(Duration::from_millis(5)).await; }
