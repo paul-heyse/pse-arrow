@@ -321,3 +321,36 @@ refuses existing identities rather than overwriting grants. The existing optiona
 schema implicitly. The Python `pse.control` client and its retry/lifetime harnesses are deleted;
 there is no replacement Python proxy. Plan58 D04/G03 own remaining native consumer integration,
 and H owns assembled qualification.
+
+## Independent native reference exchanges
+
+The `pse-runtime` targets `reference_degeneracy_exchange`, `reference_covariance_exchange`,
+`reference_sensitivity_exchange` and `reference_pid_exchange` construct the candidate through
+public Rust APIs. Their isolated Python processes run only the independent IDAES/Pyomo
+reference side; they need no product extension or Python candidate adapter. Missing reference
+packages/executables fail. Keep the declared parity environment and explicitly prepared native
+capabilities; ordinary reference execution does not install them.
+
+For the fitting, sensitivity and PID selection, prepare an exact source capture once and run:
+
+```bash
+reference_inputs_dir=$(mktemp -d)
+scripts/pse-env -- cargo run --locked -p xtask --features physical-admission,force-validate -- \
+  scientific-inputs tests/fixtures/scientific-inputs.toml "$reference_inputs_dir/inputs.json"
+export PSE_SCIENTIFIC_INPUTS="$reference_inputs_dir/inputs.json"
+export PSE_COVARIANCE_REFERENCE_PYTHON="$PWD/.venv-parity/bin/python"
+export PSE_SENSITIVITY_REFERENCE_PYTHON="$PWD/.venv-parity/bin/python"
+export PSE_PID_REFERENCE_PYTHON="$PWD/.venv-parity/bin/python"
+scripts/pse-env --native=compiler,solver,klu -- /bin/sh -c '
+  export PATH="$IPOPT_DIR/bin:$PATH"
+  exec scripts/cargo-bin/cargo-pse-correctness nextest run --no-fail-fast \
+    -p pse-runtime --locked --features solver-ipopt,solver-diffsol \
+    --test reference_covariance_exchange --test reference_sensitivity_exchange \
+    --test reference_pid_exchange
+'
+```
+
+The degeneracy target selects `solver-highs`, `compiler,solver` and
+`PSE_DEGENERACY_REFERENCE_PYTHON` instead. These selected exchanges retain scientific tolerances,
+physical interpretation and adverse-result comparisons. They do not constitute all-family parity
+or assembled deployment qualification.
