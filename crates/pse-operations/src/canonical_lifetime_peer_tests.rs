@@ -12,6 +12,10 @@ use std::{
 };
 use surrealdb_types::Value;
 
+fn ordinary_wire(body: &str) -> String {
+    format!("BEGIN;{}\n{body};\nCOMMIT",crate::canonical::migration::TRANSACTION_ADMISSION)
+}
+
 #[tokio::test]
 async fn caller_close_rejects_escaped_aliases_but_admitted_work_and_other_caller_use_rpc() {
     let (store, mut received, server) = super::tests::canonical_read_barrier_peer().await;
@@ -37,7 +41,7 @@ async fn caller_close_rejects_escaped_aliases_but_admitted_work_and_other_caller
         .await
         .unwrap();
     assert_eq!(response.take::<Value>(0).unwrap(), Value::Bool(true));
-    assert_eq!(received.recv().await.unwrap(), "RETURN 'CONTINUATION'");
+    assert_eq!(received.recv().await.unwrap(), ordinary_wire("RETURN 'CONTINUATION'"));
     drop(activity);
     let mut response = independent
         .protected_query(
@@ -49,7 +53,7 @@ async fn caller_close_rejects_escaped_aliases_but_admitted_work_and_other_caller
         .await
         .unwrap();
     assert_eq!(response.take::<Value>(0).unwrap(), Value::Bool(true));
-    assert_eq!(received.recv().await.unwrap(), "RETURN 'INDEPENDENT'");
+    assert_eq!(received.recv().await.unwrap(), ordinary_wire("RETURN 'INDEPENDENT'"));
     independent.disconnect().await.unwrap();
     tokio::time::timeout(Duration::from_secs(2), server)
         .await
@@ -266,7 +270,7 @@ async fn abandoned_rpc_waiter_retains_activity_until_actual_late_response_drains
             )
             .await
     });
-    assert_eq!(received.recv().await.unwrap(), "RETURN 'FIRST_READ'");
+    assert_eq!(received.recv().await.unwrap(), ordinary_wire("RETURN 'FIRST_READ'"));
     caller.abort();
     assert!(caller.await.unwrap_err().is_cancelled());
     store.close();
@@ -284,7 +288,7 @@ async fn abandoned_rpc_waiter_retains_activity_until_actual_late_response_drains
         .await
         .unwrap();
     assert_eq!(response.take::<Value>(0).unwrap(), Value::Bool(true));
-    assert_eq!(received.recv().await.unwrap(), "RETURN 'SECOND_READ'");
+    assert_eq!(received.recv().await.unwrap(), ordinary_wire("RETURN 'SECOND_READ'"));
     // The sentinel follows the abandoned request's response in the same native
     // driver loop; retired context metadata must no longer retain its activity.
     independent.disconnect().await.unwrap();
@@ -333,7 +337,7 @@ async fn terminal_teardown_seals_admission_and_joins_actual_response_work(
             std::io::ErrorKind::UnexpectedEof,
             "wire peer closed before the first read",
         ))?,
-        "RETURN 'FIRST_READ'"
+        ordinary_wire("RETURN 'FIRST_READ'")
     );
     let mut cleanup = Box::pin(async {
         if fixture {
@@ -369,7 +373,7 @@ async fn terminal_teardown_seals_admission_and_joins_actual_response_work(
             std::io::ErrorKind::UnexpectedEof,
             "wire peer closed before the second read",
         ))?,
-        "RETURN 'SECOND_READ'"
+        ordinary_wire("RETURN 'SECOND_READ'")
     );
     let mut first = first.await??;
     assert_eq!(first.take::<Value>(0)?, Value::Bool(true));

@@ -82,6 +82,14 @@ fn body(query: &str) -> String {
         .unwrap()
         .replace("TIMEOUT $pse_rpc_timeout", "TIMEOUT 30s")
 }
+/// A held native transaction still consumes its original opened schema authority.
+fn held_query(store: &CanonicalStore, transaction: &crate::transport::client::HeldTransaction, sql: String, access: crate::canonical::migration::SchemaAdmission) -> crate::transport::client::Query<'static> {
+    let mut bindings = Object::new();
+    bindings.insert("pse_schema_expected",store.db.schema.get().expect("actual fixture schema opened before holding a transaction").value());
+    bindings.insert("pse_schema_settlement",crate::canonical::migration::settlement_value());
+    bindings.insert("pse_schema_access",access.name());
+    transaction.query(sql).bind_guarded(bindings)
+}
 async fn grant(store: &CanonicalStore, revision: &Revision, window: i64) -> (String, i64) {
     let mut response=bounded_query(store.db.query("RETURN {authority:type::record('canonical_guards','retention:'+$problem).incarnation,now:time::micros()};").bind(("problem",revision.problem.clone()))).await.unwrap();
     let mut row = response.take::<Option<Object>>(0).unwrap().unwrap();
@@ -248,10 +256,9 @@ async fn exact_terminal_seal_and_unrelated_source_creator_commute_both_orders() 
             .bind(("completion", surrealdb_types::Bytes::from(vec![42])))
             .await.unwrap().check().unwrap();
         let creator = held(&options).await;
-        creator
-            .query(body(
+        held_query(&store, &creator, body(
                 &crate::canonical_script::test_script_sql(RETAIN, "NONE").unwrap(),
-            ))
+            ), crate::canonical::migration::SchemaAdmission::Mutation)
             .bind(("pse_rpc_expires_at", expiry()))
             .bind(("problem", revision.problem.clone()))
             .bind(("revision", revision.key.clone()))
@@ -487,10 +494,9 @@ async fn exact_scoped_head_page_and_source_activation_both_commit_orders() {
         }
         .expect("fresh operation must close a stage");
         let reader = held(&options).await;
-        let mut response = reader
-            .query(body(
+        let mut response = held_query(&store, &reader, body(
                 &crate::canonical_selection::test_membership_page_sql(&pin).unwrap(),
-            ))
+            ), crate::canonical::migration::SchemaAdmission::Read)
             .bind(("pse_rpc_expires_at", expiry()))
             .bind(("problem", revision.problem.clone()))
             .bind(("revision", revision.key.clone()))
@@ -516,8 +522,7 @@ async fn exact_scoped_head_page_and_source_activation_both_commit_orders() {
             "v1"
         );
         let writer = held(&options).await;
-        writer
-            .query(body(&crate::canonical::test_source_edit_sql().unwrap()))
+        held_query(&store, &writer, body(&crate::canonical::test_source_edit_sql().unwrap()), crate::canonical::migration::SchemaAdmission::Mutation)
             .bind(("pse_rpc_expires_at", expiry()))
             .bind(("problem", stage.problem.clone()))
             .bind(("expected", stage.expected.clone()))
@@ -603,8 +608,7 @@ async fn exact_source_root_and_pin_creation_reclaim_both_orders() {
             bounded_query(
                 store
                     .db
-                    .query(
-                        crate::canonical_script::test_script_sql(
+                    .script(crate::canonical_script::test_script::<Value>(
                             DROP_ROOT,
                             "$pse_retention_drop_result",
                         )
@@ -621,14 +625,13 @@ async fn exact_source_root_and_pin_creation_reclaim_both_orders() {
             let creator = held(&options).await;
             let (key, _) = grant(&store, &old, 30_000_000).await;
             if pin {
-                creator
-                    .query(body(
+                held_query(&store, &creator, body(
                         &crate::canonical_script::test_script_sql(
                             ACQUIRE_PROTECTION,
                             "$rpc_result",
                         )
                         .unwrap(),
-                    ))
+                    ), crate::canonical::migration::SchemaAdmission::Mutation)
                     .bind(("pse_rpc_expires_at", expiry()))
                     .bind(("problem", old.problem.clone()))
                     .bind(("revision", old.key.clone()))
@@ -639,10 +642,9 @@ async fn exact_source_root_and_pin_creation_reclaim_both_orders() {
                     .check()
                     .unwrap();
             } else {
-                creator
-                    .query(body(
+                held_query(&store, &creator, body(
                         &crate::canonical_script::test_script_sql(RETAIN, "NONE").unwrap(),
-                    ))
+                    ), crate::canonical::migration::SchemaAdmission::Mutation)
                     .bind(("pse_rpc_expires_at", expiry()))
                     .bind(("problem", old.problem.clone()))
                     .bind(("revision", old.key.clone()))
@@ -703,8 +705,7 @@ async fn exact_protection_absent_settlement_both_orders_and_replay() {
                 "RETURN {key:$key,deadline:$fixture_deadline};",
             )
         );
-        let mut response = creator
-            .query(acquisition)
+        let mut response = held_query(&store, &creator, acquisition, crate::canonical::migration::SchemaAdmission::Mutation)
             .bind(("pse_rpc_expires_at", expiry()))
             .bind(("problem", revision.problem.clone()))
             .bind(("revision", revision.key.clone()))
@@ -783,8 +784,7 @@ async fn exact_protection_absent_settlement_both_orders_and_replay() {
             bounded_query(
                 store
                     .db
-                    .query(
-                        crate::canonical_script::test_script_sql(ACQUIRE_PROTECTION, "$rpc_result")
+                    .script(crate::canonical_script::test_script::<Value>(ACQUIRE_PROTECTION, "$rpc_result")
                             .unwrap()
                     )
                     .bind(("problem", revision.problem.clone()))
@@ -1229,18 +1229,8 @@ async fn exact_dispatched_pre_ticket_renewal_and_expired_admission_retirement_bo
         bounded_query(
             store
                 .db
-                .query(format!(
-                    "{}\n{}\nCOMMIT;",
-                    crate::canonical_script::PROTECTED_BEGIN,
-                    crate::canonical_results::RESULT_ADMISSION
-                ))
-                .bind(("problem", revision.problem.clone()))
-                .bind(("revision", revision.key.clone()))
-                .bind((
-                    "sequence",
-                    canonical_codec::encode_uint(revision.sequence).unwrap(),
-                ))
-                .bind(("protection", pin.key().to_owned()))
+                .script(GuardedScript::new(Envelope::ProtectedAdmission { selection: &pin })
+                    .returning::<Value>(crate::canonical_results::RESULT_ADMISSION,"NONE").unwrap())
                 .bind(("run", "target"))
                 .bind(("attempt", attempt.clone()))
                 .bind(("manifest", manifest)),
@@ -1305,12 +1295,9 @@ async fn exact_dispatched_pre_ticket_renewal_and_expired_admission_retirement_bo
             conflict(renewal.commit().await.unwrap_err());
             // The same protected descriptor query used by the reader must now
             // reject this retired pre-ticket admission before exposing any row.
-            let error = bounded_query(store.db.metadata_query(crate::canonical::MetadataResponse::Page,
-                format!("{}\nRETURN SELECT * FROM canonical_result_batches WHERE result_set=$set AND ordinal IN $selected ORDER BY ordinal LIMIT 64; COMMIT;", crate::canonical_script::PROTECTED_BEGIN))
-                .bind(("problem", revision.problem.clone()))
-                .bind(("revision", revision.key.clone()))
-                .bind(("sequence", canonical_codec::encode_uint(revision.sequence).unwrap()))
-                .bind(("protection", pin.key().to_owned()))
+            let error = bounded_query(store.db.metadata_script(crate::canonical::MetadataResponse::Page,
+                GuardedScript::new(Envelope::ProtectedRead { selection: &pin, recheck: crate::canonical_script::Recheck::PinOrTicket })
+                    .returning::<Value>("","SELECT * FROM canonical_result_batches WHERE result_set=$set AND ordinal IN $selected ORDER BY ordinal LIMIT 64").unwrap())
                 .bind(("set", crate::canonical_execution::result_set_key(&attempt, "values")))
                 .bind(("selected", vec![canonical_codec::encode_uint(0).unwrap()]))).await.unwrap_err();
             thrown(error, "immutable selection protection expired").unwrap();
@@ -1410,8 +1397,7 @@ async fn exact_released_tombstone_survives_original_window_then_collects_without
     bounded_query(
         store
             .db
-            .query(
-                crate::canonical_script::test_script_sql(
+            .script(crate::canonical_script::test_script::<Value>(
                     crate::canonical::RELEASE_PROTECTION,
                     "NONE",
                 )
@@ -1458,8 +1444,7 @@ async fn exact_released_tombstone_survives_original_window_then_collects_without
     bounded_query(
         store
             .db
-            .query(
-                crate::canonical_script::test_script_sql(
+            .script(crate::canonical_script::test_script::<Value>(
                     crate::canonical::RELEASE_PROTECTION,
                     "NONE",
                 )
@@ -1554,8 +1539,7 @@ async fn historical_source_grant_settlement_keeps_exact_receipt_and_fences_unkno
         bounded_query(
             store
                 .db
-                .query(
-                    crate::canonical_script::test_script_sql(ACQUIRE_PROTECTION, "$rpc_result")
+                .script(crate::canonical_script::test_script::<Value>(ACQUIRE_PROTECTION, "$rpc_result")
                         .unwrap()
                 )
                 .bind(("problem", revision.problem.clone()))

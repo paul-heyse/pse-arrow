@@ -106,6 +106,13 @@ impl<T> PreparedScript<T> {
     pub(crate) fn into_parts(self) -> (String, Object, Option<ProtectedSelection>) {
         (self.sql, self.bindings, self.selection)
     }
+    /// Pace only an already typed installation fixture, preserving every authority binding.
+    #[cfg(all(test, feature = "canonical-tests"))]
+    pub(crate) fn test_delay_installation(mut self, delay: Duration) -> Result<Self, CanonicalError> {
+        if !self.installation { return Err(CanonicalError::Configuration("only installation fixtures may delay their original transaction".into())); }
+        self.sql.insert_str("BEGIN;".len(), &format!(" SLEEP {}ms;",delay.as_millis()));
+        Ok(self)
+    }
 }
 /// The adapter changes with the client realization; envelope consumers keep typed extraction.
 pub(crate) trait ScriptResponse {
@@ -343,10 +350,14 @@ fn bind_selection(
 /// peer/race fixtures that operate on an already held native transaction.
 #[cfg(all(test, feature = "canonical-tests"))]
 pub(crate) fn test_script_sql(body: &str, expression: &str) -> Result<String, CanonicalError> {
-    Ok(GuardedScript::new(Envelope::DeadlineOnly)
-        .returning::<Value>(body, expression)?
+    Ok(test_script::<Value>(body, expression)?
         .into_parts()
         .0)
+}
+/// Fixture bodies retain the same typed framing, bindings and result slot as production.
+#[cfg(any(feature = "test-support", all(test, feature = "canonical-tests")))]
+pub(crate) fn test_script<T>(body: &str, expression: &str) -> Result<PreparedScript<T>, CanonicalError> {
+    GuardedScript::new(Envelope::DeadlineOnly).returning(body,expression)
 }
 
 pub(crate) const PROTECTED_BEGIN: &str = r#"BEGIN;
@@ -544,6 +555,21 @@ mod tests {
                     < sql.rfind("RETURN $pse_guarded_script_result").unwrap()
             );
         }
+    }
+    #[cfg(all(feature = "canonical-tests", feature = "canonical-maintenance"))]
+    #[test]
+    fn delayed_installation_keeps_typed_policy_bindings_and_native_syntax() {
+        let mut script=GuardedScript::new(Envelope::Installation).returning::<Value>("LET $selected=$fixture_original;","$selected").unwrap();
+        script.bindings.insert("fixture_original",Value::String("original".into()));
+        let delayed=script.test_delay_installation(Duration::from_secs(1)).unwrap();
+        assert!(delayed.schema_policy().1);
+        let (sql,bindings,selection)=delayed.into_parts();
+        assert!(surrealdb_syn::parse(&sql).is_ok(),"{sql}");
+        assert_eq!(bindings.get("fixture_original"),Some(&Value::String("original".into())));
+        assert!(selection.is_none());
+        assert!(sql.starts_with("BEGIN; SLEEP 1000ms;"));
+        assert!(!sql.contains(crate::canonical::migration::TRANSACTION_ADMISSION));
+        assert!(GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>("","NONE").unwrap().test_delay_installation(Duration::from_secs(1)).is_err());
     }
 
     #[test]

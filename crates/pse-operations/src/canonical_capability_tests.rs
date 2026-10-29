@@ -391,7 +391,7 @@ async fn selected_enforced_relations_refuse_each_missing_endpoint_and_accept_sam
         let source = format!("{key}-source");
         let target = format!("{key}-target");
         bounded_query(store.db.query(format!(
-            "BEGIN; CREATE type::record($source_table,$source_key) CONTENT $source; CREATE type::record($target_table,$target_key) CONTENT $target; INSERT RELATION INTO {} $row; COMMIT;", case.table
+            "CREATE type::record($source_table,$source_key) CONTENT $source; CREATE type::record($target_table,$target_key) CONTENT $target; INSERT RELATION INTO {} $row;", case.table
         )).bind(("source_table", case.source.table)).bind(("source_key", source.clone())).bind(("source", case.source.renamed(&source)))
             .bind(("target_table", case.target.table)).bind(("target_key", target.clone())).bind(("target", case.target.renamed(&target)))
             .bind(("row", case.row(&key, &source, &target)))).await.unwrap();

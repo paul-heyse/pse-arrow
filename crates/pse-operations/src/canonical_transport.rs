@@ -479,6 +479,11 @@ impl CanonicalClient {
     pub(crate) fn catalog_inventory(&self) -> crate::transport::client::Query<'static> {
         self.query_class("INFO FOR DB;", true, SchemaEnvelope::Maintenance).into_owned()
     }
+    /// Exercise the actual zero-statement bootstrap response without opening a schema.
+    #[cfg(all(test, feature = "canonical-tests"))]
+    pub(crate) fn test_empty_initialization_response(&self) -> crate::transport::client::Query<'static> {
+        self.query_class("",true,SchemaEnvelope::Maintenance).into_owned()
+    }
     /// Exact schema/admission observation before opening a version-bound capability.
     pub(crate) fn schema_marker(&self) -> crate::transport::client::Query<'static> {
         self.query_class("SELECT * FROM ONLY canonical_interpretations:current;", true, SchemaEnvelope::Maintenance).into_owned()

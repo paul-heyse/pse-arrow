@@ -5689,17 +5689,22 @@ impl CanonicalStore {
         clippy::too_many_arguments,
         reason = "one transaction validates separate fence, operation, batch and optional scientific index premises"
     )]
-    async fn append_execution_batch(
-        &self,
-        fence: &AttemptFence,
-        operation: &str,
-        name: &str,
+    fn append_execution_batch<'a>(
+        &'a self,
+        fence: &'a AttemptFence,
+        operation: &'a str,
+        name: &'a str,
         ordinal: u64,
         payload: ResultPayload,
         row_count: u64,
-        block: Option<&ResultBlock>,
-        outputs: &[ResultOutput],
-    ) -> Result<AppendAck, CanonicalError> {
+        block: Option<&'a ResultBlock>,
+        outputs: &'a [ResultOutput],
+    ) -> futures_util::future::BoxFuture<'a, Result<AppendAck, CanonicalError>> {
+        // This owned submission boundary carries payload custody through all
+        // settlement and clock scopes. Erase its internal future type once so
+        // callers retain an explicit Send contract without propagating that
+        // deeply nested implementation type through every public append path.
+        Box::pin(async move {
         crate::canonical::migration::settlement_scope(fence, async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut prepared = ResultBlockAppend::prepare(fence, operation, name, ordinal, payload,
@@ -5736,6 +5741,7 @@ impl CanonicalStore {
             Ok(prepared.acknowledgment)
         }).await
         }).await
+        })
     }
     async fn prepare_result_payload(
         &self,

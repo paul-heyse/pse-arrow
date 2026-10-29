@@ -67,7 +67,7 @@ mod surrealism_qualification {
     }
     fn rollback_query(index: usize, export: &str) -> String {
         format!(
-            "BEGIN; UPDATE ONLY type::record('canonical_study_readiness',$point) SET eligible=false; RETURN mod::{}::qualification::{export}(); COMMIT;",
+            "UPDATE ONLY type::record('canonical_study_readiness',$point) SET eligible=false; RETURN mod::{}::qualification::{export}(); ",
             Qualification::module(index)
         )
     }
@@ -137,7 +137,7 @@ mod surrealism_qualification {
     }
     fn hold_query(index: usize) -> String {
         format!(
-            "BEGIN; UPDATE ONLY type::record('canonical_study_readiness',$point) SET eligible=false RETURN NONE; RETURN mod::{}::qualification::hold(); COMMIT;",
+            "UPDATE ONLY type::record('canonical_study_readiness',$point) SET eligible=false RETURN NONE; RETURN mod::{}::qualification::hold(); ",
             Qualification::module(index)
         )
     }
@@ -242,7 +242,7 @@ mod surrealism_qualification {
             qualification.memory_refused(&store, 0).await;
         }
         let query = format!(
-            "BEGIN; UPDATE ONLY type::record('canonical_study_readiness',$point) SET eligible=false; LET $refused=mod::{}::qualification::memory_refused(); IF $refused {{ THROW 'PSE_REFUSAL:study_readiness_policy_refused'; }}; RETURN $refused; COMMIT;",
+            "UPDATE ONLY type::record('canonical_study_readiness',$point) SET eligible=false; LET $refused=mod::{}::qualification::memory_refused(); IF $refused {{ THROW 'PSE_REFUSAL:study_readiness_policy_refused'; }}; RETURN $refused; ",
             Qualification::module(0)
         );
         let result = bounded_query(store.db.query(query).bind(("point", point))).await;

@@ -392,3 +392,19 @@ A native isolated service fixture and real migration controls remain required.
 Neither source delivery, syntax validation nor generated declarations establishes a successful
 migration, stale-writer refusal or whole-D01/D05 completion. The SDK/API/gRPC responsibility
 comparison, broader control consumers and H qualification retain their existing obligations.
+
+Independent source review found retained test/fixture consumers still passing complete
+transactions through the newly framed ordinary-query boundary. Those consumers now use plain
+bodies or typed prepared scripts as appropriate. Held transactions retain the actual opened
+schema bindings, and synthetic peers emit the corresponding transaction result slots.
+Initialization/cancellation and issuer-change controls again reach their intended failure
+conditions; missing schema admission must not masquerade as their expected refusal. The
+specific interpretation/digest error classification is preserved.
+
+The expanded compile initially reported four fixture qualification warnings and a deeply nested
+async Send-type warning. The former are corrected; the private owned append-submission boundary
+now returns a boxed Send future without changing payload custody, clock or settlement behavior.
+No recursion-limit increase or unchecked Send implementation was introduced. Focused native
+schema/script/transport/lifetime controls subsequently pass64 tests with zero failures and no
+compiler warnings. This remains protocol/component evidence with native-service disabled;
+existing live database cases and actual migrations receive no acceptance credit from it.

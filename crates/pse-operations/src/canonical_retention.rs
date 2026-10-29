@@ -687,7 +687,7 @@ mod canonical_server_unit {
                 bounded_query(
                     store
                         .db
-                        .query(crate::canonical_script::test_script_sql(RETAIN, "NONE").unwrap())
+                        .script(crate::canonical_script::test_script::<Value>(RETAIN, "NONE").unwrap())
                         .bind(("problem", second.problem.clone()))
                         .bind(("revision", second.key.clone()))
                         .bind(("root", owner.key()))
@@ -702,8 +702,7 @@ mod canonical_server_unit {
                 bounded_query(
                     store
                         .db
-                        .query(
-                            crate::canonical_script::test_script_sql(
+                        .script(crate::canonical_script::test_script::<Value>(
                                 DROP_ROOT,
                                 "$pse_retention_drop_result"
                             )

@@ -665,7 +665,7 @@ mod canonical_analyses_server_unit {
         bounded_query(
             store
                 .db
-                .query("BEGIN; RETURN fn::pse_analysis_v1::begin($pse_rpc_expires_at, $row,$sources,$inputs); COMMIT;")
+                .query("RETURN fn::pse_analysis_v1::begin($pse_rpc_expires_at, $row,$sources,$inputs);")
                 .bind(("row", wire::encode_canonical_analyses(&header).unwrap()))
                 .bind(("sources", vec![source]))
                 .bind(("inputs", Vec::<Object>::new())),
@@ -677,7 +677,7 @@ mod canonical_analyses_server_unit {
             bounded_query(
                 store
                     .db
-                    .query("BEGIN; RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key); COMMIT;")
+                    .query("RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key);")
                     .bind(("key", key))
             )
             .await
@@ -712,7 +712,7 @@ mod canonical_analyses_server_unit {
         bounded_query(
             store
                 .db
-                .query("BEGIN; RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key); COMMIT;")
+                .query("RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key);")
                 .bind(("key", key)),
         )
         .await

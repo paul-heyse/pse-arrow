@@ -18,6 +18,42 @@ async fn connect(peer: &peer::Peer) -> Arc<Client> {
 fn context() -> RequestContext {
     RequestContext::new(Instant::now() + Duration::from_secs(5))
 }
+/// Synthetic protocol peers do not run schema SQL. Bind their explicitly synthetic
+/// opening premise so transport controls reach the physical query they exercise.
+fn synthetic_opened_schema(client: &super::CanonicalClient) -> String {
+    let issuer=uuid::Uuid::new_v4().to_string();
+    let mut marker=surrealdb_types::Object::new();
+    marker.insert("interpretation",crate::generated::surreal::INTERPRETATION);
+    marker.insert("schema_digest",crate::generated::surreal::SCHEMA_DIGEST);
+    marker.insert("study_module_sha256","a".repeat(64));
+    marker.insert("issuing_store",issuer.clone());
+    marker.insert("payload_incarnation",uuid::Uuid::new_v4().to_string());
+    marker.insert("schema_version",crate::canonical_codec::encode_uint(pse_schema::catalog::substrate::SCHEMA_VERSION).unwrap());
+    marker.insert("schema_epoch",uuid::Uuid::new_v4().to_string());
+    marker.insert("admission_open",true);
+    client.schema.set(crate::canonical::migration::SchemaFence::from_marker(&marker).unwrap()).unwrap();
+    issuer
+}
+#[tokio::test]
+async fn canonical_schema_wrapping_preserves_the_original_body_result_slot() {
+    let mut peer=peer::start().await;
+    let options=crate::canonical::CanonicalOptions {
+        endpoint:format!("grpc://{}",peer.address),namespace:"namespace".into(),database:"database".into(),
+        username:"owner".into(),password:"test".into(),selection_username:"viewer".into(),selection_password:"test".into(),
+        state_path:std::path::PathBuf::new(),initializer_nonce:None,
+    };
+    let client=super::CanonicalClient::new(Arc::try_unwrap(connect(&peer).await).unwrap(),Duration::from_secs(5),&options);
+    synthetic_opened_schema(&client);
+    let mut response=crate::canonical::bounded_query(client.query("RETURN true;")).await.unwrap();
+    assert_eq!(response.num_statements(),1);
+    assert_eq!(response.take::<Option<bool>>(0).unwrap(),Some(true));
+    let sql=peer.received.recv().await.unwrap();
+    assert!(sql.starts_with("BEGIN;"));
+    assert!(sql.contains(crate::canonical::migration::TRANSACTION_ADMISSION));
+    assert!(sql.ends_with("COMMIT"));
+    client.client.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2),peer.server).await.unwrap().unwrap();
+}
 
 #[tokio::test]
 async fn grpc_reserved_control_progress_and_awaited_physical_disconnect() {
@@ -730,6 +766,7 @@ pub(crate) async fn canonical_read_barrier_peer() -> (
         Duration::from_secs(2),
         &options,
     ));
+    synthetic_opened_schema(&client);
     let store = crate::canonical::CanonicalStore {
         db: client.clone(),
         activation_db: client,
@@ -911,7 +948,7 @@ async fn source_stage_failed_acquisition_retains_both_causes_under_direct_and_pr
                 &options,
             ));
             let issuing_store = Arc::new(std::sync::OnceLock::new());
-            issuing_store.set("issued-store".into()).unwrap();
+            issuing_store.set(synthetic_opened_schema(&client)).unwrap();
             let store = crate::canonical::CanonicalStore {
                 db: client.clone(),
                 activation_db: client,
@@ -1627,6 +1664,7 @@ async fn canonical_envelopes_seal_original_clock_and_authority_before_dispatch()
         initializer_nonce: None,
     };
     let client = super::CanonicalClient::new(raw, Duration::from_secs(5), &options);
+    synthetic_opened_schema(&client);
     let selection = crate::canonical::ProtectedSelection::test_only(
         crate::canonical::Revision {
             key: "revision".into(),

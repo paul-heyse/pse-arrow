@@ -820,10 +820,11 @@ pub async fn expire_acknowledged_attempt(
         ));
     }
     let generation = crate::canonical_codec::encode_uint(fence.generation())?;
-    let mut response = bounded_query(store.db.query("BEGIN; LET $run = SELECT * FROM ONLY type::record('canonical_runs',$run); LET $attempt = SELECT * FROM ONLY type::record('canonical_attempts',$attempt); IF $run = NONE OR $attempt = NONE OR $attempt.run != $run.key OR $run.current_attempt != $attempt.key OR $run.current_generation != $generation OR $attempt.generation != $generation OR $attempt.phase IN ['terminal','terminal_compacted'] { THROW 'PSE_REFUSAL:fixture_expiry_claim_changed'; }; UPDATE ONLY $attempt.id SET expires_at = time::micros() - 1; RETURN true; COMMIT;")
+    let script = crate::canonical_script::test_script::<Option<bool>>("LET $run = SELECT * FROM ONLY type::record('canonical_runs',$run); LET $attempt = SELECT * FROM ONLY type::record('canonical_attempts',$attempt); IF $run = NONE OR $attempt = NONE OR $attempt.run != $run.key OR $run.current_attempt != $attempt.key OR $run.current_generation != $generation OR $attempt.generation != $generation OR $attempt.phase IN ['terminal','terminal_compacted'] { THROW 'PSE_REFUSAL:fixture_expiry_claim_changed'; }; UPDATE ONLY $attempt.id SET expires_at = time::micros() - 1;", "true")?;
+    let result = script.result();
+    let mut response = bounded_query(store.db.script(script)
         .bind(("run", fence.run().to_owned())).bind(("attempt", fence.attempt().to_owned())).bind(("generation",generation))).await?;
-    let index = response.num_statements().saturating_sub(2);
-    if response.take::<Option<bool>>(index)? != Some(true) {
+    if result.take(&mut response)? != Some(true) {
         return Err(CanonicalError::IncompleteResponse);
     }
     Ok(())
@@ -841,7 +842,7 @@ pub async fn invalidate_terminal_study_outcome(
             "occurrence invalidation requires a registered isolated fixture".into(),
         ));
     }
-    bounded_query(store.db.query("BEGIN; LET $study = SELECT * FROM ONLY type::record('canonical_studies',$study); IF $study = NONE OR !$study.terminal { THROW 'PSE_REFUSAL:fixture_study_is_not_terminal'; }; UPDATE ONLY type::record('canonical_study_points',$point) SET outcome=$outcome; COMMIT;")
+    bounded_query(store.db.query("LET $study = SELECT * FROM ONLY type::record('canonical_studies',$study); IF $study = NONE OR !$study.terminal { THROW 'PSE_REFUSAL:fixture_study_is_not_terminal'; }; UPDATE ONLY type::record('canonical_study_points',$point) SET outcome=$outcome;")
         .bind(("study", study.to_owned()))
         .bind(("point", crate::canonical_studies::point_key(study, occurrence)))
         .bind(("outcome", surrealdb_types::Bytes::from(vec![0xff])))).await?;

@@ -72,8 +72,13 @@ impl SchemaFence {
     }
     pub(crate) fn from_marker(marker: &Object) -> Result<Self, CanonicalError> {
         let predecessor = SchemaPredecessor::decode(marker)?;
-        if predecessor.schema_version != Some(VERSION) || predecessor.schema_digest != wire::SCHEMA_DIGEST
-            || predecessor.interpretation != wire::INTERPRETATION || marker.get("admission_open") != Some(&Value::Bool(true)) {
+        if predecessor.interpretation != wire::INTERPRETATION {
+            return Err(CanonicalError::Interpretation { expected: wire::INTERPRETATION, observed: predecessor.interpretation });
+        }
+        if predecessor.schema_digest != wire::SCHEMA_DIGEST {
+            return Err(CanonicalError::Interpretation { expected: wire::SCHEMA_DIGEST, observed: predecessor.schema_digest });
+        }
+        if predecessor.schema_version != Some(VERSION) || marker.get("admission_open") != Some(&Value::Bool(true)) {
             return Err(invalid("schema is not current and open; use explicit native maintenance for a supported predecessor"));
         }
         let epoch = predecessor.schema_epoch.ok_or_else(|| invalid("schema epoch is absent"))?;
@@ -430,6 +435,11 @@ mod tests {
         for (key,value) in [("admission_open",Value::Bool(false)),("schema_epoch",Value::String("invalid".into())),("schema_digest",Value::String("unrecognized".into())),("issuing_store",Value::String("invalid".into()))] {
             let mut changed = source.clone(); changed.insert(key,value);
             assert!(SchemaFence::from_marker(&changed).is_err(),"{key}");
+        }
+        for (key, expected) in [("interpretation", wire::INTERPRETATION), ("schema_digest", wire::SCHEMA_DIGEST)] {
+            let mut changed = source.clone();
+            changed.insert(key, "unknown-reader");
+            assert!(matches!(SchemaFence::from_marker(&changed), Err(CanonicalError::Interpretation { expected: actual, observed }) if actual == expected && observed == "unknown-reader"));
         }
     }
     #[test]

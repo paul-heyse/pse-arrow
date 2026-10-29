@@ -2556,7 +2556,8 @@ impl CanonicalStore {
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?
             .socket_addrs(|| None)
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?[0];
-        let replacement = lifetime.execute(connect_client(address, options, budget, true))?;
+        let mut replacement = lifetime.execute(connect_client(address, options, budget, true))?;
+        Arc::make_mut(&mut replacement).schema = self.db.schema.clone();
         let mut detached = self.clone();
         detached.fixture_lifetime = None;
         detached.db = replacement.clone();
@@ -4151,6 +4152,7 @@ mod canonical_server_unit {
             .write_owned()
             .await;
         let observer = CanonicalStore::connect(&options).await.unwrap();
+        observer.open().await.unwrap();
         drop(store);
         // Only the final protected reader owns the fixture now. Its cleanup RPC
         // is deliberately paced before submission, on the real release path.
@@ -5179,7 +5181,7 @@ mod canonical_server_unit {
         let (store, _) = initialization_fixture().await;
         // Use an actual canonical client zero-statement response.
         assert!(matches!(
-            store.initialize_with(|| request(store.db.query(""))).await,
+            store.initialize_with(|| request(store.db.test_empty_initialization_response())).await,
             Err(CanonicalError::IncompleteResponse)
         ));
         assert!(store.open().await.is_err());
@@ -5193,7 +5195,7 @@ mod canonical_server_unit {
             store.initialize_with(|| async {
                 attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 let complete = store.submit_initialization().await?;
-                bounded_query(store.db.query("UPDATE canonical_interpretations:current SET schema_digest='unknown-reader';")).await?;
+                bounded_query(store.db.script(GuardedScript::new(Envelope::Installation).returning::<Value>("UPDATE canonical_interpretations:current SET schema_digest='unknown-reader';","NONE")?)).await?;
                 Ok(complete)
             }).await,
             Err(CanonicalError::Interpretation { .. })
@@ -5237,9 +5239,7 @@ mod canonical_server_unit {
         let module = study_module::StudyModuleReceipt::read(&store.state_path).unwrap();
         let delayed = initialization_statement(&module)
             .unwrap()
-            .into_parts()
-            .0
-            .replacen("BEGIN;", "BEGIN; SLEEP 1s;", 1);
+            .test_delay_installation(std::time::Duration::from_secs(1)).unwrap();
         let attempts = std::sync::atomic::AtomicUsize::new(0);
         let response = store
             .initialize_with(|| {
@@ -5251,11 +5251,14 @@ mod canonical_server_unit {
                         attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                         request(
                             selected
-                                .query(delayed.clone())
+                                .script(delayed.clone())
                                 .bind(("study_module_backend", module.backend().unwrap()))
                                 .bind(("study_module_sha256", module.sha256.clone()))
                                 .bind(("interpretation", wire::INTERPRETATION))
-                                .bind(("schema_digest", wire::SCHEMA_DIGEST)),
+                                .bind(("schema_digest", wire::SCHEMA_DIGEST))
+                                .bind(("payload_incarnation",store.files.incarnation.clone()))
+                                .bind(("schema_version",crate::canonical_codec::encode_uint(pse_schema::catalog::substrate::SCHEMA_VERSION).unwrap()))
+                                .bind(("schema_epoch",uuid::Uuid::new_v4().to_string())),
                         )
                         .await
                     },
@@ -5267,7 +5270,7 @@ mod canonical_server_unit {
             1,
             "cancellation must attempt the delayed transaction without replaying DDL"
         );
-        assert!(response.is_err());
+        assert!(matches!(response,Err(CanonicalError::Timeout)),"delayed installation must reach its original cancellation clock: {response:?}");
         tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
         selected.disconnect().await.unwrap();
         assert!(store.open().await.is_err());
@@ -5285,17 +5288,18 @@ mod canonical_server_unit {
             .unwrap()
             .socket_addrs(|| None)
             .unwrap()[0];
-        let selected = connect_client(address, &options, REQUEST_TIMEOUT, true)
+        let mut selected = connect_client(address, &options, REQUEST_TIMEOUT, true)
             .await
             .unwrap();
+        Arc::make_mut(&mut selected).schema = store.db.schema.clone();
         let result = within_clock(
             original_deadline(std::time::Duration::from_millis(50)),
             async {
-                bounded_query(selected.query("BEGIN; SLEEP 1s; CREATE canonical_guards:late SET key = 'late', generation = 1dec; fn::pse_execution_v1::deadline($pse_rpc_expires_at); COMMIT;")).await
+                bounded_query(selected.query("SLEEP 1s; CREATE canonical_guards:late SET key = 'late', generation = 1dec; fn::pse_execution_v1::deadline($pse_rpc_expires_at);")).await
             },
         ).await;
         assert!(
-            result.is_err(),
+            matches!(result,Err(CanonicalError::Timeout)),
             "cancellation cannot become a completed empty transaction"
         );
         // Cancellation classifies an unknown transport outcome. The transaction

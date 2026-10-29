@@ -119,15 +119,20 @@ fn sparse_kill_frames() -> Vec<u8> {
     bytes
 }
 fn query_frames(value: proto::Value, complete: bool) -> Vec<u8> {
+    statement_frames(vec![value],complete)
+}
+fn statement_frames(values: Vec<proto::Value>, complete: bool) -> Vec<u8> {
+    let count=u32::try_from(values.len()).unwrap();
     let mut bytes = frame(rpc::QueryResponse {
         frame: Some(rpc::query_response::Frame::Begin(rpc::QueryBegin {
             query_id: Some(proto::Uuid::from_uuid(uuid::Uuid::new_v4())),
-            statement_count: 1,
+            statement_count: count,
         })),
     });
+    for (index,value) in values.into_iter().enumerate() {
     bytes.extend(frame(rpc::QueryResponse {
         frame: Some(rpc::query_response::Frame::Batch(rpc::QueryBatchFrame {
-            query_index: 0,
+            query_index: u32::try_from(index).unwrap(),
             kind: rpc::QueryResponseKind::Single as i32,
             payload: Some(rpc::query_batch_frame::Payload::Values(rpc::ValueBatch {
                 values: vec![value],
@@ -135,15 +140,20 @@ fn query_frames(value: proto::Value, complete: bool) -> Vec<u8> {
             ..Default::default()
         })),
     }));
+    }
     if complete {
         bytes.extend(frame(rpc::QueryResponse {
             frame: Some(rpc::query_response::Frame::End(rpc::QueryEnd {
-                result_count: 1,
+                result_count: count,
                 ..Default::default()
             })),
         }));
     }
     bytes
+}
+fn canonical_query_frames(value:proto::Value,complete:bool)->Vec<u8> {
+    let none=||proto::Value {value:Some(proto::value::Value::None(proto::NoneValue{}))};
+    statement_frames(vec![none(),none(),value,none()],complete)
 }
 // This scripted source-stage peer also answers the guarded project preflight.
 // Model BEGIN / final RETURN / COMMIT slots, rather than treating that closed
@@ -469,10 +479,15 @@ async fn start_scripted(
                                             value: Some(proto::value::Value::Bool(true)),
                                         }
                                     };
-                                    let mut bytes = if source_stage_fault.is_some()
-                                        && query.contains("canonical_project_operations")
+                                    let mut bytes = if (source_stage_fault.is_some()
+                                        && query.contains("canonical_project_operations"))
+                                        || query.contains("RETURN $pse_guarded_script_result;")
                                     {
                                         source_stage_acknowledgement_frames(value)
+                                    } else if query.starts_with("BEGIN;")
+                                        && query.contains(crate::canonical::migration::TRANSACTION_ADMISSION)
+                                        && !query.contains("RETURN $pse_guarded_script_result;") {
+                                        canonical_query_frames(value,!query.contains("NO_END"))
                                     } else {
                                         query_frames(value, !query.contains("NO_END"))
                                     };

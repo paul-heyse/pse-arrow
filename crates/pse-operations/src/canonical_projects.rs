@@ -1391,7 +1391,7 @@ mod tests {
             .unwrap();
         // These deliberately synthetic metadata rows test disclosure boundaries,
         // not scientific admission or validity. Every row belongs to this fixture.
-        bounded_query(store.db.query("BEGIN; CREATE type::record('canonical_context_journals','pending-project') SET key='pending-project',sequence=1dec; CREATE canonical_project_contexts:pending_context SET key='pending_context',project='pending-project',scope='fixture',revision=$revision,source_identity='fixture',physical_context='fixture',physical_revision=$revision,physical_source_identity='fixture',effective_from_us=0,effective_to_us=NONE,recorded_sequence=1dec,corrects=NONE,deleted=false,request=$bytes; CREATE canonical_research_datasets:pending_dataset SET key='pending_dataset',project='pending-project',revision=$revision,physical_context='fixture',context='pending_context',parent=NONE,role='raw',members=$bytes,request=$bytes; CREATE canonical_research_selections:pending_selection SET key='pending_selection',project='pending-project',dataset='pending_dataset',revision=$revision,physical_context='fixture',context='pending_context',fit='fixture',selection=$bytes,request=$bytes; CREATE canonical_research_publications:pending_publication SET key='pending_publication',project='pending-project',selection='pending_selection',run='fixture',attempt='fixture',revision=$revision,parent=$revision,mapping=$bytes,request=$bytes; COMMIT;")
+        bounded_query(store.db.query("CREATE type::record('canonical_context_journals','pending-project') SET key='pending-project',sequence=1dec; CREATE canonical_project_contexts:pending_context SET key='pending_context',project='pending-project',scope='fixture',revision=$revision,source_identity='fixture',physical_context='fixture',physical_revision=$revision,physical_source_identity='fixture',effective_from_us=0,effective_to_us=NONE,recorded_sequence=1dec,corrects=NONE,deleted=false,request=$bytes; CREATE canonical_research_datasets:pending_dataset SET key='pending_dataset',project='pending-project',revision=$revision,physical_context='fixture',context='pending_context',parent=NONE,role='raw',members=$bytes,request=$bytes; CREATE canonical_research_selections:pending_selection SET key='pending_selection',project='pending-project',dataset='pending_dataset',revision=$revision,physical_context='fixture',context='pending_context',fit='fixture',selection=$bytes,request=$bytes; CREATE canonical_research_publications:pending_publication SET key='pending_publication',project='pending-project',selection='pending_selection',run='fixture',attempt='fixture',revision=$revision,parent=$revision,mapping=$bytes,request=$bytes;")
             .bind(("revision",head.key.clone())).bind(("bytes",surrealdb_types::Bytes::from(vec![1_u8])))).await.unwrap();
         let cut = store.project_context_cut("pending-project").await.unwrap();
         assert!(
@@ -2117,12 +2117,18 @@ mod tests {
         .unwrap();
         let selection = store.project_branches("project", Some(&cursor)).await;
         let publication = store.edit_project(&intent, &[edit("v2")]).await;
-        let native=bounded_query(store.db.query("BEGIN; RETURN fn::pse_project_v1::source_guard($pse_rpc_expires_at,$problem,$operation,$intent); COMMIT;").bind(("problem",intent.problem.as_str().to_owned())).bind(("operation",intent.operation.as_str().to_owned())).bind(("intent",intent.encode().unwrap()))).await;
+        let native=bounded_query(store.db.query("RETURN fn::pse_project_v1::source_guard($pse_rpc_expires_at,$problem,$operation,$intent);").bind(("problem",intent.problem.as_str().to_owned())).bind(("operation",intent.operation.as_str().to_owned())).bind(("intent",intent.encode().unwrap()))).await;
+        // The opened transport now refuses the changed issuer before project SQL.
+        // An explicitly privileged isolated fixture still exercises the original
+        // native project guard independently of that outer schema admission.
+        let project_guard=bounded_query(store.db.script(GuardedScript::new(Envelope::Installation)
+            .returning::<Value>("","fn::pse_project_v1::source_guard($pse_rpc_expires_at,$problem,$operation,$intent)").unwrap())
+            .bind(("problem",intent.problem.as_str().to_owned())).bind(("operation",intent.operation.as_str().to_owned())).bind(("intent",intent.encode().unwrap()))).await;
         // Restore the isolated fixture authority before any assertion can unwind teardown.
         bounded_query(
             store
                 .db
-                .query("UPDATE ONLY canonical_interpretations:current SET issuing_store=$issuer;")
+                .script(GuardedScript::new(Envelope::Installation).returning::<Value>("UPDATE ONLY canonical_interpretations:current SET issuing_store=$issuer;","NONE").unwrap())
                 .bind(("issuer", old)),
         )
         .await
@@ -2135,11 +2141,12 @@ mod tests {
             assert!(matches!(
                 result,
                 Err(CanonicalError::Refused {
-                    code: crate::canonical::RefusalCode::ProjectIssuingAuthorityChanged,
+                    code: crate::canonical::RefusalCode::SchemaEpochChanged,
                     ..
                 })
             ));
         }
+        assert!(matches!(project_guard,Err(CanonicalError::Refused {code:crate::canonical::RefusalCode::ProjectIssuingAuthorityChanged,..})));
         assert!(store.revision("publication").await.unwrap().is_none());
         assert_eq!(
             store.project_branch_revision("a").await.unwrap().unwrap(),
