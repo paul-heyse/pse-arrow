@@ -40,7 +40,9 @@ fn pure_cargo(root: &Path, version: u32) {
 printf '%s\n' "$@" >> calls
 case " $* " in
   *' locate-project '*) printf '%s/Cargo.toml\n' "$PSE_TEST_CHECKOUT" ;;
-  *' --unit-graph '*) cat graph.json ;;
+  *' --unit-graph '*)
+    case " $* " in *' --no-deps '*) printf 'Cargo check rejects Clippy-only --no-deps\n' >&2; exit 2 ;; esac
+    cat graph.json ;;
   *' metadata '*) cat metadata.json ;;
   *) printf '{"reason":"compiler-artifact","marker":"original"}\n'; printf 'compiler stderr\n' >&2; exit 17 ;;
 esac
@@ -67,6 +69,49 @@ fn native_correctness_graph_stdout_is_private_and_compiler_exit_survives() {
     let calls = fs::read_to_string(root.path().join("calls")).unwrap();
     assert_eq!(calls.matches("--unit-graph").count(), 1);
     assert_eq!(calls.matches("tail").count(), 1);
+}
+#[test]
+fn native_correctness_clippy_no_deps_reaches_only_actual_linter() {
+    let root = tempfile::tempdir().unwrap();
+    pure_cargo(root.path(), 1);
+    let result = adapter(root.path())
+        .args([
+            "clippy",
+            "--keep-going",
+            "--no-deps",
+            "--all-targets",
+            "--",
+            "-Dwarnings",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(
+        result.status.code(),
+        Some(17),
+        "original linter exit: {result:?}"
+    );
+    assert_eq!(
+        String::from_utf8(result.stdout).unwrap(),
+        "{\"reason\":\"compiler-artifact\",\"marker\":\"original\"}\n"
+    );
+    assert_eq!(
+        String::from_utf8(result.stderr).unwrap(),
+        "compiler stderr\n"
+    );
+    let calls = fs::read_to_string(root.path().join("calls")).unwrap();
+    assert_eq!(calls.matches("--unit-graph").count(), 1);
+    assert_eq!(
+        calls.matches("--no-deps").count(),
+        1,
+        "only actual Clippy consumes its flag"
+    );
+    assert_eq!(
+        calls.matches("--keep-going").count(),
+        2,
+        "both graph and linter retain continuation"
+    );
+    assert_eq!(calls.matches("--all-targets").count(), 2);
+    assert_eq!(calls.matches("-Dwarnings").count(), 1);
 }
 #[test]
 fn native_correctness_unknown_graph_never_executes_compiler() {

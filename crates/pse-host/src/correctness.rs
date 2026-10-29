@@ -204,6 +204,10 @@ fn graph_arguments(arguments: &[OsString]) -> Result<Vec<OsString>, CorrectnessE
         graph[position] = "build".into();
     } else if mode == "clippy" {
         graph[position] = "check".into();
+        // Clippy owns this lint-scope switch; Cargo check still needs the whole
+        // selected dependency graph to establish Arrow validation. The actual
+        // invocation keeps its original arguments, including --no-deps.
+        graph.retain(|argument| argument != "--no-deps");
     }
     if graph.iter().any(|arg| arg == "--unit-graph") {
         return Err(invalid("unit-graph is owned by correctness admission"));
