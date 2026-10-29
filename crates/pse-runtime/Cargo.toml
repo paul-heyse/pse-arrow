@@ -203,3 +203,14 @@ required-features = ["solver-diffsol"]
 [[test]]
 name = "native_worker_lifecycle"
 required-features = ["native-study-tests", "product-operators"]
+
+[[test]]
+name = "native_workspace"
+required-features = ["solver-kinsol"]
+
+[[test]]
+name = "native_conic"
+
+[[test]]
+name = "native_strategies"
+required-features = ["solver-kinsol"]
