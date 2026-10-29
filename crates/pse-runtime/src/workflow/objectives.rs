@@ -271,8 +271,7 @@ impl ModelingPackage {
                 self.staged_solve(services, &mut staged, &selected, &levels, cancel)
                     .await
             };
-        staged.close().await;
-        report
+        WorkflowError::settle(report, staged.close().await)
 
         }).await
     }

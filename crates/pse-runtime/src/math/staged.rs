@@ -842,7 +842,7 @@ pub(crate) struct NativeSession {
     scope: Arc<std::sync::Mutex<Scope>>,
     service: Arc<MathService>,
     sender: Option<Arc<mpsc::Sender<Request>>>,
-    joined: Option<tokio::sync::oneshot::Receiver<()>>,
+    joined: Option<tokio::sync::oneshot::Receiver<Result<(), MathRuntimeError>>>,
     budget: Arc<WorkerBudget>,
     parked: bool,
     #[cfg(test)]
@@ -857,7 +857,7 @@ pub(super) struct ParkedSession {
     dispatch: Arc<tokio::sync::Semaphore>,
     scope: Arc<std::sync::Mutex<Scope>>,
     sender: Option<Arc<mpsc::Sender<Request>>>,
-    joined: Option<tokio::sync::oneshot::Receiver<()>>,
+    joined: Option<tokio::sync::oneshot::Receiver<Result<(), MathRuntimeError>>>,
     budget: Arc<WorkerBudget>,
     #[cfg(test)]
     fail_scope_entry: Arc<AtomicBool>,
@@ -1020,12 +1020,21 @@ impl MathService {
         let joined_population = population.clone();
         tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             // Joining, not the last reply, witnesses thread-local destruction.
-            let _ = thread.await;
+            let result = match thread.await {
+                Ok(Ok(())) => Ok(()),
+                Ok(Err(panic)) => {
+                    let message = panic.downcast_ref::<String>().cloned()
+                        .or_else(|| panic.downcast_ref::<&str>().map(|message| (*message).to_owned()))
+                        .unwrap_or_else(|| "native session thread panic with opaque payload".into());
+                    Err(MathRuntimeError::Panic(message))
+                }
+                Err(source) => Err(MathRuntimeError::WorkerJoin { operation: "native session join", source }),
+            };
             drop(lease);
             joined_population.drain().await;
             drop(joined_population);
             drop(slot);
-            let _ = joined.send(());
+            let _ = joined.send(result);
         }));
         Ok(NativeSession {
             population,
@@ -1106,7 +1115,10 @@ impl MathService {
     }
     /// Stop admission and drain all service-owned native lanes, including native TLS and
     /// thread joins. Active request supervisors keep their owners until they complete.
-    pub async fn shutdown_native_lanes(&self) {
+    /// # Errors
+    /// Every failed native join or missing supervisor reply is retained after all drains.
+    pub async fn shutdown_native_lanes(&self) -> Result<(), MathRuntimeError> {
+        use futures_util::{StreamExt, stream::FuturesUnordered};
         self.jobs.close();
         let lanes = std::mem::take(
             &mut *self
@@ -1114,12 +1126,20 @@ impl MathService {
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner),
         );
+        let mut pending = FuturesUnordered::new();
         for mut lane in lanes {
             lane.population.close();
             lane.sender.take();
-            if let Some(joined) = lane.joined.take() {
-                let _ = joined.await;
-            }
+            let joined = lane.joined.take();
+            pending.push(async move {
+                let result = session_join_result(joined).await;
+                drop(lane);
+                result
+            });
+        }
+        let mut result = Ok(());
+        while let Some(joined) = pending.next().await {
+            result = MathRuntimeError::settle(result, joined);
         }
         let releases = self.jobs.released();
         loop {
@@ -1131,6 +1151,7 @@ impl MathService {
             }
             released.await;
         }
+        result
     }
 }
 impl super::solves::PreparedSolve {
@@ -1875,8 +1896,7 @@ impl NativeSession {
                 .as_ref()
                 .is_some_and(|scope| scope.check().is_err())
         {
-            self.close().await;
-            return Ok(());
+            return self.close().await;
         }
         #[cfg(feature = "solver-kinsol")]
         let inner_bytes = self.service.policy.inner_session_bytes;
@@ -1910,18 +1930,17 @@ impl NativeSession {
             )
             .await;
         if let Err(cause) = reset {
-            self.close().await;
+            let cleanup = self.close().await;
             // Optional residency refusal cannot replace an already assessed result.
-            return if attempted.load(Ordering::Acquire) {
+            return MathRuntimeError::settle(if attempted.load(Ordering::Acquire) {
                 Err(cause)
             } else {
                 Ok(())
-            };
+            }, cleanup);
         }
         let service = self.service.clone();
         if service.jobs.is_closed() || service.pressure.active() {
-            self.close().await;
-            return Ok(());
+            return self.close().await;
         }
         let closing = {
             let mut lanes = service
@@ -1956,23 +1975,22 @@ impl NativeSession {
             }
         };
         if closing {
-            self.close().await;
+            self.close().await?;
         }
         Ok(())
     }
     /// Close the session and wait until its thread has joined.
     #[tracing::instrument(name = "pse.native.session.join.wait", skip_all, fields(pse.owner.stage = true))]
-    pub(crate) async fn close(mut self) {
+    pub(crate) async fn close(mut self) -> Result<(), MathRuntimeError> {
         let observation = pse_diagnostics::observation::current();
         let phase = observation
             .as_ref()
             .map(|context| context.phase("native.session.join"));
         self.population.close();
         self.sender.take();
-        if let Some(joined) = self.joined.take() {
-            let result = joined.await;
+        let result = session_join_result(self.joined.take()).await;
             if let Some(context) = observation {
-                if result.is_ok() {
+                if !matches!(&result, Err(MathRuntimeError::Infrastructure(_) | MathRuntimeError::Internal(_))) {
                     crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(
                         context.clone(),
                     ))
@@ -1984,8 +2002,17 @@ impl NativeSession {
                     );
                 }
             }
-        }
         drop(phase);
+        result
+    }
+}
+
+async fn session_join_result(
+    joined: Option<tokio::sync::oneshot::Receiver<Result<(), MathRuntimeError>>>,
+) -> Result<(), MathRuntimeError> {
+    match joined {
+        Some(joined) => joined.await.map_err(|_| MathRuntimeError::Infrastructure("native session join supervisor reply absent".into()))?,
+        None => Err(MathRuntimeError::Internal("native session join owner absent".into())),
     }
 }
 impl Drop for NativeSession {
@@ -2004,6 +2031,94 @@ impl Drop for NativeSession {
 mod admission_tests {
     use super::*;
     use std::sync::{Condvar, Mutex};
+
+    enum JoinExit {
+        Wait(mpsc::Receiver<()>, Arc<AtomicBool>),
+        Notify(mpsc::Sender<()>),
+    }
+    impl Drop for JoinExit {
+        fn drop(&mut self) {
+            match self {
+                Self::Wait(receiver, observed) => observed.store(
+                    receiver.recv_timeout(std::time::Duration::from_secs(5)).is_ok(), Ordering::Release,
+                ),
+                Self::Notify(sender) => { let _ = sender.send(()); },
+            }
+        }
+    }
+    thread_local! { static JOIN_EXIT: std::cell::RefCell<Option<JoinExit>> = const { std::cell::RefCell::new(None) }; }
+
+    fn fail_native_thread(sender: &mpsc::Sender<Request>, message: &'static str) {
+        sender.send(Request {
+            threads: 1, backends: vec![], observation: None, scope_owner: None,
+            work: Some(Box::new(move |_| panic!("{message}"))),
+        }).unwrap();
+    }
+
+    #[tokio::test]
+    async fn native_session_close_retains_actual_thread_panic_after_join() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let session = service.open_session().unwrap();
+        fail_native_thread(session.sender.as_ref().unwrap(), "original native session exit");
+        assert!(matches!(session.close().await, Err(MathRuntimeError::Panic(message)) if message == "original native session exit"));
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    }
+
+    #[tokio::test]
+    async fn native_shutdown_closes_sibling_before_awaiting_failed_lane_destruction() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let cancel = crate::CancelSource::new();
+        let first = service.open_session().unwrap();
+        let second = service.open_session().unwrap();
+        let (release, gate) = mpsc::channel();
+        let observed = Arc::new(AtomicBool::new(false));
+        let first_observed = observed.clone();
+        first.run(1, None, &cancel, move |_, _, _| {
+            JOIN_EXIT.set(Some(JoinExit::Wait(gate, first_observed)));
+            Ok(())
+        }).await.unwrap();
+        second.run(1, None, &cancel, move |_, _, _| {
+            JOIN_EXIT.set(Some(JoinExit::Notify(release)));
+            Ok(())
+        }).await.unwrap();
+        let sender = first.sender.as_ref().unwrap().clone();
+        first.park_independent(pse_ids::ContentHash::from_bytes([1; 32]), None, &cancel).await.unwrap();
+        second.park_independent(pse_ids::ContentHash::from_bytes([2; 32]), None, &cancel).await.unwrap();
+        fail_native_thread(&sender, "first failed lane exit");
+        drop(sender);
+        assert!(matches!(service.shutdown_native_lanes().await, Err(MathRuntimeError::Panic(message)) if message == "first failed lane exit"));
+        assert!(observed.load(Ordering::Acquire), "every sender must close before any sibling join blocks");
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    }
+
+    #[tokio::test]
+    async fn native_shutdown_retains_every_join_failure_and_original_operation_cause() {
+        use pse_model::diagnostic::DiagnosticProjection;
+        let service = super::super::tests::service();
+        let cancel = crate::CancelSource::new();
+        let mut senders = Vec::new();
+        let sessions = [service.open_session().unwrap(), service.open_session().unwrap()];
+        for (index, (session, message)) in sessions.into_iter().zip(["first original native exit", "second original native exit"]).enumerate() {
+            senders.push((session.sender.as_ref().unwrap().clone(), message));
+            session.park_independent(pse_ids::ContentHash::from_bytes([index as u8; 32]), None, &cancel).await.unwrap();
+        }
+        for (sender, message) in senders { fail_native_thread(&sender, message); }
+        let result = MathRuntimeError::settle::<()>(
+            Err(MathRuntimeError::Cancelled), service.shutdown_native_lanes().await,
+        ).unwrap_err();
+        let MathRuntimeError::Settlement { operation, cleanup } = &result else { panic!("operation and native cleanup failures must both survive") };
+        assert!(matches!(operation.as_ref(), MathRuntimeError::Cancelled));
+        assert!(matches!(cleanup.as_ref(), MathRuntimeError::Settlement { .. }));
+        assert_eq!(miette::Diagnostic::related(&result).unwrap().count(), 2);
+        let rendered = format!("{:?}", result.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native));
+        assert!(rendered.contains("first original native exit"), "{rendered}");
+        assert!(rendered.contains("second original native exit"), "{rendered}");
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    }
 
     #[tokio::test]
     async fn observation_native_session_restores_each_request_context_on_reused_thread() {
@@ -2079,7 +2194,7 @@ mod admission_tests {
                 .iter()
                 .any(|metric| metric.name == "native.session.admission.failure")
         );
-        scope(Some(second.context()), session.close()).await;
+        scope(Some(second.context()), session.close()).await.unwrap();
         assert_eq!(
             second
                 .reader()
@@ -2148,7 +2263,7 @@ mod admission_tests {
             })
             .await
             .unwrap();
-        session.close().await;
+        session.close().await.unwrap();
     }
 
     #[tokio::test]
@@ -2196,7 +2311,7 @@ mod admission_tests {
         drop(scope_owner);
         let pool = service.pool.clone();
         let weak = Arc::downgrade(&service);
-        service.shutdown_native_lanes().await;
+        service.shutdown_native_lanes().await.unwrap();
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
         assert_eq!(pool.reserved(), baseline);
         drop(service);
@@ -2249,8 +2364,8 @@ mod admission_tests {
             service.native_lanes.lock().unwrap().len(),
             service.policy.jobs - 1
         );
-        session.close().await;
-        service.shutdown_native_lanes().await;
+        session.close().await.unwrap();
+        service.shutdown_native_lanes().await.unwrap();
     }
     #[tokio::test]
     async fn generic_preparation_borrows_parked_population_and_blocks_lane_checkout() {
@@ -2282,8 +2397,8 @@ mod admission_tests {
             .await
             .unwrap();
         let session = service.independent_session(affinity).unwrap();
-        session.close().await;
-        service.shutdown_native_lanes().await;
+        session.close().await.unwrap();
+        service.shutdown_native_lanes().await.unwrap();
     }
     #[tokio::test]
     async fn pressure_retires_parked_base_residency_before_memory_wait() {
@@ -2312,7 +2427,7 @@ mod admission_tests {
             .unwrap();
         assert!(service.native_lanes.lock().unwrap().is_empty());
         drop(owner);
-        service.shutdown_native_lanes().await;
+        service.shutdown_native_lanes().await.unwrap();
         assert_eq!(service.pool.reserved(), baseline);
     }
     #[tokio::test]
@@ -2386,7 +2501,7 @@ mod admission_tests {
         assert_eq!(*session.scope.lock().unwrap(), entered);
         assert_eq!(service.pool.reserved(), reserved);
         drop(held);
-        session.close().await;
+        session.close().await.unwrap();
     }
     #[cfg(feature = "solver-pounce")]
     #[tokio::test]
@@ -2412,7 +2527,7 @@ mod admission_tests {
             .run(2, Some(Backend::Pounce), &cancel, |_, _, _| Ok(()))
             .await
             .unwrap();
-        session.close().await;
+        session.close().await.unwrap();
     }
     #[test]
     fn native_scope_affinity_replaces_old_profile_pools() {
@@ -2556,7 +2671,7 @@ mod admission_tests {
             })
             .await
             .unwrap();
-        session.close().await;
+        session.close().await.unwrap();
         assert_eq!(budget.used(), 0);
     }
 
@@ -2631,7 +2746,7 @@ mod admission_tests {
             .unwrap();
         assert_eq!(session.budget.used(), 0);
         drop(pressure);
-        session.close().await;
+        session.close().await.unwrap();
     }
 
     #[tokio::test]
@@ -2678,7 +2793,7 @@ mod admission_tests {
             })
             .await
             .unwrap();
-        session.close().await;
+        session.close().await.unwrap();
     }
 
     #[tokio::test]
@@ -2723,7 +2838,7 @@ mod admission_tests {
             })
             .await
             .unwrap();
-        session.close().await;
+        session.close().await.unwrap();
     }
 
     #[tokio::test]
@@ -2761,7 +2876,7 @@ mod admission_tests {
             )
             .await
             .unwrap();
-        session.close().await;
+        session.close().await.unwrap();
     }
 
     #[tokio::test]
@@ -2794,7 +2909,7 @@ mod admission_tests {
             )
             .await
             .unwrap();
-        session.close().await;
+        session.close().await.unwrap();
     }
 
     #[test]
@@ -3352,8 +3467,8 @@ mod admission_tests {
         drop(waiting);
         next.await.unwrap();
         assert!(stopped.load(Ordering::Acquire));
-        first.close().await;
-        second.close().await;
+        first.close().await.unwrap();
+        second.close().await.unwrap();
         assert_eq!(service.cpu.available_permits(), service.cores);
         assert_eq!(service.pool.reserved(), baseline);
     }
@@ -3438,9 +3553,9 @@ mod admission_tests {
         .await
         .unwrap();
         assert_eq!(entries.load(Ordering::Acquire), 1);
-        session.close().await;
+        session.close().await.unwrap();
         for resident in idle {
-            resident.close().await;
+            resident.close().await.unwrap();
         }
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
         assert_eq!(service.cpu.available_permits(), service.cores);
@@ -3495,9 +3610,9 @@ mod admission_tests {
         assert_eq!(service.pool.reserved(), reserved);
         gate.release();
         assert!(sequence.await.is_err());
-        session.close().await;
+        session.close().await.unwrap();
         for resident in idle {
-            resident.close().await;
+            resident.close().await.unwrap();
         }
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
         assert_eq!(service.cpu.available_permits(), service.cores);
@@ -3525,7 +3640,7 @@ mod admission_tests {
             Err(MathRuntimeError::Infrastructure(_))
         ));
         assert_eq!(service.cpu.available_permits(), service.cores);
-        session.close().await;
+        session.close().await.unwrap();
     }
     #[tokio::test]
     async fn compute_owner_wait_uses_original_clock_and_shared_permit() {
@@ -3611,7 +3726,7 @@ mod admission_tests {
             .unwrap()
             .unwrap();
         next.await.unwrap();
-        session.close().await;
+        session.close().await.unwrap();
     }
     #[tokio::test]
     async fn idle_pressure_destroys_optional_state_before_capacity_can_progress() {
@@ -3670,7 +3785,7 @@ mod admission_tests {
             .unwrap();
         drop(result);
         drop(fill);
-        session.close().await;
+        session.close().await.unwrap();
         assert_eq!(service.pool.reserved(), baseline);
     }
     #[tokio::test]
@@ -3754,7 +3869,7 @@ mod admission_tests {
             .await
             .unwrap();
         assert_eq!(service.pool.reserved(), base);
-        session.close().await;
+        session.close().await.unwrap();
         assert_eq!(service.pool.reserved(), baseline);
     }
     #[cfg(feature = "solver-pounce")]
@@ -3790,7 +3905,7 @@ mod admission_tests {
         drop(held);
         waiting.await.unwrap();
         assert!(entered.load(Ordering::Acquire));
-        session.close().await;
+        session.close().await.unwrap();
         assert_eq!(service.pool.reserved(), baseline);
     }
     #[cfg(feature = "solver-pounce")]
@@ -3829,7 +3944,7 @@ mod admission_tests {
             service.pool.reserved(),
             base + 2 * service.policy.stack_bytes
         );
-        session.close().await;
+        session.close().await.unwrap();
         assert_eq!(service.pool.reserved(), baseline);
     }
     #[tokio::test]
@@ -3893,7 +4008,7 @@ mod admission_tests {
         }
         assert!(!entered.load(Ordering::Acquire));
         drop(held);
-        session.close().await;
+        session.close().await.unwrap();
         assert_eq!(service.cpu.available_permits(), service.cores);
     }
     #[tokio::test]
@@ -3928,7 +4043,7 @@ mod admission_tests {
         assert!(cancel.checkpoint().is_ok());
         assert_eq!(service.cpu.available_permits(), 0);
         drop(held);
-        session.close().await;
+        session.close().await.unwrap();
         assert_eq!(service.pool.reserved(), baseline);
     }
     struct NativeState {
@@ -3980,7 +4095,7 @@ mod admission_tests {
             })
             .await
             .unwrap();
-        session.close().await;
+        session.close().await.unwrap();
         assert_eq!(service.cpu.available_permits(), service.cores);
     }
 }

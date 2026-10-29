@@ -509,7 +509,14 @@ impl ModelingPackage {
         };
         let _ = run.stages().await && run.homotopy(&continuations).await && run.original().await;
         let Initializer { staged, report, .. } = run;
-        staged.close().await;
+        if let Err(cleanup) = staged.close().await {
+            return Err(match report.failure {
+                Some(operation) => WorkflowError::Settlement {
+                    operation: Box::new(operation.into()), cleanup: Box::new(cleanup),
+                },
+                None => cleanup,
+            });
+        }
         Ok(report)
 
         }).await

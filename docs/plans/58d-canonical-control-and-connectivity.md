@@ -94,9 +94,9 @@ engine, transport, module privilege or payload changes require their applicable 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [D01](#d01) | in progress | Rust operations and connection owners | Control construction and direct typed calls require no mathematical Runtime. |
-| [D02](#d02) | planned | Canonical command policy and ingress owners | Actor-bound commands and original receipt reconciliation agree across selected ingress. |
-| [D03](#d03) | planned | Canonical study policy and operations owners | Durable model governs bounded progression, preparation handoff, claim and later lineage queries. |
-| [D04](#d04) | planned | Control consumer and integration owners | Retained native consumers migrate; replaced frontend orchestration is deleted; H has assembled cases. |
+| [D02](#d02) | in progress | Canonical command policy and ingress owners | Actor-bound commands and original receipt reconciliation agree across selected ingress. |
+| [D03](#d03) | in progress | Canonical study policy and operations owners | Durable model governs bounded progression, preparation handoff, claim and later lineage queries. |
+| [D04](#d04) | in progress | Control consumer and integration owners | Retained native consumers migrate; replaced frontend orchestration is deleted; H has assembled cases. |
 | [D05](#d05) | in progress | Canonical schema and maintenance owners | Native ordered migration, version applicability and write fencing work, including open-handle/in-flight semantics. |
 
 <a id="d01"></a>
@@ -431,3 +431,71 @@ D01/D05 or H acceptance. Actual server stale-epoch/in-flight commit races, lost-
 restart matrix, existing-store migration, broader SDK/API/gRPC responsibility comparison and
 remaining retained consumers are still open. Full durable-production recovery, numerical and
 performance qualification remain outside this checkpoint.
+
+## Native progression, migration and control checkpoint — 2026-10-29
+
+D01 retains the bounded native gRPC owner and the separate constrained actor API. The exact
+3.3.4 SDK source comparison does not supply a public physical-drain completion handle for
+its provisional query stream; replacing this custody with arriving rows would weaken finality.
+No SDK swap, universal connection layer or second transport is selected. Existing typed
+values, exact integer codecs, original request clocks, response bounds and actual client close
+remain native responsibilities. The direct control constructor and calls need no mathematical
+Runtime; privileged actor/schema provisioning remains explicit.
+
+D03 now composes store-side readiness, candidate selection, effect-free settlement and
+conclusion selection into bounded `progress_studies`. Continuation binds issuer, policy module
+and authority generation; an unproductive examined page is distinct from exhaustive no work.
+Native source/seed/resource preparation consumes the opaque handoff outside transactions;
+`claim_prepared_study_point` rechecks current source/dependency revisions, cancellation, seed
+and generation before granting an attempt. The pure read-only readiness module shares the
+Rust policy and now has complete preparation/claim modes, probed at admission. The worker's
+outer paging/readiness/action/finalization choreography and repeated action interpretation
+are deleted. CandidateGroup still suppresses local duplicate preparation. Current indexed
+dependency references and bounded traversal remain selected; no view, event, live feed,
+direct MX working store or broader module grants earned another authority boundary.
+
+D05 freezes the exact historical schema-v2 DDL and codec identity before installing v3.
+The legacy→v2→v3 chain preserves original target-v2 requests/receipts and scientific v10
+interpretation. A full two-edge DDL transaction conflicted on the effective engine; the
+implemented chain retains a durable closed v2 checkpoint under the original request and
+resumes only the remaining edge. The checkpoint, final receipt and target module stay bound
+to original owner/issuer/payload premises. Final activation verifies the receipt and promoted
+module before current readiness. Typed stopped-state transfer creates a fresh physical
+service owner; per-launch provenance survives restart. No old owner is reopened or relabelled.
+
+**Tested:** `scripts/pse-env -- just test-package pse-operations --features
+canonical-tests,native-service,canonical-maintenance,test-support --test native_service`, with
+explicit private original/target module selectors, passes all 16 then-current cases against
+zero failures and no warnings (run `7439a37e-11be-4a29-8d85-87d419ecb655`). This includes adjacent
+migration, retained-v2 replay, checkpoint/final ACK loss and restart, module promotion, alive
+stale-handle refusal, post-activation epoch refusal and a real preclosure held transaction
+whose late commit conflicts without losing an independently committed write. Original
+attempt cancellation/receipt replay remain allowed while fresh cancellation/claims are closed.
+Actual progression cases cover sparse pages, competing claims, cancellation, dependency
+revision/issuer and exact seed-refusal replay. Successful private states are disposed only
+after original physical settlement; failed fixtures and user stores are preserved.
+
+**Tested:** the subsequent focused `native_service` selection
+`--filter-expr 'test(control::) | test(http_control::) | test(prepared_claim_lost_ack)'` passes
+three controls against zero failures, 14 excluded, no warnings (run
+`44537cb1-9cda-4fdc-a32a-ce9fe68bfd9c`). Actual committed cancellation/prepared-claim ACK loss
+and failed original readback retain uncertainty and the exact original identity; replay
+recovers the existing receipt/attempt without a second effect. HTTP controls cover actual
+record actors, revoked existing tokens, browse-only grants, private-record/direct-helper
+denial, raw UTF-8/JSON/extent refusal without receipts, opaque strings, cursor fields, issuer
+and bound refusal. Independent readback establishes after-write API error rollback alongside
+positive 200/409 commit controls. The supported 64-predecessor fan-in and stale eligibility
+hint control additionally passes one test, 17 excluded, against zero failures and no warnings
+(run `805b7221-2589-47de-98d7-36d7abde8304`). This is semantic/access-path acceptance, not a
+latency or capacity measurement.
+
+The Python `pse.control` client, its lifetime/retry tests and dedicated actual-server drivers
+are deleted with their test-path declarations. The workbench's retained scientific/cohort/
+observation assertions remain; only their obsolete Python actor/client setup is removed.
+The new real native study journey supplies two-worker science, bounded browsing, continuation,
+protected reads and later lineage evidence; [58c's checkpoint](58c-runtime-lifecycles.md#native-worker-and-publication-checkpoint--2026-10-29)
+owns that result and its limits. The still-used scientific PyO3 facade and reference exchange
+remain G03/F04 work. D01–D05 remain in progress until their remaining consumer/assembled
+acceptance is settled. Active-native crash/replacement, migration-crossing publication and
+the selected H scope-end qualification are not established here. Durable-production disaster
+recovery and performance qualification retain their separately deferred scope.

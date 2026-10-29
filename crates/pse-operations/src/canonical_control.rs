@@ -4,6 +4,12 @@
 use crate::canonical_study_workbench::{StudyWorkbenchFilter, StudyWorkbenchHeader};
 use pse_model::document::Version;
 
+#[cfg(any(test, feature = "test-support"))]
+tokio::task_local! {
+    pub(crate) static CONTROL_ACK_LOST: bool;
+    pub(crate) static CONTROL_READBACK_FAILED: bool;
+}
+
 /// Authority-bound continuation for live browsing, never a frozen analysis population.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -267,6 +273,10 @@ impl crate::canonical::CanonicalStore {
     ) -> Result<ControlReconcileResponse, crate::canonical::CanonicalError> {
         use crate::canonical::transport::{original_deadline, within_clock};
         use crate::canonical::{CanonicalError, REQUEST_TIMEOUT, protected_query};
+        #[cfg(any(test, feature = "test-support"))]
+        if CONTROL_READBACK_FAILED.try_with(|failed| *failed).unwrap_or(false) {
+            return Err(CanonicalError::Configuration("private control readback failure".into()));
+        }
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
             let mut reply=protected_query("canonical_control::reconcile",||Ok(self.db.query("RETURN encoding::json::encode(fn::pse_control_v1::reconcile($pse_rpc_expires_at,'native-system',{document_version:1,issuing_store:$issuing_store,operation_id:$operation_id}));").bind(("issuing_store",request.issuing_store.clone())).bind(("operation_id",request.operation_id.clone())))).await?;
@@ -340,6 +350,12 @@ impl crate::canonical::CanonicalStore {
                 }
                 serde_json::from_str(&encoded).map_err(|error|CanonicalError::Configuration(error.to_string()))
             }.await;
+            // Fault only the acknowledged local result after the real server
+            // transaction. The ordinary original-identity readback remains real.
+            #[cfg(any(test, feature = "test-support"))]
+            let response = if response.is_ok() && CONTROL_ACK_LOST.try_with(|lost| *lost).unwrap_or(false) {
+                Err(CanonicalError::IncompleteResponse)
+            } else { response };
             self.finish_control_cancel(request,response).await
         })).await
     }

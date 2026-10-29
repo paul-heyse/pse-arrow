@@ -1476,12 +1476,13 @@ only, and robust optimization is not implemented.
 
 > Decision: [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed; maintainer-authorized Plan57k/L first slice).
 
-**Implemented:** async durable browse/cancel/reconcile consumes connection/actor configuration
-and finite control policy independently of scientific Runtime construction or native loading.
-The existing distribution remains; scientific/private entry points retain actual native
-compatibility and Arrow initialization at the scientific gate. Source-only imports do not
-fall back to native version discovery. Scientific execution and retained-data capabilities
-keep their distinct admission and physical owners. Plan57k/57j own actual migration/evidence.
+**Implemented:** durable browse/cancel/reconcile is available on the native canonical connection
+independently of scientific Runtime construction, mathematical preparation and Python. The Python
+HTTP control client and its dedicated harnesses are retired under proposed ADR-0233. The retained
+scientific distribution still loads its actual native image at the scientific gate; generated
+document imports do not initialize science. Scientific execution, retained-data capabilities and
+physical settlement keep their distinct owners. Plan58 D04/G03 own current consumer cutovers and
+qualification; historical Plan57 evidence retains its original scope.
 
 
 `ModelingPackage.generate_design` returns a local owning `GeneratedDesign`, with no store

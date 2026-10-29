@@ -645,7 +645,7 @@ mod tests {
             .prepare_artifacts(requests.iter(), &crate::CancelSource::new())
             .now_or_never();
         for session in sessions {
-            session.close().await;
+            session.close().await.unwrap();
         }
         let cached = cached
             .expect("ready cache hits do not await native population")

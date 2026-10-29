@@ -4386,14 +4386,14 @@ impl MathService {
                 && result.as_ref().is_ok_and(|(outcome, (), _)| {
                     outcome.candidate_use(&finish_policy).permits_use()
                 });
-            if healthy {
+            let cleanup = if healthy {
                 session
                     .park_independent(affinity, original_scope, &cancel)
-                    .await?;
+                    .await
             } else {
-                session.close().await;
-            }
-            result.map(|(outcome, (), strategy)| StepReport {
+                session.close().await
+            };
+            MathRuntimeError::settle(result, cleanup).map(|(outcome, (), strategy)| StepReport {
                 run_id,
                 outcome,
                 strategy,

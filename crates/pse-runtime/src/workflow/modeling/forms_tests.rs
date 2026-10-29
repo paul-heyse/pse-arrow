@@ -461,7 +461,7 @@ async fn derived_big_m_follows_value_only_bindings() {
                 .unwrap(),
         );
     }
-    staged.close().await;
+    staged.close().await.unwrap();
     let end = service.preparations();
     for (limit, result) in limits.into_iter().zip(&results) {
         assert!(result.accepted, "{limit}: {:?}", result.diagnostic());

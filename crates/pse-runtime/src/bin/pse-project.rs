@@ -14,6 +14,8 @@ mod operator_error;
 mod project_runtime;
 #[path = "project/tools.rs"]
 mod project_tools;
+#[path = "support/signals.rs"]
+mod signals;
 #[derive(Parser)]
 struct Cli {
     #[command(subcommand)]

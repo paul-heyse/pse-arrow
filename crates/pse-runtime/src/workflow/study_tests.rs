@@ -460,7 +460,7 @@ async fn same_worker_publication_handoff_refills_and_bounds_actual_unacknowledge
         };
         let (served, (reached, second, observed, pending, cancelled)) =
             tokio::join!(serving, control);
-        runtime.shared.math().shutdown_native_lanes().await;
+        runtime.shared.math().shutdown_native_lanes().await.unwrap();
         assert!(
             reached && second,
             "one actual width-one worker must complete its second scientific/native owner while first export is held: mode={mode}, first_export={reached}, second_ready={second}, ready_count={observed}, served={:?}, pending={pending:?}",
@@ -657,7 +657,7 @@ async fn same_worker_publication_refills_a_study_created_after_actual_idle_disco
         (reached, observed_idle, late, first_pending)
     };
     let (served, (reached, observed_idle, late, first_pending)) = tokio::join!(serving, control);
-    runtime.shared.math().shutdown_native_lanes().await;
+    runtime.shared.math().shutdown_native_lanes().await.unwrap();
     assert!(
         reached && observed_idle,
         "actual idle discovery occurs while the first publisher remains held: first_export={reached}, idle={observed_idle}, ready_count={}, served={:?}, first_pending={first_pending:?}",
@@ -5384,7 +5384,7 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
         )
         .await
         .unwrap();
-    staged.close().await;
+    staged.close().await.unwrap();
     assert!(completed.accepted);
     assert_eq!(completed.original_attempt, 3);
     let crate::math::solves::Outcome::Constant(original) = &completed.outcome else {
@@ -5823,10 +5823,8 @@ async fn lazy_study_cancellation_and_summary_do_not_construct_unattempted_scienc
         .unwrap();
     let action = scope.action(None).unwrap();
     assert!(matches!(action.kind, ActionKind::Cancel));
-    runtime
-        .settle_study_candidate(&scope, &action, None)
-        .await
-        .unwrap();
+    let progress = runtime.canonical_store().unwrap().progress_studies(None).await.unwrap();
+    assert!(matches!(progress.action, pse_operations::canonical_studies::StudyProgressAction::Settled {point} if point == key));
     assert!(
         runtime
             .finalize_canonical_study(&handle.study_id().to_string())
@@ -5994,6 +5992,11 @@ async fn project_context_recorded_study_keeps_original_source_after_backdated_co
             panic!("original constant algebraic operation");
         };
         assert_eq!(prepared.source.project_context.as_ref(), Some(expected));
+        let stored = store.canonical_study_point(&point).await.unwrap().unwrap();
+        assert!(!stored.assigned && stored.attempt.is_none());
+        let facts = pse_operations::canonical_studies::point_facts(&stored).unwrap();
+        assert_eq!(facts.attempt_count, 0);
+        assert!(!facts.native_started, "native preparation grants no execution authority");
     }
     lane.close().await.unwrap();
     let (replacement_physical, replacement_modeling) = sources(

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 305
+revision: 306
 date: 2026-10-29
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 306 | 2026-10-29 | Publish native connection-only browse/cancel/reconcile in §3.3/§21 and retire the Python HTTP control client; preserve actor/API and original-receipt semantics. | Authorized Plan58 D04/G03 under proposed ADR-0233; PSE_DESIGN_EDIT=1. Scientific facade, parity migration and assembled qualification remain open. |
 | 305 | 2026-10-29 | Reconcile §21/§23.1/§24.1 with retired Python MCP, global catalogue, generated capability CLI and frontend sessions; preserve original native custody and historical qualification. | Authorized Plan58 G02 under proposed ADR-0233; PSE_DESIGN_EDIT=1. Broader Python/native consumer qualification and formal ADR status remain unchanged. |
 | 304 | 2026-10-28 | Retire Python asyncio run waiting in §21.1; retain native wait detachment, stop and actual cleanup ownership. | Authorized Plan58 local-operation cut under proposed ADR-0233; PSE_DESIGN_EDIT=1. No formal ADR status change. |
 | 303 | 2026-10-28 | Publish Proposed Rust-owned first-party host/product boundary (§21.7), canonical execution versus physical ownership, typed fixtures and selected build/cache guarantee reductions. | Maintainer-authorized Plan58 T01; ADR-0233, .design-edit. Proposed only; formal review and native implementation evidence remain separate; no ADR status change. |

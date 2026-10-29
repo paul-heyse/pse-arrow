@@ -297,53 +297,27 @@ documented in [Rust build reuse](build-performance.md).
 
 ## Durable control without scientific loading
 
-The selected Plan57k/L control interface is `pse.control.ControlClient`, an async owner
-for compact browsing, study cancellation and original receipt reconciliation. It imports
-without `pse._native`, EngineSettings or model construction. Actor provisioning is an
-explicit administrative operation of `pse-canonical-init --issue-control-actor PRIVATE_JSON
-[--database EXISTING_DATABASE] STATE`; it opens an existing initialized database and never
-installs schema implicitly. The private version-1 request supplies key/password and explicit
-browse/cancel grants. Its safe report supplies actor identity and the original issuing-store.
-The applicable catalog and selected server integration must be activated before use.
-The endpoint requires `Content-Type: application/json`; the client supplies it. Ingress
-preserves opaque JSON strings exactly rather than applying the database's legacy UUID/date/
-record coercions. Known actor grant denial returns 403 before a command effect.
+Native `CanonicalStore` owns compact browsing, study cancellation and original receipt
+reconciliation independently of scientific `Runtime`, `SourceServices`, mathematical services
+and Python. Open the explicitly selected initialized deployment through its native connection
+owner; ordinary connection startup neither provisions actors nor installs schema. Use
+`control_study_workbench_page` with a bounded `StudyWorkbenchRequest`, `cancel_study_command`
+with a retained `ControlCancelRequest`, and `reconcile_study_cancel` with the original
+`ControlReconcileRequest`. The types live in `pse_operations::canonical_control`.
 
-```python
-from pse.control import ControlClient, ControlUnresolvedError
-from pse.contracts.documents import (
-    ControlBrowseRequest, ControlCancelRequest, ControlReconcileRequest,
-    StudyWorkbenchFilter,
-)
+Retain the command's issuing store, operation identity and immutable study target until its
+outcome settles. Identical repetition observes the original decision; changed intent under
+that identity refuses. A missing receipt is unobserved, not proof of rollback or permission to
+issue a new effect. Restore or foreign selection cannot retarget an old request. A receipt
+records durable stop intent, while the original worker/native/process owners establish joining
+and physical release. Cohort capture, scientific observation and protected payload readers
+retain their existing capabilities.
 
-async def inspect_and_cancel(endpoint, namespace, database, issuer, actor, password, command):
-    # Retain command (including issuer/operation_id/study) until its outcome settles.
-    async with ControlClient(
-        endpoint, namespace, database, None, issuing_store=issuer, timeout=30,
-        maximum_request_bytes=65536, maximum_response_bytes=2 * 1024 * 1024,
-    ) as client:
-        await client.sign_in(actor, password)
-        page = await client.study_workbench_page(ControlBrowseRequest(
-            document_version=1, filter=StudyWorkbenchFilter(study=command.study),
-            maximum=16, cursor=None,
-        ))
-        try:
-            receipt = await client.cancel_study(command)
-        except ControlUnresolvedError:
-            observed = await client.reconcile(ControlReconcileRequest(
-                document_version=1, issuing_store=command.issuing_store,
-                operation_id=command.operation_id,
-            ))
-            return page, observed.receipt  # None is unobserved, not proof of rollback.
-        return page, receipt
-```
-
-The connection and retained command both bind the original issuer. Restore or foreign
-selection cannot silently retarget an old request. Receipts report durable decisions, not
-worker join or scientific result usability. Cohort capture, observation and retained payload
-readers retain their existing scientific/data capabilities. A failed response-body or HTTP
-pool cleanup is explicitly unsettled: the provider's closed flag/no-op retry is not proof
-of completion. Admission stays sealed and the failed owner/error is retained.
-
-Implementation and qualification progress remain with Plan57k/L and 57j; the interface
-example does not qualify the pending actual-server/worker journeys.
+The constrained record-actor API remains available for an independently selected external
+consumer. It requires `Content-Type: application/json`, preserves opaque strings and checks
+grants before parsing/state/receipt access. Explicit `issue_control_actor` is privileged and
+refuses existing identities rather than overwriting grants. The existing optional
+`pse-canonical-init --issue-control-actor` command uses that same owner; it never installs
+schema implicitly. The Python `pse.control` client and its retry/lifetime harnesses are deleted;
+there is no replacement Python proxy. Plan58 D04/G03 own remaining native consumer integration,
+and H owns assembled qualification.

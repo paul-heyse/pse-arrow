@@ -887,7 +887,7 @@ mod tests {
                 "publication cannot requalify the point"
             );
             // Complete the reusable lane's native/TLS teardown before checking final ownership.
-            runtime.native().shutdown_native_lanes().await;
+            runtime.native().shutdown_native_lanes().await.unwrap();
             drop((result, package, runtime));
             assert!(
                 pool.reserved() > 0,

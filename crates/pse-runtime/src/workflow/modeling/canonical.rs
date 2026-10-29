@@ -3312,7 +3312,7 @@ mod tests {
         assert_eq!(pool.reserved(), baseline);
 
         runtime.shared.math().clear_program_cache();
-        runtime.shared.math().shutdown_native_lanes().await;
+        runtime.shared.math().shutdown_native_lanes().await.unwrap();
         let pressure =
             pse_columnar::MemoryConsumer::new("test:source-publication-refusal").register(&pool);
         pressure

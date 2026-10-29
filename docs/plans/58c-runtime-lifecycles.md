@@ -83,8 +83,8 @@ control plan; selective result and delivery custody belong to the results plan.
 | [C02](#c02) Native operation ownership | in progress | Runtime/math owner | Observer/stop/join behavior implemented and targeted tests pass |
 | [C03](#c03) Shared preparation and worker admission | planned | Runtime worker owner | Producer/waiter and nested admission behavior integrated |
 | [C04](#c04) Service-root shutdown and host handoff | in progress | Runtime/host integrators | Admission sealed, failures retained and actual owned work drained |
-| [C05](#c05) Publication and delivery settlement | planned | Runtime/control/results integrators | Native completion, durable publication and output release remain distinct |
-| [C06](#c06) Consumer cutover and qualification handoff | planned | Runtime integrator | Replaced wrappers deleted and H scenarios ready |
+| [C05](#c05) Publication and delivery settlement | in progress | Runtime/control/results integrators | Native completion, durable publication and output release remain distinct |
+| [C06](#c06) Consumer cutover and qualification handoff | in progress | Runtime integrator | Replaced wrappers deleted and H scenarios ready |
 
 <a id="c01"></a>
 ## C01 — Decide the smallest sufficient composition
@@ -291,3 +291,49 @@ pass with original units independently absent afterward. [58d's checkpoint](58d-
 owns the final command and live limits; [58b](58b-bootstrap-and-host-control.md#current-execution-handoff--2026-10-29)
 owns host acceptance and next consumer migration. C04 remains in progress; this does not qualify
 arbitrary blocking solver cancellation, shared-store shutdown or durable worker-root policy.
+
+## Native worker and publication checkpoint — 2026-10-29
+
+The worker consumes one bounded canonical progression operation and an opaque preparation
+handoff. Native source/seed/resource preparation remains outside the claim transaction;
+canonical recheck grants the actual attempt. The former client paging/readiness/action/
+finalization choreography and repeated authoritative policy interpretation are deleted.
+CandidateGroup retains local preparation suppression, while the shared mathematical owner
+retains producer/waiter admission and original native joins.
+
+C04 now registers SIGINT/SIGTERM before startup and keeps one process-root stop listener
+through readiness/serving. Native session close and mathematical lane shutdown return typed
+settlement failures; callers preserve original failures while draining every independent owner.
+OS thread joins survive cancellation of a queued blocking joiner. Physical lane population is
+released only after actual native/foreign destruction. The native service drains independent
+connections and ingresses concurrently before stopping their required server, under the same
+original deadline and with failures from both stages retained. A real multi-connection journey
+exposed the former stop-versus-release RPC race; the corrected cancellation journey passes.
+
+**Tested:** the force-validated native `pse-runtime --test native_study` target with
+`native-study-tests,solver-kinsol`, compiler/KLU preparation and private service/module selectors
+passes two controls against zero failures (run `9271e114-b1bf-42b8-b635-8caacee6915b`). These cover
+two competing workers, actual two-point KINSOL continuation, independent variable/residual
+answers, recorded source/point/attempt lineage, bounded connection-only browsing, protected
+reader close refusal, publisher close/replacement and cancellation before any claim/native entry.
+The first numerical assertion used a tighter answer tolerance than its requested accuracy;
+the fixture now supplies explicit original variable/equation requirements, preserving the
+independent expected answer. Both successful private fixtures are physically drained/disposed;
+earlier failed fixture diagnostics remain retained.
+
+**Tested:** `just test-package pse-operations --features
+canonical-tests,native-service,canonical-maintenance,test-support --lib --test native_service
+--filter-expr 'test(native_publication_controls::) | test(http_control::)'` through
+`scripts/pse-env`, with explicit private module/helper selections, passes four controls against
+zero failures, 517 excluded, and no warnings (run `dd968474-b158-43b8-84db-b3d2c1b39a3e`). The three
+publication controls cover inline/sealed construction before acceptance, lost append/terminal
+ACK with failed readback and exact original replay, stale late publication under a replacement
+fence, and independent output custody through abandoned delivery and publisher/reader close.
+The last protected consumer gates physical collection. Partial transport fixtures confer no
+scientific success; the real KINSOL journey above supplies bounded scientific evidence.
+
+C01–C06 remain open for their remaining integration/retirement and assembled qualification.
+Active-native cancellation/crash replacement, migration-crossing publication, lazy/cold pool
+population and other scientific classes are not qualified by the two bounded native cases.
+The still-used Python/PyO3 facade and isolated reference exchange retain G03/F04 ownership.
+No performance or arbitrary blocking-solver cancellation bound is claimed.

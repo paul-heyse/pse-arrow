@@ -7,7 +7,7 @@
 use crate::{
     canonical::{
         CanonicalError, CanonicalOptions, CanonicalStore, MESSAGE_BYTES,
-        migration::{SchemaMaintenance, SchemaReady},
+        migration::{SchemaMaintenance, SchemaMigrationReceipt, SchemaReady},
         study_module::StudyModuleReceipt,
     },
     deployment::{CanonicalConnectionSettings, ServiceIdentity},
@@ -23,6 +23,7 @@ use pse_host::{
     server::{self, PreparedServer},
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeSet,
     fs::{self, File, OpenOptions},
@@ -163,6 +164,8 @@ struct Credentials {
 struct StartupPayload {
     version: u32,
     state: PathBuf,
+    run: PathBuf,
+    module_root: PathBuf,
     generation: PathBuf,
     recipe: String,
     bind: SocketAddr,
@@ -184,12 +187,48 @@ struct Configuration {
     payload_incarnation: String,
     accepting_writes: bool,
     study_module: StudyModuleReceipt,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    schema_migration_predecessor: Option<StudyModuleReceipt>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    schema_migration_target: Option<StudyModuleReceipt>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DisposableIdentity {
     version: u32,
     nonce: String,
+}
+#[derive(Debug, PartialEq, Eq)]
+struct RetainedRecords {
+    hashes: Vec<String>,
+}
+impl RetainedRecords {
+    fn read(state: &Path) -> Result<Self, NativeServiceError> {
+        let config: serde_json::Value = private_read(&state.join("config.json"))?;
+        let mut source = config.clone();
+        let mut target = config.clone();
+        if let Some(predecessor) = config.get("schema_migration_predecessor") { source["study_module"] = predecessor.clone(); }
+        if let Some(prepared) = config.get("schema_migration_target") { target["study_module"] = prepared.clone(); }
+        if config != source && config != target {
+            return Err(NativeServiceError::Refused("local module selection is neither prepared source nor prepared target"));
+        }
+        let mut hashes = vec![hex::encode(Sha256::digest(json(&source)?)), hex::encode(Sha256::digest(json(&target)?))];
+        for name in ["credentials.json", "original-module-receipt.json"] {
+            let value: serde_json::Value = private_read(&state.join(name))?;
+            hashes.push(hex::encode(Sha256::digest(json(&value)?)));
+        }
+        if config.get("schema_migration_target").is_some() {
+            let value: serde_json::Value = private_read(&state.join("target-module-source-receipt.json"))?;
+            hashes.push(hex::encode(Sha256::digest(json(&value)?)));
+        }
+        Ok(Self { hashes })
+    }
+    fn verify(&self, state: &Path) -> Result<(), NativeServiceError> {
+        if *self != Self::read(state)? {
+            return Err(NativeServiceError::Refused("retained canonical configuration, credentials or module provenance changed"));
+        }
+        Ok(())
+    }
 }
 struct OwnedState {
     path: PathBuf,
@@ -290,6 +329,13 @@ fn deadline_left(deadline: Instant) -> Result<(), NativeServiceError> {
         Ok(())
     }
 }
+fn verify_run(state: &Path, run: &Path) -> Result<(), NativeServiceError> {
+    private_path(run, true)?;
+    if run.parent() != Some(state.join("runs").as_path()) {
+        return Err(NativeServiceError::Refused("private launch directory differs from owned state"));
+    }
+    Ok(())
+}
 impl OwnedState {
     fn verify(&self) -> Result<(), NativeServiceError> {
         private_path(&self.path, true)?;
@@ -321,6 +367,7 @@ struct OwnedIngress {
 struct WorkerPayload {
     version: u32,
     state: PathBuf,
+    run: PathBuf,
     nonce: String,
     index: usize,
     initial_schema: InitialSchema,
@@ -330,12 +377,19 @@ struct WorkerPayload {
 enum InitialSchema {
     Current,
     PreEpoch,
+    SchemaV2,
 }
 
 /// Retained ownership of one newly constructed service. Not cloneable and no Drop cleanup claims.
 #[derive(Debug)]
 pub struct NativeCanonicalService {
     state: OwnedState,
+    records: RetainedRecords,
+    server_generation: PathBuf,
+    server_recipe: String,
+    module_root: PathBuf,
+    run: PathBuf,
+    reopening: bool,
     initial_schema: InitialSchema,
     initialized: bool,
     helper: PathBuf,
@@ -347,12 +401,120 @@ pub struct NativeCanonicalService {
     ready: Option<SchemaReady>,
     connections: Vec<CanonicalStore>,
     maintenances: Vec<SchemaMaintenance>,
+    #[cfg(feature = "test-support")]
+    schema_writes: Vec<crate::canonical::migration::SchemaFenceWrite>,
     ingresses: Vec<OwnedIngress>,
     process_drained: Option<UnitObservation>,
     closing: bool,
     stopped: bool,
     disposed: bool,
     panic_settlement: Option<NativeServiceError>,
+}
+/// State created by the private fixture factory, retained only after physical shutdown.
+/// This capability cannot be constructed from an existing path and has no Drop cleanup.
+#[derive(Debug)]
+pub struct StoppedCanonicalState {
+    service: NativeCanonicalService,
+}
+/// A refused transfer retains the original service and every partial physical owner.
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("stopped-state transfer refused: {source}")]
+#[diagnostic(code(runtime::infrastructure))]
+pub struct NativeServiceTransferFailure {
+    owner: Box<NativeCanonicalService>,
+    #[source]
+    source: NativeServiceError,
+}
+impl NativeServiceTransferFailure {
+    /// Recover the same owner for explicit settlement or disposal retry.
+    pub fn into_parts(self) -> (NativeCanonicalService, NativeServiceError) {
+        (*self.owner, self.source)
+    }
+}
+/// A failed reopen retains the stopped state, including partially prepared private records.
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("owned stopped-state reopen refused: {source}")]
+#[diagnostic(code(runtime::infrastructure))]
+pub struct StoppedStateReopenFailure {
+    owner: Box<StoppedCanonicalState>,
+    #[source]
+    source: NativeServiceError,
+}
+impl StoppedStateReopenFailure {
+    /// Recover the same stopped owner; no failed transition deletes its directory.
+    pub fn into_parts(self) -> (StoppedCanonicalState, NativeServiceError) {
+        (*self.owner, self.source)
+    }
+}
+impl StoppedCanonicalState {
+    /// The same private nonempty directory retained from the original service.
+    pub fn state(&self) -> &Path {
+        self.service.state()
+    }
+    /// Delete only this retained disposable state, using the original settlement proof.
+    /// # Errors
+    /// Original directory identity changed or explicit deletion failed.
+    pub fn dispose(&mut self) -> Result<(), NativeServiceError> {
+        self.service.dispose()
+    }
+    /// Reopen this capability's same database under a fresh process owner.
+    /// No schema installer runs on reopen; original credentials, payload and module remain.
+    /// # Errors
+    /// Original state/provenance differs or private launch preparation fails; the
+    /// returned failure retains this stopped capability for retry or explicit disposal.
+    pub fn reopen(self) -> Result<NativeCanonicalService, StoppedStateReopenFailure> {
+        let prepared = (|| {
+            let original = &self.service;
+            original.state.verify()?;
+            original.records.verify(&original.state.path)?;
+            verify_run(&original.state.path, &original.run)?;
+            if original.disposed {
+                return Err(NativeServiceError::Refused("disposed state cannot be reopened"));
+            }
+            let payload: StartupPayload = private_read(&original.run.join("startup.json"))?;
+            if payload.state != original.state.path || payload.run != original.run
+                || payload.bind != original.bind || payload.nonce != original.state.nonce
+                || payload.generation != original.server_generation || payload.recipe != original.server_recipe
+                || payload.module_root != original.module_root
+            {
+                return Err(NativeServiceError::Refused("retained original startup coordinates differ"));
+            }
+            server::reopen_generation(&payload.generation, &payload.recipe)?;
+            StudyModuleReceipt::read(&original.state.path)?;
+            private_read::<Credentials>(&original.state.path.join("credentials.json"))?;
+            CanonicalOptions::from_state(&original.state.path)?;
+            let intent = LaunchIntent::fresh()?;
+            let run = original.state.path.join("runs").join(uuid::Uuid::new_v4().to_string());
+            private_directory(&run)?;
+            let next = StartupPayload { run: run.clone(), ..payload };
+            private_write(&run.join("startup.json"), &next)?;
+            File::open(&run)?.sync_all()?;
+            Ok::<_, NativeServiceError>((intent, run))
+        })();
+        let (intent, run) = match prepared {
+            Ok(prepared) => prepared,
+            Err(source) => return Err(StoppedStateReopenFailure { owner: Box::new(self), source }),
+        };
+        let mut service = self.service;
+        service.run = run;
+        service.reopening = true;
+        service.initialized = false;
+        service.intent = intent;
+        service.manager = None;
+        service.unit = None;
+        service.launch_dispatched = false;
+        service.ready = None;
+        service.connections.clear();
+        service.maintenances.clear();
+        #[cfg(feature = "test-support")]
+        service.schema_writes.clear();
+        service.ingresses.clear();
+        service.process_drained = None;
+        service.closing = false;
+        service.stopped = false;
+        service.panic_settlement = None;
+        Ok(service)
+    }
 }
 impl NativeCanonicalService {
     /// Create a fresh private disposable state and copy a validated immutable policy artifact.
@@ -369,15 +531,36 @@ impl NativeCanonicalService {
     pub fn new_pre_epoch_fixture(spec: NativeServiceSpec) -> Result<Self, NativeServiceError> {
         Self::new_with_schema(spec, InitialSchema::PreEpoch)
     }
+    /// Create an exact frozen schema-v2 fixture in a newly owned absent catalog.
+    /// # Errors
+    /// The same private construction and artifact admission failures as [`Self::new`].
+    pub fn new_v2_fixture(spec: NativeServiceSpec) -> Result<Self, NativeServiceError> {
+        Self::new_with_schema(spec, InitialSchema::SchemaV2)
+    }
+    /// Create a private v2 store with separate copied old and prepared target artifacts.
+    /// The existing configured source stores supply immutable artifacts only.
+    /// # Errors
+    /// Private artifact admission, immutable copy or fixture construction fails.
+    pub fn new_v2_upgrade_fixture(spec: NativeServiceSpec, target_source: &Path) -> Result<Self, NativeServiceError> {
+        Self::new_with_target(spec, InitialSchema::SchemaV2, Some(target_source))
+    }
     fn new_with_schema(
         spec: NativeServiceSpec,
         initial_schema: InitialSchema,
+    ) -> Result<Self, NativeServiceError> {
+        Self::new_with_target(spec, initial_schema, None)
+    }
+    fn new_with_target(
+        spec: NativeServiceSpec,
+        initial_schema: InitialSchema,
+        target_source: Option<&Path>,
     ) -> Result<Self, NativeServiceError> {
         if !spec.helper.is_absolute() || !spec.helper.is_file() {
             return Err(NativeServiceError::Refused(
                 "explicit native application helper is required",
             ));
         }
+        let intent = LaunchIntent::fresh()?;
         let root = spec.state_parent.canonicalize()?;
         let temporary = tempfile::Builder::new()
             .prefix("pse-canonical-native-")
@@ -386,8 +569,17 @@ impl NativeCanonicalService {
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700))?;
         let module = StudyModuleReceipt::read(&spec.module_source_state)?;
         private_write(&path.join("original-module-receipt.json"), &module)?;
-        let module = module.copy_into_private(&path, &path.join("module"))?;
-        for directory in ["tmp", "cache", "home"] {
+        let module_root = path.join(if target_source.is_some() { "modules" } else { "module" });
+        let (module, target) = if let Some(target_source) = target_source {
+            private_directory(&module_root)?;
+            let old = module.copy_into_private(&path, &module_root.join("predecessor"))?;
+            let target = StudyModuleReceipt::read(target_source)?;
+            private_write(&path.join("target-module-source-receipt.json"), &target)?;
+            let target = target.copy_into_private(&path, &module_root.join("target"))?;
+            if target.sha256 == old.sha256 { return Err(NativeServiceError::Refused("module upgrade fixture requires distinct old and target artifacts")); }
+            (old, Some(target))
+        } else { (module.copy_into_private(&path, &module_root)?, None) };
+        for directory in ["tmp", "cache", "home", "runs"] {
             private_directory(&path.join(directory))?;
         }
         let credentials = Credentials {
@@ -402,15 +594,19 @@ impl NativeCanonicalService {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
         let bind = listener.local_addr()?;
         let nonce = uuid::Uuid::new_v4().to_string();
+        let run = path.join("runs").join(uuid::Uuid::new_v4().to_string());
+        private_directory(&run)?;
         let payload = StartupPayload {
             version: 1,
             state: path.clone(),
+            run: run.clone(),
+            module_root: module_root.clone(),
             generation: spec.server.generation().to_path_buf(),
             recipe: spec.server.recipe().into(),
             bind,
             nonce: nonce.clone(),
         };
-        private_write(&path.join("startup.json"), &payload)?;
+        private_write(&run.join("startup.json"), &payload)?;
         let config = Configuration {
             identity: ServiceIdentity {
                 profile_version: pse_model::document::Version,
@@ -427,6 +623,8 @@ impl NativeCanonicalService {
             },
             payload_incarnation: uuid::Uuid::new_v4().to_string(),
             accepting_writes: true,
+            schema_migration_predecessor: target.as_ref().map(|_| module.clone()),
+            schema_migration_target: target,
             study_module: module,
         };
         private_write(&path.join("config.json"), &config)?;
@@ -439,6 +637,7 @@ impl NativeCanonicalService {
         )?;
         File::open(&path)?.sync_all()?;
         let metadata = fs::metadata(&path)?;
+        let records = RetainedRecords::read(&path)?;
         let state = OwnedState {
             path: temporary.keep(),
             device: metadata.dev(),
@@ -448,17 +647,25 @@ impl NativeCanonicalService {
         drop(listener);
         Ok(Self {
             state,
+            records,
+            server_generation: payload.generation,
+            server_recipe: payload.recipe,
+            module_root,
+            run,
+            reopening: false,
             initial_schema,
             initialized: false,
             helper: spec.helper,
             bind,
-            intent: LaunchIntent::fresh()?,
+            intent,
             manager: None,
             unit: None,
             launch_dispatched: false,
             ready: None,
             connections: Vec::new(),
             maintenances: Vec::new(),
+            #[cfg(feature = "test-support")]
+            schema_writes: Vec::new(),
             ingresses: Vec::new(),
             process_drained: None,
             closing: false,
@@ -502,8 +709,7 @@ impl NativeCanonicalService {
             executable: self.helper.clone(),
             arguments: vec![
                 "exec".into(),
-                self.state
-                    .path
+                self.run
                     .join("startup.json")
                     .to_string_lossy()
                     .into_owned(),
@@ -522,6 +728,7 @@ impl NativeCanonicalService {
             ));
         }
         self.state.verify()?;
+        self.records.verify(&self.state.path)?;
         deadline_left(deadline)?;
         if self.launch_dispatched {
             return Err(NativeServiceError::Refused(
@@ -549,18 +756,30 @@ impl NativeCanonicalService {
                 .await?,
         );
         self.wait_owned_listener(deadline).await?;
-        crate::transport::operation_scope(deadline, self.provision_viewer(deadline)).await?;
+        if !self.reopening {
+            crate::transport::operation_scope(deadline, self.provision_viewer(deadline)).await?;
+        }
         let options = CanonicalOptions::from_state(&self.state.path)?;
         crate::transport::operation_scope(deadline, async {
             match self.initial_schema {
                 InitialSchema::Current => {
-                    CanonicalStore::initialize_database(&options).await?;
+                    if !self.reopening {
+                        CanonicalStore::initialize_database(&options).await?;
+                    }
                     let ready = CanonicalStore::connect_ready(&options).await?;
                     self.connections.push(ready.store().clone());
                     self.ready = Some(ready);
                 }
+                InitialSchema::PreEpoch | InitialSchema::SchemaV2 if self.reopening => {
+                    let maintenance = SchemaMaintenance::connect(&options).await?;
+                    self.maintenances.push(maintenance.clone());
+                    maintenance.inspect().await?;
+                }
                 InitialSchema::PreEpoch => {
                     CanonicalStore::install_pre_epoch_fixture(&options).await?
+                }
+                InitialSchema::SchemaV2 => {
+                    CanonicalStore::install_schema_v2_fixture(&options).await?
                 }
             }
             self.initialized = true;
@@ -583,7 +802,7 @@ impl NativeCanonicalService {
                     "owned canonical service exited before listener readiness",
                 ));
             }
-            if let Ok(claim) = private_read::<StartupClaim>(&self.state.path.join("started.json")) {
+            if let Ok(claim) = private_read::<StartupClaim>(&self.run.join("started.json")) {
                 if claim.nonce != self.state.nonce
                     || claim.pid != observed.main_pid
                     || claim.invocation != hex_bytes(&observed.invocation)
@@ -594,7 +813,7 @@ impl NativeCanonicalService {
                 }
                 if owns_listener(observed.main_pid, self.bind)? {
                     let payload: StartupPayload =
-                        private_read(&self.state.path.join("startup.json"))?;
+                        private_read(&self.run.join("startup.json"))?;
                     let exact = server::reopen_generation(&payload.generation, &payload.recipe)?;
                     if fs::read_link(format!("/proc/{}/exe", observed.main_pid))?
                         != exact.executable()
@@ -643,7 +862,7 @@ impl NativeCanonicalService {
         let drained = client.disconnect().await.map_err(CanonicalError::from);
         let recorded = if provisioned.is_err() || drained.is_err() {
             private_write(
-                &self.state.path.join("viewer-bootstrap-failed.json"),
+                &self.run.join("viewer-bootstrap-failed.json"),
                 &serde_json::json!({"request":format!("{provisioned:?}"),"drain":format!("{drained:?}")}),
             )
         } else {
@@ -701,11 +920,12 @@ impl NativeCanonicalService {
         let payload = WorkerPayload {
             version: 1,
             state: self.state.path.clone(),
+            run: self.run.clone(),
             nonce: self.state.nonce.clone(),
             index,
             initial_schema: self.initial_schema,
         };
-        let path = self.state.path.join(format!("worker-{index}.json"));
+        let path = self.run.join(format!("worker-{index}.json"));
         private_write(&path, &payload)?;
         let intent = LaunchIntent::fresh()?;
         let spec = ServiceSpec {
@@ -748,7 +968,7 @@ impl NativeCanonicalService {
                 ));
             }
             if let Ok(claim) = private_read::<StartupClaim>(
-                &self.state.path.join(format!("worker-{index}.ready.json")),
+                &self.run.join(format!("worker-{index}.ready.json")),
             ) {
                 if claim.nonce != self.state.nonce
                     || claim.pid != observed.main_pid
@@ -760,7 +980,7 @@ impl NativeCanonicalService {
                 }
                 if owns_unix_listener(
                     observed.main_pid,
-                    &self.state.path.join(format!("worker-{index}.sock")),
+                    &self.run.join(format!("worker-{index}.sock")),
                 )? {
                     let after = host_observation(deadline, unit.observe()).await?;
                     if after.main_pid == observed.main_pid
@@ -796,7 +1016,7 @@ impl NativeCanonicalService {
             .ok_or(NativeServiceError::Refused("no native ingress was started"))?;
         tokio::time::timeout_at(deadline.into(), async {
             let mut socket = tokio::net::UnixStream::connect(
-                self.state.path.join(format!("worker-{index}.sock")),
+                self.run.join(format!("worker-{index}.sock")),
             )
             .await?;
             socket.write_all(&[0]).await?;
@@ -812,6 +1032,7 @@ impl NativeCanonicalService {
         stop_ingress_owners(
             self.manager.as_ref(),
             &self.state,
+            &self.run,
             &mut self.ingresses,
             deadline,
         )
@@ -908,6 +1129,44 @@ impl NativeCanonicalService {
         self.maintenances.push(maintenance.clone());
         Ok(maintenance)
     }
+    /// Atomically select the prepared target only after its exact verified activation.
+    /// Repeating this with the original receipt settles a lost local publication ACK.
+    /// No database transformation is replayed and no existing external state is edited.
+    /// # Errors
+    /// Original fixture admission, receipt target, private configuration or publication differs.
+    pub fn promote_activated_module(&mut self, receipt: &SchemaMigrationReceipt) -> Result<(), NativeServiceError> {
+        if self.closing || self.disposed { return Err(NativeServiceError::Refused("original native service admission is closed")); }
+        self.state.verify()?;
+        self.records.verify(&self.state.path)?;
+        let target = receipt.target_module().ok_or(NativeServiceError::Refused("activation has no explicit prepared target module"))?;
+        let path = self.state.path.join("config.json");
+        let mut configuration: serde_json::Value = private_read(&path)?;
+        let prepared = serde_json::to_value(&target.receipt).map_err(|_| NativeServiceError::Refused("cannot encode prepared module selection"))?;
+        if configuration.get("schema_migration_target") != Some(&prepared) {
+            return Err(NativeServiceError::Refused("verified activation belongs to a different prepared module selection"));
+        }
+        if configuration.get("study_module") == Some(&prepared) { return Ok(()); }
+        configuration["study_module"] = prepared;
+        let temporary = self.state.path.join(format!("module-selection-{}.json", uuid::Uuid::new_v4()));
+        private_write(&temporary, &configuration)?;
+        fs::rename(&temporary, &path)?;
+        File::open(&self.state.path)?.sync_all()?;
+        self.records.verify(&self.state.path)
+    }
+    /// Admit one fixed schema-fenced guard write and retain its original held driver.
+    /// This fixture-only control never accepts SQL, arbitrary rows or another deployment.
+    /// # Errors
+    /// Original service/fence differs, or actual authentication/admission/transaction staging fails.
+    #[cfg(feature = "test-support")]
+    pub async fn stage_schema_fence_write(&mut self, ready: &SchemaReady, deadline: Instant) -> Result<crate::canonical::migration::SchemaFenceWrite, NativeServiceError> {
+        if self.closing || !self.initialized || ready.store().deployment_state() != self.state.path {
+            return Err(NativeServiceError::Refused("held schema write requires this initialized private fixture"));
+        }
+        let write = crate::canonical::migration::SchemaFenceWrite::new(ready, deadline);
+        self.schema_writes.push(write.clone());
+        write.stage().await?;
+        Ok(write)
+    }
     /// Retain an actual successor connection from this same fixture for terminal drain.
     /// This grants no readiness or migration authority.
     /// # Errors
@@ -961,13 +1220,20 @@ impl NativeCanonicalService {
         .await?
         .ok_or(NativeServiceError::Refused("service was never launched"))
     }
-    /// Initiate all independent client, ingress and original database settlements
-    /// concurrently under one deadline, retaining every failure.
+    /// Drain independent clients and ingresses concurrently, then stop the original
+    /// database under the same deadline, retaining every failure.
     /// # Errors
     /// Any independent canonical connection, ingress, or database settlement fails.
     pub async fn shutdown(&mut self, deadline: Instant) -> Result<(), NativeServiceError> {
         self.closing = true;
-        let (drains, maintenance_drains, ingress_drain, process_drain) = tokio::join!(
+        #[cfg(feature = "test-support")]
+        let schema_drains = futures_util::future::join_all(self.schema_writes.iter().map(crate::canonical::migration::SchemaFenceWrite::cancel));
+        #[cfg(not(feature = "test-support"))]
+        let schema_drains = async { Vec::<Result<(), CanonicalError>>::new() };
+        // Connection close can still dispatch cancellation or protection-release RPCs.
+        // Keep their original server alive until those owners have settled; process
+        // stop is dependent teardown, even though sibling client drains are independent.
+        let (drains, maintenance_drains, schema_drains, ingress_drain) = tokio::join!(
             futures_util::future::join_all(
                 self.connections
                     .iter()
@@ -976,31 +1242,34 @@ impl NativeCanonicalService {
             futures_util::future::join_all(self.maintenances.iter().map(|maintenance| {
                 crate::transport::operation_scope(deadline, maintenance.disconnect())
             })),
+            schema_drains,
             stop_ingress_owners(
                 self.manager.as_ref(),
                 &self.state,
+                &self.run,
                 &mut self.ingresses,
-                deadline
-            ),
-            stop_original_process(
-                self.manager.as_ref(),
-                &self.intent,
-                &mut self.unit,
-                self.launch_dispatched,
-                &mut self.process_drained,
                 deadline
             )
         );
         let mut failures: Vec<_> = drains
             .into_iter()
             .chain(maintenance_drains)
+            .chain(schema_drains)
             .filter_map(Result::err)
             .map(NativeServiceError::from)
             .collect();
         if let Err(error) = ingress_drain {
             failures.push(error);
         }
-        if let Err(error) = process_drain {
+        // Always attempt physical stop, including after any failed sibling drain.
+        if let Err(error) = stop_original_process(
+            self.manager.as_ref(),
+            &self.intent,
+            &mut self.unit,
+            self.launch_dispatched,
+            &mut self.process_drained,
+            deadline,
+        ).await {
             failures.push(error);
         }
         if !failures.is_empty() {
@@ -1011,6 +1280,40 @@ impl NativeCanonicalService {
         }
         self.stopped = true;
         Ok(())
+    }
+    /// Transfer only fully initialized, physically stopped disposable state.
+    /// Closing this service remains terminal; the returned capability owns a future
+    /// fresh service construction, rather than reopening this original process owner.
+    /// # Errors
+    /// Initialization, original physical shutdown or state identity is incomplete.
+    /// The typed failure retains this exact service for explicit retry.
+    pub fn try_into_stopped(self) -> Result<StoppedCanonicalState, NativeServiceTransferFailure> {
+        let checked = (|| {
+            if !self.stopped || !self.closing || !self.initialized || !self.launch_dispatched
+                || self.process_drained.is_none() || self.disposed
+            {
+                return Err(NativeServiceError::Refused("initialized original physical shutdown is required before state transfer"));
+            }
+            self.state.verify()?;
+            verify_run(&self.state.path, &self.run)?;
+            let receipt = serde_json::json!({
+                "service": self.process_drained,
+                "ingresses": self.ingresses.iter().map(|ingress| &ingress.drained).collect::<Vec<_>>(),
+            });
+            let path = self.run.join("stopped.json");
+            if path.exists() {
+                if private_read::<serde_json::Value>(&path)? != receipt {
+                    return Err(NativeServiceError::Refused("original stopped-state receipt differs"));
+                }
+            } else {
+                private_write(&path, &receipt)?;
+            }
+            Ok(())
+        })();
+        match checked {
+            Ok(()) => Ok(StoppedCanonicalState { service: self }),
+            Err(source) => Err(NativeServiceTransferFailure { owner: Box::new(self), source }),
+        }
     }
     /// Delete only this newly created disposable state after explicit successful settlement.
     /// # Errors
@@ -1082,7 +1385,7 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
     let payload: StartupPayload = private_read(path)?;
     private_path(&payload.state, true)?;
     if payload.version != 1
-        || path != payload.state.join("startup.json")
+        || path != payload.run.join("startup.json")
         || payload.bind.ip() != Ipv4Addr::LOCALHOST
         || payload.bind.port() == 0
     {
@@ -1090,6 +1393,11 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
             "invalid native startup coordinates",
         ));
     }
+    verify_run(&payload.state, &payload.run)?;
+    if payload.module_root != payload.state.join("module") && payload.module_root != payload.state.join("modules") {
+        return Err(NativeServiceError::Refused("startup module root differs from private owned artifact directories"));
+    }
+    private_path(&payload.module_root, true)?;
     let disposable: DisposableIdentity = private_read(&payload.state.join("disposable.json"))?;
     if disposable.version != 1 || disposable.nonce != payload.nonce {
         return Err(NativeServiceError::Refused(
@@ -1108,7 +1416,7 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
         ));
     }
     private_write(
-        &payload.state.join("started.json"),
+        &payload.run.join("started.json"),
         &StartupClaim {
             nonce: payload.nonce,
             pid: std::process::id(),
@@ -1120,7 +1428,7 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
         .append(true)
         .mode(0o600)
         .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
-        .open(payload.state.join("server.log"))?;
+        .open(payload.run.join("server.log"))?;
     let datastore = format!(
         "mem://{}?aol=sync&sync=every&versioned=false&snapshot=60s",
         payload.state.join("database").display()
@@ -1154,7 +1462,7 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
         .env("SURREAL_CAPS_ALLOW_EXPERIMENTAL", "files,surrealism")
         .env(
             "SURREAL_BUCKET_FOLDER_ALLOWLIST",
-            payload.state.join("module"),
+            &payload.module_root,
         )
         .envs(module.runtime_environment())
         .stdin(Stdio::null())
@@ -1197,11 +1505,12 @@ fn owns_unix_listener(pid: u32, path: &Path) -> Result<bool, NativeServiceError>
 pub fn exec_worker(path: &Path) -> Result<(), NativeServiceError> {
     let payload: WorkerPayload = private_read(path)?;
     private_path(&payload.state, true)?;
+    verify_run(&payload.state, &payload.run)?;
     let identity: DisposableIdentity = private_read(&payload.state.join("disposable.json"))?;
     if payload.version != 1
         || identity.version != 1
         || identity.nonce != payload.nonce
-        || path != payload.state.join(format!("worker-{}.json", payload.index))
+        || path != payload.run.join(format!("worker-{}.json", payload.index))
     {
         return Err(NativeServiceError::Refused(
             "invalid original worker coordinates",
@@ -1237,11 +1546,12 @@ pub async fn run_worker(path: &Path) -> Result<(), NativeServiceError> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let payload: WorkerPayload = private_read(path)?;
     private_path(&payload.state, true)?;
+    verify_run(&payload.state, &payload.run)?;
     let identity: DisposableIdentity = private_read(&payload.state.join("disposable.json"))?;
     if payload.version != 1
         || identity.version != 1
         || identity.nonce != payload.nonce
-        || path != payload.state.join(format!("worker-{}.json", payload.index))
+        || path != payload.run.join(format!("worker-{}.json", payload.index))
     {
         return Err(NativeServiceError::Refused(
             "invalid original worker coordinates",
@@ -1261,7 +1571,7 @@ pub async fn run_worker(path: &Path) -> Result<(), NativeServiceError> {
         InitialSchema::Current => {
             WorkerConnection::Current(CanonicalStore::connect_ready(&options).await?)
         }
-        InitialSchema::PreEpoch => {
+        InitialSchema::PreEpoch | InitialSchema::SchemaV2 => {
             let connection = SchemaMaintenance::connect(&options).await?;
             let inspected = connection.inspect().await;
             if let Err(error) = inspected {
@@ -1277,7 +1587,7 @@ pub async fn run_worker(path: &Path) -> Result<(), NativeServiceError> {
             WorkerConnection::PreEpoch(connection)
         }
     };
-    let socket = payload.state.join(format!("worker-{}.sock", payload.index));
+    let socket = payload.run.join(format!("worker-{}.sock", payload.index));
     let listener = match tokio::net::UnixListener::bind(&socket) {
         Ok(listener) => listener,
         Err(error) => {
@@ -1301,7 +1611,7 @@ pub async fn run_worker(path: &Path) -> Result<(), NativeServiceError> {
     let claimed = permissions.and_then(|()| {
         private_write(
             &payload
-                .state
+                .run
                 .join(format!("worker-{}.ready.json", payload.index)),
             &claim,
         )
@@ -1338,7 +1648,7 @@ pub async fn run_worker(path: &Path) -> Result<(), NativeServiceError> {
     if drain.is_ok() {
         private_write(
             &payload
-                .state
+                .run
                 .join(format!("worker-{}.drained.json", payload.index)),
             &claim,
         )?;
@@ -1398,6 +1708,7 @@ impl WorkerConnection {
 async fn stop_ingress_owners(
     manager: Option<&HostManager>,
     state: &OwnedState,
+    run: &Path,
     ingresses: &mut [OwnedIngress],
     deadline: Instant,
 ) -> Result<(), NativeServiceError> {
@@ -1429,9 +1740,9 @@ async fn stop_ingress_owners(
                     ))?;
                     if ingress.ready {
                         let drained: StartupClaim =
-                            private_read(&state.path.join(format!("worker-{index}.drained.json")))?;
+                            private_read(&run.join(format!("worker-{index}.drained.json")))?;
                         let started: StartupClaim =
-                            private_read(&state.path.join(format!("worker-{index}.ready.json")))?;
+                            private_read(&run.join(format!("worker-{index}.ready.json")))?;
                         if drained != started
                             || drained.nonce != state.nonce
                             || drained.invocation != hex_bytes(&original.invocation)
@@ -1562,8 +1873,21 @@ mod tests {
             inode: metadata.ino(),
             nonce: "original".into(),
         };
+        for name in ["config.json", "credentials.json", "original-module-receipt.json"] {
+            private_write(&state.path.join(name), &serde_json::json!({})).unwrap();
+        }
+        let records = RetainedRecords::read(&state.path).unwrap();
+        let run = state.path.join("runs").join("original");
+        private_directory(&state.path.join("runs")).unwrap();
+        private_directory(&run).unwrap();
         let service = NativeCanonicalService {
             state,
+            records,
+            server_generation: PathBuf::from("/unprepared-unit-test-generation"),
+            server_recipe: "unit-test".into(),
+            module_root: PathBuf::from("/unprepared-unit-test-modules"),
+            run,
+            reopening: false,
             initial_schema: InitialSchema::Current,
             initialized: false,
             helper: PathBuf::from("/usr/bin/false"),
@@ -1575,6 +1899,8 @@ mod tests {
             ready: None,
             connections: Vec::new(),
             maintenances: Vec::new(),
+            #[cfg(feature = "test-support")]
+            schema_writes: Vec::new(),
             ingresses: Vec::new(),
             process_drained: None,
             closing: false,
@@ -1630,6 +1956,75 @@ mod tests {
         assert_eq!(service.intent.unit(), original.unit());
         service.state.verify().unwrap();
         service.dispose().unwrap();
+    }
+    #[tokio::test]
+    async fn native_service_failed_stopped_transfer_returns_original_owner() {
+        let (_temporary, service) = unlaunched_service();
+        let original = service.intent().unit().to_owned();
+        let path = service.state().to_path_buf();
+        let failed = service.try_into_stopped().unwrap_err();
+        let (mut service, _) = failed.into_parts();
+        assert_eq!(service.intent().unit(), original);
+        assert_eq!(service.state(), path);
+        service.shutdown(Instant::now() + Duration::from_secs(1)).await.unwrap();
+        // A shutdown of an unlaunched fixture cannot authorize retaining a database.
+        let (mut service, _) = service.try_into_stopped().unwrap_err().into_parts();
+        service.dispose().unwrap();
+        assert!(!path.exists());
+    }
+    #[test]
+    fn native_service_retained_records_refuse_changed_endpoint_and_credentials() {
+        let (_temporary, service) = unlaunched_service();
+        service.records.verify(service.state()).unwrap();
+        for name in ["config.json", "credentials.json", "original-module-receipt.json"] {
+            let path = service.state().join(name);
+            fs::remove_file(&path).unwrap();
+            private_write(&path, &serde_json::json!({"changed": true})).unwrap();
+            assert!(service.records.verify(service.state()).is_err(), "{name}");
+            fs::remove_file(&path).unwrap();
+            private_write(&path, &serde_json::json!({})).unwrap();
+        }
+    }
+    #[test]
+    fn native_service_prepared_config_variants_preserve_endpoint_and_credentials() {
+        let (_temporary, service) = unlaunched_service();
+        let path = service.state().join("config.json");
+        fs::remove_file(&path).unwrap();
+        let mut configuration = serde_json::json!({
+            "endpoint":"grpc://original", "credentials_file":"original-private-credentials",
+            "study_module":{"sha256":"old"}, "schema_migration_predecessor":{"sha256":"old"},
+            "schema_migration_target":{"sha256":"new"},
+        });
+        private_write(&path, &configuration).unwrap();
+        private_write(&service.state().join("target-module-source-receipt.json"), &serde_json::json!({})).unwrap();
+        let records = RetainedRecords::read(service.state()).unwrap();
+        configuration["study_module"] = configuration["schema_migration_target"].clone();
+        fs::remove_file(&path).unwrap();
+        private_write(&path, &configuration).unwrap();
+        records.verify(service.state()).unwrap();
+        for (field, value) in [("endpoint", serde_json::json!("grpc://foreign")), ("credentials_file", serde_json::json!("foreign-credentials")), ("study_module", serde_json::json!({"sha256":"third"}))] {
+            let mut changed = configuration.clone();
+            changed[field] = value;
+            fs::remove_file(&path).unwrap();
+            private_write(&path, &changed).unwrap();
+            assert!(records.verify(service.state()).is_err(), "{field}");
+        }
+    }
+    #[test]
+    fn native_service_failed_reopen_retains_stopped_directory_for_disposal() {
+        let (_temporary, mut service) = unlaunched_service();
+        let path = service.state().to_path_buf();
+        service.closing = true;
+        service.stopped = true;
+        // Only this internal negative control can create a malformed stopped capability.
+        // No startup provenance exists, so reopening must return that same owner.
+        let stopped = StoppedCanonicalState { service };
+        let failed = stopped.reopen().unwrap_err();
+        let (mut stopped, _) = failed.into_parts();
+        assert_eq!(stopped.state(), path);
+        assert!(path.exists());
+        stopped.dispose().unwrap();
+        assert!(!path.exists());
     }
     #[tokio::test]
     async fn native_service_host_observation_preserves_expired_original_deadline() {

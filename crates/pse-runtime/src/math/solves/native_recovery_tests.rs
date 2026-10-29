@@ -241,7 +241,7 @@ async fn explicit_entry_then_screened_native_recovery_dispatches_and_retains_ori
         )
         .await
         .unwrap();
-    session.close().await;
+    session.close().await.unwrap();
     assert_eq!(trace.starts, [StartOrigin::Auxiliary]);
     assert!(
         trace

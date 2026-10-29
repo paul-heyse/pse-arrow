@@ -1118,7 +1118,7 @@ async fn expired_optional_derived_preparation_refuses_before_dispatch_and_origin
         )
         .await
         .unwrap();
-    session.close().await;
+    session.close().await.unwrap();
     assert!(accepted);
     let Outcome::Native(report) = outcome else {
         panic!("original corrector required")
@@ -3048,7 +3048,7 @@ async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
     assert!(retained < admitted / 2);
     let tables = completed.tables().unwrap();
     // Runtime drop disconnects reusable lanes; their actual native/TLS join is async.
-    runtime.native().shutdown_native_lanes().await;
+    runtime.native().shutdown_native_lanes().await.unwrap();
     let retained_sources = pool.reserved();
     drop(completed);
     drop(blocks);

@@ -2628,7 +2628,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_scope_page($rpc_expiry:int,$study:st
 // One pure guest invocation per deduplicated native page. Scientific policy is
 // the same Rust owner used by claims; no row/fact snapshot crosses the RPC.
 DEFINE FUNCTION fn::pse_study_v1::readiness_policy($page:object) -> object {
-    RETURN mod::pse::study::readiness({generation:$page.study.generation,cancelled:$page.study.cancelled,
+    RETURN mod::pse::study::readiness({generation:$page.study.generation,cancelled:$page.study.cancelled,mode:NONE,seed:NONE,
         rows:$page.rows.map(|$row| {key:$row.key,occurrence:$row.occurrence,revision:$row.revision,policy:$row.policy,facts:$row.facts,assigned:$row.assigned,settled:$row.settled}),
         items:$page.items.map(|$item| {point:$item.point,predecessors:$item.predecessors})});
 };
@@ -3286,6 +3286,132 @@ DEFINE FUNCTION fn::pse_study_v1::conclude($rpc_expiry: int, $study: string) -> 
     LET $rpc_result = UPDATE ONLY type::record('canonical_studies', $study) SET terminal = true;
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
+};
+
+DEFINE FUNCTION fn::pse_study_v1::progression_policy($scope:object,$mode:string,$seed:option<bytes>) -> object {
+    LET $rows=array::concat([$scope.point],$scope.predecessors);
+    IF bytes::len(encoding::cbor::encode($rows))>1048576 { THROW 'PSE_REFUSAL:study_readiness_single_scope_extent'; };
+    LET $reply=mod::pse::study::readiness({generation:$scope.study.generation,cancelled:$scope.study.cancelled,mode:$mode,seed:$seed,
+        rows:$rows.map(|$row| {key:$row.key,occurrence:$row.occurrence,revision:$row.revision,policy:$row.policy,facts:$row.facts,assigned:$row.assigned,settled:$row.settled,outcome:$row.outcome}),
+        items:[{point:$scope.point.key,predecessors:$scope.predecessors.key}]});
+    IF $reply.accepted=false OR array::len($reply.decisions)!=1 { THROW 'PSE_REFUSAL:study_readiness_policy_refused'; };
+    RETURN $reply.decisions[0];
+};
+
+DEFINE FUNCTION fn::pse_study_v1::progression_item($expiry:int,$acc:object,$entry:object) -> object {
+    IF $acc.kind!='waiting' { RETURN $acc; };
+    LET $next=object::extend($acc,{after:$entry.ordinal,examined:$acc.examined+1dec});
+    LET $scope=fn::pse_study_v1::scope($expiry,$entry.key);
+    IF $scope.point.assigned OR $scope.point.settled { RETURN $next; };
+    LET $decision=fn::pse_study_v1::progression_policy($scope,'prepare',NONE);
+    IF $decision.disposition='settle' {
+        fn::pse_study_v1::settle($expiry,$scope.study.key,$scope.study.generation,$scope.study.cancelled,$scope.point.key,$decision.expected,$decision.facts,$decision.outcome);
+        RETURN object::extend($next,{kind:'settled',point:$scope.point.key});
+    };
+    IF $decision.disposition IN ['prepare','admit'] {
+        RETURN object::extend($next,{kind:'prepare',scope:$scope,action:$decision.action});
+    };
+    RETURN $next;
+};
+
+DEFINE FUNCTION fn::pse_study_v1::progress_result($expiry:int,$operation:string,$request:bytes) -> option<object> {
+    LET $row=SELECT kind FROM ONLY type::record('canonical_execution_operations',$operation);
+    IF $row=NONE OR $row.kind!='study-progression' { RETURN NONE; };
+    LET $old=fn::pse_execution_v1::operation($expiry,$operation,'study-progression',$request);
+    RETURN encoding::cbor::decode($old.result);
+};
+
+DEFINE FUNCTION fn::pse_study_v1::progress($expiry:int,$issuer:string,$module:string,$cursor:option<object>,$operation:string,$request:bytes) -> object {
+    fn::pse_workbench_v1::publication($expiry);
+    fn::pse_project_v1::authority($expiry,$issuer);
+    IF $module!=(SELECT study_module_sha256 FROM ONLY canonical_interpretations:current).study_module_sha256 {THROW 'PSE_REFUSAL:study_readiness_module_identity_changed';};
+    LET $old=fn::pse_study_v1::progress_result($expiry,$operation,$request);
+    IF $old!=NONE { RETURN $old; };
+    LET $studies=IF $cursor!=NONE AND $cursor.next_study=false {
+        SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM ONLY type::record('canonical_studies',$cursor.study)
+    } ELSE {
+        (SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM canonical_studies WHERE active=true AND (terminal=false OR type::record('canonical_study_readiness_cursors',key).pending_operation!=NONE) AND key>($cursor.study ?? '') ORDER BY key LIMIT 1)[0]
+    };
+    LET $s=$studies;
+    IF $s=NONE { RETURN {kind:'waiting',continuation:NONE,examined:0dec}; };
+    fn::pse_history_v1::check_owner($expiry,'study',$s.key);
+    // Cancellation changes the authority generation. Revisit the examined
+    // prefix rather than allowing an old traversal to certify current idle.
+    LET $same=$cursor!=NONE AND $cursor.next_study=false AND $cursor.generation=$s.generation AND $cursor.cancelled=$s.cancelled;
+    LET $after=IF $same {$cursor.after} ELSE {NONE};
+    LET $continuation={study:$s.key,generation:$s.generation,cancelled:$s.cancelled,after:$after,next_study:false,maintained:true};
+    IF $same=false OR $cursor.maintained=false {
+        // Preserve the durable pending-operation/epoch protocol. Preparation is
+        // committed before its effect body; reconnects recover the original ID.
+        LET $pending=fn::pse_study_v1::readiness_pending_page($expiry,$s.key);
+        IF $pending!=NONE { RETURN {kind:'repair',pending:$pending,continuation:$continuation,examined:0dec}; };
+        IF $s.active AND $s.cancelled=false AND $s.terminal=false {
+            LET $c=fn::pse_study_v1::readiness_cursor($expiry,$s.key,false);
+            LET $notifications=SELECT point,notify_revision,notify_after,ordinal FROM canonical_study_readiness WHERE study=$s.key AND notify=true ORDER BY ordinal LIMIT 1;
+            LET $source=IF array::len($notifications)=0 {NONE} ELSE {{point:$notifications[0].point,revision:$notifications[0].notify_revision,before:$notifications[0].notify_after,ordinal:$notifications[0].ordinal}};
+            IF $c.rebuild_pending OR $source!=NONE {
+                LET $coordinates={study:$s.key,module_sha256:$module,cursor:$c.revision,mode:IF $c.rebuild_pending {'rebuild'} ELSE {'notify'},after:$c.rebuild_after,source:IF $c.rebuild_pending {NONE} ELSE {$source}};
+                LET $prepared=fn::pse_study_v1::readiness_prepare_page($expiry,$operation,$coordinates);
+                IF $prepared!=NONE { RETURN {kind:'repair',pending:$prepared,continuation:$continuation,examined:0dec}; };
+            };
+        };
+    };
+    IF $s.active=false OR $s.terminal { RETURN {kind:'waiting',continuation:{study:$s.key,after:NONE,next_study:true,maintained:false},examined:0dec}; };
+    // Select nine to distinguish eight examined entries from exhausted discovery.
+    // A stale eligible hint remains an examined entry, never a false end marker.
+    LET $entries=IF $s.cancelled {
+        SELECT key,ordinal FROM canonical_study_points WHERE study=$s.key AND settled=false AND assigned=false AND ordinal>($after ?? -1dec) ORDER BY ordinal LIMIT 9
+    } ELSE {
+        SELECT point AS key,ordinal FROM canonical_study_readiness WHERE study=$s.key AND eligible=true AND ordinal>($after ?? -1dec) ORDER BY ordinal LIMIT 9
+    };
+    LET $result=array::slice($entries,0,8).fold({kind:'waiting',after:$after,examined:0dec},|$acc,$entry| fn::pse_study_v1::progression_item($expiry,$acc,$entry));
+    LET $more=$result.kind!='waiting' OR array::len($entries)>8;
+    LET $next=IF $more {object::extend($continuation,{after:$result.after})} ELSE {{study:$s.key,after:NONE,next_study:true,maintained:false}};
+    IF $result.kind!='waiting' OR $more {
+        LET $reply=object::extend(object::remove($result,'after'),{continuation:$next});
+        IF $result.kind='settled' {
+            LET $point=SELECT run FROM ONLY type::record('canonical_study_points',$result.point);
+            fn::pse_history_v1::record_operation($expiry,$operation,$point.run,NONE,'study-progression',$request,encoding::cbor::encode($reply),$s.key,$result.point);
+        };
+        RETURN $reply;
+    };
+    LET $unsettled=SELECT key FROM canonical_study_points WHERE study=$s.key AND settled=false LIMIT 1;
+    IF array::len($unsettled)=0 {
+        LET $run=SELECT current_attempt,terminal_class FROM ONLY type::record('canonical_runs',$s.run);
+        LET $attempt=IF $run.current_attempt=NONE {NONE} ELSE {SELECT phase,expires_at FROM ONLY type::record('canonical_attempts',$run.current_attempt)};
+        IF $run.terminal_class!='succeeded' AND ($attempt=NONE OR $attempt.phase IN ['terminal','terminal_compacted'] OR $attempt.expires_at<=time::micros()) {
+            RETURN {kind:'finalize',study:$s,continuation:$next,examined:$result.examined};
+        };
+    };
+    RETURN {kind:'waiting',continuation:$next,examined:$result.examined};
+};
+
+DEFINE FUNCTION fn::pse_study_v1::prepared_result($expiry:int,$operation:string,$request:bytes) -> option<object> {
+    LET $settled=fn::pse_execution_v1::operation($expiry,$operation+':settlement','study-preparation-settlement',$request);
+    IF $settled!=NONE { RETURN encoding::cbor::decode($settled.result); };
+    LET $claimed=fn::pse_execution_v1::operation($expiry,$operation,'study-claim',$request);
+    IF $claimed!=NONE { RETURN {kind:'claimed',attempt:(SELECT * FROM ONLY type::record('canonical_attempts',$claimed.attempt))}; };
+    RETURN NONE;
+};
+
+DEFINE FUNCTION fn::pse_study_v1::prepared_claim($expiry:int,$issuer:string,$module:string,$study:string,$generation:decimal,$point:string,$expected:array<object>,$seed:bytes,$operation:string,$request:bytes,$claim_request:bytes,$attempt:string,$worker:string,$lifetime:int) -> object {
+    fn::pse_workbench_v1::publication($expiry);
+    fn::pse_project_v1::authority($expiry,$issuer);
+    IF $module!=(SELECT study_module_sha256 FROM ONLY canonical_interpretations:current).study_module_sha256 {THROW 'PSE_REFUSAL:study_readiness_module_identity_changed';};
+    LET $old=fn::pse_study_v1::prepared_result($expiry,$operation,$request);
+    IF $old!=NONE { RETURN $old; };
+    fn::pse_study_v1::guard($expiry,$study,$generation,false,$point,$expected);
+    LET $scope=fn::pse_study_v1::scope($expiry,$point);
+    LET $decision=fn::pse_study_v1::progression_policy($scope,'claim',$seed);
+    IF $decision.disposition='settle' {
+        fn::pse_study_v1::settle($expiry,$study,$generation,false,$point,$expected,$decision.facts,$decision.outcome);
+        LET $result={kind:'settled',point:$point};
+        fn::pse_history_v1::record_operation($expiry,$operation+':settlement',$scope.point.run,NONE,'study-preparation-settlement',$request,encoding::cbor::encode($result),$study,$point);
+        RETURN $result;
+    };
+    IF $decision.disposition!='start' { RETURN {kind:'waiting'}; };
+    LET $claimed=fn::pse_study_v1::claim($expiry,$study,$generation,$point,$expected,$decision.start,$operation,$request,$claim_request,$attempt,$worker,$lifetime,$decision.facts);
+    RETURN {kind:'claimed',attempt:$claimed};
 };
 
 // One selector supplies live browsing and frozen capture; all predicates are

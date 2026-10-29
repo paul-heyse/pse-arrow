@@ -147,6 +147,15 @@ impl MathPolicy {
 /// Runtime math errors retain typed compiler, math and shared-load causes.
 #[derive(Debug, thiserror::Error)]
 pub enum MathRuntimeError {
+    /// Original operation failure and an independent native settlement failure.
+    #[error("operation failed: {operation}; native settlement also failed: {cleanup}")]
+    Settlement {
+        /// Original operation or earlier settlement cause.
+        #[source]
+        operation: Box<MathRuntimeError>,
+        /// Independently retained native settlement cause.
+        cleanup: Box<MathRuntimeError>,
+    },
     /// Native solver admission or original mathematical evaluation failure.
     #[error(transparent)]
     Solve(#[from] pse_backend_native::ProblemError),
@@ -221,6 +230,15 @@ pub enum MathRuntimeError {
     Infrastructure(String),
 }
 impl MathRuntimeError {
+    pub(crate) fn settle<T>(operation: Result<T, Self>, cleanup: Result<(), Self>) -> Result<T, Self> {
+        match (operation, cleanup) {
+            (Ok(value), Ok(())) => Ok(value),
+            (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
+            (Err(operation), Err(cleanup)) => Err(Self::Settlement {
+                operation: Box::new(operation), cleanup: Box::new(cleanup),
+            }),
+        }
+    }
     pub(crate) fn preparation_producer_failure(self) -> Self {
         preparation::producer_failure(self)
     }
@@ -274,6 +292,7 @@ impl MathRuntimeError {
                 })
         }
         let payload = match self {
+            Self::Settlement { operation, cleanup } => add(operation.retained_bytes()?, cleanup.retained_bytes()?)?,
             Self::Solve(cause) => cause.retained_bytes(),
             Self::Compile(cause) => cause.retained_bytes(),
             Self::Math(cause) => cause.retained_bytes(),
@@ -304,6 +323,7 @@ impl MathRuntimeError {
         match self {
             Self::Strategy { trace, .. } => Some(trace),
             Self::Shared(cause) => cause.strategy_trace(),
+            Self::Settlement { operation, .. } => operation.strategy_trace(),
             _ => None,
         }
     }
@@ -312,6 +332,7 @@ impl MathRuntimeError {
         match self {
             Self::StrategyTraceUnavailable { refusal, .. } => Some(refusal),
             Self::Shared(cause) => cause.strategy_trace_refusal(),
+            Self::Settlement { operation, .. } => operation.strategy_trace_refusal(),
             _ => None,
         }
     }
@@ -364,7 +385,7 @@ impl MathRuntimeError {
                     Err(error) => Self::Shared(error).into_retained_problem(),
                 }
             }
-            Self::Pool(_) | Self::Strategy { .. } | Self::StrategyTraceUnavailable { .. } => {
+            Self::Settlement { .. } | Self::Pool(_) | Self::Strategy { .. } | Self::StrategyTraceUnavailable { .. } => {
                 self.into_retained_problem()
             }
             Self::Compile(CompileError::Cancelled) => ProblemError::Cancelled,
@@ -402,12 +423,21 @@ fn pool_diagnostic_code(
 pse_diagnostics::impl_diagnostic! {
     MathRuntimeError,
     code(this) { match this {Self::WorkerJoin {source,..}=>Some(if source.is_cancelled() {pse_diagnostics::DiagnosticCode::RuntimeCancelled} else {pse_diagnostics::DiagnosticCode::WorkflowPanic}),Self::Allocation {..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::PreparationExpired|Self::Limit(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Pool(error)=>Some(pool_diagnostic_code(error)),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::InternalInvariant),Self::Panic(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),_=>None} },
-    forward(this) { match this {Self::Solve(e)=>Some(e),Self::Compile(e)=>Some(e),Self::Math(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Strategy {cause,..}|Self::StrategyTraceUnavailable {cause,..}=>Some(cause.as_ref()),_=>None} },
-    help(_this) { None },related(_this) { None },source(_this) { None },
+    forward(this) { match this {Self::Solve(e)=>Some(e),Self::Compile(e)=>Some(e),Self::Math(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Settlement {operation,..}=>Some(operation.as_ref()),Self::Strategy {cause,..}|Self::StrategyTraceUnavailable {cause,..}=>Some(cause.as_ref()),_=>None} },
+    help(_this) { None },
+    related(this) {
+        match this {
+            Self::Settlement { operation, cleanup } => {
+                let causes: [&dyn pse_diagnostics::TypedDiagnostic; 2] = [operation.as_ref(), cleanup.as_ref()];
+                Some(Box::new(causes.into_iter()))
+            }
+            _ => None,
+        }
+    },source(_this) { None },
     facts(this) {
         use pse_diagnostics::{DiagnosticRule as R, DiagnosticFacts, DiagnosticObservation as O};
-        let mut facts=DiagnosticFacts { rule: match this { Self::WorkerJoin {source,..}=>Some(if source.is_cancelled() {R::MathCancelled} else {R::WorkflowPanic}),Self::Allocation {..}=>Some(R::MathLimit),Self::Cancelled=>Some(R::MathCancelled), Self::Retiring|Self::PreparationExpired|Self::Limit(_)=>Some(R::MathLimit),Self::Pool(error)=>Some(match pool_diagnostic_code(error) { pse_diagnostics::DiagnosticCode::RuntimeResourceLimit=>R::MathLimit,pse_diagnostics::DiagnosticCode::InternalInvariant=>R::WorkflowInternal,_=>R::MathLibrary }), Self::Panic(_)=>Some(R::WorkflowPanic), Self::Infrastructure(_)=>Some(R::MathLibrary), Self::Internal(_)=>Some(R::WorkflowInternal), Self::Solve(_) | Self::Compile(_) | Self::Math(_) | Self::Shared(_) | Self::Strategy {..}|Self::StrategyTraceUnavailable {..}=>None },..Default::default() };
-        if !matches!(this,Self::Solve(_)|Self::Compile(_)|Self::Math(_)|Self::Shared(_)|Self::Strategy {..}|Self::StrategyTraceUnavailable {..}) {facts.observe("detail",O::Text(this.to_string()));}
+        let mut facts=DiagnosticFacts { rule: match this { Self::WorkerJoin {source,..}=>Some(if source.is_cancelled() {R::MathCancelled} else {R::WorkflowPanic}),Self::Allocation {..}=>Some(R::MathLimit),Self::Cancelled=>Some(R::MathCancelled), Self::Retiring|Self::PreparationExpired|Self::Limit(_)=>Some(R::MathLimit),Self::Pool(error)=>Some(match pool_diagnostic_code(error) { pse_diagnostics::DiagnosticCode::RuntimeResourceLimit=>R::MathLimit,pse_diagnostics::DiagnosticCode::InternalInvariant=>R::WorkflowInternal,_=>R::MathLibrary }), Self::Panic(_)=>Some(R::WorkflowPanic), Self::Infrastructure(_)=>Some(R::MathLibrary), Self::Internal(_)=>Some(R::WorkflowInternal), Self::Settlement {..} | Self::Solve(_) | Self::Compile(_) | Self::Math(_) | Self::Shared(_) | Self::Strategy {..}|Self::StrategyTraceUnavailable {..}=>None },..Default::default() };
+        if !matches!(this,Self::Settlement {..}|Self::Solve(_)|Self::Compile(_)|Self::Math(_)|Self::Shared(_)|Self::Strategy {..}|Self::StrategyTraceUnavailable {..}) {facts.observe("detail",O::Text(this.to_string()));}
         facts
     }
 }
@@ -1247,6 +1277,11 @@ impl pse_model::diagnostic::DiagnosticProjection for MathRuntimeError {
             Self::StrategyTraceUnavailable { cause, refusal } => {
                 let mut diagnostic = cause.boundary_diagnostic(stage);
                 diagnostic.causes.push(refusal.boundary_diagnostic(stage));
+                diagnostic
+            }
+            Self::Settlement { operation, cleanup } => {
+                let mut diagnostic = operation.boundary_diagnostic(stage);
+                diagnostic.causes.push(cleanup.boundary_diagnostic(stage));
                 diagnostic
             }
             Self::Allocation { .. }

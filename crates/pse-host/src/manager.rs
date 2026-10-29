@@ -2059,6 +2059,9 @@ impl OwnedUnit {
     }
     /// Observe only while the original unit invocation remains selected.
     pub async fn observe(&self) -> Result<UnitObservation, HostError> {
+        self.observe_bound(false).await
+    }
+    async fn observe_bound(&self, stopping: bool) -> Result<UnitObservation, HostError> {
         if self.reference_released {
             return Err(HostError::Ownership(
                 "owned unit capability already relinquished".into(),
@@ -2080,8 +2083,17 @@ impl OwnedUnit {
         }
         if result.main_pid != 0 {
             let current = ProcessReader::default().process(result.main_pid);
-            if !matches!(current, ProcessRead::Present(facts) if self.process.as_ref() == Some(&facts.identity))
-            {
+            let original = match current {
+                ProcessRead::Present(facts) => self.process.as_ref() == Some(&facts.identity),
+                // Manager MainPID can lag actual exit after our StopUnit. Only
+                // exact original PID absence AND original empty hierarchy allow
+                // continued settlement; unavailable/reused identities still refuse.
+                ProcessRead::Absent if stopping => self.process.as_ref()
+                    .is_some_and(|identity| identity.pid == result.main_pid)
+                    && self.group.empty()?,
+                _ => false,
+            };
+            if !original {
                 return Err(HostError::Ownership(
                     "main process identity changed or unavailable".into(),
                 ));
@@ -2135,7 +2147,7 @@ impl OwnedUnit {
         &mut self,
         deadline: Instant,
     ) -> Result<UnitObservation, HostError> {
-        self.observe().await?;
+        self.observe_bound(true).await?;
         let manager = self.manager.manager().await?;
         let unit = self.manager.unit(&self.intent.unit).await?;
         let properties = zbus::fdo::PropertiesProxy::builder(&self.manager.connection)
@@ -2148,7 +2160,7 @@ impl OwnedUnit {
         // rereads: neither a job completion nor a population notification proves release.
         let mut changed = properties.receive_properties_changed().await?;
         let events = self.group.watch()?;
-        self.observe().await?;
+        self.observe_bound(true).await?;
         tokio::time::timeout_at(
             deadline.into(),
             manager.stop_unit(self.intent.unit.clone(), "replace".into()),
@@ -2156,7 +2168,7 @@ impl OwnedUnit {
         .await
         .map_err(|_| HostError::Deadline("stop reply; original ownership retained".into()))??;
         loop {
-            let observation = self.observe().await?;
+            let observation = self.observe_bound(true).await?;
             if matches!(observation.active_state.as_str(), "inactive" | "failed")
                 && self.group.empty()?
             {

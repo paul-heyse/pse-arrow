@@ -1770,14 +1770,18 @@ impl ExecutionServices {
                 }
             }
             let release_failure = if failure.is_some() {
-                staged.close().await;
-                None
+                staged.close().await.err()
             } else {
                 staged.finish_independent(&cancel).await.err()
             };
             let (report, modeling_failure) = match (failure, release_failure) {
-                (Some((step, error)), _) => (
-                    Err(error),
+                (Some((step, error)), cleanup) => (
+                    Err(match cleanup {
+                        Some(cleanup) => Arc::new(WorkflowError::Settlement {
+                            operation: Box::new(WorkflowError::Shared(error)), cleanup: Box::new(cleanup),
+                        }),
+                        None => error,
+                    }),
                     Some(ModelingFailure {
                         completed: results,
                         step: Some(step),

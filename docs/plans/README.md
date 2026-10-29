@@ -15,8 +15,10 @@ explicit connectivity/reactive investigations. The coordinator owns the review-q
 dispositions; companion packages preserve their current implementation and qualification state.
 Integrated replacements retire Python mechanisms, bespoke build observation and redundant fixture
 guards. Scientific calculation observation and independent reference assurance remain.
-The maintainer has authorized T01/T02 and the entire 58b scope, including necessary C/D/F/G
-prerequisite and consumer-retirement slices. Its [execution dependencies](58b-bootstrap-and-host-control.md#execution-dependencies)
+The maintainer has authorized T01/T02 and all remaining 58b/58c/58d scope, including the minimum
+A/E/F/G prerequisite and consumer-retirement slices needed for completion. The
+[full B/C/D selection](58-rust-owned-system.md#full-bcd-execution-selection--2026-10-29)
+records the integrated sequence and migration baseline. Its [execution dependencies](58b-bootstrap-and-host-control.md#execution-dependencies)
 separate native host admission, provider preparation, physical server construction and working
 D01/D05 readiness; package progress remains with 58b and the contributing companions.
 The [coordinator checkpoint](58-rust-owned-system.md#execution-checkpoint--2026-10-28),
@@ -24,10 +26,10 @@ The [coordinator checkpoint](58-rust-owned-system.md#execution-checkpoint--2026-
 and [D01/D05 checkpoint](58d-canonical-control-and-connectivity.md#native-host-dependency-execution-checkpoint--2026-10-29)
 own implementation, tested prerequisites and remaining acceptance. Ordinary/finite native
 containment, provider selection and the isolated canonical service/readiness/migration slice
-have focused passing evidence. Current assignments are concluded and integrated; no auxiliary
-worktree or campaign remains. B02–B05 and D01/D05 remain in progress. The next useful delivery
-is one retained Rust canonical consumer through the working native fixture, with its replaced
-Python orchestration removed. Full series qualification remains open; the older installed
+have focused passing evidence. The prior assignments concluded in main; the expanded B/C/D execution is now active there.
+B02–B05 and D01/D05 remain in progress. Current work establishes the frozen-v2/successor
+migration contract, native root settlement and bounded canonical worker progression, with
+actual consumer integration and replaced-Python deletion. Full series qualification remains open; the older installed
 Python extension is explicitly distinct from the checked current compiled API.
 
 Plan57 and its companions are superseded historical evidence, temporarily retained for existing

@@ -715,13 +715,13 @@ impl Staged {
                 .park_independent(affinity, original_scope, cancel)
                 .await?;
         } else {
-            session.close().await;
+            session.close().await?;
         }
         Ok(())
     }
     /// Close the native session and wait for its thread to join.
-    pub(in crate::workflow) async fn close(self) {
-        self.session.close().await;
+    pub(in crate::workflow) async fn close(self) -> Result<(), WorkflowError> {
+        Ok(self.session.close().await?)
     }
 }
 
@@ -1004,7 +1004,7 @@ mod native_tests {
                     "failed_first={failed_first}: {name}"
                 );
             }
-            runtime.native().shutdown_native_lanes().await;
+            runtime.native().shutdown_native_lanes().await.unwrap();
         }
     }
 
@@ -1085,8 +1085,8 @@ mod native_tests {
             (x(&changed) - 9.).abs() < 1e-8,
             "changed values start independently"
         );
-        next.close().await;
-        runtime.native().shutdown_native_lanes().await;
+        next.close().await.unwrap();
+        runtime.native().shutdown_native_lanes().await.unwrap();
     }
 
     #[tokio::test]
@@ -1155,8 +1155,8 @@ mod native_tests {
                 thread, first_thread,
                 "failed/cancelled requests destroy their owner"
             );
-            next.close().await;
-            runtime.native().shutdown_native_lanes().await;
+            next.close().await.unwrap();
+            runtime.native().shutdown_native_lanes().await.unwrap();
         }
     }
 
@@ -1317,7 +1317,7 @@ mod native_tests {
             .await
             .result
             .unwrap();
-        staged.close().await;
+        staged.close().await.unwrap();
         assert!(original.accepted, "{:?}", original.diagnostic());
         assert!((x(&original) - 3.).abs() < 1e-8);
         let columns = original.prepared.model.case.compiled().plan.columns();

@@ -65,6 +65,7 @@ impl super::WorkflowError {
                 cause.strategy_trace()
             }
             Self::Shared(cause) => cause.strategy_trace(),
+            Self::Settlement { operation, .. } => operation.strategy_trace(),
             Self::Admission { cause, .. } => cause.strategy_trace(),
             _ => None,
         }

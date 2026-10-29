@@ -20,6 +20,8 @@ use std::time::Duration;
 
 #[path = "support/deployment.rs"]
 mod deployment;
+#[path = "support/signals.rs"]
+mod signals;
 
 use clap::Parser;
 use pse_runtime::workflow::{
@@ -381,6 +383,7 @@ fn publish_ready(
 
 async fn runtime(
     cli: &Cli,
+    stop: &CancelSource,
 ) -> Result<(Runtime, pse_runtime::workflow::NativeExecutionSelection), String> {
     let state = std::env::var_os("PSE_SURREAL_STATE")
         .ok_or("PSE_SURREAL_STATE must select a supervised canonical deployment")?;
@@ -398,7 +401,7 @@ async fn runtime(
             .session_factory(pse_engine::session::native_engine_profile())
             .map_err(|e| format!("session factory: {e}"))?,
     );
-    let deployment = deployment::open(cli.canonical_database.as_deref(), shared.math())
+    let deployment = deployment::open(cli.canonical_database.as_deref(), shared.math(), stop)
         .await
         .map_err(|e| format!("canonical deployment admission: {e}"))?;
     let defaults = LeasePolicy::default();
@@ -461,33 +464,46 @@ async fn serve(
     cli: &Cli,
     runtime: Runtime,
     allocation: pse_runtime::workflow::NativeAllocation,
+    stop: &CancelSource,
     #[cfg(feature = "canonical-tests")] qualification: Option<Arc<qualification::Controller>>,
 ) -> Result<usize, WorkflowError> {
     let settings = worker_settings(cli, allocation);
-    let stop = CancelSource::new();
-    let interrupt = stop.clone();
-    tokio::spawn(async move {
-        if tokio::signal::ctrl_c().await.is_ok() {
-            interrupt.cancel();
-        }
-    });
-    #[cfg(feature = "canonical-tests")]
-    if let Some(qualification) = qualification {
-        let work = runtime.serve(settings, &stop);
-        tokio::pin!(work);
-        return tokio::select! {
-            result = &mut work => result,
-            result = qualification.wait_stop() => {
-                stop.cancel();
-                let drained = work.await;
-                match result {
-                    Ok(()) => drained,
-                    Err(error) => Err(WorkflowError::Internal(format!("native qualification control: {error}"))),
+    let result = async {
+        #[cfg(feature = "canonical-tests")]
+        if let Some(qualification) = qualification {
+            let work = runtime.serve(settings, stop);
+            tokio::pin!(work);
+            return tokio::select! {
+                result = &mut work => result,
+                result = qualification.wait_stop() => {
+                    stop.cancel();
+                    let drained = work.await;
+                    match (result, drained) {
+                        (Ok(()), drained) => drained,
+                        (Err(error), drained) => {
+                            let operation = WorkflowError::Internal(format!("native qualification control: {error}"));
+                            match drained {
+                                Ok(_) => Err(operation),
+                                Err(cleanup) => Err(WorkflowError::Settlement {
+                                    operation: Box::new(operation), cleanup: Box::new(cleanup),
+                                }),
+                            }
+                        },
+                    }
                 }
-            }
-        };
+            };
+        }
+        runtime.serve(settings, stop).await
+    }.await;
+    runtime.close();
+    match (result, runtime.native().shutdown_native_lanes().await) {
+        (Ok(value), Ok(())) => Ok(value),
+        (Err(error), Ok(())) => Err(error),
+        (Ok(_), Err(error)) => Err(error.into()),
+        (Err(operation), Err(cleanup)) => Err(WorkflowError::Settlement {
+            operation: Box::new(operation), cleanup: Box::new(cleanup.into()),
+        }),
     }
-    runtime.serve(settings, &stop).await
 }
 
 fn main() -> ExitCode {
@@ -518,7 +534,16 @@ fn main() -> ExitCode {
         executor.handle(),
         pse_runtime::tooling::runtime_metrics::ExecutorRole::Worker,
     );
-    let (runtime, selected) = match executor.block_on(runtime(&cli)) {
+    let stop = CancelSource::new();
+    // One original source spans startup, readiness, serving and native drain.
+    let interrupt = match executor.block_on(async { signals::ProcessInterrupt::new(stop.clone()) }) {
+        Ok(interrupt) => interrupt,
+        Err(error) => {
+            eprintln!("error: worker stop listener: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let (runtime, selected) = match executor.block_on(runtime(&cli, &stop)) {
         Ok(runtime) => runtime,
         Err(error) => {
             eprintln!("error: runtime initialization: {error}");
@@ -556,9 +581,10 @@ fn main() -> ExitCode {
     }
     let diagnostics = runtime.observations().clone();
     #[cfg(feature = "canonical-tests")]
-    let result = executor.block_on(serve(&cli, runtime, selected.allocation(), qualification));
+    let result = executor.block_on(serve(&cli, runtime, selected.allocation(), &stop, qualification));
     #[cfg(not(feature = "canonical-tests"))]
-    let result = executor.block_on(serve(&cli, runtime, selected.allocation()));
+    let result = executor.block_on(serve(&cli, runtime, selected.allocation(), &stop));
+    executor.block_on(interrupt.finish());
     // This process composition root joins its optional publisher after scientific
     // lanes have drained, outside RuntimeCaller admission and native ownership locks.
     diagnostics.stop_publisher();

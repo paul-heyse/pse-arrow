@@ -167,7 +167,7 @@ impl Local {
     async fn close(&self) {
         self.runtime.close();
         self.runtime.clear_program_cache();
-        self.shared.math().shutdown_native_lanes().await;
+        self.shared.math().shutdown_native_lanes().await.unwrap();
     }
 }
 

@@ -6,46 +6,11 @@
 // A concrete synchronous code address in this actual worker composition module.
 fn local_code_anchor() {}
 
-/// Signals the owned native job if its startup future is dropped.
-struct StartupInterrupt {
-    listener: tokio::task::JoinHandle<()>,
-    cancellation: pse_runtime::CancelSource,
-}
-
-impl StartupInterrupt {
-    async fn finish(mut self) {
-        self.listener.abort();
-        let _ = (&mut self.listener).await;
-    }
-}
-
-impl Drop for StartupInterrupt {
-    fn drop(&mut self) {
-        self.cancellation.cancel();
-        self.listener.abort();
-    }
-}
-
 pub(super) async fn open(
     database: Option<&str>,
     math: &std::sync::Arc<pse_runtime::math::MathService>,
+    cancelled: &pse_runtime::CancelSource,
 ) -> Result<pse_runtime::workflow::CanonicalDeployment, String> {
-    let cancelled = pse_runtime::CancelSource::new();
-    // The serving source does not exist yet. Own interruption before either
-    // strict receipt work or local receiving observation can enter native work.
-    let mut interrupt =
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-            .map_err(|error| format!("deployment startup interrupt listener: {error}"))?;
-    let stopped = cancelled.clone();
-    let listener = tokio::spawn(async move {
-        if interrupt.recv().await.is_some() {
-            stopped.cancel();
-        }
-    });
-    let interrupt = StartupInterrupt {
-        listener,
-        cancellation: cancelled.clone(),
-    };
     let actual = std::env::current_exe().map_err(|error| error.to_string())?;
     let receipt = std::env::var_os("PSE_PRODUCER_RECEIPT").map(std::path::PathBuf::from);
     let configuration = std::sync::Arc::new(|| {
@@ -81,7 +46,7 @@ pub(super) async fn open(
             host,
             std::path::Path::new(&state),
             database,
-            &cancelled,
+            cancelled,
             || {
                 pse_buildinfo::verify_loaded_module(&actual)
                     .map_err(|error| pse_runtime::workflow::WorkflowError::Input(error.to_string()))
@@ -90,6 +55,5 @@ pub(super) async fn open(
     }
     .await
     .map_err(|error| error.to_string())?;
-    interrupt.finish().await;
     Ok(deployment)
 }

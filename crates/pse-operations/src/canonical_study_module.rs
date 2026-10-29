@@ -14,7 +14,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Clone, Debug, Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct StudyModuleReceipt {
     kind: String,
@@ -138,7 +138,10 @@ impl StudyModuleReceipt {
                 "module destination state must be private and owned by the current user",
             ));
         }
-        if directory.parent() != Some(state)
+        let module_root = state.join("modules");
+        let nested_private_module = directory.parent() == Some(module_root.as_path())
+            && std::fs::canonicalize(&module_root).map_err(invalid)? == module_root;
+        if (directory.parent() != Some(state) && !nested_private_module)
             || std::fs::canonicalize(state).map_err(invalid)? != state
         {
             return Err(invalid("module copy must be inside its new private state"));
@@ -187,6 +190,27 @@ impl StudyModuleReceipt {
         let receipt: Selection = serde_json::from_slice(&bytes).map_err(invalid)?;
         receipt.study_module.validate(state)?;
         Ok(receipt.study_module)
+    }
+    pub(crate) fn read_migration_source(state: &Path, expected: &str) -> Result<Self, CanonicalError> {
+        let selected = Self::read(state)?;
+        if selected.sha256 == expected { return Ok(selected); }
+        #[derive(Deserialize)]
+        struct Selection { schema_migration_predecessor: StudyModuleReceipt }
+        let bytes = std::fs::read(state.join("config.json")).map_err(invalid)?;
+        let selection: Selection = serde_json::from_slice(&bytes).map_err(invalid)?;
+        selection.schema_migration_predecessor.validate(state)?;
+        if selection.schema_migration_predecessor.sha256 != expected {
+            return Err(invalid("original migration module differs"));
+        }
+        Ok(selection.schema_migration_predecessor)
+    }
+    pub(crate) fn read_migration_target(state: &Path) -> Result<Option<Self>, CanonicalError> {
+        #[derive(Deserialize)]
+        struct Selection { schema_migration_target: Option<StudyModuleReceipt> }
+        let bytes = std::fs::read(state.join("config.json")).map_err(invalid)?;
+        let selection: Selection = serde_json::from_slice(&bytes).map_err(invalid)?;
+        if let Some(receipt) = &selection.schema_migration_target { receipt.validate(state)?; }
+        Ok(selection.schema_migration_target)
     }
     #[cfg(all(test, feature = "canonical-tests"))]
     pub(crate) fn read_qualification(state: &Path) -> Result<Self, CanonicalError> {
@@ -350,7 +374,37 @@ impl StudyModuleReceipt {
 /// Exact installed catalogue proof shared by ordinary opening and native migration.
 /// Bind `$bucket` and `$backend` from the immutable validated module receipt.
 pub(crate) const CATALOG_VALIDATION_BODY: &str = "LET $info=INFO FOR DB STRUCTURE; LET $b=$info.buckets.filter(|$row|$row.name=$bucket); LET $m=$info.modules.filter(|$row|$row.name='pse');";
-pub(crate) const CATALOG_VALIDATION_PREDICATE: &str = "array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false";
+pub(crate) const CATALOG_VALIDATION_PREDICATE: &str = "array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false AND $pse_prepare_probe.accepted=true AND array::len($pse_prepare_probe.decisions)=1 AND $pse_prepare_probe.decisions[0].disposition='prepare' AND $pse_prepare_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.accepted=true AND array::len($pse_claim_probe.decisions)=1 AND $pse_claim_probe.decisions[0].disposition='start' AND $pse_claim_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.decisions[0].start=$pse_probe_start";
+
+/// Prove both new progression modes at the exact immutable-module admission
+/// boundary. These synthetic policy calls are pure and create no canonical work.
+pub(crate) fn capability_validation_body() -> Result<String, CanonicalError> {
+    use pse_model::generated::enums::StudyPointState;
+    use pse_model::study::{ActionKind, EffectState, OccurrenceKey, PointAction, PointFacts, PointPolicy, ScientificFacts, SeedNeed, StartPolicy, StartProvenance};
+    use surrealdb_types::{Bytes, Object, ToSql, Value};
+    fn encode<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, CanonicalError> {
+        serde_json::to_vec(value).map_err(|error| CanonicalError::Configuration(error.to_string()))
+    }
+    let policy = PointPolicy { key: OccurrenceKey(0), dependencies: Vec::new(), seed_need: SeedNeed::NotNeeded, start: StartPolicy::Fresh, attempt_limit: 1 };
+    let facts = PointFacts { key: policy.key, revision: 0, lifecycle: StudyPointState::Pending, admitted_seed_need: None, native_started: false, scientific: ScientificFacts::default(), seed: None, attempt_count: 0, retry_failure: None, effect: EffectState::Absent };
+    let action = PointAction { occurrence: policy.key, expected_revision: 0, kind: ActionKind::Start(StartProvenance::NotNeeded) };
+    let mut row = Object::new();
+    row.insert("key", "module-capability-probe");
+    row.insert("occurrence", crate::canonical_codec::encode_uint(0)?);
+    row.insert("revision", crate::canonical_codec::encode_uint(0)?);
+    row.insert("policy", Bytes::from(encode(&policy)?));
+    row.insert("facts", Bytes::from(encode(&facts)?));
+    row.insert("assigned", false); row.insert("settled", false); row.insert("outcome", Value::None);
+    let mut item = Object::new(); item.insert("point", "module-capability-probe"); item.insert("predecessors", Value::Array(Vec::<Value>::new().into()));
+    let mut page = Object::new();
+    page.insert("generation", crate::canonical_codec::encode_uint(0)?);
+    page.insert("cancelled", false); page.insert("mode", "prepare"); page.insert("seed", Value::None);
+    page.insert("rows", Value::Array(vec![Value::Object(row)].into()));
+    page.insert("items", Value::Array(vec![Value::Object(item)].into()));
+    let prepare = page.to_sql();
+    page.insert("mode", "claim"); page.insert("seed", Bytes::from(b"null".to_vec()));
+    Ok(format!("{CATALOG_VALIDATION_BODY} LET $pse_probe_action={}; LET $pse_probe_start={}; LET $pse_prepare_probe=mod::pse::study::readiness({prepare}); LET $pse_claim_probe=mod::pse::study::readiness({});", Bytes::from(encode(&action)?).to_sql(), Bytes::from(encode(&StartProvenance::NotNeeded)?).to_sql(), page.to_sql()))
+}
 
 impl CanonicalStore {
     /// Install only under the exact selected maintenance owner. Publication of
@@ -370,7 +424,7 @@ impl CanonicalStore {
             }).await
         }).await
     }
-    /// Explain selected artifact versus installed readonly registration without invocation or installation.
+    /// Explain selected artifact and its installed readonly policy capability.
     pub async fn inspect_study_module(&self) -> Result<serde_json::Value, CanonicalError> {
         let receipt = StudyModuleReceipt::read(&self.state_path)?;
         self.validate_study_module(&receipt).await?;
@@ -380,8 +434,8 @@ impl CanonicalStore {
         let installed = UnframedResult::<surrealdb_types::Value>::returned().take(&mut response)?;
         Ok(
             serde_json::json!({"selected": receipt, "installed": installed,
-            "attestation": "existing validate_study_module passed: sole readonly study::readiness export, unsigned Surrealism registration and immutable bucket",
-            "scope": "metadata only; local patched deadline/memory/controller-pool semantics remain in force; no execution or installation"}),
+            "attestation": "sole readonly study::readiness export, exact immutable bucket and pure preparation/claim capability probes passed",
+            "scope": "catalogue and pure synthetic policy invocation; no scientific execution or installation; local deadline/memory/controller-pool limits remain in force"}),
         )
     }
 
@@ -395,7 +449,7 @@ impl CanonicalStore {
             self.db
                 .metadata_read_query(
                     MetadataResponse::Header,
-                    format!("{CATALOG_VALIDATION_BODY} RETURN {CATALOG_VALIDATION_PREDICATE};"),
+                    format!("{} RETURN {CATALOG_VALIDATION_PREDICATE};", capability_validation_body()?),
                 )
                 .bind(("bucket", receipt.bucket()))
                 .bind(("backend", receipt.backend()?)),

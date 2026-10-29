@@ -1594,8 +1594,7 @@ impl MathService {
                     local.run_ready(run.stages(values))
                 })
                 .await;
-            session.close().await;
-            report
+            MathRuntimeError::settle(report, session.close().await)
         }))
     }
 }
@@ -3007,7 +3006,7 @@ mod tests {
             )
             .await
             .unwrap();
-        session.close().await;
+        session.close().await.unwrap();
         assert_eq!(
             service.pool.reserved() - parents,
             block_binding_bytes(bound.compiled())
@@ -3516,9 +3515,9 @@ mod tests {
         }
         #[cfg(not(feature = "solver-ipopt"))]
         sequence.await.unwrap();
-        session.close().await;
+        session.close().await.unwrap();
         for resident in other_residents {
-            resident.close().await;
+            resident.close().await.unwrap();
         }
         drop((prepared, owner, progress));
         service.clear_program_cache();

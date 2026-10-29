@@ -1970,6 +1970,7 @@ pub(crate) fn runtime_failure(error: &super::MathRuntimeError) -> Observation {
     use super::MathRuntimeError as E;
     match error {
         E::Shared(error) => runtime_failure(error),
+        E::Settlement { operation, .. } => runtime_failure(operation),
         E::Strategy { cause, .. } | E::StrategyTraceUnavailable { cause, .. } => {
             runtime_failure(cause)
         }

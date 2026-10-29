@@ -945,7 +945,7 @@ mod lane_tests {
                     && record.solutions.is_empty()
             );
         }
-        runtime.shared.math().shutdown_native_lanes().await;
+        runtime.shared.math().shutdown_native_lanes().await.unwrap();
     }
 
     #[tokio::test]
@@ -1777,45 +1777,6 @@ impl Runtime {
 
         }).await
     }
-    /// A definite decision rejection can demand a fresh shared-policy decision.
-    /// Never replay an effect-free mutation after uncertain completion.
-    pub(super) async fn settle_current_study_candidate(
-        &self,
-        scope: &pse_operations::canonical_studies::StudyScope,
-        action: &pse_model::study::PointAction,
-    ) -> Result<Option<pse_operations::canonical_studies::StudyPoint>, WorkflowError> {
-        let activity = self.admit_activity()?;
-        activity.scope(async {
-        let deadline = tokio::time::Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
-        tokio::time::timeout_at(deadline, async {
-            match self.settle_study_candidate(scope, action, None).await {
-                Ok(point) => Ok(Some(point)),
-                Err(error) => {
-                    if !matches!(&error, WorkflowError::Canonical(error) if error.needs_fresh_premise()) {
-                        return Err(error);
-                    }
-                    let current = self.canonical_store()?.study_scope(&scope.point().key).await?;
-                    if current.point().revision != scope.point().revision
-                        || current.point().assigned != scope.point().assigned
-                        || current.point().settled != scope.point().settled
-                        || current.generation() != scope.generation()
-                        || current.cancelled() != scope.cancelled()
-                        || current.predecessors().iter().map(|point| (&point.key, point.revision))
-                            .ne(scope.predecessors().iter().map(|point| (&point.key, point.revision)))
-                    {
-                        // The server refused this old read set. The caller must
-                        // rediscover the candidate and recompute its policy.
-                        Ok(None)
-                    } else {
-                        Err(error)
-                    }
-                }
-            }
-        }).await.map_err(|_| WorkflowError::Canonical(pse_operations::canonical::CanonicalError::Timeout))?
-
-        }).await
-    }
-
     /// Claim a structurally ready candidate under its exact consumed revisions.
     pub async fn work_once(&self) -> Result<Processed, WorkflowError> {
         let activity = self.admit_activity()?;
@@ -1881,85 +1842,51 @@ impl Runtime {
                 return Ok((action, None));
             }
         }
-        let mut after = None;
+        use pse_operations::canonical_studies::StudyProgressAction;
+        let mut continuation = None;
+        let mut maintenance = recovery_maintenance;
         loop {
             if cancel.token().is_cancelled() {
                 return Ok((Processed::Idle, None));
             }
-            let studies = operations.store().study_page(after.as_deref()).await?;
-            if studies.is_empty() {
-                return Ok((recovery_maintenance.unwrap_or(Processed::Idle), None));
-            }
-            for study in studies {
-                after = Some(study.key.clone());
-                let readiness = operations
-                    .store()
-                    .advance_study_readiness(&study.key)
-                    .await?;
-                let maintenance = readiness.examined > 0 || readiness.pending;
-                let examined = readiness.examined;
-                let mut point_after = None;
-                loop {
-                    let page = operations
-                        .store()
-                        .study_candidates(&study.key, point_after)
-                        .await?;
-                    if page.is_empty() {
-                        break;
-                    }
-                    for candidate in page {
-                        point_after = Some(candidate.ordinal);
-                        if cancel.token().is_cancelled() {
-                            return Ok((Processed::Idle, None));
-                        }
-                        let _turn = match group {
-                            Some(group) => match group.acquire(&candidate.key) {
-                                Some(turn) => Some(turn),
-                                None => continue,
-                            },
-                            None => None,
-                        };
+            let progress = operations.store().progress_studies(continuation.as_ref()).await?;
+            continuation = progress.continuation;
+            match progress.action {
+                StudyProgressAction::Prepare(preparation) => {
+                    let key = preparation.scope().point().key.clone();
+                    let turn = match group {
+                        Some(group) => group.acquire(&key),
+                        None => None,
+                    };
+                    if group.is_none() || turn.is_some() {
                         let action_lane = &mut *lane;
                         let action_publication = &mut *publication;
-                        if let Some(result) = self
-                            .worker_action(move || {
-                                self.observe_study_candidate(
-                                    operations,
-                                    candidate,
-                                    action_lane,
-                                    cancel,
-                                    action_publication,
-                                )
-                            })
-                            .await?
-                        {
+                        if let Some(result) = self.worker_action(move || self.observe_study_candidate(
+                            operations, preparation, action_lane, cancel, action_publication,
+                        )).await? {
                             return Ok(result);
                         }
                     }
                 }
-                let final_key = format!("finalize:{}", study.key);
-                let _turn = match group {
-                    Some(group) => match group.acquire(&final_key) {
-                        Some(turn) => Some(turn),
-                        None => continue,
-                    },
-                    None => None,
-                };
-                if self
-                    .worker_action(|| self.finalize_canonical_study(&study.key))
-                    .await?
-                {
-                    return Ok((Processed::Finalized { study: study.key }, None));
+                StudyProgressAction::Settled { point } => return Ok((Processed::Settled { point }, None)),
+                StudyProgressAction::Maintenance { study } => {
+                    maintenance = Some(Processed::Maintenance { study, examined: progress.examined });
                 }
-                if maintenance {
-                    return Ok((
-                        Processed::Maintenance {
-                            study: study.key,
-                            examined,
-                        },
-                        None,
-                    ));
+                StudyProgressAction::Finalize(study) => {
+                    let key = format!("finalize:{}", study.key);
+                    let turn = match group {
+                        Some(group) => group.acquire(&key),
+                        None => None,
+                    };
+                    if (group.is_none() || turn.is_some())
+                        && self.worker_action(|| self.finalize_canonical_study(&study.key)).await? {
+                        return Ok((Processed::Finalized { study: study.key }, None));
+                    }
                 }
+                StudyProgressAction::Waiting => {}
+            }
+            if continuation.is_none() {
+                return Ok((maintenance.unwrap_or(Processed::Idle), None));
             }
         }
     }
@@ -1968,7 +1895,7 @@ impl Runtime {
     async fn observe_study_candidate(
         &self,
         operations: &Operations,
-        candidate: pse_operations::canonical_studies::ScopedStudyPoint,
+        preparation: pse_operations::canonical_studies::StudyPreparation,
         lane: &mut super::study::StudyCandidateLane,
         cancel: &crate::CancelSource,
         publication: &mut Option<PublicationHandoff>,
@@ -1980,7 +1907,7 @@ impl Runtime {
         let result = scope(
             context,
             self.worker_action(|| {
-                self.work_study_candidate(operations, candidate, lane, cancel, publication)
+                self.work_study_candidate(operations, preparation, lane, cancel, publication)
             }),
         )
         .await;
@@ -1999,84 +1926,24 @@ impl Runtime {
     async fn work_study_candidate(
         &self,
         operations: &Operations,
-        candidate: pse_operations::canonical_studies::ScopedStudyPoint,
+        preparation: pse_operations::canonical_studies::StudyPreparation,
         lane: &mut super::study::StudyCandidateLane,
         cancel: &crate::CancelSource,
         publication: &mut Option<PublicationHandoff>,
     ) -> Result<Option<(Processed, Option<Arc<super::RunResult>>)>, WorkflowError> {
-        use pse_model::study::{ActionKind, SeedAvailability, SeedFact, StartPolicy, WaitReason};
+        use pse_model::study::{ActionKind, WaitReason};
+        let scope = preparation.scope();
+        let candidate = scope.point().clone();
         if let Some(context) = pse_diagnostics::observation::current() {
             context.source_ref("study.occurrence", candidate.key.as_bytes());
         }
-        let scope = operations.store().study_scope(&candidate.key).await?;
-        let policy = scope.point().policy()?;
-        let unresolved = match &policy.start {
-            StartPolicy::Fresh => None,
-            StartPolicy::Explicit { role, .. } => Some(SeedFact {
-                role: *role,
-                availability: SeedAvailability::Unresolved,
-            }),
-            StartPolicy::Continuation(edge) => Some(SeedFact {
-                role: edge.role,
-                availability: SeedAvailability::Unresolved,
-            }),
-        };
-        let preliminary = scope.action(unresolved)?;
-        match &preliminary.kind {
-            ActionKind::Wait(WaitReason::ScientificAdmission) => {
-                if self.admit_study_candidate(&scope, lane, cancel).await? {
-                    return Ok(Some((
-                        Processed::Maintenance {
-                            study: scope.point().study.clone(),
-                            examined: 1,
-                        },
-                        None,
-                    )));
-                }
-                return Ok(None);
+        if matches!(preparation.action().kind, ActionKind::Wait(WaitReason::ScientificAdmission)) {
+            if self.admit_study_candidate(scope, lane, cancel).await? {
+                return Ok(Some((Processed::Maintenance { study: candidate.study, examined: 1 }, None)));
             }
-            ActionKind::Wait(WaitReason::SeedResolution { .. }) | ActionKind::Start(_) => {}
-            ActionKind::Refuse(_) | ActionKind::Cancel => {
-                if self
-                    .settle_current_study_candidate(&scope, &preliminary)
-                    .await?
-                    .is_none()
-                {
-                    return Ok(None);
-                }
-                return Ok(Some((
-                    Processed::Settled {
-                        point: candidate.key,
-                    },
-                    None,
-                )));
-            }
-            ActionKind::Wait(_) | ActionKind::Reconcile => return Ok(None),
+            return Ok(None);
         }
-        let mut prepared = self
-            .prepare_study_candidate_in_lane(&scope, lane, cancel)
-            .await?;
-        let action = scope.action(prepared.seed.clone())?;
-        if !matches!(action.kind, ActionKind::Start(_)) {
-            match action.kind {
-                ActionKind::Refuse(_) | ActionKind::Cancel => {
-                    if self
-                        .settle_current_study_candidate(&scope, &action)
-                        .await?
-                        .is_none()
-                    {
-                        return Ok(None);
-                    }
-                    return Ok(Some((
-                        Processed::Settled {
-                            point: candidate.key,
-                        },
-                        None,
-                    )));
-                }
-                _ => return Ok(None),
-            }
-        }
+        let mut prepared = self.prepare_study_candidate_in_lane(scope, lane, cancel).await?;
         // A worker label and candidate revision identify a premise, not its caller.
         // Independent calls on the same Runtime must compete for separate claims;
         // replaying one receipt would give both callers custody of the same fence.
@@ -2242,8 +2109,8 @@ impl Runtime {
             let _claim = pse_diagnostics::observation::phase("managed.worker.claim_acquire");
             operations
                 .store()
-                .claim_study_point(
-                    &scope,
+                .claim_prepared_study_point(
+                    &preparation,
                     seed,
                     &claim_operation,
                     operations.worker(),
@@ -2259,21 +2126,13 @@ impl Runtime {
             }
         }
         let claim = match claim {
-            Ok(claim) => claim,
-            Err(error) => {
-                let current = operations.store().study_scope(&candidate.key).await?;
-                if current.point().revision != scope.point().revision
-                    || current.cancelled() != scope.cancelled()
-                    || current
-                        .predecessors()
-                        .iter()
-                        .map(|p| (&p.key, p.revision))
-                        .ne(scope.predecessors().iter().map(|p| (&p.key, p.revision)))
-                {
-                    return Ok(None);
-                }
-                return Err(error.into());
+            Ok(pse_operations::canonical_studies::PreparedStudyClaim::Claimed(claim)) => claim,
+            Ok(pse_operations::canonical_studies::PreparedStudyClaim::Settled { point }) => {
+                return Ok(Some((Processed::Settled { point }, None)));
             }
+            Ok(pse_operations::canonical_studies::PreparedStudyClaim::Waiting) => return Ok(None),
+            Err(error) if error.needs_fresh_premise() => return Ok(None),
+            Err(error) => return Err(error.into()),
         };
         let detail = diagnostics.as_ref().and_then(|selection| {
             super::study_diagnostics::begin_child(

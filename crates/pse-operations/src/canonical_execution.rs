@@ -41,6 +41,10 @@ tokio::task_local! {
     static EXECUTION_ACK_READBACK_FAILURE: bool;
 }
 
+#[cfg(all(test, feature = "canonical-tests", feature = "native-service"))]
+#[path = "canonical_publication_controls.rs"]
+mod native_publication_controls;
+
 // Decode only after native statement/commit completion. Controlled faults alter
 // the returned ACK, while genuine server effects and recovery reads remain real.
 fn take_execution_ack(

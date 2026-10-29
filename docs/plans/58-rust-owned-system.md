@@ -341,3 +341,26 @@ selection with all five live cases passing. These slices unblock a selected reta
 consumer without requiring whole-D completion. B02–B05 and D01/D05 remain in progress; C04/F02
 have contributing slices only. Remaining Python consumer retirement, broader host/fault/provider
 acceptance and H qualification are open. No whole-series or performance claim follows.
+
+
+## Full B/C/D execution selection — 2026-10-29
+
+The maintainer selected execution of all remaining 58b/58c/58d scope and the minimum A/E/F/G
+prerequisite and retirement slices needed for actual completion. Other companion obligations
+and the full historical/release H campaign remain separately owned. The execution sequence is
+shared contract and exact-v2 preservation; host/native ownership prerequisites and canonical
+control/progression; actual migration/fence acceptance; worker/preparation/claim integration;
+publication/delivery settlement; integrated caller retirement; then selected assembled acceptance.
+Existing targeted evidence retains its original scope and does not close these packages.
+
+C01's selected composition remains the existing tokens, scoped Futures, result-bearing joins
+and actual native-thread/process owners. Flat process roots do not justify a hierarchical
+shutdown dependency. Type=exec and D-owned schema readiness remain distinct; no sd-notify,
+SDK replacement, KV/MX tiering, broader module permissions or new frontend is selected.
+
+Before changing generated control/study declarations, preserve the exact current schema-v2
+DDL and digest. The supported bounded migration chain becomes pre-epoch-v10 → schema-v2 →
+schema-v3 while scientific interpretation remains v10. Historical original target-v2 requests
+must settle as target-v2 receipts, never silently retarget to v3 or mint current readiness.
+New declarations and consumers share one unreleased v3 target; no existing user store is
+migrated or reset by implementing or testing this scope.

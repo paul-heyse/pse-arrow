@@ -497,6 +497,17 @@ pub enum WorkflowError {
     #[error(transparent)]
     Typed(pse_model::diagnostic::DiagnosticCause),
 }
+impl WorkflowError {
+    pub(crate) fn settle<T>(operation: Result<T, Self>, cleanup: Result<(), Self>) -> Result<T, Self> {
+        match (operation, cleanup) {
+            (Ok(value), Ok(())) => Ok(value),
+            (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
+            (Err(operation), Err(cleanup)) => Err(Self::Settlement {
+                operation: Box::new(operation), cleanup: Box::new(cleanup),
+            }),
+        }
+    }
+}
 impl From<BoundaryDiagnostic> for WorkflowError {
     fn from(error: BoundaryDiagnostic) -> Self {
         Self::Boundary(Box::new(error))
@@ -506,7 +517,16 @@ pse_diagnostics::impl_diagnostic! {
     WorkflowError,
     code(this) {match this {Self::Input(_)|Self::DocumentDecode(_)|Self::RecordingUnavailable|Self::CallerClosed=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)|Self::StudyExecutionUnavailable{..}=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Resource(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Integrity(_)|Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Unsupported(_)=>Some(pse_diagnostics::DiagnosticCode::NativeUnsupported),Self::Typed(_)=>None,_=>None}},
     forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::DocumentDecode(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)|Self::ScientificRefusal(e)=>Some(e.as_ref()),Self::Admission{cause,..}=>Some(cause.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Settlement{operation,..}=>Some(operation.as_ref()),Self::StudyCreationUnsettled{source,..}|Self::ArtifactTransferUnsettled{source,..}=>Some(source.as_ref()),_=>None}},
-    help(_this){None},related(_this){None},source(_this){None}
+    help(_this){None},
+    related(this) {
+        match this {
+            Self::Settlement { operation, cleanup } => {
+                let causes: [&dyn pse_diagnostics::TypedDiagnostic; 2] = [operation.as_ref(), cleanup.as_ref()];
+                Some(Box::new(causes.into_iter()))
+            }
+            _ => None,
+        }
+    },source(_this){None}
 }
 pub(crate) fn scientific_refusal(
     class: pse_model::diagnostic::BoundaryClass,

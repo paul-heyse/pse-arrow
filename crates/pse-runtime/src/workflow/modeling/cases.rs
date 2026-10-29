@@ -2866,7 +2866,8 @@ fn root_parametric_failure(
         E::Compile(pse_compiler::workspace::CompileError::Math(cause)) => {
             root_math_response_failure(cause)
         }
-        E::Cancelled
+        E::Settlement { .. }
+        | E::Cancelled
         | E::PreparationExpired
         | E::Solve(pse_backend_native::ProblemError::Limit {
             kind: pse_backend_native::LimitKind::Time,

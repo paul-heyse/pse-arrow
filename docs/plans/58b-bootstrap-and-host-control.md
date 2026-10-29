@@ -673,3 +673,28 @@ Remaining B02–B05 obligations include their actual caller migrations, resident
 and broader placement controls, remaining provider acceptance and assembled cold-start/failure
 journeys. D05 still owns actual stale-epoch/in-flight race and acknowledgement/restart coverage.
 H, full numerical/parity/feature qualification and performance measurement were not run.
+
+## Native physical-owner continuation — 2026-10-29
+
+The stage-5 consumer now runs a real recorded two-point KINSOL study through two independent
+worker connections, with bounded control, continuation, protected-result read and physical
+replacement. [58c](58c-runtime-lifecycles.md#native-worker-and-publication-checkpoint--2026-10-29)
+owns its two passing cases; [58d](58d-canonical-control-and-connectivity.md#native-progression-migration-and-control-checkpoint--2026-10-29)
+owns live schema-v2/v3, stale/in-flight fencing, restart and original-ACK controls. Neither
+updates an existing user database. A real teardown race required clients/ingresses to drain
+before their original server stops; sibling drains remain concurrent and retain all failures.
+The stop owner additionally permits an already-absent original MainPID only after its exact
+original cgroup is independently empty. Borrowing/general observation remains strict about
+PID identity and uncertainty. The owner-minted read-only borrow carries no stop authority.
+
+G02's MCP/catalogue/session retirement is committed; regenerated declarations and the freshly
+prepared force-validated development extension agree. The formerly stale installed-extension
+telemetry import control now passes in its 31-test retained unittest selection. This does not
+qualify the scientific Python facade or live exporters. The Python HTTP control client and
+its dedicated orchestration retire in D04 while scientific/cohort assertions are preserved.
+
+B02–B05 remain in progress. Explicit native study-module construction is the next bootstrap
+cut so that a fresh native service does not depend on Python to prepare its read-only module.
+Remaining host/test/reference/service callers, resident/reference/timing placement and broader
+provider/assembled acceptance retain the existing owners. No performance benefit or full
+cold-source scientific/provider matrix is claimed.

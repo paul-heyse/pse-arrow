@@ -242,12 +242,7 @@ pub(crate) async fn run(
         ),
     )?;
     let cancel = CancelSource::new().with_deadline(Some(deadline));
-    let signal_cancel = cancel.clone();
-    let signal = tokio::spawn(async move {
-        if tokio::signal::ctrl_c().await.is_ok() {
-            signal_cancel.cancel();
-        }
-    });
+    let signal = super::signals::ProcessInterrupt::new(cancel.clone())?;
     let result: Result<serde_json::Value> = async {
         let runtime = &runtime;
         let shared = &shared;
@@ -680,13 +675,12 @@ pub(crate) async fn run(
         operation.await
     }
     .await;
-    signal.abort();
-    let _ = signal.await;
     runtime.close();
-    shared.math().shutdown_native_lanes().await;
+    let cleanup = shared.math().shutdown_native_lanes().await.map_err(Into::into);
+    signal.finish().await;
     drop(runtime);
     drop(shared);
-    result
+    super::operator_error::settle_action(result, cleanup)
 }
 
 #[cfg(test)]
@@ -875,7 +869,7 @@ mod tests {
         assert!(page["headers"].as_array().unwrap().is_empty());
         let cohort = execute(Action::StudyCohort {
             output: None,
-            maximum_bytes: cohort_export_bytes(),
+            maximum_bytes: pse_runtime::host_operations::project::cohort_export_bytes(),
             request: StudyCohortRequest {
                 filter: Default::default(),
                 maximum_studies: 4,

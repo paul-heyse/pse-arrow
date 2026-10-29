@@ -30,6 +30,11 @@ use std::{
 };
 use surrealdb_types::{Bytes, Object, ToSql, Value};
 
+mod progression;
+pub use progression::{PreparedStudyClaim, StudyContinuation, StudyPreparation, StudyProgress, StudyProgressAction};
+#[cfg(feature = "test-support")]
+pub use progression::controls as progression_controls;
+
 /// Original immutable definition fields and admission capability; excludes scientific outcomes and starts.
 #[derive(Clone, Debug)]
 pub struct StudyDefinitionPoint {
@@ -1139,13 +1144,13 @@ impl CanonicalStore {
             .await
     }
 
-    async fn stop_study_creation(
-        &self,
-        expected: &Study,
-        run: &RunRequest,
-        points: &[NewOccurrence],
-    ) -> Result<Option<Study>, CanonicalError> {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+    fn stop_study_creation<'a>(
+        &'a self,
+        expected: &'a Study,
+        run: &'a RunRequest,
+        points: &'a [NewOccurrence],
+    ) -> futures_util::future::BoxFuture<'a, Result<Option<Study>, CanonicalError>> {
+        Box::pin(async move { within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let Some(study) = self.canonical_study(&expected.key).await? else {
                 return Ok(None);
             };
@@ -1166,7 +1171,7 @@ impl CanonicalStore {
             if !study.active { return Ok(None); }
             self.cancel_study(&expected.key).await.map(Some)
         })
-        .await
+        .await })
     }
 
     async fn send_study_activation(&self, key: &str) -> Result<Study, CanonicalError> {
@@ -1191,13 +1196,15 @@ impl CanonicalStore {
     // Activation has no fresh scientific operation: exact immutable membership
     // and the native study guard are its authority. Cancellation touches that same
     // guard and refuses a subsequently arriving activation of an inactive header.
-    async fn finish_study_activation(
-        &self,
-        expected: &Study,
+    fn finish_study_activation<'a>(
+        &'a self,
+        expected: &'a Study,
         response: Result<Study, CanonicalError>,
-        cancelled: &(impl Fn() -> bool + Sync),
-    ) -> Result<Option<Study>, CanonicalError> {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+        cancelled: &'a (impl Fn() -> bool + Sync),
+    ) -> futures_util::future::BoxFuture<'a, Result<Option<Study>, CanonicalError>> {
+        // Settle this original activation behind one explicit Send boundary;
+        // callers do not inherit the cancellation/readback implementation type.
+        Box::pin(async move { within_clock(original_deadline(REQUEST_TIMEOUT), async {
             #[cfg(test)]
             creation_observed(CreationBoundary::ActivationAcknowledged);
             let study = match response {
@@ -1276,7 +1283,7 @@ impl CanonicalStore {
             }
             Ok(Some(study))
         })
-        .await
+        .await })
     }
 
     async fn install_study_page(
@@ -2046,7 +2053,7 @@ impl CanonicalStore {
                         .ok_or(CanonicalError::IncompleteResponse)?,
                 )?)
             });
-            self.finish_study_claim(scope, start, operation, &request, &claim_request, response)
+            self.finish_study_claim(scope, Some(start), operation, &request, &claim_request, response)
                 .await
         }).await
             }).await
@@ -2057,7 +2064,7 @@ impl CanonicalStore {
     async fn finish_study_claim(
         &self,
         scope: &StudyScope,
-        start: StartProvenance,
+        start: Option<StartProvenance>,
         operation: &str,
         request: &[u8],
         claim_request: &[u8],
@@ -2127,6 +2134,7 @@ impl CanonicalStore {
                     .await?
                     .ok_or(CanonicalError::IncompleteResponse)?,
             };
+            let actual_start: StartProvenance = decode(point.start.as_ref().ok_or(CanonicalError::IncompleteResponse)?.as_slice())?;
             if point.study != scope.study
                 || point.run != scope.point.run
                 || point.occurrence != scope.point.occurrence
@@ -2139,8 +2147,7 @@ impl CanonicalStore {
                         .checked_add(1)
                         .ok_or(CanonicalError::PayloadLimit)?
                 || point.attempt.as_deref() != Some(fence.attempt())
-                || point.start.as_ref().map(|bytes| bytes.as_slice())
-                    != Some(encode(&start)?.as_slice())
+                || start.as_ref().is_some_and(|expected| expected != &actual_start)
                 || point_facts(&point)?.native_started
             {
                 return Err(CanonicalError::Configuration(
@@ -2150,7 +2157,7 @@ impl CanonicalStore {
             Ok(StudyClaim {
                 fence,
                 point,
-                start,
+                start: actual_start,
             })
         })
         .await
@@ -2174,33 +2181,9 @@ impl CanonicalStore {
                     "effect-free settlement must name a scoped refusal or cancellation".into(),
                 ));
             }
-            let mut facts = scope.point.facts()?;
-            if facts.native_started || scope.point.assigned {
-                return Err(CanonicalError::Configuration(
-                    "native attempt needs terminal observation".into(),
-                ));
-            }
-            facts.revision = 0;
-            facts.lifecycle = if matches!(action.kind, ActionKind::Cancel) {
-                StudyPointState::Cancelled
-            } else {
-                StudyPointState::Failed
-            };
-            facts.scientific = ScientificFacts::default();
-            facts.effect = EffectState::Absent;
-            facts.retry_failure = Some(pse_model::study::RetryFailure::Deterministic);
-            let mut outcome = scope.point.outcome()?.unwrap_or(PointOutcome {
-                key: facts.key,
-                lifecycle: facts.lifecycle,
-                scientific: facts.scientific.clone(),
-                diagnostic: None,
-                start: None,
-                effect: facts.effect,
-                attempts: vec![],
-            });
-            outcome.lifecycle = facts.lifecycle;
-            outcome.scientific = facts.scientific.clone();
-            outcome.effect = facts.effect;
+            let (facts, mut outcome) = pse_model::study_policy::policy_settlement(
+                &scope.point.facts()?, scope.point.outcome()?, action,
+            ).ok_or_else(|| CanonicalError::Configuration("native attempt needs terminal observation".into()))?;
             outcome.diagnostic = diagnostic;
             let expected = scope_expected(scope)?;
             let facts = encode(&facts)?;
@@ -5457,7 +5440,7 @@ mod canonical_studies_server_unit {
         let recovered = store
             .finish_study_claim(
                 &scope,
-                claim.start.clone(),
+                Some(claim.start.clone()),
                 operation,
                 &request,
                 attempt.request.as_slice(),
@@ -5473,7 +5456,7 @@ mod canonical_studies_server_unit {
             store
                 .finish_study_claim(
                     &scope,
-                    claim.start.clone(),
+                    Some(claim.start.clone()),
                     operation,
                     b"another request",
                     attempt.request.as_slice(),
@@ -5486,7 +5469,7 @@ mod canonical_studies_server_unit {
             store
                 .finish_study_claim(
                     &scope,
-                    claim.start.clone(),
+                    Some(claim.start.clone()),
                     "not-committed",
                     &request,
                     attempt.request.as_slice(),
@@ -5561,7 +5544,7 @@ mod canonical_studies_server_unit {
             store
                 .finish_study_claim(
                     &scope,
-                    claim.start.clone(),
+                    Some(claim.start.clone()),
                     operation,
                     &request,
                     attempt.request.as_slice(),

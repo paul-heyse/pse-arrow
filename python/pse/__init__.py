@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Process systems engineering with independent durable-control imports.
+"""Retained process systems engineering scientific adapters.
 
 Scientific exports load their qualified native image when first consumed. Importing
-``pse.control`` or its documents neither loads that image nor prepares science.
+the generated documents neither loads that image nor prepares science. Durable
+control is owned by the native canonical connection, independently of this package.
 """
 
 import importlib

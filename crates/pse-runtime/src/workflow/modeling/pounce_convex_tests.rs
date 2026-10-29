@@ -53,7 +53,7 @@ async fn study(selection: SolverSelection, threads: usize) -> Vec<(f64, f64, Mod
     let results = staged
         .batch(&preparations, assessment::Obligations::Final, &cancel)
         .await;
-    staged.close().await;
+    staged.close().await.unwrap();
     results
         .into_iter()
         .map(|result| {

@@ -260,7 +260,7 @@ async fn failed_callback_timeout_keeps_native_destruction_charged_and_shutdown_p
     *gate.0.lock().unwrap() = true;
     gate.1.notify_one();
     assert!(matches!(job.await, Err(MathRuntimeError::Infrastructure(message)) if message == "original callback failure"));
-    shutdown.await;
+    shutdown.await.unwrap();
     assert_eq!(service.pool.reserved(), baseline);
     assert_eq!(service.cpu.available_permits(), 2);
 }

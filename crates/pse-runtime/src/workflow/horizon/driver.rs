@@ -236,7 +236,10 @@ impl ExecutionServices {
                             ) {
                                 Ok(original) => original,
                                 Err(error) => {
-                                    staged.close().await;
+                                    let error = match staged.close().await {
+                                        Ok(()) => error,
+                                        Err(cleanup) => WorkflowError::Settlement { operation: Box::new(error), cleanup: Box::new(cleanup) },
+                                    };
                                     return RunResult::joined(
                                         run_id,
                                         services,
@@ -256,7 +259,10 @@ impl ExecutionServices {
                                     admitted.steps * 3,
                                 )
                             {
-                                staged.close().await;
+                                let error = match staged.close().await {
+                                    Ok(()) => error,
+                                    Err(cleanup) => WorkflowError::Settlement { operation: Box::new(error), cleanup: Box::new(cleanup) },
+                                };
                                 return RunResult::joined(
                                     run_id,
                                     services,
@@ -1447,7 +1453,7 @@ impl Loop {
             completed_samples,
             ..
         } = self;
-        staged.close().await;
+        let outcome = WorkflowError::settle(outcome, staged.close().await);
         let permission = crate::workflow::completion::ScientificPermission::assess(
             None,
             outcome.is_ok(),
@@ -1968,16 +1974,16 @@ impl Loop {
     }
     #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pub(super) async fn close(mut self) -> Result<(), WorkflowError> {
-        self.staged.close().await;
+        let mut result = self.staged.close().await;
         if let Some(attempt) = self.durable.take() {
             let record = attempt
                 .abandon(&Arc::new(contract(
                     "horizon control closed before finalization",
                 )))
                 .await;
-            record.attempt.map_err(WorkflowError::Shared)?;
+            result = WorkflowError::settle(result, record.attempt.map_err(WorkflowError::Shared));
         }
-        self.admitted.close_sources().await
+        WorkflowError::settle(result, self.admitted.close_sources().await)
     }
     #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pub(super) fn completion(&self) -> &crate::workflow::Completion {

@@ -598,7 +598,7 @@ impl ModelingPackage {
                                     let action = match scoped_action_in(&admitted, graph.points[child].key,
                                         &facts, &positions, work_cancel.token().is_cancelled(), Some((index, &parent))) {
                                         Ok(action) => action,
-                                        Err(error) => { if let Some(staged) = staged.take() { staged.close().await; } return Err(error); }
+                                        Err(error) => { return WorkflowError::settle(Err(error), match staged.take() { Some(staged) => staged.close().await, None => Ok(()) }); }
                                     };
                                     matches!(action.kind, ActionKind::Start(_)
                                         | ActionKind::Wait(WaitReason::SeedResolution { .. })).then_some(index)
@@ -616,8 +616,7 @@ impl ModelingPackage {
                                 inflight.remove(&index);
                                 if let Some(error) = record_execution(point, &graph.points[index], &work_cancel,
                                     &mut facts, &mut outcomes, &mut results, &mut continuation) {
-                                    if let Some(staged) = staged.take() { staged.close().await; }
-                                    return Err(error);
+                                    return WorkflowError::settle(Err(error), match staged.take() { Some(staged) => staged.close().await, None => Ok(()) });
                                 }
                                 if let Some(children) = dependents.get(&graph.points[index].key) {
                                     frontier.extend(children.iter().copied());
@@ -833,47 +832,37 @@ impl ModelingPackage {
         if decision.is_err() {
             work_cancel.cancel();
         }
-        let mut close_failure = None;
+        let mut closing = futures_util::stream::FuturesUnordered::new();
         for completion in completed {
-            if let Err(error) = completion.close().await
-                && close_failure.is_none()
-            {
-                close_failure = Some(error);
-            }
+            closing.push(completion.close().boxed());
         }
-        while let Some(completion) = pending.next().await {
-            if let Err(error) = completion.close().await
-                && close_failure.is_none()
-            {
-                close_failure = Some(error);
-            }
+        for completion in pending {
+            closing.push(async move { completion.await.close().await }.boxed());
         }
         for (_, mut preparation) in ready {
-            available.push(preparation.lane);
-            if let Some(staged) = preparation.staged.take() {
-                staged.close().await;
-            }
+            closing.push(async move {
+                let native = match preparation.staged.take() { Some(staged) => staged.close().await, None => Ok(()) };
+                WorkflowError::settle(native, preparation.lane.close().await)
+            }.boxed());
         }
-        for lane in &mut available {
-            if let Err(error) = lane.close().await
-                && close_failure.is_none()
-            {
-                close_failure = Some(error);
-            }
+        for mut lane in available {
+            closing.push(async move { lane.close().await }.boxed());
         }
         for (_, staged) in retained {
-            staged.close().await;
+            closing.push(staged.close().boxed());
         }
-        if let Some(error) = close_failure {
-            return Err(error);
+        let mut cleanup = Ok(());
+        while let Some(result) = closing.next().await {
+            cleanup = WorkflowError::settle(cleanup, result);
         }
+        let decision = WorkflowError::settle(decision, cleanup)?;
         Ok(StudyReport {
             run_id,
             canonical_study: None,
             definition: definition.clone(),
             outcomes,
             results,
-            decision: decision?,
+            decision,
             preparations,
             admitted_points: resolved,
             services: services.clone(),
@@ -1070,36 +1059,30 @@ impl LaneCompletion {
             | Self::Released { staged, .. } => staged.take(),
             Self::Closed { .. } => None,
         };
-        if let Some(staged) = staged {
-            staged.close().await;
-        }
-        let mut failure = match &mut self {
+        let mut result = match &mut self {
             Self::Closed { result, .. } | Self::Released { result, .. } => {
-                std::mem::replace(result, Ok(())).err()
+                std::mem::replace(result, Ok(()))
             }
-            _ => None,
+            _ => Ok(()),
         };
+        if let Some(staged) = staged {
+            result = WorkflowError::settle(result, staged.close().await);
+        }
         match &mut self {
             Self::Prepared { lane, .. } | Self::Released { lane, .. } => {
-                if let Err(error) = lane.close().await {
-                    failure = Some(error);
-                }
+                result = WorkflowError::settle(result, lane.close().await);
             }
             Self::Executed { lanes, .. } | Self::Closed { lanes, .. } => {
+                let mut closing = futures_util::stream::FuturesUnordered::new();
                 for lane in lanes {
-                    if let Err(error) = lane.close().await
-                        && failure.is_none()
-                    {
-                        failure = Some(error);
-                    }
+                    closing.push(lane.close());
+                }
+                while let Some(cleanup) = closing.next().await {
+                    result = WorkflowError::settle(result, cleanup);
                 }
             }
         }
-        if let Some(error) = failure {
-            Err(error)
-        } else {
-            Ok(())
-        }
+        result
     }
 }
 
@@ -1149,12 +1132,17 @@ async fn execute_lane(
             Err(error) => {
                 // Refused allocation has never polled the borrowed child. Keep
                 // its owners here so every already-open preparation still joins.
+                let mut closing = futures_util::stream::FuturesUnordered::new();
                 for member in &mut members {
                     if let Some(staged) = member.preparation.staged.take() {
-                        staged.close().await;
+                        closing.push(staged.close());
                     }
                 }
-                return Err(error);
+                let mut result = Err(error);
+                while let Some(cleanup) = closing.next().await {
+                    result = WorkflowError::settle(result, cleanup);
+                }
+                return result;
             }
         };
         if cancel.token().is_cancelled() || !may_retain_native {
@@ -1166,7 +1154,7 @@ async fn execute_lane(
             };
             if let Some(staged) = staged {
                 if cancel.token().is_cancelled() {
-                    staged.close().await;
+                    staged.close().await?;
                 } else {
                     staged.finish_independent(cancel).await?;
                 }
@@ -1236,10 +1224,7 @@ fn close_lane<'a>(
             Ok(_owner) => closing.await,
             Err(error) => {
                 drop(closing);
-                if let Some(staged) = staged.take() {
-                    staged.close().await;
-                }
-                Err(error.into())
+                WorkflowError::settle(Err(error.into()), match staged.take() { Some(staged) => staged.close().await, None => Ok(()) })
             }
         };
         LaneCompletion::Closed {
@@ -1270,11 +1255,17 @@ fn close_point_owner(
                 .reserve("study:terminal-lane-close", size_of_val(&closing));
             // A refused extra grant cannot abandon an already-owned native
             // thread. It still joins before the refusal becomes observable.
-            closing.await;
-            if let Err(error) = allocation {
+            let closed = closing.await;
+            let cleanup = WorkflowError::settle(allocation.map(|_owner| ()).map_err(WorkflowError::from), closed);
+            if let Err(error) = cleanup {
                 match &mut completion {
-                    LaneCompletion::Prepared { operation, .. } => *operation = Err(error.into()),
-                    LaneCompletion::Released { result, .. } => *result = Err(error.into()),
+                    LaneCompletion::Prepared { operation, .. } => {
+                        let original = std::mem::replace(operation, Err(super::contract("terminal native owner settlement")));
+                        *operation = WorkflowError::settle(original, Err(error));
+                    }
+                    LaneCompletion::Released { result, .. } => {
+                        *result = WorkflowError::settle(std::mem::replace(result, Ok(())), Err(error));
+                    }
                     _ => {}
                 }
             }
@@ -2416,7 +2407,7 @@ mod occurrence_execution_tests {
         // Drain optional service-owned residency before saturating the pool;
         // refusal must not depend on how many idle cache owners can yield.
         runtime.shared.math().clear_program_cache();
-        runtime.shared.math().shutdown_native_lanes().await;
+        runtime.shared.math().shutdown_native_lanes().await.unwrap();
         // Reservations account capacity without allocating this many bytes.
         let pressure =
             pse_columnar::MemoryConsumer::new("test:study-child-refusal").register(&pool);
@@ -2834,7 +2825,7 @@ mod occurrence_execution_tests {
             runtime.shared.math().test_admission_snapshot().1,
             runtime.shared.math().cores()
         );
-        runtime.shared.math().shutdown_native_lanes().await;
+        runtime.shared.math().shutdown_native_lanes().await.unwrap();
         assert_eq!(
             runtime.shared.math().test_admission_snapshot().2,
             runtime.shared.budget().math.jobs
@@ -3936,7 +3927,7 @@ mod occurrence_execution_tests {
             runtime.shared.math().test_admission_snapshot().1,
             runtime.shared.math().cores()
         );
-        runtime.shared.math().shutdown_native_lanes().await;
+        runtime.shared.math().shutdown_native_lanes().await.unwrap();
         assert_eq!(
             runtime.shared.math().test_admission_snapshot().2,
             runtime.shared.budget().math.jobs,

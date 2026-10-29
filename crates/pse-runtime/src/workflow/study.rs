@@ -1257,7 +1257,7 @@ impl Runtime {
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("study.request");
-                use pse_model::study::{ActionKind, SeedAvailability, SeedFact, StartPolicy};
+                use pse_model::study::{SeedAvailability, SeedFact, StartPolicy};
                 let point = self
                     .canonical_store()?
                     .canonical_study_point(&scope.point().key)
@@ -1273,25 +1273,9 @@ impl Runtime {
                     })
                     .transpose()?
                     .and_then(|admission| admission.revision);
-                let unresolved = match &definition.policy.start {
-                    StartPolicy::Fresh => None,
-                    StartPolicy::Explicit { role, .. } => Some(SeedFact {
-                        role: *role,
-                        availability: SeedAvailability::Unresolved,
-                    }),
-                    StartPolicy::Continuation(edge) => Some(SeedFact {
-                        role: edge.role,
-                        availability: SeedAvailability::Unresolved,
-                    }),
-                };
-                let preliminary = scope.action(unresolved)?;
-                if !matches!(
-                    preliminary.kind,
-                    ActionKind::Start(_)
-                        | ActionKind::Wait(pse_model::study::WaitReason::SeedResolution { .. })
-                ) {
-                    return Err(contract("candidate is not structurally ready"));
-                }
+                // Canonical progression selected this preparation. Native work
+                // resolves sources/seeds and admits resources; the canonical
+                // claim rechecks the original premises and resolved seed.
                 let study = self
                     .canonical_store()?
                     .canonical_study(&point.study)
@@ -1749,38 +1733,6 @@ impl Runtime {
             )),
         }))
     }
-    /// Settle an effect-free shared-policy refusal under its exact immediate read set.
-    pub(crate) async fn settle_study_candidate(
-        &self,
-        scope: &StudyScope,
-        action: &pse_model::study::PointAction,
-        error: Option<WorkflowError>,
-    ) -> Result<CanonicalPoint, WorkflowError> {
-        let activity = self.admit_activity()?;
-        activity
-            .scope(async {
-                let _observation = pse_diagnostics::observation::phase("study.request");
-                let diagnostic =
-                    error
-                        .map(|error| error.boundary_diagnostic())
-                        .or_else(|| match &action.kind {
-                            pse_model::study::ActionKind::Refuse(refusal) => {
-                                Some(super::study_execution::policy_refusal(refusal))
-                            }
-                            pse_model::study::ActionKind::Cancel => Some(
-                                WorkflowError::Math(crate::math::MathRuntimeError::Cancelled)
-                                    .boundary_diagnostic(),
-                            ),
-                            _ => None,
-                        });
-                Ok(self
-                    .canonical_store()?
-                    .refuse_study_point(scope, action, diagnostic)
-                    .await?)
-            })
-            .await
-    }
-
     /// Explicitly recover an assigned occurrence without invoking a numerical kernel.
     /// Expiration fences departed writers; cancellation alone is not native drain.
     #[allow(

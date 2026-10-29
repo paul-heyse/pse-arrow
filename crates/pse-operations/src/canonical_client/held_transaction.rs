@@ -3,6 +3,7 @@
 
 //! Test-only commit-order fixture. It uses the production bounded transport and
 //! protobuf decoder while retaining one native transaction on its original driver.
+#![allow(clippy::expect_used, reason = "bounded fixture transaction remains open until its consuming settlement; misuse is a test failure")]
 use super::*;
 
 struct Held {
@@ -43,7 +44,7 @@ impl Client {
     }
 }
 impl HeldTransaction {
-    #[cfg(feature = "canonical-tests")]
+    #[cfg(any(feature = "canonical-tests", feature = "test-support"))]
     pub(crate) fn query(&self, query: impl Into<Cow<'static, str>>) -> Query<'static> {
         let held = self
             .0
@@ -59,7 +60,7 @@ impl HeldTransaction {
     pub(crate) async fn commit(mut self) -> EngineResult<()> {
         finish(self.0.take().expect("open commit-order fixture"), true).await
     }
-    #[cfg(feature = "canonical-tests")]
+    #[cfg(any(feature = "canonical-tests", feature = "test-support"))]
     pub(crate) async fn cancel(mut self) -> EngineResult<()> {
         finish(self.0.take().expect("open rollback fixture"), false).await
     }

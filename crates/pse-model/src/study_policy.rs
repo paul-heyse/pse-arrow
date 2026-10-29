@@ -435,6 +435,68 @@ pub fn candidate_action(
     })
 }
 
+/// Seed evidence requested by native preparation. Previously stored evidence is
+/// never reused as proof that the current native source was resolved.
+pub fn preparation_seed(point: &PointPolicy) -> Option<crate::study::SeedFact> {
+    let role = match &point.start {
+        StartPolicy::Fresh => return None,
+        StartPolicy::Explicit { role, .. } => *role,
+        StartPolicy::Continuation(edge) => edge.role,
+    };
+    Some(crate::study::SeedFact {
+        role,
+        availability: SeedAvailability::Unresolved,
+    })
+}
+
+/// Construct an effect-free policy settlement, retaining previous attempts and
+/// start lineage. An assigned/native-started occurrence requires recovery instead.
+pub fn policy_settlement(
+    facts: &PointFacts,
+    previous: Option<crate::study::PointOutcome>,
+    action: &PointAction,
+) -> Option<(PointFacts, crate::study::PointOutcome)> {
+    if facts.native_started
+        || facts.lifecycle == StudyPointState::Assigned
+        || facts.key != action.occurrence
+        || facts.revision != action.expected_revision
+    {
+        return None;
+    }
+    let diagnostic = match &action.kind {
+        ActionKind::Refuse(refusal) => Some(refusal.boundary_diagnostic()),
+        ActionKind::Cancel => None,
+        _ => return None,
+    };
+    let mut facts = facts.clone();
+    facts.revision = 0;
+    facts.lifecycle = if matches!(action.kind, ActionKind::Cancel) {
+        StudyPointState::Cancelled
+    } else {
+        StudyPointState::Failed
+    };
+    facts.scientific = crate::study::ScientificFacts::default();
+    facts.effect = EffectState::Absent;
+    facts.retry_failure = Some(RetryFailure::Deterministic);
+    let mut outcome = previous.unwrap_or(crate::study::PointOutcome {
+        key: facts.key,
+        lifecycle: facts.lifecycle,
+        scientific: facts.scientific.clone(),
+        diagnostic: None,
+        start: None,
+        effect: facts.effect,
+        attempts: Vec::new(),
+    });
+    if outcome.key != facts.key {
+        return None;
+    }
+    outcome.lifecycle = facts.lifecycle;
+    outcome.scientific = facts.scientific.clone();
+    outcome.effect = facts.effect;
+    outcome.diagnostic = diagnostic;
+    Some((facts, outcome))
+}
+
 /// Pure transition over an exact snapshot, with one action per authored occurrence.
 /// Applying adapters must reread/recompute under their existing locks and check revisions.
 /// # Errors

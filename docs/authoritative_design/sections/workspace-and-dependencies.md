@@ -238,13 +238,13 @@ boundaries contain unwinds.
 
 > Decision: [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed).
 
-**Implemented:** selected browse/cancel/reconcile control uses bounded HTTPX2 raw streaming
-and AnyIO original-deadline
-scopes against constrained canonical API endpoints; typed Rust-owned declarations remain the
-contract authority. HTTP phase timeouts do not establish a total deadline. Cancellation must
-settle local response/client resources without claiming remote rollback or a native drain bound.
-A failed body or pool cleanup retains its owner and error; a provider closed flag or no-op
-retry does not establish completion.
+**Implemented:** native browse/cancel/reconcile uses the existing bounded canonical gRPC owner
+without mathematical services or Python. The constrained record-actor API retains its separate
+authentication, grants, raw-byte limits and original-command contract (§20.6). The first-party
+Python HTTPX2/AnyIO control client and its dedicated lifetime/retry harnesses are retired under
+proposed ADR-0233. Transport loss establishes neither remote rollback nor native completion;
+original issued identity, response extents, deadlines and actual close/drain remain with their
+performing owners. Retained telemetry HTTP consumers have their own selected dependencies.
 
 
 > Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md),

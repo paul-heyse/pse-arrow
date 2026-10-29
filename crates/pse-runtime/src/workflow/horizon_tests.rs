@@ -1295,7 +1295,7 @@ async fn horizon_proposal_queue_preserves_the_original_clock_and_cancellation_ow
     assert!(!dispatched.load(Ordering::Acquire));
     assert!(!flag.is_cancelled());
     assert!(!cancel.token().is_cancelled());
-    staged.close().await;
+    staged.close().await.unwrap();
 }
 
 #[tokio::test]

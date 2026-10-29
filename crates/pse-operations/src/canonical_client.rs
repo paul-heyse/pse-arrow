@@ -459,7 +459,7 @@ impl Client {
             context: None,
             observer: None,
             statement_window: None,
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             transaction: None,
             cleanup: request::UndispatchedPayloadDrain::caller(None),
         }
@@ -760,7 +760,7 @@ pub struct Query<'a> {
     context: Option<RequestContext>,
     observer: Option<Arc<dyn QueryStatisticsObserver>>,
     statement_window: Option<(usize, usize)>,
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     transaction: Option<(uuid::Uuid, uuid::Uuid)>,
     cleanup: request::UndispatchedPayloadDrain,
 }
@@ -934,7 +934,7 @@ impl<'a> Query<'a> {
             context: self.context,
             observer: self.observer,
             statement_window: self.statement_window,
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             transaction: self.transaction,
             cleanup: self.cleanup,
         }
@@ -960,7 +960,7 @@ impl<'a> IntoFuture for Query<'a> {
                 context,
                 observer,
                 statement_window,
-                #[cfg(test)]
+                #[cfg(any(test, feature = "test-support"))]
                 transaction,
                 cleanup: _,
             } = builder;
@@ -994,7 +994,7 @@ impl<'a> IntoFuture for Query<'a> {
                         .into_iter()
                         .collect();
                     let native_context = generation.context()?;
-                    #[cfg(test)]
+                    #[cfg(any(test, feature = "test-support"))]
                     let native_context = match transaction {
                         Some((transaction, session)) => {
                             if session != generation.session {
@@ -1079,8 +1079,8 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 #[path = "canonical_client/held_transaction.rs"]
 mod held_transaction;
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(any(feature = "test-support", all(test, feature = "canonical-tests")))]
 pub(crate) use held_transaction::HeldTransaction;

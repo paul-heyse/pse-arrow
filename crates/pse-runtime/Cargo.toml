@@ -34,6 +34,11 @@ product-operators = [
 diagnostic-taskdump = ["tokio/taskdump"]
 compiled-evaluator = ["pse-math/compiled-evaluator"]
 canonical-tests = ["pse-operations/canonical-tests"]
+native-study-tests = [
+  "canonical-tests",
+  "pse-operations/native-service",
+  "pse-operations/canonical-maintenance",
+]
 solver-ipopt = ["pse-backend-native/ipopt"]
 solver-uno = ["pse-backend-native/uno"]
 solver-petsc = ["pse-backend-native/petsc"]
@@ -137,6 +142,7 @@ pse-operations.workspace = true
 chrono.workspace = true
 
 [dev-dependencies]
+pse-host.workspace = true
 proptest.workspace = true
 uuid.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }
@@ -168,3 +174,7 @@ required-features = ["product-operators"]
 [[test]]
 name = "local_operation"
 required-features = ["solver-kinsol"]
+
+[[test]]
+name = "native_study"
+required-features = ["native-study-tests", "solver-kinsol"]

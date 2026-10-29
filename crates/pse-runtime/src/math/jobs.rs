@@ -1929,7 +1929,7 @@ mod construction_tests {
         assert_eq!(service.jobs.available_permits(), 0);
         assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
         for session in sessions {
-            session.close().await;
+            session.close().await.unwrap();
         }
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
     }
@@ -1976,6 +1976,7 @@ mod construction_tests {
         release.send(()).unwrap();
         tokio::time::timeout(std::time::Duration::from_secs(1), close)
             .await
+            .unwrap()
             .unwrap();
         let drained = tokio::time::timeout(
             std::time::Duration::from_secs(1),
@@ -2003,7 +2004,7 @@ mod construction_tests {
             Err(MathRuntimeError::Limit("concurrent native population loan"))
         ));
         drop(usage);
-        session.close().await;
+        session.close().await.unwrap();
         let child = service.clone();
         let refused = scope
             .run(async move { child.submit(1, 0, |_, _| Ok(((), 0))) })
