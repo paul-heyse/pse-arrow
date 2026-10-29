@@ -656,8 +656,8 @@ impl std::fmt::Debug for CanonicalOptions {
 const CREDENTIALS_FILE_BYTES: u64 = 64 * 1024;
 
 impl CanonicalOptions {
-    /// Selected deployment state for fixture registration before connection.
-    #[cfg(any(test, feature = "test-support"))]
+    /// Selected deployment state for explicit native fixture admission.
+    #[cfg(any(test, feature = "test-support", feature = "native-service"))]
     pub(crate) fn state_path(&self) -> &Path {
         &self.state_path
     }
@@ -2512,7 +2512,7 @@ impl CanonicalStore {
             .physical
             .seal_if_final_fixture(|| Arc::strong_count(lifetime) == 1)
     }
-    /// Drain a registered fixture locally; runner disposition owns disposal.
+    /// Drain an owned logical fixture; the original native command owns state disposal.
     #[cfg(any(test, feature = "test-support"))]
     pub async fn remove_isolated_fixture(&self) -> Result<(), CanonicalError> {
         let lifetime = self.fixture_lifetime.as_ref().ok_or_else(|| {
@@ -2542,17 +2542,16 @@ impl CanonicalStore {
         *removed = true;
         Ok(())
     }
-    /// Retain the fixture's runner-owned resource association for all borrowers.
+    /// Retain the logical fixture lifetime for all physical client borrowers.
     #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn own_fixture(
         mut self,
         executor: &'static tokio::runtime::Runtime,
-        resource: String,
     ) -> Self {
         // The cleanup handle has no lifetime owner, so there is no reference cycle.
         let detached = self.clone();
         self.fixture_lifetime = Some(Arc::new(crate::testing::FixtureLifetime::new(
-            detached, executor, resource,
+            detached, executor,
         )));
         self
     }
@@ -4156,7 +4155,7 @@ mod canonical_server_unit {
             .await
             .unwrap();
         let key = selection.key().to_owned();
-        let resource = store.fixture_lifetime.as_ref().unwrap().resource.clone();
+        let drained = store.fixture_lifetime.as_ref().unwrap().drained.clone();
         let drain = store.result_read_drain.clone();
         let held = store
             .problem_turns
@@ -4188,11 +4187,7 @@ mod canonical_server_unit {
             ),
             "last fixture Drop must join the outstanding automatic release"
         );
-        let status =
-            crate::testing::resource_bridge("status", &serde_json::json!({"resource": resource}))
-                .unwrap();
-        assert!(status.get("creation_borrower").is_some());
-        assert_ne!(status["drained"], serde_json::json!(true));
+        assert!(!drained.load(std::sync::atomic::Ordering::Acquire));
         let mut response = bounded_query(
             observer
                 .db
@@ -4209,11 +4204,7 @@ mod canonical_server_unit {
             .recv_timeout(REQUEST_TIMEOUT + std::time::Duration::from_secs(60))
             .unwrap();
         dropping.join().unwrap();
-        let status =
-            crate::testing::resource_bridge("status", &serde_json::json!({"resource": resource}))
-                .unwrap();
-        assert_eq!(status["drained"], serde_json::json!(true));
-        assert!(status.get("creation_borrower").is_none());
+        assert!(drained.load(std::sync::atomic::Ordering::Acquire));
         let mut response = bounded_query(
             observer
                 .db
@@ -4239,15 +4230,11 @@ mod canonical_server_unit {
             .protect(revision, std::time::Duration::from_secs(30))
             .await
             .unwrap();
-        let resource = store.fixture_lifetime.as_ref().unwrap().resource.clone();
+        let drained = store.fixture_lifetime.as_ref().unwrap().drained.clone();
         store.close();
         drop(store);
         selection.finish().await.unwrap();
-        let status =
-            crate::testing::resource_bridge("status", &serde_json::json!({"resource": resource}))
-                .unwrap();
-        assert_eq!(status["drained"], serde_json::json!(true));
-        assert!(status.get("creation_borrower").is_none());
+        assert!(drained.load(std::sync::atomic::Ordering::Acquire));
     }
     #[test]
     fn source_protection_cleanup_outlives_its_callers_executor() {
@@ -5178,16 +5165,13 @@ mod canonical_server_unit {
         store
             .replace_fixture_transport(&options, std::time::Duration::from_millis(250))
             .unwrap();
-        let resource = store.fixture_lifetime.as_ref().unwrap().resource.clone();
+        let drained = store.fixture_lifetime.as_ref().unwrap().drained.clone();
         let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
             let _owned_replacement = store;
             panic!("intentional failure after retaining the replacement transport");
         }));
         assert!(outcome.is_err());
-        let status =
-            crate::testing::resource_bridge("status", &serde_json::json!({"resource": resource}))
-                .unwrap();
-        assert_eq!(status["drained"], serde_json::json!(true));
+        assert!(drained.load(std::sync::atomic::Ordering::Acquire));
     }
     #[tokio::test]
     async fn initialization_requires_complete_response_and_verified_marker() {
@@ -5572,14 +5556,13 @@ mod canonical_server_unit {
             .bind(("cell", short))
             .bind(("raw", codec::encode_diagnostic_bits(0)))
             .await
-            .unwrap()
-            .check();
-        assert!(
-            malformed.is_err(),
-            "seven-byte finite cell was not refused: {malformed:?}"
-        );
+            .map_err(CanonicalError::from)
+            .and_then(checked);
+        let error = malformed.expect_err("seven-byte finite cell must be refused");
+        assert!(error.to_string().contains("finite.bits"), "{error}");
         for absent in [Value::None, Value::Null] {
-            assert!(store.db.query("CREATE canonical_wire_fixture:absent SET key = 'absent', finite = $cell, raw = $raw;").bind(("cell", absent)).bind(("raw", codec::encode_diagnostic_bits(0))).await.unwrap().check().is_err());
+            let error = store.db.query("CREATE canonical_wire_fixture:absent SET key = 'absent', finite = $cell, raw = $raw;").bind(("cell", absent)).bind(("raw", codec::encode_diagnostic_bits(0))).await.map_err(CanonicalError::from).and_then(checked).expect_err("required finite cell must be refused");
+            assert!(error.to_string().contains("finite"), "{error}");
         }
         let mut corrupt = codec::encode_finite(2.0).unwrap();
         if let Value::Object(ref mut object) = corrupt {
@@ -5633,8 +5616,8 @@ mod canonical_server_unit {
             let ordered = rows.into_iter().map(|mut row| crate::canonical_codec::decode_uint(row.remove("generation").unwrap())).collect::<Result<Vec<_>,_>>()?;
             assert_eq!(ordered, [1u64<<63, (1u64<<63)+1, u64::MAX-1, u64::MAX]);
             for value in ["-1", "0.5", "18446744073709551616"] {
-                let response = store.db.query("CREATE canonical_guards:invalid SET key = 'invalid', generation = $generation;").bind(("generation", Value::Number(Number::Decimal(value.parse().unwrap())))).await?;
-                assert!(response.check().is_err());
+                let error = store.db.query("CREATE canonical_guards:invalid SET key = 'invalid', generation = $generation;").bind(("generation", Value::Number(Number::Decimal(value.parse().unwrap())))).await.map_err(CanonicalError::from).and_then(checked).expect_err("out-of-domain generation must be refused");
+                assert!(error.to_string().contains("generation"), "{error}");
             }
             let initial = vec![ObjectEdit { logical: "x".into(), scope: "root".into(), name: "x".into(), version: Some(version("x-v1", "x", &[1,2,3])), references: vec![] }, ObjectEdit { logical: "y".into(), scope: "root".into(), name: "y".into(), version: Some(version("y-v1", "y", &[4,5])), references: vec![] }];
             let first = store.edit("problem", None, "op-1", &initial).await.map_err(|error| CanonicalError::Configuration(format!("initial edit: {error}")))?;

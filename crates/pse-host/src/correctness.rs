@@ -15,6 +15,7 @@ use std::{
 
 const REAL_CARGO: &str = "PSE_CORRECTNESS_REAL_CARGO";
 const ADAPTER: &str = "PSE_CORRECTNESS_ADAPTER";
+const FIXTURE_METADATA_CAPTURE: &str = "PSE_FIXTURE_CARGO_METADATA_CAPTURE";
 
 /// Failure to establish the selected correctness closure, distinct from a Cargo exit.
 #[derive(Debug, thiserror::Error)]
@@ -391,6 +392,35 @@ fn real_cargo() -> Result<OsString, CorrectnessError> {
 fn execute(cargo: &OsStr, arguments: &[OsString]) -> Result<i32, CorrectnessError> {
     Ok(exit_status(native_command(cargo, arguments).status()?))
 }
+// Only nextest's actual metadata adapter request publishes this private copy.
+// Compiler graph validation queries must not publish or reuse this capability.
+fn execute_metadata(
+    cargo: &OsStr,
+    arguments: &[OsString],
+    destination: &OsStr,
+    forwarded: &mut impl Write,
+) -> Result<i32, CorrectnessError> {
+    use std::os::unix::fs::OpenOptionsExt as _;
+    let mut capture = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(destination)?;
+    let output = native_command(cargo, arguments)
+        .stdin(std::process::Stdio::inherit())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::inherit())
+        .output()?;
+    // The same original bytes feed both consumers, including unsuccessful Cargo
+    // output. Neither a capture failure nor a pipe failure skips the other write.
+    let captured = capture.write_all(&output.stdout).and_then(|()| capture.sync_all());
+    let sent = forwarded.write_all(&output.stdout).and_then(|()| forwarded.flush());
+    match (captured, sent) {
+        (Ok(()), Ok(())) => Ok(exit_status(output.status)),
+        (Err(capture), Err(forward)) => Err(invalid(format!("Cargo metadata exited {}; private capture failed: {capture}; stdout forwarding also failed: {forward}", output.status))),
+        (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error.into()),
+    }
+}
 fn reject_reuse(arguments: &[OsString]) -> Result<(), CorrectnessError> {
     for argument in arguments {
         let text = argument
@@ -506,7 +536,13 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
             return execute(&cargo, &arguments);
         }
         let position = mode_position(&arguments)?;
-        if arguments[position] == "metadata" || arguments[position] == "locate-project" {
+        if arguments[position] == "metadata" {
+            if let Some(destination) = std::env::var_os(FIXTURE_METADATA_CAPTURE) {
+                return execute_metadata(&cargo, &arguments, &destination, &mut io::stdout().lock());
+            }
+            return execute(&cargo, &arguments);
+        }
+        if arguments[position] == "locate-project" {
             return execute(&cargo, &arguments);
         }
         let resolution = resolve_with(&arguments, |args| capture(&cargo, args))?;
@@ -554,6 +590,49 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
 mod tests {
     use super::*;
     use serde_json::{Value, json};
+    #[test]
+    fn fixture_metadata_capture_forwards_exact_original_bytes_and_exit() -> Result<(), CorrectnessError> {
+        use std::os::unix::fs::PermissionsExt as _;
+        let private = tempfile::tempdir()?;
+        let destination = private.path().join("cargo-metadata.json");
+        let mut forwarded = Vec::new();
+        let code = execute_metadata(OsStr::new("/bin/sh"), &args(&["-c", "printf 'original metadata\\n'; exit 7"]), destination.as_os_str(), &mut forwarded)?;
+        assert_eq!(code, 7, "a private capture does not promote Cargo success");
+        assert_eq!(forwarded, b"original metadata\n");
+        assert_eq!(std::fs::read(&destination)?, forwarded);
+        assert_eq!(std::fs::metadata(&destination)?.permissions().mode() & 0o777, 0o600);
+        Ok(())
+    }
+    #[test]
+    fn fixture_metadata_capture_refuses_existing_file_or_symlink_before_query() -> Result<(), CorrectnessError> {
+        let private = tempfile::tempdir()?;
+        let destination = private.path().join("cargo-metadata.json");
+        std::fs::write(&destination, b"original private capture")?;
+        let mut forwarded = Vec::new();
+        assert!(execute_metadata(OsStr::new("/bin/sh"), &args(&["-c", "printf must-not-run"]), destination.as_os_str(), &mut forwarded).is_err());
+        assert!(forwarded.is_empty());
+        assert_eq!(std::fs::read(&destination)?, b"original private capture");
+        let link = private.path().join("link.json");
+        std::os::unix::fs::symlink(&destination, &link)?;
+        assert!(execute_metadata(OsStr::new("/bin/sh"), &args(&["-c", "printf must-not-run"]), link.as_os_str(), &mut forwarded).is_err());
+        assert_eq!(std::fs::read(&destination)?, b"original private capture");
+        assert!(std::fs::symlink_metadata(link)?.is_symlink());
+        Ok(())
+    }
+    #[test]
+    fn fixture_metadata_capture_survives_forwarding_failure_without_claiming_success() -> Result<(), CorrectnessError> {
+        struct Refused;
+        impl Write for Refused {
+            fn write(&mut self, _: &[u8]) -> io::Result<usize> { Err(io::Error::other("fixture closed output")) }
+            fn flush(&mut self) -> io::Result<()> { Ok(()) }
+        }
+        let private = tempfile::tempdir()?;
+        let destination = private.path().join("cargo-metadata.json");
+        let result = execute_metadata(OsStr::new("/bin/sh"), &args(&["-c", "printf exact-original"]), destination.as_os_str(), &mut Refused);
+        assert!(result.is_err());
+        assert_eq!(std::fs::read(destination)?, b"exact-original");
+        Ok(())
+    }
     fn args(values: &[&str]) -> Vec<OsString> {
         values.iter().map(OsString::from).collect()
     }

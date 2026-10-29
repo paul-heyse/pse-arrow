@@ -208,7 +208,7 @@ fn shared_runtime_on_threads(
     .unwrap()
 }
 pub(crate) fn canonical_deployment() -> CanonicalDeployment {
-    let store = pse_operations::testing::canonical_native_fixture_store().unwrap();
+    let store = pse_operations::testing::canonical_fixture_store().unwrap();
     CanonicalDeployment::new(
         store,
         OuterAttestation {

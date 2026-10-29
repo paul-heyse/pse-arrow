@@ -139,6 +139,33 @@ ingestion needs an explicit disposition of queue/failure alerts rather than assu
 
 ## Package state
 
+### Native fixture and developer-owner integration — 2026-10-29
+
+F02 now supplies `NativeTestCommand` and `pse-canonical-test`: the original correctness
+adapter builds/lists source tests and captures its actual Cargo metadata before a fresh
+canonical service is created. The command lends a private, state-bound `FixtureSelection`
+to isolated UUID databases, runs those exact built tests with nextest and settles its
+original service after passing or failing tests. Cancellation, signal/wait failure or an
+unproved scientific join retains the original state instead of granting disposal from
+leader death. No global test-name permission table grants the borrowed capability.
+
+Eight targeted fixture controls and three metadata-capture controls pass. The actual
+source-build/service/nextest/drained-disposal journey passes all three selected canonical
+tests (`connection_and_open_never_provision_unknown_database`,
+`generated_native_scientific_cells_and_schema_identity` and
+`grpc_exact_cells_and_guarded_revisions`) at the configured sixteen lanes, against zero
+failures. It uses the immutable production module prepared by the native host and a fresh
+private service, never the configured existing database. The first journey exposed two
+tests expecting schema rejection only inside a query response; they now check the specific
+finite-cell/generation refusal across both actual query error boundaries.
+
+F01/F03/F05's native documentation, configuration, generation, audit, source-corpus and
+optional service operator work remains under integration. The native generator/audit/affected
+selection passes 55 targeted controls; the native doctor's seven controls pass. These
+focused results do not close the package table, qualify the assembled series or run H's
+measurement and durable-deployment campaigns. Replaced Python fixture/controller callers
+still require the integrated G cut before their retirement is complete.
+
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [F01](#f01) | in progress | 58f | Retained direct development/configuration operations and native settings resolution |

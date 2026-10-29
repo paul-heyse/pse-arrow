@@ -59,6 +59,14 @@ pub enum NativeServiceError {
     /// Private filesystem or native exec operation failed.
     #[error("native canonical service I/O: {0}")]
     Io(#[from] std::io::Error),
+    /// An original source preparation command completed unsuccessfully.
+    #[error("native fixture {stage} command exited with {status}")]
+    Command {
+        /// Original command phase.
+        stage: &'static str,
+        /// Exact native process exit status.
+        status: std::process::ExitStatus,
+    },
     /// This construction or observation cannot establish its premises.
     #[error("native canonical service: {0}")]
     Refused(&'static str),
@@ -743,6 +751,16 @@ impl NativeCanonicalService {
     /// State created by this owner, retained across failures for diagnosis.
     pub fn state(&self) -> &Path {
         &self.state.path
+    }
+    /// Issue the private child selection only from this original ready physical owner.
+    /// The descriptor grants no shutdown or disposal authority.
+    /// # Errors
+    /// The owner is closing, not ready, or its original private state has changed.
+    pub fn fixture_selection(&self) -> Result<crate::native_fixture::FixtureSelection, NativeServiceError> {
+        if self.closing { return Err(NativeServiceError::Refused("fixture owner is closing")); }
+        self.ready()?;
+        self.state.verify()?;
+        Ok(crate::native_fixture::FixtureSelection::issue(&self.state.path, &self.state.nonce)?)
     }
     /// Original manager intent; a unit name alone grants no stop authority.
     pub fn intent(&self) -> &LaunchIntent {

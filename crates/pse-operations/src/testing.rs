@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Isolated canonical databases on the explicitly selected supervised server.
+//! Isolated logical databases borrowing one explicitly owned native test service.
 
 /// Lose the local cancellation ACK after an actual commit, optionally failing
 /// its original receipt readback. The command itself still uses the real owner.
@@ -107,31 +107,13 @@ pub async fn drain_result_releases(
     store.result_read_drain.drain().await
 }
 
-/// A single fixture join clock, including helper startup and physical settlement.
+/// The original local fixture settlement allowance, never renewed by peers.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SettlementDeadline {
     pub(crate) local: tokio::time::Instant,
-    monotonic_ns: u64,
 }
 impl SettlementDeadline {
-    pub(crate) fn new(
-        local: tokio::time::Instant,
-    ) -> Result<Self, crate::canonical::CanonicalError> {
-        // Read CLOCK_MONOTONIC first: sampling skew can only shorten the offer.
-        let now = crate::canonical::transport::monotonic_nanoseconds()?;
-        let remaining = u64::try_from(
-            local
-                .saturating_duration_since(tokio::time::Instant::now())
-                .as_nanos(),
-        )
-        .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
-        Ok(Self {
-            local,
-            monotonic_ns: now.checked_add(remaining).ok_or_else(|| {
-                crate::canonical::CanonicalError::Configuration("fixture deadline overflow".into())
-            })?,
-        })
-    }
+    fn new(local: tokio::time::Instant) -> Self { Self { local } }
 }
 
 /// Collect every independent result. A failed or stalled sibling never cancels
@@ -169,12 +151,12 @@ where
     }
 }
 
-/// Shared by all managed store borrowers, including queued result-read releases.
+/// Shared by logical store borrowers, including queued result-read releases.
 pub(crate) struct FixtureLifetime {
     store: crate::canonical::CanonicalStore,
     executor: &'static tokio::runtime::Runtime,
     pub(crate) removed: tokio::sync::Mutex<bool>,
-    pub(crate) resource: String,
+    pub(crate) drained: std::sync::Arc<std::sync::atomic::AtomicBool>,
     peers: std::sync::Mutex<Vec<crate::canonical::CanonicalStore>>,
     settlement: std::sync::Mutex<Option<SettlementDeadline>>,
 }
@@ -182,13 +164,12 @@ impl FixtureLifetime {
     pub(crate) fn new(
         store: crate::canonical::CanonicalStore,
         executor: &'static tokio::runtime::Runtime,
-        resource: String,
     ) -> Self {
         Self {
             store,
             executor,
             removed: tokio::sync::Mutex::new(false),
-            resource,
+            drained: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             peers: std::sync::Mutex::new(Vec::new()),
             settlement: std::sync::Mutex::new(None),
         }
@@ -228,7 +209,7 @@ impl FixtureLifetime {
         match *retained {
             Some(previous) if previous.local <= offered => Ok(previous),
             _ => {
-                let deadline = SettlementDeadline::new(offered)?;
+                let deadline = SettlementDeadline::new(offered);
                 if retain {
                     *retained = Some(deadline);
                 }
@@ -275,69 +256,22 @@ impl FixtureLifetime {
             )),
         }
     }
-    /// Join canonical client owners and the separately supervised receiver. Native progress
-    /// is independent; publication waits for all required acknowledgments.
+    /// Join every retained physical client before the native command owner disposes state.
     pub(crate) async fn settle(
         &self,
         current: Option<&crate::canonical::CanonicalStore>,
         deadline: SettlementDeadline,
     ) -> Result<(), crate::canonical::CanonicalError> {
-        let resource = self.resource.clone();
-        let native = tokio::task::spawn_blocking(move || {
-            resource_bridge_until(
-                "drain",
-                &serde_json::json!({"resource": resource, "physical_only": true}),
-                deadline,
-            )
-        });
-        let (current, peers, native) = tokio::join!(
-            async {
-                match current {
-                    Some(store) => {
-                        crate::canonical::transport::within_clock(
-                            deadline.local,
-                            store.drain_fixture_connection(),
-                        )
-                        .await
-                    }
-                    None => Ok(()),
-                }
-            },
+        let (current, peers) = tokio::join!(
+            async { match current { Some(store) => crate::canonical::transport::within_clock(deadline.local, store.drain_fixture_connection()).await, None => Ok(()) } },
             self.drain_connections(deadline),
-            native,
         );
         let mut errors = Vec::new();
-        if let Err(error) = current {
-            errors.push(format!("current fixture: {error}"));
-        }
-        if let Err(error) = peers {
-            errors.push(format!("retained fixture owners: {error}"));
-        }
-        let units = match native {
-            Ok(Ok(output)) => output
-                .get("units")
-                .filter(|value| value.is_array())
-                .cloned()
-                .ok_or_else(|| crate::canonical::CanonicalError::IncompleteResponse),
-            Ok(Err(error)) => Err(error),
-            Err(error) => Err(crate::canonical::CanonicalError::Configuration(format!(
-                "fixture native drain task: {error}"
-            ))),
-        };
-        if let Err(error) = &units {
-            errors.push(format!("native receiver: {error}"));
-        }
-        if !errors.is_empty() {
-            return Err(crate::canonical::CanonicalError::Configuration(
-                errors.join("; "),
-            ));
-        }
-        resource_bridge_until(
-            "record-drain",
-            &serde_json::json!({"resource": self.resource, "units": units?}),
-            deadline,
-        )
-        .map(|_| ())
+        if let Err(error) = current { errors.push(format!("current fixture: {error}")); }
+        if let Err(error) = peers { errors.push(format!("retained fixture owners: {error}")); }
+        if !errors.is_empty() { return Err(crate::canonical::CanonicalError::Configuration(errors.join("; "))); }
+        self.drained.store(true, std::sync::atomic::Ordering::Release);
+        Ok(())
     }
     pub(crate) fn retain_peer(
         &self,
@@ -364,7 +298,7 @@ impl Drop for FixtureLifetime {
             return;
         }
         // A test outcome belongs to the runner, never to last-borrower Drop.
-        // Publish drain only after both physical clients and local readers finish.
+        // Join physical clients and local readers before reporting local drain.
         let result = std::thread::scope(|scope| {
             scope
                 .spawn(|| {
@@ -395,419 +329,59 @@ impl Drop for FixtureLifetime {
     }
 }
 
-pub(crate) fn resource_bridge(
-    action: &str,
-    input: &serde_json::Value,
-) -> Result<serde_json::Value, crate::canonical::CanonicalError> {
-    let budget = std::time::Duration::from_secs(if matches!(action, "drain" | "record-drain") {
-        50
-    } else {
-        60
-    });
-    let deadline = SettlementDeadline::new(crate::canonical::transport::original_deadline(budget))?;
-    resource_bridge_until(action, input, deadline)
-}
-
-pub(crate) fn resource_bridge_until(
-    action: &str,
-    input: &serde_json::Value,
-    deadline: SettlementDeadline,
-) -> Result<serde_json::Value, crate::canonical::CanonicalError> {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .ok_or_else(|| {
-            crate::canonical::CanonicalError::Configuration(
-                "fixture checkout root unavailable".into(),
-            )
-        })?;
-    let interpreter = std::env::var_os("PSE_TEST_RESOURCE_PYTHON")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| root.join(".venv/bin/python"));
-    let mut command = std::process::Command::new(interpreter);
-    command
-        .current_dir(root)
-        .args(["-m", "scripts.test_resources", action]);
-    if action == "status" {
-        command.arg(
-            input
-                .get("resource")
-                .and_then(serde_json::Value::as_str)
-                .ok_or_else(|| {
-                    crate::canonical::CanonicalError::Configuration(
-                        "fixture status requires exact resource".into(),
-                    )
-                })?,
-        );
-    }
-    if tokio::time::Instant::now() >= deadline.local {
-        return Err(crate::canonical::CanonicalError::Timeout);
-    }
-    let mut input = input.clone();
-    if matches!(action, "register" | "drain" | "record-drain") {
-        input["deadline_monotonic_ns"] = deadline.monotonic_ns.into();
-    }
-    let input = serde_json::to_vec(&input)
-        .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
-    let output = execute_resource_bridge(command, input, deadline.local)?;
-    if !output.status.success() {
-        return Err(crate::canonical::CanonicalError::Configuration(format!(
-            "fixture registry {action}: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )));
-    }
-    serde_json::from_slice(&output.stdout)
-        .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))
-}
-
-/// Bound pipe writes, both output streams and child exit by the original offer.
-/// Killing an overdue helper is not evidence that its native receiver drained.
-fn execute_resource_bridge(
-    command: std::process::Command,
-    input: Vec<u8>,
-    deadline: tokio::time::Instant,
-) -> Result<std::process::Output, crate::canonical::CanonicalError> {
-    std::thread::scope(|scope| {
-        scope
-            .spawn(move || {
-                let runtime = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .map_err(|error| {
-                        crate::canonical::CanonicalError::Configuration(error.to_string())
-                    })?;
-                runtime.block_on(crate::canonical::transport::within_clock(deadline, async {
-                    use tokio::io::AsyncWriteExt;
-                    if tokio::time::Instant::now() >= deadline {
-                        return Err(crate::canonical::CanonicalError::Timeout);
-                    }
-                    let mut child = tokio::process::Command::from(command)
-                        .kill_on_drop(true)
-                        .stdin(std::process::Stdio::piped())
-                        .stdout(std::process::Stdio::piped())
-                        .stderr(std::process::Stdio::piped())
-                        .spawn()
-                        .map_err(|error| {
-                            crate::canonical::CanonicalError::Configuration(error.to_string())
-                        })?;
-                    let mut stdin = child.stdin.take().ok_or_else(|| {
-                        crate::canonical::CanonicalError::Configuration(
-                            "fixture registry input unavailable".into(),
-                        )
-                    })?;
-                    // Read stdout/stderr concurrently with input: a helper producing
-                    // diagnostics must not deadlock before accepting its request.
-                    let write = async move {
-                        stdin.write_all(&input).await?;
-                        drop(stdin);
-                        Ok::<(), std::io::Error>(())
-                    };
-                    let (written, output) = tokio::join!(write, child.wait_with_output());
-                    written.map_err(|error| {
-                        crate::canonical::CanonicalError::Configuration(error.to_string())
-                    })?;
-                    output.map_err(|error| {
-                        crate::canonical::CanonicalError::Configuration(error.to_string())
-                    })
-                }))
-            })
-            .join()
-            .map_err(|_| {
-                crate::canonical::CanonicalError::Configuration(
-                    "fixture bridge executor panicked".into(),
-                )
-            })?
-    })
-}
-
-fn selected_fixture_identity()
--> Result<(String, std::path::PathBuf), crate::canonical::CanonicalError> {
-    let args = std::env::args().collect::<Vec<_>>();
-    let test = args
-        .iter()
-        .position(|arg| arg == "--exact")
-        .and_then(|index| {
-            index
-                .checked_sub(1)
-                .filter(|before| *before != 0)
-                .and_then(|before| args.get(before))
-                .filter(|value| !value.starts_with('-'))
-                .or_else(|| args.get(index + 1).filter(|value| !value.starts_with('-')))
-        })
-        .cloned()
-        .unwrap_or_default();
-    let executable = std::env::current_exe()
-        .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
-    Ok((test, executable))
-}
-
-fn fixture_setup_failure_payload(
-    stage: &str,
-    error: &crate::canonical::CanonicalError,
-    test: &str,
-    executable: &std::path::Path,
-) -> Result<serde_json::Value, crate::canonical::CanonicalError> {
-    let code = miette::Diagnostic::code(error).ok_or_else(|| {
-        crate::canonical::CanonicalError::Configuration(
-            "fixture setup error omitted its diagnostic code".into(),
-        )
-    })?;
-    Ok(serde_json::json!({
-        "test": test,
-        "executable": executable,
-        "stage": stage,
-        "code": code.to_string(),
-        "kind": "infrastructure",
-        // A fixture helper may itself be a test subject after other assertions.
-        "assertion_reach": "unknown",
-    }))
-}
-
-fn fixture_setup_result<T>(
-    stage: &str,
-    result: Result<T, crate::canonical::CanonicalError>,
-) -> Result<T, crate::canonical::CanonicalError> {
-    result.inspect_err(|error| {
-        // Bare test executions retain their narrower resource association; they
-        // cannot publish an authenticated invocation observation.
-        if std::env::var_os("PSE_TEST_INVOCATION").is_some() {
-            let observation = selected_fixture_identity().and_then(|(test, executable)| {
-                let payload = fixture_setup_failure_payload(stage, error, &test, &executable)?;
-                resource_bridge("setup-failure", &payload).map(|_| ())
-            });
-            if let Err(observation_error) = observation {
-                use std::io::Write;
-                // Preserve the original typed error and make failed publication
-                // visible. Missing authenticated evidence remains unknown.
-                let _ = writeln!(
-                    std::io::stderr().lock(),
-                    "canonical fixture setup observation failed: {observation_error}"
-                );
-            }
-        }
-    })
-}
-
-fn registered_resource(
-    payload: &serde_json::Value,
-) -> Result<String, crate::canonical::CanonicalError> {
-    let result = resource_bridge("register", payload)?;
-    result
-        .get("resource")
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_owned)
-        .ok_or_else(|| {
-            crate::canonical::CanonicalError::Configuration(
-                "fixture registry omitted resource identity".into(),
-            )
-        })
-}
-
-/// Pin disposable controls before creating their directory. Only the runner's
-/// exact selected test association can later authorize retained-data disposal.
-pub fn register_fixture_controls(
-    state: &std::path::Path,
-    database: &str,
-    directory: &std::path::Path,
-) -> Result<String, crate::canonical::CanonicalError> {
-    let (test, executable) = selected_fixture_identity()?;
-    registered_resource(&serde_json::json!({
-        "state": state, "database": database, "directory": directory,
-        "kind": "controls", "test": test, "executable": executable, "units": [],
-    }))
-}
-
-/// Record control drain after the caller has cooperatively drained its actual
-/// native receiver. The registry independently verifies the associated context.
-pub fn record_fixture_controls_drain(
-    resource: &str,
-    state: &std::path::Path,
-    database: &str,
-) -> Result<(), crate::canonical::CanonicalError> {
-    resource_bridge(
-        "drain",
-        &serde_json::json!({
-            "resource": resource, "state": state, "database": database,
-        }),
-    )
-    .map(|_| ())
-}
-
-pub(crate) fn register_database(
-    options: &crate::canonical::CanonicalOptions,
-    execution_profile: Option<&str>,
-) -> Result<String, crate::canonical::CanonicalError> {
-    let (test, executable) = selected_fixture_identity()?;
-    let mut payload = serde_json::json!({"state": options.state_path(), "database": options.database, "kind": "database", "test": test, "executable": executable, "units": []});
-    if let Some(profile) = execution_profile {
-        payload["execution_profile"] = profile.into();
-        if let Some(worker) = std::env::var_os("PSE_WORKER_BINARY") {
-            payload["worker"] = std::path::PathBuf::from(worker)
-                .to_string_lossy()
-                .into_owned()
-                .into();
-        }
-    }
-    registered_resource(&payload)
-}
-
-/// Explicit isolated canonical fixture on the recipe-selected supervised server.
-/// The retained fixture executor keeps the remote connection alive even when a
-/// synchronous test helper is called from a different asynchronous executor.
-/// Await `remove_isolated_fixture` to request local drain; final runner outcome
-/// and reference eligibility alone authorize disposal. Drop never infers pass.
+/// Explicit logical fixture borrowing the command owner's authenticated fresh state.
+/// No service, worker, registry entry or process is implicitly created here.
 pub fn canonical_fixture_store()
 -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
-    let options = fixture_setup_result("canonical-options", canonical_fixture_options())?;
-    canonical_fixture_with_profile(&options, true, None)
-}
-
-/// Native workflow fixture: request its explicitly selected receiver context.
-/// Database-only fixture callers do not inherit this demand from process placement.
-pub fn canonical_native_fixture_store()
--> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
-    let profile = std::env::var("PSE_TEST_EXECUTION_PROFILE").ok();
-    let options = fixture_setup_result("canonical-options", canonical_fixture_options())?;
-    canonical_fixture_with_profile(&options, true, profile.as_deref())
-}
-
-/// Explicit managed fixture selection. The registry owns profile resources and
-/// exact worker publication; codec-only fixtures never infer this allocation.
-pub fn canonical_managed_fixture_store(
-    execution_profile: &str,
-) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
-    let options = fixture_setup_result("canonical-options", canonical_fixture_options())?;
-    canonical_fixture_with_profile(&options, true, Some(execution_profile))
-}
-
-fn canonical_fixture_options()
--> Result<crate::canonical::CanonicalOptions, crate::canonical::CanonicalError> {
-    let state = std::env::var_os("PSE_SURREAL_STATE").ok_or_else(|| {
-        crate::canonical::CanonicalError::Configuration(
-            "canonical fixture requires recipe-selected PSE_SURREAL_STATE".into(),
-        )
-    })?;
-    let mut options = crate::canonical::CanonicalOptions::from_state(std::path::Path::new(&state))?;
+    let selection = crate::native_fixture::FixtureSelection::selected()?;
+    let mut options = crate::canonical::CanonicalOptions::from_state(selection.state())?;
     options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
-    Ok(options)
+    canonical_fixture_with_options(&options, true)
 }
 
-/// Register an explicit test database before connecting, then retain its physical
-/// clients on the fixture executor through the final managed borrower.
-/// `initialize` is false for tests whose subject is explicit schema installation.
-/// The supplied state's allocation is authoritative; ambient recipe profiles apply
-/// only to `canonical_fixture_store`, not this explicit selection.
+/// Open an isolated logical database on the already owned selected native service.
+/// `initialize=false` preserves tests whose subject is explicit schema installation.
+/// Directory and disposable identity are admitted before any remote fixture effects.
 pub fn canonical_fixture_with_options(
     options: &crate::canonical::CanonicalOptions,
     initialize: bool,
 ) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
-    canonical_fixture_with_profile(options, initialize, None)
-}
-
-fn canonical_fixture_with_profile(
-    options: &crate::canonical::CanonicalOptions,
-    initialize: bool,
-    execution_profile: Option<&str>,
-) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
     use std::sync::OnceLock;
+    let selection = crate::native_fixture::FixtureSelection::selected()?;
+    selection.validate_options(options)?;
+    if std::env::var_os("PSE_TEST_EXECUTION_PROFILE").is_some() {
+        return Err(crate::canonical::CanonicalError::Configuration(
+            "ambient execution profiles are retired; construct an explicit native worker owner".into(),
+        ));
+    }
     static EXECUTOR: OnceLock<Result<tokio::runtime::Runtime, std::io::Error>> = OnceLock::new();
-    let executor = fixture_setup_result(
-        "canonical-executor",
-        EXECUTOR
-            .get_or_init(|| {
-                tokio::runtime::Builder::new_multi_thread()
-                    .worker_threads(2)
-                    .enable_all()
-                    .build()
-            })
-            .as_ref()
-            .map_err(|error| {
-                crate::canonical::CanonicalError::Configuration(format!(
-                    "fixture executor: {error}"
-                ))
-            }),
-    )?;
-    let resource = fixture_setup_result(
-        "canonical-register",
-        register_database(options, execution_profile),
-    )?;
-    let mut selected = fixture_setup_result(
-        "canonical-options",
-        crate::canonical::CanonicalOptions::from_state_for_database(
-            options.state_path(),
-            Some(&options.database),
-        ),
-    )?;
-    // Explicit test relay selection is separate from the registered DB allocation.
+    let executor = EXECUTOR.get_or_init(|| tokio::runtime::Builder::new_multi_thread().enable_all().build())
+        .as_ref().map_err(|error| crate::canonical::CanonicalError::Configuration(format!("fixture executor: {error}")))?;
+    let mut selected = crate::canonical::CanonicalOptions::from_state_for_database(options.state_path(), Some(&options.database))?;
     selected.endpoint = options.endpoint.clone();
-    let options = &selected;
-    let store = fixture_setup_result(
-        "canonical-connect",
-        std::thread::scope(|scope| {
-            scope
-                .spawn(|| executor.block_on(crate::canonical::CanonicalStore::connect(options)))
-                .join()
-                .map_err(|_| {
-                    crate::canonical::CanonicalError::Configuration(
-                        "canonical fixture executor panicked".into(),
-                    )
-                })?
-        }),
-    )?
-    .own_fixture(executor, resource);
+    let store = std::thread::scope(|scope| scope.spawn(||executor.block_on(crate::canonical::CanonicalStore::connect(&selected))).join()
+        .map_err(|_|crate::canonical::CanonicalError::Configuration("canonical fixture executor panicked".into()))?)?.own_fixture(executor);
     if initialize {
-        fixture_setup_result(
-            "canonical-create",
-            std::thread::scope(|scope| {
-                scope
-                    .spawn(|| executor.block_on(store.create()))
-                    .join()
-                    .map_err(|_| {
-                        crate::canonical::CanonicalError::Configuration(
-                            "canonical fixture initialization executor panicked".into(),
-                        )
-                    })?
-            }),
-        )?;
+        std::thread::scope(|scope|scope.spawn(||executor.block_on(store.create())).join()
+            .map_err(|_|crate::canonical::CanonicalError::Configuration("canonical fixture initialization executor panicked".into()))?)?;
     }
     Ok(store)
 }
 
-/// Open an independent physical client under the existing fixture association.
-/// Its shared lifetime delays registry drain until every peer borrower finishes.
+/// Open an independent physical client under the original logical fixture lifetime.
 pub fn canonical_fixture_peer(
     owner: &crate::canonical::CanonicalStore,
     options: &crate::canonical::CanonicalOptions,
 ) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
-    // Pin the complete fixture membership while the owner's admission is open,
-    // before connection setup can race the final resource-drain decision.
-    let borrowed_owner = fixture_setup_result("canonical-peer-borrow", owner.independent_caller())?;
-    let lifetime = fixture_setup_result(
-        "canonical-peer-owner",
-        borrowed_owner.fixture_lifetime.as_ref().ok_or_else(|| {
-            crate::canonical::CanonicalError::Configuration(
-                "fixture peer requires registered owner".into(),
-            )
-        }),
-    )?;
-    if owner.database() != options.database || owner.deployment_state() != options.state_path() {
-        return fixture_setup_result(
-            "canonical-peer-identity",
-            Err(crate::canonical::CanonicalError::Configuration(
-                "fixture peer identity differs from registered owner".into(),
-            )),
-        );
+    let borrowed_owner = owner.independent_caller()?;
+    let lifetime = borrowed_owner.fixture_lifetime.as_ref().ok_or_else(||crate::canonical::CanonicalError::Configuration("fixture peer requires an owned logical fixture".into()))?;
+    if owner.database()!=options.database || owner.deployment_state()!=options.state_path() {
+        return Err(crate::canonical::CanonicalError::Configuration("fixture peer identity differs from original logical owner".into()));
     }
-    let peer = fixture_setup_result(
-        "canonical-peer-connect",
-        lifetime.execute(crate::canonical::CanonicalStore::connect(options)),
-    )?;
-    fixture_setup_result("canonical-peer-open", lifetime.execute(peer.open()))?;
-    fixture_setup_result("canonical-peer-retain", lifetime.retain_peer(peer.clone()))?;
-    fixture_setup_result(
-        "canonical-peer-borrow",
-        peer.borrow_fixture(&borrowed_owner),
-    )
+    let peer=lifetime.execute(crate::canonical::CanonicalStore::connect(options))?;
+    lifetime.execute(peer.open())?;
+    lifetime.retain_peer(peer.clone())?;
+    peer.borrow_fixture(&borrowed_owner)
 }
 
 /// Observe the exact current source head in an isolated fixture without changing it.
@@ -1033,72 +607,7 @@ mod setup_observation_unit {
             .unwrap();
     }
 
-    #[test]
-    fn bridge_bounds_blocked_input_and_output_by_original_deadline() {
-        let mut command = std::process::Command::new("/bin/sh");
-        // The child fills stdout before reading stdin. Neither pipe may block
-        // the outer expiry, and helper death never constitutes native drain.
-        command.args([
-            "-c",
-            "while :; do printf 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'; done",
-        ]);
-        let started = std::time::Instant::now();
-        let result = super::execute_resource_bridge(
-            command,
-            vec![0; 1024 * 1024],
-            tokio::time::Instant::now() + std::time::Duration::from_millis(50),
-        );
-        assert!(matches!(
-            result,
-            Err(crate::canonical::CanonicalError::Timeout)
-        ));
-        assert!(started.elapsed() < std::time::Duration::from_secs(2));
-    }
 
-    #[test]
-    fn bridge_rejects_expiry_before_spawning_child() {
-        let directory = tempfile::tempdir().unwrap();
-        let witness = directory.path().join("started");
-        let mut command = std::process::Command::new("/bin/sh");
-        command
-            .args(["-c", "touch -- \"$1\"", "fixture-bridge"])
-            .arg(&witness);
-        let result = super::execute_resource_bridge(
-            command,
-            Vec::new(),
-            tokio::time::Instant::now() - std::time::Duration::from_millis(1),
-        );
-        assert!(matches!(
-            result,
-            Err(crate::canonical::CanonicalError::Timeout)
-        ));
-        assert!(!witness.exists());
-    }
-
-    #[test]
-    fn setup_failure_payload_uses_declared_diagnostic_and_exact_identity() {
-        let error = crate::canonical::CanonicalError::Configuration(
-            "assertion failed: validation::invariant".into(),
-        );
-        let executable = std::path::Path::new("/selected/test-executable");
-        let payload = super::fixture_setup_failure_payload(
-            "canonical-register",
-            &error,
-            "module::selected_test",
-            executable,
-        );
-        assert_eq!(
-            payload.ok(),
-            Some(serde_json::json!({
-                "test": "module::selected_test",
-                "executable": executable,
-                "stage": "canonical-register",
-                "code": "runtime::infrastructure",
-                "kind": "infrastructure",
-                "assertion_reach": "unknown",
-            }))
-        );
-    }
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]
@@ -1177,59 +686,4 @@ mod canonical_server_unit {
         fixture.remove_isolated_fixture().await.unwrap();
     }
 
-    #[tokio::test]
-    #[ignore = "explicit Rust/Python overlap control needs its owned rendezvous directory"]
-    async fn plan30_rust_python_fixture_context_overlap() {
-        let directory =
-            std::path::PathBuf::from(std::env::var_os("PSE_PLAN30_C1_CONTROL").unwrap());
-        let publish = |name: &str, value: serde_json::Value| {
-            let temporary = directory.join(format!("{name}.tmp"));
-            std::fs::write(&temporary, serde_json::to_vec(&value).unwrap()).unwrap();
-            std::fs::rename(temporary, directory.join(name)).unwrap();
-        };
-        let store = canonical_fixture_store().unwrap();
-        let marker = format!("rust:{}", store.database());
-        bounded_query(store.db.query(
-            "DEFINE TABLE c1_overlap_problem SCHEMALESS; CREATE c1_overlap_problem:same_authored_name SET marker = $marker;",
-        ).bind(("marker", marker.clone()))).await.unwrap();
-        let resource = &store.fixture_lifetime.as_ref().unwrap().resource;
-        publish(
-            "rust-ready.json",
-            serde_json::json!({
-                "database": store.database(),
-                "resource": resource, "marker": marker,
-            }),
-        );
-        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(60);
-        while !directory.join("python-ready.json").exists() {
-            assert!(
-                tokio::time::Instant::now() < deadline,
-                "Python overlap peer did not arrive within the control deadline"
-            );
-            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-        }
-        let peer: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(directory.join("python-ready.json")).unwrap())
-                .unwrap();
-        assert_ne!(peer["database"].as_str().unwrap(), store.database());
-        let mut response = bounded_query(
-            store
-                .db
-                .query("SELECT VALUE marker FROM c1_overlap_problem:same_authored_name;"),
-        )
-        .await
-        .unwrap();
-        let observed: Vec<String> = response.take(0).unwrap();
-        assert_eq!(observed, vec![marker]);
-        publish("rust-observed.json", serde_json::json!(observed));
-        // Both proofs complete while both live fixture handles still own their
-        // contexts; fixture Drop supplies drain, and the runner owns disposition.
-        while !directory.join("python-observed.json").exists() {
-            assert!(
-                tokio::time::Instant::now() < deadline,
-                "Python overlap proof did not complete within the control deadline"
-            );
-            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-        }
-    }
 }

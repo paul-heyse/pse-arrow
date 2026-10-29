@@ -31,6 +31,9 @@ pub mod canonical_study_workbench;
 /// Shared deployment identity and strict owner projections.
 pub mod deployment;
 mod ids;
+/// Explicit borrowed fixture selection and command-scoped test execution.
+#[cfg(any(test, feature = "test-support", feature = "native-service"))]
+pub mod native_fixture;
 /// Explicit isolated native canonical service construction and physical settlement.
 #[cfg(feature = "native-service")]
 pub mod native_service;

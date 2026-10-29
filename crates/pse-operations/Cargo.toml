@@ -112,6 +112,11 @@ name = "pse-canonical-service"
 path = "src/bin/pse-canonical-service.rs"
 required-features = ["native-service"]
 
+[[bin]]
+name = "pse-canonical-test"
+path = "src/bin/pse-canonical-test.rs"
+required-features = ["native-service"]
+
 [[test]]
 name = "native_service"
 path = "tests/native_service.rs"

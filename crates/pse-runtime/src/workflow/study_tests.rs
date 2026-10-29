@@ -3521,7 +3521,6 @@ async fn ephemeral_study_single_population_slot_lends_preparation_and_completes(
 struct ManagedStudyFixture {
     runtime: Runtime,
     directory: std::path::PathBuf,
-    controls_resource: String,
     nonce: String,
     worker_pid: u32,
     worker: tokio::sync::Mutex<Option<NativeStudyWorker>>,
@@ -3652,31 +3651,24 @@ impl ManagedStudyFixture {
     async fn start_on(hold_entries: bool, runtime: Runtime, entries: usize) -> Self {
         use futures_util::FutureExt;
         use std::os::unix::fs::DirBuilderExt;
-        // Read only the durable caller's already-owned fixture metadata. The
-        // allocation is data; neither frozen Python identity nor receiver storage
-        // supplies the native application's launch or stop authority.
+        // This fixture's scientific resource contract is an explicit typed input
+        // to its actual NativeStudyWorker owner, not a persisted Python context.
         let store = runtime.canonical_store().unwrap();
         let state = store.deployment_state().to_path_buf();
-        let context = managed_read_json(
-            &state
-                .join(".contexts")
-                .join(format!("{}.json", store.database())),
-        );
-        assert_eq!(context["database"], store.database());
-        let allocation: NativeAllocation =
-            serde_json::from_value(context["resources"].clone()).unwrap();
-        allocation.validate().unwrap();
-        assert_eq!(allocation.native_workers, 1);
-        let profile = allocation.execution.unwrap();
-        assert_eq!(
-            (
-                profile.pool_memory_bytes,
-                profile.cpu_threads,
-                profile.case_lanes,
-                profile.math_jobs
-            ),
-            (128 << 30, 16, 16, 32)
-        );
+        let profile = NativeExecutionAllocation {
+            pool_memory_bytes: 128 << 30,
+            worker_bytes: 16 << 30,
+            cpu_threads: 16,
+            case_lanes: 16,
+            math_jobs: 32,
+            compiler_cores: 1,
+            admission_wait_ms: 30_000,
+            process_headroom_bytes: 8 << 30,
+            observer_memory_bytes: 4 << 30,
+        };
+        let allocation = NativeAllocation::materialize(
+            160 << 30, 16 << 30, 1, 136 << 30, Some(profile),
+        ).unwrap();
         assert!(
             runtime.shared.budget().memory_limit_bytes.get() <= profile.observer_memory_bytes
                 && profile.observer_memory_bytes <= 4 << 30
@@ -3690,12 +3682,6 @@ impl ManagedStudyFixture {
         // Controller::open checks this against NativeStudyWorkerInputs::state().
         // It remains a qualification barrier, never a launcher or host owner.
         let directory = state.join(format!("native-entry-qualification-{nonce}"));
-        let controls_resource = pse_operations::testing::register_fixture_controls(
-            &state,
-            store.database(),
-            &directory,
-        )
-        .unwrap();
         std::fs::DirBuilder::new()
             .mode(0o700)
             .create(&directory)
@@ -3714,7 +3700,6 @@ impl ManagedStudyFixture {
                 })
                 .unwrap(),
             directory,
-            controls_resource,
             nonce,
             worker_pid: 0,
             worker: tokio::sync::Mutex::new(None),
@@ -4050,14 +4035,6 @@ impl ManagedStudyFixture {
             .physical_drained
             .load(std::sync::atomic::Ordering::Acquire)
         {
-            managed_cleanup_attempt(&mut failures, "fixture controls drain registration", || {
-                pse_operations::testing::record_fixture_controls_drain(
-                    &self.controls_resource,
-                    self.directory.parent().unwrap(),
-                    self.runtime.canonical_store().unwrap().database(),
-                )
-                .unwrap();
-            });
             // Retain readiness/terminal diagnostics when any settlement or
             // scientific assertion failed; disposal never proves native join.
             if failures.is_empty()

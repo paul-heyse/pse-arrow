@@ -420,10 +420,9 @@ async fn decision_wire_fixture(
     let lifetime = Arc::new(crate::testing::FixtureLifetime::new(
         store.clone(),
         executor,
-        "wire-decision-only".into(),
     ));
-    // No service resource was allocated. Exercise the real fixture membership
-    // and final decision while keeping fallback registry publication disabled.
+    // No service was allocated. Exercise the real fixture membership and
+    // final decision without dispatching physical client teardown.
     *lifetime.removed.lock().await = true;
     store.fixture_lifetime = Some(lifetime);
     store
