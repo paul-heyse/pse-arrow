@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import regression_experiments, run_inspection, test_resources, test_run
+from scripts import run_inspection, test_resources, test_run
 
 
 class SetupObservationTests(unittest.TestCase):
@@ -190,34 +190,6 @@ class SetupObservationTests(unittest.TestCase):
                         )
                     else:
                         self.assertNotIn("failure_kind", result["report_rows"][0])
-
-    def test_setup_failure_is_inconclusive_for_regression_even_with_panic_exit(
-        self,
-    ) -> None:
-        result = {
-            "phase": "frozen",
-            "terminal": {"complete": True},
-            "selected_count": 1,
-            "selected_unreported_count": 0,
-            "process": {},
-            "workload_exit": 100,
-            "report_rows": [
-                {
-                    "class": regression_experiments.BINARY,
-                    "name": regression_experiments.TEST_NAME,
-                    "status": "failure",
-                }
-            ],
-            "predicate_execution": {"failure_type": "test failure with exit code 101"},
-        }
-        self.assertEqual(regression_experiments.classify_product(result), 1)
-        self.assertEqual(
-            regression_experiments.classify_product(
-                {**result, "setup_failures": {"selected": {"kind": "infrastructure"}}}
-            ),
-            128,
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

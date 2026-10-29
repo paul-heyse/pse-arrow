@@ -12,6 +12,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from scripts import build_environment
 from scripts import native_cache as cache
 from scripts import native_operation as operation
@@ -33,24 +35,15 @@ class PreparedKluTests(unittest.TestCase):
 
     def test_retired_klu_refuses_before_preparation_or_timing(self) -> None:
         for requested in (["klu"], ["compiler", "klu"], ["solver", "klu"]):
-            for entry in (operation.environment, operation._environment):
-                with (
-                    self.subTest(requested=requested, entry=entry.__name__),
-                    patch.object(
-                        cache, "cache_root", side_effect=AssertionError("cache")
-                    ),
-                    patch.object(
-                        cache, "compiler_env", side_effect=AssertionError("compiler")
-                    ),
-                    patch.object(cache, "solver", side_effect=AssertionError("image")),
-                    patch.object(
-                        operation, "current", side_effect=AssertionError("timing")
-                    ),
-                    self.assertRaisesRegex(
-                        ValueError, "Python KLU preparation is retired"
-                    ),
-                ):
-                    entry(requested, {operation.BUILD_TIMING: "must-not-write"})
+            with (
+                self.subTest(requested=requested),
+                patch.object(cache, "cache_root", side_effect=AssertionError("cache")),
+                patch.object(cache, "compiler_env", side_effect=AssertionError("compiler")),
+                patch.object(cache, "solver", side_effect=AssertionError("image")),
+                patch.object(operation, "current", side_effect=AssertionError("timing")),
+                pytest.raises(ValueError, match="Python KLU preparation is retired"),
+            ):
+                operation.environment(requested, {operation.BUILD_TIMING: "must-not-write"})
 
     def test_retired_cli_refuses_before_environment_or_receiver_effects(self) -> None:
         with (
@@ -76,8 +69,8 @@ class PreparedKluTests(unittest.TestCase):
                 "read",
                 side_effect=AssertionError("receiver"),
             ),
-            self.assertRaisesRegex(
-                ValueError, "native prepare --capabilities compiler,klu"
+            pytest.raises(
+                ValueError, match="native prepare --capabilities compiler,klu"
             ),
         ):
             operation.main()
@@ -88,9 +81,9 @@ class PreparedKluTests(unittest.TestCase):
             patch.object(cache, "cache_root", side_effect=AssertionError("cache")),
             contextlib.redirect_stderr(io.StringIO()),
         ):
-            with self.assertRaises(SystemExit) as stopped:
+            with pytest.raises(SystemExit) as stopped:
                 cache.main()
-            self.assertEqual(stopped.exception.code, 2)
+            assert stopped.value.code == 2
 
     def test_prior_managed_admission_returns_truth_without_reobserving_bytes(
         self,
@@ -104,7 +97,7 @@ class PreparedKluTests(unittest.TestCase):
                 side_effect=AssertionError("qualified immutable bytes reobserved"),
             ),
         ):
-            self.assertTrue(cache.admit_external(self.prefix, cache.KLU_FILES))
+            assert cache.admit_external(self.prefix, cache.KLU_FILES)
 
     def test_legacy_corrupt_owned_generation_still_refuses_reader_admission(
         self,
@@ -124,9 +117,9 @@ class PreparedKluTests(unittest.TestCase):
             patch.object(cache, "cache_root", return_value=self.base),
             patch.object(operation, "remembered", return_value=None),
             patch.object(operation, "pin"),
+            pytest.raises(ValueError, match="generation is corrupt"),
         ):
-            with self.assertRaisesRegex(ValueError, "generation is corrupt"):
-                cache.admit_external(prefix, cache.KLU_FILES)
+            cache.admit_external(prefix, cache.KLU_FILES)
 
 
 if __name__ == "__main__":

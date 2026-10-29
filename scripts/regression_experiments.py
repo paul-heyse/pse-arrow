@@ -34,6 +34,13 @@ def source_identity(files: dict) -> str:
     ).hexdigest()
 
 
+def retain_sample(membership: set[tuple[str, str]], sha256: str, sample: str) -> None:
+    key = sha256, sample
+    if key in membership:
+        raise ValueError("sample membership is reused across pairs")
+    membership.add(key)
+
+
 def measurement(reference: dict, base: Path) -> tuple[float, dict, dict]:
     """Project exact producer facts; declarations cannot fill missing observations.
 
@@ -276,10 +283,7 @@ def compare(path: Path, max_relative_spread: float) -> dict:
         try:
             for side in ("baseline", "candidate"):
                 value, actual, reference = measurement(pair[side], path.parent)
-                key = reference["sha256"], reference["sample"]
-                if key in membership:
-                    raise ValueError("sample membership is reused across pairs")
-                membership.add(key)
+                retain_sample(membership, reference["sha256"], reference["sample"])
                 values[side] = value
                 all_conditions.append(actual)
                 record[side] = {

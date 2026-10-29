@@ -32,6 +32,7 @@ from opentelemetry.sdk.metrics.export import (
 from scripts import (
     pressure_observation,
     telemetry_metrics,
+    validation,
 )
 from scripts.tests.telemetry_operational_acceptance import validate_points, validate_sdk
 from scripts.validation_scope import Gate
@@ -131,10 +132,6 @@ class HostMetricTests(unittest.TestCase):
         )
 
     def test_real_failed_child_and_assessment_populations(self) -> None:
-        from scripts import (
-            validation,
-        )
-
         with (
             tempfile.TemporaryDirectory() as directory,
             patch.object(telemetry_metrics, "host_metrics", return_value=self.host),
