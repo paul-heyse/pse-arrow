@@ -60,15 +60,6 @@ from pse._modeling import (
     ModelingConformance as ModelingConformance,
 )
 from pse._modeling import (
-    ModelingDiagnostics as ModelingDiagnostics,
-)
-from pse._modeling import (
-    ModelingDiagnosticSamples as ModelingDiagnosticSamples,
-)
-from pse._modeling import (
-    ModelingElasticAttempt as ModelingElasticAttempt,
-)
-from pse._modeling import (
     ModelingInitialization as ModelingInitialization,
 )
 from pse._modeling import (
@@ -79,9 +70,6 @@ from pse._modeling import (
 )
 from pse._modeling import (
     ModelingNativeAnalysis as ModelingNativeAnalysis,
-)
-from pse._modeling import (
-    ModelingNonlinearExplanation as ModelingNonlinearExplanation,
 )
 from pse._modeling import (
     ModelingPackage as ModelingPackage,

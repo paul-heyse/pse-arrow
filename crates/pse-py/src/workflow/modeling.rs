@@ -6,7 +6,7 @@ use crate::enums::EnumValue;
 use crate::identities::{HashValue, Identity};
 use pse_ids::SemanticId;
 use pse_model::generated::enums::{
-    ModelingDiagnosticSampleStop, ModelingElasticObservation, ModelingInitializationStep,
+    ModelingInitializationStep,
     NativeRunState, TrajectoryTermination,
 };
 use pse_modeling::DeclarationId;
@@ -24,10 +24,6 @@ impl serde::Serialize for DeclarationExport {
     }
 }
 documents::projection!(DeclarationExport => native::DeclarationInventory);
-
-/// Positional native transport for the public Python `SingularMode` record:
-/// value, left/right vectors, optional left/right residuals, normalization and bound.
-type SingularModeTuple = (f64, Vec<f64>, Vec<f64>, Option<f64>, Option<f64>, f64, f64);
 
 /// Preserve the registry declaration role; contextual membership remains runtime admission.
 fn declaration(value: Identity<DeclarationId>) -> DeclarationId {
@@ -403,90 +399,6 @@ impl NativeModelingPackage {
         }
     }
 
-    #[pyo3(signature=(case_id, settings, policy))]
-    fn explain_nonlinear(
-        &self,
-        py: Python<'_>,
-        case_id: Identity<DeclarationId>,
-        settings: documents::DocumentInput<pse_runtime::math::settings::SolveSettings>,
-        policy: &[u8],
-    ) -> PyResult<NativeModelingNonlinearExplanation> {
-        let settings = settings.0;
-        let root = declaration(case_id);
-        let preparation = native::PreparationSettings::with_limits(self.limits);
-        let cancel = CancelSource::new();
-        let policy: native::ModelingNonlinearPolicy = documents::decode_document(
-            py,
-            "nonlinear explanation",
-            policy,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let inner = blocking(
-            py,
-            &self.owner,
-            self.inner.explain_case_request(
-                &self.services,
-                root,
-                &preparation,
-                settings,
-                policy,
-                &cancel,
-            ),
-            || cancel.cancel(),
-        )?;
-        Ok(NativeModelingNonlinearExplanation {
-            inner: Arc::new(inner),
-        })
-    }
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "PyO3 receiver/interpreter plus explicit source, samples, diagnostic policy, controls and original context are separate boundary meanings"
-    )]
-    #[pyo3(signature=(case_id, settings, diagnostics, samples, *, controls=None, origin=None))]
-    fn diagnose_samples(
-        &self,
-        py: Python<'_>,
-        case_id: Identity<DeclarationId>,
-        settings: documents::DocumentInput<pse_runtime::math::settings::SolveSettings>,
-        diagnostics: &ModelingDiagnosticSettings,
-        samples: physical_input::PhysicalInput,
-        controls: Option<&[u8]>,
-        origin: Option<documents::DocumentInput<native::DiagnosticOrigin>>,
-    ) -> PyResult<NativeModelingDiagnosticSamples> {
-        let settings = settings.0;
-        let root = declaration(case_id);
-        let preparation = native::PreparationSettings::with_limits(self.limits);
-        let cancel = CancelSource::new();
-        let controls: native::DiagnosticSamplesControls = documents::controls(
-            py,
-            "diagnostic sample controls",
-            controls,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let samples = self
-            .inner
-            .snapshot_diagnostic_samples(self.services.preparation(), samples.0.into_reader()?)
-            .map_err(|error| errors::diagnostic(py, &error))?;
-        let inner = blocking(
-            py,
-            &self.owner,
-            self.inner.diagnose_samples_request(
-                &self.services,
-                root,
-                &preparation,
-                settings,
-                samples,
-                diagnostics.policy.clone(),
-                controls,
-                origin.map(|value| value.0),
-                &cancel,
-            ),
-            || cancel.cancel(),
-        )?;
-        Ok(NativeModelingDiagnosticSamples {
-            inner: Arc::new(inner),
-        })
-    }
     /// The case's authored fixture declares its modes, events and scheduled inputs.
     fn prepare_simulation(
         &self,
@@ -577,127 +489,6 @@ impl NativeModelingPackage {
             || cancel.cancel(),
         )
         .map(documents::DocumentValue)
-    }
-    #[pyo3(signature=(case_id, settings, diagnostics, *, origin=None))]
-    fn diagnose(
-        &self,
-        py: Python<'_>,
-        case_id: Identity<DeclarationId>,
-        settings: documents::DocumentInput<pse_runtime::math::settings::SolveSettings>,
-        diagnostics: &ModelingDiagnosticSettings,
-        origin: Option<documents::DocumentInput<native::DiagnosticOrigin>>,
-    ) -> PyResult<NativeModelingDiagnostics> {
-        let settings = settings.0;
-        let root = declaration(case_id);
-        let preparation = native::PreparationSettings::with_limits(self.limits);
-        let cancel = CancelSource::new();
-        let inner = blocking(
-            py,
-            &self.owner,
-            self.inner.diagnose_case_request(
-                &self.services,
-                root,
-                &preparation,
-                settings,
-                diagnostics.policy.clone(),
-                origin.map(|value| value.0),
-                &cancel,
-            ),
-            || cancel.cancel(),
-        )?;
-        Ok(NativeModelingDiagnostics {
-            inner: Arc::new(inner),
-        })
-    }
-    #[pyo3(signature=(case_id, settings, *, controls=None, origin=None))]
-    fn diagnose_linear(
-        &self,
-        py: Python<'_>,
-        case_id: Identity<DeclarationId>,
-        settings: documents::DocumentInput<pse_runtime::math::settings::SolveSettings>,
-        controls: Option<&[u8]>,
-        origin: Option<documents::DocumentInput<native::DiagnosticOrigin>>,
-    ) -> PyResult<NativeModelingNativeAnalysis> {
-        let settings = settings.0;
-        let controls: native::LinearDiagnosticControls = documents::controls(
-            py,
-            "linear diagnostic controls",
-            controls,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        #[cfg(not(feature = "solver-highs"))]
-        {
-            let _ = (case_id, settings, controls, origin);
-            Err(invalid(py, "HiGHS capability is not installed"))
-        }
-        #[cfg(feature = "solver-highs")]
-        {
-            let root = declaration(case_id);
-            let preparation = native::PreparationSettings::with_limits(self.limits);
-            let cancel = CancelSource::new();
-            let inner = blocking(
-                py,
-                &self.owner,
-                self.inner.diagnose_linear_request(
-                    &self.services,
-                    root,
-                    &preparation,
-                    settings,
-                    controls,
-                    origin.map(|value| value.0),
-                    &cancel,
-                ),
-                || cancel.cancel(),
-            )?;
-            Ok(NativeModelingNativeAnalysis {
-                inner: Arc::new(inner),
-            })
-        }
-    }
-    #[pyo3(signature=(case_id, settings, *, controls=None, origin=None))]
-    fn diagnose_jacobian(
-        &self,
-        py: Python<'_>,
-        case_id: Identity<DeclarationId>,
-        settings: documents::DocumentInput<pse_runtime::math::settings::SolveSettings>,
-        controls: Option<&[u8]>,
-        origin: Option<documents::DocumentInput<native::DiagnosticOrigin>>,
-    ) -> PyResult<NativeModelingNativeAnalysis> {
-        let settings = settings.0;
-        let controls: native::JacobianDiagnosticControls = documents::controls(
-            py,
-            "Jacobian diagnostic controls",
-            controls,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        #[cfg(not(feature = "solver-highs"))]
-        {
-            let _ = (case_id, settings, controls, origin);
-            Err(invalid(py, "HiGHS capability is not installed"))
-        }
-        #[cfg(feature = "solver-highs")]
-        {
-            let root = declaration(case_id);
-            let preparation = native::PreparationSettings::with_limits(self.limits);
-            let cancel = CancelSource::new();
-            let inner = blocking(
-                py,
-                &self.owner,
-                self.inner.diagnose_jacobian_request(
-                    &self.services,
-                    root,
-                    &preparation,
-                    settings,
-                    controls,
-                    origin.map(|value| value.0),
-                    &cancel,
-                ),
-                || cancel.cancel(),
-            )?;
-            Ok(NativeModelingNativeAnalysis {
-                inner: Arc::new(inner),
-            })
-        }
     }
     #[pyo3(signature=(case_id, settings, *, overrides=None))]
     fn initialize(
@@ -1257,104 +1048,6 @@ impl NativeModelingPackage {
     }
 }
 
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Clone, Debug)]
-pub(crate) struct NativeModelingNonlinearExplanation {
-    inner: Arc<native::ModelingNonlinearExplanation>,
-}
-#[pymethods]
-impl NativeModelingNonlinearExplanation {
-    fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
-        py.detach(|| self.inner.findings_table())
-            .map(inspection::TableStream::from_batch)
-            .map_err(|e| errors::diagnostic(py, &e))?
-            .map_err(|e| errors::diagnostic(py, &e))
-    }
-    fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
-        py.detach(|| self.inner.table())
-            .map(inspection::TableStream::from_batch)
-            .map_err(|e| errors::diagnostic(py, &e))?
-            .map_err(|e| errors::diagnostic(py, &e))
-    }
-
-    #[getter]
-    fn complete(&self) -> bool {
-        self.inner.complete
-    }
-    #[getter]
-    fn stop(&self) -> Option<inspection::DiagnosticReport> {
-        self.inner
-            .stop
-            .as_ref()
-            .map(inspection::DiagnosticReport::observe)
-    }
-    fn candidate_rows(&self) -> Vec<Identity<SemanticId>> {
-        self.inner
-            .candidate_rows
-            .iter()
-            .copied()
-            .map(Identity)
-            .collect()
-    }
-    fn background_variables(&self) -> Vec<Identity<SemanticId>> {
-        self.inner
-            .background_variables
-            .iter()
-            .copied()
-            .map(Identity)
-            .collect()
-    }
-    fn attempts(&self) -> Vec<NativeModelingElasticAttempt> {
-        (0..self.inner.attempts.len())
-            .map(|index| NativeModelingElasticAttempt {
-                owner: self.inner.clone(),
-                index,
-            })
-            .collect()
-    }
-}
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Clone, Debug)]
-pub(crate) struct NativeModelingElasticAttempt {
-    owner: Arc<native::ModelingNonlinearExplanation>,
-    index: usize,
-}
-#[pymethods]
-impl NativeModelingElasticAttempt {
-    /// Registry name of the attempt's observation.
-    #[getter]
-    fn observation(&self) -> EnumValue<ModelingElasticObservation> {
-        self.owner.attempts[self.index].observation.into()
-    }
-    #[getter]
-    fn penalty(&self) -> Option<f64> {
-        self.owner.attempts[self.index].penalty
-    }
-    fn omitted(&self) -> Vec<Identity<SemanticId>> {
-        self.owner.attempts[self.index]
-            .omitted
-            .iter()
-            .copied()
-            .map(Identity)
-            .collect()
-    }
-    fn result(&self) -> Option<NativeModelingResult> {
-        self.owner.attempts[self.index]
-            .result
-            .as_ref()
-            .ok()
-            .map(|r| NativeModelingResult {
-                inner: Arc::new(r.clone()),
-            })
-    }
-    fn failure(&self) -> Option<inspection::DiagnosticReport> {
-        self.owner.attempts[self.index]
-            .diagnostic()
-            .as_ref()
-            .map(inspection::DiagnosticReport::observe)
-    }
-}
-
 /// Explicit profile data, with native validation and bounded decoding.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -1443,11 +1136,6 @@ impl NativeModelingKnowledge {
             .map_err(|e| errors::diagnostic(py, &e))
     }
 }
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Clone, Debug)]
-pub(crate) struct NativeModelingDiagnostics {
-    inner: Arc<native::ModelingDiagnostics>,
-}
 /// An owned generated diagnostic transport and its unchanged native attempts.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -1482,135 +1170,6 @@ impl NativeModelingNativeAnalysis {
     fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         inspection::TableStream::from_batch(self.inner.table.clone())
             .map_err(|e| errors::diagnostic(py, &e))
-    }
-}
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Clone, Debug)]
-pub(crate) struct NativeModelingDiagnosticSamples {
-    inner: Arc<native::ModelingDiagnosticSamples>,
-}
-#[pymethods]
-impl NativeModelingDiagnosticSamples {
-    #[getter]
-    fn origin(&self) -> Option<documents::DocumentValue<native::DiagnosticOrigin>> {
-        self.inner.origin.clone().map(documents::DocumentValue)
-    }
-    fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
-        py.detach(|| self.inner.findings_table())
-            .map(inspection::TableStream::from_batch)
-            .map_err(|e| errors::diagnostic(py, &e))?
-            .map_err(|e| errors::diagnostic(py, &e))
-    }
-    fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
-        py.detach(|| self.inner.table())
-            .map(inspection::TableStream::from_batch)
-            .map_err(|e| errors::diagnostic(py, &e))?
-            .map_err(|e| errors::diagnostic(py, &e))
-    }
-
-    #[getter]
-    fn unattempted(&self) -> usize {
-        self.inner.unattempted
-    }
-    /// Registry name of the stop.
-    #[getter]
-    fn stop(&self) -> EnumValue<ModelingDiagnosticSampleStop> {
-        self.inner.stop.into()
-    }
-    fn ids(&self) -> Vec<Identity<SemanticId>> {
-        self.inner
-            .outcomes
-            .iter()
-            .map(|(id, _)| Identity(*id))
-            .collect()
-    }
-    fn result(&self, py: Python<'_>, index: usize) -> PyResult<Option<NativeModelingDiagnostics>> {
-        let (_, result) = self
-            .inner
-            .outcomes
-            .get(index)
-            .ok_or_else(|| invalid(py, "diagnostic sample index"))?;
-        Ok(result.as_ref().ok().map(|inner| NativeModelingDiagnostics {
-            inner: inner.clone(),
-        }))
-    }
-    fn failure(
-        &self,
-        py: Python<'_>,
-        index: usize,
-    ) -> PyResult<Option<inspection::DiagnosticReport>> {
-        let (_, result) = self
-            .inner
-            .outcomes
-            .get(index)
-            .ok_or_else(|| invalid(py, "diagnostic sample index"))?;
-        Ok(result
-            .as_ref()
-            .err()
-            .map(inspection::DiagnosticReport::observe))
-    }
-}
-#[pymethods]
-impl NativeModelingDiagnostics {
-    #[getter]
-    fn origin(&self) -> Option<documents::DocumentValue<native::DiagnosticOrigin>> {
-        self.inner.origin.clone().map(documents::DocumentValue)
-    }
-    fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
-        py.detach(|| self.inner.clone().into_table_cursor(name, 1024))
-            .map(inspection::TableStream::from_result)
-            .map_err(|error| errors::diagnostic(py, &error))
-    }
-
-    #[getter]
-    fn complete(&self) -> bool {
-        self.inner.complete
-    }
-    #[getter]
-    fn profile(&self) -> String {
-        self.inner.profile.clone()
-    }
-    #[getter]
-    fn rank(&self) -> Option<usize> {
-        self.inner.matrix.as_ref().map(|m| m.rank)
-    }
-    #[getter]
-    fn cutoff(&self) -> Option<f64> {
-        self.inner.matrix.as_ref().map(|m| m.cutoff)
-    }
-    fn findings(&self) -> Vec<inspection::DiagnosticReport> {
-        self.inner
-            .findings
-            .iter()
-            .map(inspection::DiagnosticReport::observe)
-            .collect()
-    }
-    fn statistics(&self) -> BTreeMap<String, usize> {
-        self.inner.statistics.clone()
-    }
-    fn coordinates(&self) -> (Vec<Identity<SemanticId>>, Vec<Identity<SemanticId>>) {
-        (
-            self.inner.rows.iter().copied().map(Identity).collect(),
-            self.inner.columns.iter().copied().map(Identity).collect(),
-        )
-    }
-    fn singular_modes(&self) -> Vec<SingularModeTuple> {
-        self.inner
-            .matrix
-            .iter()
-            .flat_map(|m| &m.modes)
-            .map(|m| {
-                (
-                    m.value,
-                    m.left.clone(),
-                    m.right.clone(),
-                    m.left_residual,
-                    m.right_residual,
-                    m.normalization_error,
-                    m.residual_bound,
-                )
-            })
-            .collect()
     }
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]

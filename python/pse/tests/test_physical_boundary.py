@@ -26,7 +26,6 @@ from pse.tests.physical_input_fixture import (
     coordinate_batch,
     inspection_request,
     member,
-    sample_batch,
     stage_batch,
 )
 from pse.tests.test_native_workflow import identity, package_documents, physical_context
@@ -239,60 +238,6 @@ def test_initialization_and_primal_output_keep_converted_keyed_snapshots(
         )
 
 
-@pytest.mark.integration
-def test_diagnostic_samples_keep_sparse_converted_points_after_producer_mutation(
-    local_runtime: pse.Runtime,
-) -> None:
-    runtime = local_runtime
-    package = runtime.modeling_from_documents(
-        [
-            package_documents("""package diagnostic_custody {
-         def Root {var x:Length; var y:Length;
-          eq balance:x+y==0{m}; eq contrast:x-y==6{m};
-          annotation start x(1{m}); annotation start y(-1{m});}
-        }""")
-        ],
-        length_context(runtime),
-    )
-    case = next(
-        row.declaration_id for row in package.declarations() if row.name == "Root"
-    )
-    x, y = (member(package, case, name) for name in ("x", "y"))
-    producer = MutatingStream(
-        centimetres(
-            sample_batch(
-                runtime,
-                [
-                    (identity(241), [(y, -300.0, "Length"), (x, 300.0, "Length")]),
-                    (identity(242), ()),
-                ],
-            )
-        )
-    )
-    profile = (
-        Path(__file__).resolve().parents[3]
-        / "packages/reference/diagnostics/idaes-2.13.json"
-    )
-    result = package.diagnose_samples(
-        case,
-        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-        pse.ModelingDiagnosticSettings.from_json(profile.read_text()),
-        producer,
-    )
-    assert producer.mutated
-    del producer
-    gc.collect()
-    assert result.ids() == (identity(241), identity(242))
-    for ordinal, expected in enumerate(({x: 3.0, y: -3.0}, {x: 1.0, y: -1.0})):
-        report = result.result(ordinal)
-        assert report is not None
-        assert report.complete
-        (row,) = pa.table(report.table()).to_pylist()
-        point = {
-            SemanticId(value["source_id"]): value["value"] for value in row["point"]
-        }
-        for coordinate, value in expected.items():
-            assert point[coordinate] == pytest.approx(value)
 
 
 @pytest.mark.integration

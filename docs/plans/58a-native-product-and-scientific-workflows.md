@@ -628,10 +628,16 @@ The affected two then pass, zero failures, using the same flags and selecting on
 all-pass campaign or H qualification:
 
 ```sh
-scripts/pse-env --native=compiler,solver,klu --   scripts/cargo-bin/cargo-pse-correctness nextest run --locked -p pse-runtime   --test native_local_study --test native_source_reload --test native_diagnostics   --test native_repeated_analysis --lib   --features native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-scip,solver-highs,solver-diffsol,solver-pounce   -E 'binary(native_local_study) | binary(native_source_reload) | binary(native_diagnostics) | binary(native_repeated_analysis) | test(project_operator_wire_defaults_effects_and_public_projection_set_remain_owned)'   --no-fail-fast
+scripts/pse-env --native=compiler,solver,klu -- \
+  scripts/cargo-bin/cargo-pse-correctness nextest run --locked -p pse-runtime \
+  --test native_local_study --test native_source_reload --test native_diagnostics \
+  --test native_repeated_analysis --lib \
+  --features native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-scip,solver-highs,solver-diffsol,solver-pounce \
+  -E 'binary(native_local_study) | binary(native_source_reload) | binary(native_diagnostics) | binary(native_repeated_analysis) | test(project_operator_wire_defaults_effects_and_public_projection_set_remain_owned)' \
+  --no-fail-fast
 ```
 
-The diagnostic grid initially assumed bare variable paths; its receiving coordinates now use
+The diagnostic sample caller initially assumed bare variable paths; its receiving coordinates now use
 actual prepared source-instance lineage and require unique selected diagnostic columns. The
 two-point design initially allowed 100 work units while the generator requires 160; a finite
 256-unit fixture allowance admits the intended geometry without changing scientific assertions
@@ -645,4 +651,49 @@ retains its explicit `product-operators` gate. The post-relocation repeated-anal
 retained-action declaration controls pass in the selection above. This correction changes no
 production interface. Diagnostic projection retirement follows this passing native evidence;
 shared F05 settings, campaign admission/handoff types and source/telemetry consumers keep their
-owners. Project draft/source-selection construction is the next A02 native consumer slice.
+owners. The project-source follow-up below supplies the next A02 native consumer slice.
+
+
+### Diagnostic retirement and native project-source follow-up
+
+**Implemented:** the diagnostic Python cut is integrated across its five methods, four result
+classes, singular-mode tuple, registration/exports and compiled stub. Shared diagnostic settings,
+native-analysis output, source maps, knowledge and process diagnostics remain for actual
+consumers. [G's diagnostic cut](58g-boundary-retirement-and-optional-consumers.md#native-diagnostic-consumer-cut)
+owns that boundary. The native singular caller now also exercises public Jacobian requests and
+full/attempt-limited exports, including supplied origin, original source/numerical identity,
+exact row/variable nominals, source-attributed conditioning and irreducible sets. Source fields
+must cover both original equations before their document/spans are checked. Independent review
+identified those two missing receiving assertions; the corrections preserve the original
+scientific contract rather than relying only on a lower-level optimization control.
+
+**Implemented:** the repeated-analysis journey now invokes a public native project-source
+consumer within its existing private service. A separate project/branch/problem retains
+parameter values 1→2→3 through native document admission, source fork, opaque draft custody,
+typed draft admission/publication, immutable versions and branch/bookmark selections. Raw
+malformed bytes never become scientific publication. Accepted publication replay settles its
+original intent before consulting a later mutable draft; selected source remains exact after
+new heads and rename. Issuer, parent and physical-premise refusals preserve the original head
+and bytes. No additional runtime, executor or canonical service is created. Broader project
+operator/export and delivery-custody assertions keep their existing G/E/F owners.
+
+**Tested:** two focused tests pass, zero failures/skips, five excluded (run
+`fa6c1f4f-be70-4c5d-881f-aafeb5e28504`). The same explicit private-service/module correctness
+route selects `--test native_diagnostics --test native_repeated_analysis`, the feature set
+above including `solver-pounce`, and
+`-E 'test(singular_diagnostics_preserve_missing_values_source_map_and_owned_modes) | binary(native_repeated_analysis)'`.
+This establishes the added public Jacobian/export/source-field controls and the composed native
+project-source/repeated-analysis consumer. It does not rerun unmodified scientific modes or H.
+
+**Interface-checked:** the reduced `pse-py` build and actual compiled-stub publication pass with
+the preceding prepared build/stub commands. The retained project/research facade and diagnostic
+settings-envelope controls pass eight cases, zero failures, using the explicit compiled image,
+private `--basetemp`, `python/pse/tests/test_project_operation_facade.py` and
+`python/pse/tests/test_standalone_document_wire.py::test_standalone_native_byte_ingress_uses_the_same_envelope`.
+No extension installation or broad Python component qualification is claimed.
+
+Before the final focused native run, `cargo clean -p pse-runtime` reclaimed 103.5 GiB of
+package-owned outputs under the maintainer's existing cleanup authorization. Filesystem available
+space increased by about 100.4 GiB; prepared host tools, the canonical-service helper, extension
+image, caches outside that package and databases remained. The subsequent run includes its cold
+runtime compile cost. This is storage housekeeping, not a measured execution-speed benefit.

@@ -150,6 +150,27 @@ root refused ownership before any tests; selecting a private temporary root fixe
 without changing shared temporary files. These are interface controls, not scientific or
 complete Python qualification.
 
+### Native diagnostic consumer cut
+
+The A04 public diagnostic callers now preserve the scientific claims for singular/missing-value
+analysis, physical sparse samples, affine and local nonlinear evidence, shared authored checks
+and admitted knowledge. Existing native scientific-mode callers preserve the separate Jacobian
+search. A07 deletes the five Python diagnostic methods, their four result classes and singular
+mode tuple, Rust/PyO3 forwarding/registration, public aliases/exports, and migrated scientific
+assertions. Native typed request/document/report owners and `ModelingNativeAnalysis` remain.
+`ModelingDiagnosticSettings` stays because F05's actual conformance parser and document-wire
+controls consume it. The fixed-fixture test retains only its still-consumed conformance CLI
+and authored adapter/admission assertions. Process capture/review in `pse.diagnostics`,
+thermodynamic campaign diagnostics and isolated reference functions keep their distinct owners.
+[A's source/local/diagnostic checkpoint](58a-native-product-and-scientific-workflows.md#native-source-reload-local-studies-and-diagnostic-callers)
+owns the composite selected native evidence and repaired fixture failures. A02's Python reload
+method also remains for actual source/adoption and telemetry consumers, despite retirement of
+its three duplicate parsed-reload scientific tests. This is no claim of complete G03 or H.
+The reduced native build and actual compiled-stub publication pass; eight retained facade and
+settings-envelope controls pass, zero failures, with the explicit image and private temporary
+root. A's follow-up records the added public Jacobian/export and nonempty source-attribution
+checks and their passing focused native run. No generated output is hand-edited.
+
 ## Selected ordinary host retirement checkpoint — 2026-10-28
 
 The B02/B03/F01/F02 wave now cuts ordinary environment/foreground/Cargo entry points to Rust.

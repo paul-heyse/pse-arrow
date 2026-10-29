@@ -15,6 +15,8 @@
 #[cfg(feature = "product-operators")]
 #[path = "native_project_views_support/mod.rs"]
 mod project_views;
+#[path = "native_project_sources_support/mod.rs"]
+mod project_sources;
 
 use datafusion::{arrow::array::{Array, FixedSizeBinaryArray, Float64Array, Int64Array}, prelude::{SessionContext, col}, logical_expr::JoinType};
 use futures_util::{FutureExt, StreamExt, future::BoxFuture};
@@ -944,6 +946,7 @@ fn journey<'a>(science: &'a mut Science, service: &'a mut NativeCanonicalService
         let data = Data::new(read_ready.store());
         let package = science.package().await;
         let runtime = &science.runtimes[0];
+        Box::pin(project_sources::check(runtime, package.physical_context().clone())).await.unwrap();
         store.create_project("create-analysis-project", "analysis-project", "Repeated native analysis")
             .await.unwrap();
         let project = store.project("analysis-project").await.unwrap().unwrap();

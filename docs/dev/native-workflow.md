@@ -32,10 +32,10 @@ source strings do not instantiate external implementations.
 | `admit_study` / `study` | Owned local study and isolated outcomes with explicit accepted-predecessor dependencies; admission/execution need no store. `LocalStudy.execute()` retains its model and physical inputs. |
 | `Runtime.record_study` / `start_study` / `execute_study` | Explicit exact-source recording yields a portable descriptor; start submits it to durable workers and execute joins its retained outcomes ([studies across workers](operational-store.md#studies-across-workers)). |
 | `simulate` | Native trajectory, actual termination and checks at requested sample times |
-| `diagnose` / `diagnose_samples` | Bounded structural and numerical findings at declared points; missing free values remain missing |
-| `diagnose_linear` | HiGHS IIS, rays, ranging and explicitly penalized relaxation of an affine model |
-| `diagnose_jacobian` | LP/MILP evidence about local scaled-Jacobian dependence |
-| `explain_nonlinear` | Bounded elastic deletion evidence under unchanged bounds; local obstruction and inconclusive outcomes remain distinct |
+| `diagnose_case_request` / `diagnose_samples_request` | Bounded structural and numerical findings at declared points; missing free values remain missing |
+| `diagnose_linear_request` | HiGHS IIS, rays, ranging and explicitly penalized relaxation of an affine model |
+| `diagnose_jacobian_request` | LP/MILP evidence about local scaled-Jacobian dependence |
+| `explain_case_request` | Bounded elastic deletion evidence under unchanged bounds; local obstruction and inconclusive outcomes remain distinct |
 | `conform` | Data-authored fixtures receive the shared preparation, DoF, derivative, envelope, start-to-solve, closure and expectation checks |
 
 Result handles and their `table()` exports own their data independently of the source
@@ -109,6 +109,10 @@ source admission and independent equation checks. The
 and structure with `SourceDelta`/`with_delta`, then re-solves while retaining the earlier result.
 The [exact-parent reload caller](../../crates/pse-runtime/tests/native_source_reload.rs)
 compares complete document replacement with fresh admission and preserves immutable history.
+The [native project-source consumer](../../crates/pse-runtime/tests/native_project_sources_support/mod.rs)
+composes draft custody, typed admission/publication and immutable branch/bookmark selections on
+an existing canonical caller. Saving raw bytes does not admit science; accepted publication
+replay uses its original immutable intent before later mutable draft contents.
 Typed failures and partial results retain their original scientific scope. Detaching an
 observer does not cancel its run; actual cancellation and native completion remain separate.
 Specialized dynamics, strategies and host-only shooting use their existing native owners;
@@ -164,6 +168,9 @@ explanation, shared authored checks and owned knowledge tables. The
 [store-free local-study caller](../../crates/pse-runtime/tests/native_local_study.rs) preserves
 occurrence identity, dependency refusal without execution, lazy selected source and compact
 detail custody through `LocalStudy::execute`.
+Modeling diagnostics, physical sample campaigns and nonlinear explanations use their native
+owners directly; their Python result projections are retired. Shared diagnostic settings
+remain only where the retained developer conformance parser consumes them.
 
 ## Dynamics and fitting
 

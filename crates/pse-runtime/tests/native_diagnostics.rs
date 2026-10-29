@@ -25,11 +25,13 @@ use pse_model::{diagnostic::{BoundaryClass, BoundaryDiagnostic}, generated::{
 }};
 use pse_relations::{columnar::{FieldCheckedBatch, RelationRow}, generated::runtime::{
     diagnostic_samples, modeling_checks, modeling_conformance, modeling_diagnostic_samples,
-    modeling_diagnostics, modeling_findings, modeling_initializations, modeling_knowledge,
+    modeling_diagnostics, modeling_findings, modeling_initializations, modeling_jacobian_optimization,
+    modeling_knowledge,
     modeling_linear_diagnostics, modeling_nonlinear_explanations, modeling_reports,
 }};
 use pse_runtime::{CancelSource, workflow::{ConformanceControls, DiagnosticOrigin,
-    DiagnosticSamples, DiagnosticSamplesControls, InitializationOverrides, LinearDiagnosticControls,
+    DiagnosticSamples, DiagnosticSamplesControls, InitializationOverrides, JacobianDiagnosticControls,
+    LinearDiagnosticControls,
     ModelingDiagnosticPolicy, ModelingNonlinearPolicy, ModelingPackage, ModelingSourceMapDocument,
     PreparationSettings}};
 use reference_support::{NativeContext, Result, root};
@@ -136,7 +138,11 @@ async fn singular_diagnostics_preserve_missing_values_source_map_and_owned_modes
             declaration(&context,&package,"b").await?.as_id()].into_iter().collect::<BTreeSet<_>>();
         assert_eq!(source_map.members.iter().filter(|member| report.rows.contains(&member.member))
             .map(|member| member.declaration).collect::<BTreeSet<_>>(), equations);
-        for field in source_map.fields.iter().filter(|field| equations.contains(&field.declaration)) {
+        let equation_fields = source_map.fields.iter().filter(|field| equations.contains(&field.declaration))
+            .collect::<Vec<_>>();
+        assert_eq!(equation_fields.iter().map(|field|field.declaration).collect::<BTreeSet<_>>(),equations,
+            "both original equations must retain source fields before checking their spans");
+        for field in equation_fields {
             assert!(field.document.is_some() && !field.role.is_empty());
             let (start,end) = (field.start.unwrap(),field.end.unwrap());
             assert!(start < end && end as usize <= source.len());
@@ -159,13 +165,24 @@ async fn singular_diagnostics_preserve_missing_values_source_map_and_owned_modes
         let table = report.table("runtime.modeling_diagnostics")?;
         let findings = report.table("runtime.modeling_findings")?;
         let document = serde_json::to_vec(source_map)?;
+        // Exercise the public request and its generated export, in addition to
+        // the lower-level optimization science in native_scientific_modes.
+        let native = Box::pin(package.diagnose_jacobian_request(&services,sample,&prep,
+            settings(None,SolveIntent::Root),JacobianDiagnosticControls {
+                maximum_attempts:4,..Default::default() },Some(origin()),&cancel)).await?;
+        assert_eq!(native.relation,"runtime.modeling_jacobian_optimization");
+        assert_eq!(native.attempts.len(),4);
+        assert_eq!(serde_json::to_value(&native.origin)?,serde_json::to_value(Some(origin()))?);
+        let limited = Box::pin(package.diagnose_jacobian_request(&services,sample,&prep,
+            settings(None,SolveIntent::Root),JacobianDiagnosticControls {
+                maximum_attempts:1,..Default::default() },None,&cancel)).await?;
         let mut invalid = policy()?;
         invalid.terms.maximum_terms = 1;
         assert!(invalid.validate().is_err());
         drop((report,missing,map,package));
-        Ok((table,findings,document))
+        Ok((table,findings,document,native.table.clone(),limited.table.clone()))
     }).catch_unwind().await;
-    let (table,findings,document) = finish(outcome,context.close().await)?;
+    let (table,findings,document,native,limited) = finish(outcome,context.close().await)?;
     let rows = modeling_diagnostics::Row::rows(&table)?;
     let row = &rows[0];
     let matrix = row.matrix.as_ref().unwrap();
@@ -189,6 +206,37 @@ async fn singular_diagnostics_preserve_missing_values_source_map_and_owned_modes
     let map: ModelingSourceMapDocument = serde_json::from_slice(&document)?;
     map.validate()?;
     assert_eq!(map.rows,row.rows);
+    let native_rows = modeling_jacobian_optimization::Row::rows(&native)?;
+    let [native] = native_rows.as_slice() else {panic!("one exported original Jacobian analysis")};
+    assert!(native.complete && native.unavailable.is_empty());
+    assert_eq!(native.attempts.len(),4);
+    assert_eq!(serde_json::from_str::<serde_json::Value>(native.origin_json.as_ref().unwrap())?,
+        serde_json::to_value(origin())?);
+    assert_eq!(native.source_identity,row.source_identity);
+    assert_eq!(native.numerical_identity,row.numerical_identity);
+    assert_eq!(native.row_nominals.iter().map(|item|item.source_id).collect::<Vec<_>>(),row.rows);
+    assert_eq!(native.variable_nominals.iter().map(|item|item.source_id).collect::<Vec<_>>(),row.columns);
+    assert_eq!(native.row_nominals.iter().map(|item|(item.source_id,item.value)).collect::<Vec<_>>(),
+        row.row_nominals.iter().map(|item|(item.source_id,item.value)).collect::<Vec<_>>());
+    assert_eq!(native.variable_nominals.iter().map(|item|(item.source_id,item.value)).collect::<Vec<_>>(),
+        row.variable_nominals.iter().map(|item|(item.source_id,item.value)).collect::<Vec<_>>());
+    assert!(!native.conditioning.is_empty());
+    let original_rows = row.rows.iter().copied().collect::<BTreeSet<_>>();
+    assert_eq!(native.conditioning[0].weights.iter().map(|weight|weight.source_id).collect::<BTreeSet<_>>(),
+        original_rows);
+    assert!(native.conditioning.iter().all(|certificate|original_rows.contains(&certificate.pivot)
+        && certificate.weights.iter().all(|weight|original_rows.contains(&weight.source_id))));
+    let [degenerate] = native.degenerate.as_slice() else {panic!("one original two-row degenerate set")};
+    assert!(degenerate.irreducible_at_tolerance);
+    assert_eq!(degenerate.rows.iter().copied().collect::<BTreeSet<_>>(),original_rows);
+    assert_eq!(degenerate.certificate.weights.iter().map(|weight|weight.source_id).collect::<BTreeSet<_>>(),
+        original_rows);
+    let limited = modeling_jacobian_optimization::Row::rows(&limited)?;
+    assert_eq!(limited.len(),1);
+    assert!(!limited[0].complete);
+    assert_eq!(limited[0].attempts.len(),1);
+    assert!(limited[0].degenerate.is_empty());
+    assert!(limited[0].unavailable.iter().any(|reason|reason.contains("attempt budget")));
     Ok(())
 }
 

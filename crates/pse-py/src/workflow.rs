@@ -16,10 +16,9 @@ mod settings;
 mod source_settlement;
 pub(crate) use modeling::{
     ModelingDiagnosticSettings, ModelingLimits, NativeLocalStudy,
-    NativeModelingConformance, NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
-    NativeModelingElasticAttempt, NativeModelingInitialization,
+    NativeModelingConformance,     NativeModelingInitialization,
     NativeModelingInitializationAttempt, NativeModelingKnowledge, NativeModelingNativeAnalysis,
-    NativeModelingNonlinearExplanation, NativeModelingPackage, NativeModelingResult,
+    NativeModelingPackage, NativeModelingResult,
     NativeModelingTrajectory, NativeStudyReport,
 };
 use routes::{NativeEligibility, NativeRoute};

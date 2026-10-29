@@ -51,7 +51,6 @@ from pse.contracts.documents import (
     DiagnosticExecutionRequestOutput,
     DiagnosticListRequest,
     DiagnosticListRequestOutput,
-    DiagnosticOrigin,
     DiagnosticOriginOutput,
     DiagnosticProcessPageOutput,
     DiagnosticReproducer,
@@ -239,8 +238,6 @@ from pse.contracts.enums import (
     DynamicsMethod,
     FailureClass,
     LiveSimulationEventKind,
-    ModelingDiagnosticSampleStop,
-    ModelingElasticObservation,
     ModelingInitializationStep,
     NativeBackend,
     NativeBoundaryClass,
@@ -634,52 +631,6 @@ class NativeModelingConformance:
     def trajectory(self, /, fixture_id: DeclarationId) -> NativeModelingTrajectory: ...
 
 @final
-class NativeModelingDiagnosticSamples:
-    def failure(self, /, index: int) -> DiagnosticReport | None: ...
-    def findings(self, /) -> TableStream: ...
-    def ids(self, /) -> list[SemanticId]: ...
-    @property
-    def origin(self, /) -> DiagnosticOriginOutput | None: ...
-    def result(self, /, index: int) -> NativeModelingDiagnostics | None: ...
-    @property
-    def stop(self, /) -> ModelingDiagnosticSampleStop: ...
-    def table(self, /) -> TableStream: ...
-    @property
-    def unattempted(self, /) -> int: ...
-
-@final
-class NativeModelingDiagnostics:
-    @property
-    def complete(self, /) -> bool: ...
-    def coordinates(self, /) -> tuple[list[SemanticId], list[SemanticId]]: ...
-    @property
-    def cutoff(self, /) -> float | None: ...
-    def findings(self, /) -> list[DiagnosticReport]: ...
-    @property
-    def origin(self, /) -> DiagnosticOriginOutput | None: ...
-    @property
-    def profile(self, /) -> str: ...
-    @property
-    def rank(self, /) -> int | None: ...
-    def singular_modes(
-        self, /
-    ) -> list[
-        tuple[float, list[float], list[float], float | None, float | None, float, float]
-    ]: ...
-    def statistics(self, /) -> dict[str, int]: ...
-    def table(self, /, name: str) -> TableStream: ...
-
-@final
-class NativeModelingElasticAttempt:
-    def failure(self, /) -> DiagnosticReport | None: ...
-    @property
-    def observation(self, /) -> ModelingElasticObservation: ...
-    def omitted(self, /) -> list[SemanticId]: ...
-    @property
-    def penalty(self, /) -> float | None: ...
-    def result(self, /) -> NativeModelingResult | None: ...
-
-@final
 class NativeModelingInitialization:
     def attempts(self, /) -> list[NativeModelingInitializationAttempt]: ...
     def committed_values(self, /) -> dict[SemanticId, float] | None: ...
@@ -724,18 +675,6 @@ class NativeModelingNativeAnalysis:
     def table(self, /) -> TableStream: ...
 
 @final
-class NativeModelingNonlinearExplanation:
-    def attempts(self, /) -> list[NativeModelingElasticAttempt]: ...
-    def background_variables(self, /) -> list[SemanticId]: ...
-    def candidate_rows(self, /) -> list[SemanticId]: ...
-    @property
-    def complete(self, /) -> bool: ...
-    def findings(self, /) -> TableStream: ...
-    @property
-    def stop(self, /) -> DiagnosticReport | None: ...
-    def table(self, /) -> TableStream: ...
-
-@final
 class NativeModelingPackage:
     def admit_study(self, /, request: bytes) -> NativeLocalStudy: ...
     @property
@@ -757,44 +696,6 @@ class NativeModelingPackage:
         self, /, request: ModelingDeclarationRequest
     ) -> ModelingDeclarationPage: ...
     def declarations(self, /) -> DeclarationInventoryOutput: ...
-    def diagnose(
-        self,
-        /,
-        case_id: DeclarationId,
-        settings: SolveSettings | SolveSettingsOutput,
-        diagnostics: ModelingDiagnosticSettings,
-        *,
-        origin: DiagnosticOrigin | DiagnosticOriginOutput | None = None,
-    ) -> NativeModelingDiagnostics: ...
-    def diagnose_jacobian(
-        self,
-        /,
-        case_id: DeclarationId,
-        settings: SolveSettings | SolveSettingsOutput,
-        *,
-        controls: bytes | None = None,
-        origin: DiagnosticOrigin | DiagnosticOriginOutput | None = None,
-    ) -> NativeModelingNativeAnalysis: ...
-    def diagnose_linear(
-        self,
-        /,
-        case_id: DeclarationId,
-        settings: SolveSettings | SolveSettingsOutput,
-        *,
-        controls: bytes | None = None,
-        origin: DiagnosticOrigin | DiagnosticOriginOutput | None = None,
-    ) -> NativeModelingNativeAnalysis: ...
-    def diagnose_samples(
-        self,
-        /,
-        case_id: DeclarationId,
-        settings: SolveSettings | SolveSettingsOutput,
-        diagnostics: ModelingDiagnosticSettings,
-        samples: ArrowInput,
-        *,
-        controls: bytes | None = None,
-        origin: DiagnosticOrigin | DiagnosticOriginOutput | None = None,
-    ) -> NativeModelingDiagnosticSamples: ...
     def diagnostic_source_map(
         self,
         /,
@@ -803,13 +704,6 @@ class NativeModelingPackage:
         maximum_bytes: int,
         time_limit: float,
     ) -> ModelingSourceMapDocumentOutput: ...
-    def explain_nonlinear(
-        self,
-        /,
-        case_id: DeclarationId,
-        settings: SolveSettings | SolveSettingsOutput,
-        policy: bytes,
-    ) -> NativeModelingNonlinearExplanation: ...
     def initialize(
         self,
         /,

@@ -1497,7 +1497,10 @@ only, and robust optimization is not implemented.
 
 **Implemented:** durable browse/cancel/reconcile is available on the native canonical connection
 independently of scientific Runtime construction, mathematical preparation and Python. The Python
-HTTP control client and its dedicated harnesses are retired under proposed ADR-0233. The retained
+HTTP control client and its dedicated harnesses are retired under proposed ADR-0233.
+Modeling diagnostic, diagnostic-sample and nonlinear-explanation Python projections are also
+retired; their native typed operations and owned reports remain. The shared Python diagnostic
+settings parser remains for the separately retained developer conformance consumer. The retained
 scientific distribution still loads its actual native image at the scientific gate; generated
 document imports do not initialize science. Scientific execution, retained-data capabilities and
 physical settlement keep their distinct owners. Plan58 D04/G03 own current consumer cutovers and

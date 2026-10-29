@@ -18,22 +18,17 @@ from pse.conformance import RunSummary, load_manifest
 from pse.conformance import main as conformance_main
 from pse.contracts import documents
 from pse.contracts.enums import (
-    DiagnosticCode,
-    DiagnosticRule,
-    DiagnosticStage,
     DynamicsMethod,
     NativeBackend,
-    NativeBoundaryClass,
     NativeSolveIntent,
 )
-from pse.contracts.identities import DeclarationId, RunId
+from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
 from pse.tests.physical_input_fixture import (
     coordinate_batch,
     inspection_request,
     member,
-    sample_batch,
 )
 
 
@@ -606,481 +601,12 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
     assert report_rows[0]["value"] == pytest.approx(1.3862943611198906, abs=1e-6)
 
 
-@pytest.mark.integration
-def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
-    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
-) -> None:
-    runtime = canonical_substrate.runtime(inspection_settings)
-    root = Path(__file__).resolve().parents[3]
-    source = f'''@id("{identity(221).to_hex()}") package diagnostic {{
- @id("{identity(222).to_hex()}") def D {{
-  @id("{identity(223).to_hex()}") var x:Scalar;
-  @id("{identity(224).to_hex()}") var y:Scalar;
-  @id("{identity(235).to_hex()}") annotation nominal x(2);
-  @id("{identity(236).to_hex()}") annotation nominal y(4);
-  @id("{identity(225).to_hex()}") eq a:x+y==0;
-  @id("{identity(226).to_hex()}") eq b:2*x+2*y==0;
- }}
- @id("{identity(220).to_hex()}") test sample fixture {{
-  dof 0; value root.x=1; value root.y=-1;
- }} {{
-  @id("{identity(227).to_hex()}") child root:D=D();
-  @id("{identity(228).to_hex()}") expect root.x==1 tolerance 1e-6;
- }}
- @id("{identity(229).to_hex()}") case unstarted {{
-  @id("{identity(232).to_hex()}") child root:D=D();
- }}
-}}'''
-    package = runtime.modeling_from_documents(
-        [
-            {
-                "package.toml": on_primitives(
-                    (
-                        root / "tests/fixtures/packages/minimal_explicit/package.toml"
-                    ).read_text()
-                ),
-                "models/diagnostic.pse": source,
-            }
-        ],
-        physical(runtime),
-    )
-    policy = {
-        "document_version": 1,
-        "profile": "synthetic",
-        "maximum_findings": 50,
-        "near_bound_absolute": 1e-4,
-        "near_bound_relative": 1e-4,
-        "bound_violation": 0.0,
-        "residual": 1e-5,
-        "variable_small": 1e-4,
-        "variable_large": 1e4,
-        "variable_zero": 1e-8,
-        "jacobian_small": 1e-4,
-        "jacobian_large": 1e4,
-        "matrix": {
-            "dense_entries": 100,
-            "findings": 50,
-            "parallel_tolerance": 1e-8,
-            "rank_absolute": 1e-12,
-            "rank_relative": 1e-8,
-            "singular_vector": 0.1,
-        },
-        "terms": {
-            "zero": 1e-10,
-            "mismatch": 1e6,
-            "cancellation": 1e-4,
-            "maximum_terms": 5,
-            "combinations": 100,
-            "findings": 50,
-        },
-    }
-    settings = pse.ModelingDiagnosticSettings.from_json(
-        msgspec.json.encode(policy).decode()
-    )
-    assert msgspec.json.decode(settings.to_json()) == policy
-    report = package.diagnose(
-        declaration(220), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings
-    )
-    assert report.origin is None, (
-        "standalone diagnostics cannot invent an originating run"
-    )
-    original_failure = documents.BoundaryDiagnosticBody(
-        class_=NativeBoundaryClass.NUMERICAL,
-        code=DiagnosticCode.NATIVE_NUMERICAL,
-        rule=DiagnosticRule.NATIVE_NUMERICAL,
-        stage=DiagnosticStage.NATIVE,
-        sources=(identity(245),),
-        observations={},
-    )
-    origin = documents.DiagnosticOrigin(
-        run_id=RunId(identity(240)),
-        attempt_id=None,
-        step=1,
-        native_attempt=None,
-        operation=None,
-        failure=original_failure,
-    )
-    assert (
-        codec.decode_json(codec.encode_json(origin), documents.DiagnosticOrigin)
-        == origin
-    )
-    missing = package.diagnose(
-        declaration(229),
-        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-        settings,
-        origin=origin,
-    )
-    assert codec.encode_json(missing.origin) == codec.encode_json(origin), (
-        "incomplete analysis preserves supplied original context"
-    )
-    assert missing.statistics()["missing_values"] == 2
-    assert not missing.complete
-    assert pa.table(missing.table()).to_pylist()[0]["point"] == []
-    _, missing_columns = missing.coordinates()
-    supplied = package.diagnose_samples(
-        declaration(229),
-        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-        settings,
-        sample_batch(
-            runtime,
-            [
-                (
-                    identity(233),
-                    [
-                        (missing_columns[0], 1.0, "Scalar"),
-                        (missing_columns[1], -1.0, "Scalar"),
-                    ],
-                )
-            ],
-        ),
-        origin=origin,
-    )
-    assert codec.encode_json(supplied.origin) == codec.encode_json(origin)
-    supplied_report = supplied.result(0)
-    assert supplied_report is not None
-    assert supplied_report.complete
-    supplied_origin = supplied_report.origin
-    assert codec.encode_json(supplied_origin) == codec.encode_json(origin)
-    assert supplied_origin is not None
-    assert codec.encode_json(supplied_origin.failure) == codec.encode_json(
-        original_failure
-    )
-    exported_origin = pa.table(supplied_report.table()).to_pylist()[0]["origin_json"]
-    assert codec.encode_json(
-        codec.decode_json(exported_origin, documents.DiagnosticOriginBody)
-    ) == codec.encode_json(
-        msgspec.convert(
-            origin, type=documents.DiagnosticOriginBody, from_attributes=True
-        )
-    )
-    sample_origin = pa.table(supplied.table()).to_pylist()[0]["origin_json"]
-    assert codec.encode_json(
-        codec.decode_json(sample_origin, documents.DiagnosticOriginBody)
-    ) == codec.encode_json(
-        msgspec.convert(
-            origin, type=documents.DiagnosticOriginBody, from_attributes=True
-        )
-    )
-    with pytest.raises(pse.InspectionError, match="missing case value"):
-        package.solve_case(
-            declaration(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
-        )
-    expired = pse.SolveSettings(
-        intent=NativeSolveIntent.ROOT, controls=pse.SolveControls(time_limit=1e-9)
-    )
-    with pytest.raises(pse.InspectionError):
-        package.diagnose(declaration(220), expired, settings, origin=origin)
-    with pytest.raises(pse.InspectionError):
-        package.diagnose_samples(
-            declaration(220),
-            expired,
-            settings,
-            sample_batch(runtime, [(identity(230), ())]),
-            origin=origin,
-        )
-    rows, columns = report.coordinates()
-    source_settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
-    # Refused inspection allowances must not replace the available diagnostic product.
-    for maximum_bytes, time_limit in (
-        (0, 30.0),
-        (4 << 20, 0.0),
-        (4 << 20, float("nan")),
-    ):
-        with pytest.raises(pse.InspectionError):
-            package.diagnostic_source_map(
-                declaration(220),
-                source_settings,
-                maximum_bytes=maximum_bytes,
-                time_limit=time_limit,
-            )
-    source_map = package.diagnostic_source_map(
-        declaration(220), source_settings, maximum_bytes=4 << 20, time_limit=30.0
-    )
-    source_map_bytes = codec.encode_json(source_map)
-    assert (
-        codec.decode_json(source_map_bytes, documents.ModelingSourceMapDocument)
-        == source_map
-    )
-    assert source_map.scope == "static_eligible_alternatives"
-    assert source_map.rows == rows
-    assert source_map.columns == columns
-    assert "no transformed native attempt" in source_map.native_pullback_unavailable
-    assert source_map.source_identity.to_prefixed().startswith("blake3:")
-    assert source_map.numerical_identity.to_prefixed().startswith("blake3:")
-    original_equations = {identity(225), identity(226)}
-    fields = [
-        field for field in source_map.fields if field.declaration in original_equations
-    ]
-    assert fields
-    for field in fields:
-        assert field.document is not None
-        assert field.start is not None
-        assert field.end is not None
-        assert 0 <= field.start < field.end <= len(source.encode())
-        assert field.role
-        assert field.position >= 0
-    members = {member.member: member for member in source_map.members}
-    assert {members[row].declaration for row in source_map.rows} == original_equations
-    templates = {template.template: template for template in source_map.templates}
-    assert templates
-    assert source_map.instances
-    for occurrence in source_map.instances:
-        assert occurrence.demands
-        assert all(original in members for _, original in occurrence.checked_members)
-        for demand in occurrence.demands:
-            template = templates[demand.template]
-            assert template.body == occurrence.body
-            assert template.outputs == demand.outputs
-            assert template.coordinates == demand.coordinates
-            assert template.product == "selected_partials", (
-                "First-order inspection does not silently compile action products"
-            )
-            assert all(
-                origin.start_output < origin.end_output
-                and (origin.source is None) == (origin.source_unavailable is not None)
-                for origin in template.arithmetic
-            )
-    samples = package.diagnose_samples(
-        declaration(220),
-        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-        settings,
-        sample_batch(
-            runtime,
-            [(identity(230), [(columns[0], 2.0, "Scalar")]), (identity(232), ())],
-        ),
-    )
-    assert samples.stop == "completed"
-    assert samples.unattempted == 0
-    assert samples.ids() == (identity(230), identity(232))
-    assert samples.result(0) is not None
-    assert samples.failure(1) is None
-    sample_outcomes = pa.table(samples.table()).to_pylist()[0]["outcomes"]
-    sample_findings = samples.findings()
-    failure_rows = pa.table(sample_findings).to_pylist()
-    assert all(outcome["failure_ordinal"] is None for outcome in sample_outcomes)
-    assert not failure_rows
-    with pytest.raises(pse.InspectionError, match="unknown physical coordinate"):
-        package.diagnose_samples(
-            declaration(220),
-            pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-            settings,
-            sample_batch(runtime, [(identity(231), [(identity(249), 1.0, "Scalar")])]),
-        )
-    sampled = samples.result(1)
-    assert sampled is not None
-    assert sampled.complete
-    reference = pse.ModelingDiagnosticSettings.from_json(
-        (root / "packages/reference/diagnostics/idaes-2.13.json").read_text()
-    )
-    assert msgspec.json.decode(reference.to_json())["profile"] == "idaes-2.13"
-    capped = package.diagnose_samples(
-        declaration(220),
-        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-        reference,
-        sample_batch(runtime, [(identity(230), ()), (identity(231), ())]),
-        controls=pse.DiagnosticSamplesControls(maximum_samples=1),
-    )
-    assert capped.stop == "sample_limit"
-    assert capped.unattempted == 1
-    native = package.diagnose_jacobian(
-        declaration(220),
-        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-        controls=pse.JacobianDiagnosticControls(maximum_attempts=4),
-        origin=origin,
-    )
-    assert native.origin == origin
-    assert len(native.attempts()) == 4
-    native_table = native.table()
-    native_origin = pa.table(native.table()).to_pylist()[0]["origin_json"]
-    assert codec.decode_json(native_origin, documents.DiagnosticOrigin) == origin
-    limited = package.diagnose_jacobian(
-        declaration(220),
-        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-        controls=pse.JacobianDiagnosticControls(maximum_attempts=1),
-    )
-    limited_row = pa.table(limited.table()).to_pylist()[0]
-    assert not limited_row["complete"]
-    assert len(limited_row["attempts"]) == 1
-    del native, limited
-    sample_table = samples.table()
-    capped_table = capped.table()
-    diagnostic_table = report.table()
-    finding_table = report.table("runtime.modeling_findings")
-    with pytest.raises(pse.InspectionError, match="finite"):
-        package.diagnose_samples(
-            declaration(220),
-            pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-            settings,
-            sample_batch(
-                runtime, [(identity(234), [(columns[0], float("nan"), "Scalar")])]
-            ),
-        )
-    del samples, capped
-    del package, runtime
-    assert sampled.rank == 1
-    assert report.complete
-    assert report.profile == "synthetic"
-    assert report.rank == 1
-    assert report.cutoff is not None
-    assert report.cutoff > 0
-    assert report.statistics()["variables"] == 2
-    rows, columns = report.coordinates()
-    assert len(rows) == len(columns) == 2
-    modes = report.singular_modes()
-    assert len(modes) == 2
-    assert len(modes[0].left) == len(modes[0].right) == 2
-    assert modes[0].left_residual is not None
-    assert modes[0].right_residual is not None
-    assert modes[0].left_residual <= modes[0].residual_bound
-    assert modes[0].right_residual <= modes[0].residual_bound
-    assert all(
-        mode.normalization_error >= 0 and mode.residual_bound > 0 for mode in modes
-    )
-    assert all(
-        sum(value * value for value in mode.left) == pytest.approx(1.0, abs=1e-10)
-        and sum(value * value for value in mode.right) == pytest.approx(1.0, abs=1e-10)
-        for mode in modes
-    ), "singular mode coordinates retain normalized scaled-operator vectors"
-    assert codec.encode_json(source_map) == source_map_bytes, (
-        "the decoded static document survives package/runtime release unchanged"
-    )
-    assert report.findings()
-    del report
-    durable = pa.table(diagnostic_table).to_pylist()[0]
-    assert durable["matrix"]["rank"] == 1
-    assert [v["source_id"] for v in durable["row_nominals"]] == durable["rows"]
-    assert [v["source_id"] for v in durable["variable_nominals"]] == durable["columns"]
-    assert sorted(v["value"] for v in durable["variable_nominals"]) == [2.0, 4.0]
-    assert all(
-        v["value"] > 0 for v in durable["row_nominals"] + durable["variable_nominals"]
-    )
-    assert all(
-        v["source_id"] in durable["rows"] for v in durable["matrix"]["modes"][0]["left"]
-    )
-    assert pa.table(finding_table).num_rows > 0
-    assert all(
-        outcome["error_class"] is None
-        for outcome in pa.table(sample_table).to_pylist()[0]["outcomes"]
-    )
-    assert pa.table(capped_table).to_pylist()[0]["unattempted"] == 1
-    native_row = pa.table(native_table).to_pylist()[0]
-    assert native_row["complete"]
-    assert len(native_row["degenerate"]) == 1
-    assert native_row["degenerate"][0]["irreducible_at_tolerance"]
-    assert {v["source_id"] for v in native_row["row_nominals"]} == set(durable["rows"])
-    assert native_row["row_nominals"] == durable["row_nominals"]
-    assert native_row["variable_nominals"] == durable["variable_nominals"]
-    assert {v["source_id"] for v in native_row["conditioning"][0]["weights"]} == set(
-        durable["rows"]
-    )
-    with pytest.raises(pse.InspectionError):
-        pse.ModelingDiagnosticSettings.from_json(
-            settings.to_json().replace('"maximum_terms":5', '"maximum_terms":1')
-        )
+
+
 
 
 @pytest.mark.integration
-def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinates(
-    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
-) -> None:
-    runtime = canonical_substrate.runtime(inspection_settings)
-    root = Path(__file__).resolve().parents[3]
-    source = """package linear {
- def Bad {var x:Scalar; eq lo:x>=2; eq hi:x<=1;}
- def Good {var x:Scalar; eq lo:x>=0; eq hi:x<=2;}
- def Curved {var x:Scalar; eq e:x*x==1;}
- case bad {child root:Bad=Bad();}
- case good {child root:Good=Good();}
- case curved {child root:Curved=Curved();}
-}"""
-    manifest = (
-        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
-        .read_text()
-        .replace('id_policy = "explicit"', 'id_policy = "named"')
-    )
-    manifest = on_primitives(manifest)
-    package = runtime.modeling_from_documents(
-        [{"package.toml": manifest, "models/linear.pse": source}],
-        physical(runtime),
-    )
-    cases = {
-        d.name: d.declaration_id
-        for d in package.declarations()
-        if d.name in {"bad", "good", "curved"}
-    }
-    settings = pse.SolveSettings(
-        backend=NativeBackend.HIGHS, controls=pse.SolveControls(time_limit=30)
-    )
-    origin = documents.DiagnosticOrigin(
-        run_id=RunId(identity(240)),
-        attempt_id=None,
-        step=2,
-        native_attempt=None,
-        operation=None,
-        failure=None,
-    )
-    bad = package.diagnose_linear(
-        cases["bad"],
-        settings,
-        controls=pse.LinearDiagnosticControls(
-            iis=True, rays=True, relaxation=(-1, -1, 1)
-        ),
-        origin=origin,
-    )
-    assert bad.origin == origin
-    assert bad.relation == "runtime.modeling_linear_diagnostics"
-    assert bad.attempts()[0].termination == "infeasible"
-    row = pa.table(bad.table()).to_pylist()[0]
-    assert codec.decode_json(row["origin_json"], documents.DiagnosticOrigin) == origin
-    bad_table = bad.table()
-    assert not row["iis"]["relaxation_only"]
-    assert {r["source_id"] for r in row["iis"]["rows"]} == set(row["rows"])
-    assert row["relaxation"]["operation_status"] == 0
-    assert row["relaxation"]["penalty"] == pytest.approx(
-        1.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0
-    )
-    assert row["relaxation"]["restored_status"]["category"] == "inconclusive"
-    assert row["relaxation"]["primal"][0]["source_id"] == row["columns"][0]
-    assert row["attempt"]["termination"]["category"] == "infeasible"
-    with pytest.raises(pse.InspectionError, match="every source coordinate"):
-        package.diagnose_linear(
-            cases["bad"],
-            settings,
-            controls=pse.LinearDiagnosticControls(
-                relaxation=(-1, -1, 1), row_penalties={}
-            ),
-        )
-    with pytest.raises(pse.InspectionError, match="affine coefficient"):
-        package.diagnose_linear(
-            cases["curved"], settings, controls=pse.LinearDiagnosticControls(iis=True)
-        )
-    ranged = package.diagnose_linear(
-        cases["good"], settings, controls=pse.LinearDiagnosticControls(ranging=True)
-    )
-    ranges = ranged.table()
-    del bad, ranged, package, runtime
-    ranged_row = pa.table(ranges).to_pylist()[0]
-    assert ranged_row["ranging"], ranged_row["unavailable"]
-    coordinates = set(ranged_row["columns"] + ranged_row["rows"])
-    for record in ranged_row["ranging"]:
-        assert record["source_id"] in coordinates
-        for name in ("value", "objective"):
-            value = record[name]
-            assert (value["kind"] == "finite") == (value["value"] is not None)
-        for side in ("entering", "leaving"):
-            endpoint = record[side]
-            assert (endpoint["source_id"] in coordinates) != (
-                endpoint["sentinel"] is not None
-            )
-    assert any(
-        r["value"]["kind"] in {"positive_infinity", "negative_infinity"}
-        for r in ranged_row["ranging"]
-    )
-    assert pa.table(bad_table).num_rows == 1
-
-
-@pytest.mark.integration
-def test_modeling_authored_fixture_shared_checks_and_owned_tables(
+def test_modeling_authored_fixture_conformance_cli_and_adapter_contracts(
     inspection_settings: pse.EngineSettings,
     tmp_path: Path,
     canonical_substrate: CanonicalFixture,
@@ -1109,58 +635,27 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
         [{"package.toml": manifest, "models/example.pse": source}],
         physical(runtime),
     )
-    assert len(package.declarations()) == 9
+    # Native fixed-fixture science and owned tables are covered by
+    # native_diagnostics. This retained adapter test compares CLI projection and
+    # keeps authored-dispatch/admission refusals that have not migrated there.
     settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
-    result = package.solve_case(declaration(207), settings)
-    assert result.accepted
-    assert result.outcome_kind == "constant_evaluation"
-    assert result.attempt() is None
-    assert result.failure() is None
     conformance = package.conform(
         settings, controls=pse.ConformanceControls(maximum_checks=64)
     )
     checks = pa.table(conformance.table())
     assert conformance.passed, checks.to_pylist()
     assert conformance.complete, checks.to_pylist()
-    assert conformance.fixtures() == (identity(207),)
-    extracted = conformance.result(declaration(207))
     routes = pa.table(conformance.admission("runtime.route_decisions"))
     structure = pa.table(conformance.admission("runtime.structural_assessments"))
     assert routes.num_rows == 1
     assert structure.num_rows == 1
     with pytest.raises(pse.InspectionError, match="admission table absent"):
         conformance.admission("runtime.modeling_checks")
-    assert (
-        package.inspect(
-            inspection_request(declaration(207), settings)
-        ).execution.procedure
-        == "initialize"
-    )
-    assert (
-        package.inspect(inspection_request(declaration(207), settings)).execution.route
-        == "simultaneous"
-    )
+    inspection = package.inspect(inspection_request(declaration(207), settings))
+    assert inspection.execution.procedure == "initialize"
+    assert inspection.execution.route == "simultaneous"
     with pytest.raises(pse.InspectionError, match="authored solve procedure"):
         package.prepare_solve(declaration(207), settings)
-    initialized = package.initialize(
-        declaration(207),
-        settings,
-        overrides=pse.InitializationOverrides(maximum_attempts=2),
-    )
-    assert initialized.completed
-    assert initialized.failure is None
-    history = initialized.attempts()
-    assert len(history) == 1
-    assert history[0].kind == "original"
-    assert history[0].accepted
-    assert history[0].fraction is None
-    assert history[0].stage is None
-    assert history[0].preparation_error is None
-    assert history[0].interruption is None
-    assert initialized.committed_values() is not None
-    final = history[0].result()
-    assert final is not None
-    assert final.accepted
     with pytest.raises(pse.InspectionError, match="authored integration procedure"):
         package.simulate(
             declaration(207),
@@ -1173,29 +668,7 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
                 parameter_scales=coordinate_batch(runtime),
             ),
         )
-    initialization_table = initialized.table()
-    reports = pa.table(extracted.table("runtime.modeling_reports"))
-    validation = pa.table(result.table("runtime.modeling_checks"))
-    del extracted, conformance, result, package, runtime
-    del initialized, history, final
-    initial = pa.table(initialization_table).to_pylist()[0]
-    assert initial["complete"]
-    assert initial["attempts"][0]["kind"] == "original"
-    assert reports.column("value").to_pylist() == [2.0]
-    # An annotated hard range retains its closure layer and cannot select an
-    # empirical evidence permission policy.
-    assert any(
-        row["within_validity"] is True
-        and row["extrapolation_allowed"] is None
-        and row["satisfied"] is True
-        and row["layer"] == "closure"
-        for row in validation.to_pylist()
-    )
-    assert all(
-        (row["layer"] is None) == (row["kind"] != "validity")
-        for row in validation.to_pylist()
-    )
-    assert "coverage" in checks.column("kind").to_pylist()
+    del conformance, package, runtime
 
     package_path = tmp_path / "model"
     package_path.mkdir()
@@ -1228,114 +701,6 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
         assert reader.read_all().num_rows == checks.num_rows
 
 
-@pytest.mark.integration
-def test_modeling_nonlinear_explanation_retains_local_evidence(
-    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
-) -> None:
-    runtime = canonical_substrate.runtime(inspection_settings)
-    root = Path(__file__).resolve().parents[3]
-    manifest = (
-        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
-        .read_text()
-        .replace('id_policy = "explicit"', 'id_policy = "named"')
-    )
-    source = """package p {
- def D {
-  var x:Scalar; eq lo:x*x>=4; eq hi:x*x<=1; eq spare:x*x<=100;
-  annotation start x(1.5);
- }
- case run { child root:D=D(); }
-}"""
-    manifest = on_primitives(manifest)
-    package = runtime.modeling_from_documents(
-        [{"package.toml": manifest, "models/explanation.pse": source}],
-        physical(runtime),
-    )
-    case = next(d.declaration_id for d in package.declarations() if d.name == "run")
-    settings = pse.SolveSettings(
-        backend=NativeBackend.IPOPT, intent=NativeSolveIntent.OPTIMIZE
-    )
-    diagnostics = package.diagnose(
-        case,
-        settings,
-        pse.ModelingDiagnosticSettings.from_json(
-            (root / "packages/reference/diagnostics/idaes-2.13.json").read_text(),
-        ),
-    )
-    rows, _ = diagnostics.coordinates()
-    explanation = package.explain_nonlinear(
-        case,
-        settings,
-        codec.decode_json(
-            codec.encode_json(
-                {
-                    "document_version": 1,
-                    "nominals": {row.to_hex(): 1.0 for row in rows},
-                    "penalty_tolerance": 1e-6,
-                    "maximum_attempts": 4,
-                    "time_limit": {"secs": 30, "nanos": 0},
-                }
-            ),
-            pse.ModelingNonlinearPolicy,
-        ),
-    )
-    assert explanation.complete
-    assert len(explanation.candidate_rows()) == 2
-    assert explanation.background_variables() == ()
-    attempts = explanation.attempts()
-    explanation_table = explanation.table()
-    findings_table = explanation.findings()
-    limited = package.explain_nonlinear(
-        case,
-        settings,
-        codec.decode_json(
-            codec.encode_json(
-                {
-                    "document_version": 1,
-                    "nominals": {row.to_hex(): 1.0 for row in rows},
-                    "penalty_tolerance": 1e-6,
-                    "maximum_attempts": 1,
-                    "time_limit": {"secs": 30, "nanos": 0},
-                }
-            ),
-            pse.ModelingNonlinearPolicy,
-        ),
-    )
-    assert not limited.complete
-    assert limited.stop is not None
-    limited_findings = pa.table(limited.findings()).to_pylist()
-    assert limited_findings[0]["ordinal"] == 0
-    assert limited_findings[0]["class"] == "resource_limit"
-    assert limited_findings[0]["rule"] == "modeling.nonlinear.attempt_limit"
-    del explanation, diagnostics, package, runtime
-    durable = pa.table(explanation_table).to_pylist()[0]
-    assert durable["complete"]
-    assert len(durable["candidate_rows"]) == 2
-    assert durable["attempts"][0]["observation"] == "local_obstruction"
-    findings = {row["ordinal"]: row for row in pa.table(findings_table).to_pylist()}
-    assert durable["attempts"][0]["failure_ordinal"] == 1
-    assert findings[1]["rule"] == "modeling.qualification.rejected"
-    assert findings[1]["sources"]
-    assert findings[1]["observations"]
-    # The L1 route builds no elastic model (ADR-0109 item 2a): the least-infeasible
-    # point names the original rows it leaves violated, all among the candidate rows
-    # (item 3).
-    assert set(findings[1]["sources"]) <= set(durable["candidate_rows"])
-    observations = {o["name"]: o["text"] for o in findings[1]["observations"]}
-    assert observations["candidate_use"] == "diagnostic_only"
-    assert len(attempts) == 4
-    assert attempts[0].observation == "local_obstruction"
-    assert attempts[0].failure() is not None
-    assert attempts[0].penalty == pytest.approx(
-        3.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0
-    )
-    assert sum(a.observation == "feasible_witness" for a in attempts) == 2
-    result = attempts[0].result()
-    assert result is not None
-    assert not result.accepted
-    attempt = result.attempt()
-    assert attempt is not None
-    assert attempt.backend == "pounce"
 
 
 @pytest.mark.component
@@ -1393,41 +758,3 @@ def test_pure_conformance_cli_exports_reports(
     assert (tmp_path / "checks.findings.arrow").is_file()
 
 
-@pytest.mark.integration
-def test_knowledge_exports_admitted_values_and_bounds_projection(
-    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
-) -> None:
-    runtime = canonical_substrate.runtime(inspection_settings)
-    root = Path(__file__).resolve().parents[3]
-    manifest = on_primitives(
-        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
-        .read_text()
-        .replace('id_policy = "explicit"', 'id_policy = "named"')
-    )
-    source = """package knowledge {
-      entity kind source provenance { attribute title:Text; }
-      enum role { measured }
-      entity source origin { title="synthetic inspection test" }
-      entity kind sample { attribute value:Scalar; }
-      entity sample a provenance(origin,role.measured) { value=2.5 ± relative(0.1) }
-    }"""
-    package = runtime.modeling_from_documents(
-        [{"package.toml": manifest, "models/knowledge.pse": source}], physical(runtime)
-    )
-    sample = next(
-        row.declaration_id for row in package.declarations() if row.name == "a"
-    )
-    knowledge = package.knowledge(
-        sample, controls=pse.KnowledgeControls(maximum_cells=1)
-    )
-    row = pa.table(knowledge.table()).to_pylist()[0]
-    assert row["owner_id"] == bytes(sample)
-    assert row["value"][-1]["magnitude"] == 2.5
-    assert row["value"][-1]["quantity_type_id"] is not None
-    assert row["uncertainty"] == {"kind": "relative", "magnitude": 0.1}
-    assert row["source_id"] is not None
-    assert row["source_revision"] == bytes(knowledge.source_revision)
-    assert row["slot"] == "value"
-    assert row["test_only"] is False
-    with pytest.raises(pse.InspectionError, match="maximum_bytes"):
-        package.knowledge(sample, controls=pse.KnowledgeControls(maximum_bytes=128))

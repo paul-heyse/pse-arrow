@@ -10,20 +10,15 @@ from pse import codec
 from pse._build import (
     DiagnosticReport,
     EngineSettings,
-    ModelingDiagnosticSettings,
     ModelingLimits,
     NativeAttempt,
     SimulationSettings,
     _NativeLocalStudy,
     _NativeModelingConformance,
-    _NativeModelingDiagnostics,
-    _NativeModelingDiagnosticSamples,
-    _NativeModelingElasticAttempt,
     _NativeModelingInitialization,
     _NativeModelingInitializationAttempt,
     _NativeModelingKnowledge,
     _NativeModelingNativeAnalysis,
-    _NativeModelingNonlinearExplanation,
     _NativeModelingPackage,
     _NativeModelingResult,
     _NativeModelingTrajectory,
@@ -43,22 +38,17 @@ from pse.contracts.documents import (
     AdmittedBinding,
     Conclusion,
     ConformanceControls,
-    DiagnosticOrigin,
     DiagnosticOriginOutput,
-    DiagnosticSamplesControls,
     FlowSelectionDocument,
     InitializationOverrides,
-    JacobianDiagnosticControls,
     KnowledgeControls,
     LazyStudyDefinition,
-    LinearDiagnosticControls,
     ManagedStudyDiagnosticsDocumentOutput,
     ModelingComparisonObservation,
     ModelingComparisonRequest,
     ModelingDeclarationPage,
     ModelingDeclarationRequest,
     ModelingInspectionRequest,
-    ModelingNonlinearPolicy,
     ModelingSourceMapDocumentOutput,
     OperationSourceOutput,
     PhysicalFitRequest,
@@ -89,8 +79,6 @@ from pse.contracts.documents import (
     PointOutcomeOutput as PointOutcome,
 )
 from pse.contracts.enums import (
-    ModelingDiagnosticSampleStop,
-    ModelingElasticObservation,
     ModelingInitializationStep,
     NativeRunState,
     TrajectoryTermination,
@@ -205,64 +193,8 @@ class ModelingNativeAnalysis:
         return TableStream(self._handle.table())
 
 
-@attrs.frozen
-class ModelingElasticAttempt:
-    """One diagnostic solve over explicit omitted rows and physical elastic weights."""
-
-    _handle: _NativeModelingElasticAttempt
-
-    @property
-    def observation(self) -> ModelingElasticObservation:
-        return self._handle.observation
-
-    @property
-    def penalty(self) -> float | None:
-        return self._handle.penalty
-
-    def omitted(self) -> tuple[SemanticId, ...]:
-        return tuple(self._handle.omitted())
-
-    def result(self) -> ModelingResult | None:
-        result = self._handle.result()
-        return None if result is None else ModelingResult(result)
-
-    def failure(self) -> DiagnosticReport | None:
-        return self._handle.failure()
 
 
-@attrs.frozen
-class ModelingNonlinearExplanation:
-    """Local diagnostic evidence under unchanged bounds; never a global infeasibility.
-
-    The evidence does not prove that the model is infeasible everywhere.
-    """
-
-    _handle: _NativeModelingNonlinearExplanation
-
-    def findings(self) -> TableStream:
-        """Structured stop and attempt causes, joined by failure ordinal."""
-        return TableStream(self._handle.findings())
-
-    def table(self) -> TableStream:
-        """Export the registry-defined history with independent buffer ownership."""
-        return TableStream(self._handle.table())
-
-    @property
-    def complete(self) -> bool:
-        return self._handle.complete
-
-    @property
-    def stop(self) -> DiagnosticReport | None:
-        return self._handle.stop
-
-    def candidate_rows(self) -> tuple[SemanticId, ...]:
-        return tuple(self._handle.candidate_rows())
-
-    def background_variables(self) -> tuple[SemanticId, ...]:
-        return tuple(self._handle.background_variables())
-
-    def attempts(self) -> tuple[ModelingElasticAttempt, ...]:
-        return tuple(ModelingElasticAttempt(v) for v in self._handle.attempts())
 
 
 @attrs.frozen
@@ -482,87 +414,8 @@ class StudyReport:
         return self._handle.failure(index)
 
 
-@attrs.frozen
-class SingularMode:
-    """Residual-qualified mode of the report's declared scaled local operator.
-
-    A rectangular null mode has an absent equation on one side. Physical right
-    perturbations multiply variable nominals; left multipliers divide row nominals.
-    """
-
-    value: float
-    left: tuple[float, ...]
-    right: tuple[float, ...]
-    left_residual: float | None
-    right_residual: float | None
-    normalization_error: float
-    residual_bound: float
 
 
-@attrs.frozen
-class ModelingDiagnostics:
-    """Bounded point-specific evidence with named source coordinates."""
-
-    _handle: _NativeModelingDiagnostics
-
-    @property
-    def origin(self) -> DiagnosticOriginOutput | None:
-        """Original invocation/failure link, independent of diagnostic success."""
-        return self._handle.origin
-
-    def table(self, name: str = "runtime.modeling_diagnostics") -> TableStream:
-        """Export attributed numerical evidence or runtime.modeling_findings."""
-        return TableStream(self._handle.table(name))
-
-    @property
-    def complete(self) -> bool:
-        return self._handle.complete
-
-    @property
-    def profile(self) -> str:
-        return self._handle.profile
-
-    @property
-    def rank(self) -> int | None:
-        return self._handle.rank
-
-    @property
-    def cutoff(self) -> float | None:
-        return self._handle.cutoff
-
-    def findings(self) -> tuple[DiagnosticReport, ...]:
-        return tuple(self._handle.findings())
-
-    def statistics(self) -> dict[str, int]:
-        return self._handle.statistics()
-
-    def coordinates(self) -> tuple[tuple[SemanticId, ...], tuple[SemanticId, ...]]:
-        rows, columns = self._handle.coordinates()
-        return tuple(rows), tuple(columns)
-
-    def singular_modes(
-        self,
-    ) -> tuple[SingularMode, ...]:
-        return tuple(
-            SingularMode(
-                value,
-                tuple(left),
-                tuple(right),
-                left_residual,
-                right_residual,
-                normalization_error,
-                residual_bound,
-            )
-            for (
-                value,
-                left,
-                right,
-                left_residual,
-                right_residual,
-                normalization_error,
-                residual_bound,
-            ) in self._handle.singular_modes()
-        )
 
 
 @attrs.frozen
@@ -606,42 +459,6 @@ class ModelingTrajectory:
         return TableStream(self._handle.table(name))
 
 
-@attrs.frozen
-class ModelingDiagnosticSamples:
-    """Named sample findings with independent results and explicit stopping evidence."""
-
-    _handle: _NativeModelingDiagnosticSamples
-
-    @property
-    def origin(self) -> DiagnosticOriginOutput | None:
-        """Original invocation/failure link, independent of diagnostic success."""
-        return self._handle.origin
-
-    def findings(self) -> TableStream:
-        """Structured sample failures, joined to outcomes by failure ordinal."""
-        return TableStream(self._handle.findings())
-
-    def table(self) -> TableStream:
-        """Export named sample outcomes, including incomplete campaign status."""
-        return TableStream(self._handle.table())
-
-    @property
-    def unattempted(self) -> int:
-        return self._handle.unattempted
-
-    @property
-    def stop(self) -> ModelingDiagnosticSampleStop:
-        return self._handle.stop
-
-    def ids(self) -> tuple[SemanticId, ...]:
-        return tuple(self._handle.ids())
-
-    def result(self, index: int) -> ModelingDiagnostics | None:
-        handle = self._handle.result(index)
-        return None if handle is None else ModelingDiagnostics(handle)
-
-    def failure(self, index: int) -> DiagnosticReport | None:
-        return self._handle.failure(index)
 
 
 @attrs.frozen
@@ -723,38 +540,7 @@ class ModelingPackage:
         """Share the admitted revision while selecting explicit expansion limits."""
         return ModelingPackage(self._handle.with_limits(limits))
 
-    def diagnose_samples(
-        self,
-        case_id: DeclarationId,
-        settings: SolveSettings,
-        diagnostics: ModelingDiagnosticSettings,
-        samples: ArrowInput,
-        *,
-        controls: DiagnosticSamplesControls | None = None,
-        origin: DiagnosticOrigin | DiagnosticOriginOutput | None = None,
-    ) -> ModelingDiagnosticSamples:
-        """Inspect overrides while preserving the prepared case's frozen inputs."""
-        return ModelingDiagnosticSamples(
-            self._handle.diagnose_samples(
-                case_id,
-                settings,
-                diagnostics,
-                samples,
-                controls=None if controls is None else codec.encode_json(controls),
-                origin=origin,
-            )
-        )
 
-    def explain_nonlinear(
-        self,
-        case_id: DeclarationId,
-        settings: SolveSettings,
-        policy: ModelingNonlinearPolicy,
-    ) -> ModelingNonlinearExplanation:
-        """Explain local infeasibility using the actual native penalty policy."""
-        return ModelingNonlinearExplanation(
-            self._handle.explain_nonlinear(case_id, settings, codec.encode_json(policy))
-        )
 
     def prepare_simulation(
         self, case_id: DeclarationId, settings: SimulationSettings
@@ -784,59 +570,8 @@ class ModelingPackage:
             case_id, settings, maximum_bytes, time_limit
         )
 
-    def diagnose(
-        self,
-        case_id: DeclarationId,
-        settings: SolveSettings,
-        diagnostics: ModelingDiagnosticSettings,
-        *,
-        origin: DiagnosticOrigin | DiagnosticOriginOutput | None = None,
-    ) -> ModelingDiagnostics:
-        """Inspect the declared candidate without requesting a native solve."""
-        return ModelingDiagnostics(
-            self._handle.diagnose(
-                case_id,
-                settings,
-                diagnostics,
-                origin=origin,
-            )
-        )
 
-    def diagnose_linear(
-        self,
-        case_id: DeclarationId,
-        settings: SolveSettings,
-        *,
-        controls: LinearDiagnosticControls | None = None,
-        origin: DiagnosticOrigin | DiagnosticOriginOutput | None = None,
-    ) -> ModelingNativeAnalysis:
-        """Run native affine diagnostics with explicit physical penalties."""
-        return ModelingNativeAnalysis(
-            self._handle.diagnose_linear(
-                case_id,
-                settings,
-                controls=None if controls is None else codec.encode_json(controls),
-                origin=origin,
-            )
-        )
 
-    def diagnose_jacobian(
-        self,
-        case_id: DeclarationId,
-        settings: SolveSettings,
-        *,
-        controls: JacobianDiagnosticControls | None = None,
-        origin: DiagnosticOrigin | DiagnosticOriginOutput | None = None,
-    ) -> ModelingNativeAnalysis:
-        """Bounded native evidence about the local scaled Jacobian."""
-        return ModelingNativeAnalysis(
-            self._handle.diagnose_jacobian(
-                case_id,
-                settings,
-                controls=None if controls is None else codec.encode_json(controls),
-                origin=origin,
-            )
-        )
 
     def with_declarations(
         self, declarations: Sequence[AuthoredModelingDeclarationsRow]
