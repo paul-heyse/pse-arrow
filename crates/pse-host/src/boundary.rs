@@ -20,11 +20,22 @@ struct Options {
     docs: bool,
     read: bool,
     help: bool,
-    native: bool,
+    native: Option<String>,
+    native_default: bool,
     no_scope: bool,
     cache: CacheMode,
     class: Option<OsString>,
     recipe_class: Option<OsString>,
+}
+const DEFAULT_NATIVE_CAPABILITIES: &str = "solver,klu,isolation,uno,petsc";
+fn native_request(options: &Options, values: &Environment) -> Result<Option<String>, HostError> {
+    let requested = if options.native_default {
+        Some(values.get(OsStr::new("PSE_NATIVE_CAPABILITIES"))
+            .map(|value| value.to_str().ok_or_else(|| invalid("PSE_NATIVE_CAPABILITIES must be UTF-8")))
+            .transpose()?.unwrap_or(DEFAULT_NATIVE_CAPABILITIES).to_owned())
+    } else { options.native.clone() };
+    if let Some(value) = &requested { crate::native::validate_capabilities(value)?; }
+    Ok(requested)
 }
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(message.into())
@@ -95,12 +106,15 @@ fn parse(arguments: &[OsString]) -> Result<Options, HostError> {
                 };
                 result.environment.extend([argument.clone(), value.clone()]);
             }
-            Some("--native=compiler,klu" | "--native=klu,compiler") => result.native = true,
-            Some("--native" | "--store" | "--bind-allocation") => {
+            Some("--native") => { result.native = Some(DEFAULT_NATIVE_CAPABILITIES.into()); result.native_default = true; },
+            Some("--store" | "--bind-allocation") => {
                 return Err(unsupported(argument.to_str().unwrap_or("selection")));
             }
             Some(value) if value.starts_with("--native=") => {
-                return Err(unsupported("native solver/provider selection"));
+                let capabilities = value.trim_start_matches("--native=");
+                crate::native::validate_capabilities(capabilities)?;
+                result.native = Some(capabilities.to_owned());
+                result.native_default = false;
             }
             Some(value) if value.starts_with('-') => {
                 return Err(invalid("unknown boundary option; use --help"));
@@ -124,6 +138,7 @@ fn root() -> Result<PathBuf, HostError> {
     Ok(root)
 }
 fn known_selections(options: &Options, values: &Environment) -> Result<(), HostError> {
+    native_request(options, values)?;
     if values
         .get(OsStr::new("PSE_BUILD_MODE"))
         .is_some_and(|value| value != "unbounded")
@@ -176,13 +191,13 @@ fn ordinary(options: &Options, values: &mut Environment) -> Result<(), HostError
 /// Execute the supported ordinary command or fixed, source-free environment read.
 pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
     let options = parse(arguments)?;
-    if options.native && options.docs {
+    if options.native.is_some() && options.docs {
         return Err(invalid("--docs and --native select different environments"));
     }
     if arguments.is_empty() || options.help {
         writeln!(
             std::io::stdout(),
-            "pse-env [--docs] [--cache auto|on|off] -- command [args...]\npse-env --print | --explain [--json]\nNative foreground ownership; explicit preparation: scripts/bootstrap-host.\nNative compiler/KLU requires explicit preparation; other providers, finite admission and store setup remain unavailable."
+            "pse-env [--docs] [--cache auto|on|off] [--native=CAPABILITIES] -- command [args...]\npse-env --print | --explain [--json]\nNative foreground ownership; explicit preparation: scripts/bootstrap-host.\nNative providers require explicit preparation; finite admission and store setup remain unavailable."
         )?;
         return Ok(0);
     }
@@ -192,7 +207,7 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
                 "resource placement options do not apply to environment reads",
             ));
         }
-        if options.native {
+        if let Some(capabilities) = native_request(&options, &std::env::vars_os().collect())? {
             if !options.environment.iter().any(|value| value == "--explain")
                 || options.environment.iter().any(|value| value == "--print")
             {
@@ -200,7 +215,8 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
                     "native profile reads require --explain; native shell exports are not supported",
                 ));
             }
-            let explanation = serde_json::json!({"native_profile":"compiler,klu", "readiness":"not_observed", "personal_selections":"unresolved", "prepare":"scripts/pse-env -- scripts/pse-host native prepare --capabilities compiler,klu"});
+            let prepare = (!capabilities.is_empty()).then(|| format!("scripts/pse-env -- scripts/pse-host native prepare --capabilities {capabilities}"));
+            let explanation = serde_json::json!({"native_profile":capabilities, "readiness":"not_observed", "personal_selections":"unresolved", "prepare":prepare});
             writeln!(std::io::stdout(), "{explanation}")?;
             return Ok(0);
         }
@@ -227,8 +243,8 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
     )?
     .values;
     ordinary(&options, &mut selected)?;
-    if options.native {
-        selected = crate::native::select(&root()?, &selected)?;
+    if let Some(capabilities) = native_request(&options, &selected)? {
+        selected = crate::native::select_capabilities(&root()?, &selected, &capabilities)?;
     }
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -255,8 +271,20 @@ mod tests {
         assert_eq!(options.command, args(&["tool", "--native", "--store"]));
     }
     #[test]
+    fn native_default_preserves_full_profile_caller_override_and_explicit_empty() {
+        let defaults = parse(&args(&["--native", "--", "tool"])).unwrap();
+        assert_eq!(native_request(&defaults, &Environment::new()).unwrap().as_deref(), Some(DEFAULT_NATIVE_CAPABILITIES));
+        let caller = Environment::from([("PSE_NATIVE_CAPABILITIES".into(), "compiler,klu".into())]);
+        assert_eq!(native_request(&defaults, &caller).unwrap().as_deref(), Some("compiler,klu"));
+        let empty = parse(&args(&["--native=", "--", "tool"])).unwrap();
+        assert_eq!(native_request(&empty, &caller).unwrap().as_deref(), Some(""));
+        assert!(native_request(&defaults, &Environment::from([("PSE_NATIVE_CAPABILITIES".into(), "unknown".into())])).is_err());
+        assert_eq!(native_request(&parse(&args(&["--native", "--native=compiler,klu"])).unwrap(), &Environment::new()).unwrap().as_deref(), Some("compiler,klu"));
+        assert_eq!(native_request(&parse(&args(&["--native=compiler,klu", "--native"])).unwrap(), &Environment::new()).unwrap().as_deref(), Some(DEFAULT_NATIVE_CAPABILITIES));
+    }
+    #[test]
     fn boundary_refuses_unimplemented_modes_before_execution() {
-        for mode in ["--native", "--native=", "--store", "--bind-allocation"] {
+        for mode in ["--native=unknown", "--store", "--bind-allocation"] {
             assert!(parse(&args(&[mode, "--", "/bin/true"])).is_err());
         }
         let mut values = Environment::from([("PSE_BUILD_MODE".into(), "unbounded".into())]);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Explicit preparation and selection of the finite compiler/KLU native profile.
+//! Explicit native provider preparation and source-free immutable generation selection.
 use crate::{HostError, HostManager, environment::Environment};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -13,6 +13,9 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+
+mod providers;
+pub use providers::{prepare_capabilities, select_capabilities, validate_capabilities};
 
 const PROFILE: &str = "compiler,klu";
 const OPTIONS: &[&str] = &[
@@ -398,16 +401,19 @@ fn compiler(
         },
     );
     let arguments = text(env, "BINDGEN_EXTRA_CLANG_ARGS")?.unwrap_or("");
-    if arguments.contains("resource-dir") {
+    let resource_option = format!("-resource-dir={}", resource.display());
+    if arguments.split_whitespace().any(|argument| argument.contains("resource-dir") && argument != resource_option) {
         return Err(invalid(
             "select CLANG_PATH rather than overriding Clang resource-dir",
         ));
     }
     selected.insert(
         "BINDGEN_EXTRA_CLANG_ARGS".into(),
-        format!("{arguments} -resource-dir={}", resource.display())
-            .trim()
-            .to_owned(),
+        if arguments.split_whitespace().any(|argument| argument == resource_option) {
+            arguments.to_owned()
+        } else {
+            format!("{arguments} {resource_option}").trim().to_owned()
+        },
     );
     let library = env
         .get(OsStr::new("LIBCLANG_PATH"))
@@ -810,21 +816,17 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
     {
         writeln!(
             std::io::stdout(),
-            "native prepare --capabilities compiler,klu\nRun explicitly through scripts/pse-env; native launches never prepare missing artifacts."
+            "native prepare --capabilities compiler[,solver,klu,isolation,uno,petsc]\nRun explicitly through scripts/pse-env; native launches never prepare missing artifacts."
         )?;
         return Ok(0);
     }
-    if arguments
-        != [
-            OsString::from("prepare"),
-            OsString::from("--capabilities"),
-            OsString::from(PROFILE),
-        ]
-    {
+    if arguments.len() != 3 || arguments[0] != "prepare" || arguments[1] != "--capabilities" {
         return Err(invalid(
-            "expected native prepare --capabilities compiler,klu",
+            "expected native prepare --capabilities compiler[,solver,klu,isolation,uno,petsc]",
         ));
     }
+    let capabilities = arguments[2].to_str().ok_or_else(|| invalid("capabilities must be UTF-8"))?;
+    providers::capabilities(capabilities)?;
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
@@ -844,12 +846,10 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
             return Err(invalid("run inside the selected checkout"));
         }
     }
-    let prefix = prepare(&root, &std::env::vars_os().collect())?;
-    writeln!(
-        std::io::stdout(),
-        "prepared compiler/KLU: {}",
-        prefix.display()
-    )?;
+    let prepared = prepare_capabilities(&root, &std::env::vars_os().collect(), capabilities)?;
+    for (capability, prefix) in prepared {
+        writeln!(std::io::stdout(), "prepared {capability}: {}", prefix.display())?;
+    }
     Ok(0)
 }
 

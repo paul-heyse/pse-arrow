@@ -31,10 +31,14 @@ fn fixture() -> tempfile::TempDir {
         ".config/agent-capacity.toml",
         ".cargo/config.toml",
         ".config/sccache.toml",
-        "scripts/pse-env",
-        "scripts/pse-host",
     ] {
         fs::copy(source.join(name), root.join(name)).unwrap();
+    }
+    // Use the immutable checked-in adapters, retaining the fixture paths as argv[0].
+    // Executing freshly copied scripts can race Linux's delayed writable-file release
+    // across concurrent test threads and fail ETXTBSY before the boundary runs.
+    for name in ["scripts/pse-env", "scripts/pse-host"] {
+        symlink(source.join(name), root.join(name)).unwrap();
     }
     symlink(
         env!("CARGO_BIN_EXE_pse-host"),
@@ -95,8 +99,7 @@ fn boundary_unsupported_modes_refuse_before_personal_or_command_effects() {
     let fixture = fixture();
     let root = fixture.path();
     for options in [
-        vec!["--native"],
-        vec!["--native="],
+        vec!["--native=unknown"],
         vec!["--store"],
         vec!["--bind-allocation"],
         vec!["--resource-class", "compile"],
@@ -173,4 +176,22 @@ fn native_launch_without_preparation_never_builds_or_runs_command() {
     assert_eq!(result.status.code(), Some(125));
     assert!(!root.join("must-not-exist").exists());
     assert!(!root.join(".cache/pse-arrow/native/rust-v1").exists());
+}
+
+#[test]
+fn retained_provider_explanations_are_source_free_and_private() {
+    let fixture = fixture();
+    let root = fixture.path();
+    for capabilities in ["", "compiler", "solver", "isolation", "uno", "petsc", "compiler,solver,klu"] {
+        let result = frontdoor(root)
+            .args(["--explain", "--json", &format!("--native={capabilities}")])
+            .output().unwrap();
+        assert!(result.status.success(), "{capabilities}: {result:?}");
+        let document: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+        assert_eq!(document["native_profile"], capabilities);
+        assert_eq!(document["readiness"], "not_observed");
+        assert!(!String::from_utf8_lossy(&result.stdout).contains("do-not-print-this"));
+        assert!(!root.join("activation-count").exists());
+        assert!(!root.join(".cache").exists());
+    }
 }

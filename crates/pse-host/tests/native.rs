@@ -12,7 +12,7 @@ use std::{
 
 #[test]
 fn native_cli_rejects_unsupported_profiles_without_effects() {
-    for profile in ["compiler", "klu", "compiler,ipopt", "compiler,klu,ipopt"] {
+    for profile in [",", "ipopt", "compiler,ipopt", "compiler,klu,ipopt"] {
         assert!(
             native::run_cli(&[
                 OsString::from("prepare"),
