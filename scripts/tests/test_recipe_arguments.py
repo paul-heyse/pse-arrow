@@ -49,19 +49,6 @@ class RecipeArgumentTests(unittest.TestCase):
                     literal,
                 ],
             ),
-            (
-                "unit-native-capability-package",
-                ["pse-runtime", "pse-runtime/solver-kinsol", "solver", literal],
-                [
-                    "--execution-effects",
-                    "native-local",
-                    "--features",
-                    "pse-runtime/solver-kinsol",
-                    "unit",
-                    "pse-runtime",
-                    literal,
-                ],
-            ),
         ]
         for recipe, arguments, expected in cases:
             with (
@@ -90,6 +77,36 @@ class RecipeArgumentTests(unittest.TestCase):
                     (root / "wrapper.txt").read_text().splitlines()[:2],
                     ["--recipe-default-class", "exclusive"],
                 )
+                self.assertFalse((root / "injected").exists())
+
+    def test_native_capability_units_delegate_literal_arguments_and_status(self) -> None:
+        literal = 'test(a space; $HOME `pwd` $(touch injected) "quote")'
+        for expression, expected, status in (("root_response", "test(root_response)", 0), (literal, literal, 7)):
+            with self.subTest(expression=expression), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                environment = self.fixture(root)
+                native = root / "scripts/cargo-bin/cargo-pse-correctness"
+                native.parent.mkdir()
+                native.write_text(
+                    "#!" + sys.executable + "\n"
+                    "import json, pathlib, sys\n"
+                    "pathlib.Path('arguments.json').write_text(json.dumps(sys.argv[1:]))\n"
+                    f"raise SystemExit({status})\n"
+                )
+                native.chmod(0o700)
+                extra = ["--test-threads", "16", "-p", "other-package"]
+                result = subprocess.run(
+                    ["just", "unit-native-capability-package", "pse-runtime", "pse-runtime/solver-kinsol", "compiler,klu", expression, *extra],
+                    cwd=root, env=environment, capture_output=True, text=True, check=False,
+                )
+                self.assertEqual(result.returncode, status, result.stderr)
+                self.assertEqual(json.loads((root / "arguments.json").read_text()), [
+                    "nextest", "run", "--no-fail-fast", "-p", "pse-runtime", "--lib", "--locked",
+                    "--features", "pse-runtime/solver-kinsol", "-E", expected, *extra,
+                ])
+                wrappers = (root / "wrapper.txt").read_text().splitlines()
+                self.assertIn("--native=compiler,klu", wrappers)
+                self.assertNotIn("exclusive", wrappers)
                 self.assertFalse((root / "injected").exists())
 
     def test_py_test_dispatches_directly_with_store_and_literal_arguments(self) -> None:

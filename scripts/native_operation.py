@@ -1109,7 +1109,18 @@ def enforce(env: dict[str, str], name: str, value: str) -> None:
     env[name] = value
 
 
+def refuse_retired_klu(requested: list[str]) -> None:
+    """Retired construction cannot bypass the native provider owner's refusal."""
+    if "klu" in requested:
+        raise ValueError(
+            "Python KLU preparation is retired; prepare explicitly with "
+            "scripts/pse-env -- scripts/pse-host native prepare --capabilities compiler,klu "
+            "and launch through scripts/pse-env --native=compiler,klu"
+        )
+
+
 def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
+    refuse_retired_klu(requested)
     timing = env.get(BUILD_TIMING)
     if timing is None:
         return _environment(requested, env)
@@ -1190,6 +1201,7 @@ def runtime_selection(
 
 
 def _environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
+    refuse_retired_klu(requested)
     from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
     from scripts import (  # noqa: PLC0415 -- owner cycle
         native_pipeline_cache as pipeline,
@@ -1219,37 +1231,6 @@ def _environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
         enforce(result, "SCIPOPTDIR", str(prefix))
         result["LD_LIBRARY_PATH"] = cache.prepend_library_path(
             str(prefix / "lib"), result
-        )
-    if "klu" in requested:
-        include_value = result.get("SUITESPARSE_INCLUDE_DIR")
-        library_value = result.get("SUITESPARSE_LIBRARY_DIR")
-        if "SUITESPARSE_INCLUDE_DIR" in result or "SUITESPARSE_LIBRARY_DIR" in result:
-            if not include_value or not library_value:
-                raise ValueError(
-                    "explicit KLU paths require both include and library directories"
-                )
-            include = Path(include_value)
-            library = Path(library_value)
-            if not include.is_absolute() or not library.is_absolute():
-                raise ValueError("explicit KLU paths must be absolute")
-            prefix = include.parent.parent.resolve()
-            if (
-                include.resolve() != prefix / "include/suitesparse"
-                or library.resolve() != prefix / "lib"
-            ):
-                raise ValueError(
-                    "explicit KLU paths must select one coherent native prefix"
-                )
-            managed = cache.admit_external(prefix, cache.KLU_FILES)
-        else:
-            prefix = cache.klu(base, result)
-            managed = True
-        enforce(result, "SUITESPARSE_INCLUDE_DIR", str(prefix / "include/suitesparse"))
-        enforce(result, "SUITESPARSE_LIBRARY_DIR", str(prefix / "lib"))
-        enforce(
-            result,
-            "PSE_KLU_PROVIDER_RECEIPT",
-            str(prefix / ".complete.json") if managed else "",
         )
     if "isolation" in requested:
         if result.get("PSE_ROOT_ISOLATION_DIR"):
@@ -1965,6 +1946,7 @@ def main() -> int:
     requested = [value for value in args.capabilities.split(",") if value]
     if any(value not in CAPABILITIES for value in requested):
         parser.error("unknown native capability request")
+    refuse_retired_klu(requested)
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     if not command and not args.shell:
         parser.error("an actual child command is required")

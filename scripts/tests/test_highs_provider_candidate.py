@@ -31,7 +31,7 @@ class HighsProviderCandidateTests(unittest.TestCase):
         class BuildCommandCapturedError(Exception):
             pass
 
-        for kind in ("klu", "isolation", "uno", "petsc"):
+        for kind in ("isolation", "uno", "petsc"):
             for jobs, expected in ((None, "32"), ("7", "7")):
                 with (
                     self.subTest(kind=kind, jobs=jobs),
@@ -89,9 +89,7 @@ class HighsProviderCandidateTests(unittest.TestCase):
                         self.fail("the selected build command must be observed")
 
                     provider = (
-                        partial(pipeline.cache.klu, base)
-                        if kind == "klu"
-                        else partial(pipeline.cache.isolation, base)
+                        partial(pipeline.cache.isolation, base)
                         if kind == "isolation"
                         else partial(pipeline.prepare, kind)
                     )

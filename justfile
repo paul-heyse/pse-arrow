@@ -1484,11 +1484,20 @@ unit-native-package pkg features filter *args:
     scripts/pse-env --native=solver,klu,isolation,uno,petsc -- python3 scripts/select.py --execution-effects canonical --features "$2" unit "$1" "$3" "${@:4}"
 
 [group('local')]
-[doc('Native-local package units with explicit setup capabilities; --execution-effects canonical selects worker/store effects')]
-[script("bash", "scripts/pse-env", "--recipe-default-class", "exclusive", "--", "bash", "-euo", "pipefail")]
+[doc('Native-local library units using explicitly prepared compiler/provider capabilities')]
+[script("bash", "scripts/pse-env", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 unit-native-capability-package pkg features capabilities filter *args:
-    scripts/pse-env --native="$3" -- python3 scripts/select.py --execution-effects native-local --features "$2" unit "$1" "$4" "${@:5}"
+    package="$1"
+    features="$2"
+    capabilities="$3"
+    filter="$4"
+    shift 4
+    if [[ "$filter" =~ ^[A-Za-z0-9_]+(::[A-Za-z0-9_]+)*(::)?$ ]]; then filter="test($filter)"; fi
+    command=(scripts/pse-env "--native=$capabilities" -- scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p "$package" --lib --locked --features "$features" -E "$filter" "$@")
+    printf '%q ' "${command[@]}"
+    printf '\n'
+    exec "${command[@]}"
 
 [group('local')]
 [doc('Focused default-feature refusal controls; keeps the real serial QDLDL absence branch')]

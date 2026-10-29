@@ -1213,31 +1213,6 @@ class NativeOperationTests(unittest.TestCase):
                 )
             )
 
-    def test_manual_math_source_requests_only_klu_and_isolation(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            interpreter = Path(directory) / "setup-python"
-            arguments = Path(directory) / "arguments"
-            interpreter.write_text(
-                '#!/usr/bin/env bash\nprintf "%s\\n" "$@" > "$NATIVE_FIXTURE_ARGUMENTS"\n'
-            )
-            interpreter.chmod(0o755)
-            subprocess.run(
-                ["bash", "-c", "source scripts/native-math-env.sh"],
-                cwd=cache.ROOT,
-                env={
-                    **os.environ,
-                    "PSE_NATIVE_SETUP_PYTHON": str(interpreter),
-                    "NATIVE_FIXTURE_ARGUMENTS": str(arguments),
-                },
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            self.assertEqual(
-                arguments.read_text().splitlines()[1:],
-                ["--capabilities", "klu,isolation", "--shell"],
-            )
 
     def test_managed_primary_service_requires_actual_group_and_invocation(self) -> None:
         unit = "pse-surreal-worker-" + "a" * 16 + "-0.service"

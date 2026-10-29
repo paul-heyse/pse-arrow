@@ -113,18 +113,6 @@ def tool_identity(env: dict[str, str], name: str, default: str) -> dict[str, str
     return operation.observe("tool:" + name + ":" + selected, observe)
 
 
-KLU_OPTIONS = (
-    "CMAKE_INSTALL_LIBDIR=lib",
-    "CMAKE_BUILD_TYPE=Release",
-    "CMAKE_POSITION_INDEPENDENT_CODE=ON",
-    "BUILD_SHARED_LIBS=OFF",
-    "BUILD_STATIC_LIBS=ON",
-    "SUITESPARSE_ENABLE_PROJECTS=suitesparse_config;amd;btf;colamd;klu",
-    "KLU_USE_CHOLMOD=OFF",
-    "SUITESPARSE_USE_CUDA=OFF",
-    "SUITESPARSE_CONFIG_USE_OPENMP=OFF",
-    "SUITESPARSE_DEMOS=OFF",
-)
 KLU_FILES = (
     "include/suitesparse/klu.h",
     "lib/libklu.a",
@@ -500,104 +488,6 @@ def prepend_library_path(libraries: str, env: dict[str, str]) -> str:
     )
 
 
-@operation_preparation("klu")
-def klu(base: Path, env: dict[str, str]) -> Path:
-    jobs = build_environment.native_compiler_jobs(ROOT, env)
-    env = env.copy()
-    env.setdefault("CC", shutil.which("cc") or "cc")
-    env.setdefault("CXX", shutil.which("c++") or "c++")
-    compiler = tool_identity(env, "CC", "cc")
-    cmake = tool_identity(env, "CMAKE", "cmake")
-    graph = json.loads(
-        subprocess.check_output(
-            [
-                "cargo",
-                "metadata",
-                "--locked",
-                "--features",
-                "pse-backend-native/native-solvers",
-                "--format-version",
-                "1",
-            ],
-            cwd=ROOT,
-            env=env,
-        )
-    )
-    packages = [p for p in graph["packages"] if p["name"] == "suitesparse_sys"]
-    if len(packages) != 1:
-        raise ValueError(
-            "expected one resolved suitesparse_sys source for the native build"
-        )
-    source = Path(packages[0]["manifest_path"]).parent / "vendor"
-    source_hash = hashlib.sha256()
-    for path in sorted(source.rglob("*")):
-        if path.is_file():
-            source_hash.update(str(path.relative_to(source)).encode())
-            source_hash.update(bytes.fromhex(digest(path)))
-    identity = {
-        "source": source_hash.hexdigest(),
-        "options": list(KLU_OPTIONS),
-        "target": env.get("CARGO_BUILD_TARGET") or compiler["target"],
-        "compiler": compiler["version"],
-        "compiler_bytes": compiler["bytes"],
-        "cmake": cmake["version"],
-        "cmake_bytes": cmake["bytes"],
-        "toolchain_file": digest(Path(env["CMAKE_TOOLCHAIN_FILE"]))
-        if env.get("CMAKE_TOOLCHAIN_FILE")
-        else None,
-        "flags": {
-            key: env.get(key)
-            for key in (
-                "CC",
-                "CXX",
-                "CFLAGS",
-                "CXXFLAGS",
-                "FC",
-                "FFLAGS",
-                "CPPFLAGS",
-                "LDFLAGS",
-                "CMAKE_TOOLCHAIN_FILE",
-                "SDKROOT",
-                "MACOSX_DEPLOYMENT_TARGET",
-            )
-        },
-    }
-
-    def build(stage: Path, work: Path) -> None:
-        launcher = env.get("RUSTC_WRAPPER", "")
-        options = [f"-D{item}" for item in KLU_OPTIONS]
-        if Path(launcher).name == "sccache":
-            options += [
-                f"-DCMAKE_C_COMPILER_LAUNCHER={launcher}",
-                f"-DCMAKE_CXX_COMPILER_LAUNCHER={launcher}",
-            ]
-        run(
-            [
-                "cmake",
-                "-S",
-                str(source),
-                "-B",
-                str(work),
-                f"-DCMAKE_INSTALL_PREFIX={stage}",
-                *options,
-            ],
-            env=env,
-        )
-        run(
-            [
-                "cmake",
-                "--build",
-                str(work),
-                "--parallel",
-                jobs,
-            ],
-            env=env,
-        )
-        run(["cmake", "--install", str(work)], env=env)
-
-    return prepare(base, "klu", identity, KLU_FILES, build)
-
-
 @operation_preparation("isolation")
 def isolation(base: Path, env: dict[str, str]) -> Path:
     """Prepare the source-pinned validated interval and supported LP binding."""
@@ -838,7 +728,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
-        choices=("klu", "isolation", "solver", "compiler-shell", "runtime-env"),
+        choices=("isolation", "solver", "compiler-shell", "runtime-env"),
     )
     args = parser.parse_args()
     if args.action == "runtime-env":
@@ -851,9 +741,7 @@ def main() -> None:
     else:
         base = cache_root(dict(os.environ))
         print(
-            klu(base, compiler_env(dict(os.environ)))
-            if args.action == "klu"
-            else isolation(base, compiler_env(dict(os.environ)))
+            isolation(base, compiler_env(dict(os.environ)))
             if args.action == "isolation"
             else solver(base)
         )
