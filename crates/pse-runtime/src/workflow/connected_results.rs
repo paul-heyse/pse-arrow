@@ -34,9 +34,6 @@ pub(super) async fn protected_response_scope<F: Future>(
     .await
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
-use std::time::Duration;
-
 // The boxed child drops before its grant, including cancellation and an unpolled
 // reader. Keeping the grant outside the child also retains it after Poll::Ready
 // until the allocation itself is dropped.
@@ -2416,10 +2413,11 @@ mod result_admission_unit {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(all(test, feature = "native-study-tests"))]
 mod canonical_connected_results_server_unit {
     #![allow(
         unsafe_code,
+        clippy::print_stderr,
         reason = "isolated generated finite-field fixtures explicitly assert a partial terminal class"
     )]
     use super::super::durable::PublicationAcks;
@@ -2430,21 +2428,86 @@ mod canonical_connected_results_server_unit {
         RunRequest, TerminalClass, result_batch_key, result_payload_digest, result_set_key,
     };
     use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
+    use futures_util::{FutureExt, future::BoxFuture};
+    use pse_operations::{canonical::CanonicalStore, native_service::{NativeCanonicalService, NativeModuleSource, NativeServiceSpec}};
+    use std::{ops::Deref, panic::AssertUnwindSafe, path::PathBuf, time::{Duration, Instant}};
+
+    /// Closing a logical read caller never claims that its SDK/releases drained.
+    /// The enclosing private service explicitly joins them after the body exits.
+    struct ReadOwner(RetainedDataServices);
+    impl Deref for ReadOwner {
+        type Target = RetainedDataServices;
+        fn deref(&self) -> &Self::Target { &self.0 }
+    }
+    impl Drop for ReadOwner {
+        fn drop(&mut self) { self.0.close(); }
+    }
+    fn read_owner(store: &CanonicalStore) -> ReadOwner {
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(512 << 20));
+        let native = datafusion::prelude::SessionContext::new();
+        let factory = Arc::new(pse_engine::session::EngineFactory::from_builder(
+            native.runtime_env(), pool, "native-connected-results-control",
+            datafusion::execution::session_state::SessionStateBuilder::from(native.state()),
+        ).with_observation(pse_engine::session::assurance::ObservationPolicy::Contract));
+        ReadOwner(RetainedDataServices::new(store.clone(), factory.bind_model(pse_schema::shared_registry().unwrap()).unwrap()).unwrap())
+    }
+    fn private_service() -> NativeCanonicalService {
+        let environment = std::env::vars_os().collect();
+        let helper = PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER").expect("explicit already-built native-service helper"));
+        assert!(helper.is_absolute() && helper.is_file());
+        let receipt = PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT").expect("explicit prepared private module receipt"));
+        NativeCanonicalService::new(NativeServiceSpec {
+            server: pse_host::server::select(&environment).unwrap(), helper,
+            module_source: NativeModuleSource::Prepared(pse_host::study_module::select(&receipt, pse_host::study_module::Variant::Production).unwrap()),
+            state_parent: std::env::temp_dir(),
+        }).unwrap()
+    }
+    type Case = for<'a> fn(&'a CanonicalStore, Option<&'a Runtime>) -> BoxFuture<'a, ()>;
+    async fn private_fixture(compiler: bool, body: Case) {
+        let mut service = private_service();
+        let outcome = AssertUnwindSafe(service.run(Instant::now() + Duration::from_secs(600), |service| {
+            Box::pin(async move {
+                service.launch(Instant::now() + Duration::from_secs(90)).await?;
+                let store = service.ready()?.store().clone();
+                // Only the explicit compiler-pressure control needs scientific
+                // construction. Read-only controls retain their data capabilities.
+                let science = compiler.then(|| {
+                    let local = super::super::tests::runtime_on(256 << 20, crate::math::MathPolicy {
+                        workspace_bytes: 64 << 20, worker_bytes: 64 << 20,
+                        artifact_bytes: 16 << 20, foreign_bytes: 8 << 20,
+                        inner_session_bytes: 0, ..Default::default()
+                    });
+                    Runtime::from_shared(local.shared.clone(), local.model.clone(), super::super::CanonicalDeployment::new(
+                        store.clone(), super::super::OuterAttestation { source: None, build: pse_ids::ContentHash::from_bytes([1; 32]) }, None,
+                    )).unwrap()
+                });
+                let outcome = AssertUnwindSafe(body(&store, science.as_ref())).catch_unwind().await;
+                let math_cleanup = if let Some(runtime) = &science {
+                    runtime.close();
+                    runtime.clear_program_cache();
+                    runtime.shared.math().shutdown_native_lanes().await
+                } else { Ok(()) };
+                let releases = pse_operations::testing::drain_result_releases(&store).await;
+                if let Err(error) = &math_cleanup { eprintln!("native connected-results lane cleanup failed: {error}; state={}", service.state().display()); }
+                if let Err(error) = &releases { eprintln!("native connected-results read cleanup failed: {error}; state={}", service.state().display()); }
+                if let Err(panic) = outcome { std::panic::resume_unwind(panic); }
+                math_cleanup.unwrap();
+                releases?;
+                Ok(())
+            })
+        })).catch_unwind().await;
+        let disposal = service.dispose();
+        if let Err(error) = &disposal { eprintln!("native connected-results private cleanup failed: {error}; state={}", service.state().display()); }
+        match outcome {
+            Err(panic) => std::panic::resume_unwind(panic),
+            Ok(result) => { result.unwrap(); disposal.unwrap(); }
+        }
+    }
     #[tokio::test]
     async fn canonical_nonempty_multipage_reads_share_256mib_with_real_compiler_leases() {
+        private_fixture(true, |_store, science| Box::pin(async move {
         use pse_compiler::workspace::{CompilerContext, WorkspaceLimits};
-        let local = super::super::tests::runtime_on(
-            256 << 20,
-            crate::math::MathPolicy {
-                workspace_bytes: 64 << 20,
-                worker_bytes: 64 << 20,
-                artifact_bytes: 16 << 20,
-                foreign_bytes: 8 << 20,
-                inner_session_bytes: 0,
-                ..Default::default()
-            },
-        );
-        let runtime = super::super::durable_tests::durable_runtime_on(local);
+        let runtime = science.expect("actual compiler-pressure runtime");
         let pool = runtime.shared.pool();
         assert!(
             matches!(pool.memory_limit(), datafusion::execution::memory_pool::MemoryLimit::Finite(limit) if limit == 256 << 20)
@@ -2701,14 +2764,16 @@ mod canonical_connected_results_server_unit {
         drop(first_compiler);
         drop(second_compiler);
         assert_eq!(pool.reserved(), compiler_baseline);
+        })).await;
     }
 
     #[tokio::test]
     async fn canonical_empty_demand_has_registry_schema_without_ipc_or_absent_membership() {
+        private_fixture(false, |store, _science| Box::pin(async move {
         use super::super::durable::{StoredCompletion, TerminationCause, TerminationDetail};
-        let runtime = super::super::durable_tests::durable_runtime();
+        let runtime = read_owner(store);
         let store = runtime.canonical_store().unwrap().clone();
-        let pool = runtime.shared.pool();
+        let pool = runtime.pool();
         let source = store
             .edit("empty-demand", None, "source", &[])
             .await
@@ -2894,12 +2959,15 @@ mod canonical_connected_results_server_unit {
                 .await
                 .is_err()
         );
+        })).await;
     }
+
     #[tokio::test]
     async fn canonical_decoded_arrow_survives_reader_drop_and_result_reclamation() {
-        let runtime = super::super::durable_tests::durable_runtime();
+        private_fixture(false, |store, _science| Box::pin(async move {
+        let runtime = read_owner(store);
         let store = runtime.canonical_store().unwrap().clone();
-        let pool = runtime.shared.pool();
+        let pool = runtime.pool();
         let source = store
             .edit("decoded-owner", None, "source", &[])
             .await
@@ -3109,7 +3177,6 @@ mod canonical_connected_results_server_unit {
                 .await
                 .is_err()
         );
-        cleanup.remove_isolated_fixture().await.unwrap();
         pse_operations::testing::drain_result_releases(&store)
             .await
             .unwrap();
@@ -3123,11 +3190,14 @@ mod canonical_connected_results_server_unit {
         assert!(pool.reserved() > baseline);
         drop(escaped);
         assert_eq!(pool.reserved(), baseline);
+        })).await;
     }
+
     #[tokio::test]
     async fn canonical_output_indexes_read_original_rows_and_skip_unrelated_blocks() {
+        private_fixture(false, |store, _science| Box::pin(async move {
         use pse_relations::generated::runtime::{fit_parameters, simulation_samples};
-        let runtime = super::super::durable_tests::durable_runtime();
+        let runtime = read_owner(store);
         let store = runtime.canonical_store().unwrap();
         let source = store.edit("projection", None, "source", &[]).await.unwrap();
         store
@@ -3198,8 +3268,8 @@ mod canonical_connected_results_server_unit {
             &fence,
             fit_parameters::RELATION_ID,
             crate::workflow::ResultCursor::from_checked(parameters.clone()),
-            &runtime.shared.pool(),
-            &PublicationAcks::new(&runtime.shared.pool()),
+            &runtime.pool(),
+            &PublicationAcks::new(&runtime.pool()),
         )
         .await
         .unwrap();
@@ -3229,8 +3299,8 @@ mod canonical_connected_results_server_unit {
             &fence,
             simulation_samples::RELATION_ID,
             crate::workflow::ResultCursor::from_checked(samples.clone()),
-            &runtime.shared.pool(),
-            &PublicationAcks::new(&runtime.shared.pool()),
+            &runtime.pool(),
+            &PublicationAcks::new(&runtime.pool()),
         )
         .await
         .unwrap();
@@ -3641,7 +3711,7 @@ mod canonical_connected_results_server_unit {
             ..Default::default()
         };
         let composed = crate::tooling::review_export::export_review_pack(
-            &runtime.retained_data_services(),
+            &runtime.0,
             &composed_path,
             &evidence,
             &analysis,
@@ -3735,10 +3805,13 @@ mod canonical_connected_results_server_unit {
         pse_operations::testing::drain_result_releases(store)
             .await
             .unwrap();
+        })).await;
     }
+
     #[tokio::test]
     async fn canonical_connected_results_reopens_declared_arrow_exact_range_and_cancellation() {
-        let runtime = super::super::durable_tests::durable_runtime();
+        private_fixture(false, |store, _science| Box::pin(async move {
+        let runtime = read_owner(store);
         let store = runtime.canonical_store().unwrap();
         let source = store.edit("problem", None, "source", &[]).await.unwrap();
         store
@@ -4390,7 +4463,9 @@ mod canonical_connected_results_server_unit {
         pse_operations::testing::drain_result_releases(store)
             .await
             .unwrap();
+        })).await;
     }
+
 }
 
 #[cfg(test)]

@@ -195,6 +195,14 @@ name = "reference_covariance_exchange"
 required-features = ["solver-ipopt"]
 
 [[test]]
+name = "native_adoption"
+required-features = ["solver-ipopt"]
+
+[[test]]
+name = "native_research"
+required-features = ["native-study-tests"]
+
+[[test]]
 name = "reference_sensitivity_exchange"
 required-features = ["solver-ipopt"]
 

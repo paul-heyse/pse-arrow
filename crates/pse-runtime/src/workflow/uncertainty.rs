@@ -398,6 +398,16 @@ impl RunResult {
             return None;
         };
         report.covariance.as_ref().map(|covariance| {
+            // A withheld mathematical product already carries its precise cause.
+            // Retain that cause before testing permission to reuse a successful
+            // product; neither branch can confer scientific authority.
+            if let Err(withheld) = &covariance.values {
+                return Err(Upstream {
+                    quantity: DerivedQuantity::ParameterCovariance,
+                    reason: withheld.reason(),
+                    detail: withheld.to_string(),
+                });
+            }
             if !self
                 .completion()
                 .ok()

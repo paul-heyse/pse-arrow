@@ -232,12 +232,10 @@ PYTHON_DURABLE_OWNERS = frozenset(
         "test_modeling_kernel.py",
         "test_plan14_acceptance.py",
         "test_review_workflows.py",
-        "test_scientific_boundary_adoption.py",
         "test_live_simulation.py",
         "test_canonical_results.py",
         "test_native_workflow.py",
         "test_lifecycle.py",
-        "test_research.py",
         "test_capability_adapters.py",
     }
 )

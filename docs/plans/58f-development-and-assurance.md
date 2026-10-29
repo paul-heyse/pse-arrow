@@ -548,3 +548,21 @@ The remaining actual scientific consumer gaps are covariance/uncertainty adoptio
 selection/protected reopen/correction, distinct from H measurement campaigns. Native strict
 metadata/Markdown migration proceeds alongside these consumers, using the selected library
 parsers with current admission/legacy rules preserved. Package tables retain acceptance state.
+
+## Native covariance and research adoption — 2026-10-29
+
+F04's actual remaining covariance/uncertainty and research-selection callers now execute
+through public Rust APIs. Independent weighted normal equations and the downstream contrast
+Jacobian check numerical covariance/propagation; decoded documents acquire statistical authority
+only through exact retained-source reconciliation. Payload tampering, missing canonical attempt,
+nonunit importance and indefinite covariance retain explicit refusals. Native extraction now keeps
+the original nonunit-importance cause instead of replacing it with generic upstream withholding.
+The original inference permission remains required for successful reuse.
+
+The private-service research caller retains typed measurement quantities, discovery pagination,
+exact dataset/selection content, protected reopen and the original context after a later correction.
+It exercises selection and custody, not a numerical calibration campaign. Local native lanes,
+canonical clients and private service ownership settle on scientific failure and panic too.
+The corresponding two Python scientific test consumers and their resource declarations retire.
+Three local adoption controls and the ten-control private canonical selection pass; this does not
+qualify unrelated H science/reference/performance campaigns or finish all F/G retirement.

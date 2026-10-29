@@ -285,3 +285,20 @@ Use [Bytes 1.12.1 from_owner](https://docs.rs/bytes/1.12.1/bytes/struct.Bytes.ht
 and [object_store 0.13.2 Signer](https://docs.rs/object_store/0.13.2/object_store/signer/trait.Signer.html)
 as precise custody/conditional-signing references. The principal review appendix preserves
 additional Flight and transport sources; newer overview APIs do not silently select upgrades.
+
+## Native protected-read consumer continuation — 2026-10-29
+
+Five existing protected-result controls now construct private native canonical services instead
+of relying on the Python fixture registry or configured development store. Four read-only callers
+construct math-free retained-data services. The compiler-pressure control keeps its actual shared
+pool and compiler leases; it does not substitute a simulated allocation. Exact range/schema,
+empty demand, decoded arrays surviving reader close/reclamation, output indexes, cancellation and
+IPC export assertions remain and pass. Owning fixture teardown retains original panic and
+independent cleanup diagnostics.
+
+Existing public repeated-analysis callers already freeze cohorts and export selected pages, exact
+IPC detail and independently checked analysis through the native owner; no new transport or export
+framework is selected. Bucket/file values, Arrow Flight and signed URLs remain unselected without
+a concrete consumer trigger. Remaining E/G work removes the last Python stream/materialization
+consumers and reconciles their declarations; H still owns assembled delivery-cancel, partial
+attachment and deployment qualification.
