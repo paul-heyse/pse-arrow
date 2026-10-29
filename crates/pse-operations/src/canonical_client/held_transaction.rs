@@ -47,7 +47,10 @@ impl Client {
     }
 }
 impl HeldTransaction {
-    #[cfg(any(feature = "canonical-tests", feature = "test-support"))]
+    #[cfg(any(
+        all(test, feature = "canonical-tests"),
+        all(feature = "test-support", feature = "native-service")
+    ))]
     pub(crate) fn query(&self, query: impl Into<Cow<'static, str>>) -> Query<'static> {
         let held = self
             .0
@@ -63,7 +66,10 @@ impl HeldTransaction {
     pub(crate) async fn commit(mut self) -> EngineResult<()> {
         finish(self.0.take().expect("open commit-order fixture"), true).await
     }
-    #[cfg(any(feature = "canonical-tests", feature = "test-support"))]
+    #[cfg(any(
+        all(test, feature = "canonical-tests"),
+        all(feature = "test-support", feature = "native-service")
+    ))]
     pub(crate) async fn cancel(mut self) -> EngineResult<()> {
         finish(self.0.take().expect("open rollback fixture"), false).await
     }

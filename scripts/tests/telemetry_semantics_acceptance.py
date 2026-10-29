@@ -423,8 +423,7 @@ async def run(state: Path, output: Path) -> int:
                 )
                 require(
                     int(str(example["timestamp"]))
-                    == int(str(original_example["time_unix_nano"]))
-                    // 1_000_000_000,
+                    == int(str(original_example["time_unix_nano"])) // 1_000_000_000,
                     "semantics.example_source_clock",
                 )
                 observed += 1

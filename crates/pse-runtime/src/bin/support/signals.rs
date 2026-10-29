@@ -124,14 +124,13 @@ mod tests {
                         }
                         std::thread::sleep(std::time::Duration::from_millis(5));
                     }
-                    if stage == "ready" {
-                        if !std::process::Command::new("kill")
+                    if stage == "ready"
+                        && !std::process::Command::new("kill")
                             .args([signal, &child.id().to_string()])
                             .status()?
                             .success()
-                        {
-                            return Err("signal delivery failed".into());
-                        }
+                    {
+                        return Err("signal delivery failed".into());
                     }
                 }
                 if child.try_wait()?.is_some() {

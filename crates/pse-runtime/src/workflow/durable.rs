@@ -221,7 +221,6 @@ pub(super) async fn result_product_permission(
         .map(super::completion::ProductPermission::permits_result))
 }
 
-
 async fn decode_completion(
     store: &CanonicalStore,
     pool: &Arc<dyn MemoryPool>,
@@ -240,8 +239,7 @@ async fn decode_completion(
     }
     let (completion, owner) = match header.inline {
         Some(completion) => {
-            if header.batch_count != 0 || header.payload_bytes != 0 || !header.digest.is_empty()
-            {
+            if header.batch_count != 0 || header.payload_bytes != 0 || !header.digest.is_empty() {
                 return Err(contract("inline completion carries chunk coverage"));
             }
             let bytes = serde_json::to_vec(&completion).map_err(|e| contract(e.to_string()))?;
@@ -273,18 +271,18 @@ async fn decode_completion(
     )))
 }
 
-
 pub(super) async fn progress_coverage(
     store: &CanonicalStore,
     pool: &Arc<dyn MemoryPool>,
     read: &ResultRead,
 ) -> Result<super::ProgressCoverage, WorkflowError> {
-    Ok(decode_completion(store, pool, CompletionSelection::Full(read))
-        .await?
-        .progress
-        .clone())
+    Ok(
+        decode_completion(store, pool, CompletionSelection::Full(read))
+            .await?
+            .progress
+            .clone(),
+    )
 }
-
 
 /// Reopen only the original completion under fresh exact terminal permission.
 pub(super) async fn read_completion(
@@ -313,12 +311,10 @@ pub(super) async fn read_completion(
                 |owner| read.retain_metadata_owner(owner),
             )?);
             read.retain_metadata_owner(read_owner)?;
-            decode_completion(store, pool, CompletionSelection::Slim(&read))
-                .await
+            decode_completion(store, pool, CompletionSelection::Slim(&read)).await
         })
         .await
 }
-
 
 /// The sole canonical store, worker identity and renewal policy.
 #[derive(Clone, Debug)]

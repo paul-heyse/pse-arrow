@@ -6,8 +6,7 @@ use crate::enums::EnumValue;
 use crate::identities::{HashValue, Identity};
 use pse_ids::SemanticId;
 use pse_model::generated::enums::{
-    ModelingInitializationStep,
-    NativeRunState, TrajectoryTermination,
+    ModelingInitializationStep, NativeRunState, TrajectoryTermination,
 };
 use pse_modeling::DeclarationId;
 use std::collections::BTreeMap;

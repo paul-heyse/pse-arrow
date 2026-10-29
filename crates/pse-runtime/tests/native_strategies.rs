@@ -67,9 +67,12 @@ fn physical_stages(
         })?;
     }
     let batch = builder.finish()?.batch().clone();
-    Ok(context.runtime.snapshot_initialization_stages(
-        RecordBatchIterator::new([Ok(batch.clone())], batch.schema()),
-    )?)
+    Ok(context
+        .runtime
+        .snapshot_initialization_stages(RecordBatchIterator::new(
+            [Ok(batch.clone())],
+            batch.schema(),
+        ))?)
 }
 
 fn close_to(actual: f64, expected: f64) {
@@ -111,7 +114,11 @@ async fn native_initialization_restores_original_inputs_and_retains_partial_stag
         settings.controls.iterations = 50;
         let cancel = CancelSource::new();
         let execution = Box::pin(package.admit_declared_request(
-            &services, root, &preparation, settings.clone(), &cancel,
+            &services,
+            root,
+            &preparation,
+            settings.clone(),
+            &cancel,
         ))
         .await?;
         let model = &execution.model;
@@ -131,10 +138,7 @@ async fn native_initialization_restores_original_inputs_and_retains_partial_stag
         // The positive branch is selected by the authored start: sqrt(9)=3,
         // followed by y=4. An empty final overlay restores a=4, x=2, y=3.
         // The second schedule instead requests x*x=-1, which has no real root.
-        for (overlays, complete) in [
-            ([Some(9.0), None], true),
-            ([Some(9.0), Some(-1.0)], false),
-        ] {
+        for (overlays, complete) in [([Some(9.0), None], true), ([Some(9.0), Some(-1.0)], false)] {
             let stages = physical_stages(&context, &package, a, &overlays)?;
             let prepared = Box::pin(package.prepare_initialization_request(
                 &services,
@@ -189,7 +193,8 @@ async fn native_initialization_restores_original_inputs_and_retains_partial_stag
 }
 
 #[tokio::test]
-async fn native_explicit_and_conditional_recycles_conserve_and_refuse_unbroken_cycles() -> Result<()> {
+async fn native_explicit_and_conditional_recycles_conserve_and_refuse_unbroken_cycles() -> Result<()>
+{
     let context = NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
         for conditional in [false, true] {
@@ -225,7 +230,11 @@ async fn native_explicit_and_conditional_recycles_conserve_and_refuse_unbroken_c
             };
             let cancel = CancelSource::new();
             let execution = Box::pin(package.admit_declared_request(
-                &services, root, &preparation, settings.clone(), &cancel,
+                &services,
+                root,
+                &preparation,
+                settings.clone(),
+                &cancel,
             ))
             .await?;
             let analysis = &execution.analysis;
@@ -252,7 +261,16 @@ async fn native_explicit_and_conditional_recycles_conserve_and_refuse_unbroken_c
                 connections: product
                     .connections
                     .keys()
-                    .map(|id| (*id, Decision { id: *id, cost: 1.0, policy: Policy::Free }))
+                    .map(|id| {
+                        (
+                            *id,
+                            Decision {
+                                id: *id,
+                                cost: 1.0,
+                                policy: Policy::Free,
+                            },
+                        )
+                    })
                     .collect(),
             };
             assert_eq!(selection.connections.len(), 1);
@@ -299,10 +317,17 @@ async fn native_explicit_and_conditional_recycles_conserve_and_refuse_unbroken_c
             .await?;
             assert_eq!(prepared.order()?, vec![analysis.instance.as_id()]);
             assert_eq!(prepared.request().tears, request.tears);
-            assert_eq!(prepared.conditional_units().count(), usize::from(conditional));
+            assert_eq!(
+                prepared.conditional_units().count(),
+                usize::from(conditional)
+            );
             let report: DeclaredRootReport = prepared.start(&services)?.finish().await?;
             assert_eq!(report.candidate_use(), CandidateUse::Usable, "{report:?}");
-            assert_eq!(report.report.qualification, Qualification::Feasible, "{report:?}");
+            assert_eq!(
+                report.report.qualification,
+                Qualification::Feasible,
+                "{report:?}"
+            );
             let candidate = report.report.candidate.as_ref().unwrap();
             assert_eq!(candidate.primal.len(), 1);
             // Independent balance: x = x/2 + 2, so x=4. Check the
@@ -314,7 +339,10 @@ async fn native_explicit_and_conditional_recycles_conserve_and_refuse_unbroken_c
             if conditional {
                 close_to(original.scalars[&symbol("y")], 4.0);
                 close_to(original.scalars[&symbol("hidden")], 7.0);
-                close_to(original.scalars[&symbol("hidden")] - original.scalars[&symbol("y")], 3.0);
+                close_to(
+                    original.scalars[&symbol("hidden")] - original.scalars[&symbol("y")],
+                    3.0,
+                );
             }
 
             // A physical recycle cannot be run as an acyclic causal schedule

@@ -404,12 +404,9 @@ async fn protect_pin(
         pin.retain_metadata_owner(response)?;
         return Err(contract("physical protection allocation extent"));
     };
-    let retained = Arc::new(retain_protected_metadata(
-        pool,
-        response,
-        bytes,
-        |owner| pin.retain_metadata_owner(owner),
-    )?);
+    let retained = Arc::new(retain_protected_metadata(pool, response, bytes, |owner| {
+        pin.retain_metadata_owner(owner)
+    })?);
     pin.retain_metadata_owner(retained.clone())?;
     Ok((pin, retained))
 }
@@ -672,7 +669,9 @@ mod physical_admission_cache_unit {
             .unwrap()
             .unwrap();
         let before = operations.pool.reserved();
-        let (pin, grant) = protect_pin(operations.store(), &operations.pool, &revision).await.unwrap();
+        let (pin, grant) = protect_pin(operations.store(), &operations.pool, &revision)
+            .await
+            .unwrap();
         assert_eq!(
             grant.size(),
             pin.retained_bytes().unwrap()

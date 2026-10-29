@@ -28,7 +28,6 @@ force-validate = [
 default = []
 product-operators = [
   "dep:clap",
-  "dep:sha2",
   "pse-operations/canonical-maintenance",
 ]
 diagnostic-taskdump = ["tokio/taskdump"]
@@ -69,7 +68,6 @@ native-solvers = [
 [dependencies]
 pse-host.workspace = true
 clap = { workspace = true, optional = true }
-sha2 = { workspace = true, optional = true }
 tempfile.workspace = true
 datafusion-pruning.workspace = true
 levenberg-marquardt.workspace = true

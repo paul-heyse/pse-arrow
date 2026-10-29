@@ -150,9 +150,8 @@ impl CohortAnalysisState {
             ));
         }
         let relation = spec.id;
-        let schema =
-            pse_schema::arrow::relation_schema_ref(services.registry(), spec)
-                .map_err(|error| pse_engine::EngineError::Semantic(Arc::new(error)))?;
+        let schema = pse_schema::arrow::relation_schema_ref(services.registry(), spec)
+            .map_err(|error| pse_engine::EngineError::Semantic(Arc::new(error)))?;
         let filter = connected_results::output_filter(
             &services,
             &request.relation,
@@ -192,13 +191,13 @@ impl CohortAnalysisState {
                 / 4,
         )
         .map_err(|_| contract("classification bit extent"))?;
-        let knowledge_owner = MemoryConsumer::new("study-cohort:classification-bits")
-            .register(&services.pool());
+        let knowledge_owner =
+            MemoryConsumer::new("study-cohort:classification-bits").register(&services.pool());
         knowledge_owner
             .try_grow(bytes + size_of::<Knowledge>())
             .map_err(pse_engine::EngineError::from)?;
-        let owner = MemoryConsumer::new("study-cohort:relation-provider")
-            .register(&services.pool());
+        let owner =
+            MemoryConsumer::new("study-cohort:relation-provider").register(&services.pool());
         owner
             .try_grow(
                 size_of::<Self>()
@@ -252,8 +251,8 @@ impl CohortAnalysisState {
         request: StudyCohortPageRequest,
     ) -> Result<StudyCohortClassificationPage, WorkflowError> {
         let page = self.cohort.member_page(request).await?;
-        let owner = MemoryConsumer::new("study-cohort:classification-page")
-            .register(&self.services.pool());
+        let owner =
+            MemoryConsumer::new("study-cohort:classification-page").register(&self.services.pool());
         owner
             .try_grow(
                 page.members.len() * size_of::<CapturedStudyRow<StudyCohortClassification>>()
@@ -349,8 +348,7 @@ struct Scan {
 }
 impl Scan {
     fn new(state: Arc<CohortAnalysisState>) -> Result<Self, WorkflowError> {
-        let owner = MemoryConsumer::new("study-cohort:scan-state")
-            .register(&state.services.pool());
+        let owner = MemoryConsumer::new("study-cohort:scan-state").register(&state.services.pool());
         owner
             .try_grow(
                 size_of::<Self>()
@@ -643,10 +641,7 @@ impl TableProvider for CohortProvider {
             .ok_or_else(|| {
                 DataFusionError::Plan("cohort requires configured native session state".into())
             })?;
-        if !Arc::ptr_eq(
-            &state.runtime_env().memory_pool,
-            &self.0.services.pool(),
-        ) {
+        if !Arc::ptr_eq(&state.runtime_env().memory_pool, &self.0.services.pool()) {
             return Err(DataFusionError::Plan(
                 "cohort query uses another deployment pool".into(),
             ));
@@ -672,10 +667,7 @@ impl PartitionStream for CohortPartition {
     }
     fn execute(&self, context: Arc<TaskContext>) -> SendableRecordBatchStream {
         let state = self.0.clone();
-        let matches = Arc::ptr_eq(
-            &context.runtime_env().memory_pool,
-            &state.services.pool(),
-        );
+        let matches = Arc::ptr_eq(&context.runtime_env().memory_pool, &state.services.pool());
         let stream = futures_util::stream::try_unfold(
             (state, None::<Scan>, matches),
             |(state, scan, matches)| async move {

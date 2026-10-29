@@ -193,10 +193,6 @@ class ModelingNativeAnalysis:
         return TableStream(self._handle.table())
 
 
-
-
-
-
 @attrs.frozen
 class ModelingConformance:
     """Shared checks and completed fixture solves, including explicit coverage gaps."""
@@ -414,10 +410,6 @@ class StudyReport:
         return self._handle.failure(index)
 
 
-
-
-
-
 @attrs.frozen
 class ModelingTrajectory:
     """Completed physical samples and the actual native termination.
@@ -457,8 +449,6 @@ class ModelingTrajectory:
 
     def table(self, name: str = "runtime.simulation_samples") -> TableStream:
         return TableStream(self._handle.table(name))
-
-
 
 
 @attrs.frozen
@@ -540,8 +530,6 @@ class ModelingPackage:
         """Share the admitted revision while selecting explicit expansion limits."""
         return ModelingPackage(self._handle.with_limits(limits))
 
-
-
     def prepare_simulation(
         self, case_id: DeclarationId, settings: SimulationSettings
     ) -> PreparedOperation:
@@ -569,9 +557,6 @@ class ModelingPackage:
         return self._handle.diagnostic_source_map(
             case_id, settings, maximum_bytes, time_limit
         )
-
-
-
 
     def with_declarations(
         self, declarations: Sequence[AuthoredModelingDeclarationsRow]
@@ -797,7 +782,6 @@ class ModelingPackage:
     def admit_study(self, request: StudyRequest) -> "LocalStudy":
         """Retain admitted scientific intent and its exact immutable source owners."""
         return LocalStudy(self._handle.admit_study(codec.encode_json(request)))
-
 
     def conform(
         self,

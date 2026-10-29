@@ -1567,8 +1567,20 @@ mod tests {
         fs::set_permissions(&metadata_path, fs::Permissions::from_mode(0o400)).unwrap();
         let prefix = prepare_external(directory.path(), &env, "isolation").unwrap();
         assert_eq!(fs::read(&metadata_path).unwrap(), original_metadata);
-        assert_eq!(metadata_path.metadata().unwrap().permissions().mode() & 0o777, 0o400);
-        assert_eq!(prefix.join("share/pkgconfig/ibex.pc").metadata().unwrap().permissions().mode() & 0o222, 0);
+        assert_eq!(
+            metadata_path.metadata().unwrap().permissions().mode() & 0o777,
+            0o400
+        );
+        assert_eq!(
+            prefix
+                .join("share/pkgconfig/ibex.pc")
+                .metadata()
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o222,
+            0
+        );
         fs::remove_dir_all(&source).unwrap();
         let selected = apply_provider(directory.path(), &env, "isolation").unwrap();
         assert_eq!(

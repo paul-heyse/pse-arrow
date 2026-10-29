@@ -172,8 +172,8 @@ impl ResultBlockDecode {
         relation: pse_ids::SemanticId,
         schema: SchemaRef,
     ) -> Result<Arc<Self>, WorkflowError> {
-        let owner = MemoryConsumer::new("canonical:protected-result-decoder")
-            .register(&services.pool());
+        let owner =
+            MemoryConsumer::new("canonical:protected-result-decoder").register(&services.pool());
         owner
             .try_grow(size_of::<Self>() + 2 * size_of::<usize>())
             .map_err(pse_engine::EngineError::from)?;
@@ -236,8 +236,8 @@ impl ResultSnapshot {
             return Err(contract("snapshot read metadata is not prepaid"));
         }
         read.retain_metadata_owner(read_owner.clone())?;
-        let owner = MemoryConsumer::new("canonical:result-snapshot-inventory")
-            .register(&services.pool());
+        let owner =
+            MemoryConsumer::new("canonical:result-snapshot-inventory").register(&services.pool());
         owner
             .try_grow(size_of::<SnapshotInner>())
             .map_err(pse_engine::EngineError::from)?;
@@ -352,10 +352,7 @@ impl ResultSnapshot {
     }
     /// Existing configured native state, including its functions and shared pool.
     pub fn session_state(&self) -> SessionState {
-        self.0
-            .decode
-            .services
-            .session_state()
+        self.0.decode.services.session_state()
     }
     /// A native provider over this frozen inventory; no directory discovery.
     pub fn table_provider(&self) -> Arc<dyn TableProvider> {
@@ -813,10 +810,7 @@ impl SelectedResultSnapshot {
     }
     /// Original configured native functions, registry and pool.
     pub fn session_state(&self) -> SessionState {
-        self.0
-            .decode
-            .services
-            .session_state()
+        self.0.decode.services.session_state()
     }
     /// Native provider restricting rows before any residual, limit or projection.
     pub fn table_provider(&self) -> Arc<dyn TableProvider> {
@@ -933,11 +927,7 @@ impl FrozenSnapshot {
                 *index += 1;
                 return entry
                     .rows
-                    .apply(
-                        &checked,
-                        &snapshot.0.decode.services.pool(),
-                        cancel,
-                    )
+                    .apply(&checked, &snapshot.0.decode.services.pool(), cancel)
                     .map(Some);
             },
         }
@@ -989,8 +979,8 @@ impl NativeResultSelection {
         expression: Expr,
     ) -> NativeResult<Arc<Self>> {
         use datafusion::common::DFSchema;
-        let owner = MemoryConsumer::new("canonical:result-selection-plan")
-            .register(&services.pool());
+        let owner =
+            MemoryConsumer::new("canonical:result-selection-plan").register(&services.pool());
         // The registry predicate has bounded shape; retain the native expression,
         // pruning rewrite and schema handles for the full selection lifetime.
         owner.try_grow(
@@ -1067,8 +1057,7 @@ impl NativeResultSelection {
         .ok_or_else(|| {
             DataFusionError::ResourcesExhausted("result pruning metadata extent".into())
         })?;
-        let owner = MemoryConsumer::new("canonical:result-pruning-page")
-            .register(&services.pool());
+        let owner = MemoryConsumer::new("canonical:result-pruning-page").register(&services.pool());
         owner.try_grow(extent)?;
         let mut statistics = Vec::with_capacity(count);
         for index in 0..count {

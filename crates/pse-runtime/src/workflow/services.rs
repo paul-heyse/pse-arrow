@@ -84,7 +84,9 @@ impl RetainedDataServices {
     pub fn canonical_store(
         &self,
     ) -> Result<&pse_operations::canonical::CanonicalStore, WorkflowError> {
-        self.store.as_ref().ok_or(WorkflowError::RecordingUnavailable)
+        self.store
+            .as_ref()
+            .ok_or(WorkflowError::RecordingUnavailable)
     }
     /// Immutable schema authority of the configured native model.
     pub fn registry(&self) -> &Arc<pse_schema::Registry> {
@@ -184,7 +186,10 @@ pub struct SourceServices {
 impl SourceServices {
     pub(crate) fn retained_data_services(&self) -> RetainedDataServices {
         RetainedDataServices {
-            store: self.canonical.as_ref().map(|canonical| canonical.store().clone()),
+            store: self
+                .canonical
+                .as_ref()
+                .map(|canonical| canonical.store().clone()),
             model: self.preparation.model.clone(),
             admission: self.preparation.admission.clone(),
         }
@@ -255,7 +260,10 @@ impl ExecutionServices {
     /// Retained reads share this caller and native model without retaining execution services.
     pub fn retained_data_services(&self) -> RetainedDataServices {
         RetainedDataServices {
-            store: self.read_operations.as_ref().map(|operations| operations.store().clone()),
+            store: self
+                .read_operations
+                .as_ref()
+                .map(|operations| operations.store().clone()),
             model: self.preparation.model.clone(),
             admission: self.preparation.admission.clone(),
         }
@@ -298,7 +306,10 @@ impl Runtime {
     /// Extract only retained-read capabilities, preserving this caller's admission.
     pub fn retained_data_services(&self) -> RetainedDataServices {
         RetainedDataServices {
-            store: self.canonical.as_ref().map(|canonical| canonical.store().clone()),
+            store: self
+                .canonical
+                .as_ref()
+                .map(|canonical| canonical.store().clone()),
             model: self.model.clone(),
             admission: ActivityAdmission {
                 caller: self.caller.clone(),
@@ -375,13 +386,18 @@ mod retained_data_unit {
     fn model() -> BoundModel {
         let native = SessionContext::new();
         let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
-        let factory = Arc::new(EngineFactory::from_builder(
-            native.runtime_env(),
-            pool,
-            "retained-native-unit",
-            SessionStateBuilder::from(native.state()),
-        ).with_extension(Arc::new(ReadConfiguration)));
-        factory.bind_model(pse_schema::shared_registry().unwrap()).unwrap()
+        let factory = Arc::new(
+            EngineFactory::from_builder(
+                native.runtime_env(),
+                pool,
+                "retained-native-unit",
+                SessionStateBuilder::from(native.state()),
+            )
+            .with_extension(Arc::new(ReadConfiguration)),
+        );
+        factory
+            .bind_model(pse_schema::shared_registry().unwrap())
+            .unwrap()
     }
 
     #[tokio::test]
@@ -399,22 +415,44 @@ mod retained_data_unit {
             model,
         };
         let alias = reads.clone();
-        assert!(Arc::ptr_eq(&reads.pool(), &reads.session_state().runtime_env().memory_pool));
-        assert!(reads.session_state().config().get_extension::<ReadConfiguration>().is_some());
-        assert!(matches!(reads.canonical_store(), Err(WorkflowError::RecordingUnavailable)));
+        assert!(Arc::ptr_eq(
+            &reads.pool(),
+            &reads.session_state().runtime_env().memory_pool
+        ));
+        assert!(
+            reads
+                .session_state()
+                .config()
+                .get_extension::<ReadConfiguration>()
+                .is_some()
+        );
+        assert!(matches!(
+            reads.canonical_store(),
+            Err(WorkflowError::RecordingUnavailable)
+        ));
         let outside = reads.admission_context();
-        reads.scope_activity(async {
-            let original = reads.admission_context();
-            assert!(!Arc::ptr_eq(&original, &outside));
-            assert!(Arc::ptr_eq(&original, &alias.admission_context()));
-            alias.close();
-            reads.scope_activity(async {
-                assert!(Arc::ptr_eq(&original, &reads.admission_context()));
-                Ok(())
-            }).await
-        }).await.unwrap();
-        assert!(matches!(reads.scope_activity(async { Ok(()) }).await, Err(WorkflowError::CallerClosed)));
-        assert!(matches!(alias.admit_activity(), Err(WorkflowError::CallerClosed)));
+        reads
+            .scope_activity(async {
+                let original = reads.admission_context();
+                assert!(!Arc::ptr_eq(&original, &outside));
+                assert!(Arc::ptr_eq(&original, &alias.admission_context()));
+                alias.close();
+                reads
+                    .scope_activity(async {
+                        assert!(Arc::ptr_eq(&original, &reads.admission_context()));
+                        Ok(())
+                    })
+                    .await
+            })
+            .await
+            .unwrap();
+        assert!(matches!(
+            reads.scope_activity(async { Ok(()) }).await,
+            Err(WorkflowError::CallerClosed)
+        ));
+        assert!(matches!(
+            alias.admit_activity(),
+            Err(WorkflowError::CallerClosed)
+        ));
     }
-
 }

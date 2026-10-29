@@ -2328,7 +2328,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                 "binary_sha256": server.file_digest(binary),
                 "upstream_revision": server.surreal_source.REVISION,
             },
-            "study_module": fixture_module(self.root / "modules", server.file_digest(binary)),
+            "study_module": fixture_module(
+                self.root / "modules", server.file_digest(binary)
+            ),
             "port": 18080,
             "namespace": "pse",
             "database": "canonical",
@@ -2341,23 +2343,30 @@ class SurrealSupervisorTests(unittest.TestCase):
             "max_message_bytes": server.MESSAGE_BYTES,
             "rpc_max_message_bytes": server.MESSAGE_BYTES,
             "tooling_fixture": False,
-            "resources": server.resources(4 * server.GIB, 2 * server.GIB, 2, server.GIB),
+            "resources": server.resources(
+                4 * server.GIB, 2 * server.GIB, 2, server.GIB
+            ),
             "log_max_bytes": 8 * server.MIB,
             "log_backups": 2,
             "service_class": "functional",
             "telemetry_state": str(server.telemetry_service.state_directory()),
             "resident": True,
         }
-        server.write_json(self.state / "credentials.json", {
-            "username": "pse-local",
-            "password": "private-fixture-owner",
-            "selection_username": "pse-selection",
-            "selection_password": "private-fixture-selection",
-        })
+        server.write_json(
+            self.state / "credentials.json",
+            {
+                "username": "pse-local",
+                "password": "private-fixture-owner",
+                "selection_username": "pse-selection",
+                "selection_password": "private-fixture-selection",
+            },
+        )
         if fresh:
             config["fresh_root_bootstrap"] = {
                 "instance_id": config["instance_id"],
-                "credentials_sha256": server.file_digest(self.state / "credentials.json"),
+                "credentials_sha256": server.file_digest(
+                    self.state / "credentials.json"
+                ),
                 "nonce": "a" * 32,
             }
         config["service_supervisor"] = server.publish_generation(self.state)
@@ -3114,7 +3123,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         discard.assert_not_called()
         self.assertTrue((self.state / "database" / "fixture").exists())
 
-    def test_fresh_engine_construction_refuses_before_stopping_original_service(self) -> None:
+    def test_fresh_engine_construction_refuses_before_stopping_original_service(
+        self,
+    ) -> None:
         old = self.initialized()
         old.update(admission="quiesced", accepting_writes=False)
         server.write_json(self.state / "config.json", old)
@@ -6724,7 +6735,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         destination = self.root / "backup"
         with (
             patch.object(server, "active", return_value=False),
-            patch.object(server, "freeze_payloads", side_effect=self.frozen_payload_fixture),
+            patch.object(
+                server, "freeze_payloads", side_effect=self.frozen_payload_fixture
+            ),
             patch.object(
                 server,
                 "capture_application_inventory",
@@ -9045,7 +9058,9 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         server.write_json(self.state / "config.json", config)
         backup = self.root / "backup"
         with (
-            patch.object(server, "freeze_payloads", side_effect=self.frozen_payload_fixture),
+            patch.object(
+                server, "freeze_payloads", side_effect=self.frozen_payload_fixture
+            ),
             patch.object(server, "active", return_value=False),
             patch.object(
                 server,
@@ -10640,7 +10655,9 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             server.write_json(self.state / "config.json", old)
             source_backup = self.root / "maintenance-backup"
             with (
-                patch.object(server, "freeze_payloads", side_effect=self.frozen_payload_fixture),
+                patch.object(
+                    server, "freeze_payloads", side_effect=self.frozen_payload_fixture
+                ),
                 patch.object(server, "active", return_value=False),
                 patch.object(
                     server,

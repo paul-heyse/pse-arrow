@@ -304,7 +304,7 @@ pub(crate) async fn export_result(
                 relation, row_start: 0, row_end: u64::MAX, output: None,
             }
         }).collect();
-        pse_runtime::tooling::review_export::export_review_pack(&runtime.source_services(), &destination, &evidence, &analysis, request, cancel)
+        pse_runtime::tooling::review_export::export_review_pack(&runtime.retained_data_services(), &destination, &evidence, &analysis, request, cancel)
             .await.map_err(|error| error.to_string())?;
         Ok(())
     }.await;

@@ -813,10 +813,6 @@ def _measurement_fit_package(
     return package.with_fit_declarations((fit,))
 
 
-
-
-
-
 @pytest.mark.unit
 def test_retained_generic_strategy_adapter_refuses_fitting_preparation(
     inspection_settings: pse.EngineSettings, no_canonical_allocation: None
@@ -836,7 +832,8 @@ def test_retained_generic_strategy_adapter_refuses_fitting_preparation(
             ),
         )
         with pytest.raises(
-            pse.InspectionError, match="numerical composition requires an algebraic solve"
+            pse.InspectionError,
+            match="numerical composition requires an algebraic solve",
         ):
             prepared.with_numerical_strategy(prepared.numerical_strategy, (prepared,))
     finally:
@@ -1176,9 +1173,3 @@ def test_compiler_failure_retains_typed_authored_source_span(
     assert location.start is not None
     assert location.end is not None
     assert 0 <= location.start <= location.end <= len(source)
-
-
-
-
-
-

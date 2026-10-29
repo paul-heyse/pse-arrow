@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Passive bounded study telemetry: exact per-attempt streams, never a study execution owner.
 use super::{
-    ProgressCheckpointDocument, ProgressEventDocument, RetainedDataServices, Runtime, StudyCohortMemberPage,
-    StudyCohortPageRequest, StudyCohortReceipt, StudyCohortRequest, StudyWorkbenchFilter,
-    StudyWorkbenchHeader, WorkflowError, contract,
+    ProgressCheckpointDocument, ProgressEventDocument, RetainedDataServices, Runtime,
+    StudyCohortMemberPage, StudyCohortPageRequest, StudyCohortReceipt, StudyCohortRequest,
+    StudyWorkbenchFilter, StudyWorkbenchHeader, WorkflowError, contract,
 };
 use pse_columnar::CancellationToken;
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
@@ -192,7 +192,9 @@ impl Runtime {
         request: StudyObservationRequest,
         cursor: Option<StudyObservationCursor>,
     ) -> Result<StudyObserver, WorkflowError> {
-        self.retained_data_services().observe_study(request, cursor).await
+        self.retained_data_services()
+            .observe_study(request, cursor)
+            .await
     }
 }
 impl RetainedDataServices {

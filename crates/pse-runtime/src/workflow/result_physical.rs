@@ -89,8 +89,13 @@ impl RetainedDataServices {
                 .u64(revision.sequence);
         }
         let closure = hash.finish_hash().to_string();
-        let protection =
-            super::physical_cache::protect_store(store, &self.pool(), &revisions, revisions.len() * 512).await?;
+        let protection = super::physical_cache::protect_store(
+            store,
+            &self.pool(),
+            &revisions,
+            revisions.len() * 512,
+        )
+        .await?;
         let pool = self.pool();
         let mut receipt_seen = false;
         let mut batches: BTreeMap<

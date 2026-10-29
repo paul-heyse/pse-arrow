@@ -3531,6 +3531,47 @@ struct ManagedStudyFixture {
     finished: bool,
     drain_deadline: std::sync::Mutex<Option<std::time::Instant>>,
 }
+/// Unsettled fixture owners remain addressable for this test process's lifetime.
+/// Dropping an async test or preserving its original panic does not prove drain.
+#[cfg(feature = "canonical-tests")]
+struct UnsettledManagedStudyFixture {
+    worker: Option<NativeStudyWorker>,
+    schema_ready: Option<pse_operations::canonical::migration::SchemaReady>,
+    controls: std::path::PathBuf,
+    deadline: Option<std::time::Instant>,
+    physical_drained: bool,
+    signal_failures: Vec<String>,
+}
+#[cfg(feature = "canonical-tests")]
+static UNSETTLED_MANAGED_STUDY_FIXTURES: std::sync::LazyLock<
+    std::sync::Mutex<Vec<UnsettledManagedStudyFixture>>,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(Vec::new()));
+#[cfg(feature = "canonical-tests")]
+impl UnsettledManagedStudyFixture {
+    fn retain(self) {
+        // A poisoned observer must not cause the original native owners to drop.
+        // Static custody is not a cleanup task and never marks this fixture done.
+        let mut retained = UNSETTLED_MANAGED_STUDY_FIXTURES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let index = retained.len();
+        retained.push(self);
+        // Establish custody before a diagnostic write can panic during unwind.
+        let custody = &retained[index];
+        eprintln!(
+            "managed fixture unsettled custody index={index}: original={:?}, schema-ready connection retained={}, controls={}, deadline={:?}, physical_drained={}, signal failures={:?}",
+            custody
+                .worker
+                .as_ref()
+                .map(|original| (original.intent().unit(), original.directory())),
+            custody.schema_ready.is_some(),
+            custody.controls.display(),
+            custody.deadline,
+            custody.physical_drained,
+            custody.signal_failures,
+        );
+    }
+}
 #[cfg(feature = "canonical-tests")]
 fn managed_private_json(path: &std::path::Path, value: &impl serde::Serialize) {
     use std::{io::Write, os::unix::fs::OpenOptionsExt};
@@ -4357,27 +4398,30 @@ impl Drop for ManagedStudyFixture {
             // Drop cannot drive asynchronous manager settlement. Keep the exact
             // original owner and its diagnostic paths after failed/cancelled
             // cleanup rather than claiming PID absence proves descendant drain.
-            if !self
+            let physical_drained = self
                 .physical_drained
-                .load(std::sync::atomic::Ordering::Acquire)
-                && let Some(original) = self.worker.get_mut().take()
-            {
-                eprintln!(
-                    "managed fixture original native owner retained without drain: unit={}, handoff={}, controls={}, deadline={:?}, signal failures={failures:?}",
-                    original.intent().unit(),
-                    original.directory().display(),
-                    self.directory.display(),
-                    self.drain_deadline.get_mut(),
-                );
-                std::mem::forget(original);
+                .load(std::sync::atomic::Ordering::Acquire);
+            let worker = if physical_drained {
+                None
+            } else {
+                self.worker.get_mut().take()
+            };
+            let schema_ready = self.schema_ready.take();
+            if worker.is_some() || schema_ready.is_some() {
+                UnsettledManagedStudyFixture {
+                    worker,
+                    schema_ready,
+                    controls: self.directory.clone(),
+                    deadline: *self
+                        .drain_deadline
+                        .get_mut()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner),
+                    physical_drained,
+                    signal_failures: failures,
+                }
+                .retain();
             } else if !failures.is_empty() {
                 eprintln!("managed fixture cleanup incomplete: signals={failures:?}");
-            }
-            if let Some(ready) = self.schema_ready.take() {
-                eprintln!(
-                    "managed fixture schema-ready connection retained without explicit disconnect"
-                );
-                std::mem::forget(ready);
             }
         }
     }

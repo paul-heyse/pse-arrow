@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Exact admitted canonical progress history, read one immutable payload at a time.
 use super::connected_results::{PrepaidReaderFuture, prepaid_reader_future};
-use super::{ProgressCoverage, ProgressEventDocument, Runtime, RetainedDataServices, WorkflowError};
+use super::{
+    ProgressCoverage, ProgressEventDocument, RetainedDataServices, Runtime, WorkflowError,
+};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 use pse_operations::{
     canonical::MetadataResponse, canonical_results::ResultRead,
@@ -54,10 +56,7 @@ impl RetainedDataServices {
         attempt: &'a str,
         cancel: CancellationToken,
     ) -> Result<PrepaidReaderFuture<'a, Result<ProgressStream, WorkflowError>>, WorkflowError> {
-        prepaid_reader_future(
-            &self.pool(),
-            self.progress_checked(run, attempt, cancel),
-        )
+        prepaid_reader_future(&self.pool(), self.progress_checked(run, attempt, cancel))
     }
 
     async fn progress_checked(
@@ -194,9 +193,8 @@ impl ProgressStream {
         // Retain the previous page's extent until the caller requests another;
         // typed observations may contain explanatory strings and exact evidence.
         self.owner = None;
-        let owner = Arc::new(
-            MemoryConsumer::new("canonical:progress").register(&self.services.pool()),
-        );
+        let owner =
+            Arc::new(MemoryConsumer::new("canonical:progress").register(&self.services.pool()));
         owner
             .try_grow(READ_BYTES)
             .map_err(pse_engine::EngineError::from)?;
@@ -267,7 +265,9 @@ impl Runtime {
         attempt: &str,
         cancel: CancellationToken,
     ) -> Result<ProgressStream, WorkflowError> {
-        self.retained_data_services().progress(run, attempt, cancel).await
+        self.retained_data_services()
+            .progress(run, attempt, cancel)
+            .await
     }
 }
 

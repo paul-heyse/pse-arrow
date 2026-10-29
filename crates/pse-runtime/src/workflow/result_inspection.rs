@@ -2,7 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Bounded readable observations over the original protected scientific result owner.
 
-use super::{PackResultSelection, PackScientificState, RetainedDataServices, Runtime, WorkflowError, contract};
+use super::{
+    PackResultSelection, PackScientificState, RetainedDataServices, Runtime, WorkflowError,
+    contract,
+};
 use datafusion::arrow::{
     array::{
         Array, ArrayRef, BinaryArray, BooleanArray, FixedSizeBinaryArray, Float32Array,
@@ -940,7 +943,9 @@ impl Runtime {
         request: ResultInspectionRequest,
         cancel: CancellationToken,
     ) -> Result<ResultInspectionDocument, WorkflowError> {
-        self.retained_data_services().inspect_result(request, cancel).await
+        self.retained_data_services()
+            .inspect_result(request, cancel)
+            .await
     }
 }
 impl RetainedDataServices {

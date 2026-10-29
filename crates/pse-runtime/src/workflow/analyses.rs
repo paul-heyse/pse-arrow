@@ -1282,7 +1282,9 @@ impl Runtime {
         run: &str,
         attempt: &str,
     ) -> Result<Arc<pse_columnar::Leased<super::durable::StoredCompletion>>, WorkflowError> {
-        self.retained_data_services().stored_completion(run, attempt).await
+        self.retained_data_services()
+            .stored_completion(run, attempt)
+            .await
     }
     /// Reopen only an active, retained exact analysis; no latest-run substitution.
     pub async fn analysis(&self, key: &str) -> Result<AnalysisHandle, WorkflowError> {

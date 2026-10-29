@@ -19,7 +19,9 @@ use pse_runtime::{
     CancelSource,
     workflow::{
         BindingTarget, ModelingPackage, PointOverlay,
-        sampling::{DesignCoordinate, DesignExport, DesignKind, DesignLevel, DesignRequest, GeneratedDesign},
+        sampling::{
+            DesignCoordinate, DesignExport, DesignKind, DesignLevel, DesignRequest, GeneratedDesign,
+        },
     },
 };
 use reference_support::{NativeContext, Result};
@@ -37,23 +39,37 @@ fn finite(value: f64) -> FiniteBound {
 
 async fn request(context: &NativeContext, package: &ModelingPackage) -> Result<DesignRequest> {
     let services = context.runtime.preparation_services();
-    let root = package.declarations(&services).await?.iter()
-        .find(|row| row.name == "Root").unwrap().declaration_id;
+    let root = package
+        .declarations(&services)
+        .await?
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
     let physical = package.physical_context();
     let mut coordinates = Vec::new();
-    for (path, name, bounds) in [
-        ("x", "Scalar", [-2., 6.]), ("length", "Length", [10., 26.]),
-    ] {
+    for (path, name, bounds) in [("x", "Scalar", [-2., 6.]), ("length", "Length", [10., 26.])] {
         let quantity = physical.resolve_quantity(name)?;
-        let unit = physical.quantities().quantity_type(quantity)?.canonical_unit;
+        let unit = physical
+            .quantities()
+            .quantity_type(quantity)?
+            .canonical_unit;
         coordinates.push(DesignCoordinate {
-            target: BindingTarget::Path(path.into()), quantity, unit,
-            range: Some(bounds.map(finite)), levels: vec![],
+            target: BindingTarget::Path(path.into()),
+            quantity,
+            unit,
+            range: Some(bounds.map(finite)),
+            levels: vec![],
         });
     }
     Ok(DesignRequest {
-        root, bindings: Default::default(), coordinates,
-        kind: DesignKind::Classic, count: 8, seed: 91, grid_levels: vec![],
+        root,
+        bindings: Default::default(),
+        coordinates,
+        kind: DesignKind::Classic,
+        count: 8,
+        seed: 91,
+        grid_levels: vec![],
         maximum_work: 1_000_000,
     })
 }
@@ -77,7 +93,14 @@ fn assert_geometry(points: &[PointOverlay], request: &DesignRequest) {
     assert_physical_points(points, request);
     if request.kind == DesignKind::Grid {
         // Independent Cartesian expectation: the last coordinate varies fastest.
-        let expected = [[-2., 10.], [-2., 18.], [-2., 26.], [6., 10.], [6., 18.], [6., 26.]];
+        let expected = [
+            [-2., 10.],
+            [-2., 18.],
+            [-2., 26.],
+            [6., 10.],
+            [6., 18.],
+            [6., 26.],
+        ];
         assert_eq!(points.len(), expected.len());
         for (point, expected) in points.iter().zip(expected) {
             for (assignment, expected) in point.assignments.iter().zip(expected) {
@@ -89,25 +112,34 @@ fn assert_geometry(points: &[PointOverlay], request: &DesignRequest) {
         // inputs. Duplicate coordinates are not deduplicated into a set.
         assert_eq!(points.len(), 20);
         for level in [0., 1.] {
-            assert_eq!(points.iter().filter(|point|
-                point.assignments[0].value.magnitude.into_inner() == level
-            ).count(), 10);
+            assert_eq!(
+                points
+                    .iter()
+                    .filter(|point| point.assignments[0].value.magnitude.into_inner() == level)
+                    .count(),
+                10
+            );
         }
     } else {
         assert_eq!(points.len(), 8);
         for (axis, [lower, width]) in [[-2., 8.], [10., 16.]].into_iter().enumerate() {
-            let normalized = points.iter().map(|point|
-                (point.assignments[axis].value.magnitude.into_inner() - lower) / width
-            ).collect::<Vec<_>>();
+            let normalized = points
+                .iter()
+                .map(|point| (point.assignments[axis].value.magnitude.into_inner() - lower) / width)
+                .collect::<Vec<_>>();
             assert!(normalized.iter().all(|value| (0.0..1.0).contains(value)));
             if request.kind != DesignKind::Random {
-                let mut strata = normalized.iter().map(|value|
-                    (value * 8.).floor() as usize
-                ).collect::<Vec<_>>();
+                let mut strata = normalized
+                    .iter()
+                    .map(|value| (value * 8.).floor() as usize)
+                    .collect::<Vec<_>>();
                 strata.sort_unstable();
                 assert_eq!(strata, vec![0, 1, 2, 3, 4, 5, 6, 7]);
             }
-            if matches!(request.kind, DesignKind::Centered | DesignKind::CenteredMaximin) {
+            if matches!(
+                request.kind,
+                DesignKind::Centered | DesignKind::CenteredMaximin
+            ) {
                 for value in normalized {
                     assert!((value * 8. - (value * 8.).floor() - 0.5).abs() <= 1e-12);
                 }
@@ -120,15 +152,22 @@ fn assert_geometry(points: &[PointOverlay], request: &DesignRequest) {
 async fn public_native_designs_preserve_physical_geometry_and_outlive_producers() -> Result<()> {
     let context = NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
-        assert!(context.runtime.canonical_store().is_err(), "store-free construction");
+        assert!(
+            context.runtime.canonical_store().is_err(),
+            "store-free construction"
+        );
         let package = context.package(SOURCE).await?;
         let mut request = request(&context, &package).await?;
         let producer = context.runtime.clone();
         let services = producer.preparation_services();
         let mut retained: Vec<(DesignRequest, GeneratedDesign, DesignExport)> = Vec::new();
         for kind in [
-            DesignKind::Classic, DesignKind::Centered, DesignKind::Random,
-            DesignKind::Maximin, DesignKind::CenteredMaximin, DesignKind::Grid,
+            DesignKind::Classic,
+            DesignKind::Centered,
+            DesignKind::Random,
+            DesignKind::Maximin,
+            DesignKind::CenteredMaximin,
+            DesignKind::Grid,
         ] {
             request.kind = kind;
             if kind == DesignKind::Grid {
@@ -136,8 +175,12 @@ async fn public_native_designs_preserve_physical_geometry_and_outlive_producers(
                 request.grid_levels = vec![2, 3];
             }
             let design = Box::pin(package.generate_design(
-                &services, &request, Default::default(), &CancelSource::new(),
-            )).await?;
+                &services,
+                &request,
+                Default::default(),
+                &CancelSource::new(),
+            ))
+            .await?;
             assert_geometry(design.points(), &request);
             let alias = design.clone();
             let export = design.export(&services)?;
@@ -151,8 +194,12 @@ async fn public_native_designs_preserve_physical_geometry_and_outlive_producers(
         request.coordinates[0].range = Some([finite(0.), finite(1.)]);
         request.coordinates[0].levels = vec![DesignLevel::Integer(0), DesignLevel::Integer(1)];
         let design = Box::pin(package.generate_design(
-            &services, &request, Default::default(), &CancelSource::new(),
-        )).await?;
+            &services,
+            &request,
+            Default::default(),
+            &CancelSource::new(),
+        ))
+        .await?;
         let export = design.export(&services)?;
         retained.push((request, design, export));
         drop(package);
@@ -160,14 +207,22 @@ async fn public_native_designs_preserve_physical_geometry_and_outlive_producers(
         producer.clear_program_cache();
         drop(producer);
         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(retained)
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     // Drain the native preparation owner even on an assertion panic. Returned
     // designs/exports retain their own realized point storage after root disposal.
     let closed = context.close().await;
     drop(context);
     let retained = match outcome {
-        Err(panic) => { let _ = closed; std::panic::resume_unwind(panic); }
-        Ok(result) => { closed?; result? }
+        Err(panic) => {
+            let _ = closed;
+            std::panic::resume_unwind(panic);
+        }
+        Ok(result) => {
+            closed?;
+            result?
+        }
     };
     for (request, design, export) in retained {
         assert_geometry(design.points(), &request);
@@ -194,8 +249,12 @@ async fn public_native_designs_refuse_invalid_physics_shapes_work_and_cancellati
         let request = request(&context, &package).await?;
         let services = context.runtime.preparation_services();
         let valid = Box::pin(package.generate_design(
-            &services, &request, Default::default(), &CancelSource::new(),
-        )).await?;
+            &services,
+            &request,
+            Default::default(),
+            &CancelSource::new(),
+        ))
+        .await?;
         assert_geometry(valid.points(), &request);
         let mut refusals = Vec::new();
         let mut invalid = request.clone();
@@ -229,26 +288,48 @@ async fn public_native_designs_refuse_invalid_physics_shapes_work_and_cancellati
         invalid.count = 1;
         refusals.push(("maximin singleton", invalid));
         for (label, invalid) in refusals {
-            assert!(Box::pin(package.generate_design(
-                &services, &invalid, Default::default(), &CancelSource::new(),
-            )).await.is_err(), "{label} must refuse");
+            assert!(
+                Box::pin(package.generate_design(
+                    &services,
+                    &invalid,
+                    Default::default(),
+                    &CancelSource::new(),
+                ))
+                .await
+                .is_err(),
+                "{label} must refuse"
+            );
         }
         let cancelled = CancelSource::new();
         cancelled.cancel();
-        assert!(Box::pin(package.generate_design(
-            &services, &request, Default::default(), &cancelled,
-        )).await.is_err());
+        assert!(
+            Box::pin(package.generate_design(&services, &request, Default::default(), &cancelled,))
+                .await
+                .is_err()
+        );
         // Refusals and a cancelled request do not close the healthy producer.
         let after = Box::pin(package.generate_design(
-            &services, &request, Default::default(), &CancelSource::new(),
-        )).await?;
+            &services,
+            &request,
+            Default::default(),
+            &CancelSource::new(),
+        ))
+        .await?;
         assert_geometry(after.points(), &request);
         assert_geometry(valid.points(), &request);
         Ok(())
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     let closed = context.close().await;
     match outcome {
-        Err(panic) => { let _ = closed; std::panic::resume_unwind(panic); }
-        Ok(result) => { closed?; result }
+        Err(panic) => {
+            let _ = closed;
+            std::panic::resume_unwind(panic);
+        }
+        Ok(result) => {
+            closed?;
+            result
+        }
     }
 }

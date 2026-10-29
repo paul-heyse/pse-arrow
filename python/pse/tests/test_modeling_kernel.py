@@ -19,7 +19,6 @@ from pse.conformance import main as conformance_main
 from pse.contracts import documents
 from pse.contracts.enums import (
     DynamicsMethod,
-    NativeBackend,
     NativeSolveIntent,
 )
 from pse.contracts.identities import DeclarationId
@@ -501,8 +500,6 @@ def test_complete_preparation_policy_controls_public_preparation_and_execution(
         )
 
 
-
-
 @pytest.mark.integration
 def test_modeling_simulation_events_checks_and_terminal_reports(
     inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
@@ -601,10 +598,6 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
     assert report_rows[0]["value"] == pytest.approx(1.3862943611198906, abs=1e-6)
 
 
-
-
-
-
 @pytest.mark.integration
 def test_modeling_authored_fixture_conformance_cli_and_adapter_contracts(
     inspection_settings: pse.EngineSettings,
@@ -701,8 +694,6 @@ def test_modeling_authored_fixture_conformance_cli_and_adapter_contracts(
         assert reader.read_all().num_rows == checks.num_rows
 
 
-
-
 @pytest.mark.component
 def test_pure_conformance_cli_exports_reports(
     tmp_path: Path,
@@ -756,5 +747,3 @@ def test_pure_conformance_cli_exports_reports(
     assert command.returncode == 0, command.stdout + command.stderr
     assert (tmp_path / "checks.fixtures.arrow").is_file()
     assert (tmp_path / "checks.findings.arrow").is_file()
-
-

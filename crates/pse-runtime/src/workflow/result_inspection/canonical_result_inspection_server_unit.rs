@@ -1170,21 +1170,35 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
         .await
         .unwrap();
     assert_eq!(
-        super::super::durable::result_governing_permission(runtime.canonical_store().unwrap(), &runtime.shared.pool(), reader.selection())
-            .await
-            .unwrap(),
+        super::super::durable::result_governing_permission(
+            runtime.canonical_store().unwrap(),
+            &runtime.shared.pool(),
+            reader.selection()
+        )
+        .await
+        .unwrap(),
         Some(false)
     );
     assert_eq!(
-        super::super::durable::result_product_permission(runtime.canonical_store().unwrap(), &runtime.shared.pool(), reader.selection(), DerivedQuantity::ParameterCovariance)
-            .await
-            .unwrap(),
+        super::super::durable::result_product_permission(
+            runtime.canonical_store().unwrap(),
+            &runtime.shared.pool(),
+            reader.selection(),
+            DerivedQuantity::ParameterCovariance
+        )
+        .await
+        .unwrap(),
         Some(false)
     );
     assert_eq!(
-        super::super::durable::result_product_permission(runtime.canonical_store().unwrap(), &runtime.shared.pool(), reader.selection(), DerivedQuantity::WaldInterval)
-            .await
-            .unwrap(),
+        super::super::durable::result_product_permission(
+            runtime.canonical_store().unwrap(),
+            &runtime.shared.pool(),
+            reader.selection(),
+            DerivedQuantity::WaldInterval
+        )
+        .await
+        .unwrap(),
         None
     );
     let mut diagnostic_rows = 0;

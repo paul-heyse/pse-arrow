@@ -4,8 +4,8 @@
 use super::*;
 use pse_operations::canonical_studies::progression_controls;
 
-async fn progression_control(control: u8) {
-    let mut service = fixture_with_schema(false).unwrap();
+async fn progression_control(control: u8) -> Result<(), NativeServiceError> {
+    let mut service = fixture_with_schema(false)?;
     service
         .run(Instant::now() + Duration::from_secs(240), |service| {
             Box::pin(async move {
@@ -40,34 +40,37 @@ async fn progression_control(control: u8) {
                 Ok(())
             })
         })
-        .await
-        .unwrap();
-    service.dispose().unwrap();
+        .await?;
+    service.dispose()
 }
 
 #[tokio::test]
 async fn canonical_studies_progression_sparse_pages_continue_and_two_workers_share_claim_authority()
-{
-    progression_control(0).await;
+-> Result<(), NativeServiceError> {
+    progression_control(0).await
 }
 #[tokio::test]
-async fn canonical_studies_progression_cancellation_fences_native_preparation() {
-    progression_control(1).await;
+async fn canonical_studies_progression_cancellation_fences_native_preparation()
+-> Result<(), NativeServiceError> {
+    progression_control(1).await
 }
 #[tokio::test]
-async fn canonical_studies_progression_dependency_revision_and_issuer_are_exact() {
-    progression_control(2).await;
+async fn canonical_studies_progression_dependency_revision_and_issuer_are_exact()
+-> Result<(), NativeServiceError> {
+    progression_control(2).await
 }
 #[tokio::test]
-async fn canonical_studies_progression_seed_refusal_retains_original_request() {
-    progression_control(3).await;
+async fn canonical_studies_progression_seed_refusal_retains_original_request()
+-> Result<(), NativeServiceError> {
+    progression_control(3).await
 }
 #[tokio::test]
-async fn canonical_studies_prepared_claim_lost_ack_and_failed_readback_keep_original_attempt() {
-    progression_control(4).await;
+async fn canonical_studies_prepared_claim_lost_ack_and_failed_readback_keep_original_attempt()
+-> Result<(), NativeServiceError> {
+    progression_control(4).await
 }
 #[tokio::test]
 async fn canonical_studies_high_degree_scope_is_complete_and_stale_hint_cannot_bypass_dependencies()
-{
-    progression_control(5).await;
+-> Result<(), NativeServiceError> {
+    progression_control(5).await
 }

@@ -238,8 +238,6 @@ def test_initialization_and_primal_output_keep_converted_keyed_snapshots(
         )
 
 
-
-
 @pytest.mark.integration
 def test_simulation_snapshots_all_coordinate_controls_and_precise_signed_time(
     local_runtime: pse.Runtime,

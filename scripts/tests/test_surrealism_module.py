@@ -250,8 +250,11 @@ class ModuleAdmissionTests(unittest.TestCase):
             patch.object(Path, "mkdir") as mkdir,
         ):
             for entrypoint in (module.refuse_legacy_construction, module.main):
-                with self.subTest(entrypoint=entrypoint.__name__), self.assertRaisesRegex(
-                    module.ModuleError, "construction is retired"
+                with (
+                    self.subTest(entrypoint=entrypoint.__name__),
+                    self.assertRaisesRegex(
+                        module.ModuleError, "construction is retired"
+                    ),
                 ):
                     entrypoint()
             command.assert_not_called()

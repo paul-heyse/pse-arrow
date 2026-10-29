@@ -1423,9 +1423,11 @@ mod tests {
         );
     }
     fn checkpoint_snapshot(request: &SchemaMigrationRequest) -> Object {
-        let Value::Object(mut marker) = request.checkpoint_predecessor().value().unwrap() else {
-            unreachable!()
-        };
+        let mut marker = match request.checkpoint_predecessor().value().unwrap() {
+            Value::Object(marker) => Ok(marker),
+            actual => Err(actual),
+        }
+        .expect("checkpoint predecessor must encode a marker object");
         marker.insert("admission_open", false);
         let mut owner = Object::new();
         for (key, value) in [
@@ -1462,9 +1464,11 @@ mod tests {
             "kind",
         ] {
             let mut changed = snapshot.clone();
-            let Some(Value::Object(owner)) = changed.get_mut("pending") else {
-                unreachable!()
-            };
+            let owner = match changed.get_mut("pending") {
+                Some(Value::Object(owner)) => Ok(owner),
+                actual => Err(actual),
+            }
+            .expect("checkpoint snapshot must retain its pending owner object");
             owner.insert(field, "different");
             assert!(
                 verify_v2_checkpoint(&changed, &original).is_err(),
@@ -1476,9 +1480,11 @@ mod tests {
             ("count", codec::encode_uint(2).unwrap()),
         ] {
             let mut changed = snapshot.clone();
-            let Some(Value::Object(owner)) = changed.get_mut("pending") else {
-                unreachable!()
-            };
+            let owner = match changed.get_mut("pending") {
+                Some(Value::Object(owner)) => Ok(owner),
+                actual => Err(actual),
+            }
+            .expect("checkpoint snapshot must retain its pending owner object");
             owner.insert(field, value);
             assert!(
                 verify_v2_checkpoint(&changed, &original).is_err(),
@@ -1504,9 +1510,11 @@ mod tests {
             ("admission_open", Value::Bool(true)),
         ] {
             let mut changed = snapshot.clone();
-            let Some(Value::Object(marker)) = changed.get_mut("marker") else {
-                unreachable!()
-            };
+            let marker = match changed.get_mut("marker") {
+                Some(Value::Object(marker)) => Ok(marker),
+                actual => Err(actual),
+            }
+            .expect("checkpoint snapshot must retain its closed marker object");
             marker.insert(field, value);
             assert!(
                 verify_v2_checkpoint(&changed, &original).is_err(),
@@ -1525,10 +1533,13 @@ mod tests {
         assert_ne!(original.predecessor, original.checkpoint_predecessor());
         assert!(!snapshot.contains_key("receipt"));
         assert!(
-            SchemaFence::from_marker(match snapshot.get("marker").unwrap() {
-                Value::Object(marker) => marker,
-                _ => unreachable!(),
-            })
+            SchemaFence::from_marker(
+                match snapshot.get("marker").unwrap() {
+                    Value::Object(marker) => Ok(marker),
+                    actual => Err(actual),
+                }
+                .expect("checkpoint fence must inspect the original closed marker object"),
+            )
             .is_err()
         );
     }

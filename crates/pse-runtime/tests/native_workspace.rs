@@ -72,7 +72,8 @@ impl Local {
                 ..Default::default()
             },
         })?;
-        let factory = Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
+        let factory =
+            Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
         let runtime = Runtime::from_shared_local(
             shared.clone(),
             factory.bind_model(pse_schema::shared_registry()?)?,
@@ -93,7 +94,10 @@ impl Local {
                         walk(root, &path, out)?;
                     } else {
                         out.insert(
-                            path.strip_prefix(root)?.to_str().unwrap().replace('\\', "/"),
+                            path.strip_prefix(root)?
+                                .to_str()
+                                .unwrap()
+                                .replace('\\', "/"),
                             std::fs::read(path)?,
                         );
                     }
@@ -130,10 +134,14 @@ impl Local {
                 &token,
             )?)
         };
-        let physical = self.runtime.physical_from_documents(&load(&physical)?, &token).await?;
-        Ok(self.runtime.modeling_from_documents(
-            &load(&modeling)?, physical, &CancelSource::new(),
-        ).await?)
+        let physical = self
+            .runtime
+            .physical_from_documents(&load(&physical)?, &token)
+            .await?;
+        Ok(self
+            .runtime
+            .modeling_from_documents(&load(&modeling)?, physical, &CancelSource::new())
+            .await?)
     }
 
     async fn prepare(
@@ -142,21 +150,25 @@ impl Local {
         case: DeclarationId,
         source: &OperationSource,
     ) -> std::result::Result<PreparedOperation, WorkflowError> {
-        package.prepare_operation(
-            &self.runtime.preparation_services(),
-            source,
-            &PreparationSettings::default(),
-            RuntimeOperationRequest::DeclaredCase {
-                case,
-                settings: Box::new(solve_settings()),
-            },
-            None,
-            &CancelSource::new(),
-        ).await
+        package
+            .prepare_operation(
+                &self.runtime.preparation_services(),
+                source,
+                &PreparationSettings::default(),
+                RuntimeOperationRequest::DeclaredCase {
+                    case,
+                    settings: Box::new(solve_settings()),
+                },
+                None,
+                &CancelSource::new(),
+            )
+            .await
     }
 
     async fn solve(&self, prepared: &PreparedOperation) -> Result<Arc<RunResult>> {
-        let handle = prepared.start(&self.runtime.execution_services(), &CancelSource::new()).await?;
+        let handle = prepared
+            .start(&self.runtime.execution_services(), &CancelSource::new())
+            .await?;
         let result = handle.wait().await?;
         assert_eq!(result.run_id, handle.run_id());
         assert!(result.canonical_run_key().is_none());
@@ -171,7 +183,9 @@ impl Local {
 }
 
 fn declaration<'a>(rows: &'a [Declaration], name: &str) -> &'a Declaration {
-    rows.iter().find(|row| row.name == name).expect("original authored declaration")
+    rows.iter()
+        .find(|row| row.name == name)
+        .expect("original authored declaration")
 }
 
 fn assert_science(
@@ -190,18 +204,30 @@ fn assert_science(
     assert_eq!(runs[0].backend, Some(NativeBackend::Kinsol));
     assert!(!result.assessments().is_empty());
     let rows = solve_variables::Row::rows(&result.table("runtime.solve_variables")?)?;
-    assert_eq!(rows.len(), 2, "retain both the authored parameter and variable");
+    assert_eq!(
+        rows.len(),
+        2,
+        "retain both the authored parameter and variable"
+    );
     let parameters = rows.iter().filter(|row| row.parameter).collect::<Vec<_>>();
     let variables = rows.iter().filter(|row| !row.parameter).collect::<Vec<_>>();
     assert_eq!(parameters.len(), 1);
     assert_eq!(variables.len(), 1);
     assert_eq!(parameters[0].value, Some(parameter));
     let x = variables[0].value.expect("original solved coordinate");
-    let tolerance = variables[0].tolerance.expect("original physical variable tolerance");
+    let tolerance = variables[0]
+        .tolerance
+        .expect("original physical variable tolerance");
     assert!(x.is_finite());
     assert!(tolerance.is_finite() && tolerance > 0.);
-    assert!((x - expected_root).abs() <= tolerance, "independent positive root {expected_root}, got {x}, tolerance {tolerance}");
-    assert!((x * x - equation_rhs).abs() <= tolerance * (2. * x.abs() + tolerance), "original equation under propagated physical tolerance");
+    assert!(
+        (x - expected_root).abs() <= tolerance,
+        "independent positive root {expected_root}, got {x}, tolerance {tolerance}"
+    );
+    assert!(
+        (x * x - equation_rhs).abs() <= tolerance * (2. * x.abs() + tolerance),
+        "original equation under propagated physical tolerance"
+    );
     Ok(rows)
 }
 
@@ -224,32 +250,56 @@ async fn public_workspace_edits_reprepare_and_retain_original_science() -> Resul
             offset: 0,
             limit: 16,
         };
-        let inspection = package.inspect_case_request(
-            &preparation, &inspection_request, &CancelSource::new(),
-        ).await?;
+        let inspection = package
+            .inspect_case_request(&preparation, &inspection_request, &CancelSource::new())
+            .await?;
         assert_eq!(inspection.source, source);
         assert_eq!(inspection.population.members, 2);
-        let symbols = inspection.members.iter().map(|member| {
-            assert!(original.iter().any(|row| row.declaration_id == member.lineage.declaration));
-            (member.lineage.declaration, member.id)
-        }).collect::<BTreeMap<_, _>>();
+        let symbols = inspection
+            .members
+            .iter()
+            .map(|member| {
+                assert!(
+                    original
+                        .iter()
+                        .any(|row| row.declaration_id == member.lineage.declaration)
+                );
+                (member.lineage.declaration, member.id)
+            })
+            .collect::<BTreeMap<_, _>>();
         let prepared = local.prepare(&package, case, &source).await?;
         let first = local.solve(&prepared).await?;
         let first_rows = assert_science(&first, case, &source, 4., 2., 4.)?;
-        assert_eq!(first_rows.iter().find(|row| row.parameter).unwrap().symbol_id, symbols[&parameter.declaration_id]);
-        assert_eq!(first_rows.iter().find(|row| !row.parameter).unwrap().symbol_id, symbols[&declaration(&original, "x").declaration_id]);
+        assert_eq!(
+            first_rows
+                .iter()
+                .find(|row| row.parameter)
+                .unwrap()
+                .symbol_id,
+            symbols[&parameter.declaration_id]
+        );
+        assert_eq!(
+            first_rows
+                .iter()
+                .find(|row| !row.parameter)
+                .unwrap()
+                .symbol_id,
+            symbols[&declaration(&original, "x").declaration_id]
+        );
 
         let mut replacement = parameter.clone();
         replacement.value.binding.as_mut().unwrap().expression = Some("9".into());
-        let edited = package.with_delta(
-            &local.runtime.source_services(),
-            SourceDelta {
-                parent: package.revision_id().into(),
-                replacements: vec![replacement.clone()],
-                ..Default::default()
-            },
-            &CancelSource::new(),
-        ).await?;
+        let edited = package
+            .with_delta(
+                &local.runtime.source_services(),
+                SourceDelta {
+                    parent: package.revision_id().into(),
+                    replacements: vec![replacement.clone()],
+                    ..Default::default()
+                },
+                &CancelSource::new(),
+            )
+            .await?;
         let edited_source = OperationSource::of(&edited);
         assert_ne!(edited.revision_id(), package.revision_id());
         assert_ne!(edited_source.revision, source.revision);
@@ -259,36 +309,69 @@ async fn public_workspace_edits_reprepare_and_retain_original_science() -> Resul
         assert_eq!(declaration(&edited_rows, "p"), &replacement);
         assert_eq!(declaration(&edited_rows, "root"), equation);
         assert_eq!(declaration(&edited_rows, "square").declaration_id, case);
-        let edited_inspection = edited.inspect_case_request(
-            &preparation, &inspection_request, &CancelSource::new(),
-        ).await?;
+        let edited_inspection = edited
+            .inspect_case_request(&preparation, &inspection_request, &CancelSource::new())
+            .await?;
         assert_eq!(edited_inspection.source, edited_source);
-        assert_eq!(edited_inspection.members.iter().map(|member| (member.lineage.declaration, member.id)).collect::<BTreeMap<_, _>>(), symbols);
+        assert_eq!(
+            edited_inspection
+                .members
+                .iter()
+                .map(|member| (member.lineage.declaration, member.id))
+                .collect::<BTreeMap<_, _>>(),
+            symbols
+        );
 
         let stale = local.prepare(&edited, case, &source).await.unwrap_err();
-        assert_eq!(stale.boundary_diagnostic().rule, pse_diagnostics::DiagnosticRule::StudyBindingRevision);
+        assert_eq!(
+            stale.boundary_diagnostic().rule,
+            pse_diagnostics::DiagnosticRule::StudyBindingRevision
+        );
         let edited_prepared = local.prepare(&edited, case, &edited_source).await?;
         let second = local.solve(&edited_prepared).await?;
         let second_rows = assert_science(&second, case, &edited_source, 9., 3., 9.)?;
         assert_ne!(first.run_id, second.run_id);
-        assert_eq!(first_rows.iter().map(|row| row.symbol_id).collect::<Vec<_>>(), second_rows.iter().map(|row| row.symbol_id).collect::<Vec<_>>());
-        assert_eq!(first_rows.iter().map(|row| row.tolerance).collect::<Vec<_>>(), second_rows.iter().map(|row| row.tolerance).collect::<Vec<_>>());
+        assert_eq!(
+            first_rows
+                .iter()
+                .map(|row| row.symbol_id)
+                .collect::<Vec<_>>(),
+            second_rows
+                .iter()
+                .map(|row| row.symbol_id)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            first_rows
+                .iter()
+                .map(|row| row.tolerance)
+                .collect::<Vec<_>>(),
+            second_rows
+                .iter()
+                .map(|row| row.tolerance)
+                .collect::<Vec<_>>()
+        );
 
         let mut changed_equation = equation.clone();
         changed_equation.value.equation.as_mut().unwrap().expression = "x*x==p+7".into();
-        let changed = edited.with_delta(
-            &local.runtime.source_services(),
-            SourceDelta {
-                parent: edited.revision_id().into(),
-                replacements: vec![changed_equation.clone()],
-                ..Default::default()
-            },
-            &CancelSource::new(),
-        ).await?;
+        let changed = edited
+            .with_delta(
+                &local.runtime.source_services(),
+                SourceDelta {
+                    parent: edited.revision_id().into(),
+                    replacements: vec![changed_equation.clone()],
+                    ..Default::default()
+                },
+                &CancelSource::new(),
+            )
+            .await?;
         let changed_source = OperationSource::of(&changed);
         assert_ne!(changed_source.revision, edited_source.revision);
         assert_eq!(changed_source.physical_context, source.physical_context);
-        assert_eq!(declaration(&changed.declarations(&preparation).await?, "root"), &changed_equation);
+        assert_eq!(
+            declaration(&changed.declarations(&preparation).await?, "root"),
+            &changed_equation
+        );
         let changed_prepared = local.prepare(&changed, case, &changed_source).await?;
         let third = local.solve(&changed_prepared).await?;
         assert_science(&third, case, &changed_source, 9., 4., 16.)?;
@@ -306,11 +389,19 @@ async fn public_workspace_edits_reprepare_and_retain_original_science() -> Resul
         drop(prepared);
         drop(edited_prepared);
         local.close().await;
-        assert_eq!(solve_variables::Row::rows(&first.table("runtime.solve_variables")?)?, first_rows);
-        assert_eq!(solve_variables::Row::rows(&second.table("runtime.solve_variables")?)?, second_rows);
+        assert_eq!(
+            solve_variables::Row::rows(&first.table("runtime.solve_variables")?)?,
+            first_rows
+        );
+        assert_eq!(
+            solve_variables::Row::rows(&second.table("runtime.solve_variables")?)?,
+            second_rows
+        );
         assert_science(&third, case, &changed_source, 9., 4., 16.)?;
         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(())
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     local.close().await;
     match outcome {
         Ok(result) => result,
@@ -319,7 +410,8 @@ async fn public_workspace_edits_reprepare_and_retain_original_science() -> Resul
 }
 
 #[tokio::test]
-async fn public_workspace_deletion_and_absent_lookup_do_not_poison_prior_preparation() -> Result<()> {
+async fn public_workspace_deletion_and_absent_lookup_do_not_poison_prior_preparation() -> Result<()>
+{
     let local = Local::new()?;
     let outcome = AssertUnwindSafe(async {
         let package = local.package().await?;
@@ -330,66 +422,117 @@ async fn public_workspace_deletion_and_absent_lookup_do_not_poison_prior_prepara
         let source = OperationSource::of(&package);
         let prepared = local.prepare(&package, case, &source).await?;
 
-        let deleted = package.with_delta(
-            &local.runtime.source_services(),
-            SourceDelta {
-                parent: package.revision_id().into(),
-                removals: vec![parameter.declaration_id],
-                ..Default::default()
-            },
-            &CancelSource::new(),
-        ).await?;
+        let deleted = package
+            .with_delta(
+                &local.runtime.source_services(),
+                SourceDelta {
+                    parent: package.revision_id().into(),
+                    removals: vec![parameter.declaration_id],
+                    ..Default::default()
+                },
+                &CancelSource::new(),
+            )
+            .await?;
         let deleted_source = OperationSource::of(&deleted);
-        assert!(!deleted.declarations(&preparation).await?.iter().any(|row| row.declaration_id == parameter.declaration_id));
+        assert!(
+            !deleted
+                .declarations(&preparation)
+                .await?
+                .iter()
+                .any(|row| row.declaration_id == parameter.declaration_id)
+        );
         // The equation still names p: the previously successful name lookup must be invalidated.
-        let missing = local.prepare(&deleted, case, &deleted_source).await.unwrap_err();
+        let missing = local
+            .prepare(&deleted, case, &deleted_source)
+            .await
+            .unwrap_err();
         let diagnostic = missing.boundary_diagnostic();
-        assert_eq!(diagnostic.rule, pse_diagnostics::DiagnosticRule::ModelingContract, "{missing:?}");
-        assert!(diagnostic.sources.contains(&declaration(&original, "root").declaration_id.as_id()), "retain the original equation identity: {diagnostic:?}");
+        assert_eq!(
+            diagnostic.rule,
+            pse_diagnostics::DiagnosticRule::ModelingContract,
+            "{missing:?}"
+        );
+        assert!(
+            diagnostic
+                .sources
+                .contains(&declaration(&original, "root").declaration_id.as_id()),
+            "retain the original equation identity: {diagnostic:?}"
+        );
         assert_eq!(&*package.declarations(&preparation).await?, &*original);
 
-        let stale_parent = deleted.with_delta(
-            &local.runtime.source_services(),
-            SourceDelta {
-                parent: package.revision_id().into(),
-                additions: vec![parameter.clone()],
-                ..Default::default()
-            },
-            &CancelSource::new(),
-        ).await.unwrap_err();
-        assert!(stale_parent.to_string().contains("different local parent"), "{stale_parent}");
+        let stale_parent = deleted
+            .with_delta(
+                &local.runtime.source_services(),
+                SourceDelta {
+                    parent: package.revision_id().into(),
+                    additions: vec![parameter.clone()],
+                    ..Default::default()
+                },
+                &CancelSource::new(),
+            )
+            .await
+            .unwrap_err();
+        assert!(
+            stale_parent.to_string().contains("different local parent"),
+            "{stale_parent}"
+        );
 
         // The absent-name result must also be invalidated when the same authored p returns.
-        let repaired = deleted.with_delta(
-            &local.runtime.source_services(),
-            SourceDelta {
-                parent: deleted.revision_id().into(),
-                additions: vec![parameter.clone()],
-                ..Default::default()
-            },
-            &CancelSource::new(),
-        ).await?;
-        assert_eq!(declaration(&repaired.declarations(&preparation).await?, "p"), &parameter);
+        let repaired = deleted
+            .with_delta(
+                &local.runtime.source_services(),
+                SourceDelta {
+                    parent: deleted.revision_id().into(),
+                    additions: vec![parameter.clone()],
+                    ..Default::default()
+                },
+                &CancelSource::new(),
+            )
+            .await?;
+        assert_eq!(
+            declaration(&repaired.declarations(&preparation).await?, "p"),
+            &parameter
+        );
         let repaired_source = OperationSource::of(&repaired);
         let repaired_prepared = local.prepare(&repaired, case, &repaired_source).await?;
         let repaired_result = local.solve(&repaired_prepared).await?;
         assert_science(&repaired_result, case, &repaired_source, 4., 2., 4.)?;
 
-        let removed = package.with_delta(
-            &local.runtime.source_services(),
-            SourceDelta {
-                parent: package.revision_id().into(),
-                removals: original.iter().filter(|row| row.declaration_id == case || row.parent_id == Some(case)).map(|row| row.declaration_id).collect(),
-                ..Default::default()
-            },
-            &CancelSource::new(),
-        ).await?;
-        assert!(!removed.declarations(&preparation).await?.iter().any(|row| row.declaration_id == case));
-        assert!(local.prepare(&removed, case, &OperationSource::of(&removed)).await.is_err(), "the original authored case is now absent");
+        let removed = package
+            .with_delta(
+                &local.runtime.source_services(),
+                SourceDelta {
+                    parent: package.revision_id().into(),
+                    removals: original
+                        .iter()
+                        .filter(|row| row.declaration_id == case || row.parent_id == Some(case))
+                        .map(|row| row.declaration_id)
+                        .collect(),
+                    ..Default::default()
+                },
+                &CancelSource::new(),
+            )
+            .await?;
+        assert!(
+            !removed
+                .declarations(&preparation)
+                .await?
+                .iter()
+                .any(|row| row.declaration_id == case)
+        );
+        assert!(
+            local
+                .prepare(&removed, case, &OperationSource::of(&removed))
+                .await
+                .is_err(),
+            "the original authored case is now absent"
+        );
         let retained = local.solve(&prepared).await?;
         assert_science(&retained, case, &source, 4., 2., 4.)?;
         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(())
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     local.close().await;
     match outcome {
         Ok(result) => result,

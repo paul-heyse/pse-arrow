@@ -58,15 +58,16 @@ fn fixture_with_schema(pre_epoch: bool) -> Result<NativeCanonicalService, Native
 fn assert_schema_refusal(
     error: pse_operations::canonical::CanonicalError,
     expected: pse_operations::canonical::RefusalCode,
-) {
+) -> Result<(), pse_operations::canonical::CanonicalError> {
     match error {
         pse_operations::canonical::CanonicalError::Refused { code, .. } => {
-            assert_eq!(code, expected)
+            assert_eq!(code, expected);
+            Ok(())
         }
         pse_operations::canonical::CanonicalError::SourceEditRefused { source, .. } => {
             assert_schema_refusal(*source, expected)
         }
-        error => panic!("expected exact server schema refusal {expected:?}, observed {error:?}"),
+        error => Err(error),
     }
 }
 fn report_ingresses(service: &NativeCanonicalService) {
@@ -115,7 +116,7 @@ async fn native_service_current_migration_joins_actual_ingress_and_reconstructs_
                             .await
                             .unwrap_err(),
                         pse_operations::canonical::RefusalCode::SchemaMigrationClosed,
-                    );
+                    )?;
                     assert!(
                         CanonicalStore::connect_ready(&options).await.is_err(),
                         "new opens must refuse while native epoch admission is closed"
@@ -136,7 +137,7 @@ async fn native_service_current_migration_joins_actual_ingress_and_reconstructs_
                             .await
                             .unwrap_err(),
                         pse_operations::canonical::RefusalCode::SchemaEpochChanged,
-                    );
+                    )?;
                     assert!(
                         old.store()
                             .canonical_run("native-fixture-probe")
@@ -908,7 +909,7 @@ async fn native_service_closed_admission_preserves_original_attempt_settlement_o
                         .await
                         .unwrap_err(),
                     pse_operations::canonical::RefusalCode::SchemaMigrationClosed,
-                );
+                )?;
                 assert_schema_refusal(
                     store
                         .claim_run(
@@ -920,7 +921,7 @@ async fn native_service_closed_admission_preserves_original_attempt_settlement_o
                         .await
                         .unwrap_err(),
                     pse_operations::canonical::RefusalCode::SchemaMigrationClosed,
-                );
+                )?;
                 let settled = store
                     .cancel_attempt(&fence, "original-attempt-cancellation")
                     .await?;

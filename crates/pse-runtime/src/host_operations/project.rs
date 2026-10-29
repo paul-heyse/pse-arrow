@@ -753,8 +753,15 @@ mod tests {
             .map(|method| method.name)
             .collect::<std::collections::BTreeSet<_>>();
         assert_eq!(names.len(), 50);
-        for retired in ["study_workbench_page", "freeze_study_cohort", "observe_study"] {
-            assert!(!names.contains(retired), "retired frontend method {retired}");
+        for retired in [
+            "study_workbench_page",
+            "freeze_study_cohort",
+            "observe_study",
+        ] {
+            assert!(
+                !names.contains(retired),
+                "retired frontend method {retired}"
+            );
         }
         for expected in [
             "project_import_issue",

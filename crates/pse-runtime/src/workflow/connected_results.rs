@@ -6,7 +6,7 @@
 
 #[cfg(test)]
 use super::result_files;
-use super::{Runtime, RetainedDataServices, WorkflowError, contract, result_blocks};
+use super::{RetainedDataServices, Runtime, WorkflowError, contract, result_blocks};
 use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryPool, MemoryReservation};
 use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata;
@@ -1150,9 +1150,12 @@ impl RetainedDataServices {
         attempt: &str,
     ) -> Result<Arc<pse_columnar::Leased<super::durable::StoredCompletion>>, WorkflowError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-            super::durable::read_completion(self.canonical_store()?, &self.pool(), run, attempt).await
-        }).await
+        activity
+            .scope(async {
+                super::durable::read_completion(self.canonical_store()?, &self.pool(), run, attempt)
+                    .await
+            })
+            .await
     }
     /// Bounded exact-attempt metadata preflight for review publication. It never polls rows.
     pub(crate) async fn review_result_selections(
@@ -1164,8 +1167,8 @@ impl RetainedDataServices {
         if requests.len() > 1024 {
             return Err(contract("review selects more than 1024 scientific members"));
         }
-        let reservation = MemoryConsumer::new("review:scientific-selection-preflight")
-            .register(&self.pool());
+        let reservation =
+            MemoryConsumer::new("review:scientific-selection-preflight").register(&self.pool());
         let extent = requests
             .iter()
             .try_fold(0usize, |total, request| {
@@ -1307,9 +1310,8 @@ impl RetainedDataServices {
                 .await?
                 .ok_or_else(|| contract("canonical run absent"))?;
                 let validation = self.validation_context();
-                let mut builder =
-                    rows::Builder::with_registry(self.registry(), 1, &validation)
-                        .map_err(super::relation)?;
+                let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
+                    .map_err(super::relation)?;
                 builder.push(row).map_err(super::relation)?;
                 builder
                     .finish()
@@ -1341,9 +1343,8 @@ impl RetainedDataServices {
                 .await?
                 .ok_or_else(|| contract("canonical attempt absent"))?;
                 let validation = self.validation_context();
-                let mut builder =
-                    rows::Builder::with_registry(self.registry(), 1, &validation)
-                        .map_err(super::relation)?;
+                let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
+                    .map_err(super::relation)?;
                 builder.push(row).map_err(super::relation)?;
                 builder
                     .finish()
@@ -1389,9 +1390,8 @@ impl RetainedDataServices {
                 )?);
                 read.retain_metadata_owner(read_owner)?;
                 let validation = self.validation_context();
-                let mut builder =
-                    rows::Builder::with_registry(self.registry(), 1, &validation)
-                        .map_err(super::relation)?;
+                let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
+                    .map_err(super::relation)?;
                 builder
                     .push(read.manifest().clone())
                     .map_err(super::relation)?;
@@ -1579,8 +1579,8 @@ impl RetainedDataServices {
         // The schema is borrowed from the registry's charged immutable arena.
         // The snapshot owns the shared ResultRead allocation. This reader only
         // owns its additional set key; Arc aliases do not charge read metadata twice.
-        let selection_owner = MemoryConsumer::new("canonical:result-selection-key")
-            .register(&self.pool());
+        let selection_owner =
+            MemoryConsumer::new("canonical:result-selection-key").register(&self.pool());
         selection_owner
             .try_grow(set.len())
             .map_err(pse_engine::EngineError::from)?;
@@ -1757,8 +1757,7 @@ pub(super) fn output_filter(
         .and_then(|bytes| bytes.checked_add(partition.len()))
         .and_then(|bytes| bytes.checked_add(128))
         .ok_or_else(|| contract("output selection allocation extent"))?;
-    let filter_owner =
-        MemoryConsumer::new("canonical:output-selection").register(&services.pool());
+    let filter_owner = MemoryConsumer::new("canonical:output-selection").register(&services.pool());
     filter_owner
         .try_grow(admitted + size_of::<OutputFilter>() + 2 * size_of::<usize>())
         .map_err(pse_engine::EngineError::from)?;
@@ -1837,8 +1836,8 @@ pub(super) fn select_original_rows(
             "selected coordinate window outside original batch",
         ));
     }
-    let offsets_owner = MemoryConsumer::new("canonical:selected-source-offsets")
-        .register(&services.pool());
+    let offsets_owner =
+        MemoryConsumer::new("canonical:selected-source-offsets").register(&services.pool());
     let extent = super::result_selection::selection_window_extent(
         count,
         checked.batch().num_columns(),

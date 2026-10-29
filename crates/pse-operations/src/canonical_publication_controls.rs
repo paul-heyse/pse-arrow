@@ -411,7 +411,7 @@ async fn native_old_publisher_settles_while_migration_is_closed_before_successor
         let pending = maintenance.begin(request.clone()).await?;
         let quiescent = pending.quiesce(
             service.stop_ingress_and_join(Instant::now() + Duration::from_secs(30)),
-            &[store.clone()],
+            std::slice::from_ref(store),
         ).await?;
         let successor = quiescent.apply().await?;
         service.retain_connection(successor.store().clone())?;

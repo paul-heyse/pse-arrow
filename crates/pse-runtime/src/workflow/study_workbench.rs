@@ -337,7 +337,9 @@ impl Runtime {
         &self,
         request: StudyCohortRequest,
     ) -> Result<FrozenStudyCohort, WorkflowError> {
-        self.retained_data_services().freeze_study_cohort(request).await
+        self.retained_data_services()
+            .freeze_study_cohort(request)
+            .await
     }
     /// Export analysis of original captured data through the retained-data owner.
     pub async fn export_study_analysis(
@@ -425,8 +427,7 @@ impl FrozenStudyCohort {
         cancel: &CancellationToken,
     ) -> Result<u64, WorkflowError> {
         use std::io::Write;
-        let owner =
-            MemoryConsumer::new("study-cohort:page-export").register(&self.services.pool());
+        let owner = MemoryConsumer::new("study-cohort:page-export").register(&self.services.pool());
         owner
             .try_grow(64 * 1024)
             .map_err(pse_engine::EngineError::from)?;
@@ -682,11 +683,8 @@ impl FrozenStudyCohort {
             })
             .await?;
         compatible_rows(&headers.headers)?;
-        let state = super::cohort_provider::CohortAnalysisState::new(
-            self.clone(),
-            request,
-            cancel,
-        )?;
+        let state =
+            super::cohort_provider::CohortAnalysisState::new(self.clone(), request, cancel)?;
         Ok(StudyCohortRelation { state })
     }
     /// Aggregate through the same public native relation and original capture custody.

@@ -6824,7 +6824,6 @@ dependencies = [
  "serde",
  "serde-saphyr",
  "serde_json",
- "sha2 0.11.0",
  "statrs",
  "tempfile",
  "thiserror 2.0.21",
