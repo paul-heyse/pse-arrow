@@ -10,6 +10,9 @@
     reason = "reference setup and independent scientific assertions fail directly"
 )]
 
+#[path = "reference_support/mod.rs"]
+mod reference_support;
+
 #[path = "reference_degeneracy_support/mod.rs"]
 mod support;
 
