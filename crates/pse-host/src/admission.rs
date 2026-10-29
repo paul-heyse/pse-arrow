@@ -499,6 +499,20 @@ impl Coordinator {
         }
         Ok(true)
     }
+    async fn retire_released<F,Fut>(&self,nonce:&str,deadline:Instant,mut observe:F)->Result<bool,HostError>
+    where F:FnMut(Journal)->Fut,Fut:Future<Output=Result<BTreeSet<String>,HostError>> {
+        loop {
+            let snapshot=self.snapshot(deadline).await?;
+            if !snapshot.finite.contains_key(nonce) { return Ok(true); }
+            let revision=snapshot.revision;
+            let reclaimed=observe(snapshot).await?;
+            if Instant::now()>=deadline { return Err(HostError::Deadline("original finite release reconciliation".into())); }
+            if !reclaimed.contains(nonce) { return Ok(false); }
+            if self.commit(revision,&BTreeSet::from([nonce.to_owned()]),None,false,deadline).await? { return Ok(true); }
+            // An unrelated admission/release changed the journal while physical
+            // facts were read. Obtain fresh facts under the same original clock.
+        }
+    }
     async fn borrowed_residents(&self,manager:&HostManager,selection:&Selection,deadline:Instant)->Result<Vec<BorrowedResidentCharge>,HostError> {
         let candidates=tokio::time::timeout_at(deadline.into(),manager.resident_cache_candidates()).await.map_err(|_|HostError::Deadline("resident capacity observation".into()))??;
         if candidates.is_empty() { return Ok(Vec::new()); }
@@ -654,6 +668,7 @@ impl Permit {
     /// this private reference-owned slice. No admission lock spans manager calls.
     pub async fn prepare(&mut self,manager:&HostManager,deadline:Instant)->Result<(),HostError> {
         if self.borrowed || self.slice.is_none() { return Ok(()); }
+        if self.nonce.is_none() { return Err(invalid("finite allocation capability was already relinquished")); }
         if self.slice_owner.is_some() { return Err(invalid("original finite slice already prepared")); }
         let selection=self.selection.as_ref().ok_or_else(||invalid("owned finite selection absent"))?;
         let _configuration=self.coordinator.lock("parent-configuration.lock",deadline).await?;
@@ -701,22 +716,15 @@ impl Permit {
         {
             let _guard=self.coordinator.lock("admission.lock",deadline).await?;
             let mut state=self.coordinator.read()?;
-            let Some(row)=state.finite.get_mut(nonce) else { return Ok(true); };
+            let Some(row)=state.finite.get_mut(nonce) else { self.nonce=None; return Ok(true); };
             row.released=true;
             state.advance()?;
             self.coordinator.write(&state)?;
         }
-        let snapshot=self.coordinator.snapshot(deadline).await?;
-        let reclaimed=self.coordinator.reclaimed(manager,&snapshot,deadline).await?;
-        if !reclaimed.contains(nonce) { return Ok(false); }
-        let _guard=self.coordinator.lock("admission.lock",deadline).await?;
-        let mut current=self.coordinator.read()?;
-        if current.revision!=snapshot.revision { return Ok(false); }
-        current.finite.remove(nonce);
-        current.advance()?;
-        self.coordinator.write(&current)?;
-        self.nonce=None;
-        Ok(true)
+        let coordinator=&self.coordinator;
+        let released=coordinator.retire_released(nonce,deadline,|state|async move {coordinator.reclaimed(manager,&state,deadline).await}).await?;
+        if released { self.nonce=None; }
+        Ok(released)
     }
 }
 fn enclosing_ceiling(group:&str,requested:u64)->Result<(),HostError> {
@@ -912,6 +920,34 @@ mod tests {
         assert!(matches!(conflict,Err(HostError::Deadline(_))));
         drop(held);
         assert!(second.lock("admission.lock",Instant::now()+Duration::from_secs(1)).await.is_ok());
+    }
+    #[tokio::test]
+    async fn release_retries_unrelated_commits_and_rechecks_physical_receipt() {
+        use std::sync::atomic::{AtomicU64,Ordering};
+        let (_runtime,_environment,coordinator)=fixture();
+        let intent=LaunchIntent::fresh_scope().unwrap();
+        let nonce=intent.unit().to_owned();
+        let caller=caller_identity().unwrap();
+        let row=Reservation {boot:caller.boot_id.clone(),manager:"recorded-manager".into(),caller:caller.clone(),gated_child:caller,profile:selected(Some("light"),None,"bounded").profile,units:vec![RegisteredUnit {intent,binding:Some(UnitBinding {invocation:vec![1;16],group:String::new(),device:0,inode:0}),controller:false}],released:true};
+        let deadline=Instant::now()+Duration::from_secs(1);
+        assert!(coordinator.commit(0,&BTreeSet::new(),Some((&nonce,&row)),false,deadline).await.unwrap());
+        let receipts=AtomicU64::new(0);
+        let released=coordinator.retire_released(&nonce,deadline,|snapshot| {
+            let attempt=receipts.fetch_add(1,Ordering::Relaxed);
+            let coordinator=&coordinator;
+            let nonce=&nonce;
+            async move {
+                if attempt==0 {
+                    // Real ordinary commit races the recorded original physical
+                    // drain receipt, invalidating only this snapshot's revision.
+                    assert!(coordinator.commit(snapshot.revision,&BTreeSet::new(),None,true,deadline).await?);
+                }
+                Ok(BTreeSet::from([nonce.clone()]))
+            }
+        }).await.unwrap();
+        assert!(released);
+        assert_eq!(receipts.load(Ordering::Relaxed),2);
+        assert!(!coordinator.snapshot(deadline).await.unwrap().finite.contains_key(&nonce));
     }
     #[tokio::test]
     async fn revision_prevents_a_stale_exclusive_snapshot_from_ignoring_ordinary_commit() {

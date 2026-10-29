@@ -557,8 +557,21 @@ zero failures. `scripts/pse-env -- cargo test --locked -p pse-host --test foregr
 foreground_explicit_finite_scope_and_nested_borrow_keep_actual_envelope_and_release --
 --nocapture` passes its one selected real-manager control, zero failures. Final readback finds
 no native finite reservation. These results do not close remaining B03 placement, resident-role
-or consumer-retirement obligations. Concurrent release reconciliation is being hardened against
-unrelated admission revisions before broader assembled acceptance.
+or consumer-retirement obligations. Release reconciliation now retries unrelated admission
+revisions within its original deadline. The added controller-death control exposed an empty
+original allocation slice remaining manager-active after SIGKILL: the old predicate incorrectly
+retained its charge indefinitely. An exact bound slice with proven empty hierarchical kernel
+population can now settle without stopping or taking ownership of an unrelated unit;
+scope/service rules remain distinct. The corrected TERM/KILL control passes without manually
+resetting the journal. Empty slice definitions can remain after abrupt owner death; they do
+not imply populated work or a charge.
+
+**Tested:** the scoped manager/admission/exact-server-reopen filter passes35 controls, zero
+failures. `scripts/pse-env -- cargo test --locked -p pse-host --test foreground finite --
+--nocapture` passes both real finite controls, zero failures. This covers original exit,
+nested borrowing, TERM cleanup and post-SIGKILL original physical reclamation. Final native
+finite state is empty. The pending unused workspace-dependency warning is retained below;
+there are no Rust warnings. Broader placement, service and retirement acceptance remains open.
 
 The explicit server constructor now also admits an existing matching source release through
 `server prepare --from-release`, snapshots and hashes the copied binary/lockfile, and retains

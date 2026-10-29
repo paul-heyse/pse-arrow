@@ -311,6 +311,59 @@ exit 7
 }
 
 #[test]
+fn foreground_finite_controller_death_drains_original_work_and_reclaims_only_afterward() {
+    for signal in [rustix::process::Signal::TERM, rustix::process::Signal::KILL] {
+        let temp = tempfile::tempdir().unwrap();
+        let ready = temp.path().join("ready");
+        let mut command = host();
+        command.current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
+            .env("PSE_BUILD_MODE", "unbounded").env_remove("PSE_HOST_ALLOCATION")
+            .env_remove("PSE_MEMORY_MAX").env("PSE_SLICE", "pse.slice")
+            .args(["boundary", "--resource-class", "light", "--", "/bin/sh", "-ec",
+                "printf '%s\\n' \"$PSE_HOST_ALLOCATION\" > \"$1\"; cat /proc/self/cgroup >> \"$1\"; exec sleep 100", "fixture"])
+            .arg(&ready);
+        let mut child = Guard::top_level(&mut command);
+        wait_file(&ready);
+        // The complete observation binds the actual original workload independently
+        // of the controller's own cleanup report.
+        let deadline = Instant::now() + Duration::from_secs(15);
+        let document = loop {
+            let document = fs::read_to_string(&ready).unwrap();
+            if document.lines().count() == 2 { break document; }
+            assert!(Instant::now() < deadline, "finite observation incomplete");
+            thread::sleep(Duration::from_millis(5));
+        };
+        let rows = document.lines().collect::<Vec<_>>();
+        let group = rows[1].strip_prefix("0::").unwrap();
+        record_fresh_group(&mut child, group);
+        rustix::process::kill_process(
+            rustix::process::Pid::from_raw(child.id() as i32).unwrap(), signal,
+        ).unwrap();
+        let status = child.wait().unwrap();
+        let mut errors = String::new();
+        child.stderr.take().unwrap().read_to_string(&mut errors).unwrap();
+        assert_eq!(status.code(), Some(if signal == rustix::process::Signal::TERM { 143 } else { 137 }), "{errors}");
+        wait_empty(group);
+
+        // SIGKILL cannot execute local release. A new real admission must reconcile
+        // the original bound unit/cgroup before reclaiming that dead owner's row.
+        let mut next = host();
+        next.current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
+            .env("PSE_BUILD_MODE", "unbounded").env_remove("PSE_HOST_ALLOCATION")
+            .env_remove("PSE_MEMORY_MAX").env("PSE_SLICE", "pse.slice")
+            .args(["boundary", "--resource-class", "light", "--", "/bin/true"]);
+        let mut next = Guard::top_level(&mut next);
+        let status = next.wait().unwrap();
+        let mut errors = String::new();
+        next.stderr.take().unwrap().read_to_string(&mut errors).unwrap();
+        assert!(status.success(), "{errors}");
+        let journal = Path::new(&std::env::var_os("XDG_RUNTIME_DIR").unwrap()).join("pse-host-admission/finite.json");
+        let state: serde_json::Value = serde_json::from_slice(&fs::read(journal).unwrap()).unwrap();
+        assert!(state["finite"].get(rows[0]).is_none(), "drained original finite owner was not reclaimed");
+    }
+}
+
+#[test]
 fn foreground_exec_failures_retain_shell_statuses() {
     let missing = host()
         .args(["run", "/definitely/missing/pse-command"])

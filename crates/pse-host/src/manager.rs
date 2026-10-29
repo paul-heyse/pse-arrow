@@ -734,6 +734,11 @@ impl HostManager {
         }
         match observed {
             None => Ok(true),
+            // An original bound allocation slice has no executable/restart
+            // lifecycle. After the original caller is gone or explicitly released,
+            // the journal may settle its proved-empty kernel population even if
+            // systemd retains the empty slice definition as active.
+            Some(_) if intent.unit().ends_with(".slice") && binding.is_some() => Ok(true),
             Some(observed) if matches!(observed.active_state.as_str(),"inactive" | "failed") => {
                 Ok(Group::open(&observed.control_group,true)?.empty()?)
             }
@@ -1564,6 +1569,10 @@ mod tests {
         let mut owned = manager.start_slice(&intent,&controls,Instant::now()+Duration::from_secs(5)).await.unwrap();
         let checked:Result<(),HostError> = async {
             let observed = owned.observe().await?;
+            let binding=owned.binding().await?;
+            if observed.active_state!="active" || !manager.original_drained(&intent,Some(&binding)).await? {
+                return Err(HostError::Ownership("empty original active allocation slice did not supply physical settlement proof".into()));
+            }
             let group = Group::path(&observed.control_group)?;
             if std::fs::read_to_string(group.join("memory.max"))?.trim() != (1_u64 << 30).to_string()
                 || std::fs::read_to_string(group.join("memory.swap.max"))?.trim() != "0"
