@@ -508,8 +508,6 @@ print("native-result-retained")
                 self.assertEqual(result.stdout, "native-result-retained\n")
                 self.assertTrue(result.stderr)
 
-
-
     def test_local_status_is_passive_and_unknown_is_not_zero(self) -> None:
         with (
             patch("scripts.telemetry_process._STATE.active", None),

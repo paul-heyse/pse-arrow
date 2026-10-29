@@ -319,7 +319,10 @@ impl SchemaPredecessor {
     fn versioned(&self, version: u64, digest: &str) -> bool {
         self.schema_version == Some(version)
             && self.schema_digest == digest
-            && self.schema_epoch.as_ref().is_some_and(|epoch| uuid::Uuid::parse_str(epoch).is_ok())
+            && self
+                .schema_epoch
+                .as_ref()
+                .is_some_and(|epoch| uuid::Uuid::parse_str(epoch).is_ok())
     }
     fn supported(&self) -> bool {
         self.interpretation == wire::INTERPRETATION
@@ -384,11 +387,19 @@ pub struct PreparedSchemaModule {
     backend: String,
 }
 impl PreparedSchemaModule {
-    fn from_receipt(receipt: super::study_module::StudyModuleReceipt) -> Result<Self, CanonicalError> {
-        Ok(Self { bucket: receipt.bucket(), backend: receipt.backend()?, receipt })
+    fn from_receipt(
+        receipt: super::study_module::StudyModuleReceipt,
+    ) -> Result<Self, CanonicalError> {
+        Ok(Self {
+            bucket: receipt.bucket(),
+            backend: receipt.backend()?,
+            receipt,
+        })
     }
     /// Exact immutable target artifact hash.
-    pub fn sha256(&self) -> &str { &self.receipt.sha256 }
+    pub fn sha256(&self) -> &str {
+        &self.receipt.sha256
+    }
 }
 /// Original migration intent, safe to retain without credentials or native pointers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -410,7 +421,8 @@ impl SchemaMigrationRequest {
         &self.operation
     }
     fn validate(&self) -> Result<(), CanonicalError> {
-        let current_target = self.target_version == VERSION && self.target_digest == wire::SCHEMA_DIGEST;
+        let current_target =
+            self.target_version == VERSION && self.target_digest == wire::SCHEMA_DIGEST;
         // An already-issued v2 request retains its exact fingerprint and receipt.
         // It may settle at v2, but never grants a current SchemaReady capability.
         let original_v2_target = self.target_version == V2_VERSION
@@ -419,7 +431,10 @@ impl SchemaMigrationRequest {
         if !self.predecessor.supported()
             || !(current_target || original_v2_target)
             || (self.target_module.is_some() && !current_target)
-            || self.target_module.as_ref().is_some_and(|target| target.bucket != target.receipt.bucket() || target.receipt.backend().ok().as_deref() != Some(target.backend.as_str()))
+            || self.target_module.as_ref().is_some_and(|target| {
+                target.bucket != target.receipt.bucket()
+                    || target.receipt.backend().ok().as_deref() != Some(target.backend.as_str())
+            })
             || uuid::Uuid::parse_str(&self.operation).is_err()
             || uuid::Uuid::parse_str(&self.successor_epoch).is_err()
             || self.predecessor.schema_epoch.as_deref() == Some(self.successor_epoch.as_str())
@@ -431,7 +446,11 @@ impl SchemaMigrationRequest {
         Ok(())
     }
     fn target_module_hash(&self) -> &str {
-        self.target_module.as_ref().map_or(&self.predecessor.study_module_sha256, |target| target.sha256())
+        self.target_module
+            .as_ref()
+            .map_or(&self.predecessor.study_module_sha256, |target| {
+                target.sha256()
+            })
     }
     fn fingerprint(&self) -> Result<String, CanonicalError> {
         Ok(hash(&bytes(self)?))
@@ -448,7 +467,10 @@ impl SchemaMigrationRequest {
         }
     }
     fn checkpoint_fingerprint(&self) -> Result<String, CanonicalError> {
-        Ok(hash(&bytes(&(self.fingerprint()?, self.checkpoint_predecessor()))?))
+        Ok(hash(&bytes(&(
+            self.fingerprint()?,
+            self.checkpoint_predecessor(),
+        ))?))
     }
     fn bindings(&self) -> Result<Object, CanonicalError> {
         let mut bindings = Object::new();
@@ -463,10 +485,31 @@ impl SchemaMigrationRequest {
             "migration_version",
             codec::encode_uint(self.target_version)?,
         );
-        bindings.insert("bucket", self.target_module.as_ref().map_or(&self.module_bucket, |target| &target.bucket).clone());
-        bindings.insert("backend", self.target_module.as_ref().map_or(&self.module_backend, |target| &target.backend).clone());
-        bindings.insert("study_module_backend", self.target_module.as_ref().map_or(&self.module_backend, |target| &target.backend).clone());
-        bindings.insert("migration_module_sha256", self.target_module_hash().to_owned());
+        bindings.insert(
+            "bucket",
+            self.target_module
+                .as_ref()
+                .map_or(&self.module_bucket, |target| &target.bucket)
+                .clone(),
+        );
+        bindings.insert(
+            "backend",
+            self.target_module
+                .as_ref()
+                .map_or(&self.module_backend, |target| &target.backend)
+                .clone(),
+        );
+        bindings.insert(
+            "study_module_backend",
+            self.target_module
+                .as_ref()
+                .map_or(&self.module_backend, |target| &target.backend)
+                .clone(),
+        );
+        bindings.insert(
+            "migration_module_sha256",
+            self.target_module_hash().to_owned(),
+        );
         bindings.insert(
             "migration_predecessor_bytes",
             surrealdb_types::Bytes::from(bytes(&self.predecessor)?),
@@ -486,7 +529,9 @@ impl SchemaMigrationReceipt {
         &self.request
     }
     /// Explicit prepared module change verified by this original activation.
-    pub fn target_module(&self) -> Option<&PreparedSchemaModule> { self.request.target_module.as_ref() }
+    pub fn target_module(&self) -> Option<&PreparedSchemaModule> {
+        self.request.target_module.as_ref()
+    }
     /// Installed target version recorded by this original activation.
     pub fn version(&self) -> u64 {
         self.request.target_version
@@ -542,7 +587,8 @@ impl SchemaMaintenance {
             .ok_or(CanonicalError::IncompleteResponse)
     }
     async fn snapshot(&self) -> Result<Object, CanonicalError> {
-        self.execute_object("", MIGRATION_SNAPSHOT, Object::new()).await
+        self.execute_object("", MIGRATION_SNAPSHOT, Object::new())
+            .await
     }
     async fn checkpoint(&self, request: &SchemaMigrationRequest) -> Result<bool, CanonicalError> {
         verify_v2_checkpoint(&self.snapshot().await?, request)
@@ -578,16 +624,27 @@ impl SchemaMaintenance {
     ) -> Result<SchemaMigrationRequest, CanonicalError> {
         let observed = self.inspect().await?;
         if observed.pending_operation.is_some() {
-            return Err(invalid("pending schema migration requires its original request"));
+            return Err(invalid(
+                "pending schema migration requires its original request",
+            ));
         }
-        let module = super::study_module::StudyModuleReceipt::read_migration_source(&self.store.state_path, &observed.predecessor.study_module_sha256)?;
+        let module = super::study_module::StudyModuleReceipt::read_migration_source(
+            &self.store.state_path,
+            &observed.predecessor.study_module_sha256,
+        )?;
         if module.sha256 != observed.predecessor.study_module_sha256 {
             return Err(CanonicalError::Quiesced);
         }
-        let mut request = observed.predecessor.to_current(operation, module.bucket(), module.backend()?)?;
-        if let Some(target) = super::study_module::StudyModuleReceipt::read_migration_target(&self.store.state_path)?
+        let mut request =
+            observed
+                .predecessor
+                .to_current(operation, module.bucket(), module.backend()?)?;
+        if let Some(target) =
+            super::study_module::StudyModuleReceipt::read_migration_target(&self.store.state_path)?
             && target.sha256 != module.sha256
-        { request.target_module = Some(PreparedSchemaModule::from_receipt(target)?); }
+        {
+            request.target_module = Some(PreparedSchemaModule::from_receipt(target)?);
+        }
         request.validate()?;
         Ok(request)
     }
@@ -595,7 +652,10 @@ impl SchemaMaintenance {
         &self,
         request: &SchemaMigrationRequest,
     ) -> Result<(), CanonicalError> {
-        let module = super::study_module::StudyModuleReceipt::read_migration_source(&self.store.state_path, &request.predecessor.study_module_sha256)?;
+        let module = super::study_module::StudyModuleReceipt::read_migration_source(
+            &self.store.state_path,
+            &request.predecessor.study_module_sha256,
+        )?;
         if module.sha256 != request.predecessor.study_module_sha256
             || module.bucket() != request.module_bucket
             || module.backend()? != request.module_backend
@@ -603,9 +663,14 @@ impl SchemaMaintenance {
             return Err(CanonicalError::Quiesced);
         }
         if let Some(target) = &request.target_module {
-            let selected = super::study_module::StudyModuleReceipt::read_migration_target(&self.store.state_path)?
-                .ok_or(CanonicalError::Quiesced)?;
-            if selected != target.receipt || selected.bucket() != target.bucket || selected.backend()? != target.backend {
+            let selected = super::study_module::StudyModuleReceipt::read_migration_target(
+                &self.store.state_path,
+            )?
+            .ok_or(CanonicalError::Quiesced)?;
+            if selected != target.receipt
+                || selected.bucket() != target.bucket
+                || selected.backend()? != target.backend
+            {
                 return Err(CanonicalError::Quiesced);
             }
         }
@@ -621,7 +686,9 @@ impl SchemaMaintenance {
         request.validate()?;
         self.require_original_module(request)?;
         let receipt: Option<Object> = self.execute("", "SELECT * FROM ONLY type::record('canonical_maintenance_activations',$migration_operation)", request.bindings()?).await?;
-        receipt.map(|receipt| verified_activation(receipt, request)).transpose()
+        receipt
+            .map(|receipt| verified_activation(receipt, request))
+            .transpose()
     }
     /// Reconcile a current-target activation and reconstruct current readiness.
     /// Use `reconcile_receipt` to settle an original historical activation.
@@ -664,7 +731,8 @@ impl SchemaMaintenance {
         verify_frozen_declarations()?;
         if self.checkpoint(&request).await? {
             return Ok(PendingSchemaMigration {
-                maintenance: self.clone(), request,
+                maintenance: self.clone(),
+                request,
             });
         }
         let observed = self.inspect().await?;
@@ -725,7 +793,9 @@ impl PendingSchemaMigration {
             return Err(CanonicalError::MigrationDrain { failures });
         }
         let result: Value = if self.maintenance.checkpoint(&self.request).await? {
-            self.maintenance.execute(VERIFY_V2_CHECKPOINT, "true", self.request.bindings()?).await?
+            self.maintenance
+                .execute(VERIFY_V2_CHECKPOINT, "true", self.request.bindings()?)
+                .await?
         } else if self.request.predecessor.legacy() {
             self.maintenance
                 .execute(LEGACY_QUIESCENT, "true", self.request.bindings()?)
@@ -754,13 +824,18 @@ impl QuiescentSchemaMigration {
     pub async fn apply(self) -> Result<SchemaReady, CanonicalError> {
         require_current_target(&self.request)?;
         if self.request.target_module.is_some() {
-            return Err(invalid("module-changing activation requires apply_receipt and explicit prepared local selection"));
+            return Err(invalid(
+                "module-changing activation requires apply_receipt and explicit prepared local selection",
+            ));
         }
         let maintenance = self.maintenance.clone();
         let receipt = self.apply_receipt().await?;
         maintenance.current_ready(receipt.request()).await
     }
-    async fn advance_v2_checkpoint(&self, discard_acknowledgement: bool) -> Result<(), CanonicalError> {
+    async fn advance_v2_checkpoint(
+        &self,
+        discard_acknowledgement: bool,
+    ) -> Result<(), CanonicalError> {
         let request = &self.request;
         if !request.needs_v2_checkpoint() {
             return Err(invalid("this original request has no intermediate v2 edge"));
@@ -770,10 +845,15 @@ impl QuiescentSchemaMigration {
             return Ok(());
         }
         let body = v2_checkpoint_body(request)?;
-        let write = self.maintenance.execute_object(&body, MIGRATION_SNAPSHOT, request.bindings()?).await;
+        let write = self
+            .maintenance
+            .execute_object(&body, MIGRATION_SNAPSHOT, request.bindings()?)
+            .await;
         let write = if discard_acknowledgement && write.is_ok() {
             Err(CanonicalError::Timeout)
-        } else { write };
+        } else {
+            write
+        };
         let snapshot = match write {
             Ok(snapshot) => snapshot,
             Err(error) => match self.maintenance.snapshot().await {
@@ -784,18 +864,24 @@ impl QuiescentSchemaMigration {
                             Ok(None) => Err(error),
                             Err(readback) => Err(CanonicalError::SettlementUnresolved {
                                 owner: "schema-migration-v2-checkpoint",
-                                operation: request.operation.clone(), request: bytes(request)?,
-                                source: Box::new(error), readback: Some(Box::new(readback)),
+                                operation: request.operation.clone(),
+                                request: bytes(request)?,
+                                source: Box::new(error),
+                                readback: Some(Box::new(readback)),
                             }),
                         };
                     }
                     snapshot
                 }
-                Err(readback) => return Err(CanonicalError::SettlementUnresolved {
-                    owner: "schema-migration-v2-checkpoint",
-                    operation: request.operation.clone(), request: bytes(request)?,
-                    source: Box::new(error), readback: Some(Box::new(readback)),
-                }),
+                Err(readback) => {
+                    return Err(CanonicalError::SettlementUnresolved {
+                        owner: "schema-migration-v2-checkpoint",
+                        operation: request.operation.clone(),
+                        request: bytes(request)?,
+                        source: Box::new(error),
+                        readback: Some(Box::new(readback)),
+                    });
+                }
             },
         };
         if !verify_v2_checkpoint(&snapshot, request)? {
@@ -855,7 +941,9 @@ fn verified_activation(
     request: &SchemaMigrationRequest,
 ) -> Result<SchemaMigrationReceipt, CanonicalError> {
     verify_activation(receipt, request)?;
-    Ok(SchemaMigrationReceipt { request: request.clone() })
+    Ok(SchemaMigrationReceipt {
+        request: request.clone(),
+    })
 }
 fn verify_activation(
     receipt: Object,
@@ -886,17 +974,27 @@ fn verify_owner(row: &Object, request: &SchemaMigrationRequest) -> Result<(), Ca
 }
 fn require_current_target(request: &SchemaMigrationRequest) -> Result<(), CanonicalError> {
     if request.target_version != VERSION || request.target_digest != wire::SCHEMA_DIGEST {
-        return Err(invalid("current schema readiness requires a current-target migration; settle historical requests through their original receipt"));
+        return Err(invalid(
+            "current schema readiness requires a current-target migration; settle historical requests through their original receipt",
+        ));
     }
     Ok(())
 }
 fn verify_frozen_declarations() -> Result<(), CanonicalError> {
     for (declaration, expected) in [
-        (PRE_EPOCH_DECLARATION, pse_schema::catalog::substrate::PRE_EPOCH_DECLARATION_SHA256),
-        (SCHEMA_V2_DECLARATION, pse_schema::catalog::substrate::SCHEMA_V2_DECLARATION_SHA256),
+        (
+            PRE_EPOCH_DECLARATION,
+            pse_schema::catalog::substrate::PRE_EPOCH_DECLARATION_SHA256,
+        ),
+        (
+            SCHEMA_V2_DECLARATION,
+            pse_schema::catalog::substrate::SCHEMA_V2_DECLARATION_SHA256,
+        ),
     ] {
         if hash(declaration.as_bytes()) != expected {
-            return Err(invalid("frozen predecessor declaration differs from its recorded bytes"));
+            return Err(invalid(
+                "frozen predecessor declaration differs from its recorded bytes",
+            ));
         }
     }
     Ok(())
@@ -904,43 +1002,81 @@ fn verify_frozen_declarations() -> Result<(), CanonicalError> {
 fn migration_declarations(request: &SchemaMigrationRequest) -> Result<String, CanonicalError> {
     request.validate()?;
     verify_frozen_declarations()?;
-    Ok(overwrite_declarations(if request.target_version == V2_VERSION {
-        SCHEMA_V2_DECLARATION
-    } else { wire::SCHEMA }))
+    Ok(overwrite_declarations(
+        if request.target_version == V2_VERSION {
+            SCHEMA_V2_DECLARATION
+        } else {
+            wire::SCHEMA
+        },
+    ))
 }
 fn v2_checkpoint_body(request: &SchemaMigrationRequest) -> Result<String, CanonicalError> {
     request.validate()?;
     verify_frozen_declarations()?;
-    if !request.needs_v2_checkpoint() { return Err(invalid("no intermediate v2 edge")); }
-    Ok(format!("{APPLY_PREDECESSOR}\n{}\n{PUBLISH_V2_CHECKPOINT}", overwrite_declarations(SCHEMA_V2_DECLARATION)))
+    if !request.needs_v2_checkpoint() {
+        return Err(invalid("no intermediate v2 edge"));
+    }
+    Ok(format!(
+        "{APPLY_PREDECESSOR}\n{}\n{PUBLISH_V2_CHECKPOINT}",
+        overwrite_declarations(SCHEMA_V2_DECLARATION)
+    ))
 }
 fn final_application_body(request: &SchemaMigrationRequest) -> Result<String, CanonicalError> {
-    let predecessor = if request.needs_v2_checkpoint() { VERIFY_V2_CHECKPOINT } else { APPLY_PREDECESSOR };
+    let predecessor = if request.needs_v2_checkpoint() {
+        VERIFY_V2_CHECKPOINT
+    } else {
+        APPLY_PREDECESSOR
+    };
     // Historical intent attests its original module contract. Settling v2 must
     // neither demand v3 progression exports nor mint current SchemaReady authority.
     let (validation_body, validation_predicate) = if request.target_version == V2_VERSION {
-        (super::study_module::CATALOG_VALIDATION_BODY.to_owned(),
-         super::study_module::CATALOG_VALIDATION_PREDICATE.to_owned())
+        (
+            super::study_module::CATALOG_VALIDATION_BODY.to_owned(),
+            super::study_module::CATALOG_VALIDATION_PREDICATE.to_owned(),
+        )
     } else {
-        (super::study_module::capability_validation_body()?,
-         super::study_module::capability_validation_predicate())
+        (
+            super::study_module::capability_validation_body()?,
+            super::study_module::capability_validation_predicate(),
+        )
     };
-    let module = request.target_module.as_ref().map(|target| target.receipt.declarations(true)).unwrap_or_default();
-    Ok(format!("{predecessor}\n{module}\n{}\n{validation_body}\nIF !({validation_predicate}) {{ THROW 'PSE_REFUSAL:schema_migration_original_differs'; }};\n{APPLY_SUCCESSOR}", migration_declarations(request)?))
+    let module = request
+        .target_module
+        .as_ref()
+        .map(|target| target.receipt.declarations(true))
+        .unwrap_or_default();
+    Ok(format!(
+        "{predecessor}\n{module}\n{}\n{validation_body}\nIF !({validation_predicate}) {{ THROW 'PSE_REFUSAL:schema_migration_original_differs'; }};\n{APPLY_SUCCESSOR}",
+        migration_declarations(request)?
+    ))
 }
-fn verify_v2_checkpoint(snapshot: &Object, request: &SchemaMigrationRequest) -> Result<bool, CanonicalError> {
-    let Some(Value::Object(owner)) = snapshot.get("pending") else { return Ok(false); };
-    if owner.get("phase") != Some(&Value::String("schema-v2-checkpoint".into())) { return Ok(false); }
-    if !request.needs_v2_checkpoint() { return Err(CanonicalError::OperationReused); }
+fn verify_v2_checkpoint(
+    snapshot: &Object,
+    request: &SchemaMigrationRequest,
+) -> Result<bool, CanonicalError> {
+    let Some(Value::Object(owner)) = snapshot.get("pending") else {
+        return Ok(false);
+    };
+    if owner.get("phase") != Some(&Value::String("schema-v2-checkpoint".into())) {
+        return Ok(false);
+    }
+    if !request.needs_v2_checkpoint() {
+        return Err(CanonicalError::OperationReused);
+    }
     verify_owner(owner, request)?;
-    let Some(Value::Object(marker)) = snapshot.get("marker") else { return Err(CanonicalError::IncompleteResponse); };
-    if string(owner, "kind")? != "schema" || owner.get("complete") != Some(&Value::Bool(false))
+    let Some(Value::Object(marker)) = snapshot.get("marker") else {
+        return Err(CanonicalError::IncompleteResponse);
+    };
+    if string(owner, "kind")? != "schema"
+        || owner.get("complete") != Some(&Value::Bool(false))
         || string(owner, "source")? != request.predecessor.schema_digest
         || string(owner, "next")? != request.checkpoint_fingerprint()?
         || optional_uint(owner, "count")? != Some(1)
         || SchemaPredecessor::decode(marker)? != request.checkpoint_predecessor()
         || marker.get("admission_open") != Some(&Value::Bool(false))
-    { return Err(CanonicalError::OperationReused); }
+    {
+        return Err(CanonicalError::OperationReused);
+    }
     Ok(true)
 }
 fn overwrite_declarations(schema: &str) -> String {
@@ -1029,7 +1165,10 @@ mod schema_fence_control {
     use super::*;
     use crate::transport::client::{Client, HeldTransaction, RequestContext, Root};
     use std::time::{Instant, SystemTime, UNIX_EPOCH};
-    struct State { client: Option<Client>, held: Option<HeldTransaction> }
+    struct State {
+        client: Option<Client>,
+        held: Option<HeldTransaction>,
+    }
     /// One original RPC transaction with an already-admitted fixed guard write.
     /// The fixture retains a clone and explicitly cancels/drains abandoned work.
     #[derive(Clone)]
@@ -1042,33 +1181,60 @@ mod schema_fence_control {
     }
     impl std::fmt::Debug for SchemaFenceWrite {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.debug_struct("SchemaFenceWrite").field("key", &self.key).finish()
+            f.debug_struct("SchemaFenceWrite")
+                .field("key", &self.key)
+                .finish()
         }
     }
     impl SchemaFenceWrite {
         pub(crate) fn new(ready: &SchemaReady, deadline: Instant) -> Self {
-            Self { state: Arc::new(tokio::sync::Mutex::new(State { client: None, held: None })),
-                store: ready.store().clone(), fence: ready.fence().clone(),
-                key: format!("schema-fence-probe:{}", uuid::Uuid::new_v4()), deadline }
+            Self {
+                state: Arc::new(tokio::sync::Mutex::new(State {
+                    client: None,
+                    held: None,
+                })),
+                store: ready.store().clone(),
+                fence: ready.fence().clone(),
+                key: format!("schema-fence-probe:{}", uuid::Uuid::new_v4()),
+                deadline,
+            }
         }
         pub(crate) async fn stage(&self) -> Result<(), CanonicalError> {
             let mut state = self.state.lock().await;
             let options = &self.store.connection_options;
-            let address = url::Url::parse(&options.endpoint).map_err(|error| invalid(error.to_string()))?
-                .socket_addrs(|| None).map_err(|error| invalid(error.to_string()))?
-                .into_iter().next().ok_or_else(|| invalid("fixture address is absent"))?;
+            let address = url::Url::parse(&options.endpoint)
+                .map_err(|error| invalid(error.to_string()))?
+                .socket_addrs(|| None)
+                .map_err(|error| invalid(error.to_string()))?
+                .into_iter()
+                .next()
+                .ok_or_else(|| invalid("fixture address is absent"))?;
             let client = Client::connect(address, super::super::MESSAGE_BYTES).await?;
             // Retain the physical driver before any authentication/transaction dispatch.
             state.client = Some(client.clone());
-            client.signin(Root { username: options.username.clone(), password: options.password.clone() })
-                .request_context(RequestContext::control(self.deadline)).await?;
-            client.use_ns(&options.namespace).use_db(&options.database)
-                .request_context(RequestContext::control(self.deadline)).await?;
+            client
+                .signin(Root {
+                    username: options.username.clone(),
+                    password: options.password.clone(),
+                })
+                .request_context(RequestContext::control(self.deadline))
+                .await?;
+            client
+                .use_ns(&options.namespace)
+                .use_db(&options.database)
+                .request_context(RequestContext::control(self.deadline))
+                .await?;
             state.held = Some(client.test_begin(self.deadline).await?);
-            let held = state.held.as_ref().ok_or(CanonicalError::IncompleteResponse)?;
+            let held = state
+                .held
+                .as_ref()
+                .ok_or(CanonicalError::IncompleteResponse)?;
             let remaining = self.deadline.saturating_duration_since(Instant::now());
-            let utc = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
-            let expiry = i64::try_from(utc.saturating_add(remaining).as_micros()).unwrap_or(i64::MAX);
+            let utc = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default();
+            let expiry =
+                i64::try_from(utc.saturating_add(remaining).as_micros()).unwrap_or(i64::MAX);
             let mut bindings = Object::new();
             bindings.insert("expiry", expiry);
             bindings.insert("expected", self.fence.value());
@@ -1081,25 +1247,45 @@ mod schema_fence_control {
         /// A conflict remains the original server error; nothing is retried.
         pub async fn commit(&self) -> Result<(), CanonicalError> {
             let mut state = self.state.lock().await;
-            let held = state.held.take().ok_or_else(|| invalid("original held transaction is absent or already settled"))?;
+            let held = state
+                .held
+                .take()
+                .ok_or_else(|| invalid("original held transaction is absent or already settled"))?;
             let result = held.commit().await.map_err(CanonicalError::from);
-            let drain = match &state.client { Some(client) => client.disconnect().await.map_err(CanonicalError::from), None => Ok(()) };
-            if drain.is_ok() { state.client = None; }
+            let drain = match &state.client {
+                Some(client) => client.disconnect().await.map_err(CanonicalError::from),
+                None => Ok(()),
+            };
+            if drain.is_ok() {
+                state.client = None;
+            }
             match (result, drain) {
                 (Ok(()), Ok(())) => Ok(()),
                 (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error),
-                (Err(error), Err(cleanup)) => Err(CanonicalError::MigrationDrain { failures: vec![error, cleanup] }),
+                (Err(error), Err(cleanup)) => Err(CanonicalError::MigrationDrain {
+                    failures: vec![error, cleanup],
+                }),
             }
         }
         pub(crate) async fn cancel(&self) -> Result<(), CanonicalError> {
             let mut state = self.state.lock().await;
-            let result = match state.held.take() { Some(held) => held.cancel().await.map_err(CanonicalError::from), None => Ok(()) };
-            let drain = match &state.client { Some(client) => client.disconnect().await.map_err(CanonicalError::from), None => Ok(()) };
-            if drain.is_ok() { state.client = None; }
+            let result = match state.held.take() {
+                Some(held) => held.cancel().await.map_err(CanonicalError::from),
+                None => Ok(()),
+            };
+            let drain = match &state.client {
+                Some(client) => client.disconnect().await.map_err(CanonicalError::from),
+                None => Ok(()),
+            };
+            if drain.is_ok() {
+                state.client = None;
+            }
             match (result, drain) {
                 (Ok(()), Ok(())) => Ok(()),
                 (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error),
-                (Err(error), Err(cleanup)) => Err(CanonicalError::MigrationDrain { failures: vec![error, cleanup] }),
+                (Err(error), Err(cleanup)) => Err(CanonicalError::MigrationDrain {
+                    failures: vec![error, cleanup],
+                }),
             }
         }
         /// Read only this control's exact fixed-row effect using an actual observer fence.
@@ -1109,7 +1295,9 @@ mod schema_fence_control {
             }
             let mut response = bounded_query(observer.store().db.query("RETURN (SELECT * FROM ONLY type::record('canonical_guards',$probe))!=NONE;")
                 .bind(("probe", self.key.clone()))).await?;
-            response.take::<Option<bool>>(0)?.ok_or(CanonicalError::IncompleteResponse)
+            response
+                .take::<Option<bool>>(0)?
+                .ok_or(CanonicalError::IncompleteResponse)
         }
     }
 }
@@ -1142,22 +1330,36 @@ mod tests {
         source.remove("schema_version");
         source.remove("schema_epoch");
         source.remove("admission_open");
-        source.insert("schema_digest", pse_schema::catalog::substrate::PRE_EPOCH_SCHEMA_DIGEST);
+        source.insert(
+            "schema_digest",
+            pse_schema::catalog::substrate::PRE_EPOCH_SCHEMA_DIGEST,
+        );
         source
     }
     fn request(source: &Object) -> SchemaMigrationRequest {
-        SchemaPredecessor::decode(source).unwrap().to_current(
-            uuid::Uuid::new_v4(), "fixture-bucket".into(), "fixture-backend".into(),
-        ).unwrap()
+        SchemaPredecessor::decode(source)
+            .unwrap()
+            .to_current(
+                uuid::Uuid::new_v4(),
+                "fixture-bucket".into(),
+                "fixture-backend".into(),
+            )
+            .unwrap()
     }
     fn activation(request: &SchemaMigrationRequest) -> Object {
         let mut receipt = Object::new();
         receipt.insert("key", request.operation.clone());
         receipt.insert("input_sha256", request.fingerprint().unwrap());
-        receipt.insert("predecessor", surrealdb_types::Bytes::from(bytes(&request.predecessor).unwrap()));
+        receipt.insert(
+            "predecessor",
+            surrealdb_types::Bytes::from(bytes(&request.predecessor).unwrap()),
+        );
         receipt.insert("interpretation", request.predecessor.interpretation.clone());
         receipt.insert("schema_digest", request.target_digest.clone());
-        receipt.insert("study_module_sha256", request.target_module_hash().to_owned());
+        receipt.insert(
+            "study_module_sha256",
+            request.target_module_hash().to_owned(),
+        );
         receipt.insert("issuing_store", request.predecessor.issuing_store.clone());
         receipt
     }
@@ -1167,7 +1369,11 @@ mod tests {
         let expected = SchemaPredecessor::decode(&source).unwrap();
         assert!(expected.supported());
         assert!(!expected.legacy());
-        assert!(!SchemaPredecessor::decode(&marker()).unwrap().versioned(V2_VERSION, V2_DIGEST));
+        assert!(
+            !SchemaPredecessor::decode(&marker())
+                .unwrap()
+                .versioned(V2_VERSION, V2_DIGEST)
+        );
         assert!(SchemaPredecessor::decode(&marker()).unwrap().supported());
         assert!(SchemaFence::from_marker(&source).is_err());
         let migration = request(&source);
@@ -1185,13 +1391,19 @@ mod tests {
         ] {
             let mut changed = source.clone();
             changed.insert(key, value);
-            assert!(!SchemaPredecessor::decode(&changed).unwrap().supported(), "{key}");
+            assert!(
+                !SchemaPredecessor::decode(&changed).unwrap().supported(),
+                "{key}"
+            );
         }
     }
     #[test]
     fn schema_migration_chain_retains_exact_frozen_v2_before_current() {
         verify_frozen_declarations().unwrap();
-        assert_eq!(V2_DIGEST, "04c2b46a1ee5d153244089e816e1fc2586c1208a8fce5e48998f22a091c55bcc");
+        assert_eq!(
+            V2_DIGEST,
+            "04c2b46a1ee5d153244089e816e1fc2586c1208a8fce5e48998f22a091c55bcc"
+        );
         assert_eq!(SCHEMA_V2_DECLARATION.len(), 413340);
         let migration = request(&legacy_marker());
         let first = v2_checkpoint_body(&migration).unwrap();
@@ -1205,18 +1417,29 @@ mod tests {
         assert!(final_edge.contains(&overwrite_declarations(wire::SCHEMA)));
         assert!(!final_edge.contains(PUBLISH_V2_CHECKPOINT));
         assert!(final_edge.ends_with(APPLY_SUCCESSOR));
-        assert_eq!(migration_declarations(&request(&v2_marker())).unwrap(), overwrite_declarations(wire::SCHEMA));
+        assert_eq!(
+            migration_declarations(&request(&v2_marker())).unwrap(),
+            overwrite_declarations(wire::SCHEMA)
+        );
     }
     fn checkpoint_snapshot(request: &SchemaMigrationRequest) -> Object {
-        let Value::Object(mut marker) = request.checkpoint_predecessor().value().unwrap() else { unreachable!() };
+        let Value::Object(mut marker) = request.checkpoint_predecessor().value().unwrap() else {
+            unreachable!()
+        };
         marker.insert("admission_open", false);
         let mut owner = Object::new();
         for (key, value) in [
-            ("operation", request.operation.clone()), ("generation", request.successor_epoch.clone()),
-            ("after", request.fingerprint().unwrap()), ("target", request.target_digest.clone()),
-            ("source", request.predecessor.schema_digest.clone()), ("next", request.checkpoint_fingerprint().unwrap()),
-            ("kind", "schema".into()), ("phase", "schema-v2-checkpoint".into()),
-        ] { owner.insert(key, value); }
+            ("operation", request.operation.clone()),
+            ("generation", request.successor_epoch.clone()),
+            ("after", request.fingerprint().unwrap()),
+            ("target", request.target_digest.clone()),
+            ("source", request.predecessor.schema_digest.clone()),
+            ("next", request.checkpoint_fingerprint().unwrap()),
+            ("kind", "schema".into()),
+            ("phase", "schema-v2-checkpoint".into()),
+        ] {
+            owner.insert(key, value);
+        }
         owner.insert("count", codec::encode_uint(1).unwrap());
         owner.insert("complete", false);
         let mut snapshot = Object::new();
@@ -1229,31 +1452,66 @@ mod tests {
         let original = request(&legacy_marker());
         let snapshot = checkpoint_snapshot(&original);
         assert!(verify_v2_checkpoint(&snapshot, &original).unwrap());
-        for field in ["operation", "generation", "after", "target", "source", "next", "kind"] {
+        for field in [
+            "operation",
+            "generation",
+            "after",
+            "target",
+            "source",
+            "next",
+            "kind",
+        ] {
             let mut changed = snapshot.clone();
-            let Some(Value::Object(owner)) = changed.get_mut("pending") else { unreachable!() };
+            let Some(Value::Object(owner)) = changed.get_mut("pending") else {
+                unreachable!()
+            };
             owner.insert(field, "different");
-            assert!(verify_v2_checkpoint(&changed, &original).is_err(), "{field}");
+            assert!(
+                verify_v2_checkpoint(&changed, &original).is_err(),
+                "{field}"
+            );
         }
-        for (field, value) in [("complete", Value::Bool(true)), ("count", codec::encode_uint(2).unwrap())] {
+        for (field, value) in [
+            ("complete", Value::Bool(true)),
+            ("count", codec::encode_uint(2).unwrap()),
+        ] {
             let mut changed = snapshot.clone();
-            let Some(Value::Object(owner)) = changed.get_mut("pending") else { unreachable!() };
+            let Some(Value::Object(owner)) = changed.get_mut("pending") else {
+                unreachable!()
+            };
             owner.insert(field, value);
-            assert!(verify_v2_checkpoint(&changed, &original).is_err(), "{field}");
+            assert!(
+                verify_v2_checkpoint(&changed, &original).is_err(),
+                "{field}"
+            );
         }
         for (field, value) in [
             ("schema_version", codec::encode_uint(VERSION).unwrap()),
             ("schema_digest", Value::String("unknown".into())),
-            ("schema_epoch", Value::String(uuid::Uuid::new_v4().to_string())),
-            ("issuing_store", Value::String(uuid::Uuid::new_v4().to_string())),
-            ("payload_incarnation", Value::String(uuid::Uuid::new_v4().to_string())),
+            (
+                "schema_epoch",
+                Value::String(uuid::Uuid::new_v4().to_string()),
+            ),
+            (
+                "issuing_store",
+                Value::String(uuid::Uuid::new_v4().to_string()),
+            ),
+            (
+                "payload_incarnation",
+                Value::String(uuid::Uuid::new_v4().to_string()),
+            ),
             ("study_module_sha256", Value::String("other-module".into())),
             ("admission_open", Value::Bool(true)),
         ] {
             let mut changed = snapshot.clone();
-            let Some(Value::Object(marker)) = changed.get_mut("marker") else { unreachable!() };
+            let Some(Value::Object(marker)) = changed.get_mut("marker") else {
+                unreachable!()
+            };
             marker.insert(field, value);
-            assert!(verify_v2_checkpoint(&changed, &original).is_err(), "{field}");
+            assert!(
+                verify_v2_checkpoint(&changed, &original).is_err(),
+                "{field}"
+            );
         }
         let foreign = request(&legacy_marker());
         assert!(verify_v2_checkpoint(&snapshot, &foreign).is_err());
@@ -1266,7 +1524,13 @@ mod tests {
         // A lost ACK's exact readback grants only the remaining edge, never final receipt/readiness.
         assert_ne!(original.predecessor, original.checkpoint_predecessor());
         assert!(!snapshot.contains_key("receipt"));
-        assert!(SchemaFence::from_marker(match snapshot.get("marker").unwrap() { Value::Object(marker) => marker, _ => unreachable!() }).is_err());
+        assert!(
+            SchemaFence::from_marker(match snapshot.get("marker").unwrap() {
+                Value::Object(marker) => marker,
+                _ => unreachable!(),
+            })
+            .is_err()
+        );
     }
     #[test]
     fn schema_migration_v2_original_request_and_receipt_are_not_retargeted() {
@@ -1275,7 +1539,12 @@ mod tests {
         original.target_digest = V2_DIGEST.into();
         original.validate().unwrap();
         let recorded = bytes(&original).unwrap();
-        assert!(serde_json::from_slice::<serde_json::Value>(&recorded).unwrap().get("target_module").is_none());
+        assert!(
+            serde_json::from_slice::<serde_json::Value>(&recorded)
+                .unwrap()
+                .get("target_module")
+                .is_none()
+        );
         let fingerprint = original.fingerprint().unwrap();
         let decoded: SchemaMigrationRequest = serde_json::from_slice(&recorded).unwrap();
         assert_eq!(bytes(&decoded).unwrap(), recorded);
@@ -1305,9 +1574,18 @@ mod tests {
         let recorded = bytes(&original).unwrap();
         let declarations = migration_declarations(&original).unwrap();
         assert_eq!(bytes(&original).unwrap(), recorded);
-        assert!(!declarations.contains("UPDATE ONLY canonical_interpretations:current SET issuing_store="));
+        assert!(
+            !declarations
+                .contains("UPDATE ONLY canonical_interpretations:current SET issuing_store=")
+        );
         verify_activation(activation(&original), &original).unwrap();
-        for key in ["key", "input_sha256", "issuing_store", "schema_digest", "study_module_sha256"] {
+        for key in [
+            "key",
+            "input_sha256",
+            "issuing_store",
+            "schema_digest",
+            "study_module_sha256",
+        ] {
             let mut changed = activation(&original);
             changed.insert(key, "changed");
             assert!(verify_activation(changed, &original).is_err(), "{key}");
@@ -1427,20 +1705,23 @@ mod tests {
     #[test]
     #[cfg(feature = "canonical-maintenance")]
     fn schema_migration_transactions_parse_with_pinned_server_grammar() {
-        let applications = [legacy_marker(), v2_marker(), marker()].map(|source| {
-            final_application_body(&request(&source)).unwrap()
-        });
+        let applications = [legacy_marker(), v2_marker(), marker()]
+            .map(|source| final_application_body(&request(&source)).unwrap());
         let first = v2_checkpoint_body(&request(&legacy_marker())).unwrap();
         for (name, body, expression) in [
             ("closed v2 publication", first.as_str(), MIGRATION_SNAPSHOT),
             ("checkpoint quiescent resume", VERIFY_V2_CHECKPOINT, "true"),
         ] {
             let script = MigrationScript::new(body, expression, Object::new());
-            if let Err(error) = surrealdb_syn::parse(&script.sql) { panic!("{name}: {error}"); }
+            if let Err(error) = surrealdb_syn::parse(&script.sql) {
+                panic!("{name}: {error}");
+            }
         }
         for application in &applications {
             let script = MigrationScript::new(application, "$pse_migration_receipt", Object::new());
-            if let Err(error) = surrealdb_syn::parse(&script.sql) { panic!("ordered final edge: {error}"); }
+            if let Err(error) = surrealdb_syn::parse(&script.sql) {
+                panic!("ordered final edge: {error}");
+            }
         }
         for (name, body, result) in [
             ("legacy pending", LEGACY_BEGIN, "$pse_migration_saved"),

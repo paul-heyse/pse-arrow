@@ -1257,8 +1257,14 @@ mod tests {
         let checkout = tempfile::tempdir().unwrap();
         let scratch = tempfile::tempdir().unwrap();
         for (root, retired) in [
-            (PathBuf::from("docs/generated"), "docs/generated/capabilities/reference.md"),
-            (PathBuf::from(documents::PRIVATE_PYTHON_ROOT), "scripts/generated/capabilities/cli.py"),
+            (
+                PathBuf::from("docs/generated"),
+                "docs/generated/capabilities/reference.md",
+            ),
+            (
+                PathBuf::from(documents::PRIVATE_PYTHON_ROOT),
+                "scripts/generated/capabilities/cli.py",
+            ),
         ] {
             let original = checkout.path().join(retired);
             fs::create_dir_all(original.parent().unwrap()).unwrap();

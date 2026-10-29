@@ -1082,5 +1082,8 @@ where
 #[cfg(any(test, all(feature = "test-support", feature = "native-service")))]
 #[path = "canonical_client/held_transaction.rs"]
 mod held_transaction;
-#[cfg(any(all(feature = "test-support", feature = "native-service"), all(test, feature = "canonical-tests")))]
+#[cfg(any(
+    all(feature = "test-support", feature = "native-service"),
+    all(test, feature = "canonical-tests")
+))]
 pub(crate) use held_transaction::HeldTransaction;

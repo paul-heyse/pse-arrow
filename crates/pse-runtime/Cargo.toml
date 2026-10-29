@@ -155,7 +155,12 @@ tokio.workspace = true
 # The worker journeys run authored cases through the pse-worker binary, which needs the
 # linked native solvers.
 name = "worker"
-required-features = ["native-study-tests", "product-operators", "solver-ipopt", "solver-scip"]
+required-features = [
+  "native-study-tests",
+  "product-operators",
+  "solver-ipopt",
+  "solver-scip",
+]
 
 
 [[bin]]

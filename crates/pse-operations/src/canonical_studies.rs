@@ -31,9 +31,11 @@ use std::{
 use surrealdb_types::{Bytes, Object, ToSql, Value};
 
 mod progression;
-pub use progression::{PreparedStudyClaim, StudyContinuation, StudyPreparation, StudyProgress, StudyProgressAction};
 #[cfg(feature = "test-support")]
 pub use progression::controls as progression_controls;
+pub use progression::{
+    PreparedStudyClaim, StudyContinuation, StudyPreparation, StudyProgress, StudyProgressAction,
+};
 
 /// Original immutable definition fields and admission capability; excludes scientific outcomes and starts.
 #[derive(Clone, Debug)]
@@ -1150,7 +1152,8 @@ impl CanonicalStore {
         run: &'a RunRequest,
         points: &'a [NewOccurrence],
     ) -> futures_util::future::BoxFuture<'a, Result<Option<Study>, CanonicalError>> {
-        Box::pin(async move { within_clock(original_deadline(REQUEST_TIMEOUT), async {
+        Box::pin(async move {
+            within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let Some(study) = self.canonical_study(&expected.key).await? else {
                 return Ok(None);
             };
@@ -1171,7 +1174,8 @@ impl CanonicalStore {
             if !study.active { return Ok(None); }
             self.cancel_study(&expected.key).await.map(Some)
         })
-        .await })
+        .await
+        })
     }
 
     async fn send_study_activation(&self, key: &str) -> Result<Study, CanonicalError> {
@@ -1204,86 +1208,89 @@ impl CanonicalStore {
     ) -> futures_util::future::BoxFuture<'a, Result<Option<Study>, CanonicalError>> {
         // Settle this original activation behind one explicit Send boundary;
         // callers do not inherit the cancellation/readback implementation type.
-        Box::pin(async move { within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            #[cfg(test)]
-            creation_observed(CreationBoundary::ActivationAcknowledged);
-            let study = match response {
-                Ok(study) => study,
-                Err(error) => {
-                    let intent = encode(&(
-                        &expected.key,
-                        &expected.run,
-                        &expected.problem,
-                        &expected.revision,
-                        expected.metadata.as_slice(),
-                        &expected.physical_revision,
-                        &expected.physical_identity,
-                        &expected.context,
-                        &expected.interpretation,
-                        expected.point_count,
-                        expected.dependency_count,
-                    ))?;
-                    if cancelled() {
-                        let study = self.cancel_study(&expected.key).await.map_err(|readback| {
-                            crate::canonical::settlement::unresolved(
-                                "study-activation",
-                                &expected.key,
-                                &intent,
-                                error,
-                                Some(readback),
-                            )
-                        })?;
+        Box::pin(async move {
+            within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                #[cfg(test)]
+                creation_observed(CreationBoundary::ActivationAcknowledged);
+                let study = match response {
+                    Ok(study) => study,
+                    Err(error) => {
+                        let intent = encode(&(
+                            &expected.key,
+                            &expected.run,
+                            &expected.problem,
+                            &expected.revision,
+                            expected.metadata.as_slice(),
+                            &expected.physical_revision,
+                            &expected.physical_identity,
+                            &expected.context,
+                            &expected.interpretation,
+                            expected.point_count,
+                            expected.dependency_count,
+                        ))?;
+                        if cancelled() {
+                            let study =
+                                self.cancel_study(&expected.key).await.map_err(|readback| {
+                                    crate::canonical::settlement::unresolved(
+                                        "study-activation",
+                                        &expected.key,
+                                        &intent,
+                                        error,
+                                        Some(readback),
+                                    )
+                                })?;
+                            check_created_study(expected, &study)?;
+                            return Ok(study.active.then_some(study));
+                        }
+                        let study = match self.canonical_study(&expected.key).await {
+                            Ok(Some(study)) => study,
+                            Ok(None) => {
+                                return Err(crate::canonical::settlement::unresolved(
+                                    "study-activation",
+                                    &expected.key,
+                                    &intent,
+                                    error,
+                                    None,
+                                ));
+                            }
+                            Err(readback) => {
+                                return Err(crate::canonical::settlement::unresolved(
+                                    "study-activation",
+                                    &expected.key,
+                                    &intent,
+                                    error,
+                                    Some(readback),
+                                ));
+                            }
+                        };
                         check_created_study(expected, &study)?;
-                        return Ok(study.active.then_some(study));
+                        if !study.active {
+                            // The same native cancellation guard fences a late activation.
+                            if let Err(readback) = self.cancel_study(&expected.key).await {
+                                return Err(crate::canonical::settlement::unresolved(
+                                    "study-activation",
+                                    &expected.key,
+                                    &intent,
+                                    error,
+                                    Some(readback),
+                                ));
+                            }
+                            return Err(error);
+                        }
+                        study
                     }
-                    let study = match self.canonical_study(&expected.key).await {
-                        Ok(Some(study)) => study,
-                        Ok(None) => {
-                            return Err(crate::canonical::settlement::unresolved(
-                                "study-activation",
-                                &expected.key,
-                                &intent,
-                                error,
-                                None,
-                            ));
-                        }
-                        Err(readback) => {
-                            return Err(crate::canonical::settlement::unresolved(
-                                "study-activation",
-                                &expected.key,
-                                &intent,
-                                error,
-                                Some(readback),
-                            ));
-                        }
-                    };
-                    check_created_study(expected, &study)?;
-                    if !study.active {
-                        // The same native cancellation guard fences a late activation.
-                        if let Err(readback) = self.cancel_study(&expected.key).await {
-                            return Err(crate::canonical::settlement::unresolved(
-                                "study-activation",
-                                &expected.key,
-                                &intent,
-                                error,
-                                Some(readback),
-                            ));
-                        }
-                        return Err(error);
-                    }
-                    study
+                };
+                check_created_study(expected, &study)?;
+                if !study.active || study.next_ordinal != study.point_count {
+                    return Err(CanonicalError::IncompleteResponse);
                 }
-            };
-            check_created_study(expected, &study)?;
-            if !study.active || study.next_ordinal != study.point_count {
-                return Err(CanonicalError::IncompleteResponse);
-            }
-            if cancelled() {
-                return self.cancel_study(&expected.key).await.map(Some);
-            }
-            Ok(Some(study))
+                if cancelled() {
+                    return self.cancel_study(&expected.key).await.map(Some);
+                }
+                Ok(Some(study))
+            })
+            .await
         })
-        .await })
     }
 
     async fn install_study_page(
@@ -2134,7 +2141,13 @@ impl CanonicalStore {
                     .await?
                     .ok_or(CanonicalError::IncompleteResponse)?,
             };
-            let actual_start: StartProvenance = decode(point.start.as_ref().ok_or(CanonicalError::IncompleteResponse)?.as_slice())?;
+            let actual_start: StartProvenance = decode(
+                point
+                    .start
+                    .as_ref()
+                    .ok_or(CanonicalError::IncompleteResponse)?
+                    .as_slice(),
+            )?;
             if point.study != scope.study
                 || point.run != scope.point.run
                 || point.occurrence != scope.point.occurrence
@@ -2147,7 +2160,9 @@ impl CanonicalStore {
                         .checked_add(1)
                         .ok_or(CanonicalError::PayloadLimit)?
                 || point.attempt.as_deref() != Some(fence.attempt())
-                || start.as_ref().is_some_and(|expected| expected != &actual_start)
+                || start
+                    .as_ref()
+                    .is_some_and(|expected| expected != &actual_start)
                 || point_facts(&point)?.native_started
             {
                 return Err(CanonicalError::Configuration(

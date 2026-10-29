@@ -31,23 +31,31 @@ pub struct StudyPreparation {
 }
 impl StudyPreparation {
     /// Complete original immediate premise set used by native source/seed preparation.
-    pub fn scope(&self) -> &StudyScope { &self.scope }
+    pub fn scope(&self) -> &StudyScope {
+        &self.scope
+    }
     /// Shared-policy action returned by the canonical owner, without native reinterpretation.
-    pub fn action(&self) -> &pse_model::study::PointAction { &self.action }
+    pub fn action(&self) -> &pse_model::study::PointAction {
+        &self.action
+    }
 }
 /// Applicable bounded domain action selected and, where effect-free, applied canonically.
 #[derive(Clone, Debug)]
 pub enum StudyProgressAction {
     /// Prepare the exact selected source/seed outside the transaction.
-    Prepare(StudyPreparation),
+    Prepare(Box<StudyPreparation>),
     /// All occurrences settled; assemble the existing native parent summary.
     Finalize(StudySummary),
     /// One refusal or cancellation was settled without a native attempt.
-    Settled { /// Exact occurrence.
-        point: String },
+    Settled {
+        /// Exact occurrence.
+        point: String,
+    },
     /// A durable readiness repair page was resumed using its original operation.
-    Maintenance { /// Exact owning study.
-        study: String },
+    Maintenance {
+        /// Exact owning study.
+        study: String,
+    },
     /// No action on this examined population. Follow continuation before declaring idle.
     Waiting,
 }
@@ -65,10 +73,12 @@ pub struct StudyProgress {
 #[derive(Debug)]
 pub enum PreparedStudyClaim {
     /// Exact original execution claim; no native start has happened yet.
-    Claimed(StudyClaim),
+    Claimed(Box<StudyClaim>),
     /// Seed policy refused and the occurrence was settled without native execution.
-    Settled { /// Exact occurrence.
-        point: String },
+    Settled {
+        /// Exact occurrence.
+        point: String,
+    },
     /// No start was authorized; release unused native admission.
     Waiting,
 }
@@ -80,17 +90,30 @@ fn scope_from_object(mut object: Object) -> Result<StudyScope, CanonicalError> {
     let cancelled = codec::decode_boolean(codec::required(&mut study, "cancelled")?)?;
     let point = decode_scope_point(readiness_object(codec::required(&mut object, "point")?)?)?;
     let predecessors = readiness_array(codec::required(&mut object, "predecessors")?)?
-        .into_iter().map(|row| decode_scope_point(readiness_object(row)?))
+        .into_iter()
+        .map(|row| decode_scope_point(readiness_object(row)?))
         .collect::<Result<Vec<_>, _>>()?;
-    if predecessors.len() > 64 || point.study != key || predecessors.iter().any(|row| row.study != key) {
+    if predecessors.len() > 64
+        || point.study != key
+        || predecessors.iter().any(|row| row.study != key)
+    {
         return Err(CanonicalError::IncompleteResponse);
     }
-    Ok(StudyScope { study: key, generation, cancelled, point, predecessors })
+    Ok(StudyScope {
+        study: key,
+        generation,
+        cancelled,
+        point,
+        predecessors,
+    })
 }
 impl CanonicalStore {
     /// Progress one bounded canonical population. Native code only resumes the
     /// existing interrupted-page protocol; traversal and policy remain in SurrealQL.
-    pub async fn progress_studies(&self, continuation: Option<&StudyContinuation>) -> Result<StudyProgress, CanonicalError> {
+    pub async fn progress_studies(
+        &self,
+        continuation: Option<&StudyContinuation>,
+    ) -> Result<StudyProgress, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
             self.ensure_writes()?;
@@ -126,7 +149,7 @@ impl CanonicalStore {
                     if u64::from(action.occurrence.0) != scope.point.occurrence || action.expected_revision != scope.point.revision {
                         return Err(CanonicalError::IncompleteResponse);
                     }
-                    StudyProgressAction::Prepare(StudyPreparation { issuer, module, scope, action })
+                    StudyProgressAction::Prepare(Box::new(StudyPreparation { issuer, module, scope, action }))
                 },
                 "settled" => StudyProgressAction::Settled { point: codec::decode_string(codec::required(&mut row, "point")?)? },
                 "finalize" => StudyProgressAction::Finalize(decode_study_summary(readiness_object(codec::required(&mut row, "study")?)?)?),
@@ -146,7 +169,14 @@ impl CanonicalStore {
 
     /// Resolve prepared seed evidence canonically under the original exact read
     /// set, then claim. Caller retains actual launch resources through this call.
-    pub async fn claim_prepared_study_point(&self, preparation: &StudyPreparation, seed: Option<SeedFact>, operation: &str, worker: &str, lifetime: Duration) -> Result<PreparedStudyClaim, CanonicalError> {
+    pub async fn claim_prepared_study_point(
+        &self,
+        preparation: &StudyPreparation,
+        seed: Option<SeedFact>,
+        operation: &str,
+        worker: &str,
+        lifetime: Duration,
+    ) -> Result<PreparedStudyClaim, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
             self.ensure_writes()?;
@@ -189,7 +219,7 @@ impl CanonicalStore {
             match codec::decode_string(codec::required(&mut result, "kind")?)?.as_str() {
                 "claimed" => {
                     let row = wire::decode_canonical_attempts(readiness_object(codec::required(&mut result, "attempt")?)?)?;
-                    Ok(PreparedStudyClaim::Claimed(self.finish_study_claim(scope, None, operation, &request, &claim_request, Ok(row)).await?))
+                    Ok(PreparedStudyClaim::Claimed(Box::new(self.finish_study_claim(scope, None, operation, &request, &claim_request, Ok(row)).await?)))
                 },
                 "settled" => {
                     let point = codec::decode_string(codec::required(&mut result, "point")?)?;

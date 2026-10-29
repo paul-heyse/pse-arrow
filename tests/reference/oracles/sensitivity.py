@@ -101,7 +101,9 @@ def validate_case(case: SensitivityCase) -> None:
     require(case.perturbed == {"a": 1.1, "b": 2.1}, "unexpected perturbed parameters")
     require(case.variables == ["x", "y", "z"], "unexpected variables")
     require(case.unit == "dimensionless Scalar", "original Scalar units required")
-    require(case.initial == 0.5 and case.z_bounds == (0.0, 10.0), "changed start/bounds")
+    require(
+        case.initial == 0.5 and case.z_bounds == (0.0, 10.0), "changed start/bounds"
+    )
     require(case.coupling == "x + y == a", "changed equality")
     require(
         case.objective == "0.5*x*x + y*y - b*x + 0.5*z*z + a*z",
@@ -112,23 +114,30 @@ def validate_case(case: SensitivityCase) -> None:
 
 def environment(pins: dict[str, str]) -> dict[str, str]:
     """Consume declared versions and require the actual sIPOPT executable."""
-    require((3, 11) <= sys.version_info[:2] < (3, 15), "reference requires Python 3.11-3.14")
+    require(
+        (3, 11) <= sys.version_info[:2] < (3, 15), "reference requires Python 3.11-3.14"
+    )
     require(set(pins) == {"idaes-pse", "pyomo"}, "missing or unknown reference pins")
     observed = {name: importlib.metadata.version(name) for name in pins}
-    require(observed == pins, f"reference pin mismatch: expected {pins}, observed {observed}")
+    require(
+        observed == pins,
+        f"reference pin mismatch: expected {pins}, observed {observed}",
+    )
     ipopt = shutil.which("ipopt")
     sipopt = shutil.which("ipopt_sens")
     require(ipopt is not None, "ipopt is absent; reference execution never skips")
     require(sipopt is not None, "ipopt_sens is absent; reference execution never skips")
     if ipopt is None or sipopt is None:
-        raise ValueError("unreachable missing reference solver")
+        message = "unreachable missing reference solver"
+        raise ValueError(message)
     probe = subprocess.run(  # noqa: S603 - resolved reference solver, fixed version probe
         [ipopt, "-v"], capture_output=True, text=True, timeout=30, check=False
     )
     match = re.search(r"\bIpopt\s+(\d+(?:\.\d+)*)", probe.stdout + probe.stderr)
     require(probe.returncode == 0 and match is not None, "ipopt version probe failed")
     if match is None:
-        raise ValueError("unreachable missing ipopt version")
+        message = "unreachable missing ipopt version"
+        raise ValueError(message)
     observed["ipopt"] = match[1]
     observed["ipopt_sens"] = sipopt
     observed["python"] = ".".join(str(part) for part in sys.version_info[:3])
@@ -146,7 +155,9 @@ def sipopt_prediction(case: SensitivityCase) -> dict[str, float]:
     idaes.cfg.use_idaes_solvers = False
     config.reconfig(idaes.cfg)
     require(pyo.SolverFactory("ipopt").available(False), "Pyomo cannot see ipopt")
-    require(pyo.SolverFactory("ipopt_sens").available(False), "Pyomo cannot see ipopt_sens")
+    require(
+        pyo.SolverFactory("ipopt_sens").available(False), "Pyomo cannot see ipopt_sens"
+    )
     model = pyo.ConcreteModel()
     model.a = pyo.Param(initialize=case.nominal["a"], mutable=True)
     model.b = pyo.Param(initialize=case.nominal["b"], mutable=True)
@@ -155,8 +166,11 @@ def sipopt_prediction(case: SensitivityCase) -> dict[str, float]:
     model.z = pyo.Var(bounds=case.z_bounds, initialize=case.initial)
     model.coupling = pyo.Constraint(expr=model.x + model.y == model.a)
     model.cost = pyo.Objective(
-        expr=0.5 * model.x**2 + model.y**2 - model.b * model.x
-        + 0.5 * model.z**2 + model.a * model.z
+        expr=0.5 * model.x**2
+        + model.y**2
+        - model.b * model.x
+        + 0.5 * model.z**2
+        + model.a * model.z
     )
     solved = sensitivity_calculation(
         "sipopt", model, [model.a, model.b], [case.perturbed["a"], case.perturbed["b"]]
@@ -165,7 +179,10 @@ def sipopt_prediction(case: SensitivityCase) -> dict[str, float]:
         name: float(pyo.value(solved.sens_sol_state_1[getattr(solved, name)]))
         for name in case.variables
     }
-    require(all(math.isfinite(value) for value in prediction.values()), "nonfinite sIPOPT response")
+    require(
+        all(math.isfinite(value) for value in prediction.values()),
+        "nonfinite sIPOPT response",
+    )
     return prediction
 
 
@@ -178,15 +195,19 @@ def exact(parameters: dict[str, float]) -> dict[str, float]:
 def close(actual: float, expected: float, allowance: float, message: str) -> None:
     """Original comparison uses zero relative tolerance and a physical allowance."""
     require(
-        math.isfinite(actual) and math.isfinite(expected)
-        and math.isfinite(allowance) and allowance >= 0
+        math.isfinite(actual)
+        and math.isfinite(expected)
+        and math.isfinite(allowance)
+        and allowance >= 0
         and abs(actual - expected) <= allowance,
         message,
     )
 
 
-def compare(candidate: Candidate, case: SensitivityCase, reference: dict[str, float]) -> Comparison:
-    """Check physical increments separately from nominal solve error, for every result."""
+def compare(
+    candidate: Candidate, case: SensitivityCase, reference: dict[str, float]
+) -> Comparison:
+    """Check physical increments apart from nominal solve error for every result."""
     report = candidate.report
     if report is None:
         return Comparison(candidate.id, "missing", ["native result missing"])
@@ -198,18 +219,36 @@ def compare(candidate: Candidate, case: SensitivityCase, reference: dict[str, fl
     }
     try:
         require(report.complete, "native response incomplete")
-        require(set(report.quantities) == set(case.variables), "native target population incomplete")
-        require(set(report.parameter_scales) == {"a", "b"}, "native parameter scales incomplete")
         require(
-            all(math.isfinite(value) and value > 0 for value in report.parameter_scales.values()),
+            set(report.quantities) == set(case.variables),
+            "native target population incomplete",
+        )
+        require(
+            set(report.parameter_scales) == {"a", "b"},
+            "native parameter scales incomplete",
+        )
+        require(
+            all(
+                math.isfinite(value) and value > 0
+                for value in report.parameter_scales.values()
+            ),
             "invalid native parameter scale",
         )
         for name in case.variables:
             quantity = report.quantities[name]
             allowance, output_scale = quantity.allowance, quantity.coordinate_scale
-            require(math.isfinite(allowance) and allowance > 0, "invalid native engineering budget")
-            require(math.isfinite(output_scale) and output_scale > 0, "invalid native output scale")
-            require(set(quantity.derivative) == {"a", "b"}, "native derivative population incomplete")
+            require(
+                math.isfinite(allowance) and allowance > 0,
+                "invalid native engineering budget",
+            )
+            require(
+                math.isfinite(output_scale) and output_scale > 0,
+                "invalid native output scale",
+            )
+            require(
+                set(quantity.derivative) == {"a", "b"},
+                "native derivative population incomplete",
+            )
             for parameter in ("a", "b"):
                 scale = report.parameter_scales[parameter]
                 # Compare the response to one normalized step; dx/dp remains physical.
@@ -220,21 +259,51 @@ def compare(candidate: Candidate, case: SensitivityCase, reference: dict[str, fl
                     allowance / output_scale,
                     f"normalized derivative differs for {name}/{parameter}",
                 )
-            close(quantity.base, nominal[name], allowance, f"nominal solution differs for {name}")
             close(
-                quantity.increment, perturbed[name] - nominal[name], allowance,
+                quantity.base,
+                nominal[name],
+                allowance,
+                f"nominal solution differs for {name}",
+            )
+            close(
+                quantity.increment,
+                perturbed[name] - nominal[name],
+                allowance,
                 f"physical increment differs for {name}",
             )
-            close(quantity.predicted, perturbed[name], allowance, f"predicted solution differs for {name}")
-            close(reference[name], perturbed[name], allowance, f"sIPOPT prediction differs for {name}")
+            close(
+                quantity.predicted,
+                perturbed[name],
+                allowance,
+                f"predicted solution differs for {name}",
+            )
+            close(
+                reference[name],
+                perturbed[name],
+                allowance,
+                f"sIPOPT prediction differs for {name}",
+            )
             # Each prediction has independently met its analytic physical allowance.
-            close(quantity.predicted, reference[name], 2 * allowance, f"native/sIPOPT difference for {name}")
-            require(quantity.predicted == quantity.base + quantity.increment, f"incoherent prediction for {name}")
+            close(
+                quantity.predicted,
+                reference[name],
+                2 * allowance,
+                f"native/sIPOPT difference for {name}",
+            )
+            require(
+                quantity.predicted == quantity.base + quantity.increment,
+                f"incoherent prediction for {name}",
+            )
             physical_increment = sum(
                 quantity.derivative[p] * (case.perturbed[p] - case.nominal[p])
                 for p in ("a", "b")
             )
-            close(quantity.increment, physical_increment, allowance, f"incoherent increment for {name}")
+            close(
+                quantity.increment,
+                physical_increment,
+                allowance,
+                f"incoherent increment for {name}",
+            )
     except ValueError as error:
         return Comparison(candidate.id, "failed", [str(error)])
     return Comparison(candidate.id, "passed", [])
@@ -249,7 +318,10 @@ def main() -> None:
     validate_case(request.case)
     require(bool(request.candidates), "empty candidate population")
     ids = [candidate.id for candidate in request.candidates]
-    require(all(ids) and len(set(ids)) == len(ids), "candidate identities must be nonempty and unique")
+    require(
+        all(ids) and len(set(ids)) == len(ids),
+        "candidate identities must be nonempty and unique",
+    )
     with contextlib.redirect_stdout(sys.stderr):
         observed = environment(request.pins)
         reference = sipopt_prediction(request.case)
@@ -258,8 +330,14 @@ def main() -> None:
         "reference execution imported the candidate product",
     )
     response = Response(
-        version=1, case_id=request.case.id, environment=observed, reference=reference,
-        comparisons=[compare(candidate, request.case, reference) for candidate in request.candidates],
+        version=1,
+        case_id=request.case.id,
+        environment=observed,
+        reference=reference,
+        comparisons=[
+            compare(candidate, request.case, reference)
+            for candidate in request.candidates
+        ],
     )
     Path(sys.argv[2]).write_bytes(msgspec.json.encode(response))
 

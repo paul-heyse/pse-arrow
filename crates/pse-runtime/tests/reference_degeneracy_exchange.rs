@@ -18,7 +18,13 @@ mod support;
 
 use futures_util::FutureExt;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, panic::AssertUnwindSafe, path::PathBuf, process::{Command, Stdio}, time::{Duration, Instant}};
+use std::{
+    collections::BTreeMap,
+    panic::AssertUnwindSafe,
+    path::PathBuf,
+    process::{Command, Stdio},
+    time::{Duration, Instant},
+};
 use support::{Candidate, CandidateReport, LinearCase, NativeCandidate, Result};
 
 #[derive(Serialize)]
@@ -53,19 +59,31 @@ fn pins() -> Result<BTreeMap<String, String>> {
         support::root().join("pyproject.toml"),
     )?)?;
     let group = project["dependency-groups"]["parity"].as_array().unwrap();
-    ["idaes-pse", "pyomo"].into_iter().map(|name| {
-        let prefix = format!("{name}==");
-        let version = group.iter().filter_map(toml::Value::as_str)
-            .find_map(|entry| entry.strip_prefix(&prefix))
-            .unwrap().split(';').next().unwrap().trim();
-        Ok((name.to_owned(), version.to_owned()))
-    }).collect()
+    ["idaes-pse", "pyomo"]
+        .into_iter()
+        .map(|name| {
+            let prefix = format!("{name}==");
+            let version = group
+                .iter()
+                .filter_map(toml::Value::as_str)
+                .find_map(|entry| entry.strip_prefix(&prefix))
+                .unwrap()
+                .split(';')
+                .next()
+                .unwrap()
+                .trim();
+            Ok((name.to_owned(), version.to_owned()))
+        })
+        .collect()
 }
 
 fn exchange(request: &Request) -> Result<Response> {
     let python = PathBuf::from(std::env::var_os("PSE_DEGENERACY_REFERENCE_PYTHON")
         .expect("select an existing locked reference interpreter with PSE_DEGENERACY_REFERENCE_PYTHON; absence is failure"));
-    assert!(python.is_absolute() && python.is_file(), "explicit reference interpreter must be an absolute existing file");
+    assert!(
+        python.is_absolute() && python.is_file(),
+        "explicit reference interpreter must be an absolute existing file"
+    );
     let scratch = tempfile::tempdir()?;
     let input = scratch.path().join("request.json");
     let output = scratch.path().join("response.json");
@@ -73,11 +91,14 @@ fn exchange(request: &Request) -> Result<Response> {
     std::fs::write(&input, serde_json::to_vec(request)?)?;
     let diagnostics = std::fs::File::create(&log)?;
     let mut command = Command::new(python);
-    command.arg("-I")
+    command
+        .arg("-I")
         .arg(support::root().join("tests/reference/oracles/degeneracy.py"))
-        .arg(&input).arg(&output)
+        .arg(&input)
+        .arg(&output)
         .current_dir(scratch.path())
-        .env_remove("PYTHONPATH").env_remove("PYTHONHOME")
+        .env_remove("PYTHONPATH")
+        .env_remove("PYTHONHOME")
         .stdin(Stdio::null())
         .stdout(Stdio::from(diagnostics.try_clone()?))
         .stderr(Stdio::from(diagnostics));
@@ -89,41 +110,70 @@ fn exchange(request: &Request) -> Result<Response> {
     let deadline = Instant::now() + Duration::from_secs(240);
     if let Err(error) = child.wait_ready(None, Some(deadline)) {
         let drained = child.cancel();
-        panic!("reference execution failed: {error}; drain={drained:?}; oracle output: {}", std::fs::read_to_string(&log)?);
+        panic!(
+            "reference execution failed: {error}; drain={drained:?}; oracle output: {}",
+            std::fs::read_to_string(&log)?
+        );
     }
     let status = child.wait()?;
-    assert!(status.success(), "reference environment/execution failed ({status}); {}", std::fs::read_to_string(&log)?);
-    let bytes = std::fs::read(&output).expect("successful oracle must publish its explicit response");
+    assert!(
+        status.success(),
+        "reference environment/execution failed ({status}); {}",
+        std::fs::read_to_string(&log)?
+    );
+    let bytes =
+        std::fs::read(&output).expect("successful oracle must publish its explicit response");
     let response: Response = serde_json::from_slice(&bytes)?;
     assert_eq!(response.version, 1);
     assert_eq!(response.case_id, request.case.id);
     assert_eq!(response.environment["idaes-pse"], request.pins["idaes-pse"]);
     assert_eq!(response.environment["pyomo"], request.pins["pyomo"]);
-    assert!(!response.reference.is_empty(), "IDAES must supply an independent nonempty set");
+    assert!(
+        !response.reference.is_empty(),
+        "IDAES must supply an independent nonempty set"
+    );
     Ok(response)
 }
 
 fn record(id: &str, report: Option<CandidateReport>) -> Candidate {
-    Candidate { id: id.into(), report }
+    Candidate {
+        id: id.into(),
+        report,
+    }
 }
 
 #[tokio::test]
-async fn native_degeneracy_matches_independent_reference_and_rejects_bad_populations() -> Result<()> {
+async fn native_degeneracy_matches_independent_reference_and_rejects_bad_populations() -> Result<()>
+{
     let native = NativeCandidate::new()?;
     let outcome = AssertUnwindSafe(async {
         let case = LinearCase::dependent();
         let report = native.run(&case).await?;
-        assert!(report.complete, "native analysis must visit every anchor: {:?}", report.unavailable);
-        assert_eq!(report.sets.len(), 2, "both independently constructed degenerate sets are required");
+        assert!(
+            report.complete,
+            "native analysis must visit every anchor: {:?}",
+            report.unavailable
+        );
+        assert_eq!(
+            report.sets.len(),
+            2,
+            "both independently constructed degenerate sets are required"
+        );
         assert!(report.sets.iter().all(|set| set.irreducible_at_tolerance));
 
         let mut wrong = report.clone();
         // Preserve the row sets and completeness while corrupting only a multiplier.
-        let set = wrong.sets.iter_mut().find(|set| set.rows.iter().any(|row| row == "first")).unwrap();
+        let set = wrong
+            .sets
+            .iter_mut()
+            .find(|set| set.rows.iter().any(|row| row == "first"))
+            .unwrap();
         *set.multipliers.get_mut("first").unwrap() *= 1.25;
         let mut incomplete = report.clone();
         incomplete.complete = false;
-        incomplete.unavailable.push("deliberately unvisited anchor".into());
+        incomplete
+            .unavailable
+            .push("deliberately unvisited anchor".into());
         let mut missing_set = report.clone();
         missing_set.sets.pop();
         let mut reducible = report.clone();
@@ -152,21 +202,39 @@ async fn native_degeneracy_matches_independent_reference_and_rejects_bad_populat
             ("reducible", "failed", "not irreducible at tolerance"),
             ("native-after-failures", "passed", ""),
         ];
-        assert_eq!(response.comparisons.len(), expected.len(), "missing comparisons cannot disappear");
+        assert_eq!(
+            response.comparisons.len(),
+            expected.len(),
+            "missing comparisons cannot disappear"
+        );
         for (actual, (id, status, reason)) in response.comparisons.iter().zip(expected) {
-            assert_eq!(actual.id, id, "input order and identity must survive mixed results");
+            assert_eq!(
+                actual.id, id,
+                "input order and identity must survive mixed results"
+            );
             assert_eq!(actual.status, status, "{actual:?}");
             assert_eq!(actual.reasons.is_empty(), status == "passed", "{actual:?}");
             if status != "passed" {
-                assert!(actual.reasons.iter().any(|actual| actual.contains(reason)), "{actual:?}");
+                assert!(
+                    actual.reasons.iter().any(|actual| actual.contains(reason)),
+                    "{actual:?}"
+                );
             }
         }
         Ok(())
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     // Settle native lanes even when scientific or reference-environment assertions fail.
     let closed = native.close().await;
     match outcome {
-        Ok(result) => { closed?; result }
-        Err(panic) => { let _ = closed; std::panic::resume_unwind(panic) }
+        Ok(result) => {
+            closed?;
+            result
+        }
+        Err(panic) => {
+            let _ = closed;
+            std::panic::resume_unwind(panic)
+        }
     }
 }

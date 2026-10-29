@@ -96,9 +96,7 @@ class EvidenceSchemas:
 
     def _captured_source(self, path: Path) -> bytes:
         expected = self._sources[path]
-        message = (
-            "Generated schema source changed after interface load; reload the selected schema publication."
-        )
+        message = "Generated schema source changed after interface load; reload the selected schema publication."
         if path.is_symlink() or source_identity(path.stat()) != expected:
             raise ValueError(message)
         with path.open("rb") as source:

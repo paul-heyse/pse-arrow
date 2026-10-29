@@ -21,7 +21,10 @@ impl ProcessInterrupt {
             }
             stopped.cancel();
         });
-        Ok(Self { listener, cancellation })
+        Ok(Self {
+            listener,
+            cancellation,
+        })
     }
 
     /// Join the signal task after the original work has drained.
@@ -54,8 +57,11 @@ mod tests {
         assert!(!sibling.token().is_cancelled());
         // Abort is requested synchronously; wait for actual listener-future destruction.
         tokio::time::timeout(std::time::Duration::from_secs(5), async {
-            while !listener.is_finished() { tokio::task::yield_now().await; }
-        }).await?;
+            while !listener.is_finished() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await?;
         assert!(listener.is_finished());
         Ok(())
     }
@@ -72,11 +78,14 @@ mod tests {
 
     /// Run in a child test process so process signals never reach a neighboring test.
     #[test]
-    fn process_signals_request_stop_and_keep_drain_owned() -> Result<(), Box<dyn std::error::Error>> {
+    fn process_signals_request_stop_and_keep_drain_owned() -> Result<(), Box<dyn std::error::Error>>
+    {
         const CHILD: &str = "PSE_SIGNAL_DRAIN_CONTROL";
         if let Some(directory) = std::env::var_os(CHILD) {
             let directory = std::path::PathBuf::from(directory);
-            let executor = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+            let executor = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?;
             executor.block_on(async {
                 let stop = pse_runtime::CancelSource::new();
                 let owner = ProcessInterrupt::new(stop.clone())?;
@@ -94,7 +103,11 @@ mod tests {
         for signal in ["-INT", "-TERM"] {
             let directory = tempfile::tempdir()?;
             let mut child = std::process::Command::new(std::env::current_exe()?)
-                .args(["--exact", "signals::tests::process_signals_request_stop_and_keep_drain_owned", "--nocapture"])
+                .args([
+                    "--exact",
+                    "signals::tests::process_signals_request_stop_and_keep_drain_owned",
+                    "--nocapture",
+                ])
                 .env(CHILD, directory.path())
                 .spawn()?;
             let outcome = (|| {
@@ -102,7 +115,9 @@ mod tests {
                 for stage in ["ready", "stopping"] {
                     while !directory.path().join(stage).exists() {
                         if let Some(status) = child.try_wait()? {
-                            return Err(format!("signal control exited before {stage}: {status}").into());
+                            return Err(
+                                format!("signal control exited before {stage}: {status}").into()
+                            );
                         }
                         if std::time::Instant::now() >= deadline {
                             return Err(format!("signal control did not reach {stage}").into());
@@ -110,7 +125,11 @@ mod tests {
                         std::thread::sleep(std::time::Duration::from_millis(5));
                     }
                     if stage == "ready" {
-                        if !std::process::Command::new("kill").args([signal, &child.id().to_string()]).status()?.success() {
+                        if !std::process::Command::new("kill")
+                            .args([signal, &child.id().to_string()])
+                            .status()?
+                            .success()
+                        {
                             return Err("signal delivery failed".into());
                         }
                     }

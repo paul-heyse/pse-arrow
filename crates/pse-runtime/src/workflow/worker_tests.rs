@@ -46,4 +46,3 @@ async fn canonical_document_sources_chunked_exact_and_kind_checked() {
     wrong.identity = pse_ids::ContentHash::from_bytes([0; 32]);
     assert!(operations.sources(&wrong).await.is_err());
 }
-

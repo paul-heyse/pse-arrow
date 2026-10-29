@@ -6,9 +6,12 @@
 /// Lose the local cancellation ACK after an actual commit, optionally failing
 /// its original receipt readback. The command itself still uses the real owner.
 pub async fn lose_control_cancel_ack<F: Future>(fail_readback: bool, future: F) -> F::Output {
-    crate::canonical_control::CONTROL_ACK_LOST.scope(true,
-        crate::canonical_control::CONTROL_READBACK_FAILED.scope(fail_readback, future),
-    ).await
+    crate::canonical_control::CONTROL_ACK_LOST
+        .scope(
+            true,
+            crate::canonical_control::CONTROL_READBACK_FAILED.scope(fail_readback, future),
+        )
+        .await
 }
 
 /// Revoke one already issued fixture actor through the privileged native owner.
@@ -21,9 +24,12 @@ pub async fn disable_control_actor(
     let mut response = crate::canonical::bounded_query(store.db.query(
         "UPDATE ONLY type::record('canonical_control_actors',$key) SET enabled=false RETURN AFTER;",
     ).bind(("key",key.to_owned()))).await?;
-    let mut row = response.take::<Option<surrealdb_types::Object>>(0)?
+    let mut row = response
+        .take::<Option<surrealdb_types::Object>>(0)?
         .ok_or(crate::canonical::CanonicalError::IncompleteResponse)?;
-    if decode_string(required(&mut row,"key")?)? != key || decode_boolean(required(&mut row,"enabled")?)? {
+    if decode_string(required(&mut row, "key")?)? != key
+        || decode_boolean(required(&mut row, "enabled")?)?
+    {
         return Err(crate::canonical::CanonicalError::IncompleteResponse);
     }
     Ok(())
@@ -35,7 +41,8 @@ pub async fn install_control_transaction_probe(
     store: &crate::canonical::CanonicalStore,
 ) -> Result<(), crate::canonical::CanonicalError> {
     store.ensure_writes()?;
-    crate::canonical::bounded_query(store.db.query(r#"
+    crate::canonical::bounded_query(store.db.query(
+        r#"
         DEFINE TABLE pse_control_transaction_probe SCHEMAFULL PERMISSIONS NONE;
         DEFINE FIELD marker ON pse_control_transaction_probe TYPE string;
         DEFINE API '/pse-fixture/control/success' FOR post PERMISSIONS FULL
@@ -53,7 +60,9 @@ pub async fn install_control_transaction_probe(
                 CREATE pse_control_transaction_probe:failure SET marker='uncommitted-failure';
                 THROW 'private control after-write failure witness';
             };
-    "#)).await?;
+    "#,
+    ))
+    .await?;
     Ok(())
 }
 
@@ -62,9 +71,12 @@ pub async fn install_control_transaction_probe(
 pub async fn control_transaction_probe_markers(
     store: &crate::canonical::CanonicalStore,
 ) -> Result<Vec<String>, crate::canonical::CanonicalError> {
-    let mut response = crate::canonical::bounded_query(store.db.query(
-        "SELECT VALUE marker FROM pse_control_transaction_probe ORDER BY marker;",
-    )).await?;
+    let mut response = crate::canonical::bounded_query(
+        store
+            .db
+            .query("SELECT VALUE marker FROM pse_control_transaction_probe ORDER BY marker;"),
+    )
+    .await?;
     Ok(response.take(0)?)
 }
 

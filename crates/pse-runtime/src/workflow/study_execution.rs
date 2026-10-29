@@ -840,10 +840,16 @@ impl ModelingPackage {
             closing.push(async move { completion.await.close().await }.boxed());
         }
         for (_, mut preparation) in ready {
-            closing.push(async move {
-                let native = match preparation.staged.take() { Some(staged) => staged.close().await, None => Ok(()) };
-                WorkflowError::settle(native, preparation.lane.close().await)
-            }.boxed());
+            closing.push(
+                async move {
+                    let native = match preparation.staged.take() {
+                        Some(staged) => staged.close().await,
+                        None => Ok(()),
+                    };
+                    WorkflowError::settle(native, preparation.lane.close().await)
+                }
+                .boxed(),
+            );
         }
         for mut lane in available {
             closing.push(async move { lane.close().await }.boxed());
@@ -1224,7 +1230,13 @@ fn close_lane<'a>(
             Ok(_owner) => closing.await,
             Err(error) => {
                 drop(closing);
-                WorkflowError::settle(Err(error.into()), match staged.take() { Some(staged) => staged.close().await, None => Ok(()) })
+                WorkflowError::settle(
+                    Err(error.into()),
+                    match staged.take() {
+                        Some(staged) => staged.close().await,
+                        None => Ok(()),
+                    },
+                )
             }
         };
         LaneCompletion::Closed {
@@ -1256,15 +1268,22 @@ fn close_point_owner(
             // A refused extra grant cannot abandon an already-owned native
             // thread. It still joins before the refusal becomes observable.
             let closed = closing.await;
-            let cleanup = WorkflowError::settle(allocation.map(|_owner| ()).map_err(WorkflowError::from), closed);
+            let cleanup = WorkflowError::settle(
+                allocation.map(|_owner| ()).map_err(WorkflowError::from),
+                closed,
+            );
             if let Err(error) = cleanup {
                 match &mut completion {
                     LaneCompletion::Prepared { operation, .. } => {
-                        let original = std::mem::replace(operation, Err(super::contract("terminal native owner settlement")));
+                        let original = std::mem::replace(
+                            operation,
+                            Err(super::contract("terminal native owner settlement")),
+                        );
                         *operation = WorkflowError::settle(original, Err(error));
                     }
                     LaneCompletion::Released { result, .. } => {
-                        *result = WorkflowError::settle(std::mem::replace(result, Ok(())), Err(error));
+                        *result =
+                            WorkflowError::settle(std::mem::replace(result, Ok(())), Err(error));
                     }
                     _ => {}
                 }

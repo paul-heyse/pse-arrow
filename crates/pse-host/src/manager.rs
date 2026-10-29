@@ -2020,8 +2020,8 @@ impl BorrowedService {
             return Err(HostError::Deadline("resident borrow observation".into()));
         }
         tokio::time::timeout_at(deadline.into(), self.manager.validate_resident(&self.facts))
-        .await
-        .map_err(|_| HostError::Deadline("resident borrow observation".into()))?
+            .await
+            .map_err(|_| HostError::Deadline("resident borrow observation".into()))?
     }
 }
 
@@ -2032,14 +2032,18 @@ async fn settle_signal_and_drain(
 ) -> Result<UnitObservation, HostError> {
     // Retain the signal result outside the cancellable drain future, including
     // when the same original absolute clock expires during physical settlement.
-    let drain = tokio::time::timeout_at(deadline.into(), drain).await
-        .map_err(|_| HostError::Deadline("absolute kill/drain deadline; original ownership retained".into()))
+    let drain = tokio::time::timeout_at(deadline.into(), drain)
+        .await
+        .map_err(|_| {
+            HostError::Deadline("absolute kill/drain deadline; original ownership retained".into())
+        })
         .and_then(|result| result);
     match (signal, drain) {
         (Ok(()), result) => result,
         (Err(operation), Ok(_)) => Err(operation),
         (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
-            operation: Box::new(operation), cleanup: Box::new(cleanup),
+            operation: Box::new(operation),
+            cleanup: Box::new(cleanup),
         }),
     }
 }
@@ -2107,9 +2111,12 @@ impl OwnedUnit {
                 // Manager MainPID can lag actual exit after our StopUnit. Only
                 // exact original PID absence AND original empty hierarchy allow
                 // continued settlement; unavailable/reused identities still refuse.
-                ProcessRead::Absent if stopping => self.process.as_ref()
-                    .is_some_and(|identity| identity.pid == result.main_pid)
-                    && self.group.empty()?,
+                ProcessRead::Absent if stopping => {
+                    self.process
+                        .as_ref()
+                        .is_some_and(|identity| identity.pid == result.main_pid)
+                        && self.group.empty()?
+                }
                 _ => false,
             };
             if !original {
@@ -2136,10 +2143,15 @@ impl OwnedUnit {
                 || facts.binding.inode != self.group.inode
                 || self.process.as_ref() != Some(&facts.process)
             {
-                return Err(HostError::Ownership("resident borrow differs from original owner".into()));
+                return Err(HostError::Ownership(
+                    "resident borrow differs from original owner".into(),
+                ));
             }
             self.observe().await?;
-            Ok(BorrowedService { manager: self.manager.clone(), facts })
+            Ok(BorrowedService {
+                manager: self.manager.clone(),
+                facts,
+            })
         })
         .await
         .map_err(|_| HostError::Deadline("resident borrow construction".into()))?
@@ -2152,9 +2164,13 @@ impl OwnedUnit {
         deadline: Instant,
     ) -> Result<UnitObservation, HostError> {
         tokio::time::timeout_at(deadline.into(), self.observe_bound(true))
-            .await.map_err(|_| HostError::Deadline("original kill identity; ownership retained".into()))??;
+            .await
+            .map_err(|_| {
+                HostError::Deadline("original kill identity; ownership retained".into())
+            })??;
         let unit = tokio::time::timeout_at(deadline.into(), self.manager.unit(&self.intent.unit))
-            .await.map_err(|_| HostError::Deadline("original kill unit; ownership retained".into()))??;
+            .await
+            .map_err(|_| HostError::Deadline("original kill unit; ownership retained".into()))??;
         let signal = tokio::time::timeout_at(deadline.into(), unit.kill("all".into(), 9))
             .await
             .map_err(|_| HostError::Deadline("original kill reply; ownership retained".into()))
@@ -2994,16 +3010,25 @@ mod tests {
         let checked: Result<BorrowedService, HostError> = async {
             let expired = owner.borrow_service(Instant::now()).await;
             if !matches!(expired, Err(HostError::Deadline(_))) {
-                return Err(HostError::Ownership("expired resident borrow was accepted".into()));
+                return Err(HostError::Ownership(
+                    "expired resident borrow was accepted".into(),
+                ));
             }
             let borrowed = owner.borrow_service(deadline).await?;
             let cloned = borrowed.clone();
             let observed = cloned.observe(deadline).await?;
             if observed.unit != spec.intent.unit || borrowed.unit() != spec.intent.unit {
-                return Err(HostError::Ownership("resident borrow selected another service".into()));
+                return Err(HostError::Ownership(
+                    "resident borrow selected another service".into(),
+                ));
             }
-            if !matches!(borrowed.observe(Instant::now()).await, Err(HostError::Deadline(_))) {
-                return Err(HostError::Ownership("resident borrow extended its deadline".into()));
+            if !matches!(
+                borrowed.observe(Instant::now()).await,
+                Err(HostError::Deadline(_))
+            ) {
+                return Err(HostError::Ownership(
+                    "resident borrow extended its deadline".into(),
+                ));
             }
             let mut changed = Vec::new();
             let mut other = borrowed.clone();
@@ -3023,14 +3048,17 @@ mod tests {
             changed.push(other);
             for other in changed {
                 if other.observe(deadline).await.is_ok() {
-                    return Err(HostError::Ownership("resident borrow accepted changed original facts".into()));
+                    return Err(HostError::Ownership(
+                        "resident borrow accepted changed original facts".into(),
+                    ));
                 }
             }
             // Borrow failures do not alter the real owner or its original service.
             owner.observe().await?;
             drop(cloned);
             Ok(borrowed)
-        }.await;
+        }
+        .await;
         // Settle even if any borrowing assertion failed. A surviving borrow
         // never pins the manager reference or delays the owner's physical drain.
         let cleanup = owner.stop_and_drain(deadline).await;
@@ -3049,17 +3077,28 @@ mod tests {
                 Some(name.as_str()) == manager.connection.unique_name().map(|value| value.as_str())
             }),
             Err(HostError::Manager(zbus::Error::MethodError(name, _, _)))
-                if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit" => false,
+                if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit" =>
+            {
+                false
+            }
             Err(error) => panic!("resident reference observation failed: {error}"),
         };
-        assert!(!retained, "read-only borrow retained a manager reference after owned drain");
+        assert!(
+            !retained,
+            "read-only borrow retained a manager reference after owned drain"
+        );
     }
     #[tokio::test]
     async fn owned_kill_retains_signal_failure_when_original_drain_deadline_expires() {
         let error = settle_signal_and_drain(
-            Err(HostError::Ownership("original signal reply rejected".into())),
-            std::future::pending(), Instant::now() + Duration::from_millis(10),
-        ).await.unwrap_err();
+            Err(HostError::Ownership(
+                "original signal reply rejected".into(),
+            )),
+            std::future::pending(),
+            Instant::now() + Duration::from_millis(10),
+        )
+        .await
+        .unwrap_err();
         assert!(matches!(error, HostError::Settlement { operation, cleanup }
             if matches!(*operation, HostError::Ownership(ref text) if text == "original signal reply rejected")
                 && matches!(*cleanup, HostError::Deadline(_))));
@@ -3071,9 +3110,15 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let marker = directory.path().join("escaped");
         let spec = ServiceSpec {
-            intent: LaunchIntent::fresh().unwrap(), executable: "/bin/sh".into(),
-            arguments: vec!["-c".into(), "setsid /bin/sh -c 'echo $$ > \"$1\"; exec /bin/sleep 60' escaped \"$1\" & wait".into(),
-                "original".into(), marker.to_str().unwrap().into()],
+            intent: LaunchIntent::fresh().unwrap(),
+            executable: "/bin/sh".into(),
+            arguments: vec![
+                "-c".into(),
+                "setsid /bin/sh -c 'echo $$ > \"$1\"; exec /bin/sleep 60' escaped \"$1\" & wait"
+                    .into(),
+                "original".into(),
+                marker.to_str().unwrap().into(),
+            ],
             environment: vec!["PATH=/usr/bin:/bin".into()],
         };
         let deadline = Instant::now() + Duration::from_secs(30);
@@ -3083,21 +3128,36 @@ mod tests {
                 assert!(Instant::now() < deadline, "escaped child did not enter");
                 tokio::time::sleep(Duration::from_millis(5)).await;
             }
-            let pid = std::fs::read_to_string(&marker).unwrap().trim().parse().unwrap();
+            let pid = std::fs::read_to_string(&marker)
+                .unwrap()
+                .trim()
+                .parse()
+                .unwrap();
             let original = match ProcessReader::default().process(pid) {
                 ProcessRead::Present(facts) => facts.identity,
                 observed => panic!("original escaped process unavailable: {observed:?}"),
             };
             let observed = owned.kill_and_drain(deadline).await.unwrap();
             assert!(owned.released());
-            assert!(matches!(observed.active_state.as_str(), "failed" | "inactive"));
+            assert!(matches!(
+                observed.active_state.as_str(),
+                "failed" | "inactive"
+            ));
             assert!(owned.group.empty().unwrap());
             assert!(!matches!(ProcessReader::default().process(pid),
                 ProcessRead::Present(facts) if facts.identity == original));
-        }).catch_unwind().await;
-        let cleanup = if owned.released() { Ok(()) } else { owned.stop_and_drain(deadline).await.map(|_| ()) };
+        })
+        .catch_unwind()
+        .await;
+        let cleanup = if owned.released() {
+            Ok(())
+        } else {
+            owned.stop_and_drain(deadline).await.map(|_| ())
+        };
         if let Err(panic) = body {
-            if let Err(error) = cleanup { eprintln!("original abrupt-death cleanup failed: {error}"); }
+            if let Err(error) = cleanup {
+                eprintln!("original abrupt-death cleanup failed: {error}");
+            }
             std::panic::resume_unwind(panic);
         }
         cleanup.unwrap();

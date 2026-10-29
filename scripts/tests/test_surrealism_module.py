@@ -245,9 +245,16 @@ class ModuleAdmissionTests(unittest.TestCase):
             patch.object(module.surreal_source, "digest") as digest,
             patch.object(Path, "mkdir") as mkdir,
         ):
-            for options in ({}, {"qualification": True}, {"qualification": True, "long_hold": True}):
-                with self.subTest(options=options), self.assertRaisesRegex(
-                    module.ModuleError, "construction is retired"
+            for options in (
+                {},
+                {"qualification": True},
+                {"qualification": True, "long_hold": True},
+            ):
+                with (
+                    self.subTest(options=options),
+                    self.assertRaisesRegex(
+                        module.ModuleError, "construction is retired"
+                    ),
                 ):
                     module.install({}, Path("/unused/module-construction"), **options)
             with self.assertRaisesRegex(module.ModuleError, "construction is retired"):

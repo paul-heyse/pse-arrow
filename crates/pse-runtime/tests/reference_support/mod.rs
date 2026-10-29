@@ -4,13 +4,13 @@
 mod context;
 pub(super) use context::{NativeContext, Result, root};
 
+use futures_util::{FutureExt, future::BoxFuture};
 use pse_admission::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
 use pse_runtime::{CancelSource, workflow::ModelingPackage};
-use futures_util::{FutureExt, future::BoxFuture};
 use std::{collections::BTreeMap, path::Path};
 
 impl NativeContext {
-    pub(super) fn package<'a>(&'a self, source: &'a str) -> BoxFuture<'a,Result<ModelingPackage>> {
+    pub(super) fn package<'a>(&'a self, source: &'a str) -> BoxFuture<'a, Result<ModelingPackage>> {
         async move {
         let fixtures = root().join("tests/fixtures/packages");
         let mut physical = BTreeMap::new();
@@ -41,8 +41,17 @@ impl NativeContext {
 fn read_files(root: &Path, at: &Path, out: &mut BTreeMap<String, Vec<u8>>) -> Result<()> {
     for entry in std::fs::read_dir(at)? {
         let path = entry?.path();
-        if path.is_dir() { read_files(root, &path, out)?; }
-        else { out.insert(path.strip_prefix(root)?.to_str().unwrap().replace('\\', "/"), std::fs::read(path)?); }
+        if path.is_dir() {
+            read_files(root, &path, out)?;
+        } else {
+            out.insert(
+                path.strip_prefix(root)?
+                    .to_str()
+                    .unwrap()
+                    .replace('\\', "/"),
+                std::fs::read(path)?,
+            );
+        }
     }
     Ok(())
 }

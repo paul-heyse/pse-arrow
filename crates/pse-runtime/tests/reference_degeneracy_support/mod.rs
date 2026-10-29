@@ -3,12 +3,18 @@
 //! Test-only local native science and explicit exchange values; no product adapter.
 
 use pse_backend_native::solve::SolveIntent;
-use pse_runtime::{CancelSource, math::settings::SolveSettings,
-    workflow::{DiagnosticOperation, JacobianDiagnosticControls, ModelingAnalysis}};
+use pse_runtime::{
+    CancelSource,
+    math::settings::SolveSettings,
+    workflow::{DiagnosticOperation, JacobianDiagnosticControls, ModelingAnalysis},
+};
 use serde::{Deserialize, Serialize};
-use std::{collections::{BTreeMap, BTreeSet}, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    time::Duration,
+};
 
-pub(super) use crate::reference_support::{root, Result};
+pub(super) use crate::reference_support::{Result, root};
 
 #[derive(Clone, Serialize)]
 pub(super) struct LinearRow {
@@ -37,9 +43,14 @@ impl LinearCase {
                 ("third", [0., 0., 1., 1., 0.], 1.),
                 ("fourth", [0., 0., 0., 1., 1.], 1.),
                 ("fifth", [0., 0., 1., 2., 1.], 2.),
-            ].into_iter().map(|(name, coefficients, rhs)| LinearRow {
-                name: name.into(), coefficients: coefficients.to_vec(), rhs,
-            }).collect(),
+            ]
+            .into_iter()
+            .map(|(name, coefficients, rhs)| LinearRow {
+                name: name.into(),
+                coefficients: coefficients.to_vec(),
+                rhs,
+            })
+            .collect(),
         }
     }
 
@@ -47,13 +58,19 @@ impl LinearCase {
         // The original parity case, authored from the explicit exchange coefficients.
         let mut source = String::from("package parity { def Dependent { ");
         for (name, value) in self.variables.iter().zip(&self.point) {
-            source.push_str(&format!("var {name}:Scalar; annotation start {name}({value}); "));
+            source.push_str(&format!(
+                "var {name}:Scalar; annotation start {name}({value}); "
+            ));
         }
         for row in &self.rows {
-            let terms = row.coefficients.iter().zip(&self.variables)
+            let terms = row
+                .coefficients
+                .iter()
+                .zip(&self.variables)
                 .filter(|(coefficient, _)| **coefficient != 0.)
                 .map(|(coefficient, variable)| format!("{coefficient}*{variable}"))
-                .collect::<Vec<_>>().join(" + ");
+                .collect::<Vec<_>>()
+                .join(" + ");
             source.push_str(&format!("eq {}: {terms} == {}; ", row.name, row.rhs));
         }
         source.push_str("} }");
@@ -83,54 +100,124 @@ pub(super) struct Candidate {
     pub(super) report: Option<CandidateReport>,
 }
 
-pub(super) struct NativeCandidate { context: crate::reference_support::NativeContext }
+pub(super) struct NativeCandidate {
+    context: crate::reference_support::NativeContext,
+}
 impl NativeCandidate {
-    pub(super) fn new() -> Result<Self> { Ok(Self { context: crate::reference_support::NativeContext::new()? }) }
+    pub(super) fn new() -> Result<Self> {
+        Ok(Self {
+            context: crate::reference_support::NativeContext::new()?,
+        })
+    }
     pub(super) async fn run(&self, case: &LinearCase) -> Result<CandidateReport> {
         let source_text = case.source();
         let package = self.context.package(&source_text).await?;
         let cancel = CancelSource::new();
         let services = self.context.runtime.execution_services();
-        let declaration = package.declarations(services.preparation()).await?.iter()
-            .find(|row| row.name == "Dependent").unwrap().declaration_id;
+        let declaration = package
+            .declarations(services.preparation())
+            .await?
+            .iter()
+            .find(|row| row.name == "Dependent")
+            .unwrap()
+            .declaration_id;
         let analysis = ModelingAnalysis {
-            root: declaration, instance: pse_modeling::specialize::root_instance(declaration),
-            bindings: Default::default(), limits: Default::default(),
+            root: declaration,
+            instance: pse_modeling::specialize::root_instance(declaration),
+            bindings: Default::default(),
+            limits: Default::default(),
             case: pse_compiler::workspace::ModelingCaseBindings {
-                values: case.variables.iter().cloned().zip(case.point.iter().copied()).collect(),
+                values: case
+                    .variables
+                    .iter()
+                    .cloned()
+                    .zip(case.point.iter().copied())
+                    .collect(),
                 ..Default::default()
             },
-            order: pse_kernels::DerivativeOrder::First, compiler: Default::default(),
-            solver: SolveSettings { intent: SolveIntent::Root, ..Default::default() }.profile()?,
+            order: pse_kernels::DerivativeOrder::First,
+            compiler: Default::default(),
+            solver: SolveSettings {
+                intent: SolveIntent::Root,
+                ..Default::default()
+            }
+            .profile()?,
             numerical: Default::default(),
         };
-        let prepared = package.prepare_diagnostics(services.preparation(), &analysis, &cancel).await?;
-        let source_map = self.context.runtime.modeling_diagnostic_source_map(&prepared, 1 << 20, Duration::from_secs(30), &cancel).await?;
+        let prepared = package
+            .prepare_diagnostics(services.preparation(), &analysis, &cancel)
+            .await?;
+        let source_map = self
+            .context
+            .runtime
+            .modeling_diagnostic_source_map(&prepared, 1 << 20, Duration::from_secs(30), &cancel)
+            .await?;
         let source = source_map.document();
         source.validate()?;
-        let names: BTreeMap<_, _> = source.members.iter()
+        let names: BTreeMap<_, _> = source
+            .members
+            .iter()
             .filter(|member| source.rows.contains(&member.member))
-            .map(|member| (member.member, member.path.rsplit('.').next().unwrap().to_owned()))
+            .map(|member| {
+                (
+                    member.member,
+                    member.path.rsplit('.').next().unwrap().to_owned(),
+                )
+            })
             .collect();
-        assert_eq!(names.len(), 5, "every native Jacobian row must retain its authored name");
-        assert_eq!(names.values().cloned().collect::<BTreeSet<_>>(), case.rows.iter().map(|row| row.name.clone()).collect());
+        assert_eq!(
+            names.len(),
+            5,
+            "every native Jacobian row must retain its authored name"
+        );
+        assert_eq!(
+            names.values().cloned().collect::<BTreeSet<_>>(),
+            case.rows.iter().map(|row| row.name.clone()).collect()
+        );
         let nominals: BTreeMap<_, _> = source.row_nominals.iter().copied().collect();
         let values = prepared.model.values.clone();
-        let native = package.diagnose_jacobian_optimization(
-            &services, prepared, values,
-            JacobianDiagnosticControls { maximum_attempts: 16, ..Default::default() }.policy(),
-            Default::default(),
-            &DiagnosticOperation::new(&cancel, Duration::from_secs(120), None)?,
-        ).await?;
-        let sets = native.evidence.degenerate.iter().map(|found| {
-            let rows = found.rows.iter().map(|id| names[id].clone()).collect();
-            let multipliers = found.certificate.weights.iter()
-                .filter(|(_, weight)| *weight != 0.)
-                .map(|(id, weight)| (names[id].clone(), weight / nominals[id])).collect();
-            RowSet { rows, multipliers, irreducible_at_tolerance: found.irreducible_at_tolerance }
-        }).collect();
-        Ok(CandidateReport { complete: native.evidence.complete, unavailable: native.evidence.unavailable.clone(), sets })
+        let native = package
+            .diagnose_jacobian_optimization(
+                &services,
+                prepared,
+                values,
+                JacobianDiagnosticControls {
+                    maximum_attempts: 16,
+                    ..Default::default()
+                }
+                .policy(),
+                Default::default(),
+                &DiagnosticOperation::new(&cancel, Duration::from_secs(120), None)?,
+            )
+            .await?;
+        let sets = native
+            .evidence
+            .degenerate
+            .iter()
+            .map(|found| {
+                let rows = found.rows.iter().map(|id| names[id].clone()).collect();
+                let multipliers = found
+                    .certificate
+                    .weights
+                    .iter()
+                    .filter(|(_, weight)| *weight != 0.)
+                    .map(|(id, weight)| (names[id].clone(), weight / nominals[id]))
+                    .collect();
+                RowSet {
+                    rows,
+                    multipliers,
+                    irreducible_at_tolerance: found.irreducible_at_tolerance,
+                }
+            })
+            .collect();
+        Ok(CandidateReport {
+            complete: native.evidence.complete,
+            unavailable: native.evidence.unavailable.clone(),
+            sets,
+        })
     }
 
-    pub(super) async fn close(&self) -> Result<()> { self.context.close().await }
+    pub(super) async fn close(&self) -> Result<()> {
+        self.context.close().await
+    }
 }

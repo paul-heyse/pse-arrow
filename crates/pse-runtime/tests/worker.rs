@@ -14,26 +14,34 @@
 mod native_worker_environment;
 
 use futures_util::FutureExt;
-use pse_operations::native_service::{NativeCanonicalService, NativeModuleSource, NativeServiceSpec};
 use pse_admission::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
 use pse_backend_native::{
     presolve::PolicyKind,
     solve::{Backend, SolveIntent},
 };
 use pse_model::study::{OccurrenceKey, StartPolicy};
+use pse_operations::native_service::{
+    NativeCanonicalService, NativeModuleSource, NativeServiceSpec,
+};
 use pse_runtime::{
     CancelSource, SharedRuntime,
     math::{settings::SolveSettings, solves::Outcome},
     workflow::{
         CaseOperation, Durability, DurabilitySelection, LeasePolicy, ModelingPackage,
-        OperationRequest, Operations, PackageSources, PhysicalContext, PointOverlay,
-        PreparationSettings, RunReport, RunRequest, Runtime, StartSource, StoredStart, StudyHandle,
-        StudyPlan, StudyPoint, StudyPointPolicy, StudyPointState, StudyState,
-        NativeAllocation, NativeStudyWorker, NativeStudyWorkerSpec, WorkerSettings,
+        NativeAllocation, NativeStudyWorker, NativeStudyWorkerSpec, OperationRequest, Operations,
+        PackageSources, PhysicalContext, PointOverlay, PreparationSettings, RunReport, RunRequest,
+        Runtime, StartSource, StoredStart, StudyHandle, StudyPlan, StudyPoint, StudyPointPolicy,
+        StudyPointState, StudyState, WorkerSettings,
     },
 };
-use std::{collections::BTreeMap, num::NonZeroUsize, panic::AssertUnwindSafe,
-    path::{Path, PathBuf}, sync::Arc, time::{Duration, Instant}};
+use std::{
+    collections::BTreeMap,
+    num::NonZeroUsize,
+    panic::AssertUnwindSafe,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 /// Own only newly created private canonical state and the original scientific roots.
 /// No configured database, legacy receiver metadata or unit-name adoption participates.
@@ -46,145 +54,270 @@ struct ManagedWorkerCase {
     children: Vec<tokio::process::Child>,
     checkpoints: Vec<PathBuf>,
 }
-fn allocation_for_workers(selected: NativeAllocation, workers: usize, observer: usize) -> NativeAllocation {
+fn allocation_for_workers(
+    selected: NativeAllocation,
+    workers: usize,
+    observer: usize,
+) -> NativeAllocation {
     let mut execution = selected.execution.unwrap();
     execution.observer_memory_bytes = execution.observer_memory_bytes.max(observer);
-    let process = (selected.total_memory_bytes - selected.server_memory_bytes
-        - execution.observer_memory_bytes) / workers;
+    let process = (selected.total_memory_bytes
+        - selected.server_memory_bytes
+        - execution.observer_memory_bytes)
+        / workers;
     execution.pool_memory_bytes = process - execution.process_headroom_bytes;
     execution.worker_bytes = execution.worker_bytes.min(execution.pool_memory_bytes / 2);
-    NativeAllocation::materialize(selected.total_memory_bytes,
-        selected.server_memory_bytes, workers, process, Some(execution)).unwrap()
+    NativeAllocation::materialize(
+        selected.total_memory_bytes,
+        selected.server_memory_bytes,
+        workers,
+        process,
+        Some(execution),
+    )
+    .unwrap()
 }
 
 impl ManagedWorkerCase {
     fn new(workers: usize) -> Self {
         let environment = std::env::vars_os().collect();
-        let module_source = if let Some(receipt) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
-            NativeModuleSource::Prepared(pse_host::study_module::select(
-                &PathBuf::from(receipt), pse_host::study_module::Variant::Production,
-            ).unwrap())
-        } else {
-            NativeModuleSource::RecordedState(PathBuf::from(
-                std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE")
-                    .expect("explicit prepared native module receipt selector"),
-            ))
-        };
-        let helper = PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
-            .expect("root supplies the already-built canonical-service helper"));
+        let module_source =
+            if let Some(receipt) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
+                NativeModuleSource::Prepared(
+                    pse_host::study_module::select(
+                        &PathBuf::from(receipt),
+                        pse_host::study_module::Variant::Production,
+                    )
+                    .unwrap(),
+                )
+            } else {
+                NativeModuleSource::RecordedState(PathBuf::from(
+                    std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE")
+                        .expect("explicit prepared native module receipt selector"),
+                ))
+            };
+        let helper = PathBuf::from(
+            std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
+                .expect("root supplies the already-built canonical-service helper"),
+        );
         assert!(helper.is_absolute() && helper.is_file());
         // Share the declared workstation envelope across these original processes;
         // no independently invented small fixture pool can block default preparation.
         let profiles = pse_runtime::workflow::ProductionProfiles::read(
             &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.config/agent-capacity.toml"),
-        ).unwrap();
+        )
+        .unwrap();
         let selected = profiles.select(profiles.default_profile).unwrap();
-        let allocation = allocation_for_workers(selected, workers,
-            selected.execution.unwrap().observer_memory_bytes);
+        let allocation = allocation_for_workers(
+            selected,
+            workers,
+            selected.execution.unwrap().observer_memory_bytes,
+        );
         let service = NativeCanonicalService::new(NativeServiceSpec {
-            server: pse_host::server::select(&environment).unwrap(), helper, module_source,
+            server: pse_host::server::select(&environment).unwrap(),
+            helper,
+            module_source,
             state_parent: std::env::temp_dir(),
-        }).unwrap();
-        eprintln!("worker journey private state={} original_service={}",
-            service.state().display(), service.intent().unit());
-        Self { service, allocation, workers: Vec::new(), runtimes: Vec::new(), shared: Vec::new(), children: Vec::new(), checkpoints: Vec::new() }
+        })
+        .unwrap();
+        eprintln!(
+            "worker journey private state={} original_service={}",
+            service.state().display(),
+            service.intent().unit()
+        );
+        Self {
+            service,
+            allocation,
+            workers: Vec::new(),
+            runtimes: Vec::new(),
+            shared: Vec::new(),
+            children: Vec::new(),
+            checkpoints: Vec::new(),
+        }
     }
     async fn launch(&mut self) {
-        self.service.launch(Instant::now() + Duration::from_secs(90)).await.unwrap();
+        self.service
+            .launch(Instant::now() + Duration::from_secs(90))
+            .await
+            .unwrap();
     }
     fn runtime(&mut self, scip: bool) -> (Arc<SharedRuntime>, Runtime) {
         let store = self.service.ready().unwrap().store().clone();
-        let (shared, local) = if scip { scip_runtime(store) } else { runtime_with_store(store) };
+        let (shared, local) = if scip {
+            scip_runtime(store)
+        } else {
+            runtime_with_store(store)
+        };
         // The actual observer's pool is part of this same envelope before any
         // scientific worker is constructed; SCIP and ordinary callers may differ.
         assert!(self.workers.is_empty());
-        self.allocation = allocation_for_workers(self.allocation,
-            self.allocation.native_workers, shared.budget().memory_limit_bytes.get());
+        self.allocation = allocation_for_workers(
+            self.allocation,
+            self.allocation.native_workers,
+            shared.budget().memory_limit_bytes.get(),
+        );
         self.runtimes.push(local.clone());
         self.shared.push(shared.clone());
         (shared, local)
     }
     async fn spawn(&mut self) -> usize {
-        let executable = PathBuf::from(std::env::var_os("PSE_NATIVE_STUDY_WORKER")
-            .expect("root supplies the already-built scientific pse-worker"));
+        let executable = PathBuf::from(
+            std::env::var_os("PSE_NATIVE_STUDY_WORKER")
+                .expect("root supplies the already-built scientific pse-worker"),
+        );
         assert!(executable.is_absolute() && executable.is_file());
         let index = self.workers.len();
-        self.workers.push(NativeStudyWorker::new(NativeStudyWorkerSpec {
-            ready: self.service.ready().unwrap(), executable,
-            environment: native_worker_environment::selected(),
-            allocation: self.allocation,
-            settings: WorkerSettings {
-                poll: Duration::from_millis(20), recovery: Duration::from_millis(200),
-                // The competition fixture needs each process to claim an original
-                // point. This scheduling bound does not alter its 16/32 CPU/native profile.
-                maximum_in_flight: (self.allocation.native_workers == 2).then_some(1),
-                ..Default::default()
-            },
-        }).unwrap());
+        self.workers.push(
+            NativeStudyWorker::new(NativeStudyWorkerSpec {
+                ready: self.service.ready().unwrap(),
+                executable,
+                environment: native_worker_environment::selected(),
+                allocation: self.allocation,
+                settings: WorkerSettings {
+                    poll: Duration::from_millis(20),
+                    recovery: Duration::from_millis(200),
+                    // The competition fixture needs each process to claim an original
+                    // point. This scheduling bound does not alter its 16/32 CPU/native profile.
+                    maximum_in_flight: (self.allocation.native_workers == 2).then_some(1),
+                    ..Default::default()
+                },
+            })
+            .unwrap(),
+        );
         // Retain the original owner before launch: uncertain startup still needs drain.
-        self.workers[index].launch(Instant::now() + Duration::from_secs(90)).await.unwrap();
+        self.workers[index]
+            .launch(Instant::now() + Duration::from_secs(90))
+            .await
+            .unwrap();
         index
     }
     fn bind_worker(&self, local: Runtime, index: usize) -> Runtime {
-        local.with_managed_worker(self.workers[index].observer().unwrap()).unwrap()
+        local
+            .with_managed_worker(self.workers[index].observer().unwrap())
+            .unwrap()
     }
     async fn stop_worker(&mut self, index: usize) {
-        self.workers[index].shutdown(Instant::now() + Duration::from_secs(45)).await.unwrap();
-        let terminal = self.workers[index].terminal().unwrap()
+        self.workers[index]
+            .shutdown(Instant::now() + Duration::from_secs(45))
+            .await
+            .unwrap();
+        let terminal = self.workers[index]
+            .terminal()
+            .unwrap()
             .expect("original scientific application join receipt, separate from host drain");
-        assert!(terminal.native_joined, "original application must join its native lanes");
-        assert!(terminal.failure.is_none(), "original worker failure: {:?}", terminal.failure);
-        assert!(terminal.processed.is_some(), "original scheduling count must be retained");
+        assert!(
+            terminal.native_joined,
+            "original application must join its native lanes"
+        );
+        assert!(
+            terminal.failure.is_none(),
+            "original worker failure: {:?}",
+            terminal.failure
+        );
+        assert!(
+            terminal.processed.is_some(),
+            "original scheduling count must be retained"
+        );
     }
     fn worker_identity(&self, index: usize) -> String {
         // The real application chooses its process-scoped identity. Check the
         // canonical writer against the authenticated original terminal receipt.
-        let terminal = serde_json::to_value(self.workers[index].terminal().unwrap().unwrap()).unwrap();
+        let terminal =
+            serde_json::to_value(self.workers[index].terminal().unwrap().unwrap()).unwrap();
         let pid = terminal["pid"].as_u64().unwrap();
         let host = std::env::var("HOSTNAME").unwrap_or_else(|_| "localhost".into());
         format!("pse-worker:{host}:{pid}")
     }
     fn child_logs(&self, name: &str) -> (std::fs::File, std::fs::File) {
         use std::os::unix::fs::OpenOptionsExt;
-        let open = |suffix| std::fs::OpenOptions::new().write(true).create_new(true)
-            .mode(0o600).open(self.service.state().join(format!("{name}.{suffix}"))).unwrap();
+        let open = |suffix| {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(self.service.state().join(format!("{name}.{suffix}")))
+                .unwrap()
+        };
         (open("stdout"), open("stderr"))
     }
     async fn finish(&mut self, body: std::thread::Result<()>) {
         // Settle all independent scientific roots before closing their shared store.
         // Retain all failures; a panic never substitutes Drop for asynchronous cleanup.
-        for local in &self.runtimes { local.close(); local.clear_program_cache(); }
+        for local in &self.runtimes {
+            local.close();
+            local.clear_program_cache();
+        }
         let (worker_drains, child_drains, math_drains) = tokio::join!(
-            futures_util::future::join_all(self.workers.iter_mut().map(|worker|
-                worker.shutdown(Instant::now() + Duration::from_secs(45)))),
+            futures_util::future::join_all(
+                self.workers
+                    .iter_mut()
+                    .map(|worker| worker.shutdown(Instant::now() + Duration::from_secs(45)))
+            ),
             futures_util::future::join_all(self.children.iter_mut().map(|child| async {
-                if child.try_wait()?.is_none() { child.start_kill()?; }
-                tokio::time::timeout(Duration::from_secs(45), child.wait()).await
+                if child.try_wait()?.is_none() {
+                    child.start_kill()?;
+                }
+                tokio::time::timeout(Duration::from_secs(45), child.wait())
+                    .await
                     .map_err(std::io::Error::other)?
             })),
-            futures_util::future::join_all(self.shared.iter().map(|shared|
-                shared.math().shutdown_native_lanes())),
+            futures_util::future::join_all(
+                self.shared
+                    .iter()
+                    .map(|shared| shared.math().shutdown_native_lanes())
+            ),
         );
-        let service_drain = self.service.shutdown(Instant::now() + Duration::from_secs(45)).await;
+        let service_drain = self
+            .service
+            .shutdown(Instant::now() + Duration::from_secs(45))
+            .await;
         let settled = worker_drains.iter().all(Result::is_ok)
-            && child_drains.iter().all(Result::is_ok) && math_drains.iter().all(Result::is_ok) && service_drain.is_ok();
+            && child_drains.iter().all(Result::is_ok)
+            && math_drains.iter().all(Result::is_ok)
+            && service_drain.is_ok();
         if body.is_err() || !settled {
-            eprintln!("worker journey retained state={}; worker drains={worker_drains:?}; child drains={child_drains:?}; math drains={math_drains:?}; canonical drain={service_drain:?}", self.service.state().display());
+            eprintln!(
+                "worker journey retained state={}; worker drains={worker_drains:?}; child drains={child_drains:?}; math drains={math_drains:?}; canonical drain={service_drain:?}",
+                self.service.state().display()
+            );
             for worker in &self.workers {
-                eprintln!("original worker diagnostics={} unit={}", worker.directory().display(), worker.intent().unit());
+                eprintln!(
+                    "original worker diagnostics={} unit={}",
+                    worker.directory().display(),
+                    worker.intent().unit()
+                );
             }
         }
-        if let Err(panic) = body { std::panic::resume_unwind(panic); }
-        assert!(settled, "all owned physical/connection/native drains must succeed");
+        if let Err(panic) = body {
+            std::panic::resume_unwind(panic);
+        }
+        assert!(
+            settled,
+            "all owned physical/connection/native drains must succeed"
+        );
         // Attempt every independently owned disposal; preserve individual errors.
-        let worker_disposals = self.workers.iter_mut().map(NativeStudyWorker::dispose).collect::<Vec<_>>();
-        let checkpoint_disposals = self.checkpoints.iter().map(std::fs::remove_file).collect::<Vec<_>>();
+        let worker_disposals = self
+            .workers
+            .iter_mut()
+            .map(NativeStudyWorker::dispose)
+            .collect::<Vec<_>>();
+        let checkpoint_disposals = self
+            .checkpoints
+            .iter()
+            .map(std::fs::remove_file)
+            .collect::<Vec<_>>();
         let disposed = worker_disposals.iter().all(Result::is_ok)
             && checkpoint_disposals.iter().all(Result::is_ok);
         // Retain canonical diagnosis if any independent diagnostic disposal failed.
-        let service_disposal = if disposed { self.service.dispose() } else { Ok(()) };
+        let service_disposal = if disposed {
+            self.service.dispose()
+        } else {
+            Ok(())
+        };
         if !disposed || service_disposal.is_err() {
-            eprintln!("worker journey disposal retained state={}; workers={worker_disposals:?}; checkpoints={checkpoint_disposals:?}; canonical={service_disposal:?}", self.service.state().display());
+            eprintln!(
+                "worker journey disposal retained state={}; workers={worker_disposals:?}; checkpoints={checkpoint_disposals:?}; canonical={service_disposal:?}",
+                self.service.state().display()
+            );
         }
         assert!(disposed, "every original diagnostic disposal must succeed");
         service_disposal.unwrap();
@@ -250,7 +383,12 @@ fn sources_of(source: &str) -> (BTreeMap<String, Vec<u8>>, BTreeMap<String, Vec<
 fn build_identity() -> pse_ids::ContentHash {
     let mut executable = std::fs::File::open(std::env::current_exe().unwrap()).unwrap();
     let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
-    hash.part_reader(executable.metadata().unwrap().len(), &mut executable, &|| Ok(())).unwrap();
+    hash.part_reader(
+        executable.metadata().unwrap().len(),
+        &mut executable,
+        &|| Ok(()),
+    )
+    .unwrap();
     hash.finish_hash()
 }
 
@@ -687,86 +825,89 @@ async fn assert_value(local: &Runtime, run: &str, attempt: &str, wanted: f64) {
 )]
 async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
     let mut managed = ManagedWorkerCase::new(1);
-    let body = AssertUnwindSafe(async {
-        managed.launch().await;
-        let (shared, local) = managed.runtime(false);
-        let (local, operations) =
-            bind_operations(&shared, local, "replay-enqueuer", LeasePolicy::default());
-        let (physical, modeling) = sources();
-        let (package, _) = package(&shared, &local, &physical, &modeling).await;
-        let case = package
-            .declarations(&local.preparation_services())
-            .await
-            .unwrap()
-            .iter()
-            .find(|d| d.name == "Root")
-            .unwrap()
-            .declaration_id;
-        let mut previous = None;
-        let mut previous_worker = None;
-        for _ in 0..2 {
-            let worker = managed.spawn().await;
-            let local = managed.bind_worker(local.clone(), worker);
-            let handle = local
-                .start_study(
-                    StudyPlan {
-                        output: pse_runtime::workflow::StudyOutputDemand::Full {},
-                        sources: PackageSources {
-                            physical: physical.clone(),
-                            modeling: vec![modeling.clone()],
-                        },
-                        inputs: pse_runtime::workflow::StudyInputs::Explicit(vec![occurrence(
-                            case,
-                            0,
-                            settings(),
-                            1,
-                        )]),
-                    },
-                    &CancelSource::new(),
-                )
-                .await
-                .unwrap();
-            drain_worker(&handle, worker, &mut managed).await;
-            let writer = managed.worker_identity(worker);
-            if let Some(previous) = previous_worker { assert_ne!(writer, previous); }
-            previous_worker = Some(writer.clone());
-            let status = handle.status().await.unwrap();
-            assert_eq!(status.state, StudyState::Concluded);
-            assert_eq!(status.points.len(), 1);
-            let point = &status.points[0];
-            assert_eq!(point.state, StudyPointState::Completed);
-            let outcome = point.outcome.as_ref().unwrap();
-            assert!(outcome.scientific.usable);
-            assert_eq!(outcome.attempts.len(), 1);
-            let attempt = point.attempt.as_deref().unwrap();
-            let stored = operations
-                .store()
-                .canonical_attempt(attempt)
+    let body =
+        AssertUnwindSafe(async {
+            managed.launch().await;
+            let (shared, local) = managed.runtime(false);
+            let (local, operations) =
+                bind_operations(&shared, local, "replay-enqueuer", LeasePolicy::default());
+            let (physical, modeling) = sources();
+            let (package, _) = package(&shared, &local, &physical, &modeling).await;
+            let case = package
+                .declarations(&local.preparation_services())
                 .await
                 .unwrap()
-                .unwrap();
-            assert!(stored.terminal());
-            assert_eq!(
-                stored.outcome.as_ref().map(|value| value.as_str()),
-                Some("succeeded")
-            );
-            assert_eq!(stored.worker, writer);
-            assert_value(&local, &point.run, attempt, 2.).await;
-            let identity = (
-                handle.study_id().to_string(),
-                point.run.clone(),
-                attempt.to_owned(),
-            );
-            if let Some((study, run, attempt)) = previous {
-                assert_ne!(identity.0, study);
-                assert_ne!(identity.1, run);
-                assert_ne!(identity.2, attempt);
+                .iter()
+                .find(|d| d.name == "Root")
+                .unwrap()
+                .declaration_id;
+            let mut previous = None;
+            let mut previous_worker = None;
+            for _ in 0..2 {
+                let worker = managed.spawn().await;
+                let local = managed.bind_worker(local.clone(), worker);
+                let handle =
+                    local
+                        .start_study(
+                            StudyPlan {
+                                output: pse_runtime::workflow::StudyOutputDemand::Full {},
+                                sources: PackageSources {
+                                    physical: physical.clone(),
+                                    modeling: vec![modeling.clone()],
+                                },
+                                inputs: pse_runtime::workflow::StudyInputs::Explicit(vec![
+                                    occurrence(case, 0, settings(), 1),
+                                ]),
+                            },
+                            &CancelSource::new(),
+                        )
+                        .await
+                        .unwrap();
+                drain_worker(&handle, worker, &mut managed).await;
+                let writer = managed.worker_identity(worker);
+                if let Some(previous) = previous_worker {
+                    assert_ne!(writer, previous);
+                }
+                previous_worker = Some(writer.clone());
+                let status = handle.status().await.unwrap();
+                assert_eq!(status.state, StudyState::Concluded);
+                assert_eq!(status.points.len(), 1);
+                let point = &status.points[0];
+                assert_eq!(point.state, StudyPointState::Completed);
+                let outcome = point.outcome.as_ref().unwrap();
+                assert!(outcome.scientific.usable);
+                assert_eq!(outcome.attempts.len(), 1);
+                let attempt = point.attempt.as_deref().unwrap();
+                let stored = operations
+                    .store()
+                    .canonical_attempt(attempt)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert!(stored.terminal());
+                assert_eq!(
+                    stored.outcome.as_ref().map(|value| value.as_str()),
+                    Some("succeeded")
+                );
+                assert_eq!(stored.worker, writer);
+                assert_value(&local, &point.run, attempt, 2.).await;
+                let identity = (
+                    handle.study_id().to_string(),
+                    point.run.clone(),
+                    attempt.to_owned(),
+                );
+                if let Some((study, run, attempt)) = previous {
+                    assert_ne!(identity.0, study);
+                    assert_ne!(identity.1, run);
+                    assert_ne!(identity.2, attempt);
+                }
+                previous = Some(identity);
             }
-            previous = Some(identity);
-        }
-        drop(package);
-        local.clear_program_cache();
-    }).catch_unwind().await;
+            drop(package);
+            local.clear_program_cache();
+        })
+        .catch_unwind()
+        .await;
     managed.finish(body).await;
 }
 
@@ -776,7 +917,8 @@ async fn worker_runs_authored_case_end_to_end() {
     let body = AssertUnwindSafe(async {
         managed.launch().await;
         let (shared, local) = managed.runtime(false);
-        let (local, operations) = bind_operations(&shared, local, "enqueuer", LeasePolicy::default());
+        let (local, operations) =
+            bind_operations(&shared, local, "enqueuer", LeasePolicy::default());
         let worker = managed.spawn().await;
         let local = managed.bind_worker(local, worker);
         let (physical, modeling) = sources();
@@ -834,9 +976,12 @@ async fn worker_runs_authored_case_end_to_end() {
                     lane.id.process_instance,
                     diagnostics.hub().process_instance()
                 );
-                assert!(lane.sources.iter().any(
-                    |source| source.name == "canonical.run" && source.bytes == point.run.as_bytes()
-                ));
+                assert!(
+                    lane.sources
+                        .iter()
+                        .any(|source| source.name == "canonical.run"
+                            && source.bytes == point.run.as_bytes())
+                );
                 assert!(image.operations.iter().any(|operation| {
                     operation.metrics.iter().any(|metric| {
                         metric.name == "native.joined"
@@ -848,13 +993,22 @@ async fn worker_runs_authored_case_end_to_end() {
             .expect("actual managed worker publishes its own attempt-linked checkpoint");
         // The original native owner has drained this process; this is its diagnostic file only.
         managed.checkpoints.push(owned);
-        stored_seed_reused_across_processes(&local, &operations, &package, case, &point.run, attempt)
-            .await;
+        stored_seed_reused_across_processes(
+            &local,
+            &operations,
+            &package,
+            case,
+            &point.run,
+            attempt,
+        )
+        .await;
         drop(progress);
         drop(handle);
         drop(package);
         local.clear_program_cache();
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     managed.finish(body).await;
 }
 
@@ -878,7 +1032,9 @@ async fn durable_submission_survives_submitting_process_exit() {
             pse_operations::canonical::CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = std::env::var(DATABASE).unwrap();
         let store = pse_operations::canonical::CanonicalStore::connect_ready(&options)
-            .await.unwrap().into_store();
+            .await
+            .unwrap()
+            .into_store();
         let (shared, local) = runtime_with_store(store);
         let (local, _) = bind_operations(
             &shared,
@@ -925,15 +1081,33 @@ async fn durable_submission_survives_submitting_process_exit() {
         }
         let receipt = directory.join("submitted.json");
         let (stdout, stderr) = managed.child_logs("submitter");
-        managed.children.push(tokio::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "durable_submission_survives_submitting_process_exit", "--nocapture"])
-            .env(RECEIPT, &receipt).env(STATE, &state).env(DATABASE, &database)
-            .stdout(stdout).stderr(stderr).spawn().unwrap());
-        let output = tokio::time::timeout(Duration::from_secs(120),
-            managed.children.last_mut().unwrap().wait()).await
-            .expect("bounded submitting process; original child retained for explicit kill/reap").unwrap();
-        assert!(output.success(), "{}", String::from_utf8_lossy(
-            &std::fs::read(state.join("submitter.stderr")).unwrap()));
+        managed.children.push(
+            tokio::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "durable_submission_survives_submitting_process_exit",
+                    "--nocapture",
+                ])
+                .env(RECEIPT, &receipt)
+                .env(STATE, &state)
+                .env(DATABASE, &database)
+                .stdout(stdout)
+                .stderr(stderr)
+                .spawn()
+                .unwrap(),
+        );
+        let output = tokio::time::timeout(
+            Duration::from_secs(120),
+            managed.children.last_mut().unwrap().wait(),
+        )
+        .await
+        .expect("bounded submitting process; original child retained for explicit kill/reap")
+        .unwrap();
+        assert!(
+            output.success(),
+            "{}",
+            String::from_utf8_lossy(&std::fs::read(state.join("submitter.stderr")).unwrap())
+        );
         let bytes = std::fs::read(&receipt).unwrap();
         assert!(bytes.len() < 4096);
         let submitted: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
@@ -975,7 +1149,9 @@ async fn durable_submission_survives_submitting_process_exit() {
         );
         assert_value(&local, &point.run, attempt, 2.).await;
         drop(handle);
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     managed.finish(body).await;
 }
 
@@ -1010,7 +1186,9 @@ async fn durable_worker_round_trips_a_package_with_a_data_document() {
         drop(handle);
         drop(package);
         local.clear_program_cache();
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     managed.finish(body).await;
 }
 
@@ -1154,9 +1332,11 @@ async fn wait_study_assignment(
                     .unwrap()
                     .native_started;
                 if !started {
-                    assert!(worker.terminal().unwrap().is_none(),
+                    assert!(
+                        worker.terminal().unwrap().is_none(),
                         "original native application ended before assignment; diagnostics={}",
-                        worker.directory().display());
+                        worker.directory().display()
+                    );
                 }
                 started
             }
@@ -1188,7 +1368,7 @@ async fn wait_study_assignment(
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authored_policy() {
+async fn killed_worker_preserves_native_observations_and_refuses_unknown_effect_retry() {
     let mut managed = ManagedWorkerCase::new(1);
     let body = AssertUnwindSafe(async {
         managed.launch().await;
@@ -1207,13 +1387,19 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
         let (run, first) = wait_study_assignment(&local, &handle, &managed.workers[worker]).await;
         // Abruptly kill through the original retained owner. A manager signal reply
         // is insufficient: this capability also proves the population physically drained.
-        let killed = managed.workers[worker].kill_and_drain_for_qualification(
-            Instant::now() + Duration::from_secs(45),
-        ).await.unwrap();
-        assert_eq!(killed.completed_status(), Some(128 + 9),
-            "original SIGKILL exit, separate from proof of an empty population");
-        assert!(managed.workers[worker].terminal().unwrap().is_none(),
-            "SIGKILL cannot fabricate an application native-join receipt");
+        let killed = managed.workers[worker]
+            .kill_and_drain_for_qualification(Instant::now() + Duration::from_secs(45))
+            .await
+            .unwrap();
+        assert_eq!(
+            killed.completed_status(),
+            Some(128 + 9),
+            "original SIGKILL exit, separate from proof of an empty population"
+        );
+        assert!(
+            managed.workers[worker].terminal().unwrap().is_none(),
+            "SIGKILL cannot fabricate an application native-join receipt"
+        );
         assert!(
             !operations
                 .store()
@@ -1264,23 +1450,52 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
         let status = handle.status().await.unwrap();
         assert_eq!(status.state, StudyState::Concluded);
         let point = &status.points[0];
-        assert_ne!(point.attempt.as_deref(), Some(first.as_str()));
-        assert_eq!(point.outcome.as_ref().unwrap().attempts.len(), 2);
-        let replacement = operations
+        // The authored attempt allowance is necessary but insufficient for retry:
+        // shared may_retry also requires a transient failure and absent/idempotent
+        // effects. A physically killed foreign solver leaves effects unknown.
+        assert_eq!(point.attempt.as_deref(), Some(first.as_str()));
+        let outcome = point.outcome.as_ref().unwrap();
+        assert_eq!(outcome.attempts.len(), 1);
+        assert_eq!(outcome.effect, pse_model::study::EffectState::Unknown);
+        assert!(!outcome.scientific.usable && !outcome.scientific.seed_permission);
+        assert_eq!(
+            operations
+                .store()
+                .canonical_attempt_page(&run, None, lost.generation)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        let recovered_run = operations
             .store()
-            .canonical_attempt(point.attempt.as_deref().unwrap())
+            .canonical_run(&run)
             .await
             .unwrap()
             .unwrap();
-        assert!(replacement.terminal());
-        assert!(replacement.generation > lost.generation);
+        assert!(recovered_run.current_generation > lost.generation);
+        assert!(
+            operations
+                .store()
+                .canonical_attempt_page(
+                    &run,
+                    Some(lost.generation),
+                    recovered_run.current_generation
+                )
+                .await
+                .unwrap()
+                .is_empty(),
+            "new authority grants no automatic reexecution"
+        );
         drop(events);
         drop(record);
         drop(handle);
         // The runtime may retain physical admissions after the caller has departed.
         // Retire that optional ownership before the store's authentic protection drain.
         local.clear_program_cache();
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     managed.finish(body).await;
 }
 
@@ -1296,16 +1511,23 @@ async fn cross_process_cancel_stops_scip() {
             serde_json::from_slice(&std::fs::read(request).unwrap()).unwrap();
         let state = PathBuf::from(std::env::var_os(STATE).unwrap());
         let options = pse_operations::canonical::CanonicalOptions::from_state(&state).unwrap();
-        let ready = pse_operations::canonical::CanonicalStore::connect_ready(&options).await.unwrap();
+        let ready = pse_operations::canonical::CanonicalStore::connect_ready(&options)
+            .await
+            .unwrap();
         let store = ready.into_store();
         let receipt = store.cancel_study_command(&request).await;
         // Attempt connection drain even if the actual native command fails.
         let disconnected = store.disconnect().await;
         let receipt = receipt.unwrap();
         disconnected.unwrap();
-        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600)
-            .open(std::env::var_os(RESPONSE).unwrap()).unwrap();
-        file.write_all(&serde_json::to_vec(&receipt).unwrap()).unwrap();
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(std::env::var_os(RESPONSE).unwrap())
+            .unwrap();
+        file.write_all(&serde_json::to_vec(&receipt).unwrap())
+            .unwrap();
         file.sync_all().unwrap();
         return;
     }
@@ -1328,7 +1550,8 @@ async fn cross_process_cancel_stops_scip() {
             .unwrap()
             .generation;
         let request = pse_operations::canonical_control::ControlCancelRequest::issue(
-            store.issuing_store().unwrap().to_owned(), study.clone(),
+            store.issuing_store().unwrap().to_owned(),
+            study.clone(),
         );
         let state = managed.service.state().to_path_buf();
         let request_path = state.join("cancel-request.json");
@@ -1336,30 +1559,52 @@ async fn cross_process_cancel_stops_scip() {
         {
             use std::io::Write;
             use std::os::unix::fs::OpenOptionsExt;
-            let mut file = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600)
-                .open(&request_path).unwrap();
-            file.write_all(&serde_json::to_vec(&request).unwrap()).unwrap();
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&request_path)
+                .unwrap();
+            file.write_all(&serde_json::to_vec(&request).unwrap())
+                .unwrap();
             file.sync_all().unwrap();
         }
         let (run, attempt) = wait_study_assignment(&local, &handle, &managed.workers[worker]).await;
         let requested = tokio::time::Instant::now();
         let (stdout, stderr) = managed.child_logs("cancel-control");
-        managed.children.push(tokio::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "cross_process_cancel_stops_scip", "--nocapture"])
-            .env(REQUEST, &request_path).env(RESPONSE, &response_path).env(STATE, &state)
-            .stdout(stdout).stderr(stderr).spawn().unwrap());
-        let reply = tokio::time::timeout(Duration::from_secs(30),
-            managed.children.last_mut().unwrap().wait()).await
-            .expect("native control process bounded; original child retained for explicit reap").unwrap();
-        assert!(reply.success(), "{}", String::from_utf8_lossy(
-            &std::fs::read(state.join("cancel-control.stderr")).unwrap()));
+        managed.children.push(
+            tokio::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "cross_process_cancel_stops_scip", "--nocapture"])
+                .env(REQUEST, &request_path)
+                .env(RESPONSE, &response_path)
+                .env(STATE, &state)
+                .stdout(stdout)
+                .stderr(stderr)
+                .spawn()
+                .unwrap(),
+        );
+        let reply = tokio::time::timeout(
+            Duration::from_secs(30),
+            managed.children.last_mut().unwrap().wait(),
+        )
+        .await
+        .expect("native control process bounded; original child retained for explicit reap")
+        .unwrap();
+        assert!(
+            reply.success(),
+            "{}",
+            String::from_utf8_lossy(&std::fs::read(state.join("cancel-control.stderr")).unwrap())
+        );
         let receipt: pse_operations::canonical_control::ControlCommandReceipt =
             serde_json::from_slice(&std::fs::read(&response_path).unwrap()).unwrap();
         assert_eq!(receipt.issuing_store, request.issuing_store);
         assert_eq!(receipt.operation_id, request.operation_id);
         assert_eq!(receipt.study, study);
         assert_eq!(receipt.generation, Some((generation + 1).to_string()));
-        assert_eq!(receipt.status, pse_operations::canonical_control::ControlCommandStatus::Accepted);
+        assert_eq!(
+            receipt.status,
+            pse_operations::canonical_control::ControlCommandStatus::Accepted
+        );
         drain_worker(&handle, worker, &mut managed).await;
         assert!(requested.elapsed() < Duration::from_secs(30));
         let status = handle.status().await.unwrap();
@@ -1407,7 +1652,9 @@ async fn cross_process_cancel_stops_scip() {
         drop(events);
         drop(handle);
         local.clear_program_cache();
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     managed.finish(body).await;
 }
 
@@ -1473,16 +1720,20 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
             )
             .await
             .unwrap();
-        until(Duration::from_secs(600), "competing workers conclude one summary", || async {
-            handle.status().await.unwrap().state == StudyState::Concluded
-        }).await;
+        until(
+            Duration::from_secs(600),
+            "competing workers conclude one summary",
+            || async { handle.status().await.unwrap().state == StudyState::Concluded },
+        )
+        .await;
         // Both original owners are drained independently, even if the first fails.
         let (left_workers, right_workers) = managed.workers.split_at_mut(right);
         let (left_drain, right_drain) = tokio::join!(
             left_workers[left].shutdown(Instant::now() + Duration::from_secs(45)),
             right_workers[0].shutdown(Instant::now() + Duration::from_secs(45)),
         );
-        left_drain.unwrap(); right_drain.unwrap();
+        left_drain.unwrap();
+        right_drain.unwrap();
         managed.stop_worker(left).await;
         managed.stop_worker(right).await;
         let status = handle.status().await.unwrap();
@@ -1503,13 +1754,14 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
             workers.insert(header.worker);
             assert_value(&local, &point.run, attempt, (index + 2) as f64).await;
         }
-        assert_eq!(
-            workers.into_iter().collect::<Vec<_>>(),
-            {
-                let mut identities = vec![managed.worker_identity(left), managed.worker_identity(right)];
-                identities.sort(); identities
-            }
-        );
+        assert_eq!(workers.into_iter().collect::<Vec<_>>(), {
+            let mut identities = vec![
+                managed.worker_identity(left),
+                managed.worker_identity(right),
+            ];
+            identities.sort();
+            identities
+        });
         let summary = handle.result().await.unwrap().unwrap();
         let parent = operations
             .store()
@@ -1529,6 +1781,8 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
         drop(handle);
         drop(package);
         local.clear_program_cache();
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     managed.finish(body).await;
 }

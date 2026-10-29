@@ -278,9 +278,15 @@ mod tests {
         assert_eq!(reference.execution.unwrap().pool_memory_bytes, 128 << 30);
         let service = profiles.select(profiles.default_profile).unwrap();
         assert_eq!(service.total_memory_bytes, reference.total_memory_bytes);
-        assert_eq!(service.native_worker_memory_bytes, reference.native_worker_memory_bytes);
+        assert_eq!(
+            service.native_worker_memory_bytes,
+            reference.native_worker_memory_bytes
+        );
         assert_eq!(service.execution, reference.execution);
-        assert_eq!(profiles.capabilities.memory_limit_bytes.get(), reference.execution.unwrap().pool_memory_bytes);
+        assert_eq!(
+            profiles.capabilities.memory_limit_bytes.get(),
+            reference.execution.unwrap().pool_memory_bytes
+        );
         assert_eq!(profiles.capabilities.threads.get(), 16);
         assert_eq!(profiles.capabilities.max_spill_bytes.get(), 1 << 30);
         let functional = profiles.select(ProductionProfileName::Functional).unwrap();

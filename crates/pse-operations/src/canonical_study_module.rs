@@ -9,12 +9,9 @@ use crate::canonical_script::UnframedResult;
 use crate::canonical_script::{Envelope, GuardedScript};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
-use std::{
-    io::Read,
-    path::Path,
-};
 #[cfg(test)]
 use std::path::PathBuf;
+use std::{io::Read, path::Path};
 
 use pse_buildinfo::study_module::{ModuleLimits, StudyModuleRecord};
 
@@ -23,10 +20,14 @@ use pse_buildinfo::study_module::{ModuleLimits, StudyModuleRecord};
 pub(crate) struct StudyModuleReceipt(StudyModuleRecord);
 impl std::ops::Deref for StudyModuleReceipt {
     type Target = StudyModuleRecord;
-    fn deref(&self) -> &Self::Target { &self.0 }
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 impl std::ops::DerefMut for StudyModuleReceipt {
-    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }
 struct ModuleDeclaration {
     abi: u32,
@@ -187,11 +188,18 @@ impl StudyModuleReceipt {
         receipt.study_module.validate(state)?;
         Ok(receipt.study_module)
     }
-    pub(crate) fn read_migration_source(state: &Path, expected: &str) -> Result<Self, CanonicalError> {
+    pub(crate) fn read_migration_source(
+        state: &Path,
+        expected: &str,
+    ) -> Result<Self, CanonicalError> {
         let selected = Self::read(state)?;
-        if selected.sha256 == expected { return Ok(selected); }
+        if selected.sha256 == expected {
+            return Ok(selected);
+        }
         #[derive(Deserialize)]
-        struct Selection { schema_migration_predecessor: StudyModuleReceipt }
+        struct Selection {
+            schema_migration_predecessor: StudyModuleReceipt,
+        }
         let bytes = std::fs::read(state.join("config.json")).map_err(invalid)?;
         let selection: Selection = serde_json::from_slice(&bytes).map_err(invalid)?;
         selection.schema_migration_predecessor.validate(state)?;
@@ -202,10 +210,14 @@ impl StudyModuleReceipt {
     }
     pub(crate) fn read_migration_target(state: &Path) -> Result<Option<Self>, CanonicalError> {
         #[derive(Deserialize)]
-        struct Selection { schema_migration_target: Option<StudyModuleReceipt> }
+        struct Selection {
+            schema_migration_target: Option<StudyModuleReceipt>,
+        }
         let bytes = std::fs::read(state.join("config.json")).map_err(invalid)?;
         let selection: Selection = serde_json::from_slice(&bytes).map_err(invalid)?;
-        if let Some(receipt) = &selection.schema_migration_target { receipt.validate(state)?; }
+        if let Some(receipt) = &selection.schema_migration_target {
+            receipt.validate(state)?;
+        }
         Ok(selection.schema_migration_target)
     }
     #[cfg(all(test, feature = "canonical-tests"))]
@@ -372,37 +384,75 @@ impl StudyModuleReceipt {
 pub(crate) const CATALOG_VALIDATION_BODY: &str = "LET $info=INFO FOR DB STRUCTURE; LET $b=$info.buckets.filter(|$row|$row.name=$bucket); LET $m=$info.modules.filter(|$row|$row.name='pse');";
 pub(crate) const CATALOG_VALIDATION_PREDICATE: &str = "array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false";
 pub(crate) fn capability_validation_predicate() -> String {
-    format!("{CATALOG_VALIDATION_PREDICATE} AND $pse_prepare_probe.accepted=true AND array::len($pse_prepare_probe.decisions)=1 AND $pse_prepare_probe.decisions[0].disposition='prepare' AND $pse_prepare_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.accepted=true AND array::len($pse_claim_probe.decisions)=1 AND $pse_claim_probe.decisions[0].disposition='start' AND $pse_claim_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.decisions[0].start=$pse_probe_start")
+    format!(
+        "{CATALOG_VALIDATION_PREDICATE} AND $pse_prepare_probe.accepted=true AND array::len($pse_prepare_probe.decisions)=1 AND $pse_prepare_probe.decisions[0].disposition='prepare' AND $pse_prepare_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.accepted=true AND array::len($pse_claim_probe.decisions)=1 AND $pse_claim_probe.decisions[0].disposition='start' AND $pse_claim_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.decisions[0].start=$pse_probe_start"
+    )
 }
 
 /// Prove both new progression modes at the exact immutable-module admission
 /// boundary. These synthetic policy calls are pure and create no canonical work.
 pub(crate) fn capability_validation_body() -> Result<String, CanonicalError> {
     use pse_model::generated::enums::StudyPointState;
-    use pse_model::study::{ActionKind, EffectState, OccurrenceKey, PointAction, PointFacts, PointPolicy, ScientificFacts, SeedNeed, StartPolicy, StartProvenance};
+    use pse_model::study::{
+        ActionKind, EffectState, OccurrenceKey, PointAction, PointFacts, PointPolicy,
+        ScientificFacts, SeedNeed, StartPolicy, StartProvenance,
+    };
     use surrealdb_types::{Bytes, Object, ToSql, Value};
     fn encode<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, CanonicalError> {
         serde_json::to_vec(value).map_err(|error| CanonicalError::Configuration(error.to_string()))
     }
-    let policy = PointPolicy { key: OccurrenceKey(0), dependencies: Vec::new(), seed_need: SeedNeed::NotNeeded, start: StartPolicy::Fresh, attempt_limit: 1 };
-    let facts = PointFacts { key: policy.key, revision: 0, lifecycle: StudyPointState::Pending, admitted_seed_need: None, native_started: false, scientific: ScientificFacts::default(), seed: None, attempt_count: 0, retry_failure: None, effect: EffectState::Absent };
-    let action = PointAction { occurrence: policy.key, expected_revision: 0, kind: ActionKind::Start(StartProvenance::NotNeeded) };
+    let policy = PointPolicy {
+        key: OccurrenceKey(0),
+        dependencies: Vec::new(),
+        seed_need: SeedNeed::NotNeeded,
+        start: StartPolicy::Fresh,
+        attempt_limit: 1,
+    };
+    let facts = PointFacts {
+        key: policy.key,
+        revision: 0,
+        lifecycle: StudyPointState::Pending,
+        admitted_seed_need: None,
+        native_started: false,
+        scientific: ScientificFacts::default(),
+        seed: None,
+        attempt_count: 0,
+        retry_failure: None,
+        effect: EffectState::Absent,
+    };
+    let action = PointAction {
+        occurrence: policy.key,
+        expected_revision: 0,
+        kind: ActionKind::Start(StartProvenance::NotNeeded),
+    };
     let mut row = Object::new();
     row.insert("key", "module-capability-probe");
     row.insert("occurrence", crate::canonical_codec::encode_uint(0)?);
     row.insert("revision", crate::canonical_codec::encode_uint(0)?);
     row.insert("policy", Bytes::from(encode(&policy)?));
     row.insert("facts", Bytes::from(encode(&facts)?));
-    row.insert("assigned", false); row.insert("settled", false); row.insert("outcome", Value::None);
-    let mut item = Object::new(); item.insert("point", "module-capability-probe"); item.insert("predecessors", Value::Array(Vec::<Value>::new().into()));
+    row.insert("assigned", false);
+    row.insert("settled", false);
+    row.insert("outcome", Value::None);
+    let mut item = Object::new();
+    item.insert("point", "module-capability-probe");
+    item.insert("predecessors", Value::Array(Vec::<Value>::new().into()));
     let mut page = Object::new();
     page.insert("generation", crate::canonical_codec::encode_uint(0)?);
-    page.insert("cancelled", false); page.insert("mode", "prepare"); page.insert("seed", Value::None);
+    page.insert("cancelled", false);
+    page.insert("mode", "prepare");
+    page.insert("seed", Value::None);
     page.insert("rows", Value::Array(vec![Value::Object(row)].into()));
     page.insert("items", Value::Array(vec![Value::Object(item)].into()));
     let prepare = page.to_sql();
-    page.insert("mode", "claim"); page.insert("seed", Bytes::from(b"null".to_vec()));
-    Ok(format!("{CATALOG_VALIDATION_BODY} LET $pse_probe_action={}; LET $pse_probe_start={}; LET $pse_prepare_probe=mod::pse::study::readiness({prepare}); LET $pse_claim_probe=mod::pse::study::readiness({});", Bytes::from(encode(&action)?).to_sql(), Bytes::from(encode(&StartProvenance::NotNeeded)?).to_sql(), page.to_sql()))
+    page.insert("mode", "claim");
+    page.insert("seed", Bytes::from(b"null".to_vec()));
+    Ok(format!(
+        "{CATALOG_VALIDATION_BODY} LET $pse_probe_action={}; LET $pse_probe_start={}; LET $pse_prepare_probe=mod::pse::study::readiness({prepare}); LET $pse_claim_probe=mod::pse::study::readiness({});",
+        Bytes::from(encode(&action)?).to_sql(),
+        Bytes::from(encode(&StartProvenance::NotNeeded)?).to_sql(),
+        page.to_sql()
+    ))
 }
 
 impl CanonicalStore {
@@ -448,7 +498,11 @@ impl CanonicalStore {
             self.db
                 .metadata_read_query(
                     MetadataResponse::Header,
-                    format!("{} RETURN {};", capability_validation_body()?, capability_validation_predicate()),
+                    format!(
+                        "{} RETURN {};",
+                        capability_validation_body()?,
+                        capability_validation_predicate()
+                    ),
                 )
                 .bind(("bucket", receipt.bucket()))
                 .bind(("backend", receipt.backend()?)),

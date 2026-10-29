@@ -227,7 +227,10 @@ async fn abandoned_caller_holds_pool_and_cpu_through_tls_destructor() {
 async fn failed_callback_timeout_keeps_native_destruction_charged_and_shutdown_pending() {
     let (service, _) = service_with_policy(
         512 << 20,
-        MathPolicy { jobs: 1, ..Default::default() },
+        MathPolicy {
+            jobs: 1,
+            ..Default::default()
+        },
     );
     let entered = Arc::new(tokio::sync::Notify::new());
     let gate = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
@@ -242,24 +245,35 @@ async fn failed_callback_timeout_keeps_native_destruction_charged_and_shutdown_p
             gate: held,
             thread: std::thread::current().id(),
         }));
-        Err::<(), _>(MathRuntimeError::Infrastructure("original callback failure".into()))
+        Err::<(), _>(MathRuntimeError::Infrastructure(
+            "original callback failure".into(),
+        ))
     }));
     assert!(futures_util::poll!(job.as_mut()).is_pending());
     entered.notified().await;
     cancellation.cancel();
-    assert!(tokio::time::timeout(std::time::Duration::from_millis(10), job.as_mut()).await.is_err());
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(10), job.as_mut())
+            .await
+            .is_err()
+    );
     assert_eq!(service.cpu.available_permits(), 0);
     assert_eq!(service.jobs.available_permits(), 0);
     assert!(service.pool.reserved() > baseline);
-    assert!(matches!(
-        service.job(1, 0, Cancellation::default(), |_| Ok(())).await,
-        Err(MathRuntimeError::Limit("native jobs"))
-    ), "a timed-out waiter cannot authorize replacement work");
+    assert!(
+        matches!(
+            service.job(1, 0, Cancellation::default(), |_| Ok(())).await,
+            Err(MathRuntimeError::Limit("native jobs"))
+        ),
+        "a timed-out waiter cannot authorize replacement work"
+    );
     let mut shutdown = Box::pin(service.shutdown_native_lanes());
     assert!(futures_util::poll!(shutdown.as_mut()).is_pending());
     *gate.0.lock().unwrap() = true;
     gate.1.notify_one();
-    assert!(matches!(job.await, Err(MathRuntimeError::Infrastructure(message)) if message == "original callback failure"));
+    assert!(
+        matches!(job.await, Err(MathRuntimeError::Infrastructure(message)) if message == "original callback failure")
+    );
     shutdown.await.unwrap();
     assert_eq!(service.pool.reserved(), baseline);
     assert_eq!(service.cpu.available_permits(), 2);

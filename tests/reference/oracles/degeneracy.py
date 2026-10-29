@@ -95,7 +95,9 @@ class Response(msgspec.Struct, forbid_unknown_fields=True):
 EXPECTED = {
     frozenset(("first", "second")): {"first": 2.0, "second": -1.0},
     frozenset(("third", "fourth", "fifth")): {
-        "third": 1.0, "fourth": 1.0, "fifth": -1.0
+        "third": 1.0,
+        "fourth": 1.0,
+        "fifth": -1.0,
     },
 }
 Sets = dict[frozenset[str], dict[str, float]]
@@ -127,21 +129,28 @@ def validate_case(case: LinearCase) -> None:
 
 def environment(pins: dict[str, str]) -> dict[str, str]:
     """Preserve parity pin/interpreter/Ipopt checks and require SCIP for this oracle."""
-    require((3, 11) <= sys.version_info[:2] < (3, 15), "reference requires Python 3.11-3.14")
+    require(
+        (3, 11) <= sys.version_info[:2] < (3, 15), "reference requires Python 3.11-3.14"
+    )
     require(set(pins) == {"idaes-pse", "pyomo"}, "missing or unknown reference pins")
     observed = {name: importlib.metadata.version(name) for name in pins}
-    require(observed == pins, f"reference pin mismatch: expected {pins}, observed {observed}")
+    require(
+        observed == pins,
+        f"reference pin mismatch: expected {pins}, observed {observed}",
+    )
     executable = shutil.which("ipopt")
     require(executable is not None, "ipopt is absent; reference execution never skips")
     if executable is None:
-        raise ValueError("unreachable missing ipopt")
+        message = "unreachable missing ipopt"
+        raise ValueError(message)
     probe = subprocess.run(  # noqa: S603 - resolved reference solver, fixed version probe
         [executable, "-v"], capture_output=True, text=True, timeout=30, check=False
     )
     match = re.search(r"\bIpopt\s+(\d+(?:\.\d+)*)", probe.stdout + probe.stderr)
     require(probe.returncode == 0 and match is not None, "ipopt version probe failed")
     if match is None:
-        raise ValueError("unreachable missing ipopt version")
+        message = "unreachable missing ipopt version"
+        raise ValueError(message)
     require(match[1].startswith("3.14."), f"unexpected Ipopt series {match[1]}")
     observed["ipopt"] = match[1]
     observed["python"] = ".".join(str(part) for part in sys.version_info[:3])
@@ -166,13 +175,13 @@ def reference_sets(case: LinearCase) -> list[RowSet]:
     for row in case.rows:
         expression = sum(
             coefficient * model.component(variable)
-            for coefficient, variable in zip(row.coefficients, case.variables, strict=True)
+            for coefficient, variable in zip(
+                row.coefficients, case.variables, strict=True
+            )
             if coefficient != 0.0
         )
         model.add_component(row.name, pyo.Constraint(expr=expression == row.rhs))
-    hunter = DegeneracyHunter(
-        model, solver="scip", solver_options={"limits/time": 60}
-    )
+    hunter = DegeneracyHunter(model, solver="scip", solver_options={"limits/time": 60})
     hunter.find_irreducible_degenerate_sets()
     found: dict[frozenset[str], RowSet] = {}
     for members in hunter.irreducible_degenerate_sets:
@@ -199,7 +208,10 @@ def proportional(left: dict[str, float], right: dict[str, float]) -> None:
     """Preserve the original per-set scaling and pytest.approx relative tolerance."""
     require(set(left) == set(right) and bool(left), "multiplier support mismatch")
     require(
-        all(math.isfinite(value) and value != 0.0 for value in [*left.values(), *right.values()]),
+        all(
+            math.isfinite(value) and value != 0.0
+            for value in [*left.values(), *right.values()]
+        ),
         "multipliers must be finite and nonzero on their support",
     )
     pivot = min(left)
@@ -218,7 +230,9 @@ def indexed(sets: list[RowSet]) -> Sets:
     found: Sets = {}
     for item in sets:
         support = frozenset(item.rows)
-        require(len(support) == len(item.rows) and bool(support), "duplicate or empty rows")
+        require(
+            len(support) == len(item.rows) and bool(support), "duplicate or empty rows"
+        )
         require(support not in found, "duplicate degenerate set")
         require(set(item.multipliers) == support, "certificate and row support differ")
         require(item.irreducible_at_tolerance, "set is not irreducible at tolerance")
@@ -233,10 +247,17 @@ def compare(candidate: Candidate, reference: Sets) -> Comparison:
         return Comparison(candidate.id, "missing", ["native result missing"])
     try:
         require(report.complete, "native all-anchor analysis incomplete")
-        require(not report.unavailable, f"native analysis unavailable: {report.unavailable}")
+        require(
+            not report.unavailable, f"native analysis unavailable: {report.unavailable}"
+        )
         found = indexed(report.sets)
-        require(set(found) == set(EXPECTED), "native result must contain both constructed sets")
-        require(set(reference) <= set(found), "IDAES support missing from native result")
+        require(
+            set(found) == set(EXPECTED),
+            "native result must contain both constructed sets",
+        )
+        require(
+            set(reference) <= set(found), "IDAES support missing from native result"
+        )
         for rows, multipliers in reference.items():
             proportional(found[rows], multipliers)
         for rows, multipliers in EXPECTED.items():
@@ -255,7 +276,10 @@ def main() -> None:
     validate_case(request.case)
     require(bool(request.candidates), "candidate population is empty")
     ids = [candidate.id for candidate in request.candidates]
-    require(all(ids) and len(set(ids)) == len(ids), "candidate identities must be unique and nonempty")
+    require(
+        all(ids) and len(set(ids)) == len(ids),
+        "candidate identities must be unique and nonempty",
+    )
     # Library chatter is diagnostic output, never part of the result document.
     with contextlib.redirect_stdout(sys.stderr):
         observed = environment(request.pins)

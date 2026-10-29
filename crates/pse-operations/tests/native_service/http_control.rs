@@ -4,24 +4,44 @@
 use super::*;
 use serde_json::{Value, json};
 
-async fn post(client: &reqwest::Client, url: &str, token: Option<&str>, body: Vec<u8>) -> (u16, Value) {
-    let mut request = client.post(url).header("content-type", "application/json").header("accept", "application/json").body(body);
-    if let Some(token) = token { request = request.bearer_auth(token); }
+async fn post(
+    client: &reqwest::Client,
+    url: &str,
+    token: Option<&str>,
+    body: Vec<u8>,
+) -> (u16, Value) {
+    let mut request = client
+        .post(url)
+        .header("content-type", "application/json")
+        .header("accept", "application/json")
+        .body(body);
+    if let Some(token) = token {
+        request = request.bearer_auth(token);
+    }
     read_response(request.send().await.unwrap()).await
 }
 async fn read_response(mut response: reqwest::Response) -> (u16, Value) {
     let status = response.status().as_u16();
     let mut bytes = Vec::new();
     while let Some(chunk) = response.chunk().await.unwrap() {
-        assert!(bytes.len() + chunk.len() <= 262144, "bounded actor response");
+        assert!(
+            bytes.len() + chunk.len() <= 262144,
+            "bounded actor response"
+        );
         bytes.extend_from_slice(&chunk);
     }
-    let value = serde_json::from_slice(&bytes).unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&bytes).into_owned()));
+    let value = serde_json::from_slice(&bytes)
+        .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&bytes).into_owned()));
     (status, value)
 }
-fn encode(value: Value) -> Vec<u8> { serde_json::to_vec(&value).unwrap() }
+fn encode(value: Value) -> Vec<u8> {
+    serde_json::to_vec(&value).unwrap()
+}
 fn envelope(issuer: &str, request: Value) -> Value {
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_micros();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_micros();
     json!({"issuing_store":issuer, "expires_at":u64::try_from(now).unwrap()+30_000_000,"request":request})
 }
 async fn sign_in(client: &reqwest::Client, endpoint: &str, actor: &str, password: &str) -> String {
@@ -29,7 +49,10 @@ async fn sign_in(client: &reqwest::Client, endpoint: &str, actor: &str, password
         "NS":"native_fixture","DB":"canonical","AC":"pse_control","actor":actor,"password":password,
     }))).await;
     assert_eq!(status, 200, "record-actor signin");
-    body["token"].as_str().expect("record-actor token").to_owned()
+    body["token"]
+        .as_str()
+        .expect("record-actor token")
+        .to_owned()
 }
 #[tokio::test]
 async fn native_control_http_actor_grants_original_receipts_and_raw_envelopes() {

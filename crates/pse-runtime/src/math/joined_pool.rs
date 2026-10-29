@@ -83,7 +83,9 @@ mod tests {
         struct Release(Option<std::sync::mpsc::Sender<()>>);
         impl Drop for Release {
             fn drop(&mut self) {
-                if let Some(release) = self.0.take() { let _ = release.send(()); }
+                if let Some(release) = self.0.take() {
+                    let _ = release.send(());
+                }
             }
         }
         let mut release = Release(Some(release));
@@ -111,12 +113,23 @@ mod tests {
             });
             finished.send(result.map(|_| ())).unwrap();
         });
-        exited.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
-        assert!(matches!(outcome.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)),
-            "failed sibling cannot bypass the remaining native worker join");
+        exited
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        assert!(
+            matches!(
+                outcome.try_recv(),
+                Err(std::sync::mpsc::TryRecvError::Empty)
+            ),
+            "failed sibling cannot bypass the remaining native worker join"
+        );
         release.0.take().unwrap().send(()).unwrap();
-        let result = outcome.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
-        assert!(matches!(result, Err(MathError::Library(message)) if message.contains("partial team construction refused")));
+        let result = outcome
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        assert!(
+            matches!(result, Err(MathError::Library(message)) if message.contains("partial team construction refused"))
+        );
         construction.join().unwrap();
     }
 }

@@ -57,43 +57,80 @@ fn prost_field(attributes: &[syn::Attribute]) -> Result<ProstField> {
     let mut field = ProstField::default();
     for attr in attributes.iter().filter(|a| a.path().is_ident("prost")) {
         attr.parse_nested_meta(|meta| {
-            let name = meta.path.get_ident().ok_or_else(|| meta.error("unsupported prost attribute path"))?.to_string();
+            let name = meta
+                .path
+                .get_ident()
+                .ok_or_else(|| meta.error("unsupported prost attribute path"))?
+                .to_string();
             if meta.input.peek(syn::Token![=]) {
                 let value: syn::LitStr = meta.value()?.parse()?;
                 field.values.insert(name, value.value());
-            } else { field.flags.insert(name); }
+            } else {
+                field.flags.insert(name);
+            }
             Ok(())
         })?;
     }
     Ok(field)
 }
 fn leaf_type(ty: &syn::Type) -> Option<String> {
-    let syn::Type::Path(path) = ty else { return None };
+    let syn::Type::Path(path) = ty else {
+        return None;
+    };
     let segment = path.path.segments.last()?;
     if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
         for arg in &args.args {
-            if let syn::GenericArgument::Type(inner) = arg { return leaf_type(inner); }
+            if let syn::GenericArgument::Type(inner) = arg {
+                return leaf_type(inner);
+            }
         }
     }
     Some(segment.ident.to_string())
 }
-type WireFields = std::collections::BTreeMap<String, std::collections::BTreeMap<u32, (String, bool)>>;
-fn insert_field(messages: &mut WireFields, owner: &str, attrs: &[syn::Attribute], ty: &syn::Type) -> Result<()> {
+type WireFields =
+    std::collections::BTreeMap<String, std::collections::BTreeMap<u32, (String, bool)>>;
+fn insert_field(
+    messages: &mut WireFields,
+    owner: &str,
+    attrs: &[syn::Attribute],
+    ty: &syn::Type,
+) -> Result<()> {
     let field = prost_field(attrs)?;
-    if field.values.contains_key("oneof") { return Ok(()) }
-    let Some(tag) = field.values.get("tag") else { return Ok(()) };
+    if field.values.contains_key("oneof") {
+        return Ok(());
+    }
+    let Some(tag) = field.values.get("tag") else {
+        return Ok(());
+    };
     let tag = tag.parse::<u32>()?;
     let kind = if field.flags.contains("message") {
-        format!("Message({:?})", leaf_type(ty).context("prost message type")?)
-    } else if field.flags.contains("string") { "String".into() }
-    else if field.values.contains_key("bytes") || field.flags.contains("bytes") {
-        if owner == "Uuid" { "FixedUuid".into() } else { "Blob".into() }
-    } else if ["double", "fixed64", "sfixed64"].iter().any(|k| field.flags.contains(*k)) { "Fixed64".into() }
-    else if ["float", "fixed32", "sfixed32"].iter().any(|k| field.flags.contains(*k)) {
+        format!(
+            "Message({:?})",
+            leaf_type(ty).context("prost message type")?
+        )
+    } else if field.flags.contains("string") {
+        "String".into()
+    } else if field.values.contains_key("bytes") || field.flags.contains("bytes") {
+        if owner == "Uuid" {
+            "FixedUuid".into()
+        } else {
+            "Blob".into()
+        }
+    } else if ["double", "fixed64", "sfixed64"]
+        .iter()
+        .any(|k| field.flags.contains(*k))
+    {
+        "Fixed64".into()
+    } else if ["float", "fixed32", "sfixed32"]
+        .iter()
+        .any(|k| field.flags.contains(*k))
+    {
         bail!("Pinned wire schema gained fixed32; extend the borrowed validator")
     } else if field.values.contains_key("map") || field.values.contains_key("btree_map") {
         bail!("Pinned wire schema gained a map; extend the borrowed validator")
-    } else { "Varint".into() };
+    } else {
+        "Varint".into()
+    };
     let entry = (kind, field.flags.contains("repeated"));
     let fields = messages.entry(owner.into()).or_default();
     if let Some(old) = fields.insert(tag, entry.clone()) {
@@ -107,20 +144,28 @@ fn messages(items: &[syn::Item], result: &mut WireFields) -> Result<()> {
         if let syn::Item::Struct(item) = item {
             for field in &item.fields {
                 let attrs = prost_field(&field.attrs)?;
-                if let Some(path) = attrs.values.get("oneof") { oneofs.insert(path.clone(), item.ident.to_string()); }
+                if let Some(path) = attrs.values.get("oneof") {
+                    oneofs.insert(path.clone(), item.ident.to_string());
+                }
                 insert_field(result, &item.ident.to_string(), &field.attrs, &field.ty)?;
             }
         }
     }
     for item in items {
         if let syn::Item::Mod(module) = item
-            && let Some((_, body)) = &module.content {
+            && let Some((_, body)) = &module.content
+        {
             for child in body {
                 if let syn::Item::Enum(enumeration) = child
-                    && let Some(owner) = oneofs.get(&format!("{}::{}", module.ident, enumeration.ident)) {
+                    && let Some(owner) =
+                        oneofs.get(&format!("{}::{}", module.ident, enumeration.ident))
+                {
                     for variant in &enumeration.variants {
                         if let syn::Fields::Unnamed(fields) = &variant.fields {
-                            anyhow::ensure!(fields.unnamed.len() == 1, "prost oneof must contain one value");
+                            anyhow::ensure!(
+                                fields.unnamed.len() == 1,
+                                "prost oneof must contain one value"
+                            );
                             insert_field(result, owner, &variant.attrs, &fields.unnamed[0].ty)?;
                         }
                     }
@@ -132,13 +177,19 @@ fn messages(items: &[syn::Item], result: &mut WireFields) -> Result<()> {
     Ok(())
 }
 fn response_type(ty: &syn::Type) -> Option<String> {
-    let syn::Type::Path(path) = ty else { return None };
+    let syn::Type::Path(path) = ty else {
+        return None;
+    };
     for segment in &path.path.segments {
         if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
             for arg in &args.args {
                 if let syn::GenericArgument::Type(inner) = arg {
-                    if segment.ident == "Response" { return leaf_type(inner); }
-                    if let Some(found) = response_type(inner) { return Some(found); }
+                    if segment.ident == "Response" {
+                        return leaf_type(inner);
+                    }
+                    if let Some(found) = response_type(inner) {
+                        return Some(found);
+                    }
                 }
             }
         }
@@ -149,38 +200,69 @@ fn response_type(ty: &syn::Type) -> Option<String> {
 struct RpcMethods(Vec<(String, String)>);
 impl<'ast> syn::visit::Visit<'ast> for RpcMethods {
     fn visit_impl_item_fn(&mut self, function: &'ast syn::ImplItemFn) {
-        if function.sig.asyncness.is_none() { return }
-        let syn::ReturnType::Type(_, ty) = &function.sig.output else { return };
-        let Some(response) = response_type(ty) else { return };
+        if function.sig.asyncness.is_none() {
+            return;
+        }
+        let syn::ReturnType::Type(_, ty) = &function.sig.output else {
+            return;
+        };
+        let Some(response) = response_type(ty) else {
+            return;
+        };
         #[derive(Default)]
         struct Paths(Vec<String>);
         impl<'ast> syn::visit::Visit<'ast> for Paths {
             fn visit_lit_str(&mut self, lit: &'ast syn::LitStr) {
-                if let Some(method) = lit.value().strip_prefix("/surrealdb.protocol.rpc.v1.SurrealDBService/") {
+                if let Some(method) = lit
+                    .value()
+                    .strip_prefix("/surrealdb.protocol.rpc.v1.SurrealDBService/")
+                {
                     self.0.push(method.into());
                 }
             }
         }
         let mut paths = Paths::default();
         syn::visit::Visit::visit_block(&mut paths, &function.block);
-        for path in paths.0 { self.0.push((path, response.clone())); }
+        for path in paths.0 {
+            self.0.push((path, response.clone()));
+        }
     }
 }
 fn render(source: &Path) -> Result<String> {
     let base = source.join("gen/rust/proto/surrealdb/protocol");
     let mut fields = WireFields::new();
-    for relative in ["v1/surrealdb.protocol.v1.rs", "rpc/v1/surrealdb.protocol.rpc.v1.rs"] {
-        messages(&syn::parse_file(&std::fs::read_to_string(base.join(relative))?)?.items, &mut fields)?;
+    for relative in [
+        "v1/surrealdb.protocol.v1.rs",
+        "rpc/v1/surrealdb.protocol.rpc.v1.rs",
+    ] {
+        messages(
+            &syn::parse_file(&std::fs::read_to_string(base.join(relative))?)?.items,
+            &mut fields,
+        )?;
     }
-    let mut output = String::from("//! Pinned protocol 0.13.1 borrowed wire shapes.\nuse super::wire::Kind;\nuse Kind::*;\npub(super) fn field(message: &str, tag: u32) -> Option<(Kind, bool)> {\nSome(match (message, tag) {\n");
+    let mut output = String::from(
+        "//! Pinned protocol 0.13.1 borrowed wire shapes.\nuse super::wire::Kind;\nuse Kind::*;\npub(super) fn field(message: &str, tag: u32) -> Option<(Kind, bool)> {\nSome(match (message, tag) {\n",
+    );
     for (name, fields) in fields {
-        for (tag, (kind, repeated)) in fields { output.push_str(&format!("({name:?}, {tag}) => ({kind}, {repeated}),\n")); }
+        for (tag, (kind, repeated)) in fields {
+            output.push_str(&format!("({name:?}, {tag}) => ({kind}, {repeated}),\n"));
+        }
     }
     output.push_str("_ => return None, }) }\npub(super) fn response(path: &str) -> Option<&'static str> { Some(match path.rsplit('/').next()? {\n");
     let mut methods = RpcMethods::default();
-    syn::visit::Visit::visit_file(&mut methods, &syn::parse_file(&std::fs::read_to_string(base.join("rpc/v1/surrealdb.protocol.rpc.v1.tonic.rs"))?)?);
-    anyhow::ensure!(!methods.0.is_empty(), "supplier RPC response catalogue is empty");
-    for (method, response) in methods.0 { output.push_str(&format!("{method:?} => {response:?},\n")); }
+    syn::visit::Visit::visit_file(
+        &mut methods,
+        &syn::parse_file(&std::fs::read_to_string(
+            base.join("rpc/v1/surrealdb.protocol.rpc.v1.tonic.rs"),
+        )?)?,
+    );
+    anyhow::ensure!(
+        !methods.0.is_empty(),
+        "supplier RPC response catalogue is empty"
+    );
+    for (method, response) in methods.0 {
+        output.push_str(&format!("{method:?} => {response:?},\n"));
+    }
     output.push_str("_ => return None, }) }\n");
     Ok(output)
 }
@@ -203,7 +285,15 @@ mod tests {
         assert_eq!(found["Value"][&3], ("Varint".into(), false));
         assert_eq!(found["Record"][&1], ("Blob".into(), false));
         let mut changed = WireFields::new();
-        assert!(messages(&syn::parse_file("pub struct New { #[prost(float,tag=\"1\")] pub x:f32 }").unwrap().items, &mut changed).is_err());
+        assert!(
+            messages(
+                &syn::parse_file("pub struct New { #[prost(float,tag=\"1\")] pub x:f32 }")
+                    .unwrap()
+                    .items,
+                &mut changed
+            )
+            .is_err()
+        );
     }
     #[test]
     fn rpc_ast_finds_streamed_response_but_ignores_comments() {

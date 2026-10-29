@@ -241,12 +241,16 @@ pub enum MathRuntimeError {
     Infrastructure(String),
 }
 impl MathRuntimeError {
-    pub(crate) fn settle<T>(operation: Result<T, Self>, cleanup: Result<(), Self>) -> Result<T, Self> {
+    pub(crate) fn settle<T>(
+        operation: Result<T, Self>,
+        cleanup: Result<(), Self>,
+    ) -> Result<T, Self> {
         match (operation, cleanup) {
             (Ok(value), Ok(())) => Ok(value),
             (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
             (Err(operation), Err(cleanup)) => Err(Self::Settlement {
-                operation: Box::new(operation), cleanup: Box::new(cleanup),
+                operation: Box::new(operation),
+                cleanup: Box::new(cleanup),
             }),
         }
     }
@@ -303,7 +307,9 @@ impl MathRuntimeError {
                 })
         }
         let payload = match self {
-            Self::Settlement { operation, cleanup } => add(operation.retained_bytes()?, cleanup.retained_bytes()?)?,
+            Self::Settlement { operation, cleanup } => {
+                add(operation.retained_bytes()?, cleanup.retained_bytes()?)?
+            }
             Self::Solve(cause) => cause.retained_bytes(),
             Self::Compile(cause) => cause.retained_bytes(),
             Self::Math(cause) => cause.retained_bytes(),
@@ -396,9 +402,10 @@ impl MathRuntimeError {
                     Err(error) => Self::Shared(error).into_retained_problem(),
                 }
             }
-            Self::Settlement { .. } | Self::Pool(_) | Self::Strategy { .. } | Self::StrategyTraceUnavailable { .. } => {
-                self.into_retained_problem()
-            }
+            Self::Settlement { .. }
+            | Self::Pool(_)
+            | Self::Strategy { .. }
+            | Self::StrategyTraceUnavailable { .. } => self.into_retained_problem(),
             Self::Compile(CompileError::Cancelled) => ProblemError::Cancelled,
             Self::Compile(CompileError::Limit(detail)) => ProblemError::Limit {
                 kind: LimitKind::Work,

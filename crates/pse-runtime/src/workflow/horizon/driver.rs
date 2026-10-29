@@ -238,7 +238,10 @@ impl ExecutionServices {
                                 Err(error) => {
                                     let error = match staged.close().await {
                                         Ok(()) => error,
-                                        Err(cleanup) => WorkflowError::Settlement { operation: Box::new(error), cleanup: Box::new(cleanup) },
+                                        Err(cleanup) => WorkflowError::Settlement {
+                                            operation: Box::new(error),
+                                            cleanup: Box::new(cleanup),
+                                        },
                                     };
                                     return RunResult::joined(
                                         run_id,
@@ -261,7 +264,10 @@ impl ExecutionServices {
                             {
                                 let error = match staged.close().await {
                                     Ok(()) => error,
-                                    Err(cleanup) => WorkflowError::Settlement { operation: Box::new(error), cleanup: Box::new(cleanup) },
+                                    Err(cleanup) => WorkflowError::Settlement {
+                                        operation: Box::new(error),
+                                        cleanup: Box::new(cleanup),
+                                    },
                                 };
                                 return RunResult::joined(
                                     run_id,

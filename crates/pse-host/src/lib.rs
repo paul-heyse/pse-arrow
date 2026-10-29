@@ -13,8 +13,8 @@ pub mod native;
 pub mod server;
 pub mod study_module;
 pub use manager::{
-    BorrowedService, BorrowedUnit, HostManager, LaunchIntent, OrdinaryPlacement, OwnedUnit, ResourceControls,
-    ServiceSpec, UnitObservation,
+    BorrowedService, BorrowedUnit, HostManager, LaunchIntent, OrdinaryPlacement, OwnedUnit,
+    ResourceControls, ServiceSpec, UnitObservation,
 };
 
 /// A host boundary failure, never a scientific outcome.

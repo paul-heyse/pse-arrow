@@ -223,25 +223,37 @@ impl RetainedRecords {
         let config: serde_json::Value = private_read(&state.join("config.json"))?;
         let mut source = config.clone();
         let mut target = config.clone();
-        if let Some(predecessor) = config.get("schema_migration_predecessor") { source["study_module"] = predecessor.clone(); }
-        if let Some(prepared) = config.get("schema_migration_target") { target["study_module"] = prepared.clone(); }
-        if config != source && config != target {
-            return Err(NativeServiceError::Refused("local module selection is neither prepared source nor prepared target"));
+        if let Some(predecessor) = config.get("schema_migration_predecessor") {
+            source["study_module"] = predecessor.clone();
         }
-        let mut hashes = vec![hex::encode(Sha256::digest(json(&source)?)), hex::encode(Sha256::digest(json(&target)?))];
+        if let Some(prepared) = config.get("schema_migration_target") {
+            target["study_module"] = prepared.clone();
+        }
+        if config != source && config != target {
+            return Err(NativeServiceError::Refused(
+                "local module selection is neither prepared source nor prepared target",
+            ));
+        }
+        let mut hashes = vec![
+            hex::encode(Sha256::digest(json(&source)?)),
+            hex::encode(Sha256::digest(json(&target)?)),
+        ];
         for name in ["credentials.json", "original-module-receipt.json"] {
             let value: serde_json::Value = private_read(&state.join(name))?;
             hashes.push(hex::encode(Sha256::digest(json(&value)?)));
         }
         if config.get("schema_migration_target").is_some() {
-            let value: serde_json::Value = private_read(&state.join("target-module-source-receipt.json"))?;
+            let value: serde_json::Value =
+                private_read(&state.join("target-module-source-receipt.json"))?;
             hashes.push(hex::encode(Sha256::digest(json(&value)?)));
         }
         Ok(Self { hashes })
     }
     fn verify(&self, state: &Path) -> Result<(), NativeServiceError> {
         if *self != Self::read(state)? {
-            return Err(NativeServiceError::Refused("retained canonical configuration, credentials or module provenance changed"));
+            return Err(NativeServiceError::Refused(
+                "retained canonical configuration, credentials or module provenance changed",
+            ));
         }
         Ok(())
     }
@@ -348,7 +360,9 @@ fn deadline_left(deadline: Instant) -> Result<(), NativeServiceError> {
 fn verify_run(state: &Path, run: &Path) -> Result<(), NativeServiceError> {
     private_path(run, true)?;
     if run.parent() != Some(state.join("runs").as_path()) {
-        return Err(NativeServiceError::Refused("private launch directory differs from owned state"));
+        return Err(NativeServiceError::Refused(
+            "private launch directory differs from owned state",
+        ));
     }
     Ok(())
 }
@@ -439,12 +453,12 @@ pub struct StoppedCanonicalState {
 pub struct NativeServiceTransferFailure {
     owner: Box<NativeCanonicalService>,
     #[source]
-    source: NativeServiceError,
+    source: Box<NativeServiceError>,
 }
 impl NativeServiceTransferFailure {
     /// Recover the same owner for explicit settlement or disposal retry.
     pub fn into_parts(self) -> (NativeCanonicalService, NativeServiceError) {
-        (*self.owner, self.source)
+        (*self.owner, *self.source)
     }
 }
 /// A failed reopen retains the stopped state, including partially prepared private records.
@@ -454,12 +468,12 @@ impl NativeServiceTransferFailure {
 pub struct StoppedStateReopenFailure {
     owner: Box<StoppedCanonicalState>,
     #[source]
-    source: NativeServiceError,
+    source: Box<NativeServiceError>,
 }
 impl StoppedStateReopenFailure {
     /// Recover the same stopped owner; no failed transition deletes its directory.
     pub fn into_parts(self) -> (StoppedCanonicalState, NativeServiceError) {
-        (*self.owner, self.source)
+        (*self.owner, *self.source)
     }
 }
 impl StoppedCanonicalState {
@@ -485,31 +499,50 @@ impl StoppedCanonicalState {
             original.records.verify(&original.state.path)?;
             verify_run(&original.state.path, &original.run)?;
             if original.disposed {
-                return Err(NativeServiceError::Refused("disposed state cannot be reopened"));
+                return Err(NativeServiceError::Refused(
+                    "disposed state cannot be reopened",
+                ));
             }
             let payload: StartupPayload = private_read(&original.run.join("startup.json"))?;
-            if payload.state != original.state.path || payload.run != original.run
-                || payload.bind != original.bind || payload.nonce != original.state.nonce
-                || payload.generation != original.server_generation || payload.recipe != original.server_recipe
+            if payload.state != original.state.path
+                || payload.run != original.run
+                || payload.bind != original.bind
+                || payload.nonce != original.state.nonce
+                || payload.generation != original.server_generation
+                || payload.recipe != original.server_recipe
                 || payload.module_root != original.module_root
             {
-                return Err(NativeServiceError::Refused("retained original startup coordinates differ"));
+                return Err(NativeServiceError::Refused(
+                    "retained original startup coordinates differ",
+                ));
             }
             server::reopen_generation(&payload.generation, &payload.recipe)?;
             StudyModuleReceipt::read(&original.state.path)?;
             private_read::<Credentials>(&original.state.path.join("credentials.json"))?;
             CanonicalOptions::from_state(&original.state.path)?;
             let intent = LaunchIntent::fresh()?;
-            let run = original.state.path.join("runs").join(uuid::Uuid::new_v4().to_string());
+            let run = original
+                .state
+                .path
+                .join("runs")
+                .join(uuid::Uuid::new_v4().to_string());
             private_directory(&run)?;
-            let next = StartupPayload { run: run.clone(), ..payload };
+            let next = StartupPayload {
+                run: run.clone(),
+                ..payload
+            };
             private_write(&run.join("startup.json"), &next)?;
             File::open(&run)?.sync_all()?;
             Ok::<_, NativeServiceError>((intent, run))
         })();
         let (intent, run) = match prepared {
             Ok(prepared) => prepared,
-            Err(source) => return Err(StoppedStateReopenFailure { owner: Box::new(self), source }),
+            Err(source) => {
+                return Err(StoppedStateReopenFailure {
+                    owner: Box::new(self),
+                    source: Box::new(source),
+                });
+            }
         };
         let mut service = self.service;
         service.run = run;
@@ -557,7 +590,10 @@ impl NativeCanonicalService {
     /// The existing configured source stores supply immutable artifacts only.
     /// # Errors
     /// Private artifact admission, immutable copy or fixture construction fails.
-    pub fn new_v2_upgrade_fixture(spec: NativeServiceSpec, target_source: NativeModuleSource) -> Result<Self, NativeServiceError> {
+    pub fn new_v2_upgrade_fixture(
+        spec: NativeServiceSpec,
+        target_source: NativeModuleSource,
+    ) -> Result<Self, NativeServiceError> {
         Self::new_with_target(spec, InitialSchema::SchemaV2, Some(target_source))
     }
     fn new_with_schema(
@@ -585,16 +621,26 @@ impl NativeCanonicalService {
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700))?;
         let module = spec.module_source.into_canonical()?;
         private_write(&path.join("original-module-receipt.json"), &module)?;
-        let module_root = path.join(if target_source.is_some() { "modules" } else { "module" });
+        let module_root = path.join(if target_source.is_some() {
+            "modules"
+        } else {
+            "module"
+        });
         let (module, target) = if let Some(target_source) = target_source {
             private_directory(&module_root)?;
             let old = module.copy_into_private(&path, &module_root.join("predecessor"))?;
             let target = target_source.into_canonical()?;
             private_write(&path.join("target-module-source-receipt.json"), &target)?;
             let target = target.copy_into_private(&path, &module_root.join("target"))?;
-            if target.sha256 == old.sha256 { return Err(NativeServiceError::Refused("module upgrade fixture requires distinct old and target artifacts")); }
+            if target.sha256 == old.sha256 {
+                return Err(NativeServiceError::Refused(
+                    "module upgrade fixture requires distinct old and target artifacts",
+                ));
+            }
             (old, Some(target))
-        } else { (module.copy_into_private(&path, &module_root)?, None) };
+        } else {
+            (module.copy_into_private(&path, &module_root)?, None)
+        };
         for directory in ["tmp", "cache", "home", "runs"] {
             private_directory(&path.join(directory))?;
         }
@@ -725,10 +771,7 @@ impl NativeCanonicalService {
             executable: self.helper.clone(),
             arguments: vec![
                 "exec".into(),
-                self.run
-                    .join("startup.json")
-                    .to_string_lossy()
-                    .into_owned(),
+                self.run.join("startup.json").to_string_lossy().into_owned(),
             ],
             environment: vec!["PATH=/usr/bin:/bin".into(), "LANG=C.UTF-8".into()],
         }
@@ -828,8 +871,7 @@ impl NativeCanonicalService {
                     ));
                 }
                 if owns_listener(observed.main_pid, self.bind)? {
-                    let payload: StartupPayload =
-                        private_read(&self.run.join("startup.json"))?;
+                    let payload: StartupPayload = private_read(&self.run.join("startup.json"))?;
                     let exact = server::reopen_generation(&payload.generation, &payload.recipe)?;
                     if fs::read_link(format!("/proc/{}/exe", observed.main_pid))?
                         != exact.executable()
@@ -983,9 +1025,9 @@ impl NativeCanonicalService {
                     "owned ingress exited before readiness",
                 ));
             }
-            if let Ok(claim) = private_read::<StartupClaim>(
-                &self.run.join(format!("worker-{index}.ready.json")),
-            ) {
+            if let Ok(claim) =
+                private_read::<StartupClaim>(&self.run.join(format!("worker-{index}.ready.json")))
+            {
                 if claim.nonce != self.state.nonce
                     || claim.pid != observed.main_pid
                     || claim.invocation != hex_bytes(&observed.invocation)
@@ -1031,10 +1073,9 @@ impl NativeCanonicalService {
             .checked_sub(1)
             .ok_or(NativeServiceError::Refused("no native ingress was started"))?;
         tokio::time::timeout_at(deadline.into(), async {
-            let mut socket = tokio::net::UnixStream::connect(
-                self.run.join(format!("worker-{index}.sock")),
-            )
-            .await?;
+            let mut socket =
+                tokio::net::UnixStream::connect(self.run.join(format!("worker-{index}.sock")))
+                    .await?;
             socket.write_all(&[0]).await?;
             let mut answer = Vec::new();
             socket.take(256).read_to_end(&mut answer).await?;
@@ -1150,20 +1191,37 @@ impl NativeCanonicalService {
     /// No database transformation is replayed and no existing external state is edited.
     /// # Errors
     /// Original fixture admission, receipt target, private configuration or publication differs.
-    pub fn promote_activated_module(&mut self, receipt: &SchemaMigrationReceipt) -> Result<(), NativeServiceError> {
-        if self.closing || self.disposed { return Err(NativeServiceError::Refused("original native service admission is closed")); }
+    pub fn promote_activated_module(
+        &mut self,
+        receipt: &SchemaMigrationReceipt,
+    ) -> Result<(), NativeServiceError> {
+        if self.closing || self.disposed {
+            return Err(NativeServiceError::Refused(
+                "original native service admission is closed",
+            ));
+        }
         self.state.verify()?;
         self.records.verify(&self.state.path)?;
-        let target = receipt.target_module().ok_or(NativeServiceError::Refused("activation has no explicit prepared target module"))?;
+        let target = receipt.target_module().ok_or(NativeServiceError::Refused(
+            "activation has no explicit prepared target module",
+        ))?;
         let path = self.state.path.join("config.json");
         let mut configuration: serde_json::Value = private_read(&path)?;
-        let prepared = serde_json::to_value(&target.receipt).map_err(|_| NativeServiceError::Refused("cannot encode prepared module selection"))?;
+        let prepared = serde_json::to_value(&target.receipt)
+            .map_err(|_| NativeServiceError::Refused("cannot encode prepared module selection"))?;
         if configuration.get("schema_migration_target") != Some(&prepared) {
-            return Err(NativeServiceError::Refused("verified activation belongs to a different prepared module selection"));
+            return Err(NativeServiceError::Refused(
+                "verified activation belongs to a different prepared module selection",
+            ));
         }
-        if configuration.get("study_module") == Some(&prepared) { return Ok(()); }
+        if configuration.get("study_module") == Some(&prepared) {
+            return Ok(());
+        }
         configuration["study_module"] = prepared;
-        let temporary = self.state.path.join(format!("module-selection-{}.json", uuid::Uuid::new_v4()));
+        let temporary = self
+            .state
+            .path
+            .join(format!("module-selection-{}.json", uuid::Uuid::new_v4()));
         private_write(&temporary, &configuration)?;
         fs::rename(&temporary, &path)?;
         File::open(&self.state.path)?.sync_all()?;
@@ -1174,9 +1232,16 @@ impl NativeCanonicalService {
     /// # Errors
     /// Original service/fence differs, or actual authentication/admission/transaction staging fails.
     #[cfg(feature = "test-support")]
-    pub async fn stage_schema_fence_write(&mut self, ready: &SchemaReady, deadline: Instant) -> Result<crate::canonical::migration::SchemaFenceWrite, NativeServiceError> {
-        if self.closing || !self.initialized || ready.store().deployment_state() != self.state.path {
-            return Err(NativeServiceError::Refused("held schema write requires this initialized private fixture"));
+    pub async fn stage_schema_fence_write(
+        &mut self,
+        ready: &SchemaReady,
+        deadline: Instant,
+    ) -> Result<crate::canonical::migration::SchemaFenceWrite, NativeServiceError> {
+        if self.closing || !self.initialized || ready.store().deployment_state() != self.state.path
+        {
+            return Err(NativeServiceError::Refused(
+                "held schema write requires this initialized private fixture",
+            ));
         }
         let write = crate::canonical::migration::SchemaFenceWrite::new(ready, deadline);
         self.schema_writes.push(write.clone());
@@ -1243,7 +1308,11 @@ impl NativeCanonicalService {
     pub async fn shutdown(&mut self, deadline: Instant) -> Result<(), NativeServiceError> {
         self.closing = true;
         #[cfg(feature = "test-support")]
-        let schema_drains = futures_util::future::join_all(self.schema_writes.iter().map(crate::canonical::migration::SchemaFenceWrite::cancel));
+        let schema_drains = futures_util::future::join_all(
+            self.schema_writes
+                .iter()
+                .map(crate::canonical::migration::SchemaFenceWrite::cancel),
+        );
         #[cfg(not(feature = "test-support"))]
         let schema_drains = async { Vec::<Result<(), CanonicalError>>::new() };
         // Connection close can still dispatch cancellation or protection-release RPCs.
@@ -1285,7 +1354,9 @@ impl NativeCanonicalService {
             self.launch_dispatched,
             &mut self.process_drained,
             deadline,
-        ).await {
+        )
+        .await
+        {
             failures.push(error);
         }
         if !failures.is_empty() {
@@ -1305,10 +1376,16 @@ impl NativeCanonicalService {
     /// The typed failure retains this exact service for explicit retry.
     pub fn try_into_stopped(self) -> Result<StoppedCanonicalState, NativeServiceTransferFailure> {
         let checked = (|| {
-            if !self.stopped || !self.closing || !self.initialized || !self.launch_dispatched
-                || self.process_drained.is_none() || self.disposed
+            if !self.stopped
+                || !self.closing
+                || !self.initialized
+                || !self.launch_dispatched
+                || self.process_drained.is_none()
+                || self.disposed
             {
-                return Err(NativeServiceError::Refused("initialized original physical shutdown is required before state transfer"));
+                return Err(NativeServiceError::Refused(
+                    "initialized original physical shutdown is required before state transfer",
+                ));
             }
             self.state.verify()?;
             verify_run(&self.state.path, &self.run)?;
@@ -1319,7 +1396,9 @@ impl NativeCanonicalService {
             let path = self.run.join("stopped.json");
             if path.exists() {
                 if private_read::<serde_json::Value>(&path)? != receipt {
-                    return Err(NativeServiceError::Refused("original stopped-state receipt differs"));
+                    return Err(NativeServiceError::Refused(
+                        "original stopped-state receipt differs",
+                    ));
                 }
             } else {
                 private_write(&path, &receipt)?;
@@ -1328,7 +1407,10 @@ impl NativeCanonicalService {
         })();
         match checked {
             Ok(()) => Ok(StoppedCanonicalState { service: self }),
-            Err(source) => Err(NativeServiceTransferFailure { owner: Box::new(self), source }),
+            Err(source) => Err(NativeServiceTransferFailure {
+                owner: Box::new(self),
+                source: Box::new(source),
+            }),
         }
     }
     /// Delete only this newly created disposable state after explicit successful settlement.
@@ -1410,8 +1492,12 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
         ));
     }
     verify_run(&payload.state, &payload.run)?;
-    if payload.module_root != payload.state.join("module") && payload.module_root != payload.state.join("modules") {
-        return Err(NativeServiceError::Refused("startup module root differs from private owned artifact directories"));
+    if payload.module_root != payload.state.join("module")
+        && payload.module_root != payload.state.join("modules")
+    {
+        return Err(NativeServiceError::Refused(
+            "startup module root differs from private owned artifact directories",
+        ));
     }
     private_path(&payload.module_root, true)?;
     let disposable: DisposableIdentity = private_read(&payload.state.join("disposable.json"))?;
@@ -1476,10 +1562,7 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
         .env("SURREAL_PASS", credentials.password)
         .env("SURREAL_GRPC_MAX_MESSAGE_SIZE", MESSAGE_BYTES.to_string())
         .env("SURREAL_CAPS_ALLOW_EXPERIMENTAL", "files,surrealism")
-        .env(
-            "SURREAL_BUCKET_FOLDER_ALLOWLIST",
-            &payload.module_root,
-        )
+        .env("SURREAL_BUCKET_FOLDER_ALLOWLIST", &payload.module_root)
         .envs(module.runtime_environment())
         .stdin(Stdio::null())
         .stdout(Stdio::from(log.try_clone()?))
@@ -1889,7 +1972,11 @@ mod tests {
             inode: metadata.ino(),
             nonce: "original".into(),
         };
-        for name in ["config.json", "credentials.json", "original-module-receipt.json"] {
+        for name in [
+            "config.json",
+            "credentials.json",
+            "original-module-receipt.json",
+        ] {
             private_write(&state.path.join(name), &serde_json::json!({})).unwrap();
         }
         let records = RetainedRecords::read(&state.path).unwrap();
@@ -1982,7 +2069,10 @@ mod tests {
         let (mut service, _) = failed.into_parts();
         assert_eq!(service.intent().unit(), original);
         assert_eq!(service.state(), path);
-        service.shutdown(Instant::now() + Duration::from_secs(1)).await.unwrap();
+        service
+            .shutdown(Instant::now() + Duration::from_secs(1))
+            .await
+            .unwrap();
         // A shutdown of an unlaunched fixture cannot authorize retaining a database.
         let (mut service, _) = service.try_into_stopped().unwrap_err().into_parts();
         service.dispose().unwrap();
@@ -1992,7 +2082,11 @@ mod tests {
     fn native_service_retained_records_refuse_changed_endpoint_and_credentials() {
         let (_temporary, service) = unlaunched_service();
         service.records.verify(service.state()).unwrap();
-        for name in ["config.json", "credentials.json", "original-module-receipt.json"] {
+        for name in [
+            "config.json",
+            "credentials.json",
+            "original-module-receipt.json",
+        ] {
             let path = service.state().join(name);
             fs::remove_file(&path).unwrap();
             private_write(&path, &serde_json::json!({"changed": true})).unwrap();
@@ -2012,13 +2106,21 @@ mod tests {
             "schema_migration_target":{"sha256":"new"},
         });
         private_write(&path, &configuration).unwrap();
-        private_write(&service.state().join("target-module-source-receipt.json"), &serde_json::json!({})).unwrap();
+        private_write(
+            &service.state().join("target-module-source-receipt.json"),
+            &serde_json::json!({}),
+        )
+        .unwrap();
         let records = RetainedRecords::read(service.state()).unwrap();
         configuration["study_module"] = configuration["schema_migration_target"].clone();
         fs::remove_file(&path).unwrap();
         private_write(&path, &configuration).unwrap();
         records.verify(service.state()).unwrap();
-        for (field, value) in [("endpoint", serde_json::json!("grpc://foreign")), ("credentials_file", serde_json::json!("foreign-credentials")), ("study_module", serde_json::json!({"sha256":"third"}))] {
+        for (field, value) in [
+            ("endpoint", serde_json::json!("grpc://foreign")),
+            ("credentials_file", serde_json::json!("foreign-credentials")),
+            ("study_module", serde_json::json!({"sha256":"third"})),
+        ] {
             let mut changed = configuration.clone();
             changed[field] = value;
             fs::remove_file(&path).unwrap();

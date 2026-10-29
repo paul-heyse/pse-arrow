@@ -106,25 +106,49 @@ def validate_case(case: LoopCase) -> None:
     """Bind the reference to the retained original scientific case."""
     require(case.id == "closed-loop-pi-first-order-v1", "unknown PI reference case")
     require(
-        (case.tau_seconds, case.kp, case.ti_seconds, case.bias, case.setpoint,
-         case.initial_process, case.initial_integral_seconds, case.derivative_seconds,
-         case.lower, case.upper, case.initial_step_seconds)
+        (
+            case.tau_seconds,
+            case.kp,
+            case.ti_seconds,
+            case.bias,
+            case.setpoint,
+            case.initial_process,
+            case.initial_integral_seconds,
+            case.derivative_seconds,
+            case.lower,
+            case.upper,
+            case.initial_step_seconds,
+        )
         == (5.0, 0.5, 2.0, 0.5, 1.0, 0.5, 0.0, 0.0, -1000.0, 1000.0, 1e-4),
         "PI case differs from the original gains, conventions or initial conditions",
     )
-    require(case.samples_seconds == [0.0, 1.0, 2.0, 5.0, 10.0, 20.0], "original sample times changed")
+    require(
+        case.samples_seconds == [0.0, 1.0, 2.0, 5.0, 10.0, 20.0],
+        "original sample times changed",
+    )
     # The value comes from the native policy owner, not a second Python default.
-    require(math.isfinite(case.engineering_fraction) and 0.0 < case.engineering_fraction < 0.01,
-            "invalid native engineering allowance")
+    require(
+        math.isfinite(case.engineering_fraction)
+        and 0.0 < case.engineering_fraction < 0.01,
+        "invalid native engineering allowance",
+    )
 
 
 def environment(pins: dict[str, str]) -> dict[str, str]:
     """Require the declared reference pins and executable reference environment."""
-    require((3, 11) <= sys.version_info[:2] < (3, 15), "reference requires Python 3.11-3.14")
+    require(
+        (3, 11) <= sys.version_info[:2] < (3, 15), "reference requires Python 3.11-3.14"
+    )
     require(set(pins) == {"idaes-pse", "pyomo"}, "missing or unknown reference pins")
     observed = {name: importlib.metadata.version(name) for name in pins}
-    require(observed == pins, f"reference pin mismatch: expected {pins}, observed {observed}")
-    require(shutil.which("ipopt") is not None, "ipopt is absent; reference execution never skips")
+    require(
+        observed == pins,
+        f"reference pin mismatch: expected {pins}, observed {observed}",
+    )
+    require(
+        shutil.which("ipopt") is not None,
+        "ipopt is absent; reference execution never skips",
+    )
     observed["python"] = ".".join(str(part) for part in sys.version_info[:3])
     observed["numpy"] = importlib.metadata.version("numpy")
     return observed
@@ -134,19 +158,37 @@ def exact(case: LoopCase) -> tuple[list[float], float, float]:
     """Solve d(y,I)/dt=A(y,I)+c by eigendecomposition, as in the original oracle."""
     import numpy as np
 
-    a = np.array([[-(1 + case.kp) / case.tau_seconds, case.kp / case.ti_seconds / case.tau_seconds], [-1.0, 0.0]])
-    c = np.array([(case.bias + case.kp * case.setpoint) / case.tau_seconds, case.setpoint])
+    a = np.array(
+        [
+            [
+                -(1 + case.kp) / case.tau_seconds,
+                case.kp / case.ti_seconds / case.tau_seconds,
+            ],
+            [-1.0, 0.0],
+        ]
+    )
+    c = np.array(
+        [(case.bias + case.kp * case.setpoint) / case.tau_seconds, case.setpoint]
+    )
     steady = np.linalg.solve(a, -c)
     start = np.array([case.initial_process, case.initial_integral_seconds])
     eigenvalues, vectors = np.linalg.eig(a)
     offset = np.linalg.solve(vectors, start - steady)
-    response = [float(np.real(steady[0] + vectors[0] @ (np.exp(eigenvalues * t) * offset)))
-                for t in case.samples_seconds]
+    response = [
+        float(np.real(steady[0] + vectors[0] @ (np.exp(eigenvalues * t) * offset)))
+        for t in case.samples_seconds
+    ]
     # Steady process is the setpoint, with u=y and error=0. Integral is in seconds,
     # whereas IDAES's mv_integral_component is Kp*I/Ti in manipulated units.
-    require(abs(float(steady[0]) - case.setpoint) <= case.engineering_fraction, "exact equilibrium process differs")
+    require(
+        abs(float(steady[0]) - case.setpoint) <= case.engineering_fraction,
+        "exact equilibrium process differs",
+    )
     expected_integral = case.ti_seconds * (case.setpoint - case.bias) / case.kp
-    require(abs(float(steady[1]) - expected_integral) <= case.engineering_fraction, "exact equilibrium integral differs")
+    require(
+        abs(float(steady[1]) - expected_integral) <= case.engineering_fraction,
+        "exact equilibrium integral differs",
+    )
     require(all(math.isfinite(value) for value in response), "nonfinite exact response")
     return response, float(steady[0]), float(steady[1])
 
@@ -177,8 +219,10 @@ def petsc_response(case: LoopCase) -> list[float]:
         return case.tau_seconds * block.dy[time] == block.u[time] - block.y[time]
 
     model.fs.ctrl = PIDController(
-        process_var=model.fs.y, manipulated_var=model.fs.u,
-        controller_type=ControllerType.PI, calculate_initial_integral=False,
+        process_var=model.fs.y,
+        manipulated_var=model.fs.u,
+        controller_type=ControllerType.PI,
+        calculate_initial_integral=False,
     )
     pyo.TransformationFactory("dae.finite_difference").apply_to(
         model.fs, nfe=4, wrt=model.fs.time, scheme="BACKWARD"
@@ -187,7 +231,9 @@ def petsc_response(case: LoopCase) -> list[float]:
     model.fs.ctrl.gain_i.fix(case.kp / case.ti_seconds)
     model.fs.ctrl.setpoint.fix(case.setpoint)
     model.fs.ctrl.mv_ref.fix(case.bias)
-    model.fs.ctrl.mv_integral_component[0].fix(case.kp * case.initial_integral_seconds / case.ti_seconds)
+    model.fs.ctrl.mv_integral_component[0].fix(
+        case.kp * case.initial_integral_seconds / case.ti_seconds
+    )
     model.fs.y[0].fix(case.initial_process)
     reader = petsc.petsc_binary_io()
     require(reader is not None, "PETSc trajectory reader is unavailable")
@@ -204,25 +250,35 @@ def petsc_response(case: LoopCase) -> list[float]:
         ownership.callback(lambda: [handle.close() for handle in handles])
         ownership.enter_context(patch.object(reader, "open", reader_open, create=True))
         result = petsc.petsc_dae_by_time_element(
-            model, time=model.fs.time,
+            model,
+            time=model.fs.time,
             ts_options={
-                "--ts_type": "bdf", "--ts_bdf_order": 3, "--ts_adapt_type": "basic",
+                "--ts_type": "bdf",
+                "--ts_bdf_order": 3,
+                "--ts_adapt_type": "basic",
                 # Retain the independent reference's finer integration, including
                 # its saved-trajectory interpolation accuracy, from the original.
-                "--ts_rtol": 1e-10, "--ts_atol": 1e-12, "--ts_dt": 1e-3,
+                "--ts_rtol": 1e-10,
+                "--ts_atol": 1e-12,
+                "--ts_dt": 1e-3,
                 "--ts_save_trajectory": 1,
             },
         )
         trajectory = result.trajectory.interpolate(case.samples_seconds)
         values = [float(value) for value in trajectory.get_vec(model.fs.y[end])]
-    require(len(values) == len(case.samples_seconds), "PETSc sample coverage incomplete")
+    require(
+        len(values) == len(case.samples_seconds), "PETSc sample coverage incomplete"
+    )
     require(all(math.isfinite(value) for value in values), "nonfinite PETSc response")
     return values
 
 
 def close(left: float, right: float, allowance: float, reason: str) -> None:
     """Scalar canonical floor is one; comparisons retain zero relative tolerance."""
-    require(math.isfinite(left) and math.isfinite(right) and abs(left - right) <= allowance, reason)
+    require(
+        math.isfinite(left) and math.isfinite(right) and abs(left - right) <= allowance,
+        reason,
+    )
 
 
 def compare(candidate: Candidate, case: LoopCase, reference: Reference) -> Comparison:
@@ -235,16 +291,37 @@ def compare(candidate: Candidate, case: LoopCase, reference: Reference) -> Compa
         require(report.accepted, "native trajectory not accepted")
         require(report.termination == "completed", "native integration not completed")
         require(report.fixture_passed, "native authored fixture failed")
-        require(report.samples_seconds == case.samples_seconds, "native sample times differ")
+        require(
+            report.samples_seconds == case.samples_seconds, "native sample times differ"
+        )
         count = len(case.samples_seconds)
-        require(len(report.process) == count and len(report.measurement) == count, "native sample coverage incomplete")
+        require(
+            len(report.process) == count and len(report.measurement) == count,
+            "native sample coverage incomplete",
+        )
         for time, ours, measured, want, idaes in zip(
-            case.samples_seconds, report.process, report.measurement,
-            reference.exact_process, reference.petsc_process, strict=True,
+            case.samples_seconds,
+            report.process,
+            report.measurement,
+            reference.exact_process,
+            reference.petsc_process,
+            strict=True,
         ):
-            close(ours, measured, case.engineering_fraction, f"plant versus measurement at {time}s")
-            close(ours, want, case.engineering_fraction, f"native versus exact at {time}s")
-            close(ours, idaes, case.engineering_fraction, f"native versus PETSc at {time}s")
+            close(
+                ours,
+                measured,
+                case.engineering_fraction,
+                f"plant versus measurement at {time}s",
+            )
+            close(
+                ours, want, case.engineering_fraction, f"native versus exact at {time}s"
+            )
+            close(
+                ours,
+                idaes,
+                case.engineering_fraction,
+                f"native versus PETSc at {time}s",
+            )
     except ValueError as error:
         return Comparison(candidate.id, "failed", [str(error)])
     return Comparison(candidate.id, "passed", [])
@@ -258,17 +335,46 @@ def main() -> None:
     require(request.version == 1, "unsupported exchange version")
     validate_case(request.case)
     identities = [candidate.id for candidate in request.candidates]
-    require(bool(identities) and all(identities) and len(set(identities)) == len(identities), "candidate identities must be unique and nonempty")
+    require(
+        bool(identities)
+        and all(identities)
+        and len(set(identities)) == len(identities),
+        "candidate identities must be unique and nonempty",
+    )
     with contextlib.redirect_stdout(sys.stderr):
         observed = environment(request.pins)
         values, steady_process, steady_integral = exact(request.case)
         integrated = petsc_response(request.case)
-    for time, want, idaes in zip(request.case.samples_seconds, values, integrated, strict=True):
-        close(idaes, want, request.case.engineering_fraction, f"PETSc versus exact at {time}s")
-    require(not any(name == "pse" or name.startswith("pse.") for name in sys.modules), "reference imported the candidate product")
-    reference = Reference(request.case.samples_seconds, values, integrated, steady_process, steady_integral)
-    response = Response(1, request.case.id, observed, reference,
-                        [compare(candidate, request.case, reference) for candidate in request.candidates])
+    for time, want, idaes in zip(
+        request.case.samples_seconds, values, integrated, strict=True
+    ):
+        close(
+            idaes,
+            want,
+            request.case.engineering_fraction,
+            f"PETSc versus exact at {time}s",
+        )
+    require(
+        not any(name == "pse" or name.startswith("pse.") for name in sys.modules),
+        "reference imported the candidate product",
+    )
+    reference = Reference(
+        request.case.samples_seconds,
+        values,
+        integrated,
+        steady_process,
+        steady_integral,
+    )
+    response = Response(
+        1,
+        request.case.id,
+        observed,
+        reference,
+        [
+            compare(candidate, request.case, reference)
+            for candidate in request.candidates
+        ],
+    )
     Path(sys.argv[2]).write_bytes(msgspec.json.encode(response))
 
 

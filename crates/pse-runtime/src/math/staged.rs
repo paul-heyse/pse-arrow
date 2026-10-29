@@ -1023,12 +1023,23 @@ impl MathService {
             let result = match thread.await {
                 Ok(Ok(())) => Ok(()),
                 Ok(Err(panic)) => {
-                    let message = panic.downcast_ref::<String>().cloned()
-                        .or_else(|| panic.downcast_ref::<&str>().map(|message| (*message).to_owned()))
-                        .unwrap_or_else(|| "native session thread panic with opaque payload".into());
+                    let message = panic
+                        .downcast_ref::<String>()
+                        .cloned()
+                        .or_else(|| {
+                            panic
+                                .downcast_ref::<&str>()
+                                .map(|message| (*message).to_owned())
+                        })
+                        .unwrap_or_else(|| {
+                            "native session thread panic with opaque payload".into()
+                        });
                     Err(MathRuntimeError::Panic(message))
                 }
-                Err(source) => Err(MathRuntimeError::WorkerJoin { operation: "native session join", source }),
+                Err(source) => Err(MathRuntimeError::WorkerJoin {
+                    operation: "native session join",
+                    source,
+                }),
             };
             drop(lease);
             joined_population.drain().await;
@@ -1932,11 +1943,14 @@ impl NativeSession {
         if let Err(cause) = reset {
             let cleanup = self.close().await;
             // Optional residency refusal cannot replace an already assessed result.
-            return MathRuntimeError::settle(if attempted.load(Ordering::Acquire) {
-                Err(cause)
-            } else {
-                Ok(())
-            }, cleanup);
+            return MathRuntimeError::settle(
+                if attempted.load(Ordering::Acquire) {
+                    Err(cause)
+                } else {
+                    Ok(())
+                },
+                cleanup,
+            );
         }
         let service = self.service.clone();
         if service.jobs.is_closed() || service.pressure.active() {
@@ -1989,19 +2003,22 @@ impl NativeSession {
         self.population.close();
         self.sender.take();
         let result = session_join_result(self.joined.take()).await;
-            if let Some(context) = observation {
-                if !matches!(&result, Err(MathRuntimeError::Infrastructure(_) | MathRuntimeError::Internal(_))) {
-                    crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(
-                        context.clone(),
-                    ))
-                    .record(pse_diagnostics::lifecycle::LifecycleBoundary::Joined, true);
-                } else {
-                    context.unavailable(
-                        pse_diagnostics::lifecycle::LifecycleBoundary::Joined.native_session_key(),
-                        "join supervisor reply absent",
-                    );
-                }
+        if let Some(context) = observation {
+            if !matches!(
+                &result,
+                Err(MathRuntimeError::Infrastructure(_) | MathRuntimeError::Internal(_))
+            ) {
+                crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(
+                    context.clone(),
+                ))
+                .record(pse_diagnostics::lifecycle::LifecycleBoundary::Joined, true);
+            } else {
+                context.unavailable(
+                    pse_diagnostics::lifecycle::LifecycleBoundary::Joined.native_session_key(),
+                    "join supervisor reply absent",
+                );
             }
+        }
         drop(phase);
         result
     }
@@ -2011,8 +2028,12 @@ async fn session_join_result(
     joined: Option<tokio::sync::oneshot::Receiver<Result<(), MathRuntimeError>>>,
 ) -> Result<(), MathRuntimeError> {
     match joined {
-        Some(joined) => joined.await.map_err(|_| MathRuntimeError::Infrastructure("native session join supervisor reply absent".into()))?,
-        None => Err(MathRuntimeError::Internal("native session join owner absent".into())),
+        Some(joined) => joined.await.map_err(|_| {
+            MathRuntimeError::Infrastructure("native session join supervisor reply absent".into())
+        })?,
+        None => Err(MathRuntimeError::Internal(
+            "native session join owner absent".into(),
+        )),
     }
 }
 impl Drop for NativeSession {
@@ -2040,19 +2061,29 @@ mod admission_tests {
         fn drop(&mut self) {
             match self {
                 Self::Wait(receiver, observed) => observed.store(
-                    receiver.recv_timeout(std::time::Duration::from_secs(5)).is_ok(), Ordering::Release,
+                    receiver
+                        .recv_timeout(std::time::Duration::from_secs(5))
+                        .is_ok(),
+                    Ordering::Release,
                 ),
-                Self::Notify(sender) => { let _ = sender.send(()); },
+                Self::Notify(sender) => {
+                    let _ = sender.send(());
+                }
             }
         }
     }
     thread_local! { static JOIN_EXIT: std::cell::RefCell<Option<JoinExit>> = const { std::cell::RefCell::new(None) }; }
 
     fn fail_native_thread(sender: &mpsc::Sender<Request>, message: &'static str) {
-        sender.send(Request {
-            threads: 1, backends: vec![], observation: None, scope_owner: None,
-            work: Some(Box::new(move |_| panic!("{message}"))),
-        }).unwrap();
+        sender
+            .send(Request {
+                threads: 1,
+                backends: vec![],
+                observation: None,
+                scope_owner: None,
+                work: Some(Box::new(move |_| panic!("{message}"))),
+            })
+            .unwrap();
     }
 
     #[tokio::test]
@@ -2060,8 +2091,13 @@ mod admission_tests {
         let service = super::super::tests::service();
         let baseline = service.pool.reserved();
         let session = service.open_session().unwrap();
-        fail_native_thread(session.sender.as_ref().unwrap(), "original native session exit");
-        assert!(matches!(session.close().await, Err(MathRuntimeError::Panic(message)) if message == "original native session exit"));
+        fail_native_thread(
+            session.sender.as_ref().unwrap(),
+            "original native session exit",
+        );
+        assert!(
+            matches!(session.close().await, Err(MathRuntimeError::Panic(message)) if message == "original native session exit")
+        );
         assert_eq!(service.pool.reserved(), baseline);
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
     }
@@ -2076,21 +2112,38 @@ mod admission_tests {
         let (release, gate) = mpsc::channel();
         let observed = Arc::new(AtomicBool::new(false));
         let first_observed = observed.clone();
-        first.run(1, None, &cancel, move |_, _, _| {
-            JOIN_EXIT.set(Some(JoinExit::Wait(gate, first_observed)));
-            Ok(())
-        }).await.unwrap();
-        second.run(1, None, &cancel, move |_, _, _| {
-            JOIN_EXIT.set(Some(JoinExit::Notify(release)));
-            Ok(())
-        }).await.unwrap();
+        first
+            .run(1, None, &cancel, move |_, _, _| {
+                JOIN_EXIT.set(Some(JoinExit::Wait(gate, first_observed)));
+                Ok(())
+            })
+            .await
+            .unwrap();
+        second
+            .run(1, None, &cancel, move |_, _, _| {
+                JOIN_EXIT.set(Some(JoinExit::Notify(release)));
+                Ok(())
+            })
+            .await
+            .unwrap();
         let sender = first.sender.as_ref().unwrap().clone();
-        first.park_independent(pse_ids::ContentHash::from_bytes([1; 32]), None, &cancel).await.unwrap();
-        second.park_independent(pse_ids::ContentHash::from_bytes([2; 32]), None, &cancel).await.unwrap();
+        first
+            .park_independent(pse_ids::ContentHash::from_bytes([1; 32]), None, &cancel)
+            .await
+            .unwrap();
+        second
+            .park_independent(pse_ids::ContentHash::from_bytes([2; 32]), None, &cancel)
+            .await
+            .unwrap();
         fail_native_thread(&sender, "first failed lane exit");
         drop(sender);
-        assert!(matches!(service.shutdown_native_lanes().await, Err(MathRuntimeError::Panic(message)) if message == "first failed lane exit"));
-        assert!(observed.load(Ordering::Acquire), "every sender must close before any sibling join blocks");
+        assert!(
+            matches!(service.shutdown_native_lanes().await, Err(MathRuntimeError::Panic(message)) if message == "first failed lane exit")
+        );
+        assert!(
+            observed.load(Ordering::Acquire),
+            "every sender must close before any sibling join blocks"
+        );
         assert_eq!(service.pool.reserved(), baseline);
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
     }
@@ -2101,22 +2154,54 @@ mod admission_tests {
         let service = super::super::tests::service();
         let cancel = crate::CancelSource::new();
         let mut senders = Vec::new();
-        let sessions = [service.open_session().unwrap(), service.open_session().unwrap()];
-        for (index, (session, message)) in sessions.into_iter().zip(["first original native exit", "second original native exit"]).enumerate() {
+        let sessions = [
+            service.open_session().unwrap(),
+            service.open_session().unwrap(),
+        ];
+        for (index, (session, message)) in sessions
+            .into_iter()
+            .zip(["first original native exit", "second original native exit"])
+            .enumerate()
+        {
             senders.push((session.sender.as_ref().unwrap().clone(), message));
-            session.park_independent(pse_ids::ContentHash::from_bytes([index as u8; 32]), None, &cancel).await.unwrap();
+            session
+                .park_independent(
+                    pse_ids::ContentHash::from_bytes([index as u8; 32]),
+                    None,
+                    &cancel,
+                )
+                .await
+                .unwrap();
         }
-        for (sender, message) in senders { fail_native_thread(&sender, message); }
+        for (sender, message) in senders {
+            fail_native_thread(&sender, message);
+        }
         let result = MathRuntimeError::settle::<()>(
-            Err(MathRuntimeError::Cancelled), service.shutdown_native_lanes().await,
-        ).unwrap_err();
-        let MathRuntimeError::Settlement { operation, cleanup } = &result else { panic!("operation and native cleanup failures must both survive") };
+            Err(MathRuntimeError::Cancelled),
+            service.shutdown_native_lanes().await,
+        )
+        .unwrap_err();
+        let MathRuntimeError::Settlement { operation, cleanup } = &result else {
+            panic!("operation and native cleanup failures must both survive")
+        };
         assert!(matches!(operation.as_ref(), MathRuntimeError::Cancelled));
-        assert!(matches!(cleanup.as_ref(), MathRuntimeError::Settlement { .. }));
+        assert!(matches!(
+            cleanup.as_ref(),
+            MathRuntimeError::Settlement { .. }
+        ));
         assert_eq!(miette::Diagnostic::related(&result).unwrap().count(), 2);
-        let rendered = format!("{:?}", result.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native));
-        assert!(rendered.contains("first original native exit"), "{rendered}");
-        assert!(rendered.contains("second original native exit"), "{rendered}");
+        let rendered = format!(
+            "{:?}",
+            result.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+        );
+        assert!(
+            rendered.contains("first original native exit"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("second original native exit"),
+            "{rendered}"
+        );
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
     }
 
@@ -2194,7 +2279,9 @@ mod admission_tests {
                 .iter()
                 .any(|metric| metric.name == "native.session.admission.failure")
         );
-        scope(Some(second.context()), session.close()).await.unwrap();
+        scope(Some(second.context()), session.close())
+            .await
+            .unwrap();
         assert_eq!(
             second
                 .reader()

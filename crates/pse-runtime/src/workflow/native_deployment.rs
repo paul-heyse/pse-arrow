@@ -373,7 +373,8 @@ impl NativeExecutionSelection {
             }
             // Retained legacy profile readers still bind their scientific image.
             // No interpreter/controller artifact is authenticated or executed here.
-            for (path, expected) in [(&receiver.worker_executable, &receiver.worker_sha256)] {
+            {
+                let (path, expected) = (&receiver.worker_executable, &receiver.worker_sha256);
                 let observed =
                     pse_buildinfo::FileObservation::capture(path).map_err(infrastructure)?;
                 if &observed.sha256 != expected {
@@ -515,4 +516,3 @@ fn exists(path: &Path) -> Result<bool, WorkflowError> {
         Err(error) => Err(infrastructure(error)),
     }
 }
-

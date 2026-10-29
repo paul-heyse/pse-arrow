@@ -293,6 +293,8 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# Direct -I oracle scripts are not packages; upstream imports follow pin/protocol checks.
+"tests/reference/oracles/*.py" = ["INP001", "PLC0415"]
 "scripts/tests/**" = ["S101"] # Acceptance assertions belong in test modules.
 "conftest.py" = ["D1", "INP001", "S603", "S607"]
 "python/pse/tests/**" = [
@@ -399,6 +401,12 @@ python-version = "3.11"
 [[tool.pyrefly.sub-config]]
 matches = "python/pse/parity/**"
 replace-imports-with-any = ["idaes.*", "pyomo.*", "pint.*"]
+
+# Same isolated IDAES/Pyomo boundary as parity above: locally typed exchange
+# records/control remain checked; upstream dynamic modeling objects lack usable stubs.
+[[tool.pyrefly.sub-config]]
+matches = "tests/reference/oracles/*.py"
+replace-imports-with-any = ["idaes.*", "pyomo.*"]
 
 # Executed only by plan14-reference in its isolated locked Python 3.12 environment.
 # These upstream modules do not ship typing metadata for the development checker.

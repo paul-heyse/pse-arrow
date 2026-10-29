@@ -274,8 +274,13 @@ impl crate::canonical::CanonicalStore {
         use crate::canonical::transport::{original_deadline, within_clock};
         use crate::canonical::{CanonicalError, REQUEST_TIMEOUT, protected_query};
         #[cfg(any(test, feature = "test-support"))]
-        if CONTROL_READBACK_FAILED.try_with(|failed| *failed).unwrap_or(false) {
-            return Err(CanonicalError::Configuration("private control readback failure".into()));
+        if CONTROL_READBACK_FAILED
+            .try_with(|failed| *failed)
+            .unwrap_or(false)
+        {
+            return Err(CanonicalError::Configuration(
+                "private control readback failure".into(),
+            ));
         }
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {

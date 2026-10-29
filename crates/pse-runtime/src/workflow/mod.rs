@@ -140,8 +140,11 @@ pub use native_deployment::{
     NativeExecutionAllocation, NativeExecutionSelection, PreparedReceiverEnvironment,
     ProductionProfile, ProductionProfileName, ProductionProfiles, RegisteredNativeContext,
 };
+pub use native_worker::{
+    NativeStudyWorker, NativeStudyWorkerInputs, NativeStudyWorkerObserver, NativeStudyWorkerSpec,
+    NativeWorkerTerminal,
+};
 pub use worker::{PhysicalSource, Processed, WorkerSettings};
-pub use native_worker::{NativeStudyWorker, NativeStudyWorkerInputs, NativeStudyWorkerObserver, NativeStudyWorkerSpec, NativeWorkerTerminal};
 mod declared_requests;
 mod operation_preparation;
 pub use declared_requests::conform_pure_request;
@@ -500,12 +503,16 @@ pub enum WorkflowError {
     Typed(pse_model::diagnostic::DiagnosticCause),
 }
 impl WorkflowError {
-    pub(crate) fn settle<T>(operation: Result<T, Self>, cleanup: Result<(), Self>) -> Result<T, Self> {
+    pub(crate) fn settle<T>(
+        operation: Result<T, Self>,
+        cleanup: Result<(), Self>,
+    ) -> Result<T, Self> {
         match (operation, cleanup) {
             (Ok(value), Ok(())) => Ok(value),
             (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
             (Err(operation), Err(cleanup)) => Err(Self::Settlement {
-                operation: Box::new(operation), cleanup: Box::new(cleanup),
+                operation: Box::new(operation),
+                cleanup: Box::new(cleanup),
             }),
         }
     }

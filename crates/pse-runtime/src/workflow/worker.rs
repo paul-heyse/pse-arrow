@@ -211,12 +211,16 @@ fn retain_failure(failure: &mut Option<WorkflowError>, next: WorkflowError) {
     });
 }
 
-fn settle_worker_result<T>(result: Result<T, WorkflowError>, cleanup: Option<WorkflowError>) -> Result<T, WorkflowError> {
+fn settle_worker_result<T>(
+    result: Result<T, WorkflowError>,
+    cleanup: Option<WorkflowError>,
+) -> Result<T, WorkflowError> {
     match (result, cleanup) {
         (result, None) => result,
         (Ok(_), Some(error)) => Err(error),
         (Err(operation), Some(cleanup)) => Err(WorkflowError::Settlement {
-            operation: Box::new(operation), cleanup: Box::new(cleanup),
+            operation: Box::new(operation),
+            cleanup: Box::new(cleanup),
         }),
     }
 }
@@ -332,7 +336,10 @@ where
                             // may refill once this handoff obtains publication.
                             refill = true;
                         } else {
-                            retain_failure(&mut failure, contract("worker duplicate publication handoff"));
+                            retain_failure(
+                                &mut failure,
+                                contract("worker duplicate publication handoff"),
+                            );
                             drain.cancel();
                         }
                     } else {
@@ -370,7 +377,10 @@ where
                             match count.checked_add(1) {
                                 Some(next) => count = next,
                                 None => {
-                                    retain_failure(&mut failure, contract("worker processed count overflow"));
+                                    retain_failure(
+                                        &mut failure,
+                                        contract("worker processed count overflow"),
+                                    );
                                     drain.cancel();
                                 }
                             }
@@ -1105,14 +1115,19 @@ mod lane_tests {
             issued += 1;
             let returned = returned.clone();
             async move {
-                if lane != 0 { drain.cancelled().await; }
+                if lane != 0 {
+                    drain.cancelled().await;
+                }
                 returned.fetch_add(1, Ordering::SeqCst);
                 Err(contract(format!("original lane {lane} failure")))
             }
-        }).await;
+        })
+        .await;
         let error = result.unwrap_err();
         assert_eq!(returned.load(Ordering::SeqCst), 2);
-        let WorkflowError::Settlement { operation, cleanup } = error else { panic!("missing independent lane cause") };
+        let WorkflowError::Settlement { operation, cleanup } = error else {
+            panic!("missing independent lane cause")
+        };
         assert!(operation.to_string().contains("original lane 0 failure"));
         assert!(cleanup.to_string().contains("original lane 1 failure"));
         let error = settle_worker_result::<()>(Err(*operation), Some(*cleanup)).unwrap_err();
@@ -1558,20 +1573,28 @@ impl Runtime {
         cancel: &crate::CancelSource,
     ) -> Result<super::NativeStudyWorkerObserver, WorkflowError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-            if cancel.token().is_cancelled() {
-                return Err(crate::math::MathRuntimeError::Cancelled.into());
-            }
-            let primary = self.managed_worker.as_ref().ok_or_else(|| {
-                contract("durable study requires the application root's ready native worker borrow")
-            })?;
-            primary.require_store(operations(self)?.store(), self.shared.budget().memory_limit_bytes.get())?;
-            match primary.observe().await? {
-                PrimaryObservation::Live => Ok(primary.clone()),
-                PrimaryObservation::Drained | PrimaryObservation::OwnerChanged =>
-                    Err(contract("original native study worker is no longer live")),
-            }
-        }).await
+        activity
+            .scope(async {
+                if cancel.token().is_cancelled() {
+                    return Err(crate::math::MathRuntimeError::Cancelled.into());
+                }
+                let primary = self.managed_worker.as_ref().ok_or_else(|| {
+                    contract(
+                        "durable study requires the application root's ready native worker borrow",
+                    )
+                })?;
+                primary.require_store(
+                    operations(self)?.store(),
+                    self.shared.budget().memory_limit_bytes.get(),
+                )?;
+                match primary.observe().await? {
+                    PrimaryObservation::Live => Ok(primary.clone()),
+                    PrimaryObservation::Drained | PrimaryObservation::OwnerChanged => {
+                        Err(contract("original native study worker is no longer live"))
+                    }
+                }
+            })
+            .await
     }
     /// Claim a structurally ready candidate under its exact consumed revisions.
     pub async fn work_once(&self) -> Result<Processed, WorkflowError> {
@@ -1645,10 +1668,14 @@ impl Runtime {
             if cancel.token().is_cancelled() {
                 return Ok((Processed::Idle, None));
             }
-            let progress = operations.store().progress_studies(continuation.as_ref()).await?;
+            let progress = operations
+                .store()
+                .progress_studies(continuation.as_ref())
+                .await?;
             continuation = progress.continuation;
             match progress.action {
                 StudyProgressAction::Prepare(preparation) => {
+                    let preparation = *preparation;
                     let key = preparation.scope().point().key.clone();
                     let turn = match group {
                         Some(group) => group.acquire(&key),
@@ -1657,16 +1684,30 @@ impl Runtime {
                     if group.is_none() || turn.is_some() {
                         let action_lane = &mut *lane;
                         let action_publication = &mut *publication;
-                        if let Some(result) = self.worker_action(move || self.observe_study_candidate(
-                            operations, preparation, action_lane, cancel, action_publication,
-                        )).await? {
+                        if let Some(result) = self
+                            .worker_action(move || {
+                                self.observe_study_candidate(
+                                    operations,
+                                    preparation,
+                                    action_lane,
+                                    cancel,
+                                    action_publication,
+                                )
+                            })
+                            .await?
+                        {
                             return Ok(result);
                         }
                     }
                 }
-                StudyProgressAction::Settled { point } => return Ok((Processed::Settled { point }, None)),
+                StudyProgressAction::Settled { point } => {
+                    return Ok((Processed::Settled { point }, None));
+                }
                 StudyProgressAction::Maintenance { study } => {
-                    maintenance = Some(Processed::Maintenance { study, examined: progress.examined });
+                    maintenance = Some(Processed::Maintenance {
+                        study,
+                        examined: progress.examined,
+                    });
                 }
                 StudyProgressAction::Finalize(study) => {
                     let key = format!("finalize:{}", study.key);
@@ -1675,7 +1716,10 @@ impl Runtime {
                         None => None,
                     };
                     if (group.is_none() || turn.is_some())
-                        && self.worker_action(|| self.finalize_canonical_study(&study.key)).await? {
+                        && self
+                            .worker_action(|| self.finalize_canonical_study(&study.key))
+                            .await?
+                    {
                         return Ok((Processed::Finalized { study: study.key }, None));
                     }
                 }
@@ -1733,13 +1777,24 @@ impl Runtime {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.source_ref("study.occurrence", candidate.key.as_bytes());
         }
-        if matches!(preparation.action().kind, ActionKind::Wait(WaitReason::ScientificAdmission)) {
+        if matches!(
+            preparation.action().kind,
+            ActionKind::Wait(WaitReason::ScientificAdmission)
+        ) {
             if self.admit_study_candidate(scope, lane, cancel).await? {
-                return Ok(Some((Processed::Maintenance { study: candidate.study, examined: 1 }, None)));
+                return Ok(Some((
+                    Processed::Maintenance {
+                        study: candidate.study,
+                        examined: 1,
+                    },
+                    None,
+                )));
             }
             return Ok(None);
         }
-        let mut prepared = self.prepare_study_candidate_in_lane(scope, lane, cancel).await?;
+        let mut prepared = self
+            .prepare_study_candidate_in_lane(scope, lane, cancel)
+            .await?;
         // A worker label and candidate revision identify a premise, not its caller.
         // Independent calls on the same Runtime must compete for separate claims;
         // replaying one receipt would give both callers custody of the same fence.
@@ -1922,7 +1977,7 @@ impl Runtime {
             }
         }
         let claim = match claim {
-            Ok(pse_operations::canonical_studies::PreparedStudyClaim::Claimed(claim)) => claim,
+            Ok(pse_operations::canonical_studies::PreparedStudyClaim::Claimed(claim)) => *claim,
             Ok(pse_operations::canonical_studies::PreparedStudyClaim::Settled { point }) => {
                 return Ok(Some((Processed::Settled { point }, None)));
             }

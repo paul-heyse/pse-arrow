@@ -3,7 +3,10 @@
 
 //! Test-only commit-order fixture. It uses the production bounded transport and
 //! protobuf decoder while retaining one native transaction on its original driver.
-#![allow(clippy::expect_used, reason = "bounded fixture transaction remains open until its consuming settlement; misuse is a test failure")]
+#![allow(
+    clippy::expect_used,
+    reason = "bounded fixture transaction remains open until its consuming settlement; misuse is a test failure"
+)]
 use super::*;
 
 struct Held {

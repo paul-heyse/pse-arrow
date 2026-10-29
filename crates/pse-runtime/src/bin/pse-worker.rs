@@ -22,12 +22,13 @@ use std::time::Duration;
 mod signals;
 
 use clap::Parser;
-use pse_runtime::workflow::{
-    CanonicalDeployment, DurabilitySelection, LeasePolicy, NativeStudyWorkerInputs, Operations, OuterAttestation, Runtime, WorkflowError,
-};
-use pse_runtime::{CancelSource, ResourceBudget, SharedRuntime};
 #[cfg(test)]
 use pse_runtime::workflow::WorkerSettings;
+use pse_runtime::workflow::{
+    CanonicalDeployment, DurabilitySelection, LeasePolicy, NativeStudyWorkerInputs, Operations,
+    OuterAttestation, Runtime, WorkflowError,
+};
+use pse_runtime::{CancelSource, ResourceBudget, SharedRuntime};
 
 /// Managed canonical study worker.
 #[derive(Debug, Parser)]
@@ -285,39 +286,90 @@ async fn runtime(
     cli: &Cli,
     stop: &CancelSource,
 ) -> Result<(Runtime, NativeStudyWorkerInputs), String> {
-    if stop.token().is_cancelled() { return Err("native worker startup cancelled".into()); }
-    let path = cli.native_input.as_deref().ok_or("--native-input must select an explicit native application handoff")?;
+    if stop.token().is_cancelled() {
+        return Err("native worker startup cancelled".into());
+    }
+    let path = cli
+        .native_input
+        .as_deref()
+        .ok_or("--native-input must select an explicit native application handoff")?;
     let selected = NativeStudyWorkerInputs::read(path).map_err(|error| error.to_string())?;
-    if cli.canonical_database.as_deref().is_some_and(|database| database != selected.database())
-        || cli.until_idle || cli.maximum_actions.is_some() || cli.maximum_in_flight.is_some_and(|width| Some(width) != selected.settings().maximum_in_flight)
-        || cli.poll_ms.is_some_and(|poll| Duration::from_millis(poll) != selected.settings().poll)
-    { return Err("worker overrides differ from the original native sustained application".into()); }
-    verify_placement(&selected.allocation()).map_err(|error| format!("managed placement: {error}"))?;
+    if cli
+        .canonical_database
+        .as_deref()
+        .is_some_and(|database| database != selected.database())
+        || cli.until_idle
+        || cli.maximum_actions.is_some()
+        || cli
+            .maximum_in_flight
+            .is_some_and(|width| Some(width) != selected.settings().maximum_in_flight)
+        || cli
+            .poll_ms
+            .is_some_and(|poll| Duration::from_millis(poll) != selected.settings().poll)
+    {
+        return Err(
+            "worker overrides differ from the original native sustained application".into(),
+        );
+    }
+    verify_placement(&selected.allocation())
+        .map_err(|error| format!("managed placement: {error}"))?;
     let shared = SharedRuntime::build(resource_budget(cli, selected.allocation())?)
         .map_err(|error| format!("runtime budget: {error}"))?;
-    let model = Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())
-        .map_err(|error| error.to_string())?).bind_model(pse_schema::shared_registry().map_err(|error| error.to_string())?)
-        .map_err(|error| error.to_string())?;
+    let model = Arc::new(
+        shared
+            .session_factory(pse_engine::session::native_engine_profile())
+            .map_err(|error| error.to_string())?,
+    )
+    .bind_model(pse_schema::shared_registry().map_err(|error| error.to_string())?)
+    .map_err(|error| error.to_string())?;
     let defaults = LeasePolicy::default();
-    let policy = LeasePolicy::new(Duration::from_secs(cli.lease_seconds), Duration::from_millis(cli.heartbeat_ms), defaults.batch(), defaults.flush())
-        .map_err(|error| error.to_string())?;
-    let worker = cli.name.clone().unwrap_or_else(|| Operations::process_worker("pse-worker"));
+    let policy = LeasePolicy::new(
+        Duration::from_secs(cli.lease_seconds),
+        Duration::from_millis(cli.heartbeat_ms),
+        defaults.batch(),
+        defaults.flush(),
+    )
+    .map_err(|error| error.to_string())?;
+    let worker = cli
+        .name
+        .clone()
+        .unwrap_or_else(|| Operations::process_worker("pse-worker"));
     // Same callable Rust composition as native_study: schema-ready connection,
     // explicit shared budget/model, then the real Runtime::serve scientific root.
     let actual = std::env::current_exe().map_err(|error| error.to_string())?;
     pse_buildinfo::verify_loaded_module(&actual).map_err(|error| error.to_string())?;
     let mut file = std::fs::File::open(&actual).map_err(|error| error.to_string())?;
     let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
-    hash.part_reader(file.metadata().map_err(|error| error.to_string())?.len(), &mut file, &|| Ok(()))
+    hash.part_reader(
+        file.metadata().map_err(|error| error.to_string())?.len(),
+        &mut file,
+        &|| Ok(()),
+    )
+    .map_err(|error| error.to_string())?;
+    let store = selected
+        .connect()
+        .await
         .map_err(|error| error.to_string())?;
-    let store = selected.connect().await.map_err(|error| error.to_string())?;
-    let built = Runtime::from_shared(shared, model, CanonicalDeployment::new(store.clone(), OuterAttestation { source: None, build: hash.finish_hash() }, None))
-        .and_then(|runtime| runtime.with_durability(DurabilitySelection::Durable { worker, policy }));
+    let built = Runtime::from_shared(
+        shared,
+        model,
+        CanonicalDeployment::new(
+            store.clone(),
+            OuterAttestation {
+                source: None,
+                build: hash.finish_hash(),
+            },
+            None,
+        ),
+    )
+    .and_then(|runtime| runtime.with_durability(DurabilitySelection::Durable { worker, policy }));
     match built {
         Ok(runtime) => Ok((runtime, selected)),
         Err(error) => {
             let cleanup = store.disconnect().await;
-            Err(format!("native runtime construction: {error}; connection cleanup: {cleanup:?}"))
+            Err(format!(
+                "native runtime construction: {error}; connection cleanup: {cleanup:?}"
+            ))
         }
     }
 }
@@ -343,7 +395,10 @@ fn worker_settings(
     allocation: pse_runtime::workflow::NativeAllocation,
 ) -> WorkerSettings {
     WorkerSettings {
-        poll: cli.poll_ms.map(Duration::from_millis).unwrap_or(WorkerSettings::default().poll),
+        poll: cli
+            .poll_ms
+            .map(Duration::from_millis)
+            .unwrap_or(WorkerSettings::default().poll),
         maximum_actions: cli.maximum_actions,
         maximum_in_flight: cli
             .maximum_in_flight
@@ -391,7 +446,11 @@ async fn serve(
     finish(&runtime, selected, result).await
 }
 
-async fn finish(runtime: &Runtime, selected: &NativeStudyWorkerInputs, result: Result<usize, WorkflowError>) -> Result<usize, WorkflowError> {
+async fn finish(
+    runtime: &Runtime,
+    selected: &NativeStudyWorkerInputs,
+    result: Result<usize, WorkflowError>,
+) -> Result<usize, WorkflowError> {
     runtime.close();
     runtime.clear_program_cache();
     let native = runtime.native().shutdown_native_lanes().await;
@@ -401,7 +460,8 @@ async fn finish(runtime: &Runtime, selected: &NativeStudyWorkerInputs, result: R
         (Err(error), Ok(())) => Err(error),
         (Ok(_), Err(error)) => Err(error.into()),
         (Err(operation), Err(cleanup)) => Err(WorkflowError::Settlement {
-            operation: Box::new(operation), cleanup: Box::new(cleanup.into()),
+            operation: Box::new(operation),
+            cleanup: Box::new(cleanup.into()),
         }),
     };
     let cleanup = match runtime.canonical_store() {
@@ -409,22 +469,28 @@ async fn finish(runtime: &Runtime, selected: &NativeStudyWorkerInputs, result: R
         // joined. A known response can precede its actual outbound transport
         // drain; seal admission and join that suffix instead of an early busy
         // refusal. Live escaped readers still refuse through the existing owner.
-        Ok(store) => store.drain_owned_connection_until(
-            tokio::time::Instant::now() + Duration::from_secs(30),
-        ).await.map_err(WorkflowError::from),
+        Ok(store) => store
+            .drain_owned_connection_until(tokio::time::Instant::now() + Duration::from_secs(30))
+            .await
+            .map_err(WorkflowError::from),
         Err(error) => Err(error),
     };
     let result = combine(result, cleanup);
     let published = selected.publish_terminal(joined, &result);
     combine(result, published)
-
 }
 
-fn combine<T>(result: Result<T, WorkflowError>, cleanup: Result<(), WorkflowError>) -> Result<T, WorkflowError> {
+fn combine<T>(
+    result: Result<T, WorkflowError>,
+    cleanup: Result<(), WorkflowError>,
+) -> Result<T, WorkflowError> {
     match (result, cleanup) {
         (Ok(value), Ok(())) => Ok(value),
         (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
-        (Err(operation), Err(cleanup)) => Err(WorkflowError::Settlement { operation: Box::new(operation), cleanup: Box::new(cleanup) }),
+        (Err(operation), Err(cleanup)) => Err(WorkflowError::Settlement {
+            operation: Box::new(operation),
+            cleanup: Box::new(cleanup),
+        }),
     }
 }
 
@@ -438,19 +504,33 @@ fn main() -> ExitCode {
     // qualified stack as native structural work, preserving a larger selection.
     let stack = match std::env::var("RUST_MIN_STACK") {
         Ok(value) => match value.parse::<usize>() {
-            Ok(value) if value > 0 => value.max(pse_runtime::math::MathPolicy::default().stack_bytes),
-            _ => { eprintln!("error: RUST_MIN_STACK must be a positive byte count"); return ExitCode::FAILURE; }
+            Ok(value) if value > 0 => {
+                value.max(pse_runtime::math::MathPolicy::default().stack_bytes)
+            }
+            _ => {
+                eprintln!("error: RUST_MIN_STACK must be a positive byte count");
+                return ExitCode::FAILURE;
+            }
         },
         Err(std::env::VarError::NotPresent) => pse_runtime::math::MathPolicy::default().stack_bytes,
-        Err(error) => { eprintln!("error: RUST_MIN_STACK: {error}"); return ExitCode::FAILURE; }
+        Err(error) => {
+            eprintln!("error: RUST_MIN_STACK: {error}");
+            return ExitCode::FAILURE;
+        }
     };
-    match std::thread::Builder::new().name("pse-worker-root".into())
-        .stack_size(stack).spawn(move || run(stack)) {
+    match std::thread::Builder::new()
+        .name("pse-worker-root".into())
+        .stack_size(stack)
+        .spawn(move || run(stack))
+    {
         Ok(root) => match root.join() {
             Ok(status) => status,
             Err(panic) => std::panic::resume_unwind(panic),
         },
-        Err(error) => { eprintln!("error: worker root: {error}"); ExitCode::FAILURE }
+        Err(error) => {
+            eprintln!("error: worker root: {error}");
+            ExitCode::FAILURE
+        }
     }
 }
 
@@ -485,7 +565,8 @@ fn run(stack: usize) -> ExitCode {
     );
     let stop = CancelSource::new();
     // One original source spans startup, readiness, serving and native drain.
-    let interrupt = match executor.block_on(async { signals::ProcessInterrupt::new(stop.clone()) }) {
+    let interrupt = match executor.block_on(async { signals::ProcessInterrupt::new(stop.clone()) })
+    {
         Ok(interrupt) => interrupt,
         Err(error) => {
             eprintln!("error: worker stop listener: {error}");
@@ -504,13 +585,20 @@ fn run(stack: usize) -> ExitCode {
     let diagnostics = runtime.observations().clone();
     #[cfg(feature = "canonical-tests")]
     let startup = (|| {
-        let qualification = cli.qualification_native_entry.as_deref()
-            .map(|directory| qualification::Controller::open(directory, &cli, &selected)).transpose()
-            .map_err(|error| WorkflowError::Internal(format!("native entry qualification: {error}")))?;
+        let qualification = cli
+            .qualification_native_entry
+            .as_deref()
+            .map(|directory| qualification::Controller::open(directory, &cli, &selected))
+            .transpose()
+            .map_err(|error| {
+                WorkflowError::Internal(format!("native entry qualification: {error}"))
+            })?;
         if let Some(controller) = &qualification {
             let observer = controller.clone();
-            pse_runtime::math::install_qualified_native_entry(Arc::new(move |flag| observer.enter(flag)))
-                .map_err(|error| WorkflowError::Internal(error.to_string()))?;
+            pse_runtime::math::install_qualified_native_entry(Arc::new(move |flag| {
+                observer.enter(flag)
+            }))
+            .map_err(|error| WorkflowError::Internal(error.to_string()))?;
         }
         selected.publish_ready(&runtime)?;
         Ok::<_, WorkflowError>(qualification)
@@ -519,7 +607,9 @@ fn run(stack: usize) -> ExitCode {
     let startup = selected.publish_ready(&runtime);
     let result = match startup {
         #[cfg(feature = "canonical-tests")]
-        Ok(qualification) => executor.block_on(serve(&cli, runtime, &selected, &stop, qualification)),
+        Ok(qualification) => {
+            executor.block_on(serve(&cli, runtime, &selected, &stop, qualification))
+        }
         #[cfg(not(feature = "canonical-tests"))]
         Ok(()) => executor.block_on(serve(&cli, runtime, &selected, &stop)),
         Err(error) => {
@@ -877,7 +967,8 @@ mod qualification {
             cli: &super::Cli,
             selected: &pse_runtime::workflow::NativeStudyWorkerInputs,
         ) -> Result<Arc<Self>, String> {
-            let state = std::fs::canonicalize(selected.state()).map_err(|error| error.to_string())?;
+            let state =
+                std::fs::canonicalize(selected.state()).map_err(|error| error.to_string())?;
             private_metadata(directory, true)?;
             let directory = std::fs::canonicalize(directory).map_err(|error| error.to_string())?;
             if directory.parent() != Some(state.as_path()) {

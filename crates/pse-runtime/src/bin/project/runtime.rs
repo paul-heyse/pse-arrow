@@ -676,7 +676,11 @@ pub(crate) async fn run(
     }
     .await;
     runtime.close();
-    let cleanup = shared.math().shutdown_native_lanes().await.map_err(Into::into);
+    let cleanup = shared
+        .math()
+        .shutdown_native_lanes()
+        .await
+        .map_err(Into::into);
     signal.finish().await;
     drop(runtime);
     drop(shared);

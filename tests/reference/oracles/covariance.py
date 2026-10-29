@@ -107,9 +107,11 @@ def require(condition: bool, reason: str) -> None:
 
 def covariance_close(observed: float, expected: float) -> bool:
     """Original pytest.approx(rel=1e-6), including its default 1e-12 floor."""
-    return math.isfinite(observed) and math.isfinite(expected) and abs(
-        observed - expected
-    ) <= max(1e-12, 1e-6 * abs(expected))
+    return (
+        math.isfinite(observed)
+        and math.isfinite(expected)
+        and abs(observed - expected) <= max(1e-12, 1e-6 * abs(expected))
+    )
 
 
 def validate_case(case: LineCase) -> None:
@@ -129,21 +131,28 @@ def validate_case(case: LineCase) -> None:
 
 def environment(pins: dict[str, str]) -> dict[str, str]:
     """Reference absence or wrong declared pins fails the whole exchange."""
-    require((3, 11) <= sys.version_info[:2] < (3, 15), "reference requires Python 3.11-3.14")
+    require(
+        (3, 11) <= sys.version_info[:2] < (3, 15), "reference requires Python 3.11-3.14"
+    )
     require(set(pins) == {"idaes-pse", "pyomo"}, "missing or unknown reference pins")
     observed = {name: importlib.metadata.version(name) for name in pins}
-    require(observed == pins, f"reference pin mismatch: expected {pins}, observed {observed}")
+    require(
+        observed == pins,
+        f"reference pin mismatch: expected {pins}, observed {observed}",
+    )
     executable = shutil.which("ipopt")
     require(executable is not None, "ipopt is absent; reference execution never skips")
     if executable is None:
-        raise ValueError("unreachable missing ipopt")
+        message = "unreachable missing ipopt"
+        raise ValueError(message)
     probe = subprocess.run(  # noqa: S603 - selected reference solver, fixed version probe
         [executable, "-v"], capture_output=True, text=True, timeout=30, check=False
     )
     match = re.search(r"\bIpopt\s+(\d+(?:\.\d+)*)", probe.stdout + probe.stderr)
     require(probe.returncode == 0 and match is not None, "ipopt version probe failed")
     if match is None:
-        raise ValueError("unreachable missing ipopt version")
+        message = "unreachable missing ipopt version"
+        raise ValueError(message)
     observed["ipopt"] = match[1]
     observed["python"] = ".".join(str(part) for part in sys.version_info[:3])
     return observed
@@ -179,7 +188,9 @@ def parmest_reference(case: LineCase) -> Reference:
             model.experiment_outputs = pyo.Suffix(direction=pyo.Suffix.LOCAL)
             model.experiment_outputs.update([(model.y, self.y)])
             model.unknown_parameters = pyo.Suffix(direction=pyo.Suffix.LOCAL)
-            model.unknown_parameters.update((parameter, pyo.value(parameter)) for parameter in (model.a, model.b))
+            model.unknown_parameters.update(
+                (parameter, pyo.value(parameter)) for parameter in (model.a, model.b)
+            )
             model.measurement_error = pyo.Suffix(direction=pyo.Suffix.LOCAL)
             model.measurement_error.update([(model.y, case.sigma)])
             return model
@@ -190,9 +201,14 @@ def parmest_reference(case: LineCase) -> Reference:
     )
     _, theta = estimator.theta_est()
     covariance = estimator.cov_est(method="finite_difference")
-    values = [float(covariance.loc[p, q]) for p in case.parameters for q in case.parameters]
+    values = [
+        float(covariance.loc[p, q]) for p in case.parameters for q in case.parameters
+    ]
     estimates = {name: float(theta[name]) for name in case.parameters}
-    require(all(math.isfinite(value) for value in estimates.values()), "parmest estimates are nonfinite")
+    require(
+        all(math.isfinite(value) for value in estimates.values()),
+        "parmest estimates are nonfinite",
+    )
 
     # The original model is linear: this information operator depends ONLY on
     # the experiment, never on fitted estimates or candidate allowances. Known
@@ -203,9 +219,17 @@ def parmest_reference(case: LineCase) -> Reference:
     s11 = weight * sum(x * x for x in case.x)
     determinant = s00 * s11 - s01 * s01
     require(determinant > 0.0, "reference information is singular")
-    inverse = [s11 / determinant, -s01 / determinant, -s01 / determinant, s00 / determinant]
+    inverse = [
+        s11 / determinant,
+        -s01 / determinant,
+        -s01 / determinant,
+        s00 / determinant,
+    ]
     require(
-        all(covariance_close(actual, expected) for actual, expected in zip(values, inverse, strict=True)),
+        all(
+            covariance_close(actual, expected)
+            for actual, expected in zip(values, inverse, strict=True)
+        ),
         "parmest covariance differs from independent inverse information",
     )
     return Reference(
@@ -236,38 +260,52 @@ def compare(candidate: Candidate, request: Request, reference: Reference) -> Com
             report.estimate_allowances == request.frozen_estimate_allowances,
             "estimate allowances differ from frozen native budgets",
         )
-        require(report.response_unit == request.case.response_unit, "response unit differs")
+        require(
+            report.response_unit == request.case.response_unit, "response unit differs"
+        )
         for name in names:
             actual = report.estimates[name]
             require(
                 math.isfinite(actual)
-                and abs(actual - reference.estimates[name]) <= request.frozen_estimate_allowances[name],
+                and abs(actual - reference.estimates[name])
+                <= request.frozen_estimate_allowances[name],
                 f"estimate differs at {name}",
             )
         covariance = report.covariance
         require(
-            len(covariance.parameters) == len(names) and set(covariance.parameters) == set(names),
+            len(covariance.parameters) == len(names)
+            and set(covariance.parameters) == set(names),
             "covariance parameters are incomplete or duplicated",
         )
-        require(len(covariance.values) == len(names)**2, "covariance is incomplete")
+        require(len(covariance.values) == len(names) ** 2, "covariance is incomplete")
         require(covariance.coordinates == "physical", "covariance coordinates differ")
         require(covariance.layout == "row_major", "covariance layout differs")
         require(
             covariance.convention == request.case.covariance_convention,
             "covariance convention differs",
         )
-        require(covariance.parameter_units == ["1", "1"], "covariance parameter units differ")
-        require(covariance.parameter_scales == [1.0, 1.0], "covariance parameter scales differ")
+        require(
+            covariance.parameter_units == ["1", "1"],
+            "covariance parameter units differ",
+        )
+        require(
+            covariance.parameter_scales == [1.0, 1.0],
+            "covariance parameter scales differ",
+        )
         order = {name: i for i, name in enumerate(covariance.parameters)}
         for i, p in enumerate(names):
             for j, q in enumerate(names):
                 actual = covariance.values[order[p] * len(names) + order[q]]
                 require(
-                    covariance_close(actual, reference.covariance.values[i * len(names) + j]),
+                    covariance_close(
+                        actual, reference.covariance.values[i * len(names) + j]
+                    ),
                     f"covariance differs at ({p}, {q})",
                 )
                 require(
-                    covariance_close(actual, reference.inverse_information[i * len(names) + j]),
+                    covariance_close(
+                        actual, reference.inverse_information[i * len(names) + j]
+                    ),
                     f"covariance differs from inverse information at ({p}, {q})",
                 )
     except ValueError as error:
@@ -284,10 +322,16 @@ def main() -> None:
     validate_case(request.case)
     require(bool(request.candidates), "candidate population is empty")
     ids = [candidate.id for candidate in request.candidates]
-    require(all(ids) and len(set(ids)) == len(ids), "candidate identities must be unique and nonempty")
+    require(
+        all(ids) and len(set(ids)) == len(ids),
+        "candidate identities must be unique and nonempty",
+    )
     require(
         set(request.frozen_estimate_allowances) == set(request.case.parameters)
-        and all(math.isfinite(value) and value > 0.0 for value in request.frozen_estimate_allowances.values()),
+        and all(
+            math.isfinite(value) and value > 0.0
+            for value in request.frozen_estimate_allowances.values()
+        ),
         "missing or invalid frozen native estimate budgets",
     )
     # Library chatter belongs in diagnostics, never the exchange document.
@@ -303,7 +347,9 @@ def main() -> None:
         case_id=request.case.id,
         environment=observed,
         reference=reference,
-        comparisons=[compare(candidate, request, reference) for candidate in request.candidates],
+        comparisons=[
+            compare(candidate, request, reference) for candidate in request.candidates
+        ],
     )
     Path(sys.argv[2]).write_bytes(msgspec.json.encode(response))
 

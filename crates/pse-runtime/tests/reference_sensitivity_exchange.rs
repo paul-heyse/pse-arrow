@@ -55,21 +55,34 @@ struct Response {
 
 fn pins() -> Result<BTreeMap<String, String>> {
     // Reference versions have one owner: existing dependency declarations.
-    let project: toml::Value = toml::from_str(&std::fs::read_to_string(root().join("pyproject.toml"))?)?;
+    let project: toml::Value =
+        toml::from_str(&std::fs::read_to_string(root().join("pyproject.toml"))?)?;
     let group = project["dependency-groups"]["parity"].as_array().unwrap();
-    ["idaes-pse", "pyomo"].into_iter().map(|name| {
-        let prefix = format!("{name}==");
-        let version = group.iter().filter_map(toml::Value::as_str)
-            .find_map(|entry| entry.strip_prefix(&prefix)).unwrap()
-            .split(';').next().unwrap().trim();
-        Ok((name.to_owned(), version.to_owned()))
-    }).collect()
+    ["idaes-pse", "pyomo"]
+        .into_iter()
+        .map(|name| {
+            let prefix = format!("{name}==");
+            let version = group
+                .iter()
+                .filter_map(toml::Value::as_str)
+                .find_map(|entry| entry.strip_prefix(&prefix))
+                .unwrap()
+                .split(';')
+                .next()
+                .unwrap()
+                .trim();
+            Ok((name.to_owned(), version.to_owned()))
+        })
+        .collect()
 }
 
 fn exchange(request: &Request) -> Result<Response> {
     let python = PathBuf::from(std::env::var_os("PSE_SENSITIVITY_REFERENCE_PYTHON")
         .expect("select an existing locked reference interpreter with PSE_SENSITIVITY_REFERENCE_PYTHON; absence is failure"));
-    assert!(python.is_absolute() && python.is_file(), "explicit reference interpreter must be an absolute existing file");
+    assert!(
+        python.is_absolute() && python.is_file(),
+        "explicit reference interpreter must be an absolute existing file"
+    );
     let scratch = tempfile::tempdir()?;
     let input = scratch.path().join("request.json");
     let output = scratch.path().join("response.json");
@@ -77,9 +90,14 @@ fn exchange(request: &Request) -> Result<Response> {
     std::fs::write(&input, serde_json::to_vec(request)?)?;
     let diagnostics = std::fs::File::create(&log)?;
     let mut command = Command::new(python);
-    command.arg("-I").arg(root().join("tests/reference/oracles/sensitivity.py"))
-        .arg(&input).arg(&output).current_dir(scratch.path())
-        .env_remove("PYTHONPATH").env_remove("PYTHONHOME")
+    command
+        .arg("-I")
+        .arg(root().join("tests/reference/oracles/sensitivity.py"))
+        .arg(&input)
+        .arg(&output)
+        .current_dir(scratch.path())
+        .env_remove("PYTHONPATH")
+        .env_remove("PYTHONHOME")
         .stdin(Stdio::null())
         .stdout(Stdio::from(diagnostics.try_clone()?))
         .stderr(Stdio::from(diagnostics));
@@ -91,22 +109,42 @@ fn exchange(request: &Request) -> Result<Response> {
     let deadline = Instant::now() + Duration::from_secs(240);
     if let Err(error) = child.wait_ready(None, Some(deadline)) {
         let drained = child.cancel();
-        panic!("reference execution failed: {error}; drain={drained:?}; oracle output: {}", std::fs::read_to_string(&log)?);
+        panic!(
+            "reference execution failed: {error}; drain={drained:?}; oracle output: {}",
+            std::fs::read_to_string(&log)?
+        );
     }
     let status = child.wait()?;
-    assert!(status.success(), "reference environment/execution failed ({status}); {}", std::fs::read_to_string(&log)?);
-    let bytes = std::fs::read(&output).expect("successful oracle must publish its explicit response");
+    assert!(
+        status.success(),
+        "reference environment/execution failed ({status}); {}",
+        std::fs::read_to_string(&log)?
+    );
+    let bytes =
+        std::fs::read(&output).expect("successful oracle must publish its explicit response");
     let response: Response = serde_json::from_slice(&bytes)?;
     assert_eq!(response.version, 1);
     assert_eq!(response.case_id, request.case.id);
-    for (name, version) in &request.pins { assert_eq!(&response.environment[name], version); }
-    assert_eq!(response.reference.keys().map(String::as_str).collect::<Vec<_>>(), ["x", "y", "z"]);
+    for (name, version) in &request.pins {
+        assert_eq!(&response.environment[name], version);
+    }
+    assert_eq!(
+        response
+            .reference
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        ["x", "y", "z"]
+    );
     assert!(response.reference.values().all(|value| value.is_finite()));
     Ok(response)
 }
 
 fn record(id: &str, report: Option<CandidateReport>) -> Candidate {
-    Candidate { id: id.into(), report }
+    Candidate {
+        id: id.into(),
+        report,
+    }
 }
 
 #[tokio::test]
@@ -119,14 +157,23 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
         let x = wrong.quantities.get_mut("x").unwrap();
         // A coherent but wrong physical Jacobian must fail even if prediction=base+increment.
         *x.derivative.get_mut("a").unwrap() += 1.0;
-        x.increment = x.derivative.iter().map(|(p, derivative)| derivative * (case.perturbed[p] - case.nominal[p])).sum();
+        x.increment = x
+            .derivative
+            .iter()
+            .map(|(p, derivative)| derivative * (case.perturbed[p] - case.nominal[p]))
+            .sum();
         x.predicted = x.base + x.increment;
         let mut incomplete = report.clone();
         incomplete.complete = false;
         let mut missing_target = report.clone();
         missing_target.quantities.remove("z");
         let mut missing_parameter = report.clone();
-        missing_parameter.quantities.get_mut("y").unwrap().derivative.remove("b");
+        missing_parameter
+            .quantities
+            .get_mut("y")
+            .unwrap()
+            .derivative
+            .remove("b");
         let mut wrong_increment = report.clone();
         let x = wrong_increment.quantities.get_mut("x").unwrap();
         x.increment += 10.0 * x.allowance;
@@ -139,7 +186,9 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
         let z = wrong_prediction.quantities.get_mut("z").unwrap();
         z.predicted += 10.0 * z.allowance;
         let request = Request {
-            version: 1, case, pins: pins()?,
+            version: 1,
+            case,
+            pins: pins()?,
             candidates: vec![
                 record("native", Some(report.clone())),
                 record("wrong-response", Some(wrong)),
@@ -159,26 +208,54 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
             ("wrong-response", "failed", "normalized derivative differs"),
             ("missing", "missing", "native result missing"),
             ("incomplete", "failed", "native response incomplete"),
-            ("missing-target", "failed", "native target population incomplete"),
-            ("missing-parameter", "failed", "native derivative population incomplete"),
+            (
+                "missing-target",
+                "failed",
+                "native target population incomplete",
+            ),
+            (
+                "missing-parameter",
+                "failed",
+                "native derivative population incomplete",
+            ),
             ("wrong-increment", "failed", "physical increment differs"),
             ("wrong-base", "failed", "nominal solution differs"),
             ("wrong-prediction", "failed", "predicted solution differs"),
             ("native-after-failures", "passed", ""),
         ];
-        assert_eq!(response.comparisons.len(), expected.len(), "missing comparisons cannot disappear");
+        assert_eq!(
+            response.comparisons.len(),
+            expected.len(),
+            "missing comparisons cannot disappear"
+        );
         for (actual, (id, status, reason)) in response.comparisons.iter().zip(expected) {
-            assert_eq!(actual.id, id, "input identity/order must survive mixed results");
+            assert_eq!(
+                actual.id, id,
+                "input identity/order must survive mixed results"
+            );
             assert_eq!(actual.status, status, "{actual:?}");
             assert_eq!(actual.reasons.is_empty(), status == "passed", "{actual:?}");
-            if status != "passed" { assert!(actual.reasons.iter().any(|text| text.contains(reason)), "{actual:?}"); }
+            if status != "passed" {
+                assert!(
+                    actual.reasons.iter().any(|text| text.contains(reason)),
+                    "{actual:?}"
+                );
+            }
         }
         Ok(())
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     // Always settle local runtime/native lanes, including failed scientific assertions.
     let closed = native.close().await;
     match outcome {
-        Ok(result) => { closed?; result }
-        Err(panic) => { let _ = closed; std::panic::resume_unwind(panic) }
+        Ok(result) => {
+            closed?;
+            result
+        }
+        Err(panic) => {
+            let _ = closed;
+            std::panic::resume_unwind(panic)
+        }
     }
 }

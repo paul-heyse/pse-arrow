@@ -271,7 +271,9 @@ def capture_cases(output: Path, target: dict[str, object]) -> dict[str, object]:
     from pse import codec, diagnostics  # noqa: PLC0415 -- explicit native control
     from pse.contracts import documents  # noqa: PLC0415
 
-    expected = codec.decode_json(json.dumps(target["expected"]), documents.CheckpointIdentity)
+    expected = codec.decode_json(
+        json.dumps(target["expected"]), documents.CheckpointIdentity
+    )
     request = {
         "version": 1,
         "checkpoint": target["checkpoint"],
@@ -282,11 +284,14 @@ def capture_cases(output: Path, target: dict[str, object]) -> dict[str, object]:
         "budget": {"memory_bytes": 4 << 20, "output_bytes": MAXIMUM_BYTES},
     }
     diagnostics.read_checkpoint(Path(str(target["checkpoint"])), expected=expected)
-    with diagnostics.capture(codec.decode_json(json.dumps(request), documents.CaptureRequest)) as session:
+    with diagnostics.capture(
+        codec.decode_json(json.dumps(request), documents.CaptureRequest)
+    ) as session:
         document = session.wait()
     timeline = mapping(codec.document_builtins(document))
     require(
-        timeline.get("kind") == "Timeline" and timeline.get("operation") == target["operation"],
+        timeline.get("kind") == "Timeline"
+        and timeline.get("operation") == target["operation"],
         "investigation.timeline_target_changed",
     )
     require(records(timeline["outputs"]), "investigation.timeline_output_absent")
@@ -303,17 +308,36 @@ def capture_cases(output: Path, target: dict[str, object]) -> dict[str, object]:
     cpu_output = output / "finished-cpu-refused"
 
     def finished_cpu() -> None:
-        with diagnostics.capture(codec.decode_json(json.dumps({**request, "kind": "Cpu", "output": str(cpu_output)}), documents.CaptureRequest)) as session:
+        with diagnostics.capture(
+            codec.decode_json(
+                json.dumps({**request, "kind": "Cpu", "output": str(cpu_output)}),
+                documents.CaptureRequest,
+            )
+        ) as session:
             session.wait()
 
     cpu = expect_refusal(finished_cpu, "investigation.completed_operation_cpu_accepted")
     require(not cpu_output.exists(), "investigation.refused_cpu_published_output")
-    wrong = codec.decode_json(json.dumps({**mapping(target["expected"]), "process": "deliberately-wrong-process-incarnation"}), documents.CheckpointIdentity)
+    wrong = codec.decode_json(
+        json.dumps(
+            {
+                **mapping(target["expected"]),
+                "process": "deliberately-wrong-process-incarnation",
+            }
+        ),
+        documents.CheckpointIdentity,
+    )
     identity = expect_refusal(
-        lambda: diagnostics.read_checkpoint(Path(str(target["checkpoint"])), expected=wrong),
+        lambda: diagnostics.read_checkpoint(
+            Path(str(target["checkpoint"])), expected=wrong
+        ),
         "investigation.wrong_process_identity_accepted",
     )
-    return {"timeline": timeline, "finished_cpu_refusal": cpu, "wrong_identity_refusal": identity}
+    return {
+        "timeline": timeline,
+        "finished_cpu_refusal": cpu,
+        "wrong_identity_refusal": identity,
+    }
 
 
 def run(output: Path, target_path: Path) -> int:

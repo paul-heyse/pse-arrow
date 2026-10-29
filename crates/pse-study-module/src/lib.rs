@@ -99,9 +99,16 @@ fn decisions(page: Page) -> Result<Vec<Decision>, InvalidScope> {
     };
     let resolved_seed = if page.mode.as_deref() == Some("claim") {
         let bytes = page.seed.as_ref().ok_or(InvalidScope)?;
-        if bytes.len() > 16 * 1024 { return Err(InvalidScope); }
-        Some(serde_json::from_slice::<Option<pse_model::study::SeedFact>>(bytes.as_ref()).map_err(|_| InvalidScope)?)
-    } else { None };
+        if bytes.len() > 16 * 1024 {
+            return Err(InvalidScope);
+        }
+        Some(
+            serde_json::from_slice::<Option<pse_model::study::SeedFact>>(bytes.as_ref())
+                .map_err(|_| InvalidScope)?,
+        )
+    } else {
+        None
+    };
     // Preflight aggregate input before decoding JSON or constructing policy products.
     // Native scope acquisition also bounds its encoded value before invoking WASM.
     let mut bytes = 0usize;
@@ -140,13 +147,17 @@ fn decisions(page: Page) -> Result<Vec<Decision>, InvalidScope> {
             serde_json::from_slice(row.policy.as_ref()).map_err(|_| InvalidScope)?;
         let mut facts: PointFacts =
             serde_json::from_slice(row.facts.as_ref()).map_err(|_| InvalidScope)?;
-        let outcome: Option<pse_model::study::PointOutcome> = row.outcome.as_ref()
+        let outcome: Option<pse_model::study::PointOutcome> = row
+            .outcome
+            .as_ref()
             .map(|bytes| serde_json::from_slice(bytes.as_ref()).map_err(|_| InvalidScope))
             .transpose()?;
         if u64::from(policy.key.0) != occurrence
             || u64::from(facts.key.0) != occurrence
             || !occurrences.insert(occurrence)
-            || outcome.as_ref().is_some_and(|value| u64::from(value.key.0) != occurrence)
+            || outcome
+                .as_ref()
+                .is_some_and(|value| u64::from(value.key.0) != occurrence)
         {
             return Err(InvalidScope);
         }
@@ -204,7 +215,9 @@ fn decisions(page: Page) -> Result<Vec<Decision>, InvalidScope> {
             premises.push((key.clone(), row.revision));
         }
         if progression {
-            facts[0].seed = resolved_seed.clone().unwrap_or_else(|| pse_model::study_policy::preparation_seed(&point.policy));
+            facts[0].seed = resolved_seed
+                .clone()
+                .unwrap_or_else(|| pse_model::study_policy::preparation_seed(&point.policy));
         }
         // The stored candidate seed is already among these exact facts. Unknown-effect
         // precedence and every scientific disposition belong solely to candidate_action.
@@ -228,30 +241,60 @@ fn decisions(page: Page) -> Result<Vec<Decision>, InvalidScope> {
         let mut next_facts = None;
         let mut outcome = None;
         let action_bytes = if progression {
-            disposition = Some(match &action.kind {
-                ActionKind::Wait(WaitReason::ScientificAdmission) => "admit",
-                ActionKind::Wait(WaitReason::SeedResolution { .. }) => "prepare",
-                ActionKind::Start(provenance) => {
-                    start = Some(Bytes::from(serde_json::to_vec(provenance).map_err(|_| InvalidScope)?));
-                    let mut assigned = facts[0].clone();
-                    assigned.revision = 0;
-                    assigned.attempt_count = assigned.attempt_count.checked_add(1).ok_or(InvalidScope)?;
-                    assigned.lifecycle = pse_model::generated::enums::StudyPointState::Assigned;
-                    assigned.native_started = false;
-                    next_facts = Some(Bytes::from(serde_json::to_vec(&assigned).map_err(|_| InvalidScope)?));
-                    if page.mode.as_deref() == Some("claim") { "start" } else { "prepare" }
-                },
-                ActionKind::Refuse(_) | ActionKind::Cancel if !point.assigned && !point.settled => {
-                    if let Some((settled, observation)) = pse_model::study_policy::policy_settlement(&facts[0], point.outcome.clone(), &action) {
-                        next_facts = Some(Bytes::from(serde_json::to_vec(&settled).map_err(|_| InvalidScope)?));
-                        outcome = Some(Bytes::from(serde_json::to_vec(&observation).map_err(|_| InvalidScope)?));
-                        "settle"
-                    } else { "wait" }
-                },
-                _ => "wait",
-            }.to_owned());
-            Some(Bytes::from(serde_json::to_vec(&action).map_err(|_| InvalidScope)?))
-        } else { None };
+            disposition = Some(
+                match &action.kind {
+                    ActionKind::Wait(WaitReason::ScientificAdmission) => "admit",
+                    ActionKind::Wait(WaitReason::SeedResolution { .. }) => "prepare",
+                    ActionKind::Start(provenance) => {
+                        start = Some(Bytes::from(
+                            serde_json::to_vec(provenance).map_err(|_| InvalidScope)?,
+                        ));
+                        let mut assigned = facts[0].clone();
+                        assigned.revision = 0;
+                        assigned.attempt_count =
+                            assigned.attempt_count.checked_add(1).ok_or(InvalidScope)?;
+                        assigned.lifecycle = pse_model::generated::enums::StudyPointState::Assigned;
+                        assigned.native_started = false;
+                        next_facts = Some(Bytes::from(
+                            serde_json::to_vec(&assigned).map_err(|_| InvalidScope)?,
+                        ));
+                        if page.mode.as_deref() == Some("claim") {
+                            "start"
+                        } else {
+                            "prepare"
+                        }
+                    }
+                    ActionKind::Refuse(_) | ActionKind::Cancel
+                        if !point.assigned && !point.settled =>
+                    {
+                        if let Some((settled, observation)) =
+                            pse_model::study_policy::policy_settlement(
+                                &facts[0],
+                                point.outcome.clone(),
+                                &action,
+                            )
+                        {
+                            next_facts = Some(Bytes::from(
+                                serde_json::to_vec(&settled).map_err(|_| InvalidScope)?,
+                            ));
+                            outcome = Some(Bytes::from(
+                                serde_json::to_vec(&observation).map_err(|_| InvalidScope)?,
+                            ));
+                            "settle"
+                        } else {
+                            "wait"
+                        }
+                    }
+                    _ => "wait",
+                }
+                .to_owned(),
+            );
+            Some(Bytes::from(
+                serde_json::to_vec(&action).map_err(|_| InvalidScope)?,
+            ))
+        } else {
+            None
+        };
         let premises = serde_json::to_vec(&(generation, premises)).map_err(|_| InvalidScope)?;
         if premises.len() > 16 * 1024 {
             return Err(InvalidScope);
@@ -562,15 +605,18 @@ mod tests {
         let reply = evaluate(page.clone());
         assert!(reply.accepted);
         assert_eq!(reply.decisions[0].disposition.as_deref(), Some("prepare"));
-        let action: pse_model::study::PointAction = serde_json::from_slice(reply.decisions[0].action.as_ref().unwrap().as_ref()).unwrap();
+        let action: pse_model::study::PointAction =
+            serde_json::from_slice(reply.decisions[0].action.as_ref().unwrap().as_ref()).unwrap();
         assert!(matches!(action.kind, ActionKind::Start(_)));
         page.cancelled = true;
         let reply = evaluate(page);
         assert!(reply.accepted);
         let decision = &reply.decisions[0];
         assert_eq!(decision.disposition.as_deref(), Some("settle"));
-        let facts: PointFacts = serde_json::from_slice(decision.facts.as_ref().unwrap().as_ref()).unwrap();
-        let outcome: pse_model::study::PointOutcome = serde_json::from_slice(decision.outcome.as_ref().unwrap().as_ref()).unwrap();
+        let facts: PointFacts =
+            serde_json::from_slice(decision.facts.as_ref().unwrap().as_ref()).unwrap();
+        let outcome: pse_model::study::PointOutcome =
+            serde_json::from_slice(decision.outcome.as_ref().unwrap().as_ref()).unwrap();
         assert_eq!(facts.lifecycle, StudyPointState::Cancelled);
         assert_eq!(facts.attempt_count, 0);
         assert!(!facts.native_started);
@@ -588,21 +634,43 @@ mod tests {
         policy.seed_need = SeedNeed::Required;
         policy.start = StartPolicy::Explicit { role, seed };
         point.policy = Bytes::from(serde_json::to_vec(&policy).unwrap());
-        let mut page = Page { generation: Decimal::ONE, cancelled: false, mode: Some("prepare".into()), seed: None,
-            rows: vec![point], items: vec![Item {point:"p0".into(),predecessors:vec![]}] };
+        let mut page = Page {
+            generation: Decimal::ONE,
+            cancelled: false,
+            mode: Some("prepare".into()),
+            seed: None,
+            rows: vec![point],
+            items: vec![Item {
+                point: "p0".into(),
+                predecessors: vec![],
+            }],
+        };
         let reply = evaluate(page.clone());
         assert!(reply.accepted);
         assert_eq!(reply.decisions[0].disposition.as_deref(), Some("prepare"));
         page.mode = Some("claim".into());
-        page.seed = Some(Bytes::from(serde_json::to_vec(&Some(SeedFact { role, availability: SeedAvailability::Compatible {seed} })).unwrap()));
+        page.seed = Some(Bytes::from(
+            serde_json::to_vec(&Some(SeedFact {
+                role,
+                availability: SeedAvailability::Compatible { seed },
+            }))
+            .unwrap(),
+        ));
         let reply = evaluate(page.clone());
         assert!(reply.accepted);
         assert_eq!(reply.decisions[0].disposition.as_deref(), Some("start"));
-        let facts: PointFacts = serde_json::from_slice(reply.decisions[0].facts.as_ref().unwrap().as_ref()).unwrap();
+        let facts: PointFacts =
+            serde_json::from_slice(reply.decisions[0].facts.as_ref().unwrap().as_ref()).unwrap();
         assert_eq!(facts.lifecycle, StudyPointState::Assigned);
         assert_eq!(facts.attempt_count, 1);
         assert!(!facts.native_started);
-        page.seed = Some(Bytes::from(serde_json::to_vec(&Some(SeedFact {role,availability:SeedAvailability::Absent})).unwrap()));
+        page.seed = Some(Bytes::from(
+            serde_json::to_vec(&Some(SeedFact {
+                role,
+                availability: SeedAvailability::Absent,
+            }))
+            .unwrap(),
+        ));
         let reply = evaluate(page);
         assert!(reply.accepted);
         assert_eq!(reply.decisions[0].disposition.as_deref(), Some("settle"));
@@ -612,15 +680,25 @@ mod tests {
     fn readiness_wire_without_optional_progression_fields_remains_read_only() {
         let mut value = shared(true).into_value();
         if let surrealdb_types::Value::Object(object) = &mut value {
-            object.remove("mode"); object.remove("seed");
+            object.remove("mode");
+            object.remove("seed");
             if let Some(surrealdb_types::Value::Array(rows)) = object.get_mut("rows") {
                 for row in rows.iter_mut() {
-                    if let surrealdb_types::Value::Object(row) = row { row.remove("outcome"); }
+                    if let surrealdb_types::Value::Object(row) = row {
+                        row.remove("outcome");
+                    }
                 }
             }
         }
         let reply = evaluate(Page::from_value(value).unwrap());
         assert!(reply.accepted);
-        assert!(reply.decisions.iter().all(|decision| decision.action.is_none() && decision.facts.is_none() && decision.outcome.is_none()));
+        assert!(
+            reply
+                .decisions
+                .iter()
+                .all(|decision| decision.action.is_none()
+                    && decision.facts.is_none()
+                    && decision.outcome.is_none())
+        );
     }
 }
