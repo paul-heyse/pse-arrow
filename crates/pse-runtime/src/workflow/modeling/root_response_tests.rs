@@ -697,7 +697,7 @@ async fn solve_with_backend(
     boundary: bool,
     backend: Backend,
 ) -> TestResult<Arc<crate::workflow::RunResult>> {
-    let runtime = crate::workflow::tests::runtime();
+    let runtime = fixture::runtime_with(16 << 20, 16 << 20, 1 << 30);
     let services = runtime.execution_services();
     let text = "package p { def Root { param p: Scalar=4; var x: Scalar; eq root: x*x==p; annotation start x(2); } }";
     let rows = pse_authoring::language::parse(
@@ -711,7 +711,7 @@ async fn solve_with_backend(
         .find(|r| r.name == "Root")
         .ok_or_else(|| std::io::Error::other("Root declaration absent"))?
         .declaration_id;
-    let package = fixture::runtime_with(16 << 20, 16 << 20, 1 << 30)
+    let package = runtime
         .modeling_package(rows, fixture::physical())
         .await?;
     let mut solver = fixture::profile();
