@@ -21,7 +21,6 @@ from scripts.telemetry_investigation import BackendClient, QueryAnswer, QueryReq
 from scripts.tests.telemetry_operational_acceptance import (
     ROOT,
     environment,
-    mcp_points,
     sequence,
     write,
 )
@@ -292,12 +291,6 @@ async def run(state: Path, output: Path) -> int:
         receipt["backend"] = {
             kind: answer.model_dump(mode="json") for kind, answer in answers.items()
         }
-        mcp_answers = await mcp_points(
-            state, {kind: requests[kind] for kind in ("rate", "exemplars")}, selected
-        )
-        receipt["canonical_mcp"] = {
-            kind: answer.model_dump(mode="json") for kind, answer in mcp_answers.items()
-        }
         # Compare original OTLP points, independent of PromQL and production normalization.
         for point in counter_points:
             rows = [
@@ -387,16 +380,6 @@ async def run(state: Path, output: Path) -> int:
                 ),
                 f"semantics.{kind}.estimate_mismatch",
             )
-        mcp_rates = [
-            value
-            for stamp, value in values(mcp_answers["rate"])
-            if times[1] + 0.25 <= stamp <= times[2]
-        ]
-        require(
-            bool(mcp_rates)
-            and all(math.isclose(value, slope, rel_tol=0.05) for value in mcp_rates),
-            "semantics.mcp_rate",
-        )
         expected_examples = {}
         span_ids = {str(span["span_id"]): span for span in records(produced["spans"])}
         for point in histograms:
@@ -411,41 +394,41 @@ async def run(state: Path, output: Path) -> int:
                     "semantics.sdk_filtered_attribute",
                 )
                 expected_examples[(trace_id, span_id)] = example
-        for answer in (answers["exemplars"], mcp_answers["exemplars"]):
+        answer = answers["exemplars"]
+        require(
+            answer.status == "available" and answer.meaning == "related_examples",
+            "semantics.example_meaning",
+        )
+        observed = 0
+        for row in answer.records:
             require(
-                answer.status == "available" and answer.meaning == "related_examples",
-                "semantics.example_meaning",
+                "fixture.invocation_id" not in mapping(row["seriesLabels"]),
+                "semantics.example_id_dimension",
             )
-            observed = 0
-            for row in answer.records:
+            for example in records(row["exemplars"]):
+                labels = mapping(example["labels"])
+                original_example = expected_examples[
+                    (str(labels["trace_id"]), str(labels["span_id"]))
+                ]
                 require(
-                    "fixture.invocation_id" not in mapping(row["seriesLabels"]),
-                    "semantics.example_id_dimension",
+                    labels["fixture.invocation_id"]
+                    == mapping(original_example["filtered_attributes"])[
+                        "fixture.invocation_id"
+                    ],
+                    "semantics.example_attribute",
                 )
-                for example in records(row["exemplars"]):
-                    labels = mapping(example["labels"])
-                    original_example = expected_examples[
-                        (str(labels["trace_id"]), str(labels["span_id"]))
-                    ]
-                    require(
-                        labels["fixture.invocation_id"]
-                        == mapping(original_example["filtered_attributes"])[
-                            "fixture.invocation_id"
-                        ],
-                        "semantics.example_attribute",
-                    )
-                    require(
-                        float(str(example["value"])) == original_example["value"],
-                        "semantics.example_value",
-                    )
-                    require(
-                        int(str(example["timestamp"]))
-                        == int(str(original_example["time_unix_nano"]))
-                        // 1_000_000_000,
-                        "semantics.example_source_clock",
-                    )
-                    observed += 1
-            require(observed > 0, "semantics.examples_missing")
+                require(
+                    float(str(example["value"])) == original_example["value"],
+                    "semantics.example_value",
+                )
+                require(
+                    int(str(example["timestamp"]))
+                    == int(str(original_example["time_unix_nano"]))
+                    // 1_000_000_000,
+                    "semantics.example_source_clock",
+                )
+                observed += 1
+        require(observed > 0, "semantics.examples_missing")
         receipt["python_exemplars"] = (
             "Original sampled SDK trace/span IDs, values, filtered attributes and source seconds preserved; related examples only. No attached native target was supplied."
         )

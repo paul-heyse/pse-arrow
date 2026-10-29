@@ -2210,123 +2210,10 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
                     "Existing storage lane differs; reconfigure offline"
                 )
         return public_status(args.state.absolute(), config)
-    # Download first so network failure leaves no half-initialized application state.
-    default = execution_profiles.default_allocation()
-    allocation = resources(
-        integer(default["total_memory_bytes"])
-        if args.memory_mib is None
-        else args.memory_mib * MIB,
-        integer(default["server_memory_bytes"])
-        if args.server_memory_mib is None
-        else args.server_memory_mib * MIB,
-        integer(default["native_workers"])
-        if args.native_workers is None
-        else args.native_workers,
-        integer(default["native_worker_memory_bytes"])
-        if args.native_worker_memory_mib is None
-        else args.native_worker_memory_mib * MIB,
-    )
-    receiver = None
-    if args.execution_profile:
-        if any(
-            value is not None
-            for value in (
-                args.memory_mib,
-                args.server_memory_mib,
-                args.native_workers,
-                args.native_worker_memory_mib,
-            )
-        ):
-            raise SupervisorError(
-                "Reference execution supplies exact capacities; memory overrides are refused"
-            )
-        allocation = execution_resources(args.execution_profile)
-        receiver = primary_receiver(args.worker_executable)
-    port = 18240 if args.port is None else args.port
-    if (
-        not 1 <= port <= 65535
-        or not args.interpretation
-        or not args.interpretation.strip()
-    ):
-        raise SupervisorError(
-            "Require a valid loopback port and an explicit interpretation identity"
-        )
-    tool_root = args.tool_root
-    if tool_root is None:
-        tool_root = default_tool_root()
-    module_runtime_allocation(allocation)
-    server = install(args.version, tool_root)
     try:
-        module = surrealism_module.install(server, tool_root)
-    except (surrealism_module.ModuleError, OSError, ValueError) as error:
+        surrealism_module.refuse_legacy_construction()
+    except surrealism_module.ModuleError as error:
         raise SupervisorError(str(error)) from error
-    state = checked_directory(args.state, empty=True)
-    with state_lock(state):
-        if any(path.name != ".supervisor.lock" for path in state.iterdir()):
-            raise SupervisorError(
-                "State was initialized concurrently; refusing to replace it"
-            )
-        config: dict[str, object] = {
-            "owner": OWNER,
-            "profile_version": 3,
-            "instance_id": str(uuid.uuid4()),
-            "payload_incarnation": str(uuid.uuid4()),
-            "server": server,
-            "study_module": module,
-            "port": port,
-            "namespace": "pse",
-            "database": "canonical",
-            "endpoint": f"grpc://127.0.0.1:{port}",
-            "credentials_file": str(state / "credentials.json"),
-            "schema_interpretation": args.interpretation,
-            "accepting_writes": False,
-            "interpretation": args.interpretation,
-            "admission": "validation_required",
-            "max_message_bytes": MESSAGE_BYTES,
-            "rpc_max_message_bytes": MESSAGE_BYTES,
-            "tooling_fixture": args.tooling_fixture,
-            "resources": allocation,
-            "log_max_bytes": 8 * MIB,
-            "log_backups": 2,
-            "service_class": "timing"
-            if args.execution_profile == "timing"
-            else "functional",
-            "telemetry_state": str(telemetry_service.state_directory()),
-        }
-        write_json(
-            state / "credentials.json",
-            {
-                "username": "pse-local",
-                "password": secrets.token_urlsafe(36),
-                "selection_username": "pse-selection",
-                "selection_password": secrets.token_urlsafe(36),
-            },
-        )
-        config["fresh_root_bootstrap"] = {
-            "instance_id": config["instance_id"],
-            "credentials_sha256": file_digest(state / "credentials.json"),
-            "nonce": uuid.uuid4().hex,
-        }
-        if args.payload_verifier is not None:
-            config["payload_verifier"] = payload_verifier(args.payload_verifier)
-        if receiver is not None:
-            config["primary_receiver"] = publish_generation(
-                state, Path(receiver["worker_executable"])
-            )
-        config["service_supervisor"] = publish_generation(state)
-        config["resident"] = (
-            args.resident
-            if args.resident is not None
-            else not bool(args.execution_profile)
-            or args.execution_profile in {"functional", "wide"}
-        )
-        service_borrowers.service_registry_binding(state, establish=True)
-        write_json(state / "config.json", config)
-        (state / "tmp").mkdir(mode=0o700)
-        payload_root(state, config).mkdir(mode=0o700, parents=True)
-        # Published supervisor generations retain the selected already-built product artifact.
-        write_json(state / "config.json", config)
-    return public_status(state, config)
 
 
 def reconfigure(
@@ -9585,8 +9472,8 @@ def discard_generated_tree(state: Path, relative: str) -> None:
     shutil.rmtree(target)
 
 
-def fresh_engine(state: Path, tool_root: Path | None = None) -> dict[str, object]:
-    """Retire the stopped old engine and publish one fresh, closed MX identity.
+def fresh_engine(state: Path) -> dict[str, object]:
+    """Settle an already admitted pending target; refuse new Python construction.
 
     Acceptance of an old profile exists only inside this retirement owner. No
     query, import, old-engine reopen or data-preservation step occurs here.
@@ -9616,93 +9503,28 @@ def fresh_engine(state: Path, tool_root: Path | None = None) -> dict[str, object
                 raise SupervisorError(
                     "Fresh-engine requires the selected listener already stopped"
                 )
-            stop(state, old)
             pending_path = state / "fresh-engine-pending.json"
-            if pending_path.exists():
-                pending = read_json(pending_path)
-                target = object_mapping(pending.get("target"))
-                if (
-                    pending.get("owner") != OWNER
-                    or pending.get("phase") not in {"discarding", "publishing"}
-                    or old["instance_id"]
-                    not in {pending.get("predecessor"), target.get("instance_id")}
-                    or not surreal_source.admitted_receipt(
-                        object_mapping(target.get("server"))
-                    )
-                ):
-                    raise SupervisorError(
-                        "Fresh-engine pending identity does not match this exact target"
-                    )
-                credentials = object_mapping(pending.get("credentials"))
-            else:
-                if tool_root is None:
-                    tool_root = default_tool_root()
-                server = install(None, tool_root)
+            if not pending_path.exists():
                 try:
-                    module = surrealism_module.install(server, tool_root)
-                except (surrealism_module.ModuleError, OSError, ValueError) as error:
+                    surrealism_module.refuse_legacy_construction()
+                except surrealism_module.ModuleError as error:
                     raise SupervisorError(str(error)) from error
-                budget = object_mapping(old["resources"])
-                allocation = resources(
-                    integer(budget["total_memory_bytes"]),
-                    integer(budget["server_memory_bytes"]),
-                    integer(budget["native_workers"]),
-                    integer(budget["native_worker_memory_bytes"]),
-                    budget.get("execution"),
+            pending = read_json(pending_path)
+            target = object_mapping(pending.get("target"))
+            if (
+                pending.get("owner") != OWNER
+                or pending.get("phase") not in {"discarding", "publishing"}
+                or old["instance_id"]
+                not in {pending.get("predecessor"), target.get("instance_id")}
+                or not surreal_source.admitted_receipt(
+                    object_mapping(target.get("server"))
                 )
-                target = {
-                    key: old[key]
-                    for key in (
-                        "owner",
-                        "port",
-                        "credentials_file",
-                        "log_max_bytes",
-                        "log_backups",
-                        "service_class",
-                        "resident",
-                        "tooling_fixture",
-                        "telemetry_state",
-                    )
-                    if key in old
-                }
-                target = fresh_database_identity(target)
-                # The state-path service file remains this authenticated,
-                # physically drained owner's materialization. Rebinding its
-                # immutable generation must not turn it into an unknown unit.
-                target["unit_materialized"] = old.get("unit_materialized", False)
-                target.update(
-                    profile_version=3,
-                    server=server,
-                    study_module=module,
-                    resources=allocation,
-                    endpoint=f"grpc://127.0.0.1:{old['port']}",
-                    interpretation=SUBSTRATE_INTERPRETATION,
-                    schema_interpretation=SUBSTRATE_INTERPRETATION,
-                    max_message_bytes=MESSAGE_BYTES,
-                    rpc_max_message_bytes=MESSAGE_BYTES,
-                    service_supervisor=publish_generation(state),
+            ):
+                raise SupervisorError(
+                    "Fresh-engine pending identity does not match this exact target"
                 )
-                # Receiver and verifier executables are explicitly readmitted
-                # from current builds; the retired generation cannot execute.
-                credentials = fresh_credentials()
-                target["fresh_root_bootstrap"] = {
-                    "instance_id": target["instance_id"],
-                    "credentials_sha256": hashlib.sha256(
-                        (
-                            json.dumps(credentials, sort_keys=True, indent=2) + "\n"
-                        ).encode()
-                    ).hexdigest(),
-                    "nonce": uuid.uuid4().hex,
-                }
-                pending = {
-                    "owner": OWNER,
-                    "nonce": uuid.uuid4().hex,
-                    "predecessor": old["instance_id"],
-                    "phase": "discarding",
-                    "target": target,
-                    "credentials": credentials,
-                }
-                write_json(pending_path, pending)
+            credentials = object_mapping(pending.get("credentials"))
+            stop(state, old)
             if pending["phase"] == "discarding":
                 for relative in (
                     "database",
@@ -11522,7 +11344,7 @@ def _dispatch(args: argparse.Namespace) -> int:
             raise SupervisorError(
                 "fresh-engine requires --drained plus actual owned process drain"
             )
-        output = fresh_engine(args.state.absolute(), args.tool_root)
+        output = fresh_engine(args.state.absolute())
     elif args.command == "setup":
         output = setup(args)
     elif args.command == "rebuild":

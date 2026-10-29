@@ -463,7 +463,6 @@ forbidden_modules = ["numpy", "scipy"]
 # implementation lands; unmatched exceptions remain errors.
 ignore_imports = [
   "pse._array -> numpy",
-  "pse.parity.tests.** -> numpy",
   "pse.tests.** -> numpy",
 ]
 

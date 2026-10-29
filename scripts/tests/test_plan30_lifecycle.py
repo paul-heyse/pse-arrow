@@ -17,6 +17,7 @@ import unittest
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import msgspec
 import pytest
 
 if TYPE_CHECKING:
@@ -36,9 +37,11 @@ from scripts.tests.server_receipt_fixture import (
     fixture_build_context,
     fixture_receipt,
 )
+from scripts.tests.test_surreal_server import fixture_native_payload_operation
 from scripts.tests.test_surrealism_module import fixture_module
 
 startup_clock = server._STARTUP  # noqa: SLF001 -- checks restoration of the actual private lifecycle clock
+pytestmark = pytest.mark.unit
 
 
 def readiness_fixture(phase: server.Readiness) -> server.ServiceObservation:
@@ -66,6 +69,15 @@ class ServerFixture(ServerReceipt):
 class Plan30LifecycleTests(unittest.TestCase):
     def setUp(self) -> None:
         fixture_build_context(self)
+        # The toy database has no file payloads. Keep its native layout boundary
+        # available through both backup and subsequent restore preflight.
+        physical = patch.object(
+            server,
+            "native_payload_operation",
+            side_effect=fixture_native_payload_operation,
+        )
+        physical.start()
+        self.addCleanup(physical.stop)
         scratch = tempfile.TemporaryDirectory()
         self.addCleanup(scratch.cleanup)
         self.root = Path(scratch.name)
@@ -105,6 +117,14 @@ class Plan30LifecycleTests(unittest.TestCase):
             "unit_materialized": True,
         }
         self.config["study_module"] = fixture_module(self.root / "modules")
+        generation = self.generation()
+        self.config["service_supervisor"] = {
+            "supervisor_executable": str(Path(sys.executable).resolve()),
+            "supervisor_script": str(generation / "scripts/surreal_server.py"),
+            "supervisor_sha256": server.file_digest(
+                generation / "scripts/surreal_server.py"
+            ),
+        }
         server.write_json(self.state / "config.json", self.config)
         server.write_json(
             self.state / "credentials.json",
@@ -141,15 +161,6 @@ class Plan30LifecycleTests(unittest.TestCase):
         drained = patch.object(server, "workers_drained")
         self.drained = drained.start()
         self.addCleanup(drained.stop)
-        module_install = patch.object(
-            server.surrealism_module,
-            "install",
-            side_effect=lambda selected, _tools: fixture_module(
-                self.root / "modules", str(selected["binary_sha256"])
-            ),
-        )
-        module_install.start()
-        self.addCleanup(module_install.stop)
 
     def context(self) -> Path:
         directory = self.state / ".receivers/generation/case"
@@ -164,11 +175,20 @@ class Plan30LifecycleTests(unittest.TestCase):
         (self.state / ".contexts").mkdir()
         server.write_json(
             self.state / ".contexts/case.json",
-            {
-                "database": "case",
-                "receiver_state": str(directory),
-                "receiver_generation": "generation",
-            },
+            server.object_mapping(
+                msgspec.to_builtins(
+                    server.deployment.RegisteredNativeContext(
+                        database="case",
+                        receiver_state=str(directory),
+                        receiver_generation="generation",
+                        resources=msgspec.convert(
+                            self.config["resources"],
+                            type=server.deployment.NativeAllocation,
+                            strict=True,
+                        ),
+                    )
+                )
+            ),
         )
         return directory
 
@@ -178,12 +198,18 @@ class Plan30LifecycleTests(unittest.TestCase):
             "scripts/sccache": hashlib.sha256(b"wrapper").hexdigest(),
             "bin/pse-worker": hashlib.sha256(b"worker").hexdigest(),
         }
+        interpreter = str(Path(sys.executable).resolve())
+        declaration = {
+            "files": files,
+            "runtime": {interpreter: server.file_digest(Path(interpreter))},
+            "interpreter": interpreter,
+        }
         identity = hashlib.sha256(
-            json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
+            json.dumps(declaration, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
         directory = self.state / ".generations" / identity
-        (directory / "scripts").mkdir(parents=True)
-        (directory / "bin").mkdir()
+        (directory / "scripts").mkdir(mode=0o700, parents=True, exist_ok=True)
+        (directory / "bin").mkdir(mode=0o700, exist_ok=True)
         (directory / "scripts/surreal_server.py").write_bytes(b"supervisor")
         (directory / "scripts/surreal_server.py").chmod(0o600)
         (directory / "scripts/sccache").write_bytes(b"wrapper")
@@ -192,7 +218,7 @@ class Plan30LifecycleTests(unittest.TestCase):
         (directory / "bin/pse-worker").chmod(0o700)
         server.write_json(
             directory / "generation.json",
-            {"version": 1, "identity": identity, "files": files},
+            {"version": 2, "identity": identity, **declaration},
         )
         return directory
 
@@ -211,6 +237,9 @@ class Plan30LifecycleTests(unittest.TestCase):
         # or running listener. Keep the real freeze and drain preflight; supply
         # only the validation listener and its exact empty-catalog responses.
         expiry = 90_000_000
+        helper = self.root / "payload-helper"
+        helper.write_text("#!/bin/sh\nexit 0\n")
+        helper.chmod(0o700)
 
         def start(
             state: Path, config: dict[str, object], *, validation: bool = False
@@ -238,6 +267,11 @@ class Plan30LifecycleTests(unittest.TestCase):
 
         with (
             patch.object(server, "start", side_effect=start),
+            patch.object(
+                server,
+                "admitted_payload_verifier",
+                return_value=server.payload_verifier(helper),
+            ),
             patch.object(server, "payload_expiry", return_value=expiry),
             patch.object(server, "payload_query", side_effect=query),
             patch.object(
@@ -260,42 +294,6 @@ class Plan30LifecycleTests(unittest.TestCase):
         (generation / "scripts/sccache").chmod(0o600)
         with pytest.raises(server.SupervisorError, match="execution mode"):
             server.verify_generation(generation)
-
-    def test_disposable_setup_explicitly_disables_resident_lifetime(self) -> None:
-        state = self.root / "disposable"
-        args = server.parser().parse_args(
-            [
-                "setup",
-                "--state",
-                str(state),
-                "--tool-root",
-                str(self.root / "tools"),
-                "--port",
-                "18249",
-                "--interpretation",
-                "test",
-                "--no-resident",
-                "--memory-mib",
-                "2560",
-                "--server-memory-mib",
-                "2048",
-                "--native-workers",
-                "1",
-                "--native-worker-memory-mib",
-                "512",
-            ]
-        )
-        with (
-            patch.object(server, "install", return_value=self.config["server"]),
-            patch.object(
-                server,
-                "publish_generation",
-                return_value={"supervisor_script": "frozen"},
-            ),
-            patch.object(server, "public_status", return_value={}),
-        ):
-            server.setup(args)
-        assert not (server.read_json(state / "config.json")["resident"])
 
     def test_restart_denial_requires_exact_unit_and_current_control_clock(self) -> None:
         unit = "owned.service"
@@ -967,20 +965,26 @@ class Plan30LifecycleTests(unittest.TestCase):
         acquire.assert_not_called()
         assert server.config_for(self.state)["parked"]
 
-    def test_pending_context_primary_prevents_offline_copy(self) -> None:
-        context = self.context()
-        self.reservation(context / "primary-admission.json")
+    def test_pending_service_primary_prevents_offline_copy(self) -> None:
+        self.reservation(self.state / "primary-admission.json")
         with pytest.raises(server.SupervisorError, match="reservation"):
             server.backup(self.state, self.config, self.root / "backup")
-        assert not ((self.root / "backup").exists())
-        assert not (server.config_for(context)["accepting_writes"])
+        # The sole-service preflight passes; backup reserves an empty prefix
+        # before closing admission and rejecting its outstanding reservation.
+        destination = self.root / "backup"
+        assert destination.is_dir()
+        assert list(destination.iterdir()) == []
+        assert not server.config_for(self.state)["accepting_writes"]
 
-    def test_live_registered_observer_prevents_offline_copy(self) -> None:
-        context = self.context()
-        self.reservation(context / "primary-observer.json")
+    def test_live_service_observer_prevents_offline_copy(self) -> None:
+        self.reservation(self.state / "primary-observer.json")
         with pytest.raises(server.SupervisorError, match="reservation"):
             server.backup(self.state, self.config, self.root / "backup")
-        assert not ((self.root / "backup").exists())
+        # A post-reservation refusal keeps the private destination empty.
+        destination = self.root / "backup"
+        assert destination.is_dir()
+        assert list(destination.iterdir()) == []
+        assert not server.config_for(self.state)["accepting_writes"]
 
     def test_every_registered_context_must_be_drained(self) -> None:
         context = self.context()
@@ -1127,10 +1131,22 @@ class Plan30LifecycleTests(unittest.TestCase):
             schema_interpretation=server.SUBSTRATE_INTERPRETATION,
         )
         server.write_json(self.state / "config.json", self.config)
-        self.context()
         backup = self.root / "backup"
         with self.empty_payload_catalog():
             server.backup(self.state, self.config, backup)
+        # Seed an externally supplied image with a historical absolute context
+        # association. The current producer refuses shared-service backups;
+        # restore must still reject this manifest-valid input before effects.
+        self.context()
+        descriptor = backup / ".contexts/case.json"
+        descriptor.parent.mkdir(mode=0o700)
+        descriptor.write_bytes((self.state / ".contexts/case.json").read_bytes())
+        descriptor.chmod(0o600)
+        manifest = server.read_json(backup / "backup.json")
+        files = server.object_mapping(manifest["files"])
+        files[".contexts/case.json"] = server.file_digest(descriptor)
+        manifest["files"] = files
+        server.write_json(backup / "backup.json", manifest)
         inventory = {
             str(path.relative_to(backup)): path.read_bytes()
             for path in backup.rglob("*")
@@ -1447,12 +1463,14 @@ class Plan30LifecycleTests(unittest.TestCase):
                 selected: dict[str, object],
                 *,
                 allocation: Path,
+                services: host_admission.ServicePolicy,
                 mode: str = mode,
                 held: list[bool] = held,
                 units: dict[str, dict[str, str | int]] = units,
                 deadline: float | None = None,
             ) -> bool:
                 assert deadline == getattr(startup_clock, "deadline", None)
+                assert isinstance(services, server.ServiceAdmission)
                 assert not held
                 assert allocation == owner.directory / owner.nonce
                 assert selected["service"] == str(self.state)
@@ -1550,12 +1568,14 @@ class Plan30LifecycleTests(unittest.TestCase):
                     selected: dict[str, object],
                     *,
                     allocation: Path,
+                    services: host_admission.ServicePolicy,
                     deadline: float | None,
                     owner: host_admission.Allocation = owner,
                     boundary: str = boundary,
                     hold_ledger: Callable[[], None] = hold_ledger,
                 ) -> bool:
                     assert deadline == startup_clock.deadline
+                    assert isinstance(services, server.ServiceAdmission)
                     assert allocation == owner.directory / owner.nonce
                     assert selected["units"] == {unit: binding}
                     assert selected["borrowed_services"] == []

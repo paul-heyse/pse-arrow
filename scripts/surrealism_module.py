@@ -15,7 +15,7 @@ import stat
 import tarfile
 import tomllib
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 from scripts import surreal_source
 
@@ -289,13 +289,7 @@ def verify(
     return receipt
 
 
-def install(
-    server: Mapping[str, object],
-    tool_root: Path,
-    *,
-    qualification: bool = False,
-    long_hold: bool = False,
-) -> dict[str, object]:
+def refuse_legacy_construction() -> NoReturn:
     """Refuse the retired constructor before commands, hashing or file changes.
 
     Existing surreal_server callers must hand off an explicitly prepared native
@@ -309,13 +303,9 @@ def install(
     )
 
 
-def main() -> int:
+def main() -> NoReturn:
     """Refuse the retired CLI without importing or invoking a supervisor."""
-    raise ModuleError(
-        "Python study-module construction is retired; use "
-        "scripts/pse-env -- scripts/pse-host study-module prepare "
-        "(or just surreal-module)."
-    )
+    refuse_legacy_construction()
 
 
 if __name__ == "__main__":

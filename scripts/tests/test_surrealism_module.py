@@ -12,7 +12,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from scripts import surrealism_module as module
+
+pytestmark = pytest.mark.unit
 
 
 def fixture_module(
@@ -245,20 +249,11 @@ class ModuleAdmissionTests(unittest.TestCase):
             patch.object(module.surreal_source, "digest") as digest,
             patch.object(Path, "mkdir") as mkdir,
         ):
-            for options in (
-                {},
-                {"qualification": True},
-                {"qualification": True, "long_hold": True},
-            ):
-                with (
-                    self.subTest(options=options),
-                    self.assertRaisesRegex(
-                        module.ModuleError, "construction is retired"
-                    ),
+            for entrypoint in (module.refuse_legacy_construction, module.main):
+                with self.subTest(entrypoint=entrypoint.__name__), self.assertRaisesRegex(
+                    module.ModuleError, "construction is retired"
                 ):
-                    module.install({}, Path("/unused/module-construction"), **options)
-            with self.assertRaisesRegex(module.ModuleError, "construction is retired"):
-                module.main()
+                    entrypoint()
             command.assert_not_called()
             digest.assert_not_called()
             mkdir.assert_not_called()
