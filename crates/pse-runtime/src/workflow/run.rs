@@ -1939,6 +1939,32 @@ mod modeling_failure_tests {
 
 #[cfg(test)]
 mod cancellation_tests {
+    #[tokio::test]
+    async fn local_waiter_and_observer_detach_without_cancelling_original_handle() {
+        let checks = crate::CancelSource::new();
+        let (_sender, receiver) = tokio::sync::watch::channel(None);
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("local.waiter");
+        let handle = super::RunHandle {
+            observation: Some(operation.reader()),
+            lease: std::sync::Arc::new(super::Lease::new(checks.clone(), false)),
+            receiver,
+            progress: std::sync::Arc::new(pse_backend_native::solve::Progress::new(0)),
+            run_id: pse_model::generated::identities::RunId::from_bytes([4; 16]),
+            attempt_id: None, canonical_keys: None,
+        };
+        let mut wait = Box::pin(handle.wait());
+        assert!(futures_util::poll!(wait.as_mut()).is_pending());
+        drop(wait);
+        drop(handle.observations());
+        assert!(!checks.token().is_cancelled());
+        let alias = handle.clone(); drop(handle);
+        assert!(!checks.token().is_cancelled(), "a remaining owner retains the run");
+        let mut retry = Box::pin(alias.wait());
+        assert!(futures_util::poll!(retry.as_mut()).is_pending()); drop(retry);
+        drop(alias);
+        assert!(checks.token().is_cancelled(), "last immediate owner requests stop");
+    }
     #[test]
     fn current_progress_remains_whole_without_retained_history() {
         use pse_backend_native::solve::{Event, Metric, Progress};

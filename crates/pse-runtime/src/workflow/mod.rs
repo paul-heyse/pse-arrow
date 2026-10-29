@@ -1,6 +1,26 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One public native workflow. Model declarations are generated; mathematics stays in Rust libraries.
+//!
+//! # Database-free local operations
+//!
+//! Build one [`crate::SharedRuntime`] from an explicit resource budget, then bind its
+//! `session_factory` to the shared schema registry and use [`Runtime::from_shared_local`].
+//! Admit physical documents with [`Runtime::physical_from_documents`] and model documents
+//! with [`Runtime::modeling_from_documents`]; both use this caller's validation bindings.
+//! [`ModelingPackage::prepare_operation`] consumes the exact [`OperationSource`] and
+//! [`PreparationSettings`], and [`PreparedOperation::start`] returns a [`RunHandle`].
+//!
+//! A pending `RunHandle::wait` future is only a waiter: dropping it or a passive
+//! observation reader does not request stop while a handle remains. Explicit `cancel`
+//! requests stop; dropping the last immediate handle also requests stop. The native
+//! supervisor retains execution ownership through cleanup and required joins. A repeated
+//! wait returns the same immutable result. Closing the logical caller seals new admission,
+//! while admitted work retains continuation ownership. Results and exported tables retain
+//! their own allocation owners independently of preparation/cache lifetime. Service-owned
+//! neutral native lanes have a separate lifetime; their owner explicitly awaits
+//! `shared.math().shutdown_native_lanes()` before retiring the shared runtime.
+//! None of these local operations requires a canonical deployment, Python or a CLI.
 mod conformance_documents;
 pub use conformance_documents::{ConformanceManifest, ConformanceRun, RunSettings};
 mod diagnostic_request;
