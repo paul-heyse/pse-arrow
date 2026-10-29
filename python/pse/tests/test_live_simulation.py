@@ -134,7 +134,6 @@ def test_live_samples_keep_attempt_identity_and_joined_value_retention(
             else:
                 assert event.kind == "recording_closed", event.diagnostic()
         assert joined is not None
-        assert (await handle.wait_async()).run_id == joined.run_id
         return joined
 
     async def bounded_consume() -> pse.RunResult:
@@ -219,7 +218,7 @@ def test_closing_live_cursor_detaches_without_cancelling_and_preserves_escaped_t
     prepared = prepare(runtime)
     handle, cursor = prepared.start_live(capacity=1)
 
-    async def detach() -> tuple[pse.RunResult, pse.TableStream]:
+    async def detach() -> pse.TableStream:
         first = await anext(cursor)
         assert first.kind == "sample"
         escaped = first.table()
@@ -229,14 +228,14 @@ def test_closing_live_cursor_detaches_without_cancelling_and_preserves_escaped_t
         cursor.close()
         with pytest.raises(StopAsyncIteration):
             await anext(cursor)
-        result = await asyncio.wait_for(handle.wait_async(), timeout=30)
-        return result, escaped
+        return escaped
 
-    async def bounded_detach() -> tuple[pse.RunResult, pse.TableStream]:
+    async def bounded_detach() -> pse.TableStream:
         return await asyncio.wait_for(detach(), timeout=30)
 
     try:
-        result, escaped = asyncio.run(bounded_detach())
+        escaped = asyncio.run(bounded_detach())
+        result = handle.wait()
         assert result.usable
         computation = result.completion.computation
         assert computation is not None

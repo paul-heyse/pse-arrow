@@ -503,7 +503,7 @@ class ScientificReplay:
 
 @attrs.frozen
 class RunHandle:
-    """Blocking and asyncio access to the same supervised native job."""
+    """Synchronous access to the supervised native job."""
 
     _handle: _NativeRunHandle
 
@@ -529,10 +529,6 @@ class RunHandle:
     def wait(self) -> RunResult:
         """Release Python while waiting; join cancellation before a signal escapes."""
         return RunResult(self._handle.wait())
-
-    async def wait_async(self) -> RunResult:
-        """Request native stop on cancellation; retain the report for later waiters."""
-        return RunResult(await self._handle.wait_async())
 
     def result(self) -> RunResult | None:
         """Nonblocking terminal snapshot."""

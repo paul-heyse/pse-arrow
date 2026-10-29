@@ -2,7 +2,6 @@
 # Copyright (c) 2026 Paul Heyse
 """Diagnostic boundaries use copied facts and never require a scientific store."""
 
-import asyncio
 import gc
 import os
 import subprocess
@@ -821,10 +820,7 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
             handle = diagnostic_native_solve(runtime, history=0)
             selected.leave()
 
-            async def join() -> pse.RunResult:
-                return await handle.wait_async()
-
-            result = asyncio.run(join())
+            result = handle.wait()
             assert result.usable
             assert not handle.progress()[0]
             checkpoint = handle.current_progress()

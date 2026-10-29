@@ -788,7 +788,7 @@ py-native-contracts:
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 python-stubs *args:
-    scripts/pse-env --native -- scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- python-stubs "$@"
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- python-stubs "$@"
 
 [group('local')]
 [doc('ruff format in check mode')]
@@ -1285,15 +1285,11 @@ lint-native-data:
 
 
 [group('local')]
-[doc('The committed native stub matches the installed extension; prerequisite: an extension built from current sources')]
+[doc('Compare native stubs with an explicit --extension artifact or the installed extension')]
+[positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
-python-stubs-check:
-    if [ "$(python3 scripts/doctor.py --extension-kind)" = absent ]; then
-        echo "pse-env: prerequisite: no installed pse extension; run just py-sync (or just py-sync-native)" >&2
-        exit 125
-    fi
-    echo "python-stubs-check: compares python/pse/_native.pyi with the installed extension; rebuild it (just py-sync) if the Rust API changed since" >&2
-    exec scripts/pse-env --native -- scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- python-stubs --check
+python-stubs-check *args:
+    exec scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- python-stubs --check "$@"
 
 # Exhaustive generated annotation checks are explicit, not package import work.
 [group('local')]

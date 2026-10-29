@@ -2,7 +2,6 @@
 # Copyright (c) 2026 Paul Heyse
 """Authored algebraic jobs retain native ownership through checks and retention."""
 
-import asyncio
 from pathlib import Path
 
 import pyarrow as pa
@@ -81,12 +80,7 @@ def test_authored_solve_join_warm_start_checks_and_retention(
     prepared = package.prepare_solve(case, settings)
     handle = prepared.start()
 
-    async def wait_twice() -> pse.RunResult:
-        a, b = await asyncio.gather(handle.wait_async(), handle.wait_async())
-        assert a.run_id == b.run_id
-        return a
-
-    result = asyncio.run(wait_twice())
+    result = handle.wait()
     assert result.run_id == handle.wait().run_id
     assert result.usable
     assert result.completion.solves[0].backend == "ipopt"

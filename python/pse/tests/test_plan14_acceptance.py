@@ -2,7 +2,6 @@
 # Copyright (c) 2026 Paul Heyse
 """M22 public native workflow; shared authored fixtures and independent references."""
 
-import asyncio
 import gc
 import math
 import subprocess
@@ -93,12 +92,7 @@ def test_public_native_process_and_exact_results(
     prepared = package.prepare_solve(case, settings)
     handle = prepared.start()
 
-    async def wait_twice() -> pse.RunResult:
-        first, second = await asyncio.gather(handle.wait_async(), handle.wait_async())
-        assert first.run_id == second.run_id
-        return first
-
-    result = asyncio.run(wait_twice())
+    result = handle.wait()
     assert handle.wait().run_id == result.run_id
     assert result.usable, tuple(
         diagnostic.message for diagnostic in result.diagnostics()

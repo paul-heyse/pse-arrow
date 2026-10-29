@@ -1791,9 +1791,12 @@ conservative symbolic work (§14.3.2).
 
 `RunHandle.wait()` releases the interpreter while waiting and checks signals; an
 interrupt requests cancellation and joins the native supervisor before the signal
-propagates. `wait_async()` uses `pyo3-async-runtimes` on the process Tokio executor;
-cancelling an async waiter requests native stop while the handle keeps the eventual
-terminal result. Repeated waits never rerun a solver. A run handle supervises one staged
+propagates. Python asyncio run waiting and its cancellation bridge are retired under
+proposed ADR-0233. Native Rust `RunHandle::wait` remains asynchronously repeatable;
+dropping an individual wait future does not stop a run whose handle remains owned.
+Explicit cancellation requests stop; dropping the final immediate run handle also requests
+stop, while the supervisor retains native cleanup ownership. Passive observation does not
+hold that cancellation lease. Repeated waits never rerun a solver. A run handle supervises one staged
 sequence ([§19.2](#section-19-2)); a single solve is a one-step sequence on its own native
 session.
 
@@ -1807,7 +1810,7 @@ wait without cancelling scientific work. Launched-command waits request command 
 and preserve their immediate signal-return policy. Task-dump waits return the signal without
 cancelling the issued observer ticket. Controlled `next_batch` prechecks signals before issuing
 a pull, so an already pending signal leaves the stream unconsumed. This does not replace
-`wait_async` or install process-global signal handlers.
+unrelated asynchronous cursor interfaces or install process-global signal handlers.
 
 > Decision: ADR-0169 (proposed; maintainer-authorized Plan 33 implementation).
 

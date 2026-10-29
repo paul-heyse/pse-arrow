@@ -2,8 +2,6 @@
 # Copyright (c) 2026 Paul Heyse
 """Public declaration, lifecycle and owned-result contract units."""
 
-import asyncio
-import contextlib
 import dis
 import gc
 import sys
@@ -654,7 +652,7 @@ def test_revision_edit_is_atomic_and_has_no_python_math(
 
 
 @pytest.mark.integration
-def test_blocking_async_share_terminal_report_and_last_array_owner(
+def test_repeated_wait_retains_terminal_report_and_last_array_owner(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
     model = revision(runtime, physical)
@@ -665,11 +663,7 @@ def test_blocking_async_share_terminal_report_and_last_array_owner(
     handle = prepared.start()
     result = handle.wait()
 
-    async def twice(job: pse.RunHandle, expected: SemanticId) -> None:
-        a, b = await asyncio.gather(job.wait_async(), job.wait_async())
-        assert a.run_id == b.run_id == expected
-
-    asyncio.run(twice(handle, result.run_id))
+    assert handle.wait().run_id == result.run_id
     runs = (
         pa.RecordBatchReader.from_stream(result.table("runtime.solve_runs"))
         .read_all()
@@ -712,34 +706,6 @@ def test_solver_profile_refuses_unsupported_or_partial_controls(
     # outside the typed union cannot even be encoded.
     with pytest.raises((pse.InspectionError, TypeError)):
         revision(runtime, physical).prepare_solve(declaration(101), construct())
-
-
-@pytest.mark.integration
-def test_cancelled_async_waiter_does_not_consume_terminal_result(
-    runtime: pse.Runtime, physical: pse.PhysicalContext
-) -> None:
-    prepared = revision(runtime, physical).prepare_solve(
-        declaration(101),
-        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-    )
-    handle = runtime.start([prepared] * 20)
-
-    async def cancel_and_rejoin() -> pse.RunResult:
-        waiter = asyncio.create_task(handle.wait_async())
-        await asyncio.sleep(0)
-        waiter.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await waiter
-        return await handle.wait_async()
-
-    result = asyncio.run(cancel_and_rejoin())
-    terminal = handle.result()
-    assert terminal is not None
-    assert terminal.run_id == result.run_id
-    runs = pa.RecordBatchReader.from_stream(
-        result.table("runtime.solve_runs")
-    ).read_all()
-    assert runs.num_rows == 20
 
 
 @pytest.mark.component

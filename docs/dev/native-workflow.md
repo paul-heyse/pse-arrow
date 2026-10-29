@@ -105,7 +105,7 @@ prepared = package.prepare_solve(
     pse.SolveSettings(intent="optimize", backend="auto"),
 )
 job = prepared.start()
-result = job.wait()  # or: await job.wait_async()
+result = job.wait()
 ```
 
 Use `intent="root"` for square equalities without an objective, `"optimize"` for an

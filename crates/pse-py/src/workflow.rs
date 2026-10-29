@@ -1963,20 +1963,12 @@ impl NativeStart {
         documents::DocumentValue(self.inner.snapshot())
     }
 }
-/// Public handle remains usable after any individual asyncio waiter is cancelled.
+/// Synchronous Python access to the original native run owner.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativeRunHandle {
     owner: Arc<runtime::Runtime>,
     inner: native::RunHandle,
-}
-struct CancelWait(Option<native::RunHandle>);
-impl Drop for CancelWait {
-    fn drop(&mut self) {
-        if let Some(h) = &self.0 {
-            h.cancel();
-        }
-    }
 }
 #[pymethods]
 impl NativeRunHandle {
@@ -2000,22 +1992,6 @@ impl NativeRunHandle {
         Ok(NativeRunResult {
             inner,
             owner: self.owner.clone(),
-        })
-    }
-    #[pyo3(signature=() -> "typing.Awaitable[NativeRunResult]")]
-    fn wait_async<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let locals = pyo3_async_runtimes::tokio::get_current_locals(py)?;
-        let handle = self.inner.clone();
-        let owner = self.owner.clone();
-        let guard = CancelWait(Some(handle.clone()));
-        pyo3_async_runtimes::tokio::future_into_py_with_locals(py, locals, async move {
-            let mut guard = guard;
-            let value = handle.wait().await;
-            guard.0.take();
-            Python::attach(|py| {
-                let inner = value.map_err(|e| errors::diagnostic(py, &e))?;
-                Py::new(py, NativeRunResult { inner, owner })
-            })
         })
     }
     /// Exact persistent run key; absent for explicit ephemeral execution.

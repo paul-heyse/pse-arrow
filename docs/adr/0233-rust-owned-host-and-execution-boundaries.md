@@ -147,6 +147,16 @@ assesses the target under the selected standard.
 
 ## Status history
 
+### Native local operation and async adapter retirement — 2026-10-28
+
+The authorized next realization uses existing public runtime/source/preparation/run APIs
+for a database-free KINSOL operation. Native wait-future detachment, explicit stop, final
+immediate-owner departure and original native drain keep their existing distinct meanings.
+The maintainer selected retirement of Python asyncio run waiting and its cancellation glue;
+shared synchronous adapters and unrelated asynchronous cursor interfaces remain for later
+owning cutovers. Actual compiled metadata supplies the regenerated stub. No replacement
+Python future adapter, mandatory CLI, database, executor or lifecycle framework is selected.
+
 ### Explicit native provider preparation — 2026-10-28
 
 The next authorized realization prepares compiler/KLU explicitly through the lean host,
