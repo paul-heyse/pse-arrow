@@ -1,15 +1,187 @@
 # Oracles, acceptance and assertions
 
-**Interface-checked · 2026-10-27 · source `87f2eb9050ae24976956628c16e0e7376190be7a`.** This page
-holds the primary findings on scientific expectations, references, assertions and test technique.
-The [collection baseline](README.md#baseline-and-method) states the standard and limits; the
+**Interface-checked · refreshed 2026-10-29 · source `7bd341f0bd4a27ad629008abdff56ee2bcf7e9f3` plus
+the working tree.** This page holds the primary findings on scientific expectations, references,
+assertions and test technique. The [collection baseline](README.md#baseline-and-method) states the
+standard, the included uncommitted changes and limits; the
 [integrated account](architecture-and-assurance.md) explains how these findings interact with
-execution and ownership. No test, generator or conformance run was executed for this refresh.
+execution and ownership. No test, generator, oracle or conformance run was executed.
 
-Closure records below replace the earlier diagnoses whose correction current source establishes.
-The prior text is preserved at the
+Finding bodies after the new DTA-061/062/065/066/067 keep their 2026-10-27 evidence (source `87f2eb905`) unless the
+refresh table says otherwise. Closure records replace earlier diagnoses whose correction current
+source establishes; the prior text is preserved at the
 [2026-10-24 publication](https://github.com/paul-heyse/pse-arrow/blob/cbf45ccc933b66192bd7ed5b2a77176e39d46c2e/docs/design_review/test-audit/oracles-and-acceptance.md).
-[Plan 53](../../plans/53-test-architecture-target.md#finding-dispositions) owns disposition.
+[Plan 53](../../plans/53-test-architecture-target.md#finding-dispositions) owns disposition of
+DTA-001 to DTA-058; DTA-061, 062 and 065–067 have no disposition owner yet.
+
+## Refresh at `7bd341f0b` — 2026-10-29
+
+Plan58 moved the four IDAES/SciPy parity families from `python/pse/parity` to native
+`crates/pse-runtime/tests/reference_{degeneracy,covariance,sensitivity,pid}_exchange.rs`, which run
+isolated oracle processes from `tests/reference/oracles/*.py`. The oracle side is stronger than
+before (see [strengths](architecture-and-assurance.md#contrasting-strengths)). The authored reference
+library and the generators are unchanged.
+
+| Finding | Outcome | Current residual and decisive evidence |
+|---|---|---|
+| [DTA-049](#dta-049) | Still live on the Python route | `just seed-conformance` still runs `python -m pse.conformance` on a Python runtime (`justfile:842-845`). The native conformance consumer runs one synthetic pure package (`expect square(2)==4`, `native_conformance.rs:50-60`) and no `packages/reference` fixture. No full run is recorded after the failed 2026-10-11 run. 58f F05 and 58h H02 own the native consumer. |
+| [DTA-054](#dta-054) | Live, unchanged | The 53a generators still hard-code `INPUTS`/`OBSERVATIONS` (`scripts/pfr_reference.py:24`, `decay_fit_reference.py:23`, `cstr_controller_reference.py:25`). Contrast: the new oracles refuse any case that differs from their literal copy (`tests/reference/oracles/degeneracy.py:112-127`). |
+| [DTA-056](#dta-056) | Live | `result_pruning_tests.rs` was rewritten in the working tree and moved behind `native-study-tests` (`result_snapshot.rs:1392`), with the same curated two-block, equality-predicate technique and no unpruned oracle. |
+| [DTA-058](#dta-058) | Live, extended | `python/pse/parity/tests` now holds only `test_00_preflight.py`, so `just parity` (`justfile:952-958`) runs no comparison. AGENTS.md ("`just parity` runs the IDAES comparisons"), the assessment exclusion (`scripts/validation_scope.py:337`), the command guide (`docs/dev/validation-assessment.md:57`) and the §24.1 layer table still route parity claims there. |
+| [DTA-001](#dta-001) | Withdrawn; premise inherited | The native exchanges carry the same derivation with a concrete claim at risk: [DTA-061](#dta-061). |
+| [DTA-020](#dta-020) | Established; route caveat | Its evidence is gated by `canonical-tests` and `native-solvers` (`sensitivity_tests.rs:436-438`); every managed canonical route currently refuses `--store` ([DTA-050](evidence-routes-and-execution.md#dta-050)). |
+| [DTA-003](#dta-003) | Established, caveat | Generators unchanged; the A04 report identity remains open in Plan 53a. |
+| DTA-002, 004–007, 021 | Established, unchanged | No diff to their decisive files since `87f2eb905`. |
+
+## <a id="dta-061"></a>DTA-061 — Reference comparison allowances cross the oracle boundary from the candidate under test
+
+**Principles:** PS-13, PS-10, AP-04, DP-23; companion §1, §3, §7.
+**Status:** new, 2026-10-29. Lineage: revisits the premise of withdrawn [DTA-001](#dta-001) with a
+concrete claim at risk; the deleted Python parity tests used the same derivation, so this is
+inherited by the cutover, not introduced by it.
+
+**Claim at risk.** 58f F04 and 58h H03 require the exchanges to "preserve independently derived
+answers, tolerances" so that native tests cannot manufacture their own acceptance. The covariance
+oracle names its allowances "frozen native budgets".
+
+**Structural cause.** The acceptance allowance travels from the candidate to the oracle:
+
+- covariance: `reference_covariance_exchange.rs:205` sets
+  `frozen_estimate_allowances: report.estimate_allowances.clone()` from the same run, so the oracle's
+  equality check (`tests/reference/oracles/covariance.py:259-262`) is self-referential; its estimate
+  comparison then uses those allowances;
+- sensitivity: the allowance is read from the candidate's production `resolved_numerics`
+  (`reference_sensitivity_support/mod.rs:276`); the oracle accepts any finite positive value;
+- wrong-candidate controls perturb values by multiples of the candidate's own allowance
+  (`reference_sensitivity_exchange.rs:179-187`); no control inflates the allowance itself;
+- `native_scientific_modes.rs:520-525` uses the same candidate-supplied allowances.
+
+PID is bounded on the oracle side (`pid.py:130-134`), and matrix and degeneracy comparisons use fixed
+relative tolerances, so the footprint is the estimate and derivative comparisons.
+
+**Consequence.** A nominal or scaling defect, or a wrong configured fraction, that inflates the
+engineering budget widens exactly the comparisons meant to detect numerical error, and every negative
+control still passes. (A resolver that misapplies the configured fraction is caught:
+`reference_covariance_support/mod.rs:259-261` asserts the fraction and row budget.)
+
+**Evidence and uncertainty.** Established for the cited exchanges. Resolver tests
+(`pse-math/src/numerics.rs:1146`, `tests/support/plan14.rs:279`) check the budget arithmetic but no
+test bounds its magnitude against an independent declaration. No escaped defect was found; the cases
+are unit-scale. **Counterevidence:** the engineering budget is a contractual accuracy promise, so
+comparing against it is meaningful once its magnitude is independently bounded.
+
+## <a id="dta-062"></a>DTA-062 — The reference-environment contract is restated in each oracle and has drifted
+
+**Principles:** PS-13, DP-01, DP-21, AP-04, H5; companion §4, §7.
+**Status:** new, 2026-10-29.
+
+**Claim at risk.** Reference numbers come from the declared environment: the old preflight stated
+that iteration-sensitive comparisons are valid only against the pinned Ipopt 3.14 series
+(`python/pse/parity/tests/test_00_preflight.py:24-26`).
+
+**Structural cause.** Oracle isolation (`-I`, which also implies `-P`) prevents a shared helper
+module, so each oracle reimplements `environment()` and each Rust target copies `pins()`/`exchange()`
+(`reference_*_exchange.rs:56-136`). The copies disagree: `degeneracy.py:154` requires Ipopt 3.14.x
+although its answer comes from SCIP; `covariance.py:148-157` and `sensitivity.py:133-143` probe the
+version without requiring the series; `pid.py:146-153` checks only presence; SCIP and PETSc versions
+are not recorded.
+
+**Consequence.** An unpinned Ipopt on `PATH` produces parmest and sIPOPT reference values that are
+accepted, while only the Ipopt-independent degeneracy oracle refuses.
+
+**Evidence and uncertainty.** Established for the four oracles and four Rust copies. Numerical
+sensitivity of these cases to the Ipopt version is not established. **Counterevidence:** Python pins
+come from the single `pyproject.toml` `parity` group, and each oracle verifies them; isolation itself
+is sound and is a strength.
+
+## <a id="dta-065"></a>DTA-065 — Historical-compatibility evidence for canonical migration is built by the current code it checks
+
+**Principles:** AP-04, AP-02, DP-23, DP-24, PS-10; companion §1, §4.
+**Status:** new, 2026-10-29.
+
+**Claim at risk.** 58d: an original target-v2 migration request, recorded by v2-era code, still decodes,
+fingerprints and settles as a target-v2 receipt under current code; a schema change cannot leave
+existing stores unsupported unnoticed.
+
+**Structural cause.** The frozen predecessor DDL is genuinely independent: literal SHA-256 constants
+(`crates/pse-schema/src/catalog/substrate.rs:20-34`) are verified before every migration body and
+fixture install (`canonical_migration.rs:983-1000`). The request and receipt side is not. The live
+historical-request test serializes a *current* request and overwrites its target fields
+(`crates/pse-operations/tests/native_service.rs:496-503`); unit tests check
+`bytes(decode(bytes(x))) == bytes(x)` against today's serde layout (`canonical_migration.rs:1546-1581`,
+`1654-1677`). No frozen v2-era request, receipt or fingerprint exists, and the fingerprint is
+`sha256` of the current serialization (`:455`). The current target digest is a generated constant
+(`generated/surreal.rs:18`), and `supported()` accepts v3 only at that value (`:327-333`), so no
+literal pins it.
+
+**Consequence.** A field reorder or new serialized field changes every historical fingerprint while
+these tests pass. A generator change that moves the digest without a version bump makes existing v3
+markers unsupported with no failing test: the current digest appears only in the generated constant. Migration fixtures also carry no domain records, so
+the next record-shape migration has no data-bearing test to build on.
+
+**Evidence and uncertainty.** Established for the request/receipt fingerprint path and the
+current-digest tripwire. Today the v2-era struct is a field subset of the current one, so the gap is
+latent. **Counterevidence:** frozen DDL literals; `deny_unknown_fields` on request and predecessor;
+checkpoint verification tests mutate a test-built snapshot.
+
+## <a id="dta-066"></a>DTA-066 — Migration fault injection is added per call site and leaves the final-edge recovery branches unstimulated
+
+**Principles:** DP-19, DP-22, DP-23, PS-10, AP-06; companion §5, §6.
+**Status:** new, 2026-10-29.
+
+**Claim at risk.** 58d and its checkpoint: an interrupted migration settles truthfully. A lost
+acknowledgement or failed readback on the final edge yields the original receipt or a typed
+`SettlementUnresolved`, never a replay.
+
+**Structural cause.** Each canonical owner adds its own task-local fault flags
+(`CONTROL_ACK_LOST`, `PREPARED_READBACK_FAILED`, `EXECUTION_ACK_FAULT`, and so on, across about seven
+modules). For migration, only the checkpoint acknowledgement loss is injectable
+(`checkpoint_v2_lost_ack_for_test`). The final edge's write-failure-then-readback branch and its
+readback-failure `SettlementUnresolved { owner: "schema-migration" }` branch
+(`canonical_migration.rs:917-930`) and the checkpoint's own readback-failure branches (`:858-880`) have
+no stimulus. No test interrupts the process during the final DDL transaction, the step 58d split
+because a two-edge transaction conflicted on the engine.
+
+**Consequence.** The "final acknowledgement loss" evidence exercises `reconcile_receipt` after a
+successful apply (`native_service.rs:661-663`), not the recovery code inside `apply_receipt`. Progression
+and control have both acknowledgement-loss and readback-failure stimuli; migration, the hardest to
+repair in a persistent store, does not.
+
+**Evidence and uncertainty.** Established for the migration final edge and checkpoint readback;
+other owners' hook sets were not enumerated. **Counterevidence:** the checkpoint lost-acknowledgement
+test is strong (real commit, discarded acknowledgement, physical restart, original bytes compared); the
+in-flight writer is forced with a held transaction, not a sleep.
+
+## <a id="dta-067"></a>DTA-067 — Native refusal assertions accept any error
+
+**Principles:** AP-05, DP-21, DP-23; companion §4, §6.
+**Status:** new, 2026-10-29. Lineage: the class of the closed [DTA-006](#dta-006). The production-side
+cause, untyped refusals, has its primary home in [DTA-028](doubles-and-coupling.md#dta-028); this
+finding owns the test-side discipline.
+
+**Claim at risk.** Refusals happen at the intended boundary and for the intended reason: capability
+vocabulary before effects, closed admission, stale handle, foreign module, competing claim.
+
+**Structural cause.** Negative tests assert only that an operation failed, not which refusal occurred.
+In `pse-host`, where refusals are untyped (`HostError::Ownership(String)`, [DTA-028](doubles-and-coupling.md#dta-028)),
+the tests contain about 119 bare `is_err()` checks against 8 typed matches; exit 125 is the declared
+boundary contract, so the gap is typing at the test level, not the CLI status. In the canonical tests a
+typed helper exists (`assert_schema_refusal`, called 4 times) and `RefusalCode` is available, yet about
+36 bare `is_err()` remain across `native_service.rs`, `progression_controls.rs` (including the
+competing-claim loser, `:331`) and the publication controls.
+
+**Consequence.** An unrelated failure satisfies the refusal. `tests/native.rs:15-28` checks that
+`native prepare --capabilities ipopt` fails; `run_cli` (`native.rs:832-848`) validates vocabulary, then
+connects to D-Bus and checks containment, so if `run_cli` stopped calling the vocabulary check, the test
+would still pass on the containment error outside containment and, inside it, proceed toward real
+preparation. (The vocabulary check itself is covered without I/O by
+`providers_capability_dependencies_and_invalid_vocabulary`, `native/providers.rs:1353-1360`.) A transport, timeout or `Quiesced` error passes
+as "the old module must still refuse v3 activation" (`native_service.rs:553-562`).
+
+**Evidence and uncertainty.** Structural cause established; exposure established for the cited
+sites and suspected for other bare checks. **Counterevidence:** manager-protocol tests match typed
+variants; `tests/boundary.rs` pairs exit 125 with stderr prefix and absence of effects;
+`tests/correctness.rs` pairs refusal with a sentinel effect.
 
 ## <a id="dta-049"></a>DTA-049 — The authored scientific reference library has no route in ordinary or comprehensive qualification
 

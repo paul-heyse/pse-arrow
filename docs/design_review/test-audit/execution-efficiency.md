@@ -1,15 +1,40 @@
 # Efficiency-oriented design principles in the test system
 
-**Interface-checked · 2026-10-27 · source `87f2eb9050ae24976956628c16e0e7376190be7a`.** This page holds
-the primary findings on preparation, build structure, artifact and evidence lifetimes, scheduling and
-recovery, judged against AP-07/G9, the relevant DP refinements and efficiency heuristics 1.0. Static
-evidence establishes repeated or unnecessary work; no elapsed time, speedup or capacity was measured.
-Byte sizes quoted below are local observations of ignored build directories, not cost measurements.
+**Interface-checked · refreshed 2026-10-29 · source `7bd341f0bd4a27ad629008abdff56ee2bcf7e9f3` plus
+the working tree.** This page holds the primary findings on preparation, build structure, artifact and
+evidence lifetimes, scheduling and recovery, judged against AP-07/G9, the relevant DP refinements and
+efficiency heuristics 1.0. Static evidence establishes repeated or unnecessary work; no elapsed time,
+speedup or capacity was measured. Byte sizes and directory counts are local observations, not cost
+measurements. Finding bodies keep their 2026-10-27 evidence (source `87f2eb905`) unless the refresh
+section says otherwise.
 
 The [integrated account](architecture-and-assurance.md) explains the interactions. The 2026-10-24
 bounded execution follow-up, its corrections and its measured-configuration note are preserved at the
 [prior publication](https://github.com/paul-heyse/pse-arrow/blob/cbf45ccc933b66192bd7ed5b2a77176e39d46c2e/docs/design_review/test-audit/execution-efficiency.md#bounded-execution-follow-up--2026-10-24);
 [Plan 53](../../plans/53-test-architecture-target.md#finding-dispositions) owns disposition.
+
+## Refresh at `7bd341f0b` — 2026-10-29
+
+The native route removes several Python-side costs: the native adapter computes the Arrow-leaf closure
+once per Cargo invocation and persists no cache; native fixtures need no registry rewrite; native
+providers reuse content-keyed generations (`crates/pse-host/src/native/providers.rs:325-392`). The
+Python lifecycle machinery behind DTA-038/039/042/047/048/052 stays reachable through `py-unit`
+(`justfile:816-822`) and `unit-native-package`/`unit-native-selected`. The native replacements
+reproduce three earlier causes in new code.
+
+| Finding | Outcome | Current residual and decisive evidence |
+|---|---|---|
+| [DTA-018](#dta-018) | Recurs in the native replacement | Every native test builds a fresh `SharedRuntime`, session factory and model binding and admits physical primitives (`reference_support/mod.rs:13-37`), even for narrow claims such as cone geometry (`native_conic.rs`). Every canonical native test runs `NativeCanonicalService::launch` (`native_service.rs:783-848`): manager connection, transient service start, listener wait, viewer provisioning, full schema installation (`initialize_database`) and `connect_ready`. The seven `worker` cases and the study, repeated-analysis and lifecycle journeys repeat that identical schema-ready preparation. The cost shapes test granularity: `native_repeated_analysis.rs` is a one-test binary of about 1.8k lines whose single journey (about 400 lines, `:1326-1737`) fuses project-source, workbench, export, correction and aggregation claims, so the first failure masks the rest and the project-source claims have no other native home. In `pse-operations`, every `native_service` test (eleven top-level plus the progression module), each publication control and each runtime consumer repeats the launch and full schema installation (about 1,100 DEFINE statements); the six progression controls take only `&CanonicalStore` and assert database-local semantics, yet each launches a fresh service, and the fixed `native_fixture`/`canonical` namespace prevents several databases sharing one service. Migration, restart, stale-handle and in-flight tests genuinely need their own lifecycle. |
+| [DTA-046](#dta-046) | Escalated on the native route, under the chosen unbounded policy | `ManagedWorkerCase::new` selects the default profile from `.config/agent-capacity.toml` and divides the *whole-workstation* allocation among its own workers; the test asserts two workers above 64 GiB each (`worker.rs:100-113,1668-1670`). Local journeys each build a 4 GiB / 16-thread / all-CPU-jobs runtime (`reference_support/context.rs:24-45`). The native route runs up to 16 such processes (`test-threads = 16`) with no group ([DTA-015](evidence-routes-and-execution.md#dta-015)), so the joint-demand question is no longer bounded by the `scientific-owner` barrier. AGENTS.md and the environment guide deliberately select an uncapped local mode; the finding is not a call for caps but that tests which each claim the whole envelope are run concurrently with no evidence that their joint demand fits that policy. Oversubscription is suspected, not measured; separate checkpoint runs passed (58c). |
+| [DTA-053](#dta-053) | Live, extended | `pse-runtime` now has 22 integration binaries, each linking the full runtime, DataFusion and solver closure, across about ten distinct `required-features` sets (`crates/pse-runtime/Cargo.toml:150-250`). Command-line opt-in features are not unified, so each separately invoked set rebuilds `pse-backend-native` and `pse-runtime`; one invocation with a superset would build every target once, but no recipe does so and the plan checkpoints used about eight separate selections. A focused `unit-package pse-runtime <filter>` still compiles the whole 327k-line crate with about 68k lines of tests. The tooling suite (126 modules) still has no focused route. |
+| [DTA-052](#dta-052) | Live on Python; new native footprint | Python publication paths unchanged. `scripts/bootstrap-host` keeps every published `generation.*` with no retirement. Failed native private stores (whole service roots with credentials) accumulate with no reclaimer: no source references the `pse-canonical-native-` prefix; 39 such directories were observed in `/tmp`. Per-test disposal policy is [DTA-060](evidence-routes-and-execution.md#dta-060). |
+| [DTA-030](#dta-030) | Overstated, unchanged; footprint grows | `reference_pid_exchange` also decodes the whole capsule per process (`tests/fixtures/scientific-inputs.rs:27-34`). |
+| [DTA-033](#dta-033) | Superseded, residual | `py-unit` still runs `python_extension sync auto` (`justfile:817`). |
+| [DTA-034](#dta-034) | Holds on Python; native counterpart bounded | The native adapter runs one `locate-project`, one `metadata --all-features` and one or two unit-graph passes per compiler invocation (`correctness.rs:265-319`). |
+| [DTA-038](#dta-038), [DTA-039](#dta-039), [DTA-042](#dta-042), [DTA-047](#dta-047), [DTA-048](#dta-048) | Partial, live on Python | Unchanged sources; reachable through the routes above. Native fixtures retire DTA-038's premise on their path. |
+| [DTA-043](#dta-043) | Holds on Python; premise retired on native | Native fixtures use a private server per test; no shared service. |
+| [DTA-044](#dta-044) | Established (narrowed) | `no_canonical_allocation` still checks a nonexistent group (`python/pse/tests/conftest.py:98`). |
+| DTA-029, 031, 032, 035, 036, 037, 040, 045 | Established, unchanged | No change to decisive sources. |
 
 ## <a id="dta-052"></a>DTA-052 — Prepared artifacts and test evidence are published without content reuse or a convergent lifecycle
 
