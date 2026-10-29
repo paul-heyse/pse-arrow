@@ -274,7 +274,98 @@ fn journey<'a>(science:&'a mut Science,store:&'a CanonicalStore,service:&'a mut 
     drop(result); drop(reopened);
     })
 }
-async fn run_private(cancelled:bool) {
+#[derive(Clone,Copy)]
+enum NativeStudyCase { Completed, BeforeClaim, ActiveCancellation }
+
+#[derive(Default)]
+struct HeldNativeEntry {
+    entered: AtomicUsize,
+    stop_observed: std::sync::atomic::AtomicBool,
+    exited: std::sync::atomic::AtomicBool,
+    released: std::sync::Mutex<bool>,
+    changed: std::sync::Condvar,
+}
+impl HeldNativeEntry {
+    fn release(&self) {
+        *self.released.lock().unwrap_or_else(std::sync::PoisonError::into_inner)=true;
+        self.changed.notify_all();
+    }
+}
+struct ReleaseNativeEntry {entry:Arc<HeldNativeEntry>,left:CancelSource,right:CancelSource}
+impl Drop for ReleaseNativeEntry {
+    fn drop(&mut self) {self.left.cancel();self.right.cancel();self.entry.release();}
+}
+fn active_cancellation<'a>(science:&'a mut Science,store:&'a CanonicalStore,service:&'a mut NativeCanonicalService)->BoxFuture<'a,()> {
+    Box::pin(async move {
+        let (handle,_)=science.submit(1).await;
+        let study=handle.study_id();
+        let point_key=pse_operations::canonical_studies::point_key(&study.to_string(),OccurrenceKey(0));
+        let entry=Arc::new(HeldNativeEntry::default());
+        let observer={let entry=entry.clone();Arc::new(move |stop:&std::sync::atomic::AtomicBool| {
+            entry.entered.fetch_add(1,Ordering::SeqCst);
+            let mut released=entry.released.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            while !*released {
+                if stop.load(Ordering::SeqCst) {entry.stop_observed.store(true,Ordering::SeqCst);}
+                released=entry.changed.wait_timeout(released,Duration::from_millis(10))
+                    .unwrap_or_else(std::sync::PoisonError::into_inner).0;
+            }
+            entry.exited.store(true,Ordering::SeqCst);
+        })};
+        pse_runtime::math::install_qualified_native_entry(observer.clone()).unwrap();
+        let original={
+        let left_stop=CancelSource::new();let right_stop=CancelSource::new();
+        let work=async {tokio::join!(
+            pse_runtime::math::observed_native_entry(observer.clone(),serve(&science.runtimes[1],&left_stop)),
+            pse_runtime::math::observed_native_entry(observer,serve(&science.runtimes[2],&right_stop)))};
+        tokio::pin!(work);
+        // Declared after the original work: unwind releases the native barrier
+        // before dropping a future whose synchronous join may depend on it.
+        let _release=ReleaseNativeEntry {entry:entry.clone(),left:left_stop.clone(),right:right_stop.clone()};
+        tokio::select! {
+            ()=async {while entry.entered.load(Ordering::SeqCst)==0 {tokio::time::sleep(Duration::from_millis(5)).await;}}=>{},
+            result=&mut work=>panic!("workers finished before actual native admission: {result:?}"),
+            ()=tokio::time::sleep(Duration::from_secs(120))=>{
+                left_stop.cancel();right_stop.cancel();entry.release();let result=work.await;
+                panic!("native entry never arrived; original workers drained: {result:?}");
+            }
+        }
+        let original=store.canonical_study_point(&point_key).await.unwrap().unwrap();
+        assert!(original.assigned && original.attempt.is_some());
+        assert!(pse_operations::canonical_studies::point_facts(&original).unwrap().native_started);
+        handle.cancel().await.unwrap();
+        left_stop.cancel();right_stop.cancel();
+        tokio::select! {
+            ()=async {while !entry.stop_observed.load(Ordering::SeqCst) {tokio::time::sleep(Duration::from_millis(5)).await;}}=>{},
+            result=&mut work=>panic!("stop intent released held native ownership early: {result:?}"),
+            ()=tokio::time::sleep(Duration::from_secs(30))=>{
+                entry.release();let result=work.await;
+                panic!("native owner did not observe stop; original workers drained: {result:?}");
+            }
+        }
+        assert!(!entry.exited.load(Ordering::SeqCst));
+        tokio::select! {
+            result=&mut work=>panic!("logical stop manufactured physical completion: {result:?}"),
+            ()=tokio::time::sleep(Duration::from_millis(50))=>{}
+        }
+        entry.release();
+        let (left,right)=work.await;
+        assert!(left.is_ok() && right.is_ok(),"original worker settlement: {left:?}, {right:?}");
+        assert!(entry.exited.load(Ordering::SeqCst));
+        original
+        };
+        let fresh=service.connect().await.unwrap();
+        let replacement=science.attach(fresh.store(),"after-native-stop");
+        serve(&science.runtimes[replacement],&CancelSource::new()).await.unwrap();
+        let status=handle.status().await.unwrap();
+        assert!(status.cancelled && matches!(status.state,pse_runtime::workflow::StudyState::Concluded));
+        let final_point=store.canonical_study_point(&point_key).await.unwrap().unwrap();
+        assert_eq!(final_point.attempt,original.attempt);
+        assert_eq!(pse_operations::canonical_studies::point_facts(&final_point).unwrap().attempt_count,1);
+        assert_eq!(entry.entered.load(Ordering::SeqCst),1,"replacement must not rerun cancelled science");
+        assert!(!status.points[0].outcome.as_ref().unwrap().scientific.usable);
+    })
+}
+async fn run_private(case:NativeStudyCase) {
     let mut service=service();
     service.run(Instant::now()+Duration::from_secs(240),|service|Box::pin(async move {
         service.launch(Instant::now()+Duration::from_secs(90)).await?;
@@ -282,7 +373,12 @@ async fn run_private(cancelled:bool) {
         let left=service.connect().await?;
         let right=service.connect().await?;
         let mut science=Science::new(&[store.clone(),left.store().clone(),right.store().clone()]);
-        let result=AssertUnwindSafe(journey(&mut science,&store,service,cancelled)).catch_unwind().await;
+        let body=match case {
+            NativeStudyCase::Completed=>journey(&mut science,&store,service,false),
+            NativeStudyCase::BeforeClaim=>journey(&mut science,&store,service,true),
+            NativeStudyCase::ActiveCancellation=>active_cancellation(&mut science,&store,service),
+        };
+        let result=AssertUnwindSafe(body).catch_unwind().await;
         if let Err(error)=science.close().await {
             eprintln!("independent native-lane cleanup failed: {error}");
             if result.is_ok() {panic!("native-lane cleanup failed after successful science: {error}");}
@@ -293,6 +389,8 @@ async fn run_private(cancelled:bool) {
     service.dispose().unwrap();
 }
 #[tokio::test]
-async fn native_recorded_study_two_workers_preserve_science_protection_and_lineage_after_producer_close() {run_private(false).await;}
+async fn native_recorded_study_two_workers_preserve_science_protection_and_lineage_after_producer_close() {run_private(NativeStudyCase::Completed).await;}
 #[tokio::test]
-async fn native_recorded_study_cancelled_before_claim_never_enters_native_and_reopens_its_summary() {run_private(true).await;}
+async fn native_recorded_study_cancelled_before_claim_never_enters_native_and_reopens_its_summary() {run_private(NativeStudyCase::BeforeClaim).await;}
+#[tokio::test]
+async fn native_recorded_study_active_cancellation_joins_original_owner_before_replacement() {run_private(NativeStudyCase::ActiveCancellation).await;}

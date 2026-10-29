@@ -338,3 +338,14 @@ Active-native cancellation/crash replacement, migration-crossing publication, la
 population and other scientific classes are not qualified by the two bounded native cases.
 The still-used Python/PyO3 facade and isolated reference exchange retain G03/F04 ownership.
 No performance or arbitrary blocking-solver cancellation bound is claimed.
+
+The later admitted-native cancellation control holds a real native session entry after its
+stop flag is observed. Worker completion remains pending until the barrier is released;
+the original owners then join, and an independent replacement finalizes cancellation without
+a second attempt/native entry or usable-science claim. The unwind guard releases the barrier
+before a dependent join can run, preserving failure-path cleanup. **Tested:** the same
+force-validated `native_study` target with `-E 'test(active_cancellation)'` passes one control
+against zero failures, two excluded, no warnings (run `85a97867-f496-4102-b677-41584d6990e1`).
+This closes the bounded admitted-entry cancellation gap above, while actual worker crash,
+migration-crossing publication, broader populations and arbitrary blocking foreign solvers
+retain their separate acceptance obligations.
