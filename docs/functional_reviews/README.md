@@ -1,5 +1,13 @@
 # Functional opportunity reviews
 
+The [SurrealDB state, execution and coordination review](surrealdb-state-execution-boundaries-2026-10-29.md)
+compares the two supplied placement proposals with Plan58 and the effective patched database.
+It recommends complete bounded canonical progression, explicit native preparation/physical
+ownership, retained persistent MX authority, and targeted graph, reactive, connectivity and
+historical-analysis extensions. Ten opportunities identify enabling library mechanisms,
+candidate code retirement, alternative triggers and proposed Plan58 amendments. It changes
+no plan, production implementation, deployment or qualification status.
+
 The [Rust-first system review](rust-first-system-functional-opportunities-2026-10-28.md)
 assesses complete Rust ownership of product, operational and developer workflows, optional
 Python bindings, and retirement of the Python MCP stack. It recommends independently usable
