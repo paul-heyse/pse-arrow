@@ -1,3 +1,7 @@
+---
+title: External SurrealDB engine placement and boundary cost review
+---
+
 I'll read the remaining three references and your pse-arrow notes, then lay out a placement model with rough cost numbers for each tier.
 
 I checked pse-arrow before answering, because your current setup changes the question. Short answer: the performance hit from managing state in the database is very large per operation and negligible per unit of real work, as long as you only write to the database when something changes state, never inside solver iterations.

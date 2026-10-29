@@ -1,3 +1,7 @@
+---
+title: External SurrealDB state and execution placement review
+---
+
 Using **SurrealMX 1.0 and SurrealKV 1.0 as the baseline**, I would favor your state-management approach for **shared application state and meaningful state transitions**. The performance-sensitive boundary is how much work you put between those transitions.
 
 My recommendation is:

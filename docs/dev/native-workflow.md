@@ -120,8 +120,9 @@ they need no persisted study variant merely to share this entry point.
 
 `pse_runtime::workflow::Runtime::from_shared` borrows a deployment's existing
 `SharedRuntime`, schema registry and engine factory, and attaches its explicit
-`CanonicalDeployment`. It creates no executor or independent resource budget. Initialize the selected substrate
-through the [operator route](operational-store.md#setup-and-runtime-ownership) before opening it.
+`CanonicalDeployment`. It creates no executor or independent resource budget. The explicit native service owner initializes fresh private state before opening it; existing
+operator state retains its separate admission contract. See the
+[construction and existing-state boundaries](operational-store.md#setup-and-runtime-ownership).
 
 `authored.modeling_declarations` is the generated generic declaration authority.
 `models/*.pse` is the primary authoring surface. Document loading, direct generated

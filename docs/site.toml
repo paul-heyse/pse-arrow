@@ -136,6 +136,8 @@ scope = "History"
 
 [[overrides]]
 patterns = [
+  "surrealdb_design_external_thinking_1.md",
+  "surrealdb_design_external_thinking_2.md",
   "library-utilization.md",
   "design_review/audit/**/*.md",
   "design_review/test-audit/**/*.md",

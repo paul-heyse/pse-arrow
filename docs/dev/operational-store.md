@@ -10,16 +10,21 @@ owns server setup, resource allocation, maintenance, quiescing, backup and resto
 
 ## Setup and runtime ownership
 
-```bash
-just surreal setup --state /path/to/private/state
-just surreal start --state /path/to/private/state
-just canonical-init /path/to/private/state
-```
+Fresh native service construction belongs to the explicit `NativeCanonicalService` owner,
+which consumes the already prepared server/helper/module selection and retains its private
+state, connection and physical shutdown. The native scientific acceptance fixtures exercise
+that route. General operator provisioning and retained Python consumer cutover remain with
+[Plan58 D/F](../plans/58d-canonical-control-and-connectivity.md); the private fixture route is
+not a general production provisioning command.
 
-Setup selects the current generated interpretation, described by the
-[local substrate guide](surreal-substrate.md#setup-and-state-ownership). Initialization
-installs its complete schema and marker atomically in a fresh database. Ordinary opening validates
-the selected interpretation and schema digest without DDL. Design-phase cutover regenerates
+The legacy `just surreal setup` command may inspect an existing compatible state. It refuses
+new Python construction before downloads or state creation; preparing a native module does not
+reactivate that constructor. Existing-state controls and an already admitted pending-target
+settlement retain their scoped contracts. See the
+[local substrate guide](surreal-substrate.md#setup-and-state-ownership) for those controls.
+Schema initialization belongs to the explicit service owner and installs its complete schema
+and marker atomically in a fresh database. Ordinary opening validates the selected
+interpretation and schema digest without DDL. Design-phase cutover regenerates
 owned state from current definitions and fixtures; it requires no old-data migration,
 backfill or historical reader. Current scientific document versions and current-version
 backup/restore retain their own contracts. Explicit reconstruction and frozen forward

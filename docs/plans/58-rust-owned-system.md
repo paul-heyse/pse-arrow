@@ -118,7 +118,7 @@ References O01–O15 mean anchors in the source functional review. Scheduled mea
 
 | Opportunity | Disposition | Work owner | Required evidence or trigger |
 | --- | --- | --- | --- |
-| O01 | scheduled | 58a | Complete supported native product journeys |
+| O01 | resolved | [58a Outcome](58a-native-product-and-scientific-workflows.md#outcome-recorded-after-implementation) | Supported native construction/scientific/source/study callers pass; full assembled/reference qualification remains H-owned. |
 | O02 | scheduled | 58f | Retained developer capabilities independent of Python/MCP; CLI facade optional |
 | O03 | scheduled | 58g | Retire Python MCP; reduced RMCP deferred until a useful actual-host consumer |
 | O04 | deferred | 58g | Define seam now; implement only for a concrete Python consumer |
@@ -127,9 +127,9 @@ References O01–O15 mean anchors in the source functional review. Scheduled mea
 | O07 | scheduled | 58d | Connection-only control and original durable command reconciliation |
 | O08 | scheduled | 58e | Protected result access without mathematical construction |
 | O09 | scheduled | 58f | Shared typed Rust contracts/diagnostics with responsibility-owned generation |
-| O10 | scheduled | 58a | Preserve/extend consumed library preparation and qualified arithmetic |
+| O10 | resolved | [58a Outcome](58a-native-product-and-scientific-workflows.md#outcome-recorded-after-implementation) | Existing library-owned preparation/arithmetic and class-specific limits preserved through native callers; optional new engines/diagnostics remain conditional. |
 | O11 | scheduled | 58h | Owner tests, original consumer journeys and independent oracle isolation |
-| O12 | scheduled | 58a | Native incremental workspace; disk persistence conditional on a concrete benefit |
+| O12 | resolved | [58a Outcome](58a-native-product-and-scientific-workflows.md#outcome-recorded-after-implementation) | Native value/structure/delete/repair and exact-parent source/history callers pass; disk persistence remains conditional on a concrete benefit. |
 | O13 | deferred | 58a | Bounded comparison when adaptive external batch study needs more than current actor |
 | O14 | deferred | [58f F06](58f-development-and-assurance.md#f06) | Discrete explanation consumer beyond ordinary validation justifies Z3 |
 | O15 | deferred | 58e | Actual remote interoperable batch/artifact consumer justifies Flight or signing |
@@ -148,7 +148,7 @@ or qualified. Conditional mechanisms inside a scheduled opportunity are not mand
 | [O02](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O02) | scheduled | 58d D03 | Co-design access paths and summaries using existing references/inline graph mechanisms; decide justified projections/events/views rather than mandate new graph storage. |
 | [O03](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O03) | scheduled | 58d D03 | Canonical catch-up and observer contract; select events/live/feed only for a named consumer with actor, ordering, retry and finality evidence. |
 | [O04](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O04) | scheduled | 58d D01 | Bounded exact-release SDK/API/gRPC comparison: delegated duty, retained gap and removed code; no unconditional client replacement. |
-| [O05](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O05) | scheduled | 58a A05 | Repeated analysis over original revisions/context/points/attempts; D03 owns canonical lineage and E02 protected output joins. |
+| [O05](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O05) | resolved | [58a A05 Outcome](58a-native-product-and-scientific-workflows.md#outcome-recorded-after-implementation) | Native repeated analysis preserves original revisions/context/realized points/attempts through replacement and later correction; D03/E02/H retain their broader obligations. |
 | [O06](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O06) | scheduled | 58d D03 | Retain patched persistent MX/SSI; KV/embedded alternatives remain conditional on a concrete history, capacity, encryption or deployment need and complete compatibility/migration evidence. |
 | [O07](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O07) | scheduled | 58d D03 | Retain one stateless shared readiness policy; broader module effects require permission, parent rollback, mutability, complete-output and resource evidence. |
 | [O08](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O08) | scheduled | 58e E01 | Independent protected reads over bounded inline IPC/sealed payloads and canonical manifests; buckets/payload relocation require a concrete lifecycle benefit. |
@@ -196,7 +196,7 @@ by virtue of this amendment.
 ## Improvement dispositions
 
 I01–I14 link to the [source improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md).
-All are scheduled amendments, not implemented or resolved corrections. Conditional mechanisms
+Rows distinguish scheduled amendments from tested resolved opportunities. Conditional mechanisms
 inside them remain conditional; their declined alternatives are not a deferred backlog.
 
 | Finding reference | Scenario reference | Disposition | Decision/work owner | Evidence or revisit trigger |
@@ -377,3 +377,15 @@ native primary cut into whole-series acceptance. G02 stays complete; other G/F c
 retain their actual owners. No worktree remains to integrate, no push is authorized and
 no broad qualification/performance campaign is running. Resume from those checkpoints rather
 than relaunching earlier interrupted runs or reconstructing the configured user database.
+
+
+## Native application handoff — 2026-10-29
+
+[58a's Outcome](58a-native-product-and-scientific-workflows.md#outcome-recorded-after-implementation)
+closes A01–A07's selected native functional/caller scope and owns its repaired scope-end
+checks. The completed companion remains for live F/G/H and architectural readers. This is
+not full first-party Python retirement or assembled Plan58 qualification. F/G retain actual
+campaign/reference/source/result-adapter consumers; H retains the complete matrix, reference,
+performance and later persistent-production obligations. B/C/D remain paused at their existing
+checkpoints. The comprehensive Clippy request also corrects native immutable-provider staging
+and the Clippy-only graph-option translation; it does not resume unrelated B/C/D production scope.

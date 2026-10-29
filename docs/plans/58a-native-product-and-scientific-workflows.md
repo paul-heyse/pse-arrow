@@ -1,6 +1,6 @@
 ---
 title: Native product and scientific workflows
-status: in-progress
+status: done
 date: 2026-10-28
 adrs: []
 doc_role: plan
@@ -10,6 +10,11 @@ review_sources: [docs/functional_reviews/rust-first-system-functional-opportunit
 ---
 
 # Native product and scientific workflows
+
+A01–A07 are complete for the selected native scope. The
+[Outcome](#outcome-recorded-after-implementation) owns final acceptance, corrections and the
+handoff to H; earlier checkpoints retain their historical conditions. Remaining F/G consumers,
+paused B/C/D and full H qualification keep their separate owners.
 
 This supporting plan develops the scientific application target of [Plan58](58-rust-owned-system.md). It is a new decomposition of the
 Rust-owned target, superseding Plan57's delivery scope rather than copying its packages. The package table and checkpoints distinguish selected implementation from remaining work; authoring this
@@ -78,7 +83,7 @@ PyO3 implementation is deferred; its absence cannot block native scientific comp
 | [A04](#a04) Complete scientific mode callers | done | Scientific workflow owners | Every supported mode constructible and failures honestly scoped |
 | [A05](#a05) Native studies and replay | done | Study/runtime owner | Generated studies, durable handoff and recorded-point replay |
 | [A06](#a06) Adaptive study decision and retained strategies | done | Study strategy owner | Retained actor and native strategy callers tested; external batch ask-and-tell extension deferred to an actual consumer |
-| [A07](#a07) Consumer cutover and assurance handoff | in progress | Native workflow integrator | Replaced consumers deleted and required H journeys ready |
+| [A07](#a07) Consumer cutover and assurance handoff | done | Native workflow integrator | Replaced consumers deleted and required H journeys ready |
 
 <a id="a01"></a>
 ## A01 — Establish the native application contract
@@ -701,8 +706,9 @@ runtime compile cost. This is storage housekeeping, not a measured execution-spe
 
 ### Complete fitting caller coverage and functional handoff
 
-A01–A06's native functional scope has passed its selected acceptance. A07 remains in progress
-for scope-end integration, static checks and the handoff to H; this is not completion of G's
+A01–A06's native functional scope has passed its selected acceptance. At this checkpoint A07
+remains in progress for scope-end integration, static checks and the handoff to H; the later
+Outcome records its settlement. This is not completion of G's
 whole Python retirement or H's assembled series qualification. Formal ADR statuses remain
 proposed. The public native producers/callers require neither Python nor a product CLI.
 
@@ -748,3 +754,182 @@ uncertain-acknowledgement controls at
 Those owner tests retain their original conditions; A does not reopen paused D work or promote
 that component evidence to an unrun assembled journey. Independent bounded implementation review
 found no remaining native scientific implementation gap after these fitting additions.
+
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented · 2026-10-29:** A01–A06 deliver the callable native source/workspace,
+preparation, local scientific execution, study/design, retained-data and diagnostic scope
+recorded above. A07 integrates its actual consumers, deletes the replaced Python scientific
+projections and supplies H with independently constructible native callers. The Rust
+application needs neither Python nor a product CLI. Durable policy/history stays canonical;
+mathematics, attempt-local mutable state and original physical resource ownership stay with
+their Rust owners. Architecture revisions 308–310 and proposed ADR-0233 retain the enduring
+construction/boundary contracts. The native workflow and operational-store guides describe
+actual construction and existing-state limits.
+
+**Implemented:** G's [remaining consumer dispositions](58g-boundary-retirement-and-optional-consumers.md#remaining-scientific-consumer-dispositions)
+keep the real F04/F05/E04/G03 obligations explicit. Retained thermodynamic campaign,
+reference/adoption/telemetry, stored-result and optional adapter consumers do not become
+unqualified deletions. This completes A's native consumer selection and handoff, not all
+first-party Python retirement, paused B/C/D, or full Plan58/H qualification. A's completed
+record remains while those live readers consume its handoff.
+
+**Tested:** zero-failure baseline; the integrated native selection passes **56 tests across
+15 binaries, zero failures, 1631 excluded**, with 16 nextest lanes, explicit force-validation,
+the prepared compiler/solver/KLU profile, private native service/module ownership and the
+explicit scientific-input capsule. Run `94234d59-fdd3-4c51-b66e-327bdd94c345` uses:
+
+```sh
+scripts/pse-env --native=compiler,solver,klu -- \
+  scripts/cargo-bin/cargo-pse-correctness nextest run --locked -p pse-runtime --lib \
+  --test local_operation --test native_workspace --test native_conic --test native_strategies \
+  --test native_design --test native_conformance --test native_adaptive_strategy \
+  --test native_scientific_modes --test native_dynamic_workflows --test native_local_study \
+  --test native_source_reload --test native_study --test native_repeated_analysis --test native_diagnostics \
+  --features native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-scip,solver-highs,solver-diffsol,solver-pounce \
+  -E 'binary(native_workspace) | binary(native_conic) | binary(native_strategies) | binary(native_design) | binary(native_conformance) | binary(native_adaptive_strategy) | binary(native_scientific_modes) | binary(native_dynamic_workflows) | binary(native_local_study) | binary(native_source_reload) | binary(native_study) | binary(native_repeated_analysis) | binary(native_diagnostics) | binary(local_operation) | test(result_pruning_tests::) | test(retained_native_admission_preserves_scope_and_close_without_math) | test(math::surrogate::library::tests::) | test(project_operator_wire_defaults_effects_and_public_projection_set_remain_owned)' \
+  --no-fail-fast
+```
+
+The command inherits `PSE_NATIVE_FIXTURE_MODULE_RECEIPT`,
+`PSE_NATIVE_FIXTURE_SERVICE_HELPER` and `PSE_SCIENTIFIC_INPUTS` from the explicit private
+fixture setup recorded above. It includes source/edit/reload, all retained scientific-mode
+callers, active cancellation/process replacement, recorded-point replay, later context
+correction, protected reads/pruning, data-only observation and actual project consumers.
+The D-owned uncertain-acknowledgement/fence tests keep their earlier conditions; they were
+not silently counted in these 56. No configured user store was provisioned or changed.
+
+**Tested:** legacy existing-state controller/refusal controls pass **362 tests and 422
+subtests, zero failures**, using the same native profile and
+`.venv/bin/python -m pytest -n16 --dist load scripts/tests/test_surreal_server.py scripts/tests/test_plan30_lifecycle.py scripts/tests/test_surrealism_module.py --basetemp=<private-temporary-directory> --tb=short -q`.
+Their fixtures use current typed registered-context and immutable generation declarations;
+new Python construction refuses before network/filesystem effects. A backup drain refusal
+may leave its intentionally reserved destination empty, but never copied payloads or a ready
+backup. Existing closed-admission and original-context refusals remain asserted.
+
+**Tested:** `scripts/pse-env --native=compiler,solver,klu -- just governance-tests`
+passes **25 tests, zero failures/skips**, run `fa89757e-7e88-4c23-a5ae-2b5383c413c2`.
+The focused schema-v2 checkpoint test passes one case, zero failures, 505 excluded, using
+`just unit-package pse-operations schema_v2_checkpoint_binds_original_request_and_closed_intermediate_identity --features canonical-tests,native-service,canonical-maintenance,test-support`
+under that profile. The retained store-free Python adapter refusal, eight facade/envelope
+controls and five projection-generator controls keep the focused results above.
+
+**Interface-checked:** the initial `just hygiene --live` has seven unsuccessful components
+against zero and remains a failed aggregate. Subsequent affected reruns pass Python
+lint/types/imports, default and no-default workspace Clippy, dependency analysis, and
+`just python-stubs-check --extension target/debug/lib_native.so` against the actual newly
+built image. The installed older image was not represented as current. Other hygiene
+components, including generated equivalence, contracts, family checks and rustdoc, passed
+in the original aggregate. `just ready` passes after removing an unused runtime dependency
+edge; no dependency versions changed. Documentation publication passes 904 chapters.
+`just turn-end` passes formatting and ADR-index checks. The final comprehensive Clippy
+selection follows the maintainer's explicit scope-end request below.
+
+**Proposed / not_run:** full H assembled/reference/performance and persistent-production
+qualification remain open. `just features-powerset` is unsuccessful in both
+`features-combinations` and `features-no-default` (exit 125 before compilation): native
+admission reports no completed isolation provider. No matrix campaign or feature combination
+ran. Subsequent comprehensive Clippy preparation admits matching pinned isolation/UNO/PETSc
+installations through the existing native snapshot owner, removing that observed prerequisite;
+the matrix campaigns were not rerun. H owns their actual later execution. No smaller matrix,
+Python fallback or unprepared native environment was substituted. There is no measured
+speedup claim or claim that retained optional Python adapters are fully qualified.
+
+### Final comprehensive Clippy and receiving controls
+
+**Interface-checked · 2026-10-29:** every following workspace/all-targets mode passes against
+zero, with **zero errors and zero warnings**. All use `--keep-going`, the pinned toolchain,
+`--locked`, explicit Arrow correctness admission and `-D warnings`:
+
+| Mode | Command | Result |
+| --- | --- | --- |
+| Default | `scripts/pse-env -- just clippy-default` | passed |
+| No default features | `scripts/pse-env -- just clippy-no-default` | passed |
+| Ordinary linked solver workspace/conformance/benchmarks | `just lint-solver-contracts`, with the prepared native provider inputs | passed |
+| All workspace features, including taskdump | Command below, with the same provider inputs | passed |
+
+```sh
+RUSTFLAGS='-C link-arg=-fuse-ld=mold --cfg tokio_unstable' \
+  scripts/pse-env --native=compiler,solver,klu,isolation,uno,petsc -- \
+  scripts/cargo-bin/cargo-pse-correctness clippy --keep-going --workspace \
+  --all-targets --all-features --profile diagnostic-taskdump --locked -- -D warnings
+```
+
+The explicit adopted `PSE_ROOT_ISOLATION_DIR`, `UNO_DIR` and `PETSC_DIR` inputs are those
+recorded in the selected native provider receipts. The pinned UNO qualification matches
+Cargo's current HiGHS archive; retained input libraries/patches match their receipts and
+BLAS selection. The ordinary mode remains separate from unstable diagnostic compilation.
+Clippy establishes static/interface coverage, not execution of optional scientific features.
+
+**Tested:** all **13 correctness-adapter process controls pass**, zero failures/skips, with
+`scripts/pse-env -- scripts/cargo-bin/cargo-pse-correctness nextest run --locked -p pse-host --test correctness --no-fail-fast`
+(run `ee467f48-fc6e-4ccc-9827-595ba8eaa9b6`). The native solver recipe initially refuses because
+the adapter forwards Clippy's `--no-deps` into `cargo check --unit-graph`. The graph translation
+now removes that linter-only flag while preserving actual Clippy arguments, continuation,
+selected target/dependency coverage and original stdout/stderr/exit. The process regression
+requires `--no-deps` exactly once at the actual linter, and `--keep-going`/`--all-targets` at
+both graph and linter. The host pair is explicitly refreshed; `just ready` and `just turn-end`
+pass afterward.
+
+**Tested:** **10 affected canonical-service controls pass**, zero failures, 515 excluded,
+at 16 nextest lanes (run `fdad6f2d-0f39-4537-b2af-84cf6a8f88b1`). The explicit private-service
+module/helper setup above supplies
+`nextest run --locked -p pse-operations --lib --test native_service --features canonical-tests,native-service,canonical-maintenance,test-support --no-fail-fast`
+through the correctness adapter, selecting the six `canonical_studies_` controls in that binary,
+`native_control_http_actor_grants_original_receipts_and_raw_envelopes`,
+`native_service_current_migration_joins_actual_ingress_and_reconstructs_ready`,
+`native_service_closed_admission_preserves_original_attempt_settlement_only`, and
+`native_old_publisher_settles_while_migration_is_closed_before_successor_activation` in the
+library. This rerun exercises the changed HTTP/error-propagation, progression, exact schema
+refusal and borrowed publisher-drain helpers using actual private native service owners.
+No existing deployment is opened or mutated.
+
+### A mistake made and corrected
+
+The initial script-control command omitted the explicit native library profile and therefore
+failed fixture setup; the corrected parallel run supplies compiler/solver/KLU and passes.
+Earlier properly configured controls then exposed stale persisted-generation/context fixtures;
+those now consume actual typed current declarations rather than weakening the assertions.
+Some backup assertions incorrectly demanded destination absence after reservation; independent
+source/contract review confirmed that an empty reserved directory is permitted. Assertions
+now require emptiness and absence of ready backup content while preserving the drain refusal.
+
+Scope-end lint also found a stale benchmark data-service argument, overly broad test-method
+feature gates, redundant borrows, unused dependency/code and non-diagnostic unreachable test
+arms. Those are corrected at their owners. An expanded workspace selection additionally finds
+11 canonical-service test-helper diagnostics; original errors now propagate through the
+existing fixture owner, and exact status/body/refusal assertions remain. The all-feature
+selection finds and corrects a second retained-data benchmark argument. Test fixture failure
+custody now retains its original
+undrained owners in a typed process-lifetime holder rather than forgetting them; it reports
+original diagnostic paths and makes no asynchronous-cleanup or success claim. A diagnostic
+print cannot precede establishing that custody. The earlier scientific fixture/borrowed-result
+mistakes and corrected acceptance remain recorded above; no tolerance was relaxed.
+
+The first all-features Clippy invocation incorrectly uses the ordinary profile for Tokio's
+explicit unstable taskdump feature; it refuses compilation for missing `tokio_unstable`.
+The corrected command uses the existing `diagnostic-taskdump` profile with the required
+opt-in and preserves the repository's mold linker flag. Native provider adoption also exposes
+a real copy-permission bug: immutable input metadata stays read-only in a private stage and
+cannot be relocated. The strengthened existing regression reproduces PermissionDenied before
+the fix; `just unit-package pse-host providers_external` then passes two controls, zero
+failures, 132 excluded (run `567a9ac6-7a25-4c3e-8c66-c97b91a237c4`). Only private staged copies
+gain owner-write permission; original bytes/modes and final sealed publication are asserted.
+The host tool pair is explicitly refreshed and `just ready` passes after preparation.
+
+### Deviations from the plan, deliberate
+
+A06 retains the existing library-owned adaptive actor; an external batch ask-and-tell extension
+remains conditional on a real consumer. No second optimizer, mandatory CLI, foreign ABI,
+general execution registry or new resource cap was introduced. Existing legacy state controls
+remain only for their actual F/G consumers; their unreachable fresh Python constructor was
+deleted. The native fixture owner is not advertised as a general operator provisioning CLI.
+
+The raw colleague-note bodies remain unchanged; required title metadata and Reference search
+classification were added solely to permit publication without promoting them to architectural
+authority. Concurrent test-audit edits are preserved outside this implementation's commits.
+The unavailable feature matrix is handed to H instead of reopening paused B/C/D. All local
+passing results retain their selected scope and do not close the series.

@@ -109,3 +109,23 @@ existing owners without treating those focused passes as H acceptance. Required 
 work is D's bounded progression/connectivity and schema/write-admission capability with actual
 A/C/E consumers; no interrupted historical campaign is restarted. New optional branches remain
 conditional, and uniquely authored inputs/existing stores remain protected.
+
+
+## Native scientific scope handoff — 2026-10-29
+
+[A's Outcome](58a-native-product-and-scientific-workflows.md#outcome-recorded-after-implementation)
+owns the integrated native scientific/caller selection, remaining F/G consumer dispositions,
+local scope-end corrections and exact qualification limits. H consumes that evidence; this
+handoff does not mark H01–H04 complete or reclassify unrun reference/production campaigns.
+The original selected native run passes 56 tests at 16 lanes, with 1631 excluded; canonical
+uncertain-acknowledgement/fence controls retain their separate D-owned runs and conditions.
+
+The first manual feature-matrix attempt refuses both subcommands before compilation because
+no completed isolation provider was selected. Subsequent explicitly requested comprehensive
+Clippy work prepares isolation/UNO/PETSc by admitting existing matching pinned installations
+through the native immutable-snapshot owner. It also corrects private copy permissions before
+metadata relocation; original installations remain unchanged and completed copies are sealed.
+Selection retains the explicit external-prefix inputs recorded by those provider receipts.
+This preparation removes the observed missing-provider prerequisite; it does not retrospectively
+run or pass either matrix campaign. A owns the ensuing Clippy results. The actual H matrix,
+reference and full assembled qualification remain separately selectable work.

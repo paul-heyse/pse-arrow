@@ -470,11 +470,9 @@ CREATE response does not prove that a mutation occurred. Rehearsal does not alte
 canonical database, and successful disposal does not qualify all production migrations.
 
 Use `just surreal <command>` and the focused test recipes in `just --list`.
-The underlying tool commands are:
+For an already admitted compatible state, the underlying control commands include:
 
 ```bash
-scripts/pse-env --resource-class compile -- .venv/bin/python scripts/surreal_server.py build-server
-.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v10
 .venv/bin/python scripts/surreal_server.py initialize --initializer-command target/debug/xtask canonical-init "$PSE_SURREAL_STATE"
 .venv/bin/python scripts/surreal_server.py start
 .venv/bin/python scripts/surreal_server.py status
@@ -482,15 +480,18 @@ scripts/pse-env --resource-class compile -- .venv/bin/python scripts/surreal_ser
 
 `--state PATH` selects an isolated application or fixture directory. The default is
 `$PSE_SURREAL_STATE`, otherwise `$XDG_STATE_HOME/pse-arrow/surreal-functional-v2`, falling back to
-`~/.local/state/pse-arrow/surreal-functional-v2`. Setup refuses nonempty unowned state and paths
-through symlinks. Repeated setup of an owned compatible state preserves its chosen
+`~/.local/state/pse-arrow/surreal-functional-v2`. Fresh Python setup refuses before downloads or state creation. Explicit native service
+construction consumes prepared artifacts; see the
+[native ownership route](operational-store.md#setup-and-runtime-ownership). Repeated setup
+of an owned compatible state preserves its chosen
 release, credentials and allocation; it is not a reconfiguration or upgrade command.
 No legacy import, cleanup or deletion of other application state occurs.
 
 ### Shared study policy module
 
-Setup admits the immutable production artifact built by
-`scripts/surrealism_module.py` from `crates/pse-study-module`. Initialization installs
+The native service owner admits an immutable production artifact explicitly prepared by
+`scripts/pse-env -- scripts/pse-host study-module prepare` from `crates/pse-study-module`.
+The Python constructor/repacker is retired. Initialization installs
 its read-only bucket and sole `study::readiness` export with the schema; ordinary open
 attests the module, exact bucket backend and activation hash and refuses any mismatch.
 The enclosing readiness transaction owns current premises, mutations and immutable
@@ -500,8 +501,10 @@ native callers, with no SQL, network or persistent module state. The declaration
 
 Actual resource and rollback qualification uses separately admitted artifacts, never
 production exports. Build a normal probe with
-`.venv/bin/python -m scripts.surrealism_module --qualification`; add `--long-hold`
-for the separate finite saturation window. After quiescing, stopping and proving every
+`scripts/pse-env -- scripts/pse-host study-module prepare --qualification`.
+New long-hold preparation currently refuses because the released CLI lacks a configuration
+override; previously prepared long-hold artifacts remain selectable. See the
+[environment guide](agent-environment.md) for the current preparation boundary. After quiescing, stopping and proving every
 owned context drained, select the immutable receipt with
 `surreal_server.py module-qualification --module-receipt /absolute/path/module.json`
 (and `--long-hold` only for that variant). Readmit a changed supervisor before restart.
@@ -512,9 +515,9 @@ reconcile the original readiness operation and its immutable receipt.
 
 With the service stopped and drained, `module-qualification` without a receipt removes
 probe access. A source refresh uses a newly built immutable artifact; changing its
-policy hash requires a fresh namespace. The existing `fresh-engine --drained` route
-regenerates design-phase data, refreshes module provenance and removes qualification
-selection. Initialize the new identity before normal start; no mixed policy versions
+policy hash requires a fresh namespace. The legacy `fresh-engine --drained` route can settle an already admitted pending target;
+it refuses new Python construction before stop or discard. Fresh reconstruction belongs
+to the explicit native owner. Initialize a new identity before normal start; no mixed policy versions
 are accepted. Blueprint §19.3/§20.6 own the enduring contract, and Plan49 owns selected
 qualification and its limits.
 
@@ -525,7 +528,7 @@ identity fences, explicit canonical key/producer/association meaning, inline/sea
 do not authorize activation, migration or deletion of an existing deployment;
 an existing interpretation mismatch still refuses ordinary startup/admission.
 
-Fresh setup selects the source-built SurrealDB3.3.4/MX1.0 executable. Its
+The native prepared server selection uses the source-built SurrealDB3.3.4/MX1.0 executable. Its
 [source integration](../../scripts/surrealdb-source/source-build.md) pins the upstream
 revision, adapter/connection patches, compiler inputs and resolved engine; installation
 checks source and executable digests. There is no released-binary fallback. The private tool root is
