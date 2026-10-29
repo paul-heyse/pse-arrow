@@ -123,7 +123,7 @@ mod _native {
         telemetry::{_telemetry_initialize, _telemetry_shutdown, _telemetry_status},
         workflow::{
             ModelingDiagnosticSettings, ModelingLimits, NativeAnalysis, NativeArtifactSettlement,
-            NativeAttempt, NativeFrozenStudyCohort, NativeGeneratedDesign,
+            NativeAttempt, NativeFrozenStudyCohort,
             NativeLiveSimulationCursor, NativeLiveSimulationEvent, NativeLocalStudy,
             NativeModelingConformance, NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
             NativeModelingElasticAttempt, NativeModelingInitialization,

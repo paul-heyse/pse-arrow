@@ -230,3 +230,6 @@ required-features = ["solver-ipopt", "solver-highs"]
 [[test]]
 name = "native_adaptive_strategy"
 required-features = ["solver-kinsol"]
+
+[[test]]
+name = "native_design"

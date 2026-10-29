@@ -463,3 +463,49 @@ actionable issues. [G's consumer cut](58g-boundary-retirement-and-optional-consu
 owns that integration and its remaining Python boundaries. Full A/E/G and H acceptance,
 remaining scientific/frontend consumers, residual-limit and payload-custody controls keep their
 own obligations; no complete scope-end qualification or measured speed claim follows.
+
+### Native generation and prerequisite acceptance
+
+**Tested:** the selected compiler prerequisite run passes eight tests, zero failures, 312
+excluded, using `scripts/pse-env -- just unit-package pse-compiler` with the filter union for
+`kernel_queries_reuse_math_across_values_unrelated_edits_and_clean_rebuild`,
+`immutable_revision_refuses_provider_context_substitution_before_publication`,
+`namespace_add_delete_shadow_import_and_absence_match_fresh_complete_admission`,
+`cloned_readers_drain_success_error_and_local_cancellation_before_repair`,
+`context_only_same_quantity_id_with_changed_meaning_invalidates_consumed_body`,
+`document_reuse_decoded_interpretation_changes_match_clean_admission`,
+`physical_context_and_matching_source_publish_as_one_candidate` and
+`delayed_completion_refuses_changed_reached_provider_registration`. This is focused A02
+prerequisite evidence, paired with the public immutable-edit caller; it is not a new
+compiler-wide qualification or performance measurement.
+
+**Tested:** the explicit private native-service correctness route selecting `--test native_study`
+passes all four tests, zero failures/skips, with
+`--features native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-scip,solver-highs,solver-diffsol`.
+It exercises original science/protection after producer closure, cancellation before claim,
+active cancellation with actual drain, and killed-process replacement with preserved unknown
+effect meaning. No configured development database is used.
+
+**Implemented and Tested:** the store-free public `native_design` target passes two tests,
+zero failures/skips, through the same prepared correctness route and selected feature set.
+All six design kinds retain physical coordinate meaning, intervals, Latin/centered strata or
+exact Cartesian endpoints/order. Duplicate integral-level coordinates remain distinct
+occurrences. Realized designs and exported content survive producer/cache/native-lane/root
+disposal. Invalid targets, physics, ranges, counts, work, grid shape and cancelled requests
+refuse without poisoning subsequent valid generation. The target itself requires no solver
+feature or canonical service; the run reuses the current broader native build selection.
+
+The strengthened repeated-analysis caller uses authored occurrence keys 13/29 independently
+of vector/page positions. Its initial added assertion incorrectly treated a cohort member's
+ordinal as that authored key. The corrected assertions retain the ordinal and match the
+exact canonical point key to the authored identity. The full replay/correction/comparison
+test passes again, zero failures/skips, with `--test native_repeated_analysis` under the
+same private fixture and feature selection.
+
+A07 deletes Python `GeneratedDesign`/`generate_design`, its complete PyO3 sampling module,
+registration/aliases/exports and dedicated wrapper/replay tests. Native design geometry and
+the recorded-point replay consumer retain the scientific claims. The reduced PyO3 build and
+compiled-stub publication pass; independent bounded source review found no material issues,
+with the ordinal correction established by execution. Generic conformance/manifest execution
+and the thermodynamic evidence campaign remain separate F consumers; the per-package native
+conformance caller is the next A04 coverage cut. These results do not close A07/G or H.

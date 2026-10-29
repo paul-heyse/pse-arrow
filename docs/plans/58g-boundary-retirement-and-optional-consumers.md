@@ -118,6 +118,19 @@ the retired class/method and its provenance leave generated output. Independent 
 review found no material actionable issues. No extension installation, Python component journey,
 scope-end static campaign or complete A/G/H qualification is claimed.
 
+The following A05 cut also deletes Python `GeneratedDesign`,
+`ModelingPackage.generate_design`, their complete PyO3 sampling module, registration,
+aliases/exports and dedicated `test_designs.py` wrapper/replay tests. The public native design
+target supplies store-free geometry/refusal/retention controls; the actual recorded-study
+consumer retains generated-point replay with non-positional occurrence identities.
+[A's generation checkpoint](58a-native-product-and-scientific-workflows.md#native-generation-and-prerequisite-acceptance)
+owns the passing evidence and the corrected ordinal/key distinction. The reduced native build
+and compiled-metadata publication pass with the same commands above; the generated diff removes
+only this retired projection and its provenance. Native design/document contracts remain.
+This additional deletion removes the Python handle's retained PreparationServices/math owner,
+without redesigning another Python adapter. Generic conformance and thermodynamic campaign
+orchestration remain separate F consumers with their shared document reader intact.
+
 ## Selected ordinary host retirement checkpoint — 2026-10-28
 
 The B02/B03/F01/F02 wave now cuts ordinary environment/foreground/Cargo entry points to Rust.

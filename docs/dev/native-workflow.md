@@ -151,6 +151,15 @@ by the Rust composition root, not constructed from source strings or Python call
 
 ## Dynamics and fitting
 
+Native design generation uses `ModelingPackage::generate_design` with typed physical
+coordinates, bounded work and explicit cancellation. It starts no solver and needs no
+canonical store. `GeneratedDesign::points` borrows the actual owned overlays; `export`
+retains their realized content and attribution independently of the producer. Record those
+realized points for study replay. A seed documents generation and does not replace the
+recorded inputs. The [store-free native design caller](../../crates/pse-runtime/tests/native_design.rs)
+exercises all six supported kinds, physical geometry, duplicate occurrences and refusals.
+The Python design-generation projection is retired; native generation remains unchanged.
+
 The same source definition selects integrated or simultaneous analysis. Integrated
 preparation derives states, rates, algebraic rows, initial conditions and outputs from
 continuous declarations. Diffsol/IDAS own stepping and consistency for the supported

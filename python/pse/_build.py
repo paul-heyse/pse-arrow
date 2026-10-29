@@ -86,7 +86,6 @@ _NativeModelingConformance = _native.NativeModelingConformance
 _NativeModelingResult = _native.NativeModelingResult
 _NativeModelingInitialization = _native.NativeModelingInitialization
 _NativeModelingInitializationAttempt = _native.NativeModelingInitializationAttempt
-_NativeGeneratedDesign = _native.NativeGeneratedDesign
 _NativeLocalStudy = _native.NativeLocalStudy
 _NativeStudyReport = _native.NativeStudyReport
 _NativeStart = _native.NativeStart

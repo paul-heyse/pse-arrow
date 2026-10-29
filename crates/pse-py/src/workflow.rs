@@ -16,7 +16,7 @@ mod settings;
 mod source_settlement;
 mod study_workbench;
 pub(crate) use modeling::{
-    ModelingDiagnosticSettings, ModelingLimits, NativeGeneratedDesign, NativeLocalStudy,
+    ModelingDiagnosticSettings, ModelingLimits, NativeLocalStudy,
     NativeModelingConformance, NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
     NativeModelingElasticAttempt, NativeModelingInitialization,
     NativeModelingInitializationAttempt, NativeModelingKnowledge, NativeModelingNativeAnalysis,

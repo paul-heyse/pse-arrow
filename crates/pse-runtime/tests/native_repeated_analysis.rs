@@ -48,6 +48,8 @@ use std::{
 // Independent oracle: for the realized offsets 0 and 5, the positive roots are
 // (2, 3) at p=4 and (3, sqrt(14)) after the authored calibration changes to p=9.
 const SQUARE: &str = "package local { test square fixture { dof 0; } { param p:Scalar=4; param offset:Scalar=0; var x:Scalar; eq root:x*x==p+offset; annotation start x(1); } }";
+// Authored identities deliberately differ from vector and captured-page positions.
+const POINT_KEYS: [u32; 2] = [13, 29];
 
 fn service() -> NativeCanonicalService {
     let environment = std::env::vars_os().collect();
@@ -353,7 +355,7 @@ fn definition<'a>(
             preparation: PreparationSettings::default(),
             overlay: overlay.clone(),
             policy: StudyPointPolicy {
-                key: OccurrenceKey(u32::try_from(key).unwrap()),
+                key: OccurrenceKey(POINT_KEYS[key]),
                 dependencies: vec![],
                 start: StartPolicy::Fresh,
                 attempt_limit: 1,
@@ -368,7 +370,7 @@ fn definition<'a>(
         assert_eq!(recorded.context.as_ref(), package.project_context());
         assert_eq!(recorded.points.len(), 2);
         for (key, point) in recorded.points.iter().enumerate() {
-            assert_eq!(point.policy.key, OccurrenceKey(u32::try_from(key).unwrap()));
+            assert_eq!(point.policy.key, OccurrenceKey(POINT_KEYS[key]));
             assert_eq!(point.operation.source, OperationSource::of(package));
             assert_eq!(point.binding_hash, point.binding.identity());
             assert_eq!(point.binding.entries.len(), 1);
@@ -503,6 +505,9 @@ async fn captured(cohort: &FrozenStudyCohort, qualified: bool) -> serde_json::Va
     for (position, row) in members.iter().enumerate() {
         assert_eq!(row.position, position as u64);
         assert_eq!(row.value.ordinal, position as u64);
+        assert_eq!(row.value.key, pse_operations::canonical_studies::point_key(
+            &row.value.study, OccurrenceKey(POINT_KEYS[position]),
+        ));
         assert_eq!(row.value.settled, qualified);
         assert_eq!(row.value.facts.scientific.usable, qualified);
         assert_eq!(row.value.facts.attempt_count, u32::from(qualified));
@@ -520,7 +525,9 @@ async fn assert_captured_attempts(cohort: &FrozenStudyCohort, status: &StudyStat
     assert_eq!(page.members.len(), status.points.len());
     for captured in &page.members {
         let point = status.points.iter()
-            .find(|point| u64::from(point.point_index) == captured.value.ordinal)
+            .find(|point| pse_operations::canonical_studies::point_key(
+                &captured.value.study, OccurrenceKey(point.point_index),
+            ) == captured.value.key)
             .expect("captured original occurrence");
         assert_eq!(captured.value.run, point.run);
         assert_eq!(captured.value.attempt, point.attempt);
@@ -546,9 +553,11 @@ async fn science_rows(
     let mut coordinates = None;
     let mut retained = BTreeMap::new();
     for point in &status.points {
-        let offset = [0., 5.][point.point_index as usize];
-        let root = if p == 4. { [2., 3.][point.point_index as usize] }
-            else { [3., 14_f64.sqrt()][point.point_index as usize] };
+        let position = POINT_KEYS.iter().position(|key| *key == point.point_index)
+            .expect("original authored occurrence identity");
+        let offset = [0., 5.][position];
+        let root = if p == 4. { [2., 3.][position] }
+            else { [3., 14_f64.sqrt()][position] };
         let attempt = point.attempt.as_ref().unwrap();
         let run = data.canonical_store().unwrap().canonical_run(&point.run).await.unwrap().unwrap();
         assert_eq!(run.revision, definition.modeling_revision);
@@ -595,7 +604,7 @@ async fn science_rows(
             ).unwrap();
             for row in view.rows().unwrap() {
                 assert_eq!(row.backend, Some(pse_model::generated::enums::NativeBackend::Kinsol));
-                assert_eq!(row.revision, Some(definition.points[point.point_index as usize].operation.source.revision.as_id()));
+                assert_eq!(row.revision, Some(definition.points[position].operation.source.revision.as_id()));
                 count += 1;
             }
         }

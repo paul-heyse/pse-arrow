@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 //! Owned Python handles over the generic kernel; no numerical semantics cross the boundary.
 use super::*;
-mod sampling;
 use crate::enums::EnumValue;
 use crate::identities::{HashValue, Identity};
 use pse_ids::SemanticId;
@@ -11,7 +10,6 @@ use pse_model::generated::enums::{
     NativeRunState, TrajectoryTermination,
 };
 use pse_modeling::DeclarationId;
-pub(crate) use sampling::NativeGeneratedDesign;
 use std::collections::BTreeMap;
 
 /// The one declaration document, retaining its source and prepaid copy through Python conversion.
@@ -734,26 +732,6 @@ impl NativeModelingPackage {
         )?;
         Ok(NativeModelingInitialization {
             inner: Arc::new(inner),
-        })
-    }
-    /// Generate raw physical overlays under local preparation admission, without store or solver startup.
-    fn generate_design(
-        &self,
-        py: Python<'_>,
-        request: documents::DocumentInput<pse_runtime::workflow::sampling::DesignRequest>,
-    ) -> PyResult<NativeGeneratedDesign> {
-        let cancel = CancelSource::new();
-        let services = self.services.preparation();
-        let inner = blocking(
-            py,
-            &self.owner,
-            self.inner
-                .generate_design(services, &request.0, self.limits, &cancel),
-            || cancel.cancel(),
-        )?;
-        Ok(NativeGeneratedDesign {
-            inner,
-            services: services.clone(),
         })
     }
     /// Admit local scientific intent without publication prerequisites.

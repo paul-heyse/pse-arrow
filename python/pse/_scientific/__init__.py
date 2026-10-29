@@ -54,9 +54,6 @@ from pse._modeling import (
     CompactStudyResult as CompactStudyResult,
 )
 from pse._modeling import (
-    GeneratedDesign as GeneratedDesign,
-)
-from pse._modeling import (
     LocalStudy as LocalStudy,
 )
 from pse._modeling import (
