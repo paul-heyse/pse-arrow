@@ -384,21 +384,20 @@ fn revision_copy_bytes(revisions: &[Revision]) -> Option<usize> {
 }
 
 async fn protect_pin(
-    operations: &Operations,
+    store: &pse_operations::canonical::CanonicalStore,
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
     revision: &Revision,
 ) -> Result<(ProtectedSelection, Arc<MemoryReservation>), WorkflowError> {
     use super::connected_results::{pooled_response_owner, retain_protected_metadata};
     use pse_operations::canonical::{MetadataResponse, response_ownership_scope};
     let response = pooled_response_owner(
-        &operations.pool,
+        pool,
         "canonical:physical-protection-response",
         MetadataResponse::Header,
     )?;
     let pin = response_ownership_scope(
         response.clone(),
-        operations
-            .store()
-            .protect(revision.clone(), std::time::Duration::from_secs(3600)),
+        store.protect(revision.clone(), std::time::Duration::from_secs(3600)),
     )
     .await?;
     let Some(bytes) = pin.retained_bytes() else {
@@ -406,7 +405,7 @@ async fn protect_pin(
         return Err(contract("physical protection allocation extent"));
     };
     let retained = Arc::new(retain_protected_metadata(
-        &operations.pool,
+        pool,
         response,
         bytes,
         |owner| pin.retain_metadata_owner(owner),
@@ -420,7 +419,16 @@ pub(super) async fn protect(
     revisions: &[Revision],
     bytes: usize,
 ) -> Result<Arc<PhysicalOwner>, WorkflowError> {
-    let allocation = MemoryConsumer::new(NAME).register(&operations.pool);
+    protect_store(operations.store(), &operations.pool, revisions, bytes).await
+}
+
+pub(super) async fn protect_store(
+    store: &pse_operations::canonical::CanonicalStore,
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+    revisions: &[Revision],
+    bytes: usize,
+) -> Result<Arc<PhysicalOwner>, WorkflowError> {
+    let allocation = MemoryConsumer::new(NAME).register(pool);
     let bytes = revisions
         .len()
         .checked_mul(size_of::<ProtectedSelection>())
@@ -437,7 +445,7 @@ pub(super) async fn protect(
         pin_metadata_bytes: 0,
     };
     for revision in revisions {
-        let (pin, metadata) = protect_pin(operations, revision).await?;
+        let (pin, metadata) = protect_pin(store, pool, revision).await?;
         owner.pin_metadata_bytes = owner
             .pin_metadata_bytes
             .checked_add(metadata.size())
@@ -664,7 +672,7 @@ mod physical_admission_cache_unit {
             .unwrap()
             .unwrap();
         let before = operations.pool.reserved();
-        let (pin, grant) = protect_pin(operations, &revision).await.unwrap();
+        let (pin, grant) = protect_pin(operations.store(), &operations.pool, &revision).await.unwrap();
         assert_eq!(
             grant.size(),
             pin.retained_bytes().unwrap()

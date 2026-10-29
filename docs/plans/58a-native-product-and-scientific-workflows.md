@@ -1,6 +1,6 @@
 ---
 title: Native product and scientific workflows
-status: draft
+status: in-progress
 date: 2026-10-28
 adrs: []
 doc_role: plan
@@ -75,7 +75,7 @@ PyO3 implementation is deferred; its absence cannot block native scientific comp
 | [A01](#a01) Native application contract | in progress | Native workflow owner | Accepted shared contract and complete retained scientific caller scope |
 | [A02](#a02) Incremental workspace and source workflows | in progress | Authoring/compiler owner | Native revision/edit/reuse behavior and source/history consumers |
 | [A03](#a03) Prepared local execution and results | in progress | Runtime/math owner | Typed author→prepare→execute→inspect composition independent of Python |
-| [A04](#a04) Complete scientific mode callers | planned | Scientific workflow owners | Every supported mode constructible and failures honestly scoped |
+| [A04](#a04) Complete scientific mode callers | in progress | Scientific workflow owners | Every supported mode constructible and failures honestly scoped |
 | [A05](#a05) Native studies and replay | planned | Study/runtime owner | Generated studies, durable handoff and recorded-point replay |
 | [A06](#a06) Adaptive study decision and retained strategies | planned | Study strategy owner | Bounded comparison decided; retained native strategies migrated |
 | [A07](#a07) Consumer cutover and assurance handoff | planned | Native workflow integrator | Replaced consumers deleted and required H journeys ready |
@@ -319,3 +319,83 @@ Final independent user-manager readback finds no owned pse-host/pse-foreground u
 all selected construction/test runs have finished. Formal ADR status is unchanged. The
 architecture amendment used the authorized PSE_DESIGN_EDIT=1 route; the pre-existing tracked
 .design-edit content was preserved. No full-series qualification or new speed claim follows.
+
+## Complete native workflow execution selection — 2026-10-29
+
+The maintainer authorized the detailed A01–A07 execution approach, including the necessary
+C lifecycle, E01/E02 retained-data and F/G consumer-retirement slices. Earlier local/native
+worker and reference receipts retain their original scopes; this selection does not restart
+paused unrelated B/C/D work or count historical library fixtures as qualified.
+
+Execution first separates mathematical preparation/execution from protected retained-data
+construction, and establishes a public local immutable edit/prepare/resolve consumer. The
+read capability must contain actual configured reader/model/pool/admission resources, not a
+renamed SourceServices/PreparationServices or full Runtime. Frozen cohorts and snapshots
+consume it. A02 extends existing SourceDelta/with_delta and Salsa products; no second cache
+or source authority is introduced. A04 moves complete scientific caller sets and their
+independent assertions; missing API construction belongs to the scientific owner rather than
+another facade. Local capability and persisted study eligibility remain distinct.
+
+A05 then composes exact realized designs, canonical submission/progression, native workers,
+protected replay and frozen repeated analysis. Historical context-based study fixtures must
+move to actual native capabilities before their acceptance. A06 retains the complete current
+EgorSolver/EgorState actor; the dataset-driven service suggest API is not an equivalent
+retained state/lifecycle replacement. A new externally scheduled adaptive batch interface is
+deferred until an actual consumer needs it; native strategy behavior remains required here.
+A07 deletes migrated Python scientific orchestration and reconciles actual remaining consumers,
+generation and declarations with F/G. Independent external Python oracles remain isolated.
+
+Library selection follows the reviewed pinned release contracts. In particular ndarray 0.16.1,
+rand_xoshiro 0.6.0, tonic 0.14.6 and the current EGObox family do not inherit newer overview APIs.
+Use ndarray views/Zip for useful native transformations, Bytes ownership for protected buffers,
+existing graph projections and Salsa dependency tracking, typed boundary Serde/Schemars/Prost,
+thiserror/miette failures, and calculation-level tracing/OTel. No new RPC hop, collector,
+sd-notify or hierarchical shutdown framework is selected. Native thread/foreign/TLS joins and
+canonical effect settlement are not replaced by task cancellation. Workstation parallelism,
+generous pool defaults and existing finite scientific contracts retain their owners.
+
+Current assignments use main with explicit disjoint source ownership. The coordinator owns
+shared exports/manifests, builds, integration and status; no source worker runs Cargo or
+formatters. Targeted public/native tests establish each cut. Scope-end qualification and H
+handoff follow all selected functional work; no performance benefit is inferred from deletion.
+
+### Native data and public caller evidence
+
+**Implemented:** public native callers now exercise immutable value and structural source edits,
+root re-solving with preserved prior results, Clarabel cone optimization, initialization and
+explicit/conditional recycle strategies. The E01/E02 prerequisite extraction removes retained
+SourceServices/Runtime/math ownership from native snapshots, readers and frozen cohorts and
+adds native protected cohort relations. Existing Python wrappers remain retirement work; their
+full runtime captures were identified by independent source review and are not covered by a
+claim that every consumer is math-free.
+
+**Tested:** the compiler invalidation control passes one test, zero failures, 319 excluded,
+using `scripts/pse-env -- just unit-package pse-compiler
+namespace_add_delete_shadow_import_and_absence_match_fresh_complete_admission`.
+The native selected run passes 19 tests, zero failures, 1458 excluded, against the zero baseline:
+
+```sh
+scripts/pse-env --native=compiler,solver,klu -- /bin/sh -c '
+  PSE_NATIVE_FIXTURE_MODULE_RECEIPT=$(cat /tmp/plan58-native-module-record-path)
+  export PSE_NATIVE_FIXTURE_MODULE_RECEIPT
+  export PSE_NATIVE_FIXTURE_SERVICE_HELPER="$PWD/target/debug/pse-canonical-service"
+  exec scripts/cargo-bin/cargo-pse-correctness nextest run --locked -p pse-runtime \
+    --test native_study --test native_conic --test native_workspace --test native_strategies --lib \
+    --features native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-scip \
+    -E "test(retained_native_admission_preserves_scope_and_close_without_math) | test(native_recorded_study_two_workers_preserve_science_protection_and_lineage_after_producer_close) | binary(native_conic) | binary(native_workspace) | binary(native_strategies) | test(math::surrogate::library::tests::)" \
+    --no-fail-fast
+'
+```
+
+The explicit prepared production module and private native-service fixture avoid the configured
+development database. The two-worker study retains its original lineage and independent root
+oracle; after scientific shutdown, a separately constructed read capability verifies the original
+unknown and equation. Existing EGO state controls retain the actor decision's bounded evidence.
+These targeted checks do not close A02's full incremental coverage, all A04 modes, A05 repeated
+analysis, A07 retirement, or E/H qualification. No scope-end static or performance campaign has
+run for this selection.
+
+**Interface-checked:** the adjacent Python bridge compiles with zero failures using
+`scripts/pse-env --native=compiler,solver,klu -- scripts/cargo-bin/cargo-pse-correctness check
+--locked -p pse-py --features solver-kinsol,solver-ipopt,solver-scip`. This checks its retained-data
+type migration and does not qualify Python execution or remove its remaining runtime captures.

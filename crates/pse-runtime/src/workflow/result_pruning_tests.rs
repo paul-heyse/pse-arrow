@@ -8,7 +8,7 @@
 )]
 
 use super::*;
-use crate::workflow::Runtime;
+use crate::workflow::RetainedDataServices;
 use datafusion::{
     arrow::array::{Array, FixedSizeBinaryArray, Float64Array},
     logical_expr::{col, lit},
@@ -20,10 +20,25 @@ use pse_operations::canonical_execution::{
 };
 use pse_relations::generated::runtime::fit_parameters;
 
+#[derive(Debug)]
+struct RetainedReadConfiguration;
+
 async fn pruning_fixture(
     name: &str,
-) -> Result<(Runtime, AttemptFence), Box<dyn std::error::Error + Send + Sync>> {
-    let runtime = super::super::durable_tests::durable_runtime();
+) -> Result<(RetainedDataServices, AttemptFence), Box<dyn std::error::Error + Send + Sync>> {
+    // Construct the actual read owner without SharedRuntime, MathService or preparation.
+    let pool: Arc<dyn pse_columnar::MemoryPool> =
+        Arc::new(pse_columnar::GreedyMemoryPool::new(256 << 20));
+    let native = SessionContext::new();
+    let factory = Arc::new(pse_engine::session::EngineFactory::from_builder(
+        native.runtime_env(),
+        pool,
+        "retained-read-control",
+        datafusion::execution::session_state::SessionStateBuilder::from(native.state()),
+    ).with_extension(Arc::new(RetainedReadConfiguration)));
+    let model = factory.bind_model(pse_schema::shared_registry()?)?;
+    let store = pse_operations::testing::canonical_fixture_store()?;
+    let runtime = RetainedDataServices::new(store, model)?;
     let store = runtime.canonical_store()?;
     let source = store.edit(name, None, "source", &[]).await?;
     store
@@ -42,7 +57,7 @@ async fn pruning_fixture(
     let fence = store
         .claim_run(name, "claim", "worker", std::time::Duration::from_secs(60))
         .await?;
-    let acknowledgments = super::super::durable::PublicationAcks::new(&runtime.shared.pool());
+    let acknowledgments = super::super::durable::PublicationAcks::new(&runtime.pool());
     let mut position = super::super::result_projection::ResultStreamPosition::default();
     let validation = runtime.validation_context();
     // The first batch is a min/max false positive for value=1. The second
@@ -65,7 +80,7 @@ async fn pruning_fixture(
             &fence,
             fit_parameters::RELATION_ID,
             super::super::ResultCursor::from_checked(builder.finish()?),
-            &runtime.shared.pool(),
+            &runtime.pool(),
             &acknowledgments,
             &mut position,
             None,
@@ -125,6 +140,10 @@ async fn canonical_pruning_inexact_residual_precedes_limit_and_predicate_project
         vec![TableProviderFilterPushDown::Inexact]
     );
     let context = SessionContext::new_with_state(snapshot.session_state());
+    assert!(context.state().config().get_extension::<RetainedReadConfiguration>().is_some());
+    assert!(Arc::ptr_eq(&context.runtime_env().memory_pool, &runtime.pool()));
+    let foreign = SessionContext::new();
+    assert!(foreign.read_table(snapshot.table_provider()).unwrap().collect().await.is_err());
     let batches = context
         .read_table(provider)
         .unwrap()
@@ -200,8 +219,18 @@ async fn canonical_pruning_inexact_residual_precedes_limit_and_predicate_project
         1.0f64.to_bits()
     );
     assert!(typed.next_batch().await.unwrap().is_none());
+    let after_consumption = typed.selected_snapshot(CancellationToken::new()).await.unwrap();
+    assert_eq!(after_consumption.row_count(), 1, "freezing retains the complete selected universe after stream exhaustion");
+    let frozen = SessionContext::new_with_state(after_consumption.session_state())
+        .read_table(after_consumption.table_provider()).unwrap().collect().await.unwrap();
+    assert_eq!(frozen.iter().map(|batch| batch.num_rows()).sum::<usize>(), 1);
+    let value = frozen.iter().find(|batch| batch.num_rows() != 0).unwrap()
+        .column_by_name("value").unwrap().as_any().downcast_ref::<Float64Array>().unwrap().value(0);
+    assert_eq!(value.to_bits(), 1.0f64.to_bits());
+    typed.close();
+    assert_eq!(selected.num_rows(), 1, "returned arrays survive reader close");
     drop((
-        selected, original, typed, batches, context, snapshot, reader,
+        selected, after_consumption, frozen, original, typed, batches, context, snapshot, reader,
     ));
     pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap())
         .await
@@ -227,7 +256,7 @@ async fn canonical_selection_reuses_one_physical_plan_for_pages_unknown_facts_an
     let observed = hub.start("selection native preparation");
     pse_diagnostics::observation::scope(Some(observed.context()), async {
         let selection = NativeResultSelection::new(
-            &runtime.source_services(),
+            &runtime,
             fit_parameters::RELATION_ID,
             snapshot.schema(),
             &snapshot.session_state(),
@@ -240,7 +269,7 @@ async fn canonical_selection_reuses_one_physical_plan_for_pages_unknown_facts_an
             let descriptor = snapshot.0.batches.get(&block.batch).unwrap();
             assert!(
                 selection
-                    .block_may_match(&runtime.source_services(), block, descriptor)
+                    .block_may_match(&runtime, block, descriptor)
                     .unwrap()
             );
         }
@@ -250,13 +279,13 @@ async fn canonical_selection_reuses_one_physical_plan_for_pages_unknown_facts_an
         unknown.statistics = None;
         assert!(
             selection
-                .block_may_match(&runtime.source_services(), &unknown, descriptor)
+                .block_may_match(&runtime, &unknown, descriptor)
                 .unwrap()
         );
         unknown.statistics = Some(vec![0xff].into());
         assert!(
             selection
-                .block_may_match(&runtime.source_services(), &unknown, descriptor)
+                .block_may_match(&runtime, &unknown, descriptor)
                 .unwrap()
         );
         let checked = snapshot
@@ -360,7 +389,7 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
     // still reproduces its original contents; the counters above prove no prior decode.
     let decode = snapshot.decoder();
     let inspection = MemoryConsumer::new("test:protected-pruned-block-inspection")
-        .register(&runtime.shared.pool());
+        .register(&runtime.pool());
     inspection.try_grow(1024 * 1024).unwrap();
     {
         let mut cache = decode.cache.lock().await;
@@ -389,27 +418,27 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
     unknown.statistics = None;
     assert!(
         NativeResultSelection::new(
-            &runtime.source_services(),
+            &runtime,
             fit_parameters::RELATION_ID,
             snapshot.schema(),
             &snapshot.session_state(),
             col("value").gt(lit(1000.0)),
         )
         .unwrap()
-        .block_may_match(&runtime.source_services(), &unknown, descriptor)
+        .block_may_match(&runtime, &unknown, descriptor)
         .unwrap()
     );
     unknown.statistics = Some(vec![0xff].into());
     assert!(
         NativeResultSelection::new(
-            &runtime.source_services(),
+            &runtime,
             fit_parameters::RELATION_ID,
             snapshot.schema(),
             &snapshot.session_state(),
             col("value").gt(lit(1000.0)),
         )
         .unwrap()
-        .block_may_match(&runtime.source_services(), &unknown, descriptor)
+        .block_may_match(&runtime, &unknown, descriptor)
         .unwrap()
     );
 
@@ -431,7 +460,7 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
         snapshot.schema().metadata().clone(),
     ));
     let wrong = ProtectedResultDecode::new(
-        &runtime.source_services(),
+        &runtime,
         decode.read.clone(),
         decode.read_owner.clone(),
         fit_parameters::RELATION_ID,
@@ -447,7 +476,7 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
     );
     let cancel = CancellationToken::new();
     cancel.cancel();
-    let before = runtime.shared.pool().reserved();
+    let before = runtime.pool().reserved();
     assert!(
         decode
             .validate_pruned_block(block, descriptor, &cancel)
@@ -455,7 +484,7 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
             .is_err()
     );
     assert_eq!(
-        runtime.shared.pool().reserved(),
+        runtime.pool().reserved(),
         before,
         "cancelled decoder turns create no new working grant"
     );

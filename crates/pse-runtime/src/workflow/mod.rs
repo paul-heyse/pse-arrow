@@ -338,7 +338,7 @@ use std::sync::Arc;
 mod canonical;
 mod services;
 pub use services::{
-    ActivityAdmission, ExecutionServices, PreparationServices, PublicationServices, SourceServices,
+    ActivityAdmission, ExecutionServices, PreparationServices, PublicationServices, RetainedDataServices, SourceServices,
 };
 mod source_settlement;
 pub use canonical::{CanonicalDeployment, DeploymentHost, OuterAttestation};
@@ -1561,7 +1561,7 @@ pub use study_workbench::{
     CapturedStudyRow, FrozenStudyCohort, StudyCohortAvailability, StudyCohortClassification,
     StudyCohortClassificationPage, StudyCohortCursor, StudyCohortExportRecord,
     StudyCohortHeaderPage, StudyCohortMember, StudyCohortMemberPage, StudyCohortPageRequest,
-    StudyCohortReceipt, StudyCohortRequest, StudyCohortScanProgress, StudyCohortScanState,
+    StudyCohortReceipt, StudyCohortRelation, StudyCohortRequest, StudyCohortScanProgress, StudyCohortScanState,
     StudyKpiAnalysis, StudyKpiExport, StudyKpiRequest, StudyWorkbenchCursor, StudyWorkbenchFilter,
     StudyWorkbenchHeader, StudyWorkbenchPage, StudyWorkbenchRequest,
 };

@@ -6,7 +6,7 @@
 
 use super::{
     Durability, ExecutionServices, ModelingSolvePreparation, PublicationServices, Runtime,
-    SourceServices, WorkflowError, contract, relation,
+    WorkflowError, contract, relation,
 };
 use petgraph::{
     graph::{DiGraph, NodeIndex},
@@ -1274,20 +1274,6 @@ impl AnalysisHandle {
             .await
     }
 }
-impl SourceServices {
-    /// Read bounded original completion metadata from one exact retained attempt.
-    /// Scientific reports and trajectories remain in their canonical result sets.
-    pub async fn stored_completion(
-        &self,
-        run: &str,
-        attempt: &str,
-    ) -> Result<Arc<pse_columnar::Leased<super::durable::StoredCompletion>>, WorkflowError> {
-        let activity = self.admit_activity()?;
-        activity
-            .scope(async { self.operations()?.completion(run, attempt).await })
-            .await
-    }
-}
 impl Runtime {
     /// Read bounded original completion metadata from one exact retained attempt.
     /// Scientific reports and trajectories remain in their canonical result sets.
@@ -1296,7 +1282,7 @@ impl Runtime {
         run: &str,
         attempt: &str,
     ) -> Result<Arc<pse_columnar::Leased<super::durable::StoredCompletion>>, WorkflowError> {
-        self.source_services().stored_completion(run, attempt).await
+        self.retained_data_services().stored_completion(run, attempt).await
     }
     /// Reopen only an active, retained exact analysis; no latest-run substitution.
     pub async fn analysis(&self, key: &str) -> Result<AnalysisHandle, WorkflowError> {
@@ -1367,7 +1353,7 @@ impl Runtime {
                 let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
                     .map_err(|error| contract(error.to_string()))?;
                 let snapshot = super::ResultSnapshot::capture(
-                    &self.source_services(),
+                    &self.retained_data_services(),
                     protected.input.clone(),
                     protected.input_owner.clone(),
                     spec.id,

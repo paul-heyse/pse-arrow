@@ -1170,28 +1170,19 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
         .await
         .unwrap();
     assert_eq!(
-        runtime
-            .operations()
-            .unwrap()
-            .result_governing_permission(reader.selection())
+        super::super::durable::result_governing_permission(runtime.canonical_store().unwrap(), &runtime.shared.pool(), reader.selection())
             .await
             .unwrap(),
         Some(false)
     );
     assert_eq!(
-        runtime
-            .operations()
-            .unwrap()
-            .result_product_permission(reader.selection(), DerivedQuantity::ParameterCovariance)
+        super::super::durable::result_product_permission(runtime.canonical_store().unwrap(), &runtime.shared.pool(), reader.selection(), DerivedQuantity::ParameterCovariance)
             .await
             .unwrap(),
         Some(false)
     );
     assert_eq!(
-        runtime
-            .operations()
-            .unwrap()
-            .result_product_permission(reader.selection(), DerivedQuantity::WaldInterval)
+        super::super::durable::result_product_permission(runtime.canonical_store().unwrap(), &runtime.shared.pool(), reader.selection(), DerivedQuantity::WaldInterval)
             .await
             .unwrap(),
         None

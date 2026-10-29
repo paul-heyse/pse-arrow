@@ -237,7 +237,7 @@ impl serde::Serialize for StoredCompletionDocument {
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativeStoredResult {
-    pub(crate) inner: native::SourceServices,
+    pub(crate) inner: native::RetainedDataServices,
     pub(crate) owner: Arc<runtime::Runtime>,
     pub(crate) run_id: pse_model::generated::identities::RunId,
     pub(crate) run: String,
@@ -1175,7 +1175,7 @@ impl NativeRuntime {
             &self.owner,
             self.recording_operation(&stop, |recording| async move {
                 pse_runtime::tooling::review_export::export_review_pack(
-                    &recording.source_services(),
+                    &recording.retained_data_services(),
                     &destination,
                     &evidence.0,
                     &analysis.0,

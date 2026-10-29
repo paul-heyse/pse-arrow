@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Exact admitted canonical progress history, read one immutable payload at a time.
 use super::connected_results::{PrepaidReaderFuture, prepaid_reader_future};
-use super::{ProgressCoverage, ProgressEventDocument, Runtime, SourceServices, WorkflowError};
+use super::{ProgressCoverage, ProgressEventDocument, Runtime, RetainedDataServices, WorkflowError};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 use pse_operations::{
     canonical::MetadataResponse, canonical_results::ResultRead,
@@ -17,7 +17,7 @@ type ProgressPageResult = Result<Option<Vec<ProgressEventDocument>>, WorkflowErr
 /// available on `RunHandle`; this reader never follows provisional stored rows.
 #[derive(Debug)]
 pub struct ProgressStream {
-    services: SourceServices,
+    services: RetainedDataServices,
     read: Option<Arc<ResultRead>>,
     read_owner: Option<Arc<MemoryReservation>>,
     run: String,
@@ -29,7 +29,7 @@ pub struct ProgressStream {
     owner: Option<Arc<MemoryReservation>>,
     cancel: CancellationToken,
 }
-impl SourceServices {
+impl RetainedDataServices {
     /// Reopen bounded progress receipts of one exact admitted run and attempt.
     pub async fn progress(
         &self,
@@ -55,7 +55,7 @@ impl SourceServices {
         cancel: CancellationToken,
     ) -> Result<PrepaidReaderFuture<'a, Result<ProgressStream, WorkflowError>>, WorkflowError> {
         prepaid_reader_future(
-            &self.preparation().pool(),
+            &self.pool(),
             self.progress_checked(run, attempt, cancel),
         )
     }
@@ -68,7 +68,7 @@ impl SourceServices {
     ) -> Result<ProgressStream, WorkflowError> {
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         let response = super::connected_results::pooled_response_owner(
-            &self.preparation().pool(),
+            &self.pool(),
             "canonical:progress-selection-response",
             MetadataResponse::Selection,
         )?;
@@ -80,27 +80,21 @@ impl SourceServices {
             .await?,
         );
         let read_owner = Arc::new(super::connected_results::retain_protected_metadata(
-            &self.preparation().pool(),
+            &self.pool(),
             response,
             read.retained_bytes()?,
             |owner| read.retain_metadata_owner(owner),
         )?);
         read.retain_metadata_owner(read_owner.clone())?;
         let response = super::connected_results::pooled_response_owner(
-            &self.preparation().pool(),
+            &self.pool(),
             "canonical:progress-coverage-response",
             MetadataResponse::Header,
         )?;
-        let operations = super::Operations::from_store(
-            self.canonical_store()?.clone(),
-            "progress-reader",
-            super::LeasePolicy::default(),
-            self.preparation().pool(),
-        );
         let coverage = super::connected_results::protected_response_scope(
             read.clone(),
             ResponseAllocation::combine(read_owner.clone(), response),
-            operations.progress_coverage(&read),
+            super::durable::progress_coverage(self.canonical_store()?, &self.pool(), &read),
         )
         .await?;
         let descriptor = read.sets().iter().find(|set| set.name == "__progress");
@@ -190,7 +184,7 @@ impl ProgressStream {
     fn next_checked(
         &mut self,
     ) -> Result<PrepaidReaderFuture<'_, ProgressPageResult>, WorkflowError> {
-        let pool = self.services.preparation().pool();
+        let pool = self.services.pool();
         prepaid_reader_future(&pool, self.next_checked_body())
     }
 
@@ -201,7 +195,7 @@ impl ProgressStream {
         // typed observations may contain explanatory strings and exact evidence.
         self.owner = None;
         let owner = Arc::new(
-            MemoryConsumer::new("canonical:progress").register(&self.services.preparation().pool()),
+            MemoryConsumer::new("canonical:progress").register(&self.services.pool()),
         );
         owner
             .try_grow(READ_BYTES)
@@ -216,7 +210,7 @@ impl ProgressStream {
             .as_deref()
             .ok_or_else(|| super::contract("progress descriptor absent"))?;
         let response = super::connected_results::pooled_response_owner(
-            &self.services.preparation().pool(),
+            &self.services.pool(),
             "canonical:progress-file-response",
             MetadataResponse::Page,
         )?;
@@ -273,7 +267,7 @@ impl Runtime {
         attempt: &str,
         cancel: CancellationToken,
     ) -> Result<ProgressStream, WorkflowError> {
-        self.source_services().progress(run, attempt, cancel).await
+        self.retained_data_services().progress(run, attempt, cancel).await
     }
 }
 
@@ -290,10 +284,10 @@ mod progress_future_unit {
 
     #[test]
     fn progress_forwarding_futures_do_not_embed_the_native_read_state() {
-        let constructor = future_bytes(|source: &'static SourceServices| {
+        let constructor = future_bytes(|source: &'static RetainedDataServices| {
             source.progress("run", "attempt", CancellationToken::new())
         });
-        let constructor_body = future_bytes(|source: &'static SourceServices| {
+        let constructor_body = future_bytes(|source: &'static RetainedDataServices| {
             source.progress_checked("run", "attempt", CancellationToken::new())
         });
         let page = future_bytes(|stream: &'static mut ProgressStream| stream.next_page());

@@ -71,10 +71,34 @@ build-specific queries/alerts deliberately retire through B/F.
 
 ## Package state
 
+### Native data prerequisite checkpoint — 2026-10-29
+
+The authorized A01–A07 execution consumes this E01/E02 prerequisite slice.
+`RetainedDataServices::new` now takes an already opened canonical store and bound
+engine model, creating an independent logical read caller without constructing mathematical
+services. Protected readers, snapshots, progress interpretation and frozen cohorts retain
+that capability. Completion decoding and permission interpretation share the existing
+store/pool implementation; obsolete SourceServices read-operation ownership is removed.
+`StudyCohortRelation` exposes the original configured state and protected provider for native
+relational composition.
+
+The selected native study test closes all scientific callers and native lanes, constructs
+only a new engine model/read capability, and reads the original root result. The selected
+admission control preserves configured session extensions, pool identity and close/continuation
+semantics. [A's selected evidence](58a-native-product-and-scientific-workflows.md#native-data-and-public-caller-evidence)
+records these checks. This establishes the native construction slice; full E01/E02 acceptance
+and assembled H qualification remain open.
+
+Independent source review found that retiring Python stored-result/cohort/stream wrappers
+still capture their full Python runtime owner. A07/E04 own their actual consumer retirement;
+the native extraction does not establish that those wrappers are math-free. Protected join,
+residual-limit, wrong-pool and payload-custody coverage remains necessary at the relevant
+native consumer before E02 closes.
+
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [E01](#e01) | planned | Result selection and decode owners | Retained reads construct from actual data capabilities without SourceServices/math. |
-| [E02](#e02) | planned | Native result and cohort relation owners | Composable protected relations preserve configured state, pool and residual semantics. |
+| [E01](#e01) | in progress | Result selection and decode owners | Retained reads construct from actual data capabilities without SourceServices/math. |
+| [E02](#e02) | in progress | Native result and cohort relation owners | Composable protected relations preserve configured state, pool and residual semantics. |
 | [E03](#e03) | planned | Payload allocation and export owners | Native selected delivery/export preserves custody through early close and partial failure. |
 | [E04](#e04) | planned | Data consumer and integration owners | Consumers migrate, conditional transports are dispositioned, and H owns assembled evidence. |
 

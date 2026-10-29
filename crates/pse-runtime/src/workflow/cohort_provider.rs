@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! One lazy relation scan over exact captured original manifests, with bounded pages.
 use super::{
-    SourceServices, WorkflowError,
+    RetainedDataServices, WorkflowError,
     connected_results::{self, OutputFilter, OutputRows},
     contract,
     result_snapshot::{NativeResultSelection, ResultBlockDecode, ResultPayloadAuthority},
@@ -115,7 +115,7 @@ impl Knowledge {
 pub(super) struct CohortAnalysisState {
     cohort: FrozenStudyCohort,
     request: StudyKpiRequest,
-    services: SourceServices,
+    services: RetainedDataServices,
     filter: Arc<OutputFilter>,
     native: Option<Arc<NativeResultSelection>>,
     decode: Arc<ResultBlockDecode>,
@@ -134,9 +134,8 @@ impl CohortAnalysisState {
         if request.start > request.end {
             return Err(contract("KPI row range reversed"));
         }
-        let services = cohort.runtime.source_services();
+        let services = cohort.services.clone();
         let spec = services
-            .preparation()
             .registry()
             .relation(&request.relation)
             .ok_or_else(|| contract("unknown KPI relation"))?;
@@ -152,7 +151,7 @@ impl CohortAnalysisState {
         }
         let relation = spec.id;
         let schema =
-            pse_schema::arrow::relation_schema_ref(services.preparation().registry(), spec)
+            pse_schema::arrow::relation_schema_ref(services.registry(), spec)
                 .map_err(|error| pse_engine::EngineError::Semantic(Arc::new(error)))?;
         let filter = connected_results::output_filter(
             &services,
@@ -179,7 +178,7 @@ impl CohortAnalysisState {
                     &services,
                     relation,
                     schema.clone(),
-                    &services.preparation().bound_model().native_state(),
+                    &services.session_state(),
                     expression,
                 )
                 .map_err(pse_engine::EngineError::from)?,
@@ -194,12 +193,12 @@ impl CohortAnalysisState {
         )
         .map_err(|_| contract("classification bit extent"))?;
         let knowledge_owner = MemoryConsumer::new("study-cohort:classification-bits")
-            .register(&services.preparation().pool());
+            .register(&services.pool());
         knowledge_owner
             .try_grow(bytes + size_of::<Knowledge>())
             .map_err(pse_engine::EngineError::from)?;
         let owner = MemoryConsumer::new("study-cohort:relation-provider")
-            .register(&services.preparation().pool());
+            .register(&services.pool());
         owner
             .try_grow(
                 size_of::<Self>()
@@ -239,6 +238,12 @@ impl CohortAnalysisState {
     pub(super) fn progress(&self) -> StudyCohortScanProgress {
         self.knowledge().progress()
     }
+    pub(super) fn session_state(&self) -> SessionState {
+        self.services.session_state()
+    }
+    pub(super) fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
     pub(super) fn table_provider(self: &Arc<Self>) -> Arc<dyn TableProvider> {
         Arc::new(CohortProvider(self.clone()))
     }
@@ -248,7 +253,7 @@ impl CohortAnalysisState {
     ) -> Result<StudyCohortClassificationPage, WorkflowError> {
         let page = self.cohort.member_page(request).await?;
         let owner = MemoryConsumer::new("study-cohort:classification-page")
-            .register(&self.services.preparation().pool());
+            .register(&self.services.pool());
         owner
             .try_grow(
                 page.members.len() * size_of::<CapturedStudyRow<StudyCohortClassification>>()
@@ -345,7 +350,7 @@ struct Scan {
 impl Scan {
     fn new(state: Arc<CohortAnalysisState>) -> Result<Self, WorkflowError> {
         let owner = MemoryConsumer::new("study-cohort:scan-state")
-            .register(&state.services.preparation().pool());
+            .register(&state.services.pool());
         owner
             .try_grow(
                 size_of::<Self>()
@@ -411,7 +416,7 @@ impl Scan {
         self.pending = VecDeque::new();
         self.page_owner = None;
         let response = connected_results::pooled_response_owner(
-            &self.state.services.preparation().pool(),
+            &self.state.services.pool(),
             "study-cohort:locator-response",
             MetadataResponse::CaptureLocators,
         )?;
@@ -461,7 +466,7 @@ impl Scan {
                     .ok_or_else(|| contract("captured closed-set permission absent"))?,
             );
             let permission_owner = MemoryConsumer::new("study-cohort:closed-set-permission")
-                .register(&self.state.services.preparation().pool());
+                .register(&self.state.services.pool());
             permission_owner
                 .try_grow(
                     read.retained_bytes()?
@@ -525,7 +530,7 @@ impl Scan {
                 .ok_or_else(|| contract("cohort locator extent"))?;
         }
         self.page_owner = Some(connected_results::retain_metadata(
-            &self.state.services.preparation().pool(),
+            &self.state.services.pool(),
             response,
             bytes,
         )?);
@@ -601,7 +606,7 @@ impl Scan {
         >,
         WorkflowError,
     > {
-        let pool = self.state.services.preparation().pool();
+        let pool = self.state.services.pool();
         connected_results::prepaid_reader_future(&pool, self.next_body())
     }
 }
@@ -640,7 +645,7 @@ impl TableProvider for CohortProvider {
             })?;
         if !Arc::ptr_eq(
             &state.runtime_env().memory_pool,
-            &self.0.services.preparation().pool(),
+            &self.0.services.pool(),
         ) {
             return Err(DataFusionError::Plan(
                 "cohort query uses another deployment pool".into(),
@@ -669,7 +674,7 @@ impl PartitionStream for CohortPartition {
         let state = self.0.clone();
         let matches = Arc::ptr_eq(
             &context.runtime_env().memory_pool,
-            &state.services.preparation().pool(),
+            &state.services.pool(),
         );
         let stream = futures_util::stream::try_unfold(
             (state, None::<Scan>, matches),

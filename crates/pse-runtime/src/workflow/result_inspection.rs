@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Bounded readable observations over the original protected scientific result owner.
 
-use super::{PackResultSelection, PackScientificState, Runtime, WorkflowError, contract};
+use super::{PackResultSelection, PackScientificState, RetainedDataServices, Runtime, WorkflowError, contract};
 use datafusion::arrow::{
     array::{
         Array, ArrayRef, BinaryArray, BooleanArray, FixedSizeBinaryArray, Float32Array,
@@ -934,6 +934,16 @@ fn preflight(
 }
 
 impl Runtime {
+    /// Inspect the exact original result through retained-data capabilities.
+    pub async fn inspect_result(
+        &self,
+        request: ResultInspectionRequest,
+        cancel: CancellationToken,
+    ) -> Result<ResultInspectionDocument, WorkflowError> {
+        self.retained_data_services().inspect_result(request, cancel).await
+    }
+}
+impl RetainedDataServices {
     /// Observe one protected exact result through native shallow/path pages.
     /// # Errors
     /// Original protection, full-batch validation, cancellation and allocation failures propagate.
@@ -968,7 +978,7 @@ impl Runtime {
                 return Ok(refused(ResultInspectionRefusal::CursorChanged));
             }
             let owner = MemoryConsumer::new("canonical:readable-result-observation")
-                .register(&self.shared.pool());
+                .register(&self.pool());
             owner
                 .try_grow(16 * DOCUMENT_BYTES)
                 .map_err(pse_engine::EngineError::from)?;
@@ -1015,7 +1025,7 @@ impl Runtime {
                     else { &[] };
                 let mut usability = PackScientificState::Unknown;
                 for quantity in quantities {
-                    if let Some(permitted) = self.operations()?.result_product_permission(reader.selection(), *quantity).await? {
+                    if let Some(permitted) = super::durable::result_product_permission(self.canonical_store()?, &self.pool(), reader.selection(), *quantity).await? {
                         if !permitted { usability = PackScientificState::Unusable; break; }
                         usability = PackScientificState::Usable;
                     }
@@ -1046,7 +1056,7 @@ impl Runtime {
                 if request.cursor.as_ref().is_some_and(|cursor| cursor.physical != physical_info) {
                     return Ok(refused(ResultInspectionRefusal::CursorChanged));
                 }
-                let governing_permission = self.operations()?.result_governing_permission(reader.selection()).await?;
+                let governing_permission = super::durable::result_governing_permission(self.canonical_store()?, &self.pool(), reader.selection()).await?;
                 let original = ResultInspectionOriginal { governing_permission, physical: physical_info.clone(), _custody: Some(Arc::new(ResultInspectionCustody { _read: reader.selection().clone(), _physical: physical.clone() })) };
                 let next_cursor = |position: u64| ResultInspectionCursor {
                     issuing_store: issuer.clone(),

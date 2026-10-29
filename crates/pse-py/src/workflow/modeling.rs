@@ -1939,7 +1939,7 @@ impl NativeStudyReport {
             result
                 .stored_keys()
                 .map(|(run, attempt)| NativeStoredResult {
-                    inner: self.inner.services().source_services(),
+                    inner: self.inner.services().retained_data_services(),
                     owner: self.owner.clone(),
                     run_id: result.run_id(),
                     run: run.into(),

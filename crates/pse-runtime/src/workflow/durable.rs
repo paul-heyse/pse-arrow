@@ -148,6 +148,178 @@ impl Default for LeasePolicy {
         }
     }
 }
+// Retained completion interpretation needs only the original store and pool.
+async fn result_scientific_completion(
+    store: &CanonicalStore,
+    pool: &Arc<dyn MemoryPool>,
+    read: &ResultRead,
+) -> Result<Option<Arc<pse_columnar::Leased<StoredCompletion>>>, WorkflowError> {
+    let Some(bytes) = read.attempt().completion.as_ref() else {
+        return Ok(None);
+    };
+    // Shape selects a codec only; the native parent association below supplies
+    // authority. Scientific and recovery object receipts retain their decoder.
+    if bytes
+        .as_slice()
+        .iter()
+        .find(|byte| !byte.is_ascii_whitespace())
+        == Some(&b'[')
+    {
+        let owner = pooled_response_owner(
+            pool,
+            "result:study-parent-association",
+            pse_operations::canonical::MetadataResponse::Selection,
+        )?;
+        let parent = pse_operations::canonical::response_ownership_scope(
+            owner.clone(),
+            store.canonical_study_summary_for_run(&read.run().key),
+        )
+        .await?;
+        super::study::original_summary_conclusion(
+            bytes.as_slice(),
+            &read.run().key,
+            &read.run().revision,
+            parent.as_ref(),
+        )?;
+        return Ok(None); // Availability/lifecycle is not scientific or product permission.
+    }
+    decode_completion(store, pool, CompletionSelection::Full(read))
+        .await
+        .map(Some)
+}
+
+/// Original governing permission from the very same protected terminal result selection.
+/// Missing completion is unknown; corrupt or unreadable original completion propagates.
+pub(super) async fn result_governing_permission(
+    store: &CanonicalStore,
+    pool: &Arc<dyn MemoryPool>,
+    read: &ResultRead,
+) -> Result<Option<bool>, WorkflowError> {
+    let Some(completion) = result_scientific_completion(store, pool, read).await? else {
+        return Ok(None);
+    };
+    Ok(completion
+        .completion
+        .as_ref()
+        .and_then(super::Completion::governing_permission))
+}
+
+/// Product-local permission from this exact protected original completion.
+pub(super) async fn result_product_permission(
+    store: &CanonicalStore,
+    pool: &Arc<dyn MemoryPool>,
+    read: &ResultRead,
+    quantity: pse_model::generated::enums::DerivedQuantity,
+) -> Result<Option<bool>, WorkflowError> {
+    let Some(stored) = result_scientific_completion(store, pool, read).await? else {
+        return Ok(None);
+    };
+    Ok(stored
+        .completion
+        .as_ref()
+        .and_then(|completion| completion.product_permission(quantity))
+        .map(super::completion::ProductPermission::permits_result))
+}
+
+
+async fn decode_completion(
+    store: &CanonicalStore,
+    pool: &Arc<dyn MemoryPool>,
+    read: CompletionSelection<'_>,
+) -> Result<Arc<pse_columnar::Leased<StoredCompletion>>, WorkflowError> {
+    let header: CompletionReceipt = serde_json::from_slice(
+        read.attempt()
+            .completion
+            .as_ref()
+            .ok_or_else(|| contract("terminal completion absent"))?
+            .as_slice(),
+    )
+    .map_err(|e| contract(e.to_string()))?;
+    if header.version != 1 {
+        return Err(contract("stored completion receipt interpretation"));
+    }
+    let (completion, owner) = match header.inline {
+        Some(completion) => {
+            if header.batch_count != 0 || header.payload_bytes != 0 || !header.digest.is_empty()
+            {
+                return Err(contract("inline completion carries chunk coverage"));
+            }
+            let bytes = serde_json::to_vec(&completion).map_err(|e| contract(e.to_string()))?;
+            (*completion, reserve(pool, bytes.len())?)
+        }
+        None => {
+            let (bytes, owner) = read_chunks_selection(
+                store,
+                pool,
+                read,
+                "__completion",
+                0,
+                header.batch_count,
+                header.payload_bytes,
+                &header.digest,
+                false,
+            )
+            .await?;
+            (
+                serde_json::from_slice(&bytes).map_err(|e| contract(e.to_string()))?,
+                owner,
+            )
+        }
+    };
+    let completion = current_stored_completion(completion)?;
+    Ok(Arc::new(pse_columnar::Leased::new(
+        Arc::new(completion),
+        owner,
+    )))
+}
+
+
+pub(super) async fn progress_coverage(
+    store: &CanonicalStore,
+    pool: &Arc<dyn MemoryPool>,
+    read: &ResultRead,
+) -> Result<super::ProgressCoverage, WorkflowError> {
+    Ok(decode_completion(store, pool, CompletionSelection::Full(read))
+        .await?
+        .progress
+        .clone())
+}
+
+
+/// Reopen only the original completion under fresh exact terminal permission.
+pub(super) async fn read_completion(
+    store: &CanonicalStore,
+    pool: &Arc<dyn MemoryPool>,
+    run: &str,
+    attempt: &str,
+) -> Result<Arc<pse_columnar::Leased<StoredCompletion>>, WorkflowError> {
+    let activity = store.admit_activity()?;
+    activity
+        .scope(async {
+            let response = pooled_response_owner(
+                pool,
+                "canonical:completion-selection-response",
+                pse_operations::canonical::MetadataResponse::Selection,
+            )?;
+            let read = pse_operations::canonical::response_ownership_scope(
+                response.clone(),
+                store.read_completion(run, attempt),
+            )
+            .await?;
+            let read_owner = Arc::new(retain_protected_metadata(
+                pool,
+                response,
+                read.retained_bytes()?,
+                |owner| read.retain_metadata_owner(owner),
+            )?);
+            read.retain_metadata_owner(read_owner)?;
+            decode_completion(store, pool, CompletionSelection::Slim(&read))
+                .await
+        })
+        .await
+}
+
+
 /// The sole canonical store, worker identity and renewal policy.
 #[derive(Clone, Debug)]
 pub struct Operations {
@@ -314,7 +486,7 @@ impl Operations {
                 let completion = protected_response_scope(
                     read.clone(),
                     read_owner.clone(),
-                    self.decode_completion(CompletionSelection::Full(&read)),
+                    decode_completion(&self.store, &self.pool, CompletionSelection::Full(&read)),
                 )
                 .await?;
                 let mut solutions = Vec::new();
@@ -388,160 +560,7 @@ impl Operations {
         run: &str,
         attempt: &str,
     ) -> Result<Arc<pse_columnar::Leased<StoredCompletion>>, WorkflowError> {
-        let activity = self.store().admit_activity()?;
-        activity
-            .scope(async {
-                let response = pooled_response_owner(
-                    &self.pool,
-                    "canonical:completion-selection-response",
-                    pse_operations::canonical::MetadataResponse::Selection,
-                )?;
-                let read = pse_operations::canonical::response_ownership_scope(
-                    response.clone(),
-                    self.store.read_completion(run, attempt),
-                )
-                .await?;
-                let read_owner = Arc::new(retain_protected_metadata(
-                    &self.pool,
-                    response,
-                    read.retained_bytes()?,
-                    |owner| read.retain_metadata_owner(owner),
-                )?);
-                read.retain_metadata_owner(read_owner)?;
-                self.decode_completion(CompletionSelection::Slim(&read))
-                    .await
-            })
-            .await
-    }
-
-    async fn result_scientific_completion(
-        &self,
-        read: &ResultRead,
-    ) -> Result<Option<Arc<pse_columnar::Leased<StoredCompletion>>>, WorkflowError> {
-        let Some(bytes) = read.attempt().completion.as_ref() else {
-            return Ok(None);
-        };
-        // Shape selects a codec only; the native parent association below supplies
-        // authority. Scientific and recovery object receipts retain their decoder.
-        if bytes
-            .as_slice()
-            .iter()
-            .find(|byte| !byte.is_ascii_whitespace())
-            == Some(&b'[')
-        {
-            let owner = pooled_response_owner(
-                &self.pool,
-                "result:study-parent-association",
-                pse_operations::canonical::MetadataResponse::Selection,
-            )?;
-            let parent = pse_operations::canonical::response_ownership_scope(
-                owner.clone(),
-                self.store.canonical_study_summary_for_run(&read.run().key),
-            )
-            .await?;
-            super::study::original_summary_conclusion(
-                bytes.as_slice(),
-                &read.run().key,
-                &read.run().revision,
-                parent.as_ref(),
-            )?;
-            return Ok(None); // Availability/lifecycle is not scientific or product permission.
-        }
-        self.decode_completion(CompletionSelection::Full(read))
-            .await
-            .map(Some)
-    }
-
-    /// Original governing permission from the very same protected terminal result selection.
-    /// Missing completion is unknown; corrupt or unreadable original completion propagates.
-    pub(super) async fn result_governing_permission(
-        &self,
-        read: &ResultRead,
-    ) -> Result<Option<bool>, WorkflowError> {
-        let Some(completion) = self.result_scientific_completion(read).await? else {
-            return Ok(None);
-        };
-        Ok(completion
-            .completion
-            .as_ref()
-            .and_then(super::Completion::governing_permission))
-    }
-
-    /// Product-local permission from this exact protected original completion.
-    pub(super) async fn result_product_permission(
-        &self,
-        read: &ResultRead,
-        quantity: pse_model::generated::enums::DerivedQuantity,
-    ) -> Result<Option<bool>, WorkflowError> {
-        let Some(stored) = self.result_scientific_completion(read).await? else {
-            return Ok(None);
-        };
-        Ok(stored
-            .completion
-            .as_ref()
-            .and_then(|completion| completion.product_permission(quantity))
-            .map(super::completion::ProductPermission::permits_result))
-    }
-
-    pub(super) async fn progress_coverage(
-        &self,
-        read: &ResultRead,
-    ) -> Result<super::ProgressCoverage, WorkflowError> {
-        Ok(self
-            .decode_completion(CompletionSelection::Full(read))
-            .await?
-            .progress
-            .clone())
-    }
-
-    async fn decode_completion(
-        &self,
-        read: CompletionSelection<'_>,
-    ) -> Result<Arc<pse_columnar::Leased<StoredCompletion>>, WorkflowError> {
-        let header: CompletionReceipt = serde_json::from_slice(
-            read.attempt()
-                .completion
-                .as_ref()
-                .ok_or_else(|| contract("terminal completion absent"))?
-                .as_slice(),
-        )
-        .map_err(|e| contract(e.to_string()))?;
-        if header.version != 1 {
-            return Err(contract("stored completion receipt interpretation"));
-        }
-        let (completion, owner) = match header.inline {
-            Some(completion) => {
-                if header.batch_count != 0 || header.payload_bytes != 0 || !header.digest.is_empty()
-                {
-                    return Err(contract("inline completion carries chunk coverage"));
-                }
-                let bytes = serde_json::to_vec(&completion).map_err(|e| contract(e.to_string()))?;
-                (*completion, reserve(&self.pool, bytes.len())?)
-            }
-            None => {
-                let (bytes, owner) = read_chunks_selection(
-                    &self.store,
-                    &self.pool,
-                    read,
-                    "__completion",
-                    0,
-                    header.batch_count,
-                    header.payload_bytes,
-                    &header.digest,
-                    false,
-                )
-                .await?;
-                (
-                    serde_json::from_slice(&bytes).map_err(|e| contract(e.to_string()))?,
-                    owner,
-                )
-            }
-        };
-        let completion = current_stored_completion(completion)?;
-        Ok(Arc::new(pse_columnar::Leased::new(
-            Arc::new(completion),
-            owner,
-        )))
+        read_completion(&self.store, &self.pool, run, attempt).await
     }
 
     /// Admit this exact closed selection and reopen the acknowledged immutable receipt.
@@ -3579,7 +3598,7 @@ impl Operations {
         }
         let completed = pse_operations::canonical::request_custody_scope(
             read.clone(),
-            self.decode_completion(CompletionSelection::Full(&read)),
+            decode_completion(&self.store, &self.pool, CompletionSelection::Full(&read)),
         )
         .await?;
         let assessment = completed
@@ -5532,8 +5551,7 @@ mod canonical_durable_codec {
             .await
             .unwrap();
         assert_eq!(
-            operations
-                .result_governing_permission(&selected)
+            result_governing_permission(&operations.store, &operations.pool, &selected)
                 .await
                 .unwrap(),
             Some(false),

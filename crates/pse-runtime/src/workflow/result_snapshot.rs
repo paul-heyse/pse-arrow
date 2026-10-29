@@ -3,7 +3,7 @@
 
 //! Exact immutable result inventories shared by typed readers and native queries.
 
-use super::{SourceServices, WorkflowError, contract, result_files};
+use super::{RetainedDataServices, WorkflowError, contract, result_files};
 use datafusion::{
     arrow::datatypes::SchemaRef,
     catalog::{Session, TableProvider, streaming::StreamingTable},
@@ -51,7 +51,7 @@ impl std::ops::Deref for ProtectedResultDecode {
 /// One actual byte decoder shared by ordinary terminal reads and exact captures.
 #[derive(Debug)]
 pub(super) struct ResultBlockDecode {
-    pub(super) services: SourceServices,
+    pub(super) services: RetainedDataServices,
     relation: pse_ids::SemanticId,
     pub(super) schema: SchemaRef,
     admission: Arc<pse_relations::validate::ValidationContext>,
@@ -97,7 +97,7 @@ impl ResultPayloadAuthority {
 }
 impl ProtectedResultDecode {
     pub(super) fn new(
-        services: &SourceServices,
+        services: &RetainedDataServices,
         read: Arc<ResultRead>,
         read_owner: Arc<MemoryReservation>,
         relation: pse_ids::SemanticId,
@@ -168,12 +168,12 @@ impl ProtectedResultDecode {
 }
 impl ResultBlockDecode {
     pub(super) fn new(
-        services: &SourceServices,
+        services: &RetainedDataServices,
         relation: pse_ids::SemanticId,
         schema: SchemaRef,
     ) -> Result<Arc<Self>, WorkflowError> {
         let owner = MemoryConsumer::new("canonical:protected-result-decoder")
-            .register(&services.preparation().pool());
+            .register(&services.pool());
         owner
             .try_grow(size_of::<Self>() + 2 * size_of::<usize>())
             .map_err(pse_engine::EngineError::from)?;
@@ -181,7 +181,7 @@ impl ResultBlockDecode {
             services: services.clone(),
             relation,
             schema,
-            admission: services.preparation().admission_context(),
+            admission: services.admission_context(),
             cache: tokio::sync::Mutex::new(None),
             _owner: owner,
         }))
@@ -218,7 +218,7 @@ impl ResultSnapshot {
         reason = "snapshot admission keeps the prepaid read owner, relation schema and selected set bounds explicit"
     )]
     pub(super) async fn capture(
-        services: &SourceServices,
+        services: &RetainedDataServices,
         read: Arc<ResultRead>,
         read_owner: Arc<MemoryReservation>,
         relation: pse_ids::SemanticId,
@@ -237,7 +237,7 @@ impl ResultSnapshot {
         }
         read.retain_metadata_owner(read_owner.clone())?;
         let owner = MemoryConsumer::new("canonical:result-snapshot-inventory")
-            .register(&services.preparation().pool());
+            .register(&services.pool());
         owner
             .try_grow(size_of::<SnapshotInner>())
             .map_err(pse_engine::EngineError::from)?;
@@ -251,7 +251,7 @@ impl ResultSnapshot {
                 // Each bounded RPC page has its own prepaid temporary response scope.
                 // Transfer its exact retained strings/rows before growing inventories.
                 let response = super::connected_results::pooled_response_owner(
-                    &services.preparation().pool(),
+                    &services.pool(),
                     "canonical:result-snapshot-joined-page",
                     MetadataResponse::JoinedBlockPage,
                 )?;
@@ -355,9 +355,7 @@ impl ResultSnapshot {
         self.0
             .decode
             .services
-            .preparation()
-            .bound_model()
-            .native_state()
+            .session_state()
     }
     /// A native provider over this frozen inventory; no directory discovery.
     pub fn table_provider(&self) -> Arc<dyn TableProvider> {
@@ -431,7 +429,7 @@ impl ResultBlockDecode {
             // The framing hash uses a fixed 64 KiB stack reader; source/control
             // allocations coexist with their separately prepaid RPC response.
             let metadata = MemoryConsumer::new("canonical:result-file-cache-control")
-                .register(&self.services.preparation().pool());
+                .register(&self.services.pool());
             metadata
                 .try_grow(
                     64 * 1024 + size_of::<CachedFile>() + locator.payload_identity().len() * 2,
@@ -442,7 +440,7 @@ impl ResultBlockDecode {
             // The file-shaped decode/footer grants cannot bound native response metadata,
             // and connection activity alone does not retain this ResultRead.
             let response = super::connected_results::pooled_response_owner(
-                &self.services.preparation().pool(),
+                &self.services.pool(),
                 "canonical:result-file-open-response",
                 match locator {
                     pse_operations::canonical_execution::PayloadLocator::Inline { .. } => {
@@ -534,7 +532,7 @@ impl ResultBlockDecode {
                 source,
                 &self.schema,
                 Some(count),
-                self.services.preparation().pool(),
+                self.services.pool(),
                 cancel,
             )?;
             let instance = locator.payload_identity().to_owned();
@@ -581,12 +579,11 @@ impl ResultBlockDecode {
         }
         let spec = self
             .services
-            .preparation()
             .registry()
             .relation_by_id(self.relation)
             .ok_or_else(|| contract("snapshot relation unavailable"))?;
         let checked = pse_relations::columnar::FieldCheckedBatch::admit_owned(
-            self.services.preparation().registry(),
+            self.services.registry(),
             spec,
             batch,
             &self.admission,
@@ -595,9 +592,9 @@ impl ResultBlockDecode {
         .map_err(pse_engine::EngineError::from)?
         .with_export_owner(decoded.working_owner);
         pse_relations::result_batch::validate_scalar_keys(
-            self.services.preparation().registry(),
+            self.services.registry(),
             &checked,
-            &self.services.preparation().pool(),
+            &self.services.pool(),
             cancel,
         )
         .map_err(pse_engine::EngineError::from)?;
@@ -756,7 +753,7 @@ pub(super) struct SelectedSnapshotBuilder {
 impl SelectedSnapshotBuilder {
     pub(super) fn new(decode: Arc<ProtectedResultDecode>) -> Result<Self, WorkflowError> {
         let owner = MemoryConsumer::new("canonical:selected-snapshot-inventory")
-            .register(&decode.services.preparation().pool());
+            .register(&decode.services.pool());
         owner
             .try_grow(size_of::<SelectedSnapshotInner>() + 2 * size_of::<usize>())
             .map_err(pse_engine::EngineError::from)?;
@@ -819,9 +816,7 @@ impl SelectedResultSnapshot {
         self.0
             .decode
             .services
-            .preparation()
-            .bound_model()
-            .native_state()
+            .session_state()
     }
     /// Native provider restricting rows before any residual, limit or projection.
     pub fn table_provider(&self) -> Arc<dyn TableProvider> {
@@ -940,7 +935,7 @@ impl FrozenSnapshot {
                     .rows
                     .apply(
                         &checked,
-                        &snapshot.0.decode.services.preparation().pool(),
+                        &snapshot.0.decode.services.pool(),
                         cancel,
                     )
                     .map(Some);
@@ -987,7 +982,7 @@ pub(super) struct NativeResultSelection {
 }
 impl NativeResultSelection {
     pub(super) fn new(
-        services: &SourceServices,
+        services: &RetainedDataServices,
         relation: pse_ids::SemanticId,
         schema: SchemaRef,
         state: &SessionState,
@@ -995,7 +990,7 @@ impl NativeResultSelection {
     ) -> NativeResult<Arc<Self>> {
         use datafusion::common::DFSchema;
         let owner = MemoryConsumer::new("canonical:result-selection-plan")
-            .register(&services.preparation().pool());
+            .register(&services.pool());
         // The registry predicate has bounded shape; retain the native expression,
         // pruning rewrite and schema handles for the full selection lifetime.
         owner.try_grow(
@@ -1046,7 +1041,7 @@ impl NativeResultSelection {
 
     pub(super) fn prune_members<'a>(
         &self,
-        services: &SourceServices,
+        services: &RetainedDataServices,
         count: usize,
         member: impl Fn(usize) -> Option<(&'a Block, &'a FileBatch)>,
     ) -> NativeResult<Option<Arc<PrunedSelection>>> {
@@ -1073,7 +1068,7 @@ impl NativeResultSelection {
             DataFusionError::ResourcesExhausted("result pruning metadata extent".into())
         })?;
         let owner = MemoryConsumer::new("canonical:result-pruning-page")
-            .register(&services.preparation().pool());
+            .register(&services.pool());
         owner.try_grow(extent)?;
         let mut statistics = Vec::with_capacity(count);
         for index in 0..count {
@@ -1092,7 +1087,7 @@ impl NativeResultSelection {
                 };
                 let facts = pse_relations::result_batch::recorded_statistics(
                     bytes.as_slice(),
-                    services.preparation().registry(),
+                    services.registry(),
                     self.relation,
                     self.schema.as_ref(),
                     &binding,
@@ -1129,7 +1124,7 @@ impl NativeResultSelection {
     #[cfg(all(test, feature = "canonical-tests"))]
     pub(super) fn block_may_match(
         &self,
-        services: &SourceServices,
+        services: &RetainedDataServices,
         block: &Block,
         descriptor: &FileBatch,
     ) -> NativeResult<bool> {
@@ -1140,7 +1135,7 @@ impl NativeResultSelection {
 }
 
 fn prepare_pruning_members<'a>(
-    services: &SourceServices,
+    services: &RetainedDataServices,
     relation: pse_ids::SemanticId,
     schema: SchemaRef,
     state: &SessionState,
@@ -1190,7 +1185,7 @@ impl TableProvider for SnapshotProvider {
             })?;
         if !Arc::ptr_eq(
             &state.runtime_env().memory_pool,
-            &self.0.decode().services.preparation().pool(),
+            &self.0.decode().services.pool(),
         ) {
             return Err(DataFusionError::Plan(
                 "snapshot query uses another deployment pool".into(),
@@ -1220,7 +1215,7 @@ impl PartitionStream for SnapshotPartition {
     fn execute(&self, context: Arc<TaskContext>) -> SendableRecordBatchStream {
         let pool_matches = Arc::ptr_eq(
             &context.runtime_env().memory_pool,
-            &self.snapshot.decode().services.preparation().pool(),
+            &self.snapshot.decode().services.pool(),
         );
         let snapshot = self.snapshot.clone();
         let pruning = self.pruning.clone();

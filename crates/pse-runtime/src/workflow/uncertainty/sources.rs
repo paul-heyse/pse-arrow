@@ -22,7 +22,7 @@ impl SourceServices {
         maximum: usize,
         cancel: &CancellationToken,
     ) -> Result<(Vec<T>, Arc<Vec<Arc<AllocationLease>>>), WorkflowError> {
-        let mut reader = self
+        let mut reader = self.retained_data_services()
             .results(
                 &record.run,
                 &record.attempt,
@@ -71,7 +71,7 @@ impl SourceServices {
         record: FitCovarianceRecord,
         cancel: &CancellationToken,
     ) -> Result<ParameterCovariance, WorkflowError> {
-        let original = self.stored_completion(&record.run, &record.attempt).await?;
+        let original = self.retained_data_services().stored_completion(&record.run, &record.attempt).await?;
         if !original
             .completion
             .as_ref()

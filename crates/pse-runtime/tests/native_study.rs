@@ -695,6 +695,41 @@ fn journey<'a>(
         }
         drop(result);
         drop(reopened);
+        if !cancelled {
+            // The reader constructs only engine/data capabilities after every
+            // producer and native lane has closed. It cannot obtain MathService.
+            science.close().await.unwrap();
+            let pool: Arc<dyn datafusion::execution::memory_pool::MemoryPool> =
+                Arc::new(datafusion::execution::memory_pool::GreedyMemoryPool::new(8 << 30));
+            let environment = Arc::new(datafusion::execution::runtime_env::RuntimeEnv::default());
+            let factory = Arc::new(pse_engine::session::EngineFactory::new(
+                environment, pool, Default::default(),
+                pse_engine::ThreadBudget { pool_threads: NonZeroUsize::new(16).unwrap(), target_partitions: NonZeroUsize::new(16).unwrap() },
+                pse_engine::session::native_engine_profile(),
+            ).unwrap());
+            let data = pse_runtime::workflow::RetainedDataServices::new(
+                replacement_ready.store().clone(), factory.bind_model(pse_schema::shared_registry().unwrap()).unwrap(),
+            ).unwrap();
+            let point = &status.points[0];
+            let mut reader = data.results(&point.run, point.attempt.as_ref().unwrap(),
+                "runtime.solve_variables", 0, u64::MAX, pse_columnar::CancellationToken::new()).await.unwrap();
+            let mut unknowns = 0;
+            while let Some(batch) = reader.next_batch().await.unwrap() {
+                let view = solve_variables::View::try_from_batch_with_registry(data.registry(), &batch, &data.validation_context()).unwrap();
+                for row in view.rows().unwrap() {
+                    if !row.parameter && !row.fixed {
+                        assert!((row.value.unwrap() - 2.0).abs() <= 1e-7);
+                        assert!((row.value.unwrap() * row.value.unwrap() - 4.0).abs() <= 1e-6);
+                        unknowns += 1;
+                    }
+                }
+            }
+            assert_eq!(unknowns, 1);
+            reader.close();
+            data.close();
+            assert!(data.results(&point.run, point.attempt.as_ref().unwrap(),
+                "runtime.solve_variables", 0, u64::MAX, pse_columnar::CancellationToken::new()).await.is_err());
+        }
     })
 }
 #[derive(Clone, Copy)]

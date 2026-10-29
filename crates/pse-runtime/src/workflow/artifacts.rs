@@ -881,7 +881,7 @@ impl Runtime {
                     let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
                         .map_err(|error| contract(error.to_string()))?;
                     let snapshot = super::ResultSnapshot::capture(
-                        &self.source_services(),
+                        &self.retained_data_services(),
                         input.clone(),
                         input_owner.clone(),
                         spec.id,

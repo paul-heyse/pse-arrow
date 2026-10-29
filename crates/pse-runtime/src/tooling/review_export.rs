@@ -4,7 +4,7 @@
 use super::{
     frozen_inspection::FrozenEvidenceSet, review_analysis::AnalysisDocument, review_pack::*,
 };
-use crate::workflow::{SourceServices, WorkflowError, contract};
+use crate::workflow::{RetainedDataServices, WorkflowError, contract};
 use pse_columnar::CancellationToken;
 use std::path::Path;
 
@@ -71,7 +71,7 @@ pub fn export_supplied_review_pack(
 /// Compose multiple exact protected selections, holding one result reader at a time.
 /// Original model context is supplied factual material, never reconstructed from result rows.
 pub async fn export_review_pack(
-    services: &SourceServices,
+    services: &RetainedDataServices,
     destination: &Path,
     evidence: &FrozenEvidenceSet,
     analysis: &AnalysisDocument,

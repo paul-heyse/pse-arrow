@@ -42,6 +42,82 @@ impl ActivityAdmission {
     }
 }
 
+/// Protected retained-data access under one native model and logical caller.
+///
+/// This owner retains no mathematical service, preparation cache, source loader,
+/// execution policy or publication capability. The bound model supplies the
+/// original registry, receiving validators, configured session and shared pool.
+#[derive(Clone, Debug)]
+pub struct RetainedDataServices {
+    store: Option<pse_operations::canonical::CanonicalStore>,
+    model: BoundModel,
+    admission: ActivityAdmission,
+}
+impl RetainedDataServices {
+    /// Attach an independent read caller to an already opened canonical store and
+    /// an already bound native model. No scientific runtime is constructed.
+    ///
+    /// # Errors
+    /// The original store no longer permits a new logical caller.
+    pub fn new(
+        store: pse_operations::canonical::CanonicalStore,
+        model: BoundModel,
+    ) -> Result<Self, WorkflowError> {
+        let store = store.independent_caller()?;
+        let caller = Arc::new(RuntimeCaller::new(
+            Some(store.clone()),
+            model.validation_context(),
+            Arc::downgrade(model.factory().pool()),
+        ));
+        Ok(Self {
+            store: Some(store),
+            model,
+            admission: ActivityAdmission { caller },
+        })
+    }
+    /// Seal new admission for this caller and its aliases. Admitted continuations
+    /// and returned protected buffers keep their actual custody lifetimes.
+    pub fn close(&self) {
+        self.admission.caller.close();
+    }
+    /// Exact original canonical read boundary.
+    pub fn canonical_store(
+        &self,
+    ) -> Result<&pse_operations::canonical::CanonicalStore, WorkflowError> {
+        self.store.as_ref().ok_or(WorkflowError::RecordingUnavailable)
+    }
+    /// Immutable schema authority of the configured native model.
+    pub fn registry(&self) -> &Arc<pse_schema::Registry> {
+        self.model.registry()
+    }
+    /// The existing configured native state, including functions and shared resources.
+    pub fn session_state(&self) -> datafusion::execution::session_state::SessionState {
+        self.model.native_state()
+    }
+    /// Shared allocation owner used for metadata, decoding and native queries.
+    pub fn pool(&self) -> Arc<dyn MemoryPool> {
+        self.model.factory().pool().clone()
+    }
+    /// Complete native receiving-validation authority.
+    pub fn validation_context(&self) -> Arc<pse_relations::validate::ValidationContext> {
+        self.model.validation_context()
+    }
+    /// Original operation-relative receiving admission, without source preparation.
+    pub fn admission_context(&self) -> Arc<pse_relations::validate::ValidationContext> {
+        self.admission.context(&self.model)
+    }
+    pub(crate) fn admit_activity(&self) -> Result<RuntimeActivity, WorkflowError> {
+        self.admission.admit()
+    }
+    /// Keep the actual logical caller admitted through asynchronous read work.
+    pub async fn scope_activity<T>(
+        &self,
+        work: impl Future<Output = Result<T, WorkflowError>>,
+    ) -> Result<T, WorkflowError> {
+        self.admission.scope(work).await
+    }
+}
+
 /// Compiler, allocation and validation capabilities; no canonical publication or execution policy.
 #[derive(Clone, Debug)]
 pub struct PreparationServices {
@@ -101,19 +177,17 @@ impl PreparationServices {
 /// Original-source loading and commit capabilities, separate from immutable source values.
 #[derive(Clone, Debug)]
 pub struct SourceServices {
-    pub(crate) read_operations: Option<Arc<super::Operations>>,
     pub(crate) preparation: PreparationServices,
     pub(crate) canonical: Option<CanonicalDeployment>,
     pub(crate) publication: Option<PublicationServices>,
 }
 impl SourceServices {
-    pub(crate) fn operations(&self) -> Result<&super::Operations, WorkflowError> {
-        self.read_operations
-            .as_deref()
-            .ok_or(WorkflowError::RecordingUnavailable)
-    }
-    pub(crate) fn admit_activity(&self) -> Result<RuntimeActivity, WorkflowError> {
-        self.preparation.admit_activity()
+    pub(crate) fn retained_data_services(&self) -> RetainedDataServices {
+        RetainedDataServices {
+            store: self.canonical.as_ref().map(|canonical| canonical.store().clone()),
+            model: self.preparation.model.clone(),
+            admission: self.preparation.admission.clone(),
+        }
     }
     /// Automatically selected source publication authority; local edits retain no publication effect.
     pub fn publication(&self) -> Option<&PublicationServices> {
@@ -178,6 +252,14 @@ pub struct ExecutionServices {
     pub(crate) attestation: Option<OuterAttestation>,
 }
 impl ExecutionServices {
+    /// Retained reads share this caller and native model without retaining execution services.
+    pub fn retained_data_services(&self) -> RetainedDataServices {
+        RetainedDataServices {
+            store: self.read_operations.as_ref().map(|operations| operations.store().clone()),
+            model: self.preparation.model.clone(),
+            admission: self.preparation.admission.clone(),
+        }
+    }
     /// Explicit compiler/allocation and caller admission services.
     pub fn preparation(&self) -> &PreparationServices {
         &self.preparation
@@ -201,7 +283,6 @@ impl ExecutionServices {
     /// Original-source effects explicitly requested during an execution.
     pub fn source_services(&self) -> SourceServices {
         SourceServices {
-            read_operations: self.read_operations.clone(),
             preparation: self.preparation.clone(),
             canonical: self
                 .publication
@@ -214,6 +295,16 @@ impl ExecutionServices {
     }
 }
 impl Runtime {
+    /// Extract only retained-read capabilities, preserving this caller's admission.
+    pub fn retained_data_services(&self) -> RetainedDataServices {
+        RetainedDataServices {
+            store: self.canonical.as_ref().map(|canonical| canonical.store().clone()),
+            model: self.model.clone(),
+            admission: ActivityAdmission {
+                caller: self.caller.clone(),
+            },
+        }
+    }
     /// Supply existing compiler/allocation services without retaining the composition root.
     pub fn preparation_services(&self) -> PreparationServices {
         PreparationServices {
@@ -229,10 +320,6 @@ impl Runtime {
     /// Supply original-source effects independently of scientific values.
     pub fn source_services(&self) -> SourceServices {
         SourceServices {
-            read_operations: self
-                .recording_operations
-                .as_ref()
-                .map(|owner| Arc::new(owner.as_ref().clone())),
             preparation: self.preparation_services(),
             canonical: self.canonical.clone(),
             publication: matches!(&self.durability, Durability::Durable(_))
@@ -275,4 +362,59 @@ impl Runtime {
             attestation: self.outer_attestation(),
         }
     }
+}
+
+#[cfg(test)]
+mod retained_data_unit {
+    use super::*;
+    use datafusion::{execution::session_state::SessionStateBuilder, prelude::SessionContext};
+
+    #[derive(Debug)]
+    struct ReadConfiguration;
+
+    fn model() -> BoundModel {
+        let native = SessionContext::new();
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+        let factory = Arc::new(EngineFactory::from_builder(
+            native.runtime_env(),
+            pool,
+            "retained-native-unit",
+            SessionStateBuilder::from(native.state()),
+        ).with_extension(Arc::new(ReadConfiguration)));
+        factory.bind_model(pse_schema::shared_registry().unwrap()).unwrap()
+    }
+
+    #[tokio::test]
+    async fn retained_native_admission_preserves_scope_and_close_without_math() {
+        let model = model();
+        let reads = RetainedDataServices {
+            store: None,
+            admission: ActivityAdmission {
+                caller: Arc::new(RuntimeCaller::new(
+                    None,
+                    model.validation_context(),
+                    Arc::downgrade(model.factory().pool()),
+                )),
+            },
+            model,
+        };
+        let alias = reads.clone();
+        assert!(Arc::ptr_eq(&reads.pool(), &reads.session_state().runtime_env().memory_pool));
+        assert!(reads.session_state().config().get_extension::<ReadConfiguration>().is_some());
+        assert!(matches!(reads.canonical_store(), Err(WorkflowError::RecordingUnavailable)));
+        let outside = reads.admission_context();
+        reads.scope_activity(async {
+            let original = reads.admission_context();
+            assert!(!Arc::ptr_eq(&original, &outside));
+            assert!(Arc::ptr_eq(&original, &alias.admission_context()));
+            alias.close();
+            reads.scope_activity(async {
+                assert!(Arc::ptr_eq(&original, &reads.admission_context()));
+                Ok(())
+            }).await
+        }).await.unwrap();
+        assert!(matches!(reads.scope_activity(async { Ok(()) }).await, Err(WorkflowError::CallerClosed)));
+        assert!(matches!(alias.admit_activity(), Err(WorkflowError::CallerClosed)));
+    }
+
 }

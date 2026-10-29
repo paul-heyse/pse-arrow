@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Public bounded study browsing and immutable cohort analysis over protected original results.
-use super::{Runtime, WorkflowError, contract};
+use super::{RetainedDataServices, Runtime, WorkflowError, contract};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 pub use pse_operations::canonical_study_workbench::{
     CapturedStudyRow, StudyCohortMember, StudyWorkbenchFilter, StudyWorkbenchHeader,
@@ -170,10 +170,41 @@ pub struct StudyCohortClassificationPage {
 /// Nonserializable exact capture capability retained through pages and physical scans.
 #[derive(Clone, Debug)]
 pub struct FrozenStudyCohort {
-    pub(super) runtime: Runtime,
+    pub(super) services: RetainedDataServices,
     receipt: StudyCohortReceipt,
     pub(super) capture: pse_operations::canonical_study_workbench::StudyCapture,
     _owner: Arc<MemoryReservation>,
+}
+/// A native relation over one exact captured population and selected scientific output.
+/// Cloned providers retain original capture custody and shared traversal knowledge.
+#[derive(Clone, Debug)]
+pub struct StudyCohortRelation {
+    state: Arc<super::cohort_provider::CohortAnalysisState>,
+}
+impl StudyCohortRelation {
+    /// Exact physically typed output schema.
+    pub fn schema(&self) -> datafusion::arrow::datatypes::SchemaRef {
+        self.state.schema()
+    }
+    /// Original configured functions, settings and shared deployment pool.
+    pub fn session_state(&self) -> datafusion::execution::session_state::SessionState {
+        self.state.session_state()
+    }
+    /// Compose native queries without hydrating members into client-side loops.
+    pub fn table_provider(&self) -> Arc<dyn datafusion::catalog::TableProvider> {
+        self.state.table_provider()
+    }
+    /// Exact traversal knowledge; an early-closed scan does not classify its unread tail.
+    pub fn progress(&self) -> StudyCohortScanProgress {
+        self.state.progress()
+    }
+    /// Original member attribution and explicit pending/unavailable/empty distinctions.
+    pub async fn classification_page(
+        &self,
+        request: StudyCohortPageRequest,
+    ) -> Result<StudyCohortClassificationPage, WorkflowError> {
+        self.state.classification_page(request).await
+    }
 }
 /// One identically selected original scientific output across the immutable population.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -218,7 +249,7 @@ pub struct StudyKpiExport {
     /// Fresh explicit output; absent when the aggregate has no batches.
     pub output: Option<std::path::PathBuf>,
 }
-impl Runtime {
+impl RetainedDataServices {
     /// Freeze, aggregate and export the selected existing study operation under one owner.
     /// Original capture/canonical guards remain live through encoding and synced output.
     /// # Errors
@@ -232,7 +263,7 @@ impl Runtime {
     ) -> Result<StudyKpiExport, WorkflowError> {
         let cohort = self.freeze_study_cohort(request).await?;
         let analysis = cohort.aggregate(kpi, cancel.clone()).await?;
-        let written = write_analysis_ipc(&self.shared.pool(), &analysis.batches, output)?;
+        let written = write_analysis_ipc(&self.pool(), &analysis.batches, output)?;
         Ok(StudyKpiExport {
             cohort: analysis.cohort,
             included: analysis.included,
@@ -301,6 +332,27 @@ impl StudyKpiAnalysis {
     }
 }
 impl Runtime {
+    /// Freeze retained original study data without supplying scientific execution services.
+    pub async fn freeze_study_cohort(
+        &self,
+        request: StudyCohortRequest,
+    ) -> Result<FrozenStudyCohort, WorkflowError> {
+        self.retained_data_services().freeze_study_cohort(request).await
+    }
+    /// Export analysis of original captured data through the retained-data owner.
+    pub async fn export_study_analysis(
+        &self,
+        request: StudyCohortRequest,
+        kpi: &StudyKpiRequest,
+        output: &std::path::Path,
+        cancel: &CancellationToken,
+    ) -> Result<StudyKpiExport, WorkflowError> {
+        self.retained_data_services()
+            .export_study_analysis(request, kpi, output, cancel)
+            .await
+    }
+}
+impl RetainedDataServices {
     /// Settle one exact native cut and return only counts plus retained custody.
     pub async fn freeze_study_cohort(
         &self,
@@ -315,8 +367,8 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
-                let response = super::connected_results::response_owner(
-                    self,
+                let response = super::connected_results::pooled_response_owner(
+                    &self.pool(),
                     "study-workbench:capture-receipt",
                     pse_operations::canonical::MetadataResponse::Selection,
                 )?;
@@ -344,7 +396,7 @@ impl Runtime {
                     .checked_add(64 * 1024)
                     .ok_or_else(|| contract("cohort receipt extent"))?;
                 let owner = Arc::new(super::connected_results::retain_protected_metadata(
-                    &self.shared.pool(),
+                    &self.pool(),
                     response,
                     retained,
                     |owner| {
@@ -354,7 +406,7 @@ impl Runtime {
                 )?);
                 selected.capture.retain_metadata_owner(owner.clone());
                 Ok(FrozenStudyCohort {
-                    runtime: self.clone(),
+                    services: self.clone(),
                     receipt,
                     capture: selected.capture,
                     _owner: owner,
@@ -374,7 +426,7 @@ impl FrozenStudyCohort {
     ) -> Result<u64, WorkflowError> {
         use std::io::Write;
         let owner =
-            MemoryConsumer::new("study-cohort:page-export").register(&self.runtime.shared.pool());
+            MemoryConsumer::new("study-cohort:page-export").register(&self.services.pool());
         owner
             .try_grow(64 * 1024)
             .map_err(pse_engine::EngineError::from)?;
@@ -478,8 +530,8 @@ impl FrozenStudyCohort {
         request: StudyCohortPageRequest,
     ) -> Result<StudyCohortHeaderPage, WorkflowError> {
         let after = self.after(&request, self.receipt.header_count, 64)?;
-        let response = super::connected_results::response_owner(
-            &self.runtime,
+        let response = super::connected_results::pooled_response_owner(
+            &self.services.pool(),
             "study-workbench:captured-headers",
             pse_operations::canonical::MetadataResponse::StudyPage,
         )?;
@@ -506,7 +558,7 @@ impl FrozenStudyCohort {
             .checked_add(16 * 1024)
             .ok_or_else(|| contract("header retained extent"))?;
         let owner = Arc::new(super::connected_results::retain_metadata(
-            &self.runtime.shared.pool(),
+            &self.services.pool(),
             response,
             bytes,
         )?);
@@ -526,8 +578,8 @@ impl FrozenStudyCohort {
             self.receipt.member_count,
             pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS,
         )?;
-        let response = super::connected_results::response_owner(
-            &self.runtime,
+        let response = super::connected_results::pooled_response_owner(
+            &self.services.pool(),
             "study-workbench:captured-members",
             pse_operations::canonical::MetadataResponse::StudyPage,
         )?;
@@ -554,7 +606,7 @@ impl FrozenStudyCohort {
             .checked_add(16 * 1024)
             .ok_or_else(|| contract("member retained extent"))?;
         let owner = Arc::new(super::connected_results::retain_metadata(
-            &self.runtime.shared.pool(),
+            &self.services.pool(),
             response,
             bytes,
         )?);
@@ -602,7 +654,7 @@ impl FrozenStudyCohort {
             .as_deref()
             .ok_or_else(|| contract("cohort member has no attempted result"))?;
         let reader = self
-            .runtime
+            .services
             .results(&point.run, attempt, relation, start, end, cancel)
             .await?;
         if reader.selection().manifest().key != manifest
@@ -616,16 +668,13 @@ impl FrozenStudyCohort {
         reader.retain_capture(self.capture.clone())?;
         Ok(reader)
     }
-    /// Aggregate through one lazy original relation provider, without per-member snapshots.
-    pub async fn aggregate(
+    /// Select a composable original relation without per-member snapshots.
+    pub async fn relation(
         &self,
-        request: &StudyKpiRequest,
+        request: StudyKpiRequest,
         cancel: CancellationToken,
-    ) -> Result<StudyKpiAnalysis, WorkflowError> {
-        use datafusion::{
-            functions_aggregate::expr_fn::{avg, count, max, min},
-            prelude::{SessionContext, col},
-        };
+    ) -> Result<StudyCohortRelation, WorkflowError> {
+        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         let headers = self
             .header_page(StudyCohortPageRequest {
                 maximum: 64,
@@ -635,18 +684,25 @@ impl FrozenStudyCohort {
         compatible_rows(&headers.headers)?;
         let state = super::cohort_provider::CohortAnalysisState::new(
             self.clone(),
-            request.clone(),
-            cancel.clone(),
+            request,
+            cancel,
         )?;
-        let context = SessionContext::new_with_state(
-            self.runtime
-                .source_services()
-                .preparation()
-                .bound_model()
-                .native_state(),
-        );
+        Ok(StudyCohortRelation { state })
+    }
+    /// Aggregate through the same public native relation and original capture custody.
+    pub async fn aggregate(
+        &self,
+        request: &StudyKpiRequest,
+        cancel: CancellationToken,
+    ) -> Result<StudyKpiAnalysis, WorkflowError> {
+        use datafusion::{
+            functions_aggregate::expr_fn::{avg, count, max, min},
+            prelude::{SessionContext, col},
+        };
+        let relation = self.relation(request.clone(), cancel.clone()).await?;
+        let context = SessionContext::new_with_state(relation.session_state());
         let frame = context
-            .read_table(state.table_provider())
+            .read_table(relation.table_provider())
             .map_err(pse_engine::EngineError::from)?;
         let query = frame
             .aggregate(
@@ -664,7 +720,7 @@ impl FrozenStudyCohort {
             .await
             .map_err(pse_engine::EngineError::from)?
             .map_err(pse_engine::EngineError::from)?;
-        let progress = state.progress();
+        let progress = relation.progress();
         if progress.state != StudyCohortScanState::Complete || progress.pending != 0 {
             return Err(contract("cohort aggregate traversal incomplete"));
         }
@@ -678,7 +734,7 @@ impl FrozenStudyCohort {
             included: progress.included,
             unavailable: progress.unavailable,
             batches,
-            state,
+            state: relation.state,
         })
     }
 }

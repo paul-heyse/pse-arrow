@@ -712,19 +712,8 @@ async fn workbench_public_cohort_retains_population_compares_value_variants_and_
     );
     // A limited scan establishes only the consumed member; its unread sibling
     // remains pending under the same exact predicate, never unavailable.
-    let scan_state = flow::cohort_provider::CohortAnalysisState::new(
-        frozen.clone(),
-        kpi.clone(),
-        CancellationToken::new(),
-    )
-    .unwrap();
-    let context = datafusion::prelude::SessionContext::new_with_state(
-        runtime
-            .source_services()
-            .preparation()
-            .bound_model()
-            .native_state(),
-    );
+    let scan_state = frozen.relation(kpi.clone(), CancellationToken::new()).await.unwrap();
+    let context = datafusion::prelude::SessionContext::new_with_state(scan_state.session_state());
     let frame = context.read_table(scan_state.table_provider()).unwrap();
     let _limited = frame
         .clone()

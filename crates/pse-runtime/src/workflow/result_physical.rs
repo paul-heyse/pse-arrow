@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Exact original retained physical source selection for readable result pages.
-use super::{PhysicalContext, Runtime, WorkflowError, contract};
+use super::{PhysicalContext, RetainedDataServices, WorkflowError, contract};
 use pse_columnar::{CancellationToken, MemoryConsumer};
 use pse_operations::{canonical::Revision, canonical_results::ResultRead};
 use pse_relations::columnar::FieldCheckedBatch;
@@ -42,21 +42,21 @@ fn retained_physical_relation<'a>(
     Ok(relation)
 }
 
-impl Runtime {
+impl RetainedDataServices {
     pub(super) async fn original_result_physical(
         &self,
         read: &ResultRead,
         cancel: &CancellationToken,
     ) -> Result<(PhysicalContext, String), WorkflowError> {
-        let operations = self.operations()?;
-        let response = super::connected_results::response_owner(
-            self,
+        let store = self.canonical_store()?;
+        let response = super::connected_results::pooled_response_owner(
+            &self.pool(),
             "result:physical-source-selection",
             pse_operations::canonical::MetadataResponse::Selection,
         )?;
         let sources = pse_operations::canonical::response_ownership_scope(
             response.clone(),
-            operations.store().analysis_run_sources(&read.run().key),
+            store.analysis_run_sources(&read.run().key),
         )
         .await?;
         let revisions: Vec<Revision> = sources
@@ -90,8 +90,8 @@ impl Runtime {
         }
         let closure = hash.finish_hash().to_string();
         let protection =
-            super::physical_cache::protect(operations, &revisions, revisions.len() * 512).await?;
-        let pool = self.shared.pool();
+            super::physical_cache::protect_store(store, &self.pool(), &revisions, revisions.len() * 512).await?;
+        let pool = self.pool();
         let mut receipt_seen = false;
         let mut batches: BTreeMap<
             pse_schema::model::RelationKey,
@@ -101,14 +101,14 @@ impl Runtime {
             cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
             let mut after = String::new();
             loop {
-                let page_owner = super::connected_results::response_owner(
-                    self,
+                let page_owner = super::connected_results::pooled_response_owner(
+                    &self.pool(),
                     "result:physical-membership-page",
                     pse_operations::canonical::MetadataResponse::Selection,
                 )?;
                 let page = pse_operations::canonical::response_ownership_scope(
                     page_owner.clone(),
-                    operations.store().membership_page(pin, None, &after),
+                    store.membership_page(pin, None, &after),
                 )
                 .await?;
                 if page.is_empty() {
@@ -120,8 +120,7 @@ impl Runtime {
                     .key
                     .clone();
                 for member in page {
-                    let extent = operations
-                        .store()
+                    let extent = store
                         .selected_object_extent(pin, &member.version)
                         .await?
                         .ok_or_else(|| contract("original physical object unavailable"))?;
@@ -133,7 +132,7 @@ impl Runtime {
                     let allocation = pse_columnar::AllocationLease::new(allocation);
                     let object = pse_operations::canonical::response_ownership_scope(
                         allocation.clone(),
-                        operations.store().selected_object(pin, &member.version),
+                        store.selected_object(pin, &member.version),
                     )
                     .await?
                     .ok_or_else(|| contract("original physical object unavailable"))?;

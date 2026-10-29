@@ -39,6 +39,11 @@ records the latest native primary cut, composed targeted evidence and remaining 
 obligations. The workstation defaults now use the existing 128 GiB pool/140 GiB worker envelope;
 ordinary builds/tests remain uncapped at 32 jobs/16 lanes. No speed benefit is measured.
 
+The maintainer has now authorized the [complete A01–A07 native workflow execution](58a-native-product-and-scientific-workflows.md#complete-native-workflow-execution-selection--2026-10-29)
+with necessary C/E/F/G prerequisites and retirement. That scope is active in main; unrelated
+paused B/C/D work remains at its closeout checkpoint. Native source/edit construction and
+math-independent retained-data composition are the first integrated cuts.
+
 Plan57 and its companions are superseded historical evidence, temporarily retained for existing
 ADR, architecture and review readers. Their old package tables are no longer active lifecycle
 scope. No unfinished finding or package transfers automatically. Actual prior passes, failures,

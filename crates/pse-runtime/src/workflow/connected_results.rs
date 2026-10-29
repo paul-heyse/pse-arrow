@@ -6,7 +6,7 @@
 
 #[cfg(test)]
 use super::result_files;
-use super::{Runtime, SourceServices, WorkflowError, contract, result_blocks};
+use super::{Runtime, RetainedDataServices, WorkflowError, contract, result_blocks};
 use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryPool, MemoryReservation};
 use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata;
@@ -335,13 +335,13 @@ impl SelectedResultReader {
         cancel: CancellationToken,
     ) -> Result<super::SelectedResultSnapshot, WorkflowError> {
         let activity = self.reader.services.admit_activity()?;
-        let pool = self.reader.services.preparation().pool();
+        let pool = self.reader.services.pool();
         let reader = &self.reader;
         activity
             .scope(prepaid_reader_future(&pool, async move {
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 let selection_owner = MemoryConsumer::new("canonical:selected-snapshot-key")
-                    .register(&reader.services.preparation().pool());
+                    .register(&reader.services.pool());
                 selection_owner
                     .try_grow(reader.set.capacity())
                     .map_err(pse_engine::EngineError::from)?;
@@ -378,7 +378,7 @@ impl SelectedResultReader {
                 loop {
                     let cancel = fresh.cancel.clone();
                     let next = prepaid_reader_future(
-                        &fresh.services.preparation().pool(),
+                        &fresh.services.pool(),
                         fresh.next_checked_body(Some(&mut builder)),
                     )?;
                     let batch = cancel
@@ -498,7 +498,7 @@ impl Write for BoundedExportFile {
 struct ResultReader {
     /// Related lazy access; it owns no scientific execution or cancellation authority.
     observation: Option<pse_diagnostics::observation::OperationGuard>,
-    services: SourceServices,
+    services: RetainedDataServices,
     read: Arc<ResultRead>,
     snapshot: Option<super::ResultSnapshot>,
     decode: Arc<super::result_snapshot::ProtectedResultDecode>,
@@ -559,7 +559,6 @@ impl ResultReader {
     ) -> Result<super::PackResultSelection, WorkflowError> {
         let spec = self
             .services
-            .preparation()
             .registry()
             .relation_by_id(self.relation)
             .ok_or_else(|| contract("selected relation absent"))?;
@@ -651,7 +650,6 @@ impl ResultReader {
         let mut metadata = self.schema.metadata().clone();
         let relation = self
             .services
-            .preparation()
             .registry()
             .relation_by_id(self.relation)
             .ok_or_else(|| contract("selected relation absent"))?;
@@ -864,7 +862,7 @@ impl ResultReader {
         // Construct and erase the large borrowed file-read state here, before
         // polling. Cancellation wrappers then retain only this small owner;
         // their forwarding futures cannot embed another concrete child state.
-        let pool = self.services.preparation().pool();
+        let pool = self.services.pool();
         prepaid_reader_future(&pool, self.next_checked_body(None))
     }
 
@@ -915,7 +913,7 @@ impl ResultReader {
                     return Ok(None);
                 }
                 let owner = pooled_response_owner(
-                    &self.services.preparation().pool(),
+                    &self.services.pool(),
                     "canonical:result-metadata",
                     if self
                         .output
@@ -1041,7 +1039,7 @@ impl ResultReader {
                 self.pruning_position = 0;
                 self.pending = page.into();
                 self.metadata_owner = Some(retain_metadata(
-                    &self.services.preparation().pool(),
+                    &self.services.pool(),
                     owner,
                     self.retained_page_bytes()?,
                 )?);
@@ -1087,7 +1085,7 @@ impl ResultReader {
                 use pse_model::HeapUsage;
                 self.selected_batch = None;
                 let owner = MemoryConsumer::new("canonical:selected-current-batch")
-                    .register(&self.services.preparation().pool());
+                    .register(&self.services.pool());
                 owner
                     .try_grow(
                         size_of::<SelectedBatch>()
@@ -1144,7 +1142,18 @@ impl ResultReader {
         }
     }
 }
-impl SourceServices {
+impl RetainedDataServices {
+    /// Read only the original completion metadata of an exact retained attempt.
+    pub async fn stored_completion(
+        &self,
+        run: &str,
+        attempt: &str,
+    ) -> Result<Arc<pse_columnar::Leased<super::durable::StoredCompletion>>, WorkflowError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
+            super::durable::read_completion(self.canonical_store()?, &self.pool(), run, attempt).await
+        }).await
+    }
     /// Bounded exact-attempt metadata preflight for review publication. It never polls rows.
     pub(crate) async fn review_result_selections(
         &self,
@@ -1156,7 +1165,7 @@ impl SourceServices {
             return Err(contract("review selects more than 1024 scientific members"));
         }
         let reservation = MemoryConsumer::new("review:scientific-selection-preflight")
-            .register(&self.preparation().pool());
+            .register(&self.pool());
         let extent = requests
             .iter()
             .try_fold(0usize, |total, request| {
@@ -1191,7 +1200,7 @@ impl SourceServices {
             let key = (request.run.clone(), request.attempt.clone());
             if !attempts.contains_key(&key) {
                 let response = pooled_response_owner(
-                    &self.preparation().pool(),
+                    &self.pool(),
                     "review:exact-result-metadata",
                     MetadataResponse::Selection,
                 )?;
@@ -1202,7 +1211,7 @@ impl SourceServices {
                 )
                 .await?;
                 let _owner = retain_protected_metadata(
-                    &self.preparation().pool(),
+                    &self.pool(),
                     response,
                     read.retained_bytes()?,
                     |owner| read.retain_metadata_owner(owner),
@@ -1230,7 +1239,6 @@ impl SourceServices {
                 .get(&key)
                 .ok_or_else(|| contract("review preflight attempt absent"))?;
             let spec = self
-                .preparation()
                 .registry()
                 .relation(&request.relation)
                 .ok_or_else(|| contract("unknown selected review relation"))?;
@@ -1288,7 +1296,7 @@ impl SourceServices {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 use pse_relations::generated::runtime::canonical_runs as rows;
                 let extent = pooled_response_owner(
-                    &self.preparation().pool(),
+                    &self.pool(),
                     "canonical:result-header",
                     MetadataResponse::Header,
                 )?;
@@ -1298,15 +1306,15 @@ impl SourceServices {
                 )
                 .await?
                 .ok_or_else(|| contract("canonical run absent"))?;
-                let validation = self.preparation().validation_context();
+                let validation = self.validation_context();
                 let mut builder =
-                    rows::Builder::with_registry(self.preparation().registry(), 1, &validation)
+                    rows::Builder::with_registry(self.registry(), 1, &validation)
                         .map_err(super::relation)?;
                 builder.push(row).map_err(super::relation)?;
                 builder
                     .finish()
                     .map_err(super::relation)?
-                    .retained(&self.preparation().pool(), &CancellationToken::new())
+                    .retained(&self.pool(), &CancellationToken::new())
                     .map_err(super::relation)
             })
             .await
@@ -1322,7 +1330,7 @@ impl SourceServices {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 use pse_relations::generated::runtime::canonical_attempts as rows;
                 let extent = pooled_response_owner(
-                    &self.preparation().pool(),
+                    &self.pool(),
                     "canonical:result-header",
                     MetadataResponse::Header,
                 )?;
@@ -1332,15 +1340,15 @@ impl SourceServices {
                 )
                 .await?
                 .ok_or_else(|| contract("canonical attempt absent"))?;
-                let validation = self.preparation().validation_context();
+                let validation = self.validation_context();
                 let mut builder =
-                    rows::Builder::with_registry(self.preparation().registry(), 1, &validation)
+                    rows::Builder::with_registry(self.registry(), 1, &validation)
                         .map_err(super::relation)?;
                 builder.push(row).map_err(super::relation)?;
                 builder
                     .finish()
                     .map_err(super::relation)?
-                    .retained(&self.preparation().pool(), &CancellationToken::new())
+                    .retained(&self.pool(), &CancellationToken::new())
                     .map_err(super::relation)
             })
             .await
@@ -1356,7 +1364,7 @@ impl SourceServices {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 use pse_relations::generated::runtime::canonical_result_manifests as rows;
                 let extent = pooled_response_owner(
-                    &self.preparation().pool(),
+                    &self.pool(),
                     "canonical:result-header",
                     MetadataResponse::Header,
                 )?;
@@ -1374,15 +1382,15 @@ impl SourceServices {
                     })
                     .await?;
                 let read_owner = Arc::new(retain_protected_metadata(
-                    &self.preparation().pool(),
+                    &self.pool(),
                     extent.clone(),
                     read.retained_bytes()?,
                     |owner| read.retain_metadata_owner(owner),
                 )?);
                 read.retain_metadata_owner(read_owner)?;
-                let validation = self.preparation().validation_context();
+                let validation = self.validation_context();
                 let mut builder =
-                    rows::Builder::with_registry(self.preparation().registry(), 1, &validation)
+                    rows::Builder::with_registry(self.registry(), 1, &validation)
                         .map_err(super::relation)?;
                 builder
                     .push(read.manifest().clone())
@@ -1390,7 +1398,7 @@ impl SourceServices {
                 builder
                     .finish()
                     .map_err(super::relation)?
-                    .retained(&self.preparation().pool(), &CancellationToken::new())
+                    .retained(&self.pool(), &CancellationToken::new())
                     .map_err(super::relation)
             })
             .await
@@ -1411,7 +1419,7 @@ impl SourceServices {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 let extent = pooled_response_owner(
-                    &self.preparation().pool(),
+                    &self.pool(),
                     "canonical:result-selection",
                     MetadataResponse::Selection,
                 )?;
@@ -1462,7 +1470,7 @@ impl SourceServices {
                     return Err(contract("result row range is reversed"));
                 }
                 let extent = pooled_response_owner(
-                    &self.preparation().pool(),
+                    &self.pool(),
                     "canonical:result-selection",
                     MetadataResponse::Selection,
                 )?;
@@ -1512,7 +1520,7 @@ impl SourceServices {
         extent: Arc<MemoryReservation>,
         output: Option<Arc<OutputFilter>>,
     ) -> Result<PrepaidReaderFuture<'a, Result<ResultReader, WorkflowError>>, WorkflowError> {
-        prepaid_reader_future(&self.preparation().pool(), async move {
+        prepaid_reader_future(&self.pool(), async move {
             let read = match selection {
                 TerminalResultSelection::Exact { run, attempt } => {
                     pse_operations::canonical::response_ownership_scope(
@@ -1545,7 +1553,7 @@ impl SourceServices {
     ) -> Result<ResultReader, WorkflowError> {
         let std::ops::Range { start, end } = rows;
         let read_owner = Arc::new(retain_protected_metadata(
-            &self.preparation().pool(),
+            &self.pool(),
             extent,
             read.retained_bytes()?,
             |owner| read.retain_metadata_owner(owner),
@@ -1555,12 +1563,11 @@ impl SourceServices {
             return Err(contract("result row range is reversed"));
         }
         let spec = self
-            .preparation()
             .registry()
             .relation(relation)
             .ok_or_else(|| contract("unknown result relation"))?;
         let name = spec.id.to_string();
-        let schema = pse_schema::arrow::relation_schema_ref(self.preparation().registry(), spec)
+        let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
             .map_err(|error| pse_engine::EngineError::Semantic(Arc::new(error)))?;
         let set = read
             .sets()
@@ -1573,7 +1580,7 @@ impl SourceServices {
         // The snapshot owns the shared ResultRead allocation. This reader only
         // owns its additional set key; Arc aliases do not charge read metadata twice.
         let selection_owner = MemoryConsumer::new("canonical:result-selection-key")
-            .register(&self.preparation().pool());
+            .register(&self.pool());
         selection_owner
             .try_grow(set.len())
             .map_err(pse_engine::EngineError::from)?;
@@ -1621,7 +1628,7 @@ impl SourceServices {
                     self,
                     spec.id,
                     schema.clone(),
-                    &self.preparation().bound_model().native_state(),
+                    &self.session_state(),
                     expression,
                 )
                 .map_err(pse_engine::EngineError::from)
@@ -1692,7 +1699,7 @@ impl SourceServices {
                 )?;
                 // The immutable typed predicate exists before any block/descriptor RPC.
                 let extent = pooled_response_owner(
-                    &self.preparation().pool(),
+                    &self.pool(),
                     "canonical:selected-result-selection",
                     MetadataResponse::Selection,
                 )?;
@@ -1718,7 +1725,7 @@ impl SourceServices {
     reason = "one exact output predicate preserves all original coordinates"
 )]
 pub(super) fn output_filter(
-    services: &SourceServices,
+    services: &RetainedDataServices,
     relation: &str,
     owner: pse_ids::SemanticId,
     field: &str,
@@ -1728,7 +1735,6 @@ pub(super) fn output_filter(
     missing: Option<bool>,
 ) -> Result<Arc<OutputFilter>, WorkflowError> {
     let spec = services
-        .preparation()
         .registry()
         .relation(relation)
         .ok_or_else(|| contract("unknown result relation"))?;
@@ -1752,7 +1758,7 @@ pub(super) fn output_filter(
         .and_then(|bytes| bytes.checked_add(128))
         .ok_or_else(|| contract("output selection allocation extent"))?;
     let filter_owner =
-        MemoryConsumer::new("canonical:output-selection").register(&services.preparation().pool());
+        MemoryConsumer::new("canonical:output-selection").register(&services.pool());
     filter_owner
         .try_grow(admitted + size_of::<OutputFilter>() + 2 * size_of::<usize>())
         .map_err(pse_engine::EngineError::from)?;
@@ -1790,7 +1796,7 @@ pub(super) struct OriginalRowSelection<'a> {
 }
 
 pub(super) fn select_original_rows(
-    services: &SourceServices,
+    services: &RetainedDataServices,
     selection: OriginalRowSelection<'_>,
     metadata: &BlockMetadata,
     indexes: OutputRows,
@@ -1832,7 +1838,7 @@ pub(super) fn select_original_rows(
         ));
     }
     let offsets_owner = MemoryConsumer::new("canonical:selected-source-offsets")
-        .register(&services.preparation().pool());
+        .register(&services.pool());
     let extent = super::result_selection::selection_window_extent(
         count,
         checked.batch().num_columns(),
@@ -1908,7 +1914,7 @@ pub(super) fn select_original_rows(
     else {
         return Ok(None);
     };
-    let selected = rows.apply(&checked, &services.preparation().pool(), cancel)?;
+    let selected = rows.apply(&checked, &services.pool(), cancel)?;
     Ok(Some((selected, rows)))
 }
 
@@ -1935,7 +1941,7 @@ impl Runtime {
         requests: &[super::ReviewScientificSelection],
         cancel: &CancellationToken,
     ) -> Result<(Vec<super::PackResultSelection>, MemoryReservation), WorkflowError> {
-        self.source_services()
+        self.retained_data_services()
             .review_result_selections(requests, cancel)
             .await
     }
@@ -1944,21 +1950,21 @@ impl Runtime {
         &self,
         run: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        self.source_services().run_record(run).await
+        self.retained_data_services().run_record(run).await
     }
     /// Read attempt record through explicit original-source capabilities.
     pub async fn attempt_record(
         &self,
         attempt: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        self.source_services().attempt_record(attempt).await
+        self.retained_data_services().attempt_record(attempt).await
     }
     /// Read result manifest through explicit original-source capabilities.
     pub async fn result_manifest(
         &self,
         attempt: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        self.source_services().result_manifest(attempt).await
+        self.retained_data_services().result_manifest(attempt).await
     }
     /// Read latest results through explicit original-source capabilities.
     pub async fn latest_results(
@@ -1970,7 +1976,7 @@ impl Runtime {
         end: u64,
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
-        self.source_services()
+        self.retained_data_services()
             .latest_results(problem, classes, relation, start, end, cancel)
             .await
     }
@@ -1984,7 +1990,7 @@ impl Runtime {
         end: u64,
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
-        self.source_services()
+        self.retained_data_services()
             .results(run, attempt, relation, start, end, cancel)
             .await
     }
@@ -2008,7 +2014,7 @@ impl Runtime {
         missing: Option<bool>,
         cancel: CancellationToken,
     ) -> Result<SelectedResultReader, WorkflowError> {
-        self.source_services()
+        self.retained_data_services()
             .output_results(
                 run, attempt, relation, owner, field, partition, start, end, minimum, maximum,
                 missing, cancel,
@@ -3636,7 +3642,7 @@ mod canonical_connected_results_server_unit {
             ..Default::default()
         };
         let composed = crate::tooling::review_export::export_review_pack(
-            &runtime.source_services(),
+            &runtime.retained_data_services(),
             &composed_path,
             &evidence,
             &analysis,
@@ -4415,7 +4421,7 @@ mod result_selection_unit {
     fn scalar_coordinate_window_is_sliced_before_native_mask_allocation() {
         use pse_relations::generated::runtime::fit_parameters;
         let runtime = super::super::tests::runtime();
-        let services = runtime.source_services();
+        let services = runtime.retained_data_services();
         let cancel = CancellationToken::new();
         let mut builder = fit_parameters::Builder::with_registry(
             runtime.registry(),
@@ -4467,7 +4473,7 @@ mod result_selection_unit {
             &services,
             fit_parameters::RELATION_ID,
             checked.batch().schema(),
-            &services.preparation().bound_model().native_state(),
+            &services.session_state(),
             expression,
         )
         .unwrap();
@@ -4515,7 +4521,7 @@ mod result_selection_unit {
     fn dense_column_selection_preserves_zero_bits_and_refuses_bad_owner_boundaries() {
         use pse_relations::generated::runtime::simulation_samples;
         let runtime = super::super::tests::runtime();
-        let services = runtime.source_services();
+        let services = runtime.retained_data_services();
         let cancel = CancellationToken::new();
         let run_id = pse_operations::mint_id();
         let first = pse_ids::SemanticId::from_bytes([1; 16]);
