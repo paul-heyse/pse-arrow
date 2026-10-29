@@ -190,8 +190,12 @@ pub(crate) fn monotonic_nanoseconds() -> Result<u64, super::CanonicalError> {
 }
 
 enum SchemaEnvelope {
-    Unframed { access: super::migration::SchemaAdmission },
-    Framed { access: super::migration::SchemaAdmission },
+    Unframed {
+        access: super::migration::SchemaAdmission,
+    },
+    Framed {
+        access: super::migration::SchemaAdmission,
+    },
     Maintenance,
 }
 #[derive(Clone)]
@@ -364,10 +368,14 @@ impl CanonicalClient {
                 // ordinary in-database UTC fence. Submitted DDL remains uncertain
                 // after caller expiry; only acknowledged completion admits selection.
                 super::complete_response(
-                    super::bounded_query(self.client.query(format!(
-                        "DEFINE NAMESPACE IF NOT EXISTS `{}`;",
-                        self.namespace,
-                    )).request_context(context()))
+                    super::bounded_query(
+                        self.client
+                            .query(format!(
+                                "DEFINE NAMESPACE IF NOT EXISTS `{}`;",
+                                self.namespace,
+                            ))
+                            .request_context(context()),
+                    )
                     .await?,
                 )?;
                 self.client
@@ -375,10 +383,14 @@ impl CanonicalClient {
                     .request_context(context())
                     .await?;
                 super::complete_response(
-                    super::bounded_query(self.client.query(format!(
-                        "DEFINE DATABASE IF NOT EXISTS `{}`;",
-                        self.database,
-                    )).request_context(context()))
+                    super::bounded_query(
+                        self.client
+                            .query(format!(
+                                "DEFINE DATABASE IF NOT EXISTS `{}`;",
+                                self.database,
+                            ))
+                            .request_context(context()),
+                    )
                     .await?,
                 )?;
                 Ok(())
@@ -390,7 +402,13 @@ impl CanonicalClient {
         &'r self,
         query: impl Into<Cow<'r, str>>,
     ) -> crate::transport::client::Query<'r> {
-        self.query_class(query, false, SchemaEnvelope::Unframed { access: super::migration::SchemaAdmission::Mutation })
+        self.query_class(
+            query,
+            false,
+            SchemaEnvelope::Unframed {
+                access: super::migration::SchemaAdmission::Mutation,
+            },
+        )
     }
     fn query_class<'r>(
         &'r self,
@@ -405,8 +423,14 @@ impl CanonicalClient {
         };
         let query = query.into();
         let query = if frame && !maintenance {
-            Cow::Owned(format!("BEGIN;{}\n{}\nCOMMIT;", super::migration::TRANSACTION_ADMISSION, query))
-        } else { query };
+            Cow::Owned(format!(
+                "BEGIN;{}\n{}\nCOMMIT;",
+                super::migration::TRANSACTION_ADMISSION,
+                query
+            ))
+        } else {
+            query
+        };
         let deadline = original_deadline(self.budget);
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
         let utc = std::time::SystemTime::now()
@@ -422,15 +446,26 @@ impl CanonicalClient {
         let query = if !maintenance {
             if let Some(schema) = self.schema.get() {
                 clock.insert("pse_schema_expected", schema.value());
-                clock.insert("pse_schema_settlement", super::migration::settlement_value());
+                clock.insert(
+                    "pse_schema_settlement",
+                    super::migration::settlement_value(),
+                );
                 clock.insert("pse_schema_access", access.name().into_value());
                 self.client.query(query).bind_guarded(clock)
             } else {
-                self.client.query(query).refuse("Canonical schema has not been opened; construct a schema-ready capability")
+                self.client.query(query).refuse(
+                    "Canonical schema has not been opened; construct a schema-ready capability",
+                )
             }
-        } else { self.client.query(query).bind_guarded(clock) };
+        } else {
+            self.client.query(query).bind_guarded(clock)
+        };
         let query = query.request_context(self.context_at(control, deadline.into_std()));
-        let query = if frame && !maintenance { query.statement_window(2, 1) } else { query };
+        let query = if frame && !maintenance {
+            query.statement_window(2, 1)
+        } else {
+            query
+        };
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         let context = pse_diagnostics::observation::current();
         if let Some(context) = &context {
@@ -463,34 +498,70 @@ impl CanonicalClient {
         profile: super::MetadataResponse,
         query: impl Into<Cow<'r, str>>,
     ) -> crate::transport::client::Query<'r> {
-        self.query_class(query, false, SchemaEnvelope::Unframed { access: super::migration::SchemaAdmission::Read }).response_limits(profile.limits())
+        self.query_class(
+            query,
+            false,
+            SchemaEnvelope::Unframed {
+                access: super::migration::SchemaAdmission::Read,
+            },
+        )
+        .response_limits(profile.limits())
     }
     pub(crate) fn control_query<'r>(
         &'r self,
         query: impl Into<Cow<'r, str>>,
     ) -> crate::transport::client::Query<'r> {
-        self.query_class(query, true, SchemaEnvelope::Unframed { access: super::migration::SchemaAdmission::Read })
+        self.query_class(
+            query,
+            true,
+            SchemaEnvelope::Unframed {
+                access: super::migration::SchemaAdmission::Read,
+            },
+        )
     }
     /// Source-owned release of an original custody grant; still epoch fenced.
-    pub(crate) fn cleanup_query<'r>(&'r self, query: impl Into<Cow<'r, str>>) -> crate::transport::client::Query<'r> {
-        self.query_class(query, false, SchemaEnvelope::Unframed { access: super::migration::SchemaAdmission::Cleanup })
+    pub(crate) fn cleanup_query<'r>(
+        &'r self,
+        query: impl Into<Cow<'r, str>>,
+    ) -> crate::transport::client::Query<'r> {
+        self.query_class(
+            query,
+            false,
+            SchemaEnvelope::Unframed {
+                access: super::migration::SchemaAdmission::Cleanup,
+            },
+        )
     }
     /// Exact bootstrap inventory. This never executes caller SQL.
     pub(crate) fn catalog_inventory(&self) -> crate::transport::client::Query<'static> {
-        self.query_class("INFO FOR DB;", true, SchemaEnvelope::Maintenance).into_owned()
+        self.query_class("INFO FOR DB;", true, SchemaEnvelope::Maintenance)
+            .into_owned()
     }
     /// Exercise the actual zero-statement bootstrap response without opening a schema.
     #[cfg(all(test, feature = "canonical-tests"))]
-    pub(crate) fn test_empty_initialization_response(&self) -> crate::transport::client::Query<'static> {
-        self.query_class("",true,SchemaEnvelope::Maintenance).into_owned()
+    pub(crate) fn test_empty_initialization_response(
+        &self,
+    ) -> crate::transport::client::Query<'static> {
+        self.query_class("", true, SchemaEnvelope::Maintenance)
+            .into_owned()
     }
     /// Exact schema/admission observation before opening a version-bound capability.
     pub(crate) fn schema_marker(&self) -> crate::transport::client::Query<'static> {
-        self.query_class("SELECT * FROM ONLY canonical_interpretations:current;", true, SchemaEnvelope::Maintenance).into_owned()
+        self.query_class(
+            "SELECT * FROM ONLY canonical_interpretations:current;",
+            true,
+            SchemaEnvelope::Maintenance,
+        )
+        .into_owned()
     }
     /// Privileged migration text can only be constructed by its typed migration owner.
-    pub(crate) fn migration_script(&self, script: super::migration::MigrationScript) -> crate::transport::client::Query<'static> {
-        self.query_class(script.sql, true, SchemaEnvelope::Maintenance).bind_guarded(script.bindings).into_owned()
+    pub(crate) fn migration_script(
+        &self,
+        script: super::migration::MigrationScript,
+    ) -> crate::transport::client::Query<'static> {
+        self.query_class(script.sql, true, SchemaEnvelope::Maintenance)
+            .bind_guarded(script.bindings)
+            .into_owned()
     }
 
     pub(crate) fn select<O: SurrealValue>(
@@ -500,8 +571,18 @@ impl CanonicalClient {
     where
         usize: crate::transport::client::QueryResult<O>,
     {
-        crate::transport::client::Select::from_query(self.query_class("SELECT * FROM ONLY type::record($pse_selected_table,$pse_selected_key);", false, SchemaEnvelope::Unframed { access: super::migration::SchemaAdmission::Read })
-            .bind(("pse_selected_table", resource.0.to_owned())).bind(("pse_selected_key", resource.1.to_owned())).into_owned())
+        crate::transport::client::Select::from_query(
+            self.query_class(
+                "SELECT * FROM ONLY type::record($pse_selected_table,$pse_selected_key);",
+                false,
+                SchemaEnvelope::Unframed {
+                    access: super::migration::SchemaAdmission::Read,
+                },
+            )
+            .bind(("pse_selected_table", resource.0.to_owned()))
+            .bind(("pse_selected_key", resource.1.to_owned()))
+            .into_owned(),
+        )
     }
 
     pub(crate) fn script<T>(
@@ -510,7 +591,18 @@ impl CanonicalClient {
     ) -> crate::transport::client::Query<'static> {
         let (access, installation) = script.schema_policy();
         let (sql, bindings, selection) = script.into_parts();
-        let query = self.query_class(sql, false, if installation { SchemaEnvelope::Maintenance } else { SchemaEnvelope::Framed { access } }).bind_guarded(bindings).into_owned();
+        let query = self
+            .query_class(
+                sql,
+                false,
+                if installation {
+                    SchemaEnvelope::Maintenance
+                } else {
+                    SchemaEnvelope::Framed { access }
+                },
+            )
+            .bind_guarded(bindings)
+            .into_owned();
         match selection {
             Some(selection) => query.retain_selection(selection),
             None => query,

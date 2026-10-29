@@ -334,7 +334,9 @@ impl From<surrealdb_types::Error> for CanonicalError {
 impl CanonicalError {
     /// Infrastructure termination is distinct from a scientific/domain refusal.
     pub fn is_infrastructure(&self) -> bool {
-        if matches!(self, Self::MigrationDrain { .. }) { return true; }
+        if matches!(self, Self::MigrationDrain { .. }) {
+            return true;
+        }
         if let Self::SettlementUnresolved {
             source, readback, ..
         } = self
@@ -1377,7 +1379,11 @@ impl CanonicalStore {
         if migration::settling() {
             // This grants only a local opportunity to submit an original settlement.
             // The transaction still checks current epoch and its exact AttemptFence.
-            return if admission.namespace == self.namespace { Ok(()) } else { Err(CanonicalError::Quiesced) };
+            return if admission.namespace == self.namespace {
+                Ok(())
+            } else {
+                Err(CanonicalError::Quiesced)
+            };
         }
         admission.require_writes(
             &self.state_path,
@@ -1602,7 +1608,12 @@ impl CanonicalStore {
             .bind(("interpretation", wire::INTERPRETATION))
             .bind(("schema_digest", wire::SCHEMA_DIGEST))
             .bind(("payload_incarnation", self.files.incarnation.clone()))
-            .bind(("schema_version", crate::canonical_codec::encode_uint(pse_schema::catalog::substrate::SCHEMA_VERSION)?))
+            .bind((
+                "schema_version",
+                crate::canonical_codec::encode_uint(
+                    pse_schema::catalog::substrate::SCHEMA_VERSION,
+                )?,
+            ))
             .bind(("schema_epoch", uuid::Uuid::new_v4().to_string()));
         tokio::time::timeout(ACTIVATION_REQUEST_TIMEOUT, query.into_future())
             .await
@@ -5183,7 +5194,9 @@ mod canonical_server_unit {
         let (store, _) = initialization_fixture().await;
         // Use an actual canonical client zero-statement response.
         assert!(matches!(
-            store.initialize_with(|| request(store.db.test_empty_initialization_response())).await,
+            store
+                .initialize_with(|| request(store.db.test_empty_initialization_response()))
+                .await,
             Err(CanonicalError::IncompleteResponse)
         ));
         assert!(store.open().await.is_err());
@@ -5241,7 +5254,8 @@ mod canonical_server_unit {
         let module = study_module::StudyModuleReceipt::read(&store.state_path).unwrap();
         let delayed = initialization_statement(&module)
             .unwrap()
-            .test_delay_installation(std::time::Duration::from_secs(1)).unwrap();
+            .test_delay_installation(std::time::Duration::from_secs(1))
+            .unwrap();
         let attempts = std::sync::atomic::AtomicUsize::new(0);
         let response = store
             .initialize_with(|| {
@@ -5258,9 +5272,15 @@ mod canonical_server_unit {
                                 .bind(("study_module_sha256", module.sha256.clone()))
                                 .bind(("interpretation", wire::INTERPRETATION))
                                 .bind(("schema_digest", wire::SCHEMA_DIGEST))
-                                .bind(("payload_incarnation",store.files.incarnation.clone()))
-                                .bind(("schema_version",crate::canonical_codec::encode_uint(pse_schema::catalog::substrate::SCHEMA_VERSION).unwrap()))
-                                .bind(("schema_epoch",uuid::Uuid::new_v4().to_string())),
+                                .bind(("payload_incarnation", store.files.incarnation.clone()))
+                                .bind((
+                                    "schema_version",
+                                    crate::canonical_codec::encode_uint(
+                                        pse_schema::catalog::substrate::SCHEMA_VERSION,
+                                    )
+                                    .unwrap(),
+                                ))
+                                .bind(("schema_epoch", uuid::Uuid::new_v4().to_string())),
                         )
                         .await
                     },
@@ -5272,7 +5292,10 @@ mod canonical_server_unit {
             1,
             "cancellation must attempt the delayed transaction without replaying DDL"
         );
-        assert!(matches!(response,Err(CanonicalError::Timeout)),"delayed installation must reach its original cancellation clock: {response:?}");
+        assert!(
+            matches!(response, Err(CanonicalError::Timeout)),
+            "delayed installation must reach its original cancellation clock: {response:?}"
+        );
         tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
         selected.disconnect().await.unwrap();
         assert!(store.open().await.is_err());
@@ -5301,7 +5324,7 @@ mod canonical_server_unit {
             },
         ).await;
         assert!(
-            matches!(result,Err(CanonicalError::Timeout)),
+            matches!(result, Err(CanonicalError::Timeout)),
             "cancellation cannot become a completed empty transaction"
         );
         // Cancellation classifies an unknown transport outcome. The transaction

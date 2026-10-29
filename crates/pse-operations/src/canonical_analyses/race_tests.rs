@@ -245,9 +245,19 @@ async fn canonical_analysis_held_page_append_and_activation_conflict_with_retire
                 .await
                 .unwrap();
         } else {
-            bounded_query(store.db.query("RETURN fn::pse_analysis_v1::begin($pse_rpc_expires_at,$row,$sources,[]);")
-                .bind(("row",wire::encode_canonical_analyses(&intent).unwrap()))
-                .bind(("sources",vec![root(&intent,&revision)]))).await.unwrap().check().unwrap();
+            bounded_query(
+                store
+                    .db
+                    .query(
+                        "RETURN fn::pse_analysis_v1::begin($pse_rpc_expires_at,$row,$sources,[]);",
+                    )
+                    .bind(("row", wire::encode_canonical_analyses(&intent).unwrap()))
+                    .bind(("sources", vec![root(&intent, &revision)])),
+            )
+            .await
+            .unwrap()
+            .check()
+            .unwrap();
             if operation == "activate" {
                 store
                     .append_analysis(
@@ -282,7 +292,16 @@ async fn canonical_analysis_held_page_append_and_activation_conflict_with_retire
                 .await
                 .is_err()
         );
-        assert!(bounded_query(store.db.query("RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at,$key);").bind(("key",intent.key.clone()))).await.is_err());
+        assert!(
+            bounded_query(
+                store
+                    .db
+                    .query("RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at,$key);")
+                    .bind(("key", intent.key.clone()))
+            )
+            .await
+            .is_err()
+        );
     }
     store.remove_isolated_fixture().await.unwrap();
 }

@@ -1033,7 +1033,9 @@ impl<'a> IntoFuture for Query<'a> {
                 }
             }
             match statement_window {
-                Some((prefix, suffix)) => result.and_then(|result| result.statement_window(prefix, suffix)),
+                Some((prefix, suffix)) => {
+                    result.and_then(|result| result.statement_window(prefix, suffix))
+                }
                 None => result,
             }
         })
@@ -1052,7 +1054,10 @@ impl<R> std::fmt::Debug for Select<R> {
 }
 impl<R> Select<R> {
     pub(crate) fn from_query(query: Query<'static>) -> Self {
-        Self { query, marker: std::marker::PhantomData }
+        Self {
+            query,
+            marker: std::marker::PhantomData,
+        }
     }
     /// Supply original deadline and request custody.
     pub fn request_context(mut self, context: RequestContext) -> Self {

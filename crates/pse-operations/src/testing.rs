@@ -820,10 +820,20 @@ pub async fn expire_acknowledged_attempt(
         ));
     }
     let generation = crate::canonical_codec::encode_uint(fence.generation())?;
-    let script = crate::canonical_script::test_script::<Option<bool>>("LET $run = SELECT * FROM ONLY type::record('canonical_runs',$run); LET $attempt = SELECT * FROM ONLY type::record('canonical_attempts',$attempt); IF $run = NONE OR $attempt = NONE OR $attempt.run != $run.key OR $run.current_attempt != $attempt.key OR $run.current_generation != $generation OR $attempt.generation != $generation OR $attempt.phase IN ['terminal','terminal_compacted'] { THROW 'PSE_REFUSAL:fixture_expiry_claim_changed'; }; UPDATE ONLY $attempt.id SET expires_at = time::micros() - 1;", "true")?;
+    let script = crate::canonical_script::test_script::<Option<bool>>(
+        "LET $run = SELECT * FROM ONLY type::record('canonical_runs',$run); LET $attempt = SELECT * FROM ONLY type::record('canonical_attempts',$attempt); IF $run = NONE OR $attempt = NONE OR $attempt.run != $run.key OR $run.current_attempt != $attempt.key OR $run.current_generation != $generation OR $attempt.generation != $generation OR $attempt.phase IN ['terminal','terminal_compacted'] { THROW 'PSE_REFUSAL:fixture_expiry_claim_changed'; }; UPDATE ONLY $attempt.id SET expires_at = time::micros() - 1;",
+        "true",
+    )?;
     let result = script.result();
-    let mut response = bounded_query(store.db.script(script)
-        .bind(("run", fence.run().to_owned())).bind(("attempt", fence.attempt().to_owned())).bind(("generation",generation))).await?;
+    let mut response = bounded_query(
+        store
+            .db
+            .script(script)
+            .bind(("run", fence.run().to_owned()))
+            .bind(("attempt", fence.attempt().to_owned()))
+            .bind(("generation", generation)),
+    )
+    .await?;
     if result.take(&mut response)? != Some(true) {
         return Err(CanonicalError::IncompleteResponse);
     }

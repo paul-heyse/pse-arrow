@@ -83,11 +83,27 @@ fn body(query: &str) -> String {
         .replace("TIMEOUT $pse_rpc_timeout", "TIMEOUT 30s")
 }
 /// A held native transaction still consumes its original opened schema authority.
-fn held_query(store: &CanonicalStore, transaction: &crate::transport::client::HeldTransaction, sql: String, access: crate::canonical::migration::SchemaAdmission) -> crate::transport::client::Query<'static> {
+fn held_query(
+    store: &CanonicalStore,
+    transaction: &crate::transport::client::HeldTransaction,
+    sql: String,
+    access: crate::canonical::migration::SchemaAdmission,
+) -> crate::transport::client::Query<'static> {
     let mut bindings = Object::new();
-    bindings.insert("pse_schema_expected",store.db.schema.get().expect("actual fixture schema opened before holding a transaction").value());
-    bindings.insert("pse_schema_settlement",crate::canonical::migration::settlement_value());
-    bindings.insert("pse_schema_access",access.name());
+    bindings.insert(
+        "pse_schema_expected",
+        store
+            .db
+            .schema
+            .get()
+            .expect("actual fixture schema opened before holding a transaction")
+            .value(),
+    );
+    bindings.insert(
+        "pse_schema_settlement",
+        crate::canonical::migration::settlement_value(),
+    );
+    bindings.insert("pse_schema_access", access.name());
     transaction.query(sql).bind_guarded(bindings)
 }
 async fn grant(store: &CanonicalStore, revision: &Revision, window: i64) -> (String, i64) {
@@ -256,20 +272,23 @@ async fn exact_terminal_seal_and_unrelated_source_creator_commute_both_orders() 
             .bind(("completion", surrealdb_types::Bytes::from(vec![42])))
             .await.unwrap().check().unwrap();
         let creator = held(&options).await;
-        held_query(&store, &creator, body(
-                &crate::canonical_script::test_script_sql(RETAIN, "NONE").unwrap(),
-            ), crate::canonical::migration::SchemaAdmission::Mutation)
-            .bind(("pse_rpc_expires_at", expiry()))
-            .bind(("problem", revision.problem.clone()))
-            .bind(("revision", revision.key.clone()))
-            .bind(("root", "history:unrelated"))
-            .bind(("owner_kind", "history"))
-            .bind(("owner", "unrelated"))
-            .bind(("interpretation", wire::INTERPRETATION))
-            .await
-            .unwrap()
-            .check()
-            .unwrap();
+        held_query(
+            &store,
+            &creator,
+            body(&crate::canonical_script::test_script_sql(RETAIN, "NONE").unwrap()),
+            crate::canonical::migration::SchemaAdmission::Mutation,
+        )
+        .bind(("pse_rpc_expires_at", expiry()))
+        .bind(("problem", revision.problem.clone()))
+        .bind(("revision", revision.key.clone()))
+        .bind(("root", "history:unrelated"))
+        .bind(("owner_kind", "history"))
+        .bind(("owner", "unrelated"))
+        .bind(("interpretation", wire::INTERPRETATION))
+        .await
+        .unwrap()
+        .check()
+        .unwrap();
         // Removing this attempt's root adds no new retention requirement. A
         // genuine creator elsewhere in the same problem must remain independent.
         if creator_first {
@@ -494,23 +513,26 @@ async fn exact_scoped_head_page_and_source_activation_both_commit_orders() {
         }
         .expect("fresh operation must close a stage");
         let reader = held(&options).await;
-        let mut response = held_query(&store, &reader, body(
-                &crate::canonical_selection::test_membership_page_sql(&pin).unwrap(),
-            ), crate::canonical::migration::SchemaAdmission::Read)
-            .bind(("pse_rpc_expires_at", expiry()))
-            .bind(("problem", revision.problem.clone()))
-            .bind(("revision", revision.key.clone()))
-            .bind((
-                "sequence",
-                canonical_codec::encode_uint(revision.sequence).unwrap(),
-            ))
-            .bind(("protection", pin.key().to_owned()))
-            .bind(("scope", "root"))
-            .bind(("after", ""))
-            .await
-            .unwrap()
-            .check()
-            .unwrap();
+        let mut response = held_query(
+            &store,
+            &reader,
+            body(&crate::canonical_selection::test_membership_page_sql(&pin).unwrap()),
+            crate::canonical::migration::SchemaAdmission::Read,
+        )
+        .bind(("pse_rpc_expires_at", expiry()))
+        .bind(("problem", revision.problem.clone()))
+        .bind(("revision", revision.key.clone()))
+        .bind((
+            "sequence",
+            canonical_codec::encode_uint(revision.sequence).unwrap(),
+        ))
+        .bind(("protection", pin.key().to_owned()))
+        .bind(("scope", "root"))
+        .bind(("after", ""))
+        .await
+        .unwrap()
+        .check()
+        .unwrap();
         let page: Vec<Object> = response
             .take(response.num_statements().saturating_sub(1))
             .unwrap();
@@ -522,25 +544,30 @@ async fn exact_scoped_head_page_and_source_activation_both_commit_orders() {
             "v1"
         );
         let writer = held(&options).await;
-        held_query(&store, &writer, body(&crate::canonical::test_source_edit_sql().unwrap()), crate::canonical::migration::SchemaAdmission::Mutation)
-            .bind(("pse_rpc_expires_at", expiry()))
-            .bind(("problem", stage.problem.clone()))
-            .bind(("expected", stage.expected.clone()))
-            .bind(("operation", stage.operation.clone()))
-            .bind(("interpretation", wire::INTERPRETATION))
-            .bind((
-                "request",
-                surrealdb_types::Bytes::from(stage.request.clone()),
-            ))
-            .bind(("request_digest", stage.request_digest.clone()))
-            .bind((
-                "generation",
-                canonical_codec::encode_uint(stage.generation).unwrap(),
-            ))
-            .await
-            .unwrap()
-            .check()
-            .unwrap();
+        held_query(
+            &store,
+            &writer,
+            body(&crate::canonical::test_source_edit_sql().unwrap()),
+            crate::canonical::migration::SchemaAdmission::Mutation,
+        )
+        .bind(("pse_rpc_expires_at", expiry()))
+        .bind(("problem", stage.problem.clone()))
+        .bind(("expected", stage.expected.clone()))
+        .bind(("operation", stage.operation.clone()))
+        .bind(("interpretation", wire::INTERPRETATION))
+        .bind((
+            "request",
+            surrealdb_types::Bytes::from(stage.request.clone()),
+        ))
+        .bind(("request_digest", stage.request_digest.clone()))
+        .bind((
+            "generation",
+            canonical_codec::encode_uint(stage.generation).unwrap(),
+        ))
+        .await
+        .unwrap()
+        .check()
+        .unwrap();
         if reader_first {
             reader.commit().await.unwrap();
             writer.commit().await.unwrap();
@@ -608,7 +635,8 @@ async fn exact_source_root_and_pin_creation_reclaim_both_orders() {
             bounded_query(
                 store
                     .db
-                    .script(crate::canonical_script::test_script::<Value>(
+                    .script(
+                        crate::canonical_script::test_script::<Value>(
                             DROP_ROOT,
                             "$pse_retention_drop_result",
                         )
@@ -625,37 +653,45 @@ async fn exact_source_root_and_pin_creation_reclaim_both_orders() {
             let creator = held(&options).await;
             let (key, _) = grant(&store, &old, 30_000_000).await;
             if pin {
-                held_query(&store, &creator, body(
+                held_query(
+                    &store,
+                    &creator,
+                    body(
                         &crate::canonical_script::test_script_sql(
                             ACQUIRE_PROTECTION,
                             "$rpc_result",
                         )
                         .unwrap(),
-                    ), crate::canonical::migration::SchemaAdmission::Mutation)
-                    .bind(("pse_rpc_expires_at", expiry()))
-                    .bind(("problem", old.problem.clone()))
-                    .bind(("revision", old.key.clone()))
-                    .bind(("key", key.clone()))
-                    .bind(("lifetime", 60_000_000i64))
-                    .await
-                    .unwrap()
-                    .check()
-                    .unwrap();
+                    ),
+                    crate::canonical::migration::SchemaAdmission::Mutation,
+                )
+                .bind(("pse_rpc_expires_at", expiry()))
+                .bind(("problem", old.problem.clone()))
+                .bind(("revision", old.key.clone()))
+                .bind(("key", key.clone()))
+                .bind(("lifetime", 60_000_000i64))
+                .await
+                .unwrap()
+                .check()
+                .unwrap();
             } else {
-                held_query(&store, &creator, body(
-                        &crate::canonical_script::test_script_sql(RETAIN, "NONE").unwrap(),
-                    ), crate::canonical::migration::SchemaAdmission::Mutation)
-                    .bind(("pse_rpc_expires_at", expiry()))
-                    .bind(("problem", old.problem.clone()))
-                    .bind(("revision", old.key.clone()))
-                    .bind(("root", "history:late"))
-                    .bind(("owner_kind", "history"))
-                    .bind(("owner", "late"))
-                    .bind(("interpretation", wire::INTERPRETATION))
-                    .await
-                    .unwrap()
-                    .check()
-                    .unwrap();
+                held_query(
+                    &store,
+                    &creator,
+                    body(&crate::canonical_script::test_script_sql(RETAIN, "NONE").unwrap()),
+                    crate::canonical::migration::SchemaAdmission::Mutation,
+                )
+                .bind(("pse_rpc_expires_at", expiry()))
+                .bind(("problem", old.problem.clone()))
+                .bind(("revision", old.key.clone()))
+                .bind(("root", "history:late"))
+                .bind(("owner_kind", "history"))
+                .bind(("owner", "late"))
+                .bind(("interpretation", wire::INTERPRETATION))
+                .await
+                .unwrap()
+                .check()
+                .unwrap();
             }
             let collector = held(&options).await;
             collector
@@ -705,16 +741,21 @@ async fn exact_protection_absent_settlement_both_orders_and_replay() {
                 "RETURN {key:$key,deadline:$fixture_deadline};",
             )
         );
-        let mut response = held_query(&store, &creator, acquisition, crate::canonical::migration::SchemaAdmission::Mutation)
-            .bind(("pse_rpc_expires_at", expiry()))
-            .bind(("problem", revision.problem.clone()))
-            .bind(("revision", revision.key.clone()))
-            .bind(("nonce", uuid::Uuid::new_v4().to_string()))
-            .bind(("lifetime", 100_000i64))
-            .await
-            .unwrap()
-            .check()
-            .unwrap();
+        let mut response = held_query(
+            &store,
+            &creator,
+            acquisition,
+            crate::canonical::migration::SchemaAdmission::Mutation,
+        )
+        .bind(("pse_rpc_expires_at", expiry()))
+        .bind(("problem", revision.problem.clone()))
+        .bind(("revision", revision.key.clone()))
+        .bind(("nonce", uuid::Uuid::new_v4().to_string()))
+        .bind(("lifetime", 100_000i64))
+        .await
+        .unwrap()
+        .check()
+        .unwrap();
         let mut issued = response
             .take::<Option<Object>>(response.num_statements() - 1)
             .unwrap()
@@ -784,8 +825,12 @@ async fn exact_protection_absent_settlement_both_orders_and_replay() {
             bounded_query(
                 store
                     .db
-                    .script(crate::canonical_script::test_script::<Value>(ACQUIRE_PROTECTION, "$rpc_result")
-                            .unwrap()
+                    .script(
+                        crate::canonical_script::test_script::<Value>(
+                            ACQUIRE_PROTECTION,
+                            "$rpc_result"
+                        )
+                        .unwrap()
                     )
                     .bind(("problem", revision.problem.clone()))
                     .bind(("revision", revision.key.clone()))
@@ -1229,8 +1274,11 @@ async fn exact_dispatched_pre_ticket_renewal_and_expired_admission_retirement_bo
         bounded_query(
             store
                 .db
-                .script(GuardedScript::new(Envelope::ProtectedAdmission { selection: &pin })
-                    .returning::<Value>(crate::canonical_results::RESULT_ADMISSION,"NONE").unwrap())
+                .script(
+                    GuardedScript::new(Envelope::ProtectedAdmission { selection: &pin })
+                        .returning::<Value>(crate::canonical_results::RESULT_ADMISSION, "NONE")
+                        .unwrap(),
+                )
                 .bind(("run", "target"))
                 .bind(("attempt", attempt.clone()))
                 .bind(("manifest", manifest)),
@@ -1397,7 +1445,8 @@ async fn exact_released_tombstone_survives_original_window_then_collects_without
     bounded_query(
         store
             .db
-            .script(crate::canonical_script::test_script::<Value>(
+            .script(
+                crate::canonical_script::test_script::<Value>(
                     crate::canonical::RELEASE_PROTECTION,
                     "NONE",
                 )
@@ -1444,7 +1493,8 @@ async fn exact_released_tombstone_survives_original_window_then_collects_without
     bounded_query(
         store
             .db
-            .script(crate::canonical_script::test_script::<Value>(
+            .script(
+                crate::canonical_script::test_script::<Value>(
                     crate::canonical::RELEASE_PROTECTION,
                     "NONE",
                 )
@@ -1539,8 +1589,12 @@ async fn historical_source_grant_settlement_keeps_exact_receipt_and_fences_unkno
         bounded_query(
             store
                 .db
-                .script(crate::canonical_script::test_script::<Value>(ACQUIRE_PROTECTION, "$rpc_result")
-                        .unwrap()
+                .script(
+                    crate::canonical_script::test_script::<Value>(
+                        ACQUIRE_PROTECTION,
+                        "$rpc_result"
+                    )
+                    .unwrap()
                 )
                 .bind(("problem", revision.problem.clone()))
                 .bind(("revision", revision.key.clone()))

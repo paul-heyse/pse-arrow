@@ -2146,7 +2146,13 @@ mod tests {
                 })
             ));
         }
-        assert!(matches!(project_guard,Err(CanonicalError::Refused {code:crate::canonical::RefusalCode::ProjectIssuingAuthorityChanged,..})));
+        assert!(matches!(
+            project_guard,
+            Err(CanonicalError::Refused {
+                code: crate::canonical::RefusalCode::ProjectIssuingAuthorityChanged,
+                ..
+            })
+        ));
         assert!(store.revision("publication").await.unwrap().is_none());
         assert_eq!(
             store.project_branch_revision("a").await.unwrap().unwrap(),

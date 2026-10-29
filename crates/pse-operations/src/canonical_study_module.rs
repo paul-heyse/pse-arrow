@@ -92,29 +92,87 @@ fn invalid(message: impl std::fmt::Display) -> CanonicalError {
     CanonicalError::Configuration(format!("study module: {message}"))
 }
 impl StudyModuleReceipt {
+    /// The same selected module limits constrain its server runtime. These are
+    /// guest-policy limits, independent of native host workload placement.
+    #[cfg(feature = "native-service")]
+    pub(crate) fn runtime_environment(&self) -> Vec<(String, String)> {
+        [
+            (
+                "SURREAL_SURREALISM_MAX_MEMORY",
+                self.limits.max_memory_bytes.to_string(),
+            ),
+            (
+                "SURREAL_SURREALISM_MAX_EXECUTION_TIME",
+                self.limits.max_execution_time_ms.to_string(),
+            ),
+            (
+                "SURREAL_SURREALISM_MAX_KV_ENTRIES",
+                self.limits.max_kv_entries.to_string(),
+            ),
+            (
+                "SURREAL_SURREALISM_MAX_KV_VALUE_BYTES",
+                self.limits.max_kv_value_bytes.to_string(),
+            ),
+            ("SURREAL_SURREALISM_MAX_FS_BYTES", "0".into()),
+            ("SURREAL_SURREALISM_LOG_LEVEL", "warn".into()),
+        ]
+        .into_iter()
+        .map(|(key, value)| (key.into(), value))
+        .collect()
+    }
     /// Copy the already admitted bytes, preserving every original build input.
     /// Only the private artifact location changes; this never claims a rebuild.
     #[cfg(feature = "native-service")]
-    pub(crate) fn copy_into_private(&self, state: &Path, directory: &Path) -> Result<Self, CanonicalError> {
+    pub(crate) fn copy_into_private(
+        &self,
+        state: &Path,
+        directory: &Path,
+    ) -> Result<Self, CanonicalError> {
         use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
         let owner = std::fs::metadata(state).map_err(invalid)?;
-        if !owner.is_dir() || owner.mode() & 0o077 != 0 || owner.uid() != rustix::process::geteuid().as_raw() {
-            return Err(invalid("module destination state must be private and owned by the current user"));
+        if !owner.is_dir()
+            || owner.mode() & 0o077 != 0
+            || owner.uid() != rustix::process::geteuid().as_raw()
+        {
+            return Err(invalid(
+                "module destination state must be private and owned by the current user",
+            ));
         }
-        if directory.parent() != Some(state) || std::fs::canonicalize(state).map_err(invalid)? != state {
+        if directory.parent() != Some(state)
+            || std::fs::canonicalize(state).map_err(invalid)? != state
+        {
             return Err(invalid("module copy must be inside its new private state"));
         }
         self.validate(state)?;
         std::fs::create_dir(directory).map_err(invalid)?;
-        std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700)).map_err(invalid)?;
+        std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))
+            .map_err(invalid)?;
         let destination = directory.join("study.surli");
-        let mut source = std::fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC).open(&self.artifact).map_err(invalid)?;
-        let mut output = std::fs::OpenOptions::new().create_new(true).write(true).mode(0o600).custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC).open(&destination).map_err(invalid)?;
-        let copied = std::io::copy(&mut source.by_ref().take(self.bytes + 1), &mut output).map_err(invalid)?;
-        if copied != self.bytes { return Err(invalid("original module extent changed during private copy")); }
+        let mut source = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(&self.artifact)
+            .map_err(invalid)?;
+        let mut output = std::fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(&destination)
+            .map_err(invalid)?;
+        let copied = std::io::copy(&mut source.by_ref().take(self.bytes + 1), &mut output)
+            .map_err(invalid)?;
+        if copied != self.bytes {
+            return Err(invalid(
+                "original module extent changed during private copy",
+            ));
+        }
         output.sync_all().map_err(invalid)?;
-        std::fs::set_permissions(&destination, std::fs::Permissions::from_mode(0o400)).map_err(invalid)?;
-        std::fs::File::open(directory).and_then(|directory| directory.sync_all()).map_err(invalid)?;
+        std::fs::set_permissions(&destination, std::fs::Permissions::from_mode(0o400))
+            .map_err(invalid)?;
+        std::fs::File::open(directory)
+            .and_then(|directory| directory.sync_all())
+            .map_err(invalid)?;
         let mut selected = self.clone();
         selected.artifact = destination;
         selected.validate(state)?;
@@ -333,9 +391,16 @@ impl CanonicalStore {
         &self,
         receipt: &StudyModuleReceipt,
     ) -> Result<(), CanonicalError> {
-        let mut response=bounded_query(self.db.metadata_read_query(MetadataResponse::Header,
-            format!("{CATALOG_VALIDATION_BODY} RETURN {CATALOG_VALIDATION_PREDICATE};"))
-            .bind(("bucket",receipt.bucket())).bind(("backend",receipt.backend()?))).await?;
+        let mut response = bounded_query(
+            self.db
+                .metadata_read_query(
+                    MetadataResponse::Header,
+                    format!("{CATALOG_VALIDATION_BODY} RETURN {CATALOG_VALIDATION_PREDICATE};"),
+                )
+                .bind(("bucket", receipt.bucket()))
+                .bind(("backend", receipt.backend()?)),
+        )
+        .await?;
         if UnframedResult::<Option<bool>>::returned().take(&mut response)? != Some(true) {
             return Err(invalid(
                 "installed module, readonly bucket or pure export differs",
@@ -402,18 +467,29 @@ pub(super) mod tests {
     #[test]
     fn study_module_private_copy_preserves_original_provenance_and_refuses_replacement() {
         let fixture = Fixture::new();
-        std::fs::set_permissions(&fixture.state,std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::fs::set_permissions(&fixture.state, std::fs::Permissions::from_mode(0o700)).unwrap();
         let original = serde_json::to_value(&fixture.receipt).unwrap();
         let destination = fixture.state.join("private-copy");
-        let copied = fixture.receipt.copy_into_private(&fixture.state,&destination).unwrap();
+        let copied = fixture
+            .receipt
+            .copy_into_private(&fixture.state, &destination)
+            .unwrap();
         let mut actual = serde_json::to_value(&copied).unwrap();
         actual["artifact"] = original["artifact"].clone();
-        assert_eq!(actual,original,"only the admitted artifact path may change");
-        assert_ne!(copied.artifact,fixture.receipt.artifact);
+        assert_eq!(
+            actual, original,
+            "only the admitted artifact path may change"
+        );
+        assert_ne!(copied.artifact, fixture.receipt.artifact);
         copied.validate(&fixture.state).unwrap();
-        assert!(fixture.receipt.copy_into_private(&fixture.state,&destination).is_err());
-        std::fs::set_permissions(&copied.artifact,std::fs::Permissions::from_mode(0o600)).unwrap();
-        std::fs::write(&copied.artifact,b"changed").unwrap();
+        assert!(
+            fixture
+                .receipt
+                .copy_into_private(&fixture.state, &destination)
+                .is_err()
+        );
+        std::fs::set_permissions(&copied.artifact, std::fs::Permissions::from_mode(0o600)).unwrap();
+        std::fs::write(&copied.artifact, b"changed").unwrap();
         assert!(copied.validate(&fixture.state).is_err());
         fixture.receipt.validate(&fixture.state).unwrap();
     }

@@ -5705,7 +5705,7 @@ impl CanonicalStore {
         // callers retain an explicit Send contract without propagating that
         // deeply nested implementation type through every public append path.
         Box::pin(async move {
-        crate::canonical::migration::settlement_scope(fence, async {
+            crate::canonical::migration::settlement_scope(fence, async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut prepared = ResultBlockAppend::prepare(fence, operation, name, ordinal, payload,
                 row_count, block, outputs, None)?;
@@ -6069,16 +6069,35 @@ impl CanonicalStore {
         .await
     }
     /// Revoke worker authority as a fresh run command. Migration closes this route.
-    pub async fn cancel_run(&self, run: &str, operation: &str) -> Result<CanonicalRun, CanonicalError> {
-        self.cancel_execution(run, operation, json(&(run, operation))?, None).await
+    pub async fn cancel_run(
+        &self,
+        run: &str,
+        operation: &str,
+    ) -> Result<CanonicalRun, CanonicalError> {
+        self.cancel_execution(run, operation, json(&(run, operation))?, None)
+            .await
     }
     /// Cancel only this original current attempt while retaining immutable request identity.
     /// This settlement route cannot revoke a replacement worker's authority.
-    pub async fn cancel_attempt(&self, fence: &AttemptFence, operation: &str) -> Result<CanonicalRun, CanonicalError> {
+    pub async fn cancel_attempt(
+        &self,
+        fence: &AttemptFence,
+        operation: &str,
+    ) -> Result<CanonicalRun, CanonicalError> {
         let request = json(&(fence.run(), fence.attempt(), fence.generation(), operation))?;
-        crate::canonical::migration::settlement_scope(fence, self.cancel_execution(fence.run(), operation, request, Some(fence))).await
+        crate::canonical::migration::settlement_scope(
+            fence,
+            self.cancel_execution(fence.run(), operation, request, Some(fence)),
+        )
+        .await
     }
-    async fn cancel_execution(&self, run: &str, operation: &str, request: Vec<u8>, fence: Option<&AttemptFence>) -> Result<CanonicalRun, CanonicalError> {
+    async fn cancel_execution(
+        &self,
+        run: &str,
+        operation: &str,
+        request: Vec<u8>,
+        fence: Option<&AttemptFence>,
+    ) -> Result<CanonicalRun, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -6126,10 +6145,22 @@ impl CanonicalStore {
         run: &str,
         operation: &str,
     ) -> Result<ClosedAttempt, CanonicalError> {
-        let observed = self.canonical_run(run).await?.ok_or(CanonicalError::IncompleteResponse)?;
-        let current = observed.current_attempt.ok_or(CanonicalError::IncompleteResponse)?;
-        let original = self.canonical_attempt(&current).await?.ok_or(CanonicalError::IncompleteResponse)?;
-        let settlement = AttemptFence { run: original.run.into(), attempt: original.key.into(), generation: original.generation };
+        let observed = self
+            .canonical_run(run)
+            .await?
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        let current = observed
+            .current_attempt
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        let original = self
+            .canonical_attempt(&current)
+            .await?
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        let settlement = AttemptFence {
+            run: original.run.into(),
+            attempt: original.key.into(),
+            generation: original.generation,
+        };
         crate::canonical::migration::settlement_scope(&settlement, async {
         let activity = self.admit_activity()?;
         activity.scope(async {

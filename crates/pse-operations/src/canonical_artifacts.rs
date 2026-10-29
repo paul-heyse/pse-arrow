@@ -1316,7 +1316,15 @@ mod canonical_artifact_tests {
         root.insert("revision", revision.key.clone());
         root.insert("sequence", codec::encode_uint(revision.sequence).unwrap());
         let row = wire::encode_canonical_artifacts(&intent).unwrap();
-        protected_query("test:artifact-staging-only",||Ok(store.db.query("RETURN fn::pse_artifact_v1::begin($pse_rpc_expires_at,$row,$sources,[]);").bind(("row",row.clone())).bind(("sources",vec![root.clone()])))).await.unwrap();
+        protected_query("test:artifact-staging-only", || {
+            Ok(store
+                .db
+                .query("RETURN fn::pse_artifact_v1::begin($pse_rpc_expires_at,$row,$sources,[]);")
+                .bind(("row", row.clone()))
+                .bind(("sources", vec![root.clone()])))
+        })
+        .await
+        .unwrap();
         assert!(
             store.artifact(&intent.key).await.is_err(),
             "staged original intent grants no active discovery"
@@ -1499,7 +1507,8 @@ mod canonical_artifact_tests {
         bounded_query(
             store
                 .db
-                .script(crate::canonical_script::test_script::<Value>(
+                .script(
+                    crate::canonical_script::test_script::<Value>(
                         crate::canonical::ACQUIRE_PROTECTION,
                         "$rpc_result",
                     )
@@ -1512,11 +1521,20 @@ mod canonical_artifact_tests {
         )
         .await
         .unwrap();
-        bounded_query(store.db.query("RETURN fn::pse_artifact_v1::acquire($pse_rpc_expires_at,$key,$protection);").bind(("key",intent.key.clone())).bind(("protection",grant.clone()))).await.unwrap();
         bounded_query(
             store
                 .db
-                .script(crate::canonical_script::test_script::<Value>(
+                .query("RETURN fn::pse_artifact_v1::acquire($pse_rpc_expires_at,$key,$protection);")
+                .bind(("key", intent.key.clone()))
+                .bind(("protection", grant.clone())),
+        )
+        .await
+        .unwrap();
+        bounded_query(
+            store
+                .db
+                .script(
+                    crate::canonical_script::test_script::<Value>(
                         crate::canonical::RELEASE_PROTECTION,
                         "NONE",
                     )
