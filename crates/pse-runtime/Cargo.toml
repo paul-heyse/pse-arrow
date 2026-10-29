@@ -165,3 +165,6 @@ required-features = ["product-operators"]
 name = "pse-project"
 path = "src/bin/pse-project.rs"
 required-features = ["product-operators"]
+[[test]]
+name = "local_operation"
+required-features = ["solver-kinsol"]
