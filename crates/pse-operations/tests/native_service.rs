@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Explicit live isolated-service controls. No existing database is connected or reset.
+#![allow(clippy::print_stderr, reason="explicit isolated lifecycle identities support independent native readback")]
 use pse_operations::{
     canonical::{CanonicalOptions, CanonicalStore},
     native_service::{NativeCanonicalService, NativeServiceSpec},
@@ -12,7 +13,12 @@ fn fixture_with_schema(pre_epoch: bool) -> NativeCanonicalService {
     let server = pse_host::server::select(&environment).expect("explicit native immutable server preparation is required");
     let module_source_state = PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE").expect("explicit private original module receipt state is required"));
     let spec = NativeServiceSpec { server, helper: PathBuf::from(env!("CARGO_BIN_EXE_pse-canonical-service")), module_source_state, state_parent: std::env::temp_dir() };
-    if pre_epoch { NativeCanonicalService::new_pre_epoch_fixture(spec).unwrap() } else { NativeCanonicalService::new(spec).unwrap() }
+    let service=if pre_epoch { NativeCanonicalService::new_pre_epoch_fixture(spec).unwrap() } else { NativeCanonicalService::new(spec).unwrap() };
+    eprintln!("native fixture state={} original_service={}", service.state().display(), service.intent().unit());
+    service
+}
+fn report_ingresses(service: &NativeCanonicalService) {
+    for intent in service.ingress_intents() { eprintln!("native fixture state={} original_ingress={}", service.state().display(), intent.unit()); }
 }
 
 #[tokio::test]
@@ -22,6 +28,7 @@ async fn native_service_current_migration_joins_actual_ingress_and_reconstructs_
     service.run(Instant::now()+Duration::from_secs(240), |service| Box::pin(async move {
         service.launch(Instant::now()+Duration::from_secs(90)).await?;
         service.start_ingress(Instant::now()+Duration::from_secs(30)).await?;
+        report_ingresses(service);
         let old = service.ready()?.clone();
         assert_eq!(service.probe_ingress(Instant::now()+Duration::from_secs(30)).await?, old.fence().epoch());
         let peer = service.connect().await?;
@@ -71,6 +78,7 @@ async fn native_service_adjacent_predecessor_migrates_only_after_original_native
         let options=CanonicalOptions::from_state(service.state())?;
         assert!(CanonicalStore::connect_ready(&options).await.is_err());
         service.start_ingress(Instant::now()+Duration::from_secs(30)).await?;
+        report_ingresses(service);
         assert_eq!(service.probe_ingress(Instant::now()+Duration::from_secs(30)).await?,"maintenance");
         let maintenance=service.maintenance().await?;
         let outcome=async {
@@ -116,6 +124,7 @@ async fn native_service_body_panic_still_joins_original_owned_units() {
     let outcome=std::panic::AssertUnwindSafe(service.run(Instant::now()+Duration::from_secs(180), |service|Box::pin(async move {
         service.launch(Instant::now()+Duration::from_secs(90)).await?;
         service.start_ingress(Instant::now()+Duration::from_secs(30)).await?;
+        report_ingresses(service);
         let _maintenance=service.maintenance().await?;
         panic!("intentional fixture body failure after actual native launch");
         #[allow(unreachable_code, reason="test verifies panic settlement before normal return")]

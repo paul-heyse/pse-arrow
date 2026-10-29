@@ -156,7 +156,7 @@ impl OwnedState {
 }
 
 #[derive(Debug)]
-struct OwnedIngress { intent: LaunchIntent, unit: Option<OwnedUnit>, released: bool, ready: bool }
+struct OwnedIngress { intent: LaunchIntent, unit: Option<OwnedUnit>, settled: bool, ready: bool, drained: Option<UnitObservation> }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct WorkerPayload { version: u32, state: PathBuf, nonce: String, index: usize, initial_schema: InitialSchema }
@@ -183,6 +183,7 @@ pub struct NativeCanonicalService {
     process_drained: Option<UnitObservation>,
     closing: bool,
     stopped: bool,
+    disposed: bool,
     panic_settlement: Option<NativeServiceError>,
 }
 impl NativeCanonicalService {
@@ -226,7 +227,7 @@ impl NativeCanonicalService {
         let metadata = fs::metadata(&path)?;
         let state = OwnedState { path: temporary.keep(), device: metadata.dev(), inode: metadata.ino(), nonce };
         drop(listener);
-        Ok(Self { state, initial_schema, initialized: false, helper: spec.helper, bind, intent: LaunchIntent::fresh()?, manager: None, unit: None, launch_dispatched: false, ready: None, connections: Vec::new(), maintenances: Vec::new(), ingresses: Vec::new(), process_drained: None, closing: false, stopped: false, panic_settlement: None })
+        Ok(Self { state, initial_schema, initialized: false, helper: spec.helper, bind, intent: LaunchIntent::fresh()?, manager: None, unit: None, launch_dispatched: false, ready: None, connections: Vec::new(), maintenances: Vec::new(), ingresses: Vec::new(), process_drained: None, closing: false, stopped: false, disposed: false, panic_settlement: None })
     }
     /// Cleanup and diagnostic-write failures retained if a body panic was resumed.
     pub fn panic_settlement_failure(&self) -> Option<&NativeServiceError> { self.panic_settlement.as_ref() }
@@ -234,6 +235,8 @@ impl NativeCanonicalService {
     pub fn state(&self) -> &Path { &self.state.path }
     /// Original manager intent; a unit name alone grants no stop authority.
     pub fn intent(&self) -> &LaunchIntent { &self.intent }
+    /// Original ingress launch names for independent diagnostics; no control authority.
+    pub fn ingress_intents(&self) -> impl Iterator<Item=&LaunchIntent> { self.ingresses.iter().map(|ingress| &ingress.intent) }
     /// Application-ready canonical operations, established by actual D construction.
     pub fn ready(&self) -> Result<&SchemaReady, NativeServiceError> { if self.closing { return Err(NativeServiceError::Refused("original native service admission is closed")); } self.ready.as_ref().ok_or(NativeServiceError::Refused("native canonical schema readiness has not been established")) }
     fn service_spec(&self) -> ServiceSpec {
@@ -241,11 +244,12 @@ impl NativeCanonicalService {
     }
     /// Launch the original owned native process once, then establish protocol and schema readiness.
     pub async fn launch(&mut self, deadline: Instant) -> Result<(), NativeServiceError> {
+        if self.closing || self.disposed { return Err(NativeServiceError::Refused("original native service admission is closed")); }
         self.state.verify()?; deadline_left(deadline)?;
         if self.launch_dispatched { return Err(NativeServiceError::Refused("original service launch already dispatched; reconcile, do not replay")); }
-        let manager = HostManager::connect_user(None).await?;
-        let enclosing = manager.current_unit().await?;
-        if !manager.native_workload(&enclosing).await? { return Err(NativeServiceError::Refused("native canonical fixture requires authenticated native workload containment")); }
+        let manager = host_observation(deadline, HostManager::connect_user(None)).await?;
+        let enclosing = host_observation(deadline, manager.current_unit()).await?;
+        if !host_observation(deadline, manager.native_workload(&enclosing)).await? { return Err(NativeServiceError::Refused("native canonical fixture requires authenticated native workload containment")); }
         self.manager = Some(manager.clone()); self.launch_dispatched = true;
         let parent = manager.borrow(enclosing.unit);
         self.unit = Some(manager.start_service_bound(&self.service_spec(), &parent, &ResourceControls::default(), deadline).await?);
@@ -270,7 +274,7 @@ impl NativeCanonicalService {
         let unit = self.unit.as_ref().ok_or(NativeServiceError::Refused("original service capability is unavailable"))?;
         loop {
             deadline_left(deadline)?;
-            let observed = unit.observe().await?;
+            let observed = host_observation(deadline, unit.observe()).await?;
             if observed.main_pid == 0 || matches!(observed.active_state.as_str(), "failed" | "inactive") { return Err(NativeServiceError::Refused("owned canonical service exited before listener readiness")); }
             if let Ok(claim) = private_read::<StartupClaim>(&self.state.path.join("started.json")) {
                 if claim.nonce != self.state.nonce || claim.pid != observed.main_pid || claim.invocation != hex_bytes(&observed.invocation) { return Err(NativeServiceError::Refused("native startup claim differs from original unit invocation")); }
@@ -278,12 +282,12 @@ impl NativeCanonicalService {
                     let payload: StartupPayload = private_read(&self.state.path.join("startup.json"))?;
                     let exact = server::reopen_generation(&payload.generation, &payload.recipe)?;
                     if fs::read_link(format!("/proc/{}/exe", observed.main_pid))? != exact.executable() { return Err(NativeServiceError::Refused("owned listener is not the exact prepared server executable")); }
-                    let after = unit.observe().await?;
-                    if after.main_pid == observed.main_pid && after.invocation == observed.invocation { return Ok(()); }
+                    let after = host_observation(deadline, unit.observe()).await?;
+                    if after.main_pid == observed.main_pid && after.invocation == observed.invocation { deadline_left(deadline)?; return Ok(()); }
                     return Err(NativeServiceError::Refused("owned listener changed during observation"));
                 }
             }
-            tokio::time::sleep(Duration::from_millis(20)).await;
+            tokio::time::sleep_until(deadline.min(Instant::now()+Duration::from_millis(20)).into()).await;
         }
     }
     async fn provision_viewer(&self, deadline: Instant) -> Result<(), NativeServiceError> {
@@ -319,23 +323,23 @@ impl NativeCanonicalService {
         private_write(&path, &payload)?;
         let intent = LaunchIntent::fresh()?;
         let spec = ServiceSpec { intent: intent.clone(), executable: self.helper.clone(), arguments: vec!["worker-exec".into(), path.to_string_lossy().into_owned()], environment: vec!["PATH=/usr/bin:/bin".into(), "LANG=C.UTF-8".into()] };
-        let parent = manager.borrow(manager.current_unit().await?.unit);
-        self.ingresses.push(OwnedIngress { intent, unit: None, released: false, ready: false });
+        let parent = manager.borrow(host_observation(deadline, manager.current_unit()).await?.unit);
+        self.ingresses.push(OwnedIngress { intent, unit: None, settled: false, ready: false, drained: None });
         self.ingresses[index].unit = Some(manager.start_service_bound(&spec, &parent, &ResourceControls::default(), deadline).await?);
         let unit = self.ingresses[index].unit.as_ref().ok_or(NativeServiceError::Refused("original ingress capability unavailable"))?;
         loop {
             deadline_left(deadline)?;
-            let observed = unit.observe().await?;
+            let observed = host_observation(deadline, unit.observe()).await?;
             if observed.main_pid == 0 || matches!(observed.active_state.as_str(), "failed" | "inactive") { return Err(NativeServiceError::Refused("owned ingress exited before readiness")); }
             if let Ok(claim) = private_read::<StartupClaim>(&self.state.path.join(format!("worker-{index}.ready.json"))) {
                 if claim.nonce != self.state.nonce || claim.pid != observed.main_pid || claim.invocation != hex_bytes(&observed.invocation) { return Err(NativeServiceError::Refused("original ingress invocation differs")); }
                 if owns_unix_listener(observed.main_pid, &self.state.path.join(format!("worker-{index}.sock")))? {
-                    let after = unit.observe().await?;
-                    if after.main_pid == observed.main_pid && after.invocation == observed.invocation { self.ingresses[index].ready = true; return Ok(()); }
+                    let after = host_observation(deadline, unit.observe()).await?;
+                    if after.main_pid == observed.main_pid && after.invocation == observed.invocation { deadline_left(deadline)?; self.ingresses[index].ready = true; return Ok(()); }
                     return Err(NativeServiceError::Refused("owned ingress changed during observation"));
                 }
             }
-            tokio::time::sleep(Duration::from_millis(20)).await;
+            tokio::time::sleep_until(deadline.min(Instant::now()+Duration::from_millis(20)).into()).await;
         }
     }
     /// Exercise the last original ingress through its private native control socket.
@@ -431,10 +435,12 @@ impl NativeCanonicalService {
         Ok(())
     }
     /// Delete only this newly created disposable state after explicit successful settlement.
-    pub fn dispose(self) -> Result<(), NativeServiceError> {
+    pub fn dispose(&mut self) -> Result<(), NativeServiceError> {
+        if self.disposed { return Ok(()); }
         if !self.stopped { return Err(NativeServiceError::Refused("explicit original physical settlement is required before disposal")); }
         self.state.verify()?;
         fs::remove_dir_all(&self.state.path)?;
+        self.disposed = true;
         Ok(())
     }
 }
@@ -607,6 +613,52 @@ mod tests {
         fs::set_permissions(directory.path(),fs::Permissions::from_mode(0o700)).unwrap();
         directory
     }
+    fn unlaunched_service() -> (tempfile::TempDir, NativeCanonicalService) {
+        let temporary=private_state(); let path=temporary.path().to_path_buf();
+        private_write(&path.join("disposable.json"),&DisposableIdentity{version:1,nonce:"original".into()}).unwrap();
+        let metadata=fs::metadata(&path).unwrap();
+        let state=OwnedState{path,device:metadata.dev(),inode:metadata.ino(),nonce:"original".into()};
+        let service=NativeCanonicalService {
+            state, initial_schema:InitialSchema::Current, initialized:false,
+            helper:PathBuf::from("/usr/bin/false"), bind:SocketAddr::from((Ipv4Addr::LOCALHOST,0)),
+            intent:LaunchIntent::fresh().unwrap(),manager:None,unit:None,launch_dispatched:false,
+            ready:None,connections:Vec::new(),maintenances:Vec::new(),ingresses:Vec::new(),
+            process_drained:None,closing:false,stopped:false,disposed:false,panic_settlement:None,
+        };
+        (temporary,service)
+    }
+    #[tokio::test]
+    async fn native_service_shutdown_before_launch_is_terminal_and_disposal_is_idempotent() {
+        let (_temporary,mut service)=unlaunched_service();
+        service.shutdown(Instant::now()+Duration::from_secs(1)).await.unwrap();
+        assert!(matches!(service.launch(Instant::now()+Duration::from_secs(1)).await,Err(NativeServiceError::Refused("original native service admission is closed"))));
+        assert!(service.unit.is_none()); assert!(!service.launch_dispatched);
+        service.dispose().unwrap(); service.dispose().unwrap();
+        assert!(!service.state().exists());
+        assert!(matches!(service.launch(Instant::now()+Duration::from_secs(1)).await,Err(NativeServiceError::Refused("original native service admission is closed"))));
+    }
+    #[tokio::test]
+    async fn native_service_failed_dispose_retains_owner_for_explicit_retry() {
+        let (_temporary,mut service)=unlaunched_service();
+        let original=service.intent.clone();
+        assert!(service.dispose().is_err());
+        service.shutdown(Instant::now()+Duration::from_secs(1)).await.unwrap();
+        fs::set_permissions(service.state(),fs::Permissions::from_mode(0o000)).unwrap();
+        let failed=service.dispose();
+        fs::set_permissions(service.state(),fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(failed.is_err()); assert!(!service.disposed);
+        assert_eq!(service.intent.unit(),original.unit());
+        service.state.verify().unwrap();
+        service.dispose().unwrap();
+    }
+    #[tokio::test]
+    async fn native_service_host_observation_preserves_expired_original_deadline() {
+        let original=Instant::now();
+        for _ in 0..2 {
+            let result=host_observation::<()>(original,std::future::pending()).await;
+            assert!(matches!(result,Err(NativeServiceError::Refused("original native observation deadline expired"))));
+        }
+    }
     #[test]
     fn native_service_private_payload_refuses_symlinks_hardlinks_and_shared_modes() {
         let state = private_state();
@@ -671,21 +723,26 @@ impl WorkerConnection {
 async fn stop_ingress_owners(manager: Option<&HostManager>, state: &OwnedState, ingresses: &mut [OwnedIngress], deadline: Instant) -> Result<(), NativeServiceError> {
         let results = futures_util::future::join_all(ingresses.iter_mut().enumerate().map(|(index, ingress)| {
             async move {
-                if ingress.released { return Ok(()); }
-                if ingress.unit.is_none() {
-                    ingress.unit = manager.ok_or(NativeServiceError::Refused("original ingress manager unavailable"))?.reconcile_if_present(&ingress.intent, deadline).await?;
+                tokio::time::timeout_at(deadline.into(), async {
+                if ingress.settled { return Ok(()); }
+                if ingress.drained.is_none() {
+                    if ingress.unit.is_none() {
+                        ingress.unit = manager.ok_or(NativeServiceError::Refused("original ingress manager unavailable"))?.reconcile_if_present(&ingress.intent, deadline).await?;
+                    }
+                    let unit = ingress.unit.as_mut().ok_or(NativeServiceError::Refused("original ingress launch remains uncertain"))?;
+                    // stop_and_drain includes relinquishing the original client reference.
+                    // Retain its terminal proof before any fallible receipt read.
+                    ingress.drained = Some(unit.stop_and_drain(deadline).await?);
                 }
-                let unit = ingress.unit.as_mut().ok_or(NativeServiceError::Refused("original ingress launch remains uncertain"))?;
-                let original = unit.observe().await?;
-                unit.stop_and_drain(deadline).await?;
+                let original = ingress.drained.as_ref().ok_or(NativeServiceError::Refused("original ingress terminal observation unavailable"))?;
                 if ingress.ready {
                     let drained: StartupClaim = private_read(&state.path.join(format!("worker-{index}.drained.json")))?;
                     let started: StartupClaim = private_read(&state.path.join(format!("worker-{index}.ready.json")))?;
                     if drained != started || drained.nonce != state.nonce || drained.invocation != hex_bytes(&original.invocation) { return Err(NativeServiceError::Refused("original ingress connection drain was not established")); }
                 }
-                unit.release_reference(deadline).await?;
-                ingress.released = true;
+                ingress.settled = true;
                 Ok::<(),NativeServiceError>(())
+                }).await.map_err(|_| NativeServiceError::Refused("original ingress settlement deadline expired"))?
             }
         })).await;
         let failures: Vec<_> = results.into_iter().filter_map(Result::err).collect();
@@ -702,7 +759,12 @@ async fn stop_original_process(manager: Option<&HostManager>, intent: &LaunchInt
         }
         let original = unit.as_mut().ok_or(NativeServiceError::Refused("service was never launched"))?;
         let observed = original.stop_and_drain(deadline).await?;
-        original.release_reference(deadline).await?;
         *drained = Some(observed.clone());
         Ok(Some(observed))
     }
+
+async fn host_observation<T>(deadline: Instant, future: impl Future<Output=Result<T,HostError>>) -> Result<T,NativeServiceError> {
+    tokio::time::timeout_at(deadline.into(),future).await
+        .map_err(|_|NativeServiceError::Refused("original native observation deadline expired"))?
+        .map_err(NativeServiceError::from)
+}

@@ -49,6 +49,14 @@ impl LaunchIntent {
         value.unit = format!("{prefix}-allocation_{}.slice", value.unit.strip_prefix("pse-host-").and_then(|unit| unit.strip_suffix(".service")).ok_or_else(|| HostError::Ownership("fresh allocation identity absent".into()))?.replace('-', "_"));
         Ok(value)
     }
+    /// Fresh unbounded operation hierarchy, retaining its original target and controller.
+    pub fn fresh_operation(parent: &str, owner: &Self) -> Result<Self, HostError> {
+        let mut value = Self::fresh_allocation(parent)?;
+        value.unit = value.unit.replacen("-allocation_", "-operation_", 1);
+        let (_, nonce) = operation_coordinates(&value.unit)?;
+        value.description = operation_description(parent, nonce, owner.unit());
+        Ok(value)
+    }
     /// Original unique unit name, without construction authority.
     pub fn unit(&self) -> &str {
         &self.unit
@@ -549,6 +557,37 @@ impl HostManager {
         }
         Ok(false)
     }
+    /// Recover only the original ordinary target from actual native containment.
+    /// The operation name/nonce, controller dependencies and kernel parent must agree.
+    pub(crate) async fn ordinary_target(&self, observed: &UnitObservation) -> Result<String, HostError> {
+        let (slice, group, _) = self.foreground_placement(observed).await?;
+        if !slice.contains("-operation_") { return Ok(slice); }
+        if !self.native_workload(observed).await? { return Err(HostError::Ownership("ordinary operation requires authenticated native workload".into())); }
+        let (parent, nonce) = operation_coordinates(&slice)?;
+        let operation = self.unit(&slice).await?;
+        let workload = self.unit(&observed.unit).await?;
+        let dependencies = operation.binds_to().await?;
+        let after = operation.after().await?;
+        let workload_after = workload.after().await?;
+        let mut authenticated = false;
+        for owner in workload.binds_to().await? {
+            if !dependencies.contains(&owner) || !after.contains(&owner) || !workload_after.contains(&owner) { continue; }
+            let Some(owner_nonce) = owner.strip_prefix("pse-host-").and_then(|value| value.strip_suffix(".scope")) else { continue; };
+            let controller = self.unit(&owner).await?;
+            if controller.description().await? == format!("pse-host original {owner_nonce}")
+                && controller.active_state().await? == "active"
+                && operation.description().await? == operation_description(&parent, nonce, &owner)
+            { authenticated = true; break; }
+        }
+        let original = self.observe(&parent).await?;
+        let actual = self.observe(&slice).await?;
+        if !authenticated || original.active_state != "active" || actual.active_state != "active"
+            || actual.control_group != group || Path::new(&group).parent() != Some(Path::new(&original.control_group))
+        { return Err(HostError::Ownership("ordinary operation original target or controller authentication failed".into())); }
+        Group::open(&group, false)?.require_present()?;
+        Group::open(&original.control_group, false)?.require_present()?;
+        Ok(parent)
+    }
     /// Reconcile a generated intent, distinguishing authoritative absence from uncertainty.
     pub async fn reconcile_if_present(
         &self,
@@ -816,12 +855,30 @@ impl HostManager {
     }
     /// Construct a private allocation ancestor through the same original-unit owner.
     pub async fn start_slice(&self, intent: &LaunchIntent, controls: &ResourceControls, deadline: Instant) -> Result<OwnedUnit, HostError> {
+        self.start_slice_inner(intent, controls, None, deadline).await
+    }
+    /// Create an unbounded private hierarchy bound atomically to its original controller.
+    pub(crate) async fn start_operation_slice(&self, intent: &LaunchIntent, owner: &OwnedUnit, deadline: Instant) -> Result<OwnedUnit, HostError> {
+        let (parent, nonce) = operation_coordinates(intent.unit())?;
+        let current = self.current_unit().await?;
+        let controller = owner.observe().await?;
+        if owner.manager.identity_key() != self.identity_key() || current.unit != controller.unit
+            || current.invocation != controller.invocation || current.control_group != controller.control_group
+            || intent.description != operation_description(&parent, nonce, owner.intent().unit())
+        { return Err(HostError::Ownership("ordinary operation controller capability differs".into())); }
+        self.start_slice_inner(intent, &ResourceControls::default(), Some(owner.intent().unit()), deadline).await
+    }
+    async fn start_slice_inner(&self, intent: &LaunchIntent, controls: &ResourceControls, owner: Option<&str>, deadline: Instant) -> Result<OwnedUnit, HostError> {
         if !intent.unit.ends_with(".slice") { return Err(HostError::Ownership("allocation is not a slice".into())); }
         tokio::time::timeout_at(deadline.into(), async {
             self.validate_view()?;
             let manager = self.manager().await?;
             let mut removed = manager.receive_job_removed().await?;
             let mut properties = vec![property("AddRef", true)?, property("Description", intent.description.clone())?, property("CollectMode", "inactive-or-failed".to_owned())?];
+            if let Some(owner) = owner {
+                properties.push(property("BindsTo", vec![owner.to_owned()])?);
+                properties.push(property("After", vec![owner.to_owned()])?);
+            }
             properties.extend(controls.properties()?);
             let result = launch_job(intent, manager.start_transient_unit(intent.unit.clone(), "fail".into(), properties, vec![]), removed.by_ref().map(|signal| {
                 let args = signal.args()?;
@@ -1105,6 +1162,16 @@ impl HostManager {
             reference_released: false,
         })
     }
+}
+
+fn operation_coordinates(unit: &str) -> Result<(String, &str), HostError> {
+    let (parent, nonce) = unit.strip_suffix(".slice").and_then(|value| value.rsplit_once("-operation_"))
+        .filter(|(parent, nonce)| !parent.is_empty() && !nonce.is_empty())
+        .ok_or_else(|| HostError::Ownership("ordinary operation identity absent".into()))?;
+    Ok((format!("{parent}.slice"), nonce))
+}
+fn operation_description(parent: &str, nonce: &str, owner: &str) -> String {
+    format!("pse-host operation {nonce} parent {parent} owner {owner}")
 }
 
 fn bound_service_properties(binding:&BoundServiceContext)->Result<Vec<(String,OwnedVariant)>,HostError> {
