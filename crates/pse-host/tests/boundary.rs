@@ -137,3 +137,23 @@ fn boundary_missing_selection_never_builds_or_enters_python() {
     assert!(String::from_utf8_lossy(&result.stderr).contains("scripts/bootstrap-host"));
     assert!(!root.join("activation-count").exists());
 }
+
+#[test]
+fn native_explanation_is_json_and_never_activates_personal_settings() {
+    let fixture = fixture(); let root = fixture.path();
+    let result = frontdoor(root).args(["--explain", "--json", "--native=compiler,klu"]).output().unwrap();
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+    let document: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(document["native_profile"], "compiler,klu");
+    assert_eq!(document["readiness"], "not_observed");
+    assert!(!root.join("activation-count").exists());
+}
+
+#[test]
+fn native_launch_without_preparation_never_builds_or_runs_command() {
+    let fixture = fixture(); let root = fixture.path();
+    let result = frontdoor(root).args(["--native=compiler,klu", "--", "/usr/bin/touch", "must-not-exist"]).output().unwrap();
+    assert_eq!(result.status.code(), Some(125));
+    assert!(!root.join("must-not-exist").exists());
+    assert!(!root.join(".cache/pse-arrow/native/rust-v1").exists());
+}

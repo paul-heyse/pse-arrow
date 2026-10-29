@@ -147,6 +147,17 @@ assesses the target under the selected standard.
 
 ## Status history
 
+### Explicit native provider preparation — 2026-10-28
+
+The next authorized realization prepares compiler/KLU explicitly through the lean host,
+then selects that completed profile for a database-free KINSOL consumer. Construction runs
+inside authenticated native containment. Ordinary launch never builds missing providers.
+The maintainer selected a separate `rust-v1/kinsol` area under the existing native cache;
+legacy generations remain untouched and automatic collection is excluded. Atomic publication
+retains immutable generations and version-two provider receipts consumed by the existing
+backend. Existing runtime numerical and cancellation owners remain unchanged; no new crate,
+solver-image extraction, database service, Python facade or lifecycle framework is selected.
+
 - 2026-10-28: Proposed for authorized Plan58 T01/T02 and native host execution. No implementation
   or formal ADR acceptance is established by this record.
 

@@ -6,6 +6,7 @@ pub mod boundary;
 pub mod correctness;
 pub mod environment;
 pub mod foreground;
+pub mod native;
 mod manager;
 pub use manager::{
     BorrowedUnit, HostManager, LaunchIntent, OwnedUnit, ServiceSpec, UnitObservation,

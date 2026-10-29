@@ -68,12 +68,35 @@ mode. The old Python per-compiler wrapper is not selected. Cache service disappe
 does not invalidate a successful compiler result; actual compiler failure still propagates.
 `--cache off` disables wrapping even when an inherited explicit cache binary is missing.
 
+## Explicit compiler/KLU preparation
+
+The selected native profile is `compiler,klu`, supporting the existing database-free KINSOL
+scientific consumer. Construct it explicitly inside native containment:
+
+```bash
+scripts/pse-env -- scripts/pse-host native prepare --capabilities compiler,klu
+scripts/pse-env --native=compiler,klu -- cargo t -p pse-runtime --lib --features pse-runtime/solver-kinsol -E 'test(root_response_publication_has_physical_primal_and_no_kkt_fields) | test(root_response_withheld_at_active_bound_keeps_base_solution)'
+```
+
+Preparation selects installed compiler/Clang/CMake tools and constructs static KLU from locked
+SuiteSparse sources. Cargo builds the existing maintained SUNDIALS dependency. No solver image,
+Python extension, database or new solver implementation is needed for this profile. Launch only
+selects completed preparation; missing/incompatible artifacts refuse with preparation instructions.
+`--explain --json --native=compiler,klu` is source-free and does not claim observed readiness.
+
+Artifacts live in `rust-v1/kinsol` under the existing selected native cache root. Legacy
+installations remain untouched. Generations are immutable and selected atomically; failed
+construction cannot replace a completed selection. Automatic collection is excluded: retaining
+old generations avoids Python pin/collection ledgers. Temporary owned staging may be removed
+only after its work drains. This policy controls artifact lifetime, not scientific performance.
+Bare `--native` and other provider sets remain unavailable pending their own cutovers.
+
 ## Native foreground ownership and supported placement
 
 Configured `PSE_BUILD_MODE=unbounded` ordinary work uses all host CPUs and the declared Cargo
 jobs without a new memory cap or slot ledger. Recipe class hints do not recreate finite
 allocation policy. Explicit finite/scientific classes, `PSE_MEMORY_MAX`, custom slice requests,
-reference/timing selections, `--native[=...]`, `--store` and the retired allocation-binding
+reference/timing selections, unsupported native profiles, `--store` and the retired allocation-binding
 protocol currently refuse before command execution. Their Plan58 B/C/D/F owners must supply
 working capabilities before those workflows return; there is no Python fallback or silent
 resource downgrade. This selected wave is database-free. Existing stores and services are

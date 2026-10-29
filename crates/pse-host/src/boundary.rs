@@ -20,6 +20,7 @@ struct Options {
     docs: bool,
     read: bool,
     help: bool,
+    native: bool,
     no_scope: bool,
     cache: CacheMode,
     class: Option<OsString>,
@@ -94,6 +95,7 @@ fn parse(arguments: &[OsString]) -> Result<Options, HostError> {
                 };
                 result.environment.extend([argument.clone(), value.clone()]);
             }
+            Some("--native=compiler,klu" | "--native=klu,compiler") => result.native = true,
             Some("--native" | "--store" | "--bind-allocation") => {
                 return Err(unsupported(argument.to_str().unwrap_or("selection")));
             }
@@ -174,10 +176,13 @@ fn ordinary(options: &Options, values: &mut Environment) -> Result<(), HostError
 /// Execute the supported ordinary command or fixed, source-free environment read.
 pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
     let options = parse(arguments)?;
+    if options.native && options.docs {
+        return Err(invalid("--docs and --native select different environments"));
+    }
     if arguments.is_empty() || options.help {
         writeln!(
             std::io::stdout(),
-            "pse-env [--docs] [--cache auto|on|off] -- command [args...]\npse-env --print | --explain [--json]\nNative foreground ownership; explicit preparation: scripts/bootstrap-host.\nFinite/scientific admission and database/provider setup await their Plan58 owners."
+            "pse-env [--docs] [--cache auto|on|off] -- command [args...]\npse-env --print | --explain [--json]\nNative foreground ownership; explicit preparation: scripts/bootstrap-host.\nNative compiler/KLU requires explicit preparation; other providers, finite admission and store setup remain unavailable."
         )?;
         return Ok(0);
     }
@@ -186,6 +191,14 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
             return Err(invalid(
                 "resource placement options do not apply to environment reads",
             ));
+        }
+        if options.native {
+            if !options.environment.iter().any(|value| value == "--explain") || options.environment.iter().any(|value| value == "--print") {
+                return Err(invalid("native profile reads require --explain; native shell exports are not supported"));
+            }
+            let explanation = serde_json::json!({"native_profile":"compiler,klu", "readiness":"not_observed", "personal_selections":"unresolved", "prepare":"scripts/pse-env -- scripts/pse-host native prepare --capabilities compiler,klu"});
+            writeln!(std::io::stdout(), "{explanation}")?;
+            return Ok(0);
         }
         return Ok(environment::run_cli(&options.environment)?);
     }
@@ -210,6 +223,9 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
     )?
     .values;
     ordinary(&options, &mut selected)?;
+    if options.native {
+        selected = crate::native::select(&root()?, &selected)?;
+    }
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?

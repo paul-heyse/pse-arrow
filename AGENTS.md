@@ -38,7 +38,8 @@ packets and reviews are not a backlog and authorize nothing.
 decision work. The active Plan58 ordinary command, activation and generic Cargo
 correctness routes now use the independent native host. Prepare it explicitly with
 `scripts/bootstrap-host`; help/read/launch never builds it. This wave supports configured
-unbounded ordinary work and existing docs environments. `--native`, `--store`, explicit finite
+unbounded ordinary work, existing docs environments and explicit compiler/KLU preparation.
+`--native=compiler,klu` selects that prepared profile; bare `--native`, `--store`, explicit finite
 or scientific placement, and reference/timing admission currently refuse while their Plan58
 owners are unfinished. Do not bypass that refusal through the retiring Python controllers.
 The environment guide records supported placement and unfinished consumer cutovers. New work
