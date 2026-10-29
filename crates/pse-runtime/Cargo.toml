@@ -185,6 +185,10 @@ name = "native_study"
 required-features = ["native-study-tests", "solver-kinsol"]
 
 [[test]]
+name = "native_repeated_analysis"
+required-features = ["native-study-tests", "solver-kinsol"]
+
+[[test]]
 name = "reference_degeneracy_exchange"
 required-features = ["solver-highs"]
 
@@ -213,4 +217,16 @@ name = "native_conic"
 
 [[test]]
 name = "native_strategies"
+required-features = ["solver-kinsol"]
+
+[[test]]
+name = "native_dynamic_workflows"
+required-features = ["solver-diffsol", "solver-ipopt"]
+
+[[test]]
+name = "native_scientific_modes"
+required-features = ["solver-ipopt", "solver-highs"]
+
+[[test]]
+name = "native_adaptive_strategy"
 required-features = ["solver-kinsol"]

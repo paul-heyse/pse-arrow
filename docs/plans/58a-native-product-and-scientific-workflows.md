@@ -76,9 +76,9 @@ PyO3 implementation is deferred; its absence cannot block native scientific comp
 | [A02](#a02) Incremental workspace and source workflows | in progress | Authoring/compiler owner | Native revision/edit/reuse behavior and source/history consumers |
 | [A03](#a03) Prepared local execution and results | in progress | Runtime/math owner | Typed author→prepare→execute→inspect composition independent of Python |
 | [A04](#a04) Complete scientific mode callers | in progress | Scientific workflow owners | Every supported mode constructible and failures honestly scoped |
-| [A05](#a05) Native studies and replay | planned | Study/runtime owner | Generated studies, durable handoff and recorded-point replay |
-| [A06](#a06) Adaptive study decision and retained strategies | planned | Study strategy owner | Bounded comparison decided; retained native strategies migrated |
-| [A07](#a07) Consumer cutover and assurance handoff | planned | Native workflow integrator | Replaced consumers deleted and required H journeys ready |
+| [A05](#a05) Native studies and replay | in progress | Study/runtime owner | Generated studies, durable handoff and recorded-point replay |
+| [A06](#a06) Adaptive study decision and retained strategies | in progress | Study strategy owner | Bounded comparison decided; retained native strategies migrated |
+| [A07](#a07) Consumer cutover and assurance handoff | in progress | Native workflow integrator | Replaced consumers deleted and required H journeys ready |
 
 <a id="a01"></a>
 ## A01 — Establish the native application contract
@@ -399,3 +399,65 @@ run for this selection.
 `scripts/pse-env --native=compiler,solver,klu -- scripts/cargo-bin/cargo-pse-correctness check
 --locked -p pse-py --features solver-kinsol,solver-ipopt,solver-scip`. This checks its retained-data
 type migration and does not qualify Python execution or remove its remaining runtime captures.
+
+### Native repeated analysis and scientific caller cut
+
+**Implemented:** `native_repeated_analysis` now uses generated realized overlays, explicit
+source/context recording, competing workers, frozen protected cohorts and native DataFusion
+relations. It replaces producer/worker callers, records a later calibration correction with
+unchanged physical definitions, preserves the earlier domain-time cut and frozen selection,
+and replays the original recorded points under their original context. Native aggregate
+assertions retain unavailable/empty distinctions, exact attempt attribution, quantity/unit
+identity and independent count/minimum/maximum/mean expectations. A wrong-pool query refuses.
+Four-relation joins compare actual original/corrected roots twice after all scientific lanes
+close; the receiving read capability never constructs mathematics.
+
+**Tested:** one repeated-analysis test passes, zero failures/skips, through the same explicit
+private native-service/module fixture and correctness route used above, selecting
+`--test native_repeated_analysis` with
+`--features native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-scip`.
+Its first executable failure exposed an invalid assumption that the configured native state
+has a mutable default catalog. The corrected caller uses DataFusion55.1.0's direct
+`read_table`/`alias`/`join_on` composition, preserving its configured state and pool.
+
+**Implemented:** public local callers now exercise hybrid events/reset/sensitivity and terminal
+prefixes, single/multiple shooting and sampled continuity/path constraints, rolling-horizon
+applied moves with independent plant evolution, smooth nonlinear optimization, weighted
+fit/covariance, active-bound sensitivity and Jacobian degeneracy. Their adverse cases retain
+refusal, stopped candidates and incomplete evidence rather than treating them as qualified.
+`ShootingProblem::numerics` exposes the existing immutable resolved policy so a native consumer
+can assess the original physical accuracy; no new scientific engine or durable operation is added.
+
+**Tested:** `--test native_dynamic_workflows` passes three tests, zero failures/skips; the final
+`--test native_scientific_modes --test native_adaptive_strategy` selection passes six tests,
+zero failures/skips. Both use:
+
+```sh
+scripts/pse-env --native=compiler,solver,klu -- \
+  env PSE_SCIENTIFIC_INPUTS=/tmp/plan58-reference-native-inputs.json \
+  scripts/cargo-bin/cargo-pse-correctness nextest run --locked -p pse-runtime \
+  --test native_scientific_modes --test native_adaptive_strategy \
+  --features native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-scip,solver-highs,solver-diffsol \
+  --no-fail-fast
+```
+
+These use the previously captured immutable physical-source capsule, current production public
+constructors and original native supervisors. Initial test construction omitted demanded NLP
+outputs and requested tighter analytic agreement than the default engineering budget. The
+corrected caller demands those outputs and requests explicit physical accuracy; no acceptance
+tolerance was loosened. The adaptive root fixture initially selected arbitrary finite bounds
+unsupported by KINSOL; it now preserves the original square-root class and keeps statistical
+search bounds with the surrogate owner.
+
+A06 retains `EgorSolver`/`EgorState`: the public actor test advances the same retained history
+and RNG, cancels a snapshot independently, screens a statistical proposal and obtains permission
+only from the original root corrector. A failed callback retains its typed cause and actual work
+without imputation or silent retry. Snapshotting is an owned observation, not serialized actor
+regeneration. The service ask-and-tell extension remains deferred until a named externally
+scheduled adaptive batch consumer requires it; no second optimizer is selected.
+
+A07 is cutting the now-replaced Python aggregate projection while retaining native aggregation,
+export and the separately consumed frozen browsing/observer interfaces. Compiled stub publication
+and independent review are still part of that integration. Full A/E/G and H acceptance,
+remaining scientific/frontend consumers, residual-limit and payload-custody controls keep their
+own obligations; no complete scope-end qualification or measured speed claim follows.

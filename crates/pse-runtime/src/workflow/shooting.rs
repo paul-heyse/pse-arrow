@@ -2102,7 +2102,8 @@ impl ShootingProblem {
     pub(super) fn initial_extent(&self) -> usize {
         self.contract.variables.len()
     }
-    pub(super) fn numerics(&self) -> &pse_model::numerics::ResolvedNumericalPolicy {
+    /// Original resolved physical tolerances and accuracy policy for this problem.
+    pub fn numerics(&self) -> &pse_model::numerics::ResolvedNumericalPolicy {
         &self.numerics
     }
     pub(super) fn request_identity(
