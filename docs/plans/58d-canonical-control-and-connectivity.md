@@ -499,3 +499,14 @@ remain G03/F04 work. D01–D05 remain in progress until their remaining consumer
 acceptance is settled. Active-native crash/replacement, migration-crossing publication and
 the selected H scope-end qualification are not established here. Durable-production disaster
 recovery and performance qualification retain their separately deferred scope.
+
+The independent implementation review of `5d2f69cd9` found that final activation applied
+v3 module capability probes even to an original target-v2 request. Attestation now follows
+the original target: v2 retains its historical immutable-bucket/sole-readonly-export contract;
+v3 additionally requires complete preparation/claim probes. **Tested:** the focused
+`native_service` selection `test(original_v2_target) | test(retained_v2_old_module_upgrades)`
+passes two controls against zero failures, 17 excluded, no warnings (run
+`fe6ff3cf-938e-46c3-b6bc-6e6227388dd7`). A real pre-epoch request with the old module survives
+physical restart and settles its unchanged v2 receipt without granting current readiness;
+the same old module still refuses v3 activation, while explicit prepared-target upgrade passes.
+The review assessed committed native core correctness, not completion of remaining scope.

@@ -916,8 +916,15 @@ fn v2_checkpoint_body(request: &SchemaMigrationRequest) -> Result<String, Canoni
 }
 fn final_application_body(request: &SchemaMigrationRequest) -> Result<String, CanonicalError> {
     let predecessor = if request.needs_v2_checkpoint() { VERIFY_V2_CHECKPOINT } else { APPLY_PREDECESSOR };
-    let validation_body = super::study_module::capability_validation_body()?;
-    let validation_predicate = super::study_module::CATALOG_VALIDATION_PREDICATE;
+    // Historical intent attests its original module contract. Settling v2 must
+    // neither demand v3 progression exports nor mint current SchemaReady authority.
+    let (validation_body, validation_predicate) = if request.target_version == V2_VERSION {
+        (super::study_module::CATALOG_VALIDATION_BODY.to_owned(),
+         super::study_module::CATALOG_VALIDATION_PREDICATE.to_owned())
+    } else {
+        (super::study_module::capability_validation_body()?,
+         super::study_module::capability_validation_predicate())
+    };
     let module = request.target_module.as_ref().map(|target| target.receipt.declarations(true)).unwrap_or_default();
     Ok(format!("{predecessor}\n{module}\n{}\n{validation_body}\nIF !({validation_predicate}) {{ THROW 'PSE_REFUSAL:schema_migration_original_differs'; }};\n{APPLY_SUCCESSOR}", migration_declarations(request)?))
 }
