@@ -2085,7 +2085,7 @@ impl DurableAttempt {
             if !current_run.cancelled {
                 self.operations
                     .store
-                    .cancel_run(fence.run(), &format!("cancel:{}", fence.attempt()))
+                    .cancel_attempt(&fence, &format!("cancel:{}", fence.attempt()))
                     .await
                     .map_err(|error| {
                         super::diagnostics::operation_context(

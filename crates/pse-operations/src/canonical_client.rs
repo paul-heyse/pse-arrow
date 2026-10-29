@@ -458,6 +458,7 @@ impl Client {
             guarded_bindings: std::collections::BTreeSet::new(),
             context: None,
             observer: None,
+            statement_window: None,
             #[cfg(test)]
             transaction: None,
             cleanup: request::UndispatchedPayloadDrain::caller(None),
@@ -758,6 +759,7 @@ pub struct Query<'a> {
     guarded_bindings: std::collections::BTreeSet<String>,
     context: Option<RequestContext>,
     observer: Option<Arc<dyn QueryStatisticsObserver>>,
+    statement_window: Option<(usize, usize)>,
     #[cfg(test)]
     transaction: Option<(uuid::Uuid, uuid::Uuid)>,
     cleanup: request::UndispatchedPayloadDrain,
@@ -912,6 +914,16 @@ impl<'a> Query<'a> {
         self.observer = Some(observer);
         self
     }
+    /// An owner-added transaction envelope preserves the caller's original statement slots.
+    /// Complete response errors, including failed COMMIT, are checked before projection.
+    pub(crate) fn statement_window(mut self, prefix: usize, suffix: usize) -> Self {
+        self.statement_window = Some((prefix, suffix));
+        self
+    }
+    pub(crate) fn refuse(mut self, message: &str) -> Self {
+        self.variables = Err(Error::configuration(message.to_owned(), None));
+        self
+    }
     /// Own query text so the builder can cross the caller's borrow boundary.
     pub fn into_owned(self) -> Query<'static> {
         Query {
@@ -921,6 +933,7 @@ impl<'a> Query<'a> {
             guarded_bindings: self.guarded_bindings,
             context: self.context,
             observer: self.observer,
+            statement_window: self.statement_window,
             #[cfg(test)]
             transaction: self.transaction,
             cleanup: self.cleanup,
@@ -946,6 +959,7 @@ impl<'a> IntoFuture for Query<'a> {
                 guarded_bindings: _,
                 context,
                 observer,
+                statement_window,
                 #[cfg(test)]
                 transaction,
                 cleanup: _,
@@ -1018,7 +1032,10 @@ impl<'a> IntoFuture for Query<'a> {
                     Err(_) => observer.request_failed(),
                 }
             }
-            result
+            match statement_window {
+                Some((prefix, suffix)) => result.and_then(|result| result.statement_window(prefix, suffix)),
+                None => result,
+            }
         })
     }
 }
@@ -1034,6 +1051,9 @@ impl<R> std::fmt::Debug for Select<R> {
     }
 }
 impl<R> Select<R> {
+    pub(crate) fn from_query(query: Query<'static>) -> Self {
+        Self { query, marker: std::marker::PhantomData }
+    }
     /// Supply original deadline and request custody.
     pub fn request_context(mut self, context: RequestContext) -> Self {
         self.query = self.query.request_context(context);

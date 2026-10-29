@@ -9,6 +9,9 @@ use crate::{canonical_codec::CodecError, generated::surreal as wire};
 #[cfg(feature = "canonical-maintenance")]
 #[path = "canonical_maintenance.rs"]
 pub mod maintenance;
+/// Native version-bound schema readiness and ordered quiescent evolution.
+#[path = "canonical_migration.rs"]
+pub mod migration;
 #[path = "canonical_settlement.rs"]
 pub(crate) mod settlement;
 #[path = "canonical_transport.rs"]
@@ -81,6 +84,13 @@ pub enum StoreFailure {
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[diagnostic(code(runtime::infrastructure))]
 pub enum CanonicalError {
+    /// Every independent migration drain was awaited; failures keep admission closed.
+    #[error("schema migration has {} failed drain owners", .failures.len())]
+    MigrationDrain {
+        /// Actual native/canonical failures; none is interpreted as physical release.
+        #[related]
+        failures: Vec<CanonicalError>,
+    },
     /// A live exact capture or scan still owns its immutable selection.
     #[error("canonical study capture {capture} still has live readers")]
     CaptureInUse {
@@ -1354,13 +1364,19 @@ impl CanonicalStore {
             )
         })
     }
-    /// Refuse new application writes and native claims while the supervisor is draining.
+    /// Check the local deployment gate before preparation. This is not execution
+    /// authority: actual canonical writes and claims also check the live schema epoch.
     pub fn check_write_admission(&self) -> Result<(), CanonicalError> {
         self.ensure_writes()
     }
     pub(crate) fn ensure_writes(&self) -> Result<(), CanonicalError> {
         let admission = WriteAdmission::read(&self.state_path)?;
         admission.require_module(self.study_module_sha256.get())?;
+        if migration::settling() {
+            // This grants only a local opportunity to submit an original settlement.
+            // The transaction still checks current epoch and its exact AttemptFence.
+            return if admission.namespace == self.namespace { Ok(()) } else { Err(CanonicalError::Quiesced) };
+        }
         admission.require_writes(
             &self.state_path,
             &self.namespace,
@@ -1414,7 +1430,9 @@ impl CanonicalStore {
         })
         .await?;
         let access = db.access.clone();
-        let activation_db = Arc::new(activation_db.with_access(access));
+        let mut activation = activation_db.with_access(access);
+        activation.schema = db.schema.clone();
+        let activation_db = Arc::new(activation);
         Ok(Self {
             db,
             problem_turns: Arc::default(),
@@ -1499,7 +1517,7 @@ impl CanonicalStore {
         if !self.db.select_existing().await? {
             return Ok(None);
         }
-        let mut response = match bounded_query(self.db.control_query("INFO FOR DB;")).await {
+        let mut response = match bounded_query(self.db.catalog_inventory()).await {
             Ok(response) => response,
             Err(CanonicalError::Driver(error))
                 if matches!(error.not_found_details(),
@@ -1581,7 +1599,9 @@ impl CanonicalStore {
             .bind(("study_module_sha256", module.sha256.clone()))
             .bind(("interpretation", wire::INTERPRETATION))
             .bind(("schema_digest", wire::SCHEMA_DIGEST))
-            .bind(("payload_incarnation", self.files.incarnation.clone()));
+            .bind(("payload_incarnation", self.files.incarnation.clone()))
+            .bind(("schema_version", crate::canonical_codec::encode_uint(pse_schema::catalog::substrate::SCHEMA_VERSION)?))
+            .bind(("schema_epoch", uuid::Uuid::new_v4().to_string()));
         tokio::time::timeout(ACTIVATION_REQUEST_TIMEOUT, query.into_future())
             .await
             .map_err(|_| CanonicalError::Timeout)
@@ -1602,7 +1622,7 @@ impl CanonicalStore {
                 return Err(CanonicalError::IncompleteResponse);
             }
             let marker: Option<Object> =
-                request(self.db.select(("canonical_interpretations", "current"))).await?;
+                request(self.db.schema_marker()).await?.take(0)?;
             let Some(marker) = marker else {
                 return Err(CanonicalError::Interpretation {
                     expected: wire::INTERPRETATION,
@@ -1612,6 +1632,7 @@ impl CanonicalStore {
             if !marker.contains_key("issuing_store") {
                 return Err(CanonicalError::Configuration("canonical store has no issuing-store identity; regenerate the selected owned store".into()));
             }
+            let fence = migration::SchemaFence::from_marker(&marker)?;
             let marker = wire::decode_canonical_interpretations(marker)?;
             if marker.payload_incarnation != self.files.incarnation { return Err(CanonicalError::Configuration("selected payload incarnation differs from catalog; regenerate or restore explicitly".into())); }
             if uuid::Uuid::parse_str(&marker.issuing_store).is_err() {
@@ -1627,7 +1648,7 @@ impl CanonicalStore {
             if marker.study_module_sha256!=module.sha256 {
                 return Err(CanonicalError::Configuration("installed study module identity differs; explicit coordinated activation is required".into()));
             }
-            self.validate_study_module(&module).await?;
+            self.with_unpublished_schema(&fence).validate_study_module(&module).await?;
             if let Some(existing)=self.study_module_sha256.get() {
                 if existing!=&module.sha256 {return Err(CanonicalError::Quiesced);}
             } else if self.study_module_sha256.set(module.sha256.clone()).is_err() && self.study_module_sha256.get()!=Some(&module.sha256) {
@@ -1647,6 +1668,9 @@ impl CanonicalStore {
                 && self.issuing_store.get() != Some(&marker.issuing_store) {
                 return Err(CanonicalError::Configuration("persistent issuing store identity changed".into()));
             }
+            self.db.schema.set(fence.clone()).or_else(|_| {
+                if self.db.schema.get() == Some(&fence) { Ok(()) } else { Err(fence.clone()) }
+            }).map_err(|_| CanonicalError::Quiesced)?;
             Ok(())
         })
         .await
@@ -2401,7 +2425,7 @@ impl CanonicalStore {
                 Ok(self
                     .db
                     .script(
-                        GuardedScript::new(Envelope::DeadlineOnly)
+                        GuardedScript::new(Envelope::DrainCleanup)
                             .returning::<Value>(RELEASE_PROTECTION, "NONE")?,
                     )
                     .bind(("problem", revision.problem.clone()))
@@ -2565,7 +2589,7 @@ fn initialization_statement(
     module: &study_module::StudyModuleReceipt,
 ) -> Result<crate::canonical_script::PreparedScript<Value>, CanonicalError> {
     let body = format!(
-        "{}{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, study_module_sha256 = $study_module_sha256, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;",
+        "{}{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, study_module_sha256 = $study_module_sha256, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation,schema_version=$schema_version,schema_epoch=$schema_epoch,admission_open=true;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;",
         module.declarations(false),
         wire::SCHEMA,
     );

@@ -45,6 +45,11 @@ macro_rules! refusals {
     };
 }
 refusals! {
+    ExecutionCancellationAttemptChanged: "execution_cancellation_attempt_changed" => (Fence, "original cancellation attempt or generation is no longer current"),
+    SchemaEpochChanged: "schema_epoch_changed" => (Fence, "opened schema epoch or issuer changed; reconstruct the capability"),
+    SchemaMigrationClosed: "schema_migration_closed" => (Fence, "migration has closed new mutation admission"),
+    SchemaMigrationOriginalDiffers: "schema_migration_original_differs" => (Identity, "migration original operation or predecessor differs"),
+    SchemaMigrationWritersRemain: "schema_migration_writers_remain" => (Fence, "original attempts or physical file owners remain unsettled"),
     ControlStoreDiffers: "control_store_differs" => (Identity, "control command issuing database differs"),
     ControlActorRefused: "control_actor_refused" => (Admission, "control actor lacks the requested database operation grant"),
     ControlActorAlreadyIssued: "control_actor_already_issued" => (Identity, "control actor identity has already been issued"),

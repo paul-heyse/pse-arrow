@@ -44,6 +44,7 @@ DEFINE FUNCTION fn::pse_control_v1::cancel($expiry:int,$actor:string,$request:ob
         IF $old.actor!=$actor OR $old.operation_id!=$request.operation_id OR $old.study!=$request.study { fn::pse_execution_v1::deadline($expiry); RETURN {document_version:1,issuing_store:$request.issuing_store,operation_id:$request.operation_id,reason:'control_command_identity_reused'}; };
         fn::pse_execution_v1::deadline($expiry); RETURN encoding::cbor::decode($old.receipt);
     };
+    fn::pse_schema_v1::current_mutation($expiry);
     fn::pse_workbench_v1::publication($expiry);
     fn::pse_history_v1::check_owner($expiry,'study',$request.study);
     fn::pse_execution_v1::touch($expiry,'study-cancel:'+$request.study);

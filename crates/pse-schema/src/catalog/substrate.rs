@@ -16,6 +16,13 @@ pub const SOURCE_PACKAGE_EDITS: usize = 8_192;
 /// Exact schema/codec/structural-operation interpretation.
 pub const INTERPRETATION: &str = "pse.substrate.v10";
 
+/// Native schema admission generation; scientific row interpretation remains v10.
+pub const SCHEMA_VERSION: u64 = 2;
+/// Sole supported predecessor of native epoch admission, retained as an immutable migration input.
+pub const PRE_EPOCH_SCHEMA_DIGEST: &str = "b6ee758d774a6510a9db894c9062cfe103439bdecc049efeaab8cd26581a21a3";
+/// Raw bytes of the frozen generated predecessor declaration, distinct from its schema/codec digest.
+pub const PRE_EPOCH_DECLARATION_SHA256: &str = "68eb820178f7cdc1cb042395b836c88cb9fbc5ead42a20d1d65099f4626d066b";
+
 /// Self-contained scientific IPC admission, independent of derived indexes.
 pub const RESULT_BLOCK_BYTES: usize = 32 * 1024 * 1024;
 /// Preferred physical native IPC packing extent, flushed at acknowledgement boundaries.
@@ -233,8 +240,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("study_module_sha256", text()),
                 column("issuing_store", text()),
                 column("payload_incarnation", text()),
+                column("schema_version", uint()),
+                column("schema_epoch", text()),
+                column("admission_open", flag()),
             ],
-            "Installed schema, codec and structural operation interpretation.",
+            "Installed schema, codec and structural operation interpretation with transactional epoch admission.",
             crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (

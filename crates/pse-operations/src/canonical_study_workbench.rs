@@ -374,7 +374,7 @@ async fn release_capture_as(
         pause.resume.notified().await;
     }
     loop {
-        let mut response=protected_query("canonical_study_workbench::capture_release",|| Ok(store.db.query("RETURN fn::pse_workbench_v1::release_capture($pse_rpc_expires_at,$key,$owner,$request,$custodian);")
+        let mut response=protected_query("canonical_study_workbench::capture_release",|| Ok(store.db.cleanup_query("RETURN fn::pse_workbench_v1::release_capture($pse_rpc_expires_at,$key,$owner,$request,$custodian);")
             .bind(("key",key.to_owned())).bind(("owner",owner.to_owned())).bind(("request",Bytes::from(request.to_vec()))).bind(("custodian",custodian.to_owned())))).await?;
         #[cfg(all(test, feature = "canonical-tests"))]
         if CAPTURE_RELEASE_REPLY_LOSS

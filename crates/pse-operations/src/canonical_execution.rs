@@ -5242,6 +5242,7 @@ impl CanonicalStore {
         operation: &str,
         seed: &pse_model::generated::runtime::canonical_result_seeds::Row,
     ) -> Result<SeedAck, CanonicalError> {
+        crate::canonical::migration::settlement_scope(fence, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -5282,6 +5283,7 @@ impl CanonicalStore {
             Ok(acknowledged())
         }).await
             }).await
+        }).await
     }
     /// Coherent bounded recovery observation. It grants no claim or fence;
     /// the recovery effect independently checks current expiration/cancellation.
@@ -5352,7 +5354,7 @@ impl CanonicalStore {
                             protected_query("canonical_execution::canonical_result_origin", || {
                                 Ok(self
                                     .db
-                                    .metadata_query(
+                                    .metadata_read_query(
                                         crate::canonical::MetadataResponse::Header,
                                         crate::canonical_history::run_query(
                                             RESULT_ORIGIN_SQL,
@@ -5382,7 +5384,7 @@ impl CanonicalStore {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut response = protected_query("canonical_execution::canonical_run", || Ok(
                         self.db
-                            .metadata_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_run($pse_rpc_expires_at,$key);")
+                            .metadata_read_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_run($pse_rpc_expires_at,$key);")
                             .bind(("key", key.to_owned()))))
                     .await?;
                     response
@@ -5432,7 +5434,7 @@ impl CanonicalStore {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut response = protected_query("canonical_execution::canonical_attempt", || Ok(
                         self.db
-                            .metadata_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_attempt($pse_rpc_expires_at,$key);")
+                            .metadata_read_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_attempt($pse_rpc_expires_at,$key);")
                             .bind(("key", key.to_owned()))))
                     .await?;
                     response
@@ -5458,7 +5460,7 @@ impl CanonicalStore {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut response = protected_query("canonical_execution::canonical_result_manifest", || Ok(
                 self.db
-                    .metadata_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_manifest($pse_rpc_expires_at,$key);")
+                    .metadata_read_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_manifest($pse_rpc_expires_at,$key);")
                     .bind(("key", key.to_owned()))))
             .await?;
                     let row = response
@@ -5479,7 +5481,7 @@ impl CanonicalStore {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut retirement = bounded_query(
                 self.db
-                    .metadata_query(
+                    .metadata_read_query(
                         crate::canonical::MetadataResponse::Header,
                         "SELECT key FROM ONLY type::record('canonical_result_retirements',$run);",
                     )
@@ -5698,6 +5700,7 @@ impl CanonicalStore {
         block: Option<&ResultBlock>,
         outputs: &[ResultOutput],
     ) -> Result<AppendAck, CanonicalError> {
+        crate::canonical::migration::settlement_scope(fence, async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut prepared = ResultBlockAppend::prepare(fence, operation, name, ordinal, payload,
                 row_count, block, outputs, None)?;
@@ -5731,6 +5734,7 @@ impl CanonicalStore {
                 |attempt| attempt==fence.attempt(),CanonicalError::source_transaction_refused,
             ).await?;
             Ok(prepared.acknowledgment)
+        }).await
         }).await
     }
     async fn prepare_result_payload(
@@ -5805,6 +5809,7 @@ impl CanonicalStore {
         fence: &AttemptFence,
         mut items: Vec<ResultBlockAppend>,
     ) -> Result<Vec<AppendAck>, CanonicalError> {
+        crate::canonical::migration::settlement_scope(fence, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -5860,6 +5865,7 @@ impl CanonicalStore {
             Ok(items.into_iter().map(|item| item.acknowledgment).collect())
         }).await
             }).await
+        }).await
     }
     /// Authenticate demanded zero-row membership without writing a schema-only IPC batch.
     pub async fn declare_empty_result_set(
@@ -5868,6 +5874,7 @@ impl CanonicalStore {
         operation: &str,
         name: &str,
     ) -> Result<EmptySetAck, CanonicalError> {
+        crate::canonical::migration::settlement_scope(fence, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -5894,6 +5901,7 @@ impl CanonicalStore {
             Ok(EmptySetAck { fence: fence.clone(), name: name.into(), key, operation: operation.into(), request })
         }).await
             }).await
+        }).await
     }
     /// Close the complete actual acknowledged inventory and admit its unchanged
     /// framed descriptor in the same fenced transaction. Server coverage checks
@@ -5904,6 +5912,7 @@ impl CanonicalStore {
         operation: &str,
         acknowledgments: ResultAcknowledgments,
     ) -> Result<ClosedManifest, CanonicalError> {
+        crate::canonical::migration::settlement_scope(fence, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -5927,6 +5936,7 @@ impl CanonicalStore {
             Ok(ClosedManifest { closed, row: manifest })
         }).await
             }).await
+        }).await
     }
     /// Fence late batches before reconciling immutable metadata outside a transaction.
     pub async fn close_result_ingestion(
@@ -5934,6 +5944,7 @@ impl CanonicalStore {
         fence: &AttemptFence,
         operation: &str,
     ) -> Result<ClosedAttempt, CanonicalError> {
+        crate::canonical::migration::settlement_scope(fence, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -5946,6 +5957,7 @@ impl CanonicalStore {
                 .await
         }).await
             }).await
+        }).await
     }
     async fn closure_operation(
         &self,
@@ -6050,24 +6062,34 @@ impl CanonicalStore {
         })
         .await
     }
-    /// Revoke worker authority and freeze available observations at cancellation.
-    pub async fn cancel_run(
-        &self,
-        run: &str,
-        operation: &str,
-    ) -> Result<CanonicalRun, CanonicalError> {
+    /// Revoke worker authority as a fresh run command. Migration closes this route.
+    pub async fn cancel_run(&self, run: &str, operation: &str) -> Result<CanonicalRun, CanonicalError> {
+        self.cancel_execution(run, operation, json(&(run, operation))?, None).await
+    }
+    /// Cancel only this original current attempt while retaining immutable request identity.
+    /// This settlement route cannot revoke a replacement worker's authority.
+    pub async fn cancel_attempt(&self, fence: &AttemptFence, operation: &str) -> Result<CanonicalRun, CanonicalError> {
+        let request = json(&(fence.run(), fence.attempt(), fence.generation(), operation))?;
+        crate::canonical::migration::settlement_scope(fence, self.cancel_execution(fence.run(), operation, request, Some(fence))).await
+    }
+    async fn cancel_execution(&self, run: &str, operation: &str, request: Vec<u8>, fence: Option<&AttemptFence>) -> Result<CanonicalRun, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(run)?;
             identity(operation)?;
-            let request = json(&(run, operation))?;
             self.ensure_writes()?;
             let result = self
                 .protected_execution_query(run, "canonical_execution::cancel_run", || {
                     Ok(self
                         .db
-                        .query("RETURN fn::pse_execution_v1::cancel($pse_rpc_expires_at, $run,$operation,$request);")
+                        .query(if fence.is_some() {
+                            "RETURN fn::pse_execution_v1::cancel_attempt($pse_rpc_expires_at,$run,$cancel_attempt,$cancel_generation,$operation,$request);"
+                        } else {
+                            "RETURN fn::pse_execution_v1::cancel($pse_rpc_expires_at,$run,$operation,$request);"
+                        })
+                        .bind(("cancel_attempt", fence.map(|fence| fence.attempt().to_owned())))
+                        .bind(("cancel_generation", fence.map(|fence| canonical_codec::encode_uint(fence.generation())).transpose()?))
                         .bind(("run", run.to_owned()))
                         .bind(("operation", operation.to_owned()))
                         .bind(("request", Bytes::from(request.clone()))))
@@ -6098,6 +6120,11 @@ impl CanonicalStore {
         run: &str,
         operation: &str,
     ) -> Result<ClosedAttempt, CanonicalError> {
+        let observed = self.canonical_run(run).await?.ok_or(CanonicalError::IncompleteResponse)?;
+        let current = observed.current_attempt.ok_or(CanonicalError::IncompleteResponse)?;
+        let original = self.canonical_attempt(&current).await?.ok_or(CanonicalError::IncompleteResponse)?;
+        let settlement = AttemptFence { run: original.run.into(), attempt: original.key.into(), generation: original.generation };
+        crate::canonical::migration::settlement_scope(&settlement, async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -6119,6 +6146,7 @@ impl CanonicalStore {
                 .await
         }).await
             }).await
+        }).await
     }
     /// Resume an already closed live operation after restart without repeating native work.
     pub async fn resume_closed_attempt(
@@ -6162,6 +6190,7 @@ impl CanonicalStore {
         acknowledgments: ResultAcknowledgments,
         queued: u64,
     ) -> Result<ClosedManifest, CanonicalError> {
+        crate::canonical::migration::settlement_scope(closed.fence(), async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -6189,12 +6218,14 @@ impl CanonicalStore {
             Ok(actual)
         }).await
             }).await
+        }).await
     }
     /// Reconcile exact immutable batch membership in bounded metadata pages, then admit its descriptor.
     pub async fn reconcile_closed_attempt(
         &self,
         closed: &ClosedAttempt,
     ) -> Result<ClosedManifest, CanonicalError> {
+        crate::canonical::migration::settlement_scope(closed.fence(), async {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -6335,6 +6366,7 @@ impl CanonicalStore {
             })
         }).await
             }).await
+        }).await
     }
     /// Atomically expose the frozen selection with the actual scientific terminal class.
     ///
@@ -6490,6 +6522,7 @@ impl CanonicalStore {
         seeds: SeedEligibility,
         coverage: Option<Object>,
     ) -> Result<SealAck, CanonicalError> {
+        crate::canonical::migration::settlement_scope(&manifest.closed.fence, async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(operation)?;
             bounded(completion, EXECUTION_METADATA_BYTES)?;
@@ -6556,6 +6589,7 @@ impl CanonicalStore {
                     },None=>Ok(None),
                 }},matches,CanonicalError::source_transaction_refused,
             ).await
+        }).await
         }).await
     }
 }

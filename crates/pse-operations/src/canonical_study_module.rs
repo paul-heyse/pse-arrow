@@ -261,6 +261,11 @@ impl StudyModuleReceipt {
         )
     }
 }
+/// Exact installed catalogue proof shared by ordinary opening and native migration.
+/// Bind `$bucket` and `$backend` from the immutable validated module receipt.
+pub(crate) const CATALOG_VALIDATION_BODY: &str = "LET $info=INFO FOR DB STRUCTURE; LET $b=$info.buckets.filter(|$row|$row.name=$bucket); LET $m=$info.modules.filter(|$row|$row.name='pse');";
+pub(crate) const CATALOG_VALIDATION_PREDICATE: &str = "array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false";
+
 impl CanonicalStore {
     /// Install only under the exact selected maintenance owner. Publication of
     /// the schema/module pair remains a separate validated activation.
@@ -300,8 +305,8 @@ impl CanonicalStore {
         &self,
         receipt: &StudyModuleReceipt,
     ) -> Result<(), CanonicalError> {
-        let mut response=bounded_query(self.db.metadata_query(MetadataResponse::Header,
-            "LET $info=INFO FOR DB STRUCTURE; LET $b=$info.buckets.filter(|$row|$row.name=$bucket); LET $m=$info.modules.filter(|$row|$row.name='pse'); RETURN array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false;")
+        let mut response=bounded_query(self.db.metadata_read_query(MetadataResponse::Header,
+            format!("{CATALOG_VALIDATION_BODY} RETURN {CATALOG_VALIDATION_PREDICATE};"))
             .bind(("bucket",receipt.bucket())).bind(("backend",receipt.backend()?))).await?;
         if UnframedResult::<Option<bool>>::returned().take(&mut response)? != Some(true) {
             return Err(invalid(

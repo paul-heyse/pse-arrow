@@ -21,6 +21,12 @@ pub struct RuntimeCanonicalInterpretationsRow {
     pub r#issuing_store: String,
     ///payload_incarnation
     pub r#payload_incarnation: String,
+    ///schema_version
+    pub r#schema_version: u64,
+    ///schema_epoch
+    pub r#schema_epoch: String,
+    ///admission_open
+    pub r#admission_open: bool,
 }
 impl crate::SemanticEq for RuntimeCanonicalInterpretationsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -45,6 +51,18 @@ impl crate::SemanticEq for RuntimeCanonicalInterpretationsRow {
                 &self.r#payload_incarnation,
                 &other.r#payload_incarnation,
             )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#schema_version,
+                &other.r#schema_version,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#schema_epoch,
+                &other.r#schema_epoch,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#admission_open,
+                &other.r#admission_open,
+            )
     }
 }
 impl PartialEq for RuntimeCanonicalInterpretationsRow {
@@ -68,6 +86,12 @@ impl crate::SemanticFrame for RuntimeCanonicalInterpretationsRow {
         crate::SemanticFrame::frame(&self.r#issuing_store, hash);
         hash.str(stringify!(r#payload_incarnation));
         crate::SemanticFrame::frame(&self.r#payload_incarnation, hash);
+        hash.str(stringify!(r#schema_version));
+        crate::SemanticFrame::frame(&self.r#schema_version, hash);
+        hash.str(stringify!(r#schema_epoch));
+        crate::SemanticFrame::frame(&self.r#schema_epoch, hash);
+        hash.str(stringify!(r#admission_open));
+        crate::SemanticFrame::frame(&self.r#admission_open, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalInterpretationsRow {
@@ -79,5 +103,8 @@ impl crate::HeapUsage for RuntimeCanonicalInterpretationsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#study_module_sha256))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#issuing_store))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#payload_incarnation))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#schema_version))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#schema_epoch))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#admission_open))
     }
 }

@@ -15,7 +15,7 @@ pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v10";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "b6ee758d774a6510a9db894c9062cfe103439bdecc049efeaab8cd26581a21a3";
+pub const SCHEMA_DIGEST: &str = "04c2b46a1ee5d153244089e816e1fc2586c1208a8fce5e48998f22a091c55bcc";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -2318,6 +2318,21 @@ pub fn encode_canonical_interpretations(
             "payload_incarnation",
             crate::canonical_codec::encode_string(row.r#payload_incarnation.clone())?,
         );
+    object
+        .insert(
+            "schema_version",
+            crate::canonical_codec::encode_uint(row.r#schema_version)?,
+        );
+    object
+        .insert(
+            "schema_epoch",
+            crate::canonical_codec::encode_string(row.r#schema_epoch.clone())?,
+        );
+    object
+        .insert(
+            "admission_open",
+            crate::canonical_codec::encode_boolean(row.r#admission_open)?,
+        );
     Ok(object)
 }
 ///Decode the registry row; native id metadata is distinct from the declared key.
@@ -2346,6 +2361,15 @@ pub fn decode_canonical_interpretations(
         )?,
         r#payload_incarnation: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "payload_incarnation")?,
+        )?,
+        r#schema_version: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "schema_version")?,
+        )?,
+        r#schema_epoch: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "schema_epoch")?,
+        )?,
+        r#admission_open: crate::canonical_codec::decode_boolean(
+            crate::canonical_codec::required(&mut object, "admission_open")?,
         )?,
     };
     if let Some(native_id) = native_id {

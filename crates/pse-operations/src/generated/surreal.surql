@@ -250,6 +250,9 @@ DEFINE FIELD schema_digest ON canonical_interpretations TYPE string;
 DEFINE FIELD study_module_sha256 ON canonical_interpretations TYPE string;
 DEFINE FIELD issuing_store ON canonical_interpretations TYPE string;
 DEFINE FIELD payload_incarnation ON canonical_interpretations TYPE string;
+DEFINE FIELD schema_version ON canonical_interpretations TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD schema_epoch ON canonical_interpretations TYPE string;
+DEFINE FIELD admission_open ON canonical_interpretations TYPE bool;
 DEFINE TABLE canonical_maintenance_activations SCHEMAFULL;
 DEFINE FIELD key ON canonical_maintenance_activations TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD input_sha256 ON canonical_maintenance_activations TYPE string;
@@ -1527,6 +1530,16 @@ DEFINE FUNCTION fn::pse_execution_v1::close($rpc_expiry: int, $run: string, $att
     RETURN $rpc_result;
 };
 
+DEFINE FUNCTION fn::pse_execution_v1::cancel_attempt($rpc_expiry:int,$run:string,$attempt:string,$generation:decimal,$operation:string,$request:bytes) -> object {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    fn::pse_execution_v1::register($rpc_expiry,'execution-run:'+$run);
+    LET $previous=fn::pse_execution_v1::operation($rpc_expiry,$operation,'cancel',$request);
+    IF $previous!=NONE { RETURN fn::pse_execution_v1::cancel($rpc_expiry,$run,$operation,$request); };
+    LET $selected=SELECT * FROM ONLY type::record('canonical_runs',$run) FOR UPDATE;
+    IF $selected=NONE OR $selected.current_attempt!=$attempt OR $selected.current_generation!=$generation { THROW 'PSE_REFUSAL:execution_cancellation_attempt_changed'; };
+    RETURN fn::pse_execution_v1::cancel($rpc_expiry,$run,$operation,$request);
+} PERMISSIONS NONE;
+
 DEFINE FUNCTION fn::pse_execution_v1::cancel($rpc_expiry: int, $run: string, $operation: string, $request: bytes) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::available($rpc_expiry, $run);
@@ -2358,6 +2371,49 @@ DEFINE FUNCTION fn::pse_files_v1::drain_owner($expiry:int,$expected:object) -> b
     };
     fn::pse_execution_v1::deadline($expiry); RETURN true;
 };
+
+DEFINE FUNCTION fn::pse_schema_v1::admit($expiry:int,$expected:object,$settlement:option<object>,$access:string) -> bool {
+    fn::pse_execution_v1::deadline($expiry);
+    LET $marker=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE;
+    IF $marker=NONE OR $marker.schema_epoch!=$expected.schema_epoch OR $marker.schema_version!=$expected.schema_version OR $marker.schema_digest!=$expected.schema_digest OR $marker.issuing_store!=$expected.issuing_store { THROW 'PSE_REFUSAL:schema_epoch_changed'; };
+    IF $marker.admission_open { RETURN true; };
+    LET $pending=SELECT * FROM ONLY canonical_maintenance_operations:current FOR UPDATE;
+    IF $pending=NONE OR $pending.kind!='schema' OR $pending.phase!='schema-draining' OR $pending.next!=$marker.schema_epoch { THROW 'PSE_REFUSAL:schema_migration_closed'; };
+    IF $access IN ['read','cleanup'] { RETURN true; };
+    IF $settlement=NONE { THROW 'PSE_REFUSAL:schema_migration_closed'; };
+    LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$settlement.attempt) FOR UPDATE;
+    LET $run=SELECT * FROM ONLY type::record('canonical_runs',$settlement.run) FOR UPDATE;
+    IF $attempt=NONE OR $run=NONE OR $attempt.run!=$settlement.run OR $attempt.generation!=$settlement.generation OR $run.current_attempt!=$settlement.attempt OR ($run.current_generation!=$settlement.generation AND $attempt.close_generation!=$run.current_generation) { THROW 'PSE_REFUSAL:schema_epoch_changed'; };
+    RETURN true;
+} PERMISSIONS NONE;
+DEFINE FUNCTION fn::pse_schema_v1::current_mutation($expiry:int) -> bool {
+    fn::pse_execution_v1::deadline($expiry);
+    LET $marker=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE;
+    IF $marker=NONE OR !$marker.admission_open { THROW 'PSE_REFUSAL:schema_migration_closed'; };
+    RETURN true;
+} PERMISSIONS NONE;
+DEFINE FUNCTION fn::pse_schema_v1::close($expiry:int,$expected:object,$operation:string,$generation:string,$target:string,$request:string) -> object {
+    fn::pse_execution_v1::deadline($expiry);
+    LET $marker=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE;
+    LET $old=SELECT * FROM ONLY canonical_maintenance_operations:current FOR UPDATE;
+    IF $old!=NONE AND $old.kind='schema' AND $old.operation=$operation AND $old.generation=$generation AND $old.after=$request AND $old.target=$target AND !$old.complete { RETURN $old; };
+    IF $marker=NONE OR !$marker.admission_open OR $marker.schema_epoch!=$expected.schema_epoch OR $marker.schema_version!=$expected.schema_version OR $marker.schema_digest!=$expected.schema_digest OR $marker.issuing_store!=$expected.issuing_store OR ($old!=NONE AND !$old.complete) { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
+    UPDATE ONLY canonical_interpretations:current SET admission_open=false RETURN NONE;
+    LET $saved=UPSERT ONLY canonical_maintenance_operations:current SET key='current',operation=$operation,generation=$generation,phase='schema-draining',source=$expected.schema_digest,target=$target,kind='schema',after=$request,next=$expected.schema_epoch,count=0dec,complete=false;
+    RETURN $saved;
+} PERMISSIONS NONE;
+DEFINE FUNCTION fn::pse_schema_v1::quiescent($expiry:int,$operation:string,$generation:string,$request:string) -> bool {
+    fn::pse_execution_v1::deadline($expiry);
+    LET $owner=SELECT * FROM ONLY canonical_maintenance_operations:current FOR UPDATE;
+    LET $marker=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE;
+    IF $owner=NONE OR $owner.kind!='schema' OR $owner.operation!=$operation OR $owner.generation!=$generation OR $owner.after!=$request OR $owner.complete OR $marker=NONE OR ($marker.admission_open ?? false) { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
+    LET $writers=SELECT key FROM canonical_attempts WHERE phase NOT IN ['terminal','terminal_compacted'] LIMIT 1;
+    LET $owners=SELECT key FROM canonical_file_owners WHERE !drained LIMIT 1;
+    LET $pins=SELECT key FROM canonical_protections WHERE !released AND expires_at>time::micros() LIMIT 1;
+    IF array::len($writers)!=0 OR array::len($owners)!=0 OR array::len($pins)!=0 { THROW 'PSE_REFUSAL:schema_migration_writers_remain'; };
+    UPDATE ONLY canonical_maintenance_operations:current SET phase='schema-applying' RETURN NONE;
+    RETURN true;
+} PERMISSIONS NONE;
 
 DEFINE FUNCTION fn::pse_maintenance_v1::current($expiry:int) -> option<object> {
     fn::pse_execution_v1::deadline($expiry);
@@ -3499,6 +3555,7 @@ DEFINE FUNCTION fn::pse_control_v1::cancel($expiry:int,$actor:string,$request:ob
         IF $old.actor!=$actor OR $old.operation_id!=$request.operation_id OR $old.study!=$request.study { fn::pse_execution_v1::deadline($expiry); RETURN {document_version:1,issuing_store:$request.issuing_store,operation_id:$request.operation_id,reason:'control_command_identity_reused'}; };
         fn::pse_execution_v1::deadline($expiry); RETURN encoding::cbor::decode($old.receipt);
     };
+    fn::pse_schema_v1::current_mutation($expiry);
     fn::pse_workbench_v1::publication($expiry);
     fn::pse_history_v1::check_owner($expiry,'study',$request.study);
     fn::pse_execution_v1::touch($expiry,'study-cancel:'+$request.study);

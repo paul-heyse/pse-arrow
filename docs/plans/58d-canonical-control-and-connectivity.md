@@ -93,11 +93,11 @@ engine, transport, module privilege or payload changes require their applicable 
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [D01](#d01) | planned | Rust operations and connection owners | Control construction and direct typed calls require no mathematical Runtime. |
+| [D01](#d01) | in progress | Rust operations and connection owners | Control construction and direct typed calls require no mathematical Runtime. |
 | [D02](#d02) | planned | Canonical command policy and ingress owners | Actor-bound commands and original receipt reconciliation agree across selected ingress. |
 | [D03](#d03) | planned | Canonical study policy and operations owners | Durable model governs bounded progression, preparation handoff, claim and later lineage queries. |
 | [D04](#d04) | planned | Control consumer and integration owners | Retained native consumers migrate; replaced frontend orchestration is deleted; H has assembled cases. |
-| [D05](#d05) | planned | Canonical schema and maintenance owners | Native ordered migration, version applicability and write fencing work, including open-handle/in-flight semantics. |
+| [D05](#d05) | in progress | Canonical schema and maintenance owners | Native ordered migration, version applicability and write fencing work, including open-handle/in-flight semantics. |
 
 <a id="d01"></a>
 ## D01 — Connection-only native control
@@ -362,3 +362,33 @@ schema/API request tests are integration aids, not scientific schema authority. 
 and Tonic 0.14.6 are the current pins, versus overview 1.12.0/0.14.8; the newer Tonic explicit
 cancellation-handle API is not assumed. SDK/protocol selection must preserve request custody,
 deadlines and drain rather than claim those duties from transport shutdown alone.
+
+## Native host dependency execution checkpoint — 2026-10-29
+
+The maintainer's full [58b execution](58b-bootstrap-and-host-control.md#execution-dependencies)
+includes working D01/D05 prerequisites for native service composition. The current source
+candidate adds connection-only schema-ready construction, transaction-bound version/epoch
+admission and explicit ordered quiescent migration from the preserved adjacent predecessor.
+Original attempt settlement and custody cleanup remain possible while new work is closed.
+Migration retains its original request and activation receipt through uncertain acknowledgement;
+configuration or health checks do not prove quiescence. The legacy predecessor cannot fence
+already-running historical binaries and requires an actual deployment-owned ingress closure
+and native join before transformation.
+
+The initial scoped compile exposed type/API mismatches in native value extraction and error
+construction. These are corrected using the existing typed result contracts; no permissive
+conversion layer was added. The replaced unused context helper is deleted.
+
+**Tested:** `just check-package pse-operations` passes without warnings;
+`just unit-package pse-operations schema_` passes8 controls (seven new, one existing name
+match), `just unit-package pse-operations canonical_script::tests --features
+canonical-maintenance` passes7, and `just unit-package pse-operations
+schema_migration_transactions_parse --features canonical-maintenance` passes1. All use the
+scoped correctness route and have zero failures. Parser coverage includes legacy pending and
+quiescence transactions and the full generated declaration/module-proof/activation transaction.
+Final rust-contracts, surreal, Python and docs generation groups all publish successfully.
+
+A native isolated service fixture and real migration controls remain required.
+Neither source delivery, syntax validation nor generated declarations establishes a successful
+migration, stale-writer refusal or whole-D01/D05 completion. The SDK/API/gRPC responsibility
+comparison, broader control consumers and H qualification retain their existing obligations.

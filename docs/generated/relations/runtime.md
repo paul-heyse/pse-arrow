@@ -598,7 +598,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 
 ## `canonical_interpretations`
 
-Installed schema, codec and structural operation interpretation.
+Installed schema, codec and structural operation interpretation with transactional epoch admission.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 
@@ -610,6 +610,9 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `study_module_sha256` | `Utf8` | false | `payload` | — | — |
 | `issuing_store` | `Utf8` | false | `payload` | — | — |
 | `payload_incarnation` | `Utf8` | false | `payload` | — | — |
+| `schema_version` | `UInt64` | false | `payload` | — | — |
+| `schema_epoch` | `Utf8` | false | `payload` | — | — |
+| `admission_open` | `Boolean` | false | `payload` | — | — |
 
 ## `canonical_maintenance_activations`
 

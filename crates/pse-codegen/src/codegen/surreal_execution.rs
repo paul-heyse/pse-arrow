@@ -640,6 +640,16 @@ DEFINE FUNCTION fn::pse_execution_v1::close($rpc_expiry: int, $run: string, $att
     RETURN $rpc_result;
 };
 
+DEFINE FUNCTION fn::pse_execution_v1::cancel_attempt($rpc_expiry:int,$run:string,$attempt:string,$generation:decimal,$operation:string,$request:bytes) -> object {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    fn::pse_execution_v1::register($rpc_expiry,'execution-run:'+$run);
+    LET $previous=fn::pse_execution_v1::operation($rpc_expiry,$operation,'cancel',$request);
+    IF $previous!=NONE { RETURN fn::pse_execution_v1::cancel($rpc_expiry,$run,$operation,$request); };
+    LET $selected=SELECT * FROM ONLY type::record('canonical_runs',$run) FOR UPDATE;
+    IF $selected=NONE OR $selected.current_attempt!=$attempt OR $selected.current_generation!=$generation { THROW 'PSE_REFUSAL:execution_cancellation_attempt_changed'; };
+    RETURN fn::pse_execution_v1::cancel($rpc_expiry,$run,$operation,$request);
+} PERMISSIONS NONE;
+
 DEFINE FUNCTION fn::pse_execution_v1::cancel($rpc_expiry: int, $run: string, $operation: string, $request: bytes) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::available($rpc_expiry, $run);

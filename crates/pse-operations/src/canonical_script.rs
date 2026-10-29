@@ -71,6 +71,8 @@ pub(crate) enum Envelope<'a> {
     /// Bootstrap cannot call a native deadline function before installing it.
     Installation,
     DeadlineOnly,
+    /// Original custody release only; no new work may be created during migration drain.
+    DrainCleanup,
 }
 /// One result expression, emitted after the owning postlude and before COMMIT.
 #[derive(Clone, Debug)]
@@ -83,6 +85,8 @@ pub(crate) struct PreparedScript<T> {
     sql: String,
     bindings: Object,
     selection: Option<ProtectedSelection>,
+    access: crate::canonical::migration::SchemaAdmission,
+    installation: bool,
     result: ResultSlot<T>,
 }
 /// Own the result position rather than repeating tail arithmetic at every consumer.
@@ -98,6 +102,7 @@ impl<T> PreparedScript<T> {
     pub(crate) fn result(&self) -> ResultSlot<T> {
         self.result
     }
+    pub(crate) fn schema_policy(&self) -> (crate::canonical::migration::SchemaAdmission, bool) { (self.access, self.installation) }
     pub(crate) fn into_parts(self) -> (String, Object, Option<ProtectedSelection>) {
         (self.sql, self.bindings, self.selection)
     }
@@ -281,7 +286,7 @@ impl<'a> GuardedScript<'a> {
                     (authority.operation.as_str().to_owned()).into_value(),
                 );
             }
-            Envelope::DeadlineOnly => {
+            Envelope::DeadlineOnly | Envelope::DrainCleanup => {
                 sql.push_str("BEGIN;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\n");
                 postlude.push_str("fn::pse_execution_v1::deadline($pse_rpc_expires_at);\n");
             }
@@ -303,10 +308,21 @@ impl<'a> GuardedScript<'a> {
         sql.push_str(");\n");
         sql.push_str(&postlude);
         sql.push_str("RETURN $pse_guarded_script_result;\nCOMMIT;");
+        let installation = matches!(self.envelope, Envelope::Installation);
+        let access = match self.envelope {
+            Envelope::ProtectedRead { .. } => crate::canonical::migration::SchemaAdmission::Read,
+            Envelope::StageCleanup(_) | Envelope::DrainCleanup => crate::canonical::migration::SchemaAdmission::Cleanup,
+            _ => crate::canonical::migration::SchemaAdmission::Mutation,
+        };
+        if !installation {
+            sql.insert_str("BEGIN;".len(), crate::canonical::migration::TRANSACTION_ADMISSION);
+        }
         Ok(PreparedScript {
             sql,
             bindings,
             selection,
+            access,
+            installation,
             result: ResultSlot(PhantomData),
         })
     }

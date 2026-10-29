@@ -35,6 +35,19 @@ impl IndexedResults {
     pub fn num_statements(&self) -> usize {
         self.values.len()
     }
+    /// Preserve all original errors before removing owner-added transaction framing.
+    pub(crate) fn statement_window(self, prefix: usize, suffix: usize) -> EngineResult<Self> {
+        let checked = self.check()?;
+        if checked.values.keys().copied().ne(0..checked.values.len()) {
+            return Err(Error::configuration("Canonical envelope response has missing statement slots".into(), None));
+        }
+        let end = checked.values.len().checked_sub(suffix).filter(|end| *end > prefix)
+            .ok_or_else(|| Error::configuration("Canonical envelope response is incomplete".into(), None))?;
+        let values = checked.values.into_iter().filter_map(|(index, value)| {
+            (index >= prefix && index < end).then(|| (index - prefix, value))
+        }).collect();
+        Ok(Self { values })
+    }
     /// Remove errors in original compacted statement order.
     pub fn take_errors(&mut self) -> BTreeMap<usize, Error> {
         let keys = self
@@ -332,6 +345,34 @@ mod tests {
         IndexedResults {
             values: BTreeMap::from([(0, (Stats::default(), Ok(value)))]),
         }
+    }
+    fn envelope(body: EngineResult<Value>, commit: EngineResult<Value>) -> IndexedResults {
+        IndexedResults { values: BTreeMap::from([
+            (0, (Stats::default(), Ok(Value::None))),
+            (1, (Stats::default(), Ok(Value::Bool(true)))),
+            (2, (Stats::default(), body)),
+            (3, (Stats::default(), commit)),
+        ]) }
+    }
+    #[test]
+    fn schema_envelope_keeps_original_slots_only_after_complete_success() {
+        let mut result = envelope(Ok(Value::String("original".into())), Ok(Value::None)).statement_window(2,1).unwrap();
+        assert_eq!(result.num_statements(),1);
+        assert_eq!(result.take::<Value>(0).unwrap(),Value::String("original".into()));
+    }
+    #[test]
+    fn schema_envelope_preserves_guard_and_commit_refusals_before_projection() {
+        let error = Error::configuration("original commit failed".into(),None);
+        assert!(envelope(Ok(Value::String("provisional".into())),Err(error)).statement_window(2,1).is_err());
+        let mut reply = envelope(Ok(Value::None),Ok(Value::None));
+        reply.values.insert(1,(Stats::default(),Err(Error::configuration("schema fence refused".into(),None))));
+        assert!(reply.statement_window(2,1).is_err());
+    }
+    #[test]
+    fn schema_envelope_refuses_missing_slots_without_publishing_provisional_values() {
+        let mut reply = envelope(Ok(Value::String("provisional".into())),Ok(Value::None));
+        reply.values.remove(&1);
+        assert!(reply.statement_window(2,1).is_err());
     }
     #[test]
     fn typed_cardinality_and_removal_preserve_consumed_contract() {
