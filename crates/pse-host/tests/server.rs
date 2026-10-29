@@ -33,4 +33,7 @@ fn server_cli_rejects_implicit_build_and_service_arguments_before_effects() {
     for command in ["start", "setup", "restart", "build-server", "prepare --force"] {
         assert!(server::run_cli(&[OsString::from(command)]).is_err());
     }
+    for arguments in [vec!["prepare", "--from-release"],vec!["select", "--from-release", "/unused"],vec!["prepare", "--from-release", "/unused", "--force"]] {
+        assert!(server::run_cli(&arguments.into_iter().map(OsString::from).collect::<Vec<_>>()).is_err());
+    }
 }

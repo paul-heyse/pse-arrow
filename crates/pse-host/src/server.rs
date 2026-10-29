@@ -17,6 +17,9 @@ use std::{
     process::{Command, Stdio},
 };
 
+mod release_import;
+use release_import::{import_inner, origin_complete};
+
 const VERSION: &str = "3.3.4";
 const REVISION: &str = "1ac2b1dba7cd177621a4cf5d507caebeb2414395";
 const ORIGIN: &str = "https://github.com/surrealdb/surrealdb.git";
@@ -198,7 +201,28 @@ struct BuildContext {
 }
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Identity { source: SourceIdentity, context: BuildContext }
+struct Identity { source: SourceIdentity, origin: ConstructionOrigin }
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+enum ConstructionOrigin {
+    Built { context: Box<BuildContext> },
+    ImportedRelease { release_sha256: String },
+}
+impl Identity {
+    fn context(&self) -> Result<&BuildContext, HostError> {
+        match &self.origin {
+            ConstructionOrigin::Built { context } => Ok(context),
+            ConstructionOrigin::ImportedRelease { .. } => Err(invalid("imported releases have original provenance, not a current build context")),
+        }
+    }
+    #[cfg(test)]
+    fn context_mut(&mut self) -> &mut BuildContext {
+        match &mut self.origin {
+            ConstructionOrigin::Built { context } => context,
+            ConstructionOrigin::ImportedRelease { .. } => panic!("fixture requires a built identity"),
+        }
+    }
+}
 impl BuildContext {
     fn complete(&self) -> bool {
         self.root.is_absolute() && hexadecimal(&self.toolchain_declaration, 64)
@@ -317,7 +341,7 @@ fn configuration(root: &Path, environment: &Environment) -> Result<(BTreeMap<Pat
     for directory in locations {
         let selected = if directory.join("config").is_file() { directory.join("config") } else { directory.join("config.toml") };
         if !selected.exists() { records.insert(selected, None); continue; }
-        let document: toml::Value = fs::read_to_string(&selected)?.parse().map_err(|error| invalid(format!("invalid Cargo configuration: {error}")))?;
+        let document: toml::Value = toml::from_str(&fs::read_to_string(&selected)?).map_err(|error| invalid(format!("invalid Cargo configuration: {error}")))?;
         let table = document.as_table().ok_or_else(|| invalid("Cargo configuration must be a table"))?;
         for (name, settings) in table {
             let allowed: &[&str] = match name.as_str() {
@@ -362,7 +386,7 @@ fn context(root: &Path, environment: &Environment) -> Result<BuildContext, HostE
     let mut toolchain = BTreeMap::new();
     let rustup = resolve(OsStr::new("rustup"), root, environment)?;
     let declaration = fs::read_to_string(root.join("rust-toolchain.toml"))?;
-    let declared: toml::Value = declaration.parse().map_err(|error| invalid(format!("invalid toolchain declaration: {error}")))?;
+    let declared: toml::Value = toml::from_str(&declaration).map_err(|error| invalid(format!("invalid toolchain declaration: {error}")))?;
     let channel = declared.get("toolchain").and_then(|value| value.get("channel")).and_then(toml::Value::as_str)
         .ok_or_else(|| invalid("toolchain declaration has no channel"))?;
     let active = capture(&rustup, &args(&["show", "active-toolchain"]), root, environment)?;
@@ -509,7 +533,7 @@ fn acquire(root: &Path, work: &Path, identity: &Identity, environment: &Environm
     if source.exists() { return verify_source(root, work, identity, environment); }
     let scratch = tempfile::Builder::new().prefix("acquire-").tempdir_in(work)?;
     let pending = scratch.path().join("source");
-    let git = &identity.context.tools["git"].path;
+    let git = &identity.context()?.tools["git"].path;
     let log = work.join("build.log");
     let run = |program: &Path, arguments: Vec<OsString>| run_logged(program, &arguments, root, environment, &log);
     run(git, vec!["init".into(), pending.clone().into_os_string()])?;
@@ -519,9 +543,9 @@ fn acquire(root: &Path, work: &Path, identity: &Identity, environment: &Environm
         run(git, vec!["-C".into(), pending.clone().into_os_string(), "apply".into(), "--index".into(), root.join("scripts/surrealdb-source").join(name).into_os_string()])?;
     }
     let archive = scratch.path().join("diskann-0.56.0.crate");
-    run(&identity.context.tools["curl"].path, vec!["--fail".into(), "--location".into(), "--proto".into(), "=https".into(), "--output".into(), archive.clone().into_os_string(), "https://static.crates.io/crates/diskann/diskann-0.56.0.crate".into()])?;
+    run(&identity.context()?.tools["curl"].path, vec!["--fail".into(), "--location".into(), "--proto".into(), "=https".into(), "--output".into(), archive.clone().into_os_string(), "https://static.crates.io/crates/diskann/diskann-0.56.0.crate".into()])?;
     if digest(&archive)? != DISKANN_SHA256 { return Err(invalid("DiskANN archive checksum differs from pinned source")); }
-    let tar = &identity.context.tools["tar"].path;
+    let tar = &identity.context()?.tools["tar"].path;
     let listing = capture(tar, &[OsString::from("-tzf"), archive.clone().into_os_string()], root, environment)?;
     let verbose = capture(tar, &[OsString::from("-tvzf"), archive.clone().into_os_string()], root, environment)?;
     archive_names(&listing, &verbose)?;
@@ -544,7 +568,7 @@ fn acquire(root: &Path, work: &Path, identity: &Identity, environment: &Environm
 fn verify_source(root: &Path, work: &Path, identity: &Identity, environment: &Environment) -> Result<(), HostError> {
     let source = work.join("source");
     regular(&source)?;
-    let git = &identity.context.tools["git"].path;
+    let git = &identity.context()?.tools["git"].path;
     let command = |arguments: &[&str]| {
         let mut selected = vec![OsString::from("-C"), source.clone().into_os_string()];
         selected.extend(args(arguments));
@@ -598,9 +622,12 @@ fn immutable(path: &Path) -> Result<(), HostError> {
 fn validate(generation: &Path, recipe: &str, expected: Option<&Identity>) -> Result<Receipt, HostError> {
     immutable(generation)?;
     let receipt: Receipt = read_record(&generation.join(".complete.json"))?;
-    if receipt.schema != 1 || !receipt.identity.source.supported() || !receipt.identity.context.complete() || hash(&encode(&receipt.identity)?) != recipe
+    if receipt.schema != 1 || !receipt.identity.source.supported() || !origin_complete(generation, &receipt.identity, &receipt.files)? || hash(&encode(&receipt.identity)?) != recipe
         || expected.is_some_and(|expected| expected != &receipt.identity)
-        || receipt.files.keys().map(String::as_str).collect::<BTreeSet<_>>() != BTreeSet::from(["surreal", "Cargo.lock"])
+        || receipt.files.keys().map(String::as_str).collect::<BTreeSet<_>>() != match &receipt.identity.origin {
+            ConstructionOrigin::Built { .. } => BTreeSet::from(["surreal", "Cargo.lock"]),
+            ConstructionOrigin::ImportedRelease { .. } => BTreeSet::from(["surreal", "Cargo.lock", "release.json"]),
+        }
         || generation.join("surreal").metadata()?.permissions().mode() & 0o111 == 0 {
         return Err(invalid("selected server identity is incomplete or unsupported"));
     }
@@ -632,13 +659,13 @@ fn cargo_arguments(source: &Path) -> Vec<OsString> {
         "--locked".into(), "--no-default-features".into(), "--features".into(), FEATURES.into(),
         "--profile".into(), "release".into(), "--bin".into(), "surreal".into(), "--config".into(), BUILD_CONFIG.into()]
 }
-fn compiled_artifact(work: &Path, identity: &Identity) -> PathBuf {
+fn compiled_artifact(work: &Path, identity: &Identity) -> Result<PathBuf, HostError> {
     let target = work.join("source/target");
-    let target = match &identity.context.target { Some(triple) => target.join(triple), None => target };
-    target.join("release/surreal")
+    let target = match &identity.context()?.target { Some(triple) => target.join(triple), None => target };
+    Ok(target.join("release/surreal"))
 }
 fn compile(root: &Path, work: &Path, identity: &Identity, environment: &Environment) -> Result<(), HostError> {
-    if text(environment, "CARGO_BUILD_TARGET")?.filter(|value| !value.is_empty()) != identity.context.target.as_deref() {
+    if text(environment, "CARGO_BUILD_TARGET")?.filter(|value| !value.is_empty()) != identity.context()?.target.as_deref() {
         return Err(invalid("Cargo target differs from the selected build request"));
     }
     let source = work.join("source");
@@ -654,8 +681,8 @@ fn compile(root: &Path, work: &Path, identity: &Identity, environment: &Environm
     let mut selected = environment.clone();
     selected.insert("SURREAL_BUILD_VERSION".into(), VERSION.into());
     selected.insert("SURREAL_BUILD_METADATA".into(), identity.source.metadata.clone().into());
-    run_logged(&identity.context.tools["cargo"].path, &cargo_arguments(&source), root, &selected, &work.join("build.log"))?;
-    let binary = compiled_artifact(work, identity);
+    run_logged(&identity.context()?.tools["cargo"].path, &cargo_arguments(&source), root, &selected, &work.join("build.log"))?;
+    let binary = compiled_artifact(work, identity)?;
     regular(&binary)?;
     let version = capture(&binary, &args(&["version"]), root, &selected)?;
     if !version.contains(VERSION) || !version.contains(&identity.source.metadata) {
@@ -665,21 +692,24 @@ fn compile(root: &Path, work: &Path, identity: &Identity, environment: &Environm
     verify_source(root, work, identity, environment)
 }
 fn publish(profile: &Path, work: &Path, identity: &Identity) -> Result<PreparedServer, HostError> {
-    let recipe = hash(&encode(identity)?);
-    let generations = profile.join("generations").join(&recipe);
-    private_directory(&generations)?;
-    let generation = uuid::Uuid::now_v7().simple().to_string();
-    let destination = generations.join(&generation);
     let staging = profile.join("staging");
     private_directory(&staging)?;
     let scratch = tempfile::Builder::new().prefix("publish-").tempdir_in(staging)?;
     let install = scratch.path().join("install");
     fs::create_dir(&install)?;
-    for (source, name) in [(compiled_artifact(work, identity), "surreal"), (work.join("source/Cargo.lock"), "Cargo.lock")] {
+    for (source, name) in [(compiled_artifact(work, identity)?, "surreal"), (work.join("source/Cargo.lock"), "Cargo.lock")] {
         regular(&source)?;
         fs::copy(source, install.join(name))?;
         File::open(install.join(name))?.sync_all()?;
     }
+    publish_install(profile, &install, identity)
+}
+fn publish_install(profile: &Path, install: &Path, identity: &Identity) -> Result<PreparedServer, HostError> {
+    let recipe = hash(&encode(identity)?);
+    let generations = profile.join("generations").join(&recipe);
+    private_directory(&generations)?;
+    let generation = uuid::Uuid::now_v7().simple().to_string();
+    let destination = generations.join(&generation);
     fs::set_permissions(install.join("surreal"), fs::Permissions::from_mode(0o555))?;
     atomic_record(&install.join(".complete.json"), &Receipt { schema: 1, identity: identity.clone(), files: file_map(&install)? })?;
     seal(&install)?;
@@ -702,8 +732,8 @@ fn prepare_inner(root: &Path, caller: &Environment) -> Result<PreparedServer, Ho
     if text(&environment, "CARGO_BUILD_TARGET")?.is_some_and(|value| !value.is_empty() && value != format!("{}-unknown-linux-gnu", std::env::consts::ARCH)) {
         return Err(invalid("cross-compilation is outside the native source server profile"));
     }
-    let identity = Identity { source: source_identity(&root)?, context: context(&root, &environment)? };
-    if !identity.context.complete() { return Err(invalid("server construction context is incomplete")); }
+    let identity = Identity { source: source_identity(&root)?, origin: ConstructionOrigin::Built { context: Box::new(context(&root, &environment)?) } };
+    if !identity.context()?.complete() { return Err(invalid("server construction context is incomplete")); }
     let recipe = hash(&encode(&identity)?);
     let profile = profile_root(caller)?;
     private_directory(&profile)?;
@@ -740,7 +770,7 @@ fn prepare_inner(root: &Path, caller: &Environment) -> Result<PreparedServer, Ho
     }
     acquire(&root, &work, &identity, &environment)?;
     compile(&root, &work, &identity, &environment)?;
-    if source_identity(&root)? != identity.source || context(&root, &environment)? != identity.context {
+    if source_identity(&root)? != identity.source || context(&root, &environment)? != *identity.context()? {
         return Err(invalid("server build premises changed during compilation; no selection published"));
     }
     publish(&profile, &work, &identity)
@@ -748,31 +778,48 @@ fn prepare_inner(root: &Path, caller: &Environment) -> Result<PreparedServer, Ho
 /// Explicitly construct the pinned server inside authenticated native containment.
 /// Once work starts, its blocking join is awaited; caller containment owns physical drain.
 pub async fn prepare(root: &Path, environment: &Environment) -> Result<PreparedServer, HostError> {
-    let manager = HostManager::connect_user(None).await?;
-    let current = manager.current_unit().await?;
-    if !manager.native_workload(&current).await? {
-        return Err(invalid("explicit server preparation requires scripts/pse-env containment"));
-    }
+    authenticated_preparation().await?;
     let root = root.to_path_buf();
     let environment = environment.clone();
     tokio::task::spawn_blocking(move || prepare_inner(&root, &environment)).await
         .map_err(|error| invalid(format!("server preparation worker failed: {error}")))?
 }
+async fn authenticated_preparation() -> Result<(), HostError> {
+    let manager = HostManager::connect_user(None).await?;
+    let current = manager.current_unit().await?;
+    if !manager.native_workload(&current).await? {
+        return Err(invalid("explicit server preparation requires scripts/pse-env containment"));
+    }
+    Ok(())
+}
+/// Explicitly snapshot an admitted source release, preserving its original provenance.
+/// This imports executable identity only; it neither starts nor adopts a database.
+pub async fn prepare_from_release(root: &Path, environment: &Environment, release: &Path) -> Result<PreparedServer, HostError> {
+    authenticated_preparation().await?;
+    let root = root.to_path_buf();
+    let environment = environment.clone();
+    let release = release.to_path_buf();
+    tokio::task::spawn_blocking(move || import_inner(&root, &environment, &release)).await
+        .map_err(|error| invalid(format!("server release import worker failed: {error}")))?
+}
 /// Narrow standalone construction/selection surface. Service startup belongs to composition.
 pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
     if arguments == [OsString::from("--help")] || arguments == [OsString::from("-h")] {
-        writeln!(std::io::stdout(), "server prepare | select\nExplicit preparation builds the pinned native server; selection never builds.\nThis executable capability does not establish schema readiness or write admission.")?;
+        writeln!(std::io::stdout(), "server prepare [--from-release PATH] | select\nExplicit preparation builds the pinned native server or imports a verified source release; selection never builds.\nThis executable capability does not establish schema readiness or write admission.")?;
         return Ok(0);
     }
     let environment: Environment = std::env::vars_os().collect();
     let selected = if arguments == [OsString::from("select")] { select(&environment)? }
-    else if arguments == [OsString::from("prepare")] {
+    else if arguments == [OsString::from("prepare")]
+        || (arguments.len() == 3 && arguments[0] == "prepare" && arguments[1] == "--from-release") {
         let mut root = std::env::current_dir()?;
         while !root.join(".config/diagnostic-tools.toml").is_file() {
             if !root.pop() { return Err(invalid("run explicit preparation inside the selected checkout")); }
         }
-        tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(prepare(&root, &environment))?
-    } else { return Err(invalid("expected server prepare or server select")); };
+        let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+        if arguments.len() == 3 {runtime.block_on(prepare_from_release(&root, &environment, Path::new(&arguments[2])))?}
+        else {runtime.block_on(prepare(&root, &environment))?}
+    } else { return Err(invalid("expected server prepare [--from-release PATH] or server select")); };
     writeln!(std::io::stdout(), "{}", selected.executable().display())?;
     Ok(0)
 }
@@ -837,7 +884,7 @@ mod tests {
         environment.insert("PATH".into(), "/usr/bin:/bin".into());
         environment.insert("PSE_SURREAL_TOOLS".into(), profile.parent().unwrap().into());
         environment.insert("PSE_SERVER_BUILD".into(), work.clone().into());
-        Fixture { directory, root, profile, work, identity: Identity { source, context }, environment }
+        Fixture { directory, root, profile, work, identity: Identity { source, origin: ConstructionOrigin::Built { context: Box::new(context) } }, environment }
     }
     fn prepared(fixture: &Fixture) -> PreparedServer {
         compile(&fixture.root, &fixture.work, &fixture.identity, &fixture.environment).unwrap();
@@ -860,7 +907,7 @@ mod tests {
         let fixture = fixture();
         let prepared = prepared(&fixture);
         let before = fs::read(fixture.profile.join("current.json")).unwrap();
-        executable(&fixture.identity.context.tools["cargo"].path, "#!/bin/sh\nprintf '%s\\n' 'fixture compiler error' >&2\nexit 42\n");
+        executable(&fixture.identity.context().unwrap().tools["cargo"].path, "#!/bin/sh\nprintf '%s\\n' 'fixture compiler error' >&2\nexit 42\n");
         let error = compile(&fixture.root, &fixture.work, &fixture.identity, &fixture.environment).unwrap_err().to_string();
         assert!(error.contains("42"), "{error}");
         assert!(error.contains("fixture compiler error"));
@@ -873,13 +920,13 @@ mod tests {
         let mut fixture = fixture();
         let triple = format!("{}-unknown-linux-gnu", std::env::consts::ARCH);
         fixture.environment.insert("CARGO_BUILD_TARGET".into(), triple.clone().into());
-        fixture.identity.context.target = Some(triple);
+        fixture.identity.context_mut().target = Some(triple);
         atomic_record(&fixture.work.join("build-request.json"), &fixture.identity).unwrap();
         let stale = fixture.work.join("source/target/release/surreal");
         fs::create_dir_all(stale.parent().unwrap()).unwrap();
         executable(&stale, "#!/bin/sh\nprintf 'stale host output\\n'\n");
         executable(&fixture.work.join("image"), &format!("#!/bin/sh\nprintf '%s\\n' 'surreal {VERSION}+{}'\n", fixture.identity.source.metadata));
-        executable(&fixture.identity.context.tools["cargo"].path, "#!/bin/sh\nset -eu\nout=\"$PSE_SERVER_BUILD/source/target/$CARGO_BUILD_TARGET/release\"\nmkdir -p \"$out\"\ncp \"$PSE_SERVER_BUILD/image\" \"$out/surreal\"\n");
+        executable(&fixture.identity.context().unwrap().tools["cargo"].path, "#!/bin/sh\nset -eu\nout=\"$PSE_SERVER_BUILD/source/target/$CARGO_BUILD_TARGET/release\"\nmkdir -p \"$out\"\ncp \"$PSE_SERVER_BUILD/image\" \"$out/surreal\"\n");
         let selected = prepared(&fixture);
         assert_eq!(fs::read(selected.executable()).unwrap(), fs::read(fixture.work.join("image")).unwrap());
         assert_ne!(fs::read(selected.executable()).unwrap(), fs::read(stale).unwrap());
@@ -968,5 +1015,32 @@ mod tests {
             selected.insert(name.into(), value.into());
             assert!(controlled_environment(&selected).is_err(), "{name}");
         }
+    }
+    #[test]
+    fn server_build_configuration_reads_real_table_documents_and_checks_supported_controls() {
+        let fixture = fixture();
+        let directory = fixture.root.join(".cargo");
+        fs::create_dir(&directory).unwrap();
+        let path = directory.join("config.toml");
+        fs::write(&path, "# Cargo table document\n[build]\njobs = 32\n[unstable]\nfeature-unification = \"workspace\"\n").unwrap();
+        let mut environment = fixture.environment.clone();
+        environment.insert("HOME".into(), fixture.root.join("home").into_os_string());
+        let (configuration, tools) = configuration(&fixture.root, &environment).unwrap();
+        assert!(configuration[&path].is_some());
+        assert!(tools.is_empty());
+        fs::write(&path, "[build]\ntarget-dir = '/unowned-target'\n").unwrap();
+        assert!(super::configuration(&fixture.root, &environment).unwrap_err().to_string().contains("build.target-dir"));
+    }
+    #[test]
+    fn server_build_toolchain_reads_real_table_document_before_enforcing_declared_channel() {
+        let fixture = fixture();
+        fs::write(fixture.root.join("rust-toolchain.toml"), "# Pinned toolchain table document\n[toolchain]\nchannel = \"fixture-nightly\"\nprofile = \"minimal\"\ncomponents = [\n  \"rust-src\",\n  \"clippy\",\n]\n").unwrap();
+        let rustup = fixture.root.join("rustup");
+        executable(&rustup, "#!/bin/sh\nprintf '%s\\n' 'another-channel-x86_64-unknown-linux-gnu (default)'\n");
+        let mut environment = fixture.environment.clone();
+        environment.insert("PATH".into(), fixture.root.clone().into_os_string());
+        environment.insert("HOME".into(), fixture.root.join("home").into_os_string());
+        let error = match context(&fixture.root, &environment) { Ok(_) => panic!("mismatched toolchain must refuse"), Err(error) => error.to_string() };
+        assert!(error.contains("requires the declared pinned toolchain"), "{error}");
     }
 }

@@ -102,17 +102,26 @@ authenticated native containment. `server select` reads a completed immutable in
 without source discovery or compilation. Neither command starts a database or establishes
 schema readiness/write admission; those remain with the native application and D01/D05.
 Preparation preserves old selections/generations on failure; no automatic collection occurs.
+`server prepare --from-release /absolute/release.json` explicitly snapshots an established
+matching source release instead of compiling again. It validates the exact source/patch/profile
+tuple and copied binary/lockfile bytes, preserves the original release receipt and build
+provenance, and publishes a separate immutable native generation. Later selection depends on
+that generation, rather than the old source directory or a fabricated new build context.
 
 ## Native foreground ownership and supported placement
 
 Configured `PSE_BUILD_MODE=unbounded` ordinary work uses all host CPUs and the declared Cargo
 jobs without a new memory cap or slot ledger. Recipe class hints do not recreate finite
-allocation policy. Explicit finite/scientific classes, `PSE_MEMORY_MAX`, custom slice requests,
-reference/timing selections, unprepared or unknown native profiles, `--store` and the retired allocation-binding
-protocol currently refuse before command execution. Their Plan58 B/C/D/F owners must supply
-working capabilities before those workflows return; there is no Python fallback or silent
-resource downgrade. This selected wave is database-free. Existing stores and services are
-preserved. `--docs` selects an existing environment only.
+allocation policy. Explicit finite/scientific classes and `PSE_MEMORY_MAX` select finite
+admission under an original owned allocation slice, with separate workload controls and
+authenticated nested borrowing. The shared journal contains finite reservations only; original
+physical drain precedes release. Ordinary gate admission participates in exclusive/timing
+exclusion without a numerical reservation. Current targeted assembled evidence covers the
+light envelope and nested borrowing; broader resident/reference/timing acceptance remains in
+Plan58b. Cross-parent ordinary placement, unprepared or unknown native profiles, `--store` and
+the retired allocation-binding protocol still refuse before command execution. There is no
+Python fallback or silent resource downgrade. Existing stores and services are preserved.
+`--docs` selects an existing environment only.
 
 For a top-level supported app-scope caller, the host starts a same-image child behind a private
 exec gate, creates a caller-only scope and a separate workload scope in the actual prior slice,

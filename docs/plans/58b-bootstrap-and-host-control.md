@@ -559,3 +559,21 @@ foreground_explicit_finite_scope_and_nested_borrow_keep_actual_envelope_and_rele
 no native finite reservation. These results do not close remaining B03 placement, resident-role
 or consumer-retirement obligations. Concurrent release reconciliation is being hardened against
 unrelated admission revisions before broader assembled acceptance.
+
+The explicit server constructor now also admits an existing matching source release through
+`server prepare --from-release`, snapshots and hashes the copied binary/lockfile, and retains
+the verbatim original release receipt under distinct imported provenance. It neither fabricates
+a current build context nor consults the old source during selection. This avoids a redundant
+cold rebuild for the native service integration. The actual retained release was imported into
+native recipe `a59f06be7998a8f5a2674bdc2cb74f6ae66e4400bf72ad04562f6c0e470f2411`,
+generation `01a1864e7feb742ca03747abc71a3e41`; copied bytes match the original receipt and
+source-free selection returns that generation. No database started or existing artifact changed.
+
+**Tested:** `scripts/pse-env -- cargo test --locked -p pse-host server:: --lib` passes21
+controls and the same route with `--test server` passes3, zero failures. The source builder's
+Cargo/toolchain TOML document parsing was corrected after the import exposed the same API
+mistake; real table-document regressions now pass. Those final runs reported one unused
+workspace-dependency warning from the pending native-service consumer declaration, with no
+Rust warnings. Full source compilation remains unperformed. D01/D05's focused implementation,
+generation and parser results are recorded at its [own checkpoint](58d-canonical-control-and-connectivity.md#native-host-dependency-execution-checkpoint--2026-10-29);
+actual isolated service/migration acceptance remains next.
