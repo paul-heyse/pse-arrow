@@ -642,6 +642,14 @@ design-change tracking are owned by
 
 ### 24.1 Test layers
 
+The authorized remaining Plan58 target moves first-party development configuration, metadata,
+generation, fixtures and evidence callers to native responsibility owners. Python-only
+declaration/stub/currency checks retire with their producer and consumers; native registry and
+regeneration equivalence remain required. Valuable scientific oracle exchanges stay isolated
+from production. Obsolete Python measurement drivers may retire only after their exact cases,
+inputs, expected outcomes and observation/custody requirements pass to H; original results retain
+their historical scope. This is the scoped ADR-0233 §13 target, not current full qualification.
+
 > Decision: [ADR-0233](../../adr/0233-rust-owned-host-and-execution-boundaries.md) (proposed;
 > maintainer-authorized Plan58 native cutover).
 

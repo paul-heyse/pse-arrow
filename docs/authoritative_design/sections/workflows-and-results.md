@@ -1619,6 +1619,14 @@ boundaries. CLI adapters remain optional; PyO3 implementation is deferred. The e
 implemented Python contracts below remain current until their owning cutovers replace them.
 Independent scientific Python references remain isolated oracles, not production policy.
 
+The remaining authorized cut removes `pse-py`, product packaging and Python-only projections,
+stubs and registration/currency checks after their last actual callers migrate or retire.
+Native conformance/campaign selection and reports, uncertainty/research adoption, protected
+result reads and calculation observation retain their domain owners. No replacement foreign
+adapter is selected. The scoped §13 design assessment covers this target and its governance
+amendments; it establishes neither implementation nor H qualification. Existing boundary
+sections remain an account of the implementation being retired until each owning cut lands.
+
 The native host root is independent of scientific preparation, Arrow/DataFusion, database
 clients and generated product schemas. It owns environment selection and authentic OS
 process/service ownership. Canonical SurrealDB owns persisted execution transitions and

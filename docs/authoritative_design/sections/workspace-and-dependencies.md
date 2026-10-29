@@ -14,6 +14,14 @@ declared by Cargo metadata. Dependency ceilings and pinned families live in
 
 ## 3. Workspace, crates and library boundaries
 
+> Decision: [ADR-0233](../../adr/0233-rust-owned-host-and-execution-boundaries.md) (proposed;
+> authorized Plan58 remaining B–G target). The first-party target is a callable Rust system;
+> the current `pse-py` crate and Python packaging retire with their final consumers, unused
+> boundary dependencies and Python-only generation. Heavy native developer composition stays
+> under xtask, outside the independent host. An optional future binding has no implementation
+> or compulsory ABI until a named consumer justifies it. The inventory below records current
+> implementation until those integrated cuts land; their scheduled acceptance belongs to Plan58.
+
 The workspace is a Rust core with a thin Python package on top. It uses `pse-*` crate
 names under [ADR-0002](../../adr/0002-project-name-license-and-distribution.md). Crate
 boundaries are part of the architecture: adding or removing a `pse-*` crate needs an ADR

@@ -350,6 +350,16 @@ immutable products make reuse safe while mutable scratch stays private. See
 
 > Decision: [ADR-0083](../../adr/0083-class-specific-native-execution.md)
 
+> Amendment: [ADR-0233](../../adr/0233-rust-owned-host-and-execution-boundaries.md)
+> (proposed; maintainer-authorized Plan58 target, independently assessed in its §13 review).
+
+The retained first-party target is callable Rust authoring, operation execution and protected
+result access. Python is optional; no mandatory foreign ABI, extension crate, packaging or
+generated Python contract follows from this decision. Plan58 removes the remaining `pse-py`
+boundary with its actual consumers. Until those cuts pass their targeted acceptance, the
+paragraph below records the existing boundary rather than completion of the native target.
+Independent Python scientific references remain eligible isolated tools.
+
 Production execution uses class-specific native Rust adapters through one admitted
 lifecycle. Python builds declarations, starts jobs and reads results; it performs no
 mathematics. Pyomo and IDAES are isolated reference tools; there is no production Pyomo or
