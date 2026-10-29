@@ -811,5 +811,10 @@ recorded-source or exact-generation overrides remain valid, conflicting override
 all other inputs/tools/payload/pin and source-built foreign solver checks remain. Targeted native
 provider controls pass; an actual complete prepared profile launches without the old external
 prefix exports. This is the B03/B04 activation slice, not whole B completion or a speed claim.
-Long-hold official-CLI/private-workspace construction and its configuration/provenance controls
-are being integrated separately. Existing stores and old prepared generations remain untouched.
+Long-hold construction now runs the official selected CLI against a private copied workspace
+with the module-owned alternate manifest. The snapshot preserves declared local path dependencies,
+including inactive optional and patch packages, and Cargo configuration lookup; it never rewrites
+the live workspace. Native CLI receipts distinguish the new packaging from historical packer
+receipts. The targeted snapshot/provenance controls and actual qualification constructor pass.
+This establishes construction, not H saturation or scientific campaign acceptance. Existing stores
+and old prepared generations remain untouched.

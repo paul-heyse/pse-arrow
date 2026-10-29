@@ -81,7 +81,7 @@ pub enum Variant {
     Production,
     /// Retained rollback, timeout, memory and trap controls.
     Qualification,
-    /// Retained six-second saturation controls; new construction needs CLI support.
+    /// Separate six-second saturation controls, built from a private workspace snapshot.
     LongHold,
 }
 impl Variant {
@@ -111,14 +111,7 @@ impl Variant {
         }
         exports
     }
-    fn constructible(self) -> Result<(), HostError> {
-        if self == Self::LongHold {
-            return Err(invalid(
-                "long-hold preparation requires an official CLI configuration override; retained long-hold receipts remain selectable; Python repackaging is retired",
-            ));
-        }
-        Ok(())
-    }
+
 }
 
 pub use pse_buildinfo::study_module::{ModuleLimits, StudyModuleRecord};
@@ -358,6 +351,33 @@ fn validate_exports(source: &[u8], variant: Variant) -> Result<(), HostError> {
     Ok(())
 }
 
+fn validate_long_hold_packaging(
+    inputs: &serde_json::Map<String, Value>,
+    sources: &serde_json::Map<String, Value>,
+) -> Result<(), HostError> {
+    let packaging = inputs.get("packaging")
+        .ok_or_else(|| invalid("long-hold provenance absent"))?;
+    let manifest = sources.get(&format!("{CRATE}/surrealism-qualification-long-hold.toml"));
+    let native = packaging["variant"] == "qualification-long-hold-cli-v1";
+    let constructor_valid = if native {
+        packaging.as_object().is_some_and(|fields| fields.len() == 4)
+            && packaging["builder_sha256"] == inputs["builder_sha256"]
+            && packaging["staging"] == "copied-workspace-alternate-manifest-v1"
+            && inputs["preparation"]["kind"] == "rust-cli-staged-v1"
+    } else {
+        packaging.as_object().is_some_and(|fields| fields.len() == 3)
+            && packaging["variant"] == "qualification-long-hold-v1"
+            && packaging["packer_sha256"].as_str().is_some_and(hexadecimal)
+    };
+    if !constructor_valid
+        || !packaging["manifest_sha256"].as_str().is_some_and(hexadecimal)
+        || Some(&packaging["manifest_sha256"]) != manifest
+    {
+        return Err(invalid("long-hold packaging identity differs"));
+    }
+    Ok(())
+}
+
 fn bounded_read(path: &Path, maximum: u64) -> Result<Vec<u8>, HostError> {
     let metadata = fs::symlink_metadata(path)?;
     if !metadata.is_file() || metadata.len() == 0 || metadata.len() > maximum {
@@ -421,24 +441,7 @@ fn validate_receipt(receipt: &StudyModuleReceipt, variant: Variant) -> Result<()
         return Err(invalid("source provenance requires SHA256 identities"));
     }
     if variant == Variant::LongHold {
-        let packaging = receipt
-            .inputs
-            .get("packaging")
-            .ok_or_else(|| invalid("long-hold provenance absent"))?;
-        if packaging.as_object().is_none_or(|fields| fields.len() != 3)
-            || packaging["variant"] != "qualification-long-hold-v1"
-            || !packaging["packer_sha256"].as_str().is_some_and(hexadecimal)
-            || !packaging["manifest_sha256"]
-                .as_str()
-                .is_some_and(hexadecimal)
-            || packaging["manifest_sha256"]
-                != sources
-                    .get(&format!("{CRATE}/surrealism-qualification-long-hold.toml"))
-                    .cloned()
-                    .unwrap_or(Value::Null)
-        {
-            return Err(invalid("long-hold packaging identity differs"));
-        }
+        validate_long_hold_packaging(&receipt.inputs, sources)?;
     }
     exact_path(&receipt.artifact)?;
     let parent = receipt
@@ -757,13 +760,93 @@ fn local_sources(metadata: &Value, root: &Path) -> Result<BTreeMap<String, Strin
     }
     Ok(sources)
 }
+fn declared_path_sources(
+    root: &Path,
+    manifest: &Path,
+    visited: &mut BTreeSet<PathBuf>,
+    sources: &mut BTreeMap<String, String>,
+) -> Result<(), HostError> {
+    if !visited.insert(manifest.to_owned()) {
+        return Ok(());
+    }
+    exact_path(manifest)?;
+    let directory = manifest.parent().ok_or_else(|| invalid("declared manifest parent absent"))?;
+    if !directory.starts_with(root) {
+        return Err(invalid("declared path dependency escaped workspace"));
+    }
+    // The virtual workspace root contains artifacts and independent user state;
+    // only package directories are source trees. Root support files are captured
+    // separately by local_sources().
+    if directory != root {
+        visit(directory, root, sources)?;
+    }
+    let declaration: toml::Value = toml::from_str(&fs::read_to_string(manifest)?).map_err(invalid)?;
+    let mut paths = Vec::new();
+    dependency_paths(&declaration, false, &mut paths);
+    for relative in paths {
+        let mut dependency = directory.to_owned();
+        for part in Path::new(&relative).components() {
+            match part {
+                Component::Normal(name) => {
+                    dependency.push(name);
+                    if fs::symlink_metadata(&dependency)?.file_type().is_symlink() {
+                        return Err(invalid("declared dependency paths must not traverse symlinks"));
+                    }
+                }
+                Component::ParentDir if dependency != root => { dependency.pop(); }
+                Component::CurDir => {}
+                _ => return Err(invalid("declared path dependency escaped workspace")),
+            }
+        }
+        if !dependency.starts_with(root) {
+            return Err(invalid("declared path dependency escaped workspace"));
+        }
+        declared_path_sources(root, &dependency.join("Cargo.toml"), visited, sources)?;
+    }
+    Ok(())
+}
+fn dependency_paths(value: &toml::Value, in_dependencies: bool, paths: &mut Vec<String>) {
+    if let Some(table) = value.as_table() {
+        for (name, value) in table {
+            if in_dependencies && name == "path" {
+                if let Some(path) = value.as_str() {
+                    paths.push(path.to_owned());
+                }
+            } else {
+                let selected = in_dependencies || matches!(name.as_str(),
+                    "dependencies" | "dev-dependencies" | "build-dependencies" | "patch" | "replace");
+                dependency_paths(value, selected, paths);
+            }
+        }
+    }
+}
+
+fn cargo_configuration_directories(root: &Path, env: &Environment) -> BTreeSet<PathBuf> {
+    let cargo_home = env
+        .get(OsStr::new("CARGO_HOME"))
+        .map(PathBuf::from)
+        .or_else(|| {
+            env.get(OsStr::new("HOME"))
+                .map(|home| PathBuf::from(home).join(".cargo"))
+        });
+    let mut config_directories: BTreeSet<PathBuf> = root
+        .join(CRATE)
+        .ancestors()
+        .map(|directory| directory.join(".cargo"))
+        .collect();
+    if let Some(home) = cargo_home {
+        config_directories.insert(home);
+    }
+    config_directories
+}
+
 fn inputs(
     root: &Path,
     server: &PreparedServer,
     variant: Variant,
     env: &Environment,
 ) -> Result<BTreeMap<String, Value>, HostError> {
-    let (declared, _, sdk) = declaration(variant)?;
+    let (declared, _, sdk) = declaration(Variant::Production)?;
     let current: toml::Value = toml::from_str(&fs::read_to_string(
         root.join(CRATE).join("surrealism.toml"),
     )?)
@@ -772,6 +855,14 @@ fn inputs(
         return Err(invalid(
             "host declaration is stale; explicitly rebuild host tools",
         ));
+    }
+    if variant == Variant::LongHold {
+        let alternate: toml::Value = toml::from_str(&fs::read_to_string(
+            root.join(CRATE).join("surrealism-qualification-long-hold.toml"),
+        )?).map_err(invalid)?;
+        if serde_json::to_value(alternate).map_err(invalid)? != declaration(variant)?.0 {
+            return Err(invalid("alternate module declaration is stale; explicitly rebuild host tools"));
+        }
     }
     let cargo = resolve("cargo", env)?;
     let mut arguments = args(&[
@@ -808,7 +899,27 @@ fn inputs(
             "resolved module SDK differs from the exact workspace pin",
         ));
     }
-    let sources = local_sources(&metadata, root)?;
+    let mut sources = local_sources(&metadata, root)?;
+    if variant == Variant::LongHold {
+        // Even inactive optional dependencies and unused patches must remain
+        // discoverable in the unchanged Cargo workspace declaration.
+        let mut staged_packages = BTreeSet::new();
+        declared_path_sources(root, &root.join("Cargo.toml"), &mut staged_packages, &mut sources)?;
+        // Cargo metadata discovers all member manifests and declared targets even
+        // when only the module is built. Preserve their real workspace structure.
+        for package in metadata["packages"].as_array()
+            .ok_or_else(|| invalid("workspace packages absent"))? {
+            if package["source"].is_null() {
+                let manifest = Path::new(package["manifest_path"].as_str()
+                    .ok_or_else(|| invalid("workspace manifest absent"))?);
+                exact_path(manifest)?;
+                if !manifest.starts_with(root) {
+                    return Err(invalid("workspace package escaped copied source root"));
+                }
+                declared_path_sources(root, manifest, &mut staged_packages, &mut sources)?;
+            }
+        }
+    }
     let mut tools = BTreeMap::new();
     for name in ["cargo", "rustc", "tar", "zstd"] {
         let path = resolve(name, env)?;
@@ -856,21 +967,7 @@ fn inputs(
         );
     }
     let mut configuration = BTreeMap::new();
-    let cargo_home = env
-        .get(OsStr::new("CARGO_HOME"))
-        .map(PathBuf::from)
-        .or_else(|| {
-            env.get(OsStr::new("HOME"))
-                .map(|home| PathBuf::from(home).join(".cargo"))
-        });
-    let mut config_directories: BTreeSet<PathBuf> = root
-        .join(CRATE)
-        .ancestors()
-        .map(|directory| directory.join(".cargo"))
-        .collect();
-    if let Some(home) = cargo_home {
-        config_directories.insert(home);
-    }
+    let config_directories = cargo_configuration_directories(root, env);
     for directory in config_directories {
         for name in ["config", "config.toml"] {
             let path = directory.join(name);
@@ -879,6 +976,11 @@ fn inputs(
             } else {
                 None
             };
+            if let Some(hash) = &identity
+                && let Ok(relative) = path.strip_prefix(root)
+            {
+                sources.insert(relative.to_str().ok_or_else(|| invalid("configuration path must be UTF-8"))?.into(), hash.clone());
+            }
             configuration.insert(path, identity);
         }
     }
@@ -893,7 +995,7 @@ fn inputs(
             ))
         })
         .collect::<Result<_, HostError>>()?;
-    Ok(BTreeMap::from([
+    let mut captured = BTreeMap::from([
         ("kind".into(), json!(variant.kind())),
         ("features".into(), json!(variant.features())),
         ("sdk_version".into(), json!(sdk)),
@@ -908,7 +1010,17 @@ fn inputs(
             "preparation".into(),
             json!({"kind":"rust-cli-v1","host_sha256":digest(&host)?,"server_recipe":server.recipe(),"tools":tools,"configuration":configuration,"environment":controls,"command":["module","build","--out","study.surli",CRATE],"archive_validation":"tar-zstd-exact-three-members-v1"}),
         ),
-    ]))
+    ]);
+    if variant == Variant::LongHold {
+        captured.get_mut("preparation").ok_or_else(|| invalid("preparation absent"))?["kind"] = json!("rust-cli-staged-v1");
+        captured.insert("packaging".into(), json!({
+            "variant":"qualification-long-hold-cli-v1",
+            "builder_sha256":captured["builder_sha256"],
+            "manifest_sha256":sources[&format!("{CRATE}/surrealism-qualification-long-hold.toml")],
+            "staging":"copied-workspace-alternate-manifest-v1",
+        }));
+    }
+    Ok(captured)
 }
 fn publish(
     modules: &Path,
@@ -958,13 +1070,83 @@ fn publish(
     }
     select(&receipt.record(), variant)
 }
+fn validate_staged_configuration(
+    root: &Path,
+    stage: &Path,
+    configuration: &Value,
+    env: &Environment,
+) -> Result<(), HostError> {
+    let original = configuration.as_object()
+        .ok_or_else(|| invalid("captured Cargo configuration absent"))?;
+    let mut seen = BTreeSet::new();
+    for directory in cargo_configuration_directories(stage, env) {
+        for name in ["config", "config.toml"] {
+            let path = directory.join(name);
+            if !path.exists() {
+                continue;
+            }
+            let source = match path.strip_prefix(stage) {
+                Ok(relative) => root.join(relative),
+                Err(_) => path.clone(),
+            };
+            let source = source.to_str().ok_or_else(|| invalid("configuration path must be UTF-8"))?;
+            if original.get(source).and_then(Value::as_str) != Some(digest(&path)?.as_str()) {
+                return Err(invalid("staged Cargo configuration differs from captured inputs"));
+            }
+            seen.insert(source.to_owned());
+        }
+    }
+    if original.iter().any(|(path, hash)| !hash.is_null() && !seen.contains(path)) {
+        return Err(invalid("captured Cargo configuration is unavailable in staged workspace"));
+    }
+    Ok(())
+}
+
+fn stage_long_hold_workspace(
+    root: &Path,
+    stage: &Path,
+    sources: &Value,
+    configuration: &Value,
+    env: &Environment,
+) -> Result<(), HostError> {
+    let sources = sources.as_object().ok_or_else(|| invalid("staging sources absent"))?;
+    private_directory(stage)?;
+    for (relative, expected) in sources {
+        let relative = Path::new(relative);
+        if relative.components().any(|part| !matches!(part, Component::Normal(_))) {
+            return Err(invalid("staging source path escapes workspace"));
+        }
+        let original = root.join(relative);
+        exact_path(&original)?;
+        if !fs::symlink_metadata(&original)?.is_file() {
+            return Err(invalid("staging inputs must be regular source files"));
+        }
+        let destination = stage.join(relative);
+        fs::create_dir_all(destination.parent().ok_or_else(|| invalid("staging parent absent"))?)?;
+        fs::copy(&original, &destination)?;
+        if Some(digest(&destination)?.as_str()) != expected.as_str() {
+            return Err(invalid("source changed while copying module workspace"));
+        }
+    }
+    validate_staged_configuration(root, stage, configuration, env)?;
+    let alternate = stage.join(CRATE).join("surrealism-qualification-long-hold.toml");
+    let production = stage.join(CRATE).join("surrealism.toml");
+    // Replace the private inode rather than writing through readonly input modes.
+    fs::remove_file(&production)?;
+    fs::copy(&alternate, &production)?;
+    let config: toml::Value = toml::from_str(&fs::read_to_string(production)?).map_err(invalid)?;
+    if serde_json::to_value(config).map_err(invalid)? != declaration(Variant::LongHold)?.0 {
+        return Err(invalid("effective staged module declaration differs"));
+    }
+    Ok(())
+}
+
 fn prepare_inner(
     root: &Path,
     caller: &Environment,
     tool_root: &Path,
     variant: Variant,
 ) -> Result<StudyModuleReceipt, HostError> {
-    variant.constructible()?;
     exact_path(root)?;
     if !tool_root.is_absolute()
         || tool_root.to_str().is_none_or(|value| value.contains(':'))
@@ -999,11 +1181,18 @@ fn prepare_inner(
     }
     arguments.push("--out".into());
     arguments.push(artifact.clone().into_os_string());
-    arguments.push(root.join(CRATE).into_os_string());
+    let workspace = pending.path().join("workspace");
+    let build_root = if variant == Variant::LongHold {
+        stage_long_hold_workspace(root, &workspace, &before["sources"], &before["preparation"]["configuration"], &env)?;
+        &workspace
+    } else {
+        root
+    };
+    arguments.push(build_root.join(CRATE).into_os_string());
     command(
         &server.executable(),
         &arguments,
-        root,
+        build_root,
         &env,
         2 * 1024 * 1024,
     )?;
@@ -1011,6 +1200,9 @@ fn prepare_inner(
         return Err(invalid(
             "module sources, locked dependencies or tools changed during build",
         ));
+    }
+    if variant == Variant::LongHold {
+        fs::remove_dir_all(&workspace)?;
     }
     archive(&artifact, variant, &resolve("tar", &env)?, root, &env)?;
     let (_, limits, sdk) = declaration(variant)?;
@@ -1033,7 +1225,6 @@ pub async fn prepare(
     tool_root: &Path,
     variant: Variant,
 ) -> Result<StudyModuleReceipt, HostError> {
-    variant.constructible()?;
     let manager = HostManager::connect_user(None).await?;
     let current = manager.current_unit().await?;
     if !manager.native_workload(&current).await? {
@@ -1071,7 +1262,7 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
     {
         writeln!(
             std::io::stdout(),
-            "study-module prepare [--tool-root PATH] [--qualification] | select --receipt PATH [--qualification [--long-hold]]\nPreparation uses the already selected native server CLI; selection never builds or hashes source.\nNew long-hold preparation requires official CLI configuration support. No database is started or changed."
+            "study-module prepare [--tool-root PATH] [--qualification [--long-hold]] | select --receipt PATH [--qualification [--long-hold]]\nPreparation uses the already selected native server CLI; selection never builds or hashes source.\nLong-hold preparation builds an owned source snapshot with its declared alternate configuration. No database is started or changed."
         )?;
         return Ok(0);
     }
@@ -1128,8 +1319,7 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
             variant,
         )?,
         "prepare" if selected_record.is_none() => {
-            variant.constructible()?;
-            let mut root = std::env::current_dir()?;
+                    let mut root = std::env::current_dir()?;
             while !root.join(".config/diagnostic-tools.toml").is_file() {
                 if !root.pop() {
                     return Err(invalid(
@@ -1398,27 +1588,107 @@ mod tests {
     }
 
     #[test]
-    fn study_module_retained_long_hold_identity_is_distinct_and_new_build_refuses() {
+    fn study_module_retained_long_hold_and_native_cli_constructors_remain_distinct() {
         let scratch = tempfile::tempdir().unwrap();
-        let pending = tempfile::tempdir_in(scratch.path()).unwrap();
-        let receipt = fixture_receipt(scratch.path(), pending.path(), Variant::LongHold);
-        publish(scratch.path(), pending.path(), &receipt, Variant::LongHold).unwrap();
-        select(&receipt.record(), Variant::LongHold).unwrap();
-        assert!(select(&receipt.record(), Variant::Qualification).is_err());
-        // The argument guard runs before environment, manager or filesystem preparation.
-        let error = run_cli(&args(&[
-            "prepare",
-            "--qualification",
-            "--long-hold",
-            "--tool-root",
-            "/must-not-be-created",
-        ]))
-        .unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains("official CLI configuration override")
-        );
+        for native in [false, true] {
+            let pending = tempfile::tempdir_in(scratch.path()).unwrap();
+            let mut receipt = fixture_receipt(scratch.path(), pending.path(), Variant::LongHold);
+            if native {
+                receipt.0.inputs.insert("preparation".into(), json!({"kind":"rust-cli-staged-v1"}));
+                receipt.0.inputs.insert("packaging".into(), json!({
+                    "variant":"qualification-long-hold-cli-v1", "builder_sha256":"1".repeat(64),
+                    "manifest_sha256":"2".repeat(64), "staging":"copied-workspace-alternate-manifest-v1"
+                }));
+                receipt.0.artifact = scratch.path().join(input_identity(&receipt.inputs).unwrap()).join("study.surli");
+            }
+            publish(scratch.path(), pending.path(), &receipt, Variant::LongHold).unwrap();
+            select(&receipt.record(), Variant::LongHold).unwrap();
+            assert!(select(&receipt.record(), Variant::Qualification).is_err());
+            let mut forged = receipt.clone();
+            forged.0.inputs.get_mut("packaging").unwrap()["manifest_sha256"] = json!("f".repeat(64));
+            assert!(validate_receipt(&forged, Variant::LongHold).is_err());
+        }
+    }
+
+    #[test]
+    fn study_module_long_hold_staging_preserves_live_source_and_rejects_changed_bytes() {
+        let scratch = tempfile::tempdir().unwrap();
+        let root = scratch.path().join("source");
+        fs::create_dir_all(root.join(CRATE)).unwrap();
+        let original = include_str!("../../pse-study-module/surrealism.toml");
+        let alternate = include_str!("../../pse-study-module/surrealism-qualification-long-hold.toml");
+        fs::write(root.join(CRATE).join("surrealism.toml"), original).unwrap();
+        fs::write(root.join(CRATE).join("surrealism-qualification-long-hold.toml"), alternate).unwrap();
+        fs::write(root.join("Cargo.toml"), "workspace discovery marker").unwrap();
+        fs::create_dir_all(root.join("crates/other/src")).unwrap();
+        fs::write(root.join("crates/other/Cargo.toml"), "member target marker").unwrap();
+        fs::write(root.join("crates/other/src/lib.rs"), "member source marker").unwrap();
+        let mut sources = BTreeMap::new();
+        visit(&root, &root, &mut sources).unwrap();
+        let stage = scratch.path().join("stage");
+        stage_long_hold_workspace(&root, &stage, &json!(sources), &json!({}), &Environment::new()).unwrap();
+        assert_eq!(fs::read_to_string(root.join(CRATE).join("surrealism.toml")).unwrap(), original);
+        assert_eq!(fs::read_to_string(stage.join(CRATE).join("surrealism.toml")).unwrap(), alternate);
+        assert_eq!(fs::read_to_string(stage.join("crates/other/src/lib.rs")).unwrap(), "member source marker");
+        fs::write(stage.join("crates/other/src/lib.rs"), "private change").unwrap();
+        assert_eq!(fs::read_to_string(root.join("crates/other/src/lib.rs")).unwrap(), "member source marker");
+        fs::write(root.join("crates/other/src/lib.rs"), "changed original").unwrap();
+        assert!(stage_long_hold_workspace(&root, &scratch.path().join("rejected"), &json!(sources), &json!({}), &Environment::new()).is_err());
+    }
+
+    #[test]
+    fn study_module_snapshot_includes_unselected_declared_path_dependencies() {
+        let scratch = tempfile::tempdir().unwrap();
+        let root = scratch.path().join("source");
+        for directory in [CRATE, "vendor/optional/src", "vendor/nested/src", "vendor/patched/src"] {
+            fs::create_dir_all(root.join(directory)).unwrap();
+        }
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers=[]\n[workspace.dependencies]\noptional={path='vendor/optional',optional=true}\n[patch.crates-io]\npatched={path='vendor/patched'}\n").unwrap();
+        fs::write(root.join("vendor/optional/Cargo.toml"), "[package]\nname='optional'\nversion='0.1.0'\n[target.'cfg(unix)'.build-dependencies]\nnested={path='../nested'}\n").unwrap();
+        for name in ["nested", "patched"] {
+            fs::write(root.join(format!("vendor/{name}/Cargo.toml")), format!("[package]\nname='{name}'\nversion='0.1.0'\n")).unwrap();
+        }
+        for name in ["optional", "nested", "patched"] {
+            fs::write(root.join(format!("vendor/{name}/src/lib.rs")), "// retained target source").unwrap();
+        }
+        fs::write(root.join(CRATE).join("surrealism.toml"), include_str!("../../pse-study-module/surrealism.toml")).unwrap();
+        fs::write(root.join(CRATE).join("surrealism-qualification-long-hold.toml"), include_str!("../../pse-study-module/surrealism-qualification-long-hold.toml")).unwrap();
+        let mut sources = BTreeMap::new();
+        visit(&root.join(CRATE), &root, &mut sources).unwrap();
+        sources.insert("Cargo.toml".into(), digest(&root.join("Cargo.toml")).unwrap());
+        declared_path_sources(&root, &root.join("Cargo.toml"), &mut BTreeSet::new(), &mut sources).unwrap();
+        let stage = scratch.path().join("stage");
+        stage_long_hold_workspace(&root, &stage, &json!(sources), &json!({}), &Environment::new()).unwrap();
+        for name in ["optional", "nested", "patched"] {
+            assert_eq!(fs::read(stage.join(format!("vendor/{name}/Cargo.toml"))).unwrap(), fs::read(root.join(format!("vendor/{name}/Cargo.toml"))).unwrap());
+            assert!(stage.join(format!("vendor/{name}/src/lib.rs")).is_file());
+        }
+        fs::write(root.join("vendor/optional/Cargo.toml"), "[dependencies]\nescape={path='../../../outside'}\n").unwrap();
+        assert!(declared_path_sources(&root, &root.join("Cargo.toml"), &mut BTreeSet::new(), &mut BTreeMap::new()).is_err());
+    }
+
+    #[test]
+    fn study_module_staged_configuration_preserves_nested_inputs_and_refuses_ancestor_changes() {
+        let scratch = tempfile::tempdir().unwrap();
+        let root = scratch.path().join("source");
+        let stage = scratch.path().join("cache/stage");
+        fs::create_dir_all(root.join("crates/.cargo")).unwrap();
+        fs::create_dir_all(stage.join("crates/.cargo")).unwrap();
+        let relative = "crates/.cargo/config";
+        let contents = "[build]\njobs=32\n";
+        fs::write(root.join(relative), contents).unwrap();
+        fs::write(stage.join(relative), contents).unwrap();
+        let original = json!({(root.join(relative).to_str().unwrap()):digest(&root.join(relative)).unwrap()});
+        validate_staged_configuration(&root, &stage, &original, &Environment::new()).unwrap();
+        fs::write(stage.join(relative), "[build]\njobs=1\n").unwrap();
+        assert!(validate_staged_configuration(&root, &stage, &original, &Environment::new()).is_err());
+        fs::write(stage.join(relative), contents).unwrap();
+        fs::create_dir_all(scratch.path().join("cache/.cargo")).unwrap();
+        fs::write(scratch.path().join("cache/.cargo/config.toml"), "[build]\njobs=2\n").unwrap();
+        assert!(validate_staged_configuration(&root, &stage, &original, &Environment::new()).is_err());
+        fs::remove_file(scratch.path().join("cache/.cargo/config.toml")).unwrap();
+        fs::remove_file(stage.join(relative)).unwrap();
+        assert!(validate_staged_configuration(&root, &stage, &original, &Environment::new()).is_err());
     }
 
     #[test]
