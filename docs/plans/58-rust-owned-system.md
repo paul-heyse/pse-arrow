@@ -389,3 +389,51 @@ campaign/reference/source/result-adapter consumers; H retains the complete matri
 performance and later persistent-production obligations. B/C/D remain paused at their existing
 checkpoints. The comprehensive Clippy request also corrects native immutable-provider staging
 and the Clippy-only graph-option translation; it does not resume unrelated B/C/D production scope.
+
+
+## Remaining B–G execution selection — 2026-10-29
+
+The maintainer authorized all remaining Plan58 scope except 58h, following the detailed
+execution approach at baseline `160441979`. T01/T02, A01–A07, B01 and G02 remain delivered
+prerequisites. Existing B–G package tables continue owning progress; this selection does not
+close them or restart completed native scientific callers.
+
+Execute native host/fixture/tooling foundations, then paired canonical migration/control and
+worker admission/progression, protected data/publication, retained developer consumers and
+final boundary retirement. Independent generation work can proceed alongside those cuts.
+A consumer requires the actual usable capability, not completion of an entire lettered plan.
+Each replacement includes callers, declarations, targeted tests and deletion. The root owns
+shared manifests, generated publication, the Cargo driver, commits and status reconciliation.
+Ordinary work remains uncapped at 32 Cargo jobs and 16 test lanes.
+
+The maintainer selected preserving manifest-driven conformance and paired thermodynamic
+campaigns as callable Rust capabilities. Their Python orchestration retires; a new CLI framework
+is not required. Obsolete Python measurement drivers may retire where needed for G, while
+scientific scenario requirements and existing results remain for H. Replacement measurement
+campaigns, full assembled/reference/feature qualification, performance claims and production
+recovery remain H-owned and are not authorized by this selection.
+
+C01 retains existing Tokio/tokio-util/Futures/Rayon supervision and original native joins;
+no hierarchical shutdown library is selected. D01 retains the bounded Tonic/Hyper native
+client and constrained actor API with one canonical policy. Exact SDK3.3.4 source exposes
+provisional streaming but not the selected cumulative bounds/physical-drain completion contract;
+its gRPC capacity argument is unused. Typed SDK values are not the missing capability.
+These source-backed choices do not establish runtime acceptance.
+
+Native provider activation must separate construction-only external prefix inputs from launch:
+an absent own-prefix override selects the completed immutable snapshot; the exact recorded
+source or selected generation remains accepted, and conflicting explicit overrides refuse.
+All other configuration, tool, payload and pin checks remain. Long-hold module construction
+uses an owned workspace source snapshot and alternate module-owned manifest with the selected
+patched official CLI; production sources are unchanged and new CLI provenance is not represented
+as a historical Python packer. Constructor tests are B scope; saturation campaigns remain H.
+
+The four independent reference candidates already use native exchanges. Remaining actual
+scientific consumer cuts are uncertainty/covariance adoption and research selection/protected
+reopen, not hypothetical remaining parity families. Orphan parity context/support retires with
+its old extension-dependent preflight. Independent oracle drivers remain isolated.
+
+Final product-extension/crate and governance retirement consumes the proposed ADR-0233
+amendment and required scoped design review before code. Conditional RMCP/PyO3 delivery,
+new storage/transport/reactive mechanisms and F06 stay deferred without a concrete trigger.
+There is no data reset or automatic cache/generation collection in this authorization.

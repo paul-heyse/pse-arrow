@@ -47,6 +47,12 @@ workspace Clippy. Remaining F/G consumers and H qualification keep their own own
 paused B/C/D work remains at its closeout checkpoint. The completed A companion remains for
 those live handoff readers.
 
+The maintainer has authorized the [remaining B–G execution](58-rust-owned-system.md#remaining-bg-execution-selection--2026-10-29),
+excluding 58h campaigns. That selection resumes the previously paused work while retaining
+completed native prerequisites and companion-owned progress. Conformance and thermodynamic
+campaign capabilities move to Rust; obsolete Python measurement drivers may retire with their
+scientific scenarios/results retained for H.
+
 Plan57 and its companions are superseded historical evidence, temporarily retained for existing
 ADR, architecture and review readers. Their old package tables are no longer active lifecycle
 scope. No unfinished finding or package transfers automatically. Actual prior passes, failures,

@@ -200,3 +200,27 @@ mutation recheck the original held client reference; successful unref relinquish
 Failed or repeated reconciliation adds no references. Unknown creation retains the original
 intent and client lifetime and never replays launch or reference acquisition. Targeted
 implementation tests cover repeated reconciliation followed by a single release.
+
+
+### Remaining native development and product retirement target — 2026-10-29
+
+**Proposed:** the authorized B–G completion removes `pse-py` after its last real product,
+developer and test consumers migrate or explicitly retire. Remove associated product packaging,
+Python-only generated projections/stubs, registration/currency checks, and unused PyO3-family
+and boundary dependency declarations together. No replacement ABI or dormant compatibility
+facade is required. Isolated independent scientific oracle drivers and third-party tools remain
+eligible; this is not a ban on Python executables.
+
+Useful conformance manifests/reports, paired thermodynamic campaign outcomes, uncertainty and
+research adoption, protected result reads, calculation observation and developer evidence remain
+native capabilities at their existing domain/tooling owners. Heavy development composition stays
+outside the independent host closure. Rust-owned metadata/generation and native fixture construction
+replace first-party Python policy rather than preserving it behind an executable proxy.
+
+Retire obsolete Python measurement drivers under the maintainer's explicit disposition; retain
+scientific scenario requirements and original results for deferred H campaigns. This changes no
+numerical tolerances, native completion witness, persisted-data protection or historical evidence.
+The package owners must establish actual migrated callers and targeted acceptance before deletion.
+Crate/governance and enduring boundary amendments require the scoped design assessment and
+architecture revision before dependent implementation; this proposed text grants no formal ADR
+acceptance and does not claim that retirement is implemented.
