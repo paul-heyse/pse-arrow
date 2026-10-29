@@ -22,7 +22,7 @@ quality = [
 # Frozen numerical oracle releases move only with deliberate reference requalification.
 test = [
   "scipy-stubs==1.18.1.1; python_full_version >= '3.12'",
-  "pyarrow==25.0.1",
+  "pyarrow==26.0.0",
   "numpy==2.5.3; python_full_version >= '3.12'",
   "numpy==2.4.6; python_full_version < '3.12'",
   "scipy==1.18.1; python_full_version >= '3.12'",
@@ -40,7 +40,7 @@ parity = [
 # The frozen thermodynamic bank retains its independently qualified teqp release.
 thermo-reference = [
   { include-group = "test" },
-  "teqp==0.23.1; python_version == '3.12'",
+  "teqp==0.23.2; python_version == '3.12'",
 ]
 dev = [
   { include-group = "quality" },
