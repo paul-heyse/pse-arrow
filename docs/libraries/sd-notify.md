@@ -199,7 +199,7 @@ It returns the watchdog interval if the supervisor has configured one and the PI
 
 The interval is returned as a standard Rust `Duration`; therefore, application-side scheduling can work directly with the supervisor's configured interval rather than duplicating that configuration.
 
-The source also reveals that invalid or missing `WATCHDOG_USEC` values produce `None` rather than an error. An unparseable `WATCHDOG_PID` is treated like an absent PID.
+The source also reveals that invalid or missing `WATCHDOG_USEC` values produce `None` rather than an error. An unparsable `WATCHDOG_PID` is treated like an absent PID.
 
 ### 4.2 Heartbeats and watchdog failure
 

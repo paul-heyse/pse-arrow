@@ -38,12 +38,18 @@ class PreparedKluTests(unittest.TestCase):
             with (
                 self.subTest(requested=requested),
                 patch.object(cache, "cache_root", side_effect=AssertionError("cache")),
-                patch.object(cache, "compiler_env", side_effect=AssertionError("compiler")),
+                patch.object(
+                    cache, "compiler_env", side_effect=AssertionError("compiler")
+                ),
                 patch.object(cache, "solver", side_effect=AssertionError("image")),
-                patch.object(operation, "current", side_effect=AssertionError("timing")),
+                patch.object(
+                    operation, "current", side_effect=AssertionError("timing")
+                ),
                 pytest.raises(ValueError, match="Python KLU preparation is retired"),
             ):
-                operation.environment(requested, {operation.BUILD_TIMING: "must-not-write"})
+                operation.environment(
+                    requested, {operation.BUILD_TIMING: "must-not-write"}
+                )
 
     def test_retired_cli_refuses_before_environment_or_receiver_effects(self) -> None:
         with (

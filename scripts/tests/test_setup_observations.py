@@ -191,5 +191,6 @@ class SetupObservationTests(unittest.TestCase):
                     else:
                         self.assertNotIn("failure_kind", result["report_rows"][0])
 
+
 if __name__ == "__main__":
     unittest.main()

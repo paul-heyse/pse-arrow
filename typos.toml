@@ -51,6 +51,8 @@ extend-ignore-identifiers-re = [
 ]
 
 [default.extend-words]
+importd = "importd" # Exact systemd image-import daemon name.
+localed = "localed" # Exact systemd locale daemon name.
 FND = "FND"         # Plan52 foundation package prefix.
 certifi = "certifi" # Exact Python certificate-bundle package name.
 VAS = "VAS"         # Intentional VAS-CF scientific algorithm identifier.

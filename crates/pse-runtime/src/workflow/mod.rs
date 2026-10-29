@@ -5,11 +5,11 @@
 //! # Database-free local operations
 //!
 //! Build one [`crate::SharedRuntime`] from an explicit resource budget, then bind its
-//! `session_factory` to the shared schema registry and use [`Runtime::from_shared_local`].
-//! Admit physical documents with [`Runtime::physical_from_documents`] and model documents
-//! with [`Runtime::modeling_from_documents`]; both use this caller's validation bindings.
-//! [`ModelingPackage::prepare_operation`] consumes the exact [`OperationSource`] and
-//! [`PreparationSettings`], and [`PreparedOperation::start`] returns a [`RunHandle`].
+//! `session_factory` to the shared schema registry and use [`crate::workflow::Runtime::from_shared_local`].
+//! Admit physical documents with [`crate::workflow::Runtime::physical_from_documents`] and model documents
+//! with [`crate::workflow::Runtime::modeling_from_documents`]; both use this caller's validation bindings.
+//! [`crate::workflow::ModelingPackage::prepare_operation`] consumes the exact [`crate::workflow::OperationSource`] and
+//! [`crate::workflow::PreparationSettings`], and [`crate::workflow::PreparedOperation::start`] returns a [`crate::workflow::RunHandle`].
 //!
 //! A pending `RunHandle::wait` future is only a waiter: dropping it or a passive
 //! observation reader does not request stop while a handle remains. Explicit `cancel`

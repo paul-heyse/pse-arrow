@@ -4,8 +4,9 @@
 # paths and tool paths, and bare tools read the same configuration (`scripts/pse-env --
 # <cmd>` for the environment, `cargo c`/`cargo t` for force-validated checks and tests).
 # Workload recipe lines run through scripts/pse-env: the checkout environment under any
-# inherited shell, with native foreground ownership. Finite/scientific placement
-# remains unavailable until its selected Plan58 owner is implemented.
+# inherited shell, with native foreground ownership. Explicit finite selections retain their
+# owned physical admission; native providers require completed preparation. Plan58 records
+# current acceptance and remaining scientific/reference/timing obligations.
 #
 # Finding a recipe: `just --list --group <tier>`, `just --usage <recipe>` (parameters),
 # `just --show <recipe>` (body), `just --dump --dump-format json` (everything, structured).
@@ -1294,7 +1295,7 @@ python-stubs-check *args:
 # Exhaustive generated annotation checks are explicit, not package import work.
 [group('local')]
 python-contracts-check:
-    scripts/pse-env --native -- {{ py }} scripts/check_python_contracts.py
+    scripts/pse-env -- {{ py }} scripts/check_python_contracts.py
 
 [group('local')]
 [doc('Build the release Python extension with explicit Arrow force validation for measurements')]

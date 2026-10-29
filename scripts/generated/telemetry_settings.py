@@ -21,7 +21,7 @@ class TelemetrySampler(StrEnum):
 
 
 class Settings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Shared Python/Rust host settings. Credentials are never Debug; serialization is private launcher transport."""
+    """Shared native process-host settings. Credentials are never Debug; serialization is private launcher transport."""
 
     #: Process-wide telemetry disable selection.
     disabled: bool
@@ -37,7 +37,7 @@ class Settings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=
     metric_export_interval_ms: Annotated[int, msgspec.Meta(ge=1, le=3600000)]
     #: Resolved metric selection.
     metrics: SignalSettings
-    #: Incarnation shared with the embedding Python host in this actual process.
+    #: Incarnation selected by the launcher and replaced by the actual receiving process.
     process_incarnation: str
     #: Shared process/service attributes; SDK attributes are Rust-owned.
     resource: dict[str, str]
