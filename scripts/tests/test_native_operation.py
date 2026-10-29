@@ -1213,7 +1213,6 @@ class NativeOperationTests(unittest.TestCase):
                 )
             )
 
-
     def test_managed_primary_service_requires_actual_group_and_invocation(self) -> None:
         unit = "pse-surreal-worker-" + "a" * 16 + "-0.service"
         group = "/user.slice/pse-reference-fixture.slice/" + unit

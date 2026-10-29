@@ -219,8 +219,8 @@ decision route and records supported host/API limits. No speed or reliability ga
 ## Execution checkpoint — 2026-10-28
 
 T01/T02 remain established under proposed ADR-0233 and the scoped combined formal review;
-formal ADR status is unchanged. The next selected wave is B02/B03 ordinary foreground ownership
-plus necessary C04/F01/F02/G slices. Its first consumer is database-free: D01/D05 readiness,
+formal ADR status is unchanged. The initial selected wave covered B02/B03 ordinary foreground ownership
+plus necessary C04/F01/F02/G slices. Its first consumer was database-free: D01/D05 readiness,
 optional MCP/PyO3 facades and a broader product CLI are not prerequisites or selected additions.
 
 B01 now publishes `pse-host` and `cargo-pse-correctness` together under one immutable generation,
@@ -251,7 +251,7 @@ StopUnit-if-InvocationID API. Existing units are borrowed read-only.
 The selected path supports configured unbounded ordinary sharing, existing docs environments
 and native cache auto/on/off. It retains common slice ancestry and default task constraints and
 refuses displaced finite/custom CPU/memory/cpuset/task limits. Explicit finite/scientific classes,
-custom placement, provider/native setup, reference/timing admission and store readiness currently
+custom placement, unsupported provider/native profiles, reference/timing admission and store readiness currently
 refuse, with no command launch or Python fallback. Already-known unsupported command/caller
 selections refuse before personal activation. Personal-file-derived selections necessarily follow
 that explicit evaluation. These unfinished modes receive no acceptance credit.
@@ -316,3 +316,117 @@ private TOML diagnostic redaction. Scope-end H remains open.
 Final normal/build dependency-tree inspection of `pse-host` excludes Arrow/DataFusion,
 Symbolica/mathematical runtime, SurrealDB, product schema/codegen and PyO3. The shared telemetry
 contract therefore does not reverse the cold-root dependency direction.
+
+## Explicit compiler/KLU consumer checkpoint — 2026-10-28
+
+The selected follow-on B03/B04 scope is the database-free compiler/KLU profile and existing
+KINSOL Runtime consumer, with necessary F01/F02/C04/G slices. C01/C02, F03 and D readiness
+were not required. This extends the ordinary boundary; it does not close B02–B05 or select
+other solvers, helper images, finite/reference/timing admission or database establishment.
+
+Preparation is explicit: `scripts/pse-env -- scripts/pse-host native prepare --capabilities
+compiler,klu`. It requires authenticated native containment and delegates construction to
+installed CMake and the locked SuiteSparse source. Launch through `--native=compiler,klu`
+only selects a completed artifact; missing, changed or corrupt selections refuse before the
+consumer starts. Help/explanation neither evaluate personal settings nor prepare providers.
+Bare `--native`, other provider sets and custom toolchains remain unsupported.
+
+The operator selected `rust-v1/kinsol` beneath the existing native cache root, immutable
+generations and no automatic collection. Legacy generations are preserved. Recipe identities
+include source, tool bytes, selected flags/options and the effective compiler-cache bridge;
+version-2 completion records validate installed artifacts. Explicit preparation alone discovers
+and hashes source. A per-recipe kernel lock serializes construction, and atomic publication
+selects only a completed sealed generation. Selection preserves unrelated raw environment
+values and can consume its own verified selected environment when commands nest.
+
+The native compiler environment supplies paired SuiteSparse paths and the existing receipt
+contract to bundled SUNDIALS/KINSOL, together with matching Clang/resource/libclang selections.
+It uses the installed sccache client directly and retains the configured full compiler width.
+No Python setup, solver image, database, new crate or compatibility controller was added.
+The Python KLU constructor and CLI option are deleted; old artifact readers remain only for
+their unmigrated owning consumers. `unit-native-capability-package` now passes Cargo/nextest
+arguments directly through the selected native boundary and correctness composer.
+
+### Verification and outcome for the selected compiler/KLU slice
+
+**Implemented:** explicit construction, source-free launch selection, native compiler/cache
+composition and the scoped caller/constructor retirement above. Full package and H qualification
+remain open. The native provider and boundary received an independent source review; that
+review is distinct from test acceptance.
+
+The first live construction completed KLU installation but failed before publication: sealing
+the staged root before a cross-parent rename prevented updating its directory parent entry.
+The correction keeps only that root writable through the move, seals it at its final location,
+then publishes the selection. Corrected preparation succeeds and an explicit repeat selects
+the same immutable generation. A direct preparation call outside native containment refuses
+before setup effects. No legacy generation or canonical database was changed.
+
+**Tested:** private native sccache 0.19.0 C controls establish one miss, one hit, actual compiler
+failure with no object, and valid output after the private cache server's confirmed exit before
+compiler release (`scripts/pse-env -- /bin/sh /tmp/plan58-cache-control.sh`). Four controls pass
+against zero failures; supporting artifacts are retained in the local ignored
+`build/plan58-native-cache-control/`. This is C compilation cache-continuity evidence, not a
+Rust/C++ cache-loss campaign or a measured performance benefit.
+
+**Tested:** `scripts/pse-env -- cargo test --locked -p pse-host --lib native --test native`
+passes 16 controls against zero failures; its ignored lock-holder helper is invoked explicitly
+by the cancellation control, not credited as a separately passing test. The final native
+assembly, `scripts/pse-env -- cargo t -p pse-host --lib --test activation --test bootstrap --test
+boundary --test correctness --test foreground --test native --no-fail-fast`, passes 99 tests
+across seven binaries, zero failures, with that one helper excluded from normal scheduling.
+The native Nextest Cargo-restoration setup also passes. Controls cover missing preparation,
+private explanation, corruption, changed flags, raw values, repeated selection, atomic pointer
+publication and unsupported selections. Independent source review has no remaining material
+findings in this bounded provider/boundary baseline.
+
+Live preparation controls (`/bin/sh /tmp/plan58-native-preparation-controls.sh`) pass three
+scenarios against zero failures: configure exit47 retained by the boundary failure diagnostic
+with no selection published; SIGTERM of the actual gated construction's controller returns143
+and independently witnessed configure PID/cgroup drains with no selection; two concurrent cold
+prepares configure once and select the same completed generation. Supporting local artifacts
+are in `build/plan58-native-preparation-controls/`. These controls use private caches and real
+owned workloads; they do not mutate legacy providers or canonical stores.
+
+The first selected Runtime run passed its preparation-loan cancellation control but failed both
+scientific tests because their helper built a package and execution services on different
+Runtimes. The helper now uses the same Runtime for both, keeping its existing native allowance,
+all scientific assertions and the production binding guard. The corrected direct native run
+passes all three tests against zero failures:
+
+```sh
+scripts/pse-env --native=compiler,klu -- cargo t -p pse-runtime --lib \
+  --features pse-runtime/solver-kinsol \
+  -E 'test(root_response_publication_has_physical_primal_and_no_kkt_fields) | test(root_response_withheld_at_active_bound_keeps_base_solution) | test(cancelled_serial_preparation_keeps_loan_and_storage_until_child_drain)' \
+  --no-fail-fast
+```
+
+This exercises authored square-root solution/physical sensitivity publication, retention of
+the feasible base solution when a bound prevents sensitivity certification, and the existing
+blocking-preparation loan/storage drain control. It is selected local Runtime acceptance, not
+whole-product, canonical-store, all-solver, numerical parity or performance qualification.
+Unselected Nextest inventory entries are filtered scope, not accepted results. Quantitative
+benefits remain unmeasured, and H's joined campaign remains open.
+
+The migrated consumer also passes the same three tests through a nested native boundary:
+
+```sh
+scripts/pse-env --native=compiler,klu -- just unit-native-capability-package \
+  pse-runtime solver-kinsol compiler,klu \
+  'test(root_response_publication_has_physical_primal_and_no_kkt_fields) | test(root_response_withheld_at_active_bound_keeps_base_solution) | test(cancelled_serial_preparation_keeps_loan_and_storage_until_child_drain)'
+```
+
+The recipe already supplies `--no-fail-fast`; an initial invocation duplicated that option
+and was rejected by native Nextest before running tests. Removing the duplicate preserves
+native argument ownership. The successful command above establishes the real migrated caller
+and nested selection, rather than only an equivalent hand-built command. Preparation reuse
+also succeeds after the final host installation. Only the authenticated staging directory from
+the first failed publication was removed after drain; published and legacy generations remain.
+
+The selected compiler/KLU execution wave is complete at this bounded acceptance level.
+`just ready` passes after the dependency integration, and the root's `just turn-end` passes
+ADR-index generation and formatting against zero failures. Final independent manager readback
+has no remaining `pse-host-*` or `pse-foreground-*` units, and the owned test/preparation runs
+have finished. B02–B05 retain their broader fault, placement, provider and service obligations;
+F/C/G retain their other consumers. The next execution choice must select its actual consumer
+and dependencies from those existing owners; no broader campaign or service cutover is started
+by this checkpoint.

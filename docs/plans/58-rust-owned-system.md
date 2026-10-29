@@ -224,9 +224,17 @@ own selected-slice status. Their full packages remain in progress where broader 
 frontend, fixture, developer or retirement obligations remain. No D readiness slice was needed
 for the first consumer, and no database reset or service cutover was performed.
 
-Unsupported finite/scientific/provider/store/reference modes explicitly refuse without a Python
+Unsupported finite/scientific/store/reference modes and provider profiles explicitly refuse without a Python
 fallback. Unmigrated Python helper libraries remain only for their later owning cutovers, not as
 accepted alternate entry points. Python pse-env/Arrow command entry points, native export shims,
 per-compiler watcher and bespoke build-observation/measurement paths have retired. The native
 ordinary consumer transition is concrete; it does not establish all-series or package completion.
 H's broad qualification remains unselected. Shared status stays here and in existing companions.
+
+The follow-on database-free compiler/KLU wave adds explicit native provider preparation and
+selection for the existing KINSOL Runtime consumer, plus the necessary F01/F02/C04 and G
+retirement slices. The [58b compiler/KLU checkpoint](58b-bootstrap-and-host-control.md#explicit-compilerklu-consumer-checkpoint--2026-10-28)
+owns implementation, verification and remaining limits. Preparation is an explicit operation;
+launch never builds a missing provider. The operator selected a Rust-owned subdirectory of the
+existing cache with legacy generations preserved and no automatic collection. Other provider
+profiles, services, finite/reference/timing modes and H qualification remain outside this wave.

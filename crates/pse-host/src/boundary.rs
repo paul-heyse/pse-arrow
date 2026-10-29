@@ -193,8 +193,12 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
             ));
         }
         if options.native {
-            if !options.environment.iter().any(|value| value == "--explain") || options.environment.iter().any(|value| value == "--print") {
-                return Err(invalid("native profile reads require --explain; native shell exports are not supported"));
+            if !options.environment.iter().any(|value| value == "--explain")
+                || options.environment.iter().any(|value| value == "--print")
+            {
+                return Err(invalid(
+                    "native profile reads require --explain; native shell exports are not supported",
+                ));
             }
             let explanation = serde_json::json!({"native_profile":"compiler,klu", "readiness":"not_observed", "personal_selections":"unresolved", "prepare":"scripts/pse-env -- scripts/pse-host native prepare --capabilities compiler,klu"});
             writeln!(std::io::stdout(), "{explanation}")?;

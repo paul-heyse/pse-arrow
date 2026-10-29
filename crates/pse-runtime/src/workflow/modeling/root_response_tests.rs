@@ -711,9 +711,7 @@ async fn solve_with_backend(
         .find(|r| r.name == "Root")
         .ok_or_else(|| std::io::Error::other("Root declaration absent"))?
         .declaration_id;
-    let package = runtime
-        .modeling_package(rows, fixture::physical())
-        .await?;
+    let package = runtime.modeling_package(rows, fixture::physical()).await?;
     let mut solver = fixture::profile();
     solver.intent = SolveIntent::Root;
     solver.selection = SolverSelection::Explicit(backend);

@@ -217,3 +217,15 @@ owns final assembled evidence and remaining fault cases. These host/process cont
 qualify broader runtime blocking-native cancellation/destruction, durable worker roots,
 scientific fixture orchestration or C04/C01–C06 package completion. No canonical service was
 stopped/restarted to supply these fixtures. Existing data and unknown services were preserved.
+
+The follow-on compiler/KLU wave exercises the same host containment with a real interrupted
+CMake construction: controller SIGTERM returns143 and independent PID/cgroup readback confirms
+physical drain before reporting settlement. No generation is selected on that interruption.
+The database-free Runtime selection also passes
+`cancelled_serial_preparation_keeps_loan_and_storage_until_child_drain`, retaining its original
+loan/storage assertions. The two selected KINSOL scientific tests now share one Runtime between
+source admission and execution services; their original binding guard remains intact.
+[58b's compiler/KLU checkpoint](58b-bootstrap-and-host-control.md#explicit-compilerklu-consumer-checkpoint--2026-10-28)
+owns the commands and bounded results. These controls extend the selected C04 handoff evidence;
+they do not complete C01–C06, qualify arbitrary solver cancellation, or select a new Runtime
+root/lifecycle framework.

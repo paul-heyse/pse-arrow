@@ -79,10 +79,18 @@ class RecipeArgumentTests(unittest.TestCase):
                 )
                 self.assertFalse((root / "injected").exists())
 
-    def test_native_capability_units_delegate_literal_arguments_and_status(self) -> None:
+    def test_native_capability_units_delegate_literal_arguments_and_status(
+        self,
+    ) -> None:
         literal = 'test(a space; $HOME `pwd` $(touch injected) "quote")'
-        for expression, expected, status in (("root_response", "test(root_response)", 0), (literal, literal, 7)):
-            with self.subTest(expression=expression), tempfile.TemporaryDirectory() as directory:
+        for expression, expected, status in (
+            ("root_response", "test(root_response)", 0),
+            (literal, literal, 7),
+        ):
+            with (
+                self.subTest(expression=expression),
+                tempfile.TemporaryDirectory() as directory,
+            ):
                 root = Path(directory)
                 environment = self.fixture(root)
                 native = root / "scripts/cargo-bin/cargo-pse-correctness"
@@ -96,14 +104,39 @@ class RecipeArgumentTests(unittest.TestCase):
                 native.chmod(0o700)
                 extra = ["--test-threads", "16", "-p", "other-package"]
                 result = subprocess.run(
-                    ["just", "unit-native-capability-package", "pse-runtime", "pse-runtime/solver-kinsol", "compiler,klu", expression, *extra],
-                    cwd=root, env=environment, capture_output=True, text=True, check=False,
+                    [
+                        "just",
+                        "unit-native-capability-package",
+                        "pse-runtime",
+                        "pse-runtime/solver-kinsol",
+                        "compiler,klu",
+                        expression,
+                        *extra,
+                    ],
+                    cwd=root,
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
                 self.assertEqual(result.returncode, status, result.stderr)
-                self.assertEqual(json.loads((root / "arguments.json").read_text()), [
-                    "nextest", "run", "--no-fail-fast", "-p", "pse-runtime", "--lib", "--locked",
-                    "--features", "pse-runtime/solver-kinsol", "-E", expected, *extra,
-                ])
+                self.assertEqual(
+                    json.loads((root / "arguments.json").read_text()),
+                    [
+                        "nextest",
+                        "run",
+                        "--no-fail-fast",
+                        "-p",
+                        "pse-runtime",
+                        "--lib",
+                        "--locked",
+                        "--features",
+                        "pse-runtime/solver-kinsol",
+                        "-E",
+                        expected,
+                        *extra,
+                    ],
+                )
                 wrappers = (root / "wrapper.txt").read_text().splitlines()
                 self.assertIn("--native=compiler,klu", wrappers)
                 self.assertNotIn("exclusive", wrappers)

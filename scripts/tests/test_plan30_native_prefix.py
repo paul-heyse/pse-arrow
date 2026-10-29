@@ -36,22 +36,50 @@ class PreparedKluTests(unittest.TestCase):
             for entry in (operation.environment, operation._environment):
                 with (
                     self.subTest(requested=requested, entry=entry.__name__),
-                    patch.object(cache, "cache_root", side_effect=AssertionError("cache")),
-                    patch.object(cache, "compiler_env", side_effect=AssertionError("compiler")),
+                    patch.object(
+                        cache, "cache_root", side_effect=AssertionError("cache")
+                    ),
+                    patch.object(
+                        cache, "compiler_env", side_effect=AssertionError("compiler")
+                    ),
                     patch.object(cache, "solver", side_effect=AssertionError("image")),
-                    patch.object(operation, "current", side_effect=AssertionError("timing")),
+                    patch.object(
+                        operation, "current", side_effect=AssertionError("timing")
+                    ),
                 ):
-                    with self.assertRaisesRegex(ValueError, "Python KLU preparation is retired"):
+                    with self.assertRaisesRegex(
+                        ValueError, "Python KLU preparation is retired"
+                    ):
                         entry(requested, {operation.BUILD_TIMING: "must-not-write"})
 
     def test_retired_cli_refuses_before_environment_or_receiver_effects(self) -> None:
         with (
-            patch.object(operation.sys, "argv", ["native_operation", "--capabilities", "solver,klu", "--prepared-environment", "must-not-read", "--", "must-not-run"]),
-            patch.object(build_environment, "configure", side_effect=AssertionError("compiler")),
+            patch.object(
+                operation.sys,
+                "argv",
+                [
+                    "native_operation",
+                    "--capabilities",
+                    "solver,klu",
+                    "--prepared-environment",
+                    "must-not-read",
+                    "--",
+                    "must-not-run",
+                ],
+            ),
+            patch.object(
+                build_environment, "configure", side_effect=AssertionError("compiler")
+            ),
             patch.object(cache, "cache_root", side_effect=AssertionError("cache")),
-            patch.object(operation.receiver_environment, "read", side_effect=AssertionError("receiver")),
+            patch.object(
+                operation.receiver_environment,
+                "read",
+                side_effect=AssertionError("receiver"),
+            ),
         ):
-            with self.assertRaisesRegex(ValueError, "native prepare --capabilities compiler,klu"):
+            with self.assertRaisesRegex(
+                ValueError, "native prepare --capabilities compiler,klu"
+            ):
                 operation.main()
 
     def test_legacy_cache_cli_has_no_klu_constructor(self) -> None:
@@ -64,15 +92,23 @@ class PreparedKluTests(unittest.TestCase):
                 cache.main()
             self.assertEqual(stopped.exception.code, 2)
 
-    def test_prior_managed_admission_returns_truth_without_reobserving_bytes(self) -> None:
+    def test_prior_managed_admission_returns_truth_without_reobserving_bytes(
+        self,
+    ) -> None:
         prior = {"managed": True, "required": list(cache.KLU_FILES)}
         with (
             patch.object(operation, "remembered", return_value=prior),
-            patch.object(cache, "installation_files", side_effect=AssertionError("qualified immutable bytes reobserved")),
+            patch.object(
+                cache,
+                "installation_files",
+                side_effect=AssertionError("qualified immutable bytes reobserved"),
+            ),
         ):
             self.assertTrue(cache.admit_external(self.prefix, cache.KLU_FILES))
 
-    def test_legacy_corrupt_owned_generation_still_refuses_reader_admission(self) -> None:
+    def test_legacy_corrupt_owned_generation_still_refuses_reader_admission(
+        self,
+    ) -> None:
         identity = {"fixture": "klu"}
         owner = cache.identity_location(self.base, "klu", identity)
         prefix = owner / "generations" / ("a" * 32)

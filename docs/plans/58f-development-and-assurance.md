@@ -310,3 +310,12 @@ pass; the host environment-filter run passes 18 tests. Final assembled host evid
 Export delivery, actual cache-service-loss timing, full developer feature parity, candidate/oracle
 migration, codegen/governance retirement and H qualification remain unclaimed. Source changes
 were not accompanied by a broad feature/solver/scientific campaign or performance measurement.
+
+The follow-on selected F01/F02 slice implements explicit compiler/KLU preparation and native selection,
+with `unit-native-capability-package` delegating unchanged filters/features/arguments to the
+native Cargo/nextest owner. No Python capability selector or universal fixture catalogue is
+required by that caller. Native cache C miss/hit/failure and witnessed cache-service loss with
+valid compiler output now have focused live controls; this updates the earlier cache-loss
+evidence limit for C only. [58b's compiler/KLU checkpoint](58b-bootstrap-and-host-control.md#explicit-compilerklu-consumer-checkpoint--2026-10-28)
+owns commands, results and limits. F03, broad runner/report migration and full F/H acceptance
+remain open; this slice did not require registry or fixture generation changes.

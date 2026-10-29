@@ -106,3 +106,13 @@ owner controls, not ported expectations of deleted machinery. The interrupted br
 build-environment test has no acceptance credit; its relevant pure configuration class passes
 15 tests. Live telemetry backend/export acceptance and full frontend retirement are not claimed.
 H owns joined static, scientific and system qualification after the selected functional scope.
+
+The follow-on compiler/KLU slice deletes the Python KLU constructor, construction CLI option
+and provider options; `native_operation` refuses KLU setup/environment requests before effects.
+It moves `unit-native-capability-package` from the Python unit selector to the native
+compiler/KLU boundary and Cargo/nextest composer, retaining its arguments and correctness
+closure. Legacy KLU file/receipt readers remain for unmigrated consumers of historical or
+other provider artifacts; they are not an alternative KLU constructor. Other native providers,
+their helper-image consumers, Python MCP and product frontends retain their existing owners.
+G01/G03 remain in progress. [58b](58b-bootstrap-and-host-control.md#explicit-compilerklu-consumer-checkpoint--2026-10-28)
+owns the selected replacement's verification and limitations.
