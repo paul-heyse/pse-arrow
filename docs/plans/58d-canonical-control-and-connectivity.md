@@ -1,6 +1,6 @@
 ---
 title: "Plan 58d: Canonical execution, schema evolution and connectivity"
-status: draft
+status: in-progress
 date: 2026-10-28
 adrs: []
 review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md, docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md]
@@ -533,3 +533,15 @@ owns the targeted cancellation, worker-death, retained observations and unknown-
 owns process construction and the workstation policy. D01–D05 remain in progress for remaining
 consumers and selected assembled qualification. Work is paused at the maintainer's request;
 no broad persistent-recovery, performance or full-series campaign is running.
+
+
+## Remaining connectivity selection — 2026-10-29
+
+The authorized B–G execution retains bounded Tonic0.14.6/Hyper1.11.1 custody and the
+constrained actor API with one canonical policy. Tagged SDK3.3.4 query/stream source supplies
+native values and provisional StatementEnd semantics but no exposed physical-drain witness;
+its gRPC connect `_capacity` argument is unused. Generic SDK capacity documentation therefore
+cannot replace current admission or cumulative predecode bounds. No new SDK connection wrapper
+or transport is selected. Delete control-only mathematical construction and redundant frontend
+retry/transition decisions with their actual migrated callers. D01–D05 implementation acceptance
+and quiescent migration/worker boundaries retain their existing owners and conditions.

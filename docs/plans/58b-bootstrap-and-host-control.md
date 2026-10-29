@@ -1,6 +1,6 @@
 ---
 title: "Plan58b: Bootstrap and host control"
-status: draft
+status: in-progress
 date: 2026-10-28
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
@@ -800,3 +800,16 @@ legacy library-fixture construction, long-hold packaging and assembled qualifica
 open. No worktree required merging or deletion: only main existed and no conflicts were present.
 Workers concluded; no push is authorized. The source/settings changes do not resize existing
 services or reconstruct existing user data.
+
+
+## Remaining host activation continuation — 2026-10-29
+
+The remaining B–G selection resumes host work without restarting delivered scientific or
+schema-ready prerequisites. External provider activation now separates own-prefix construction
+inputs from launch. A missing old prefix selects the authenticated immutable generation;
+recorded-source or exact-generation overrides remain valid, conflicting overrides refuse, and
+all other inputs/tools/payload/pin and source-built foreign solver checks remain. Targeted native
+provider controls pass; an actual complete prepared profile launches without the old external
+prefix exports. This is the B03/B04 activation slice, not whole B completion or a speed claim.
+Long-hold official-CLI/private-workspace construction and its configuration/provenance controls
+are being integrated separately. Existing stores and old prepared generations remain untouched.

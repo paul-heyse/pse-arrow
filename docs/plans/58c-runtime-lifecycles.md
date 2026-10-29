@@ -1,6 +1,6 @@
 ---
 title: Rust runtime lifecycles
-status: draft
+status: in-progress
 date: 2026-10-28
 adrs: []
 doc_role: plan
@@ -436,3 +436,15 @@ construction and their own execution; these process results do not qualify them.
 provider/server and scientific/PyO3/reference consumers, lazy/cold population breadth, other
 solver classes and assembled H acceptance remain open. Persistent-production recovery,
 performance and capacity benefits are unmeasured/unqualified. No broad run remains active.
+
+
+## Remaining lifecycle selection — 2026-10-29
+
+The authorized remaining B–G execution retains Tokio/tokio-util/Futures/Rayon and original
+native thread/team joins. C01's bounded comparison does not select hierarchical shutdown:
+current flat roots gain no removable coordination owner from that extra hierarchy, and async
+timeout cannot prove foreign blocking completion. CancellationToken signals intent; result-bearing
+work drains JoinSet/Futures completions; TaskTracker close alone does not seal admission.
+Existing shared-flight last-waiter cancellation/join and retained-slot semantics remain.
+C02–C06 still require their remaining actual consumer/integration acceptance; this decision
+neither redoes A's passed callers nor closes those packages. H campaigns remain deferred.

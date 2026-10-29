@@ -1,6 +1,6 @@
 ---
 title: "Plan58f: Development and assurance"
-status: draft
+status: in-progress
 date: 2026-10-28
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
@@ -535,3 +535,16 @@ files retain their behavior; the three oracle changes only factor unreachable er
 The owning plan checkpoints and current-work index now record the requested pause, exact targeted
 results and remaining obligations. No full-workspace hygiene/powerset or performance campaign
 was launched, and no test is intentionally left running.
+
+
+## Remaining developer consumer selection — 2026-10-29
+
+The maintainer selected retaining both manifest-driven conformance and paired thermodynamic
+campaigns as callable Rust capabilities. Native manifest/developer composition stays under
+feature-gated xtask owners, outside the cold host. Python callers retire only after receiving
+native selection/report/source/settings and ownership assertions pass. Four independent-reference
+candidates are already native; orphan parity context/support is not another family to port.
+The remaining actual scientific consumer gaps are covariance/uncertainty adoption and research
+selection/protected reopen/correction, distinct from H measurement campaigns. Native strict
+metadata/Markdown migration proceeds alongside these consumers, using the selected library
+parsers with current admission/legacy rules preserved. Package tables retain acceptance state.

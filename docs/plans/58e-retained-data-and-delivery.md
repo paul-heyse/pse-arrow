@@ -1,6 +1,6 @@
 ---
 title: "Plan 58e: Retained data and delivery"
-status: draft
+status: in-progress
 date: 2026-10-28
 adrs: []
 review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md, docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md]
