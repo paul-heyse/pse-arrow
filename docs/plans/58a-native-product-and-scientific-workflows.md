@@ -596,3 +596,53 @@ controls pass five tests, zero failures, using `scripts/pse-env -- .venv/bin/pyt
 scripts.tests.test_project_operation_projection`. Its missing-document control now targets
 the retained research declaration after the study declaration's deletion. Remaining scientific
 consumer reconciliation, E delivery custody and H qualification stay open.
+
+
+### Native source reload, local studies and diagnostic callers
+
+**Implemented:** the public `native_source_reload` caller uses exact-parent complete document
+inventories, compares all declarations and scientific source identity against independent fresh
+ingress, restores removed documents and preserves both immutable histories. Malformed syntax
+and another parent's delta refuse atomically. Three duplicate Python parsed-reload tests retire;
+the Python method still has separate local/adoption and telemetry acceptance consumers, so this
+cut does not remove it or claim complete source-facade retirement.
+
+**Implemented:** four `native_local_study` callers preserve generated equal inputs as distinct
+occurrences with original keys, admission identity across equivalent bindings, complete physical
+refusal envelopes, unusable predecessor refusal without dispatch, independent successful members,
+lazy selected-source construction, and compact exact/declared-empty detail after producer close.
+They are store-free and use the actual admitted root/equation physical requirements.
+
+**Implemented:** six `native_diagnostics` callers preserve singular/missing-value diagnostics,
+source maps, owned SVD evidence, physically converted sparse samples and bounded partial campaigns,
+affine IIS/ranging/relaxation, shared authored fixture checks/initialization, local nonlinear
+explanation with the original POUNCE attempts, and typed admitted knowledge/provenance. The
+sample receiver owns immutable decoded Arrow input independently of the producer. Existing native
+Jacobian callers retain the separate complete/incomplete degeneracy search. External Python
+mutation hooks retire with their frontend; this does not weaken native physical admission.
+
+**Tested:** using the prepared private-service/module environment above, the correctness selection
+below runs 13 controls: 11 initially pass and two fixture-setup cases fail, with 1647 excluded.
+The affected two then pass, zero failures, using the same flags and selecting only their names
+(run `8f9a28e1-eaa9-4426-bbaa-d889109d1538`). This is composite passing evidence, not a single
+all-pass campaign or H qualification:
+
+```sh
+scripts/pse-env --native=compiler,solver,klu --   scripts/cargo-bin/cargo-pse-correctness nextest run --locked -p pse-runtime   --test native_local_study --test native_source_reload --test native_diagnostics   --test native_repeated_analysis --lib   --features native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-scip,solver-highs,solver-diffsol,solver-pounce   -E 'binary(native_local_study) | binary(native_source_reload) | binary(native_diagnostics) | binary(native_repeated_analysis) | test(project_operator_wire_defaults_effects_and_public_projection_set_remain_owned)'   --no-fail-fast
+```
+
+The diagnostic grid initially assumed bare variable paths; its receiving coordinates now use
+actual prepared source-instance lineage and require unique selected diagnostic columns. The
+two-point design initially allowed 100 work units while the generator requires 160; a finite
+256-unit fixture allowance admits the intended geometry without changing scientific assertions
+or the independent local point-limit refusal. Earlier test compilation also corrected borrowed
+source-map scope and optional diagnostic point values. No scientific tolerance changed.
+
+Independent bounded source review finds no material local-study/reload issues. The previous
+cohort-cut review identified root-level helper autodiscovery: both new support modules now live
+under directories, so only their owning targets include them and the study executable helper
+retains its explicit `product-operators` gate. The post-relocation repeated-analysis and
+retained-action declaration controls pass in the selection above. This correction changes no
+production interface. Diagnostic projection retirement follows this passing native evidence;
+shared F05 settings, campaign admission/handoff types and source/telemetry consumers keep their
+owners. Project draft/source-selection construction is the next A02 native consumer slice.

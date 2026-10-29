@@ -236,3 +236,14 @@ name = "native_design"
 
 [[test]]
 name = "native_conformance"
+
+[[test]]
+name = "native_local_study"
+required-features = ["solver-ipopt"]
+
+[[test]]
+name = "native_source_reload"
+
+[[test]]
+name = "native_diagnostics"
+required-features = ["solver-highs", "solver-ipopt", "solver-pounce"]

@@ -107,6 +107,8 @@ The [public local caller](../../crates/pse-runtime/tests/local_operation.rs) sup
 source admission and independent equation checks. The
 [immutable workspace caller](../../crates/pse-runtime/tests/native_workspace.rs) edits values
 and structure with `SourceDelta`/`with_delta`, then re-solves while retaining the earlier result.
+The [exact-parent reload caller](../../crates/pse-runtime/tests/native_source_reload.rs)
+compares complete document replacement with fresh admission and preserves immutable history.
 Typed failures and partial results retain their original scientific scope. Detaching an
 observer does not cancel its run; actual cancellation and native completion remain separate.
 Specialized dynamics, strategies and host-only shooting use their existing native owners;
@@ -155,6 +157,13 @@ immutable compiler products, never a mutable solver.
 independent immutable views. Limits bound expansion and retained work; raising one does
 not change physical admission or truncate a model. External capabilities are registered
 by the Rust composition root, not constructed from source strings or Python callbacks.
+
+The [native diagnostic caller](../../crates/pse-runtime/tests/native_diagnostics.rs) exercises
+missing starts, physical sample conversion, source attribution, affine evidence, local nonlinear
+explanation, shared authored checks and owned knowledge tables. The
+[store-free local-study caller](../../crates/pse-runtime/tests/native_local_study.rs) preserves
+occurrence identity, dependency refusal without execution, lazy selected source and compact
+detail custody through `LocalStudy::execute`.
 
 ## Dynamics and fitting
 

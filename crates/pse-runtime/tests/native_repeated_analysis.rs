@@ -13,7 +13,7 @@
 )]
 
 #[cfg(feature = "product-operators")]
-#[path = "native_project_views_support.rs"]
+#[path = "native_project_views_support/mod.rs"]
 mod project_views;
 
 use datafusion::{arrow::array::{Array, FixedSizeBinaryArray, Float64Array, Int64Array}, prelude::{SessionContext, col}, logical_expr::JoinType};
