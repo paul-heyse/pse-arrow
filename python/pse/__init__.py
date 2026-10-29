@@ -145,7 +145,6 @@ if TYPE_CHECKING:
         TearSelectionDocument,
         WarmStartSnapshot,
         build_info,
-        host_operation_catalogue,
         registry_table,
     )
     from pse._scientific import (
@@ -287,7 +286,6 @@ __all__ = [
     "WarmStartSnapshot",
     "__version__",
     "build_info",
-    "host_operation_catalogue",
     "registry_table",
 ]
 

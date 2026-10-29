@@ -220,8 +220,10 @@ Dimensions are bounded categories, with invocation/operation identity in selecte
 than metric labels. Histogram boundaries, source epochs, missing observations and collection
 coverage remain explicit. Sampling off does not disable owner metrics.
 
-The single FastMCP endpoint supplies typed bounded trace/log/metric reads, schema guidance,
-configuration/health and original native readers. The backend adapter owns signal-specific field
+The optional Python FastMCP endpoint, global operation catalogue, generated capability CLI and
+frontend sessions are retired under proposed ADR-0233 and Plan58 G02. Direct Rust owners and
+retained passive reports supply selected native operations and evidence routes; an eventual
+agent adapter needs a concrete consumer and its own acceptance. The retained backend adapter owns signal-specific field
 mapping, credentials, reusable asynchronous transport and service-generation fences. Cumulative
 SQL points preserve original start/reset timestamps; rate/increase extrapolate, p95 interpolates
 and threshold fractions require an actual declared bucket. Related exemplars establish pointers,
@@ -249,8 +251,8 @@ nor schedule intervention. Native results remain authoritative. The canonical cl
 request-local W3C context before spawning its performer and carries it across dispatcher and
 transport tasks into authenticated gRPC metadata. Its narrow native-host span selection uses
 the client-owned request target; response/decode lifetime and dispatch uncertainty retain their
-original owners. Python/FastMCP→Rust→client→server→Surrealism is the current propagation route,
-including independently attributed concurrent siblings; historical SDK-route qualification
+original owners. Rust→client→server→Surrealism is the native propagation route;
+historical Python/FastMCP and SDK-route qualification
 retains its original scope in §24.2.
 This continuity remains separate from metric delivery and service identity. Finite capture is retained;
 its bounds, restoration and evidence consumers are not replaced by ordinary export. The selected
@@ -640,50 +642,23 @@ design-change tracking are owned by
 
 ### 24.1 Test layers
 
-Agent tooling's exact concept requests and selected host answers have their own Pydantic owners,
-separate from Rust scientific schemas. Tagged alternatives declare meaningful required fields;
-named answer families distinguish source population completeness, optional detail, unknowns and
-deliberately excluded work. Selection reaches original readers before optional text/detail
-construction where supported. The final encoded-size safeguard refuses intact instead of dropping
-required fields. Generated MCP reference and actual callers consume the same declarations; no
-semantic search, duplicate query authority or retry service is introduced. See the
-[capability interface guide](../../dev/capability-interface.md) for the actual transport wrappers.
+> Decision: [ADR-0233](../../adr/0233-rust-owned-host-and-execution-boundaries.md) (proposed;
+> maintainer-authorized Plan58 native cutover).
 
-One declared invocation lifetime and operation wire supply both MCP and the generated Cyclopts
-consumer. The CLI describes, checks compatibility, selects and invokes on one connection;
-omission/null/empty/false/zero remain distinct and results retain original owner references.
-Offline help/placement diagnosis does not import serving sources. Child launch retains the original
-selected environment. Explicit supported Codex control verifies the Unix peer and loaded checkout
-before queuing the host's global configuration refresh; queued, denied and observed freshness stay
-distinct. No process kill or module hot reload is introduced. Explicit bounded probing is a
-fresh connection, never repair or evidence that a host attachment refreshed. A foreground JSONL
-session enables explicit endpoint edit sequences; it creates no durable-preview, daemon or retry
-contract. Host process loss requires following original custody, not replaying an uncertain effect.
-The existing structural migration reuses shared edit preview/apply/reconcile ownership.
+Native typed operations, protected result readers and passive reports are the retained access
+routes. The Python MCP endpoint, its presentation-only contracts, generated Cyclopts frontend,
+Codex refresh/reconnect helpers and mcpls clients are deleted. Their dedicated tests and generated
+outputs retire with those mechanisms. The [interface guide](../../dev/capability-interface.md)
+names current routes and immutable historical evidence. No replacement server or mandatory CLI
+follows. The existing structural migration retains its source-cut, preview, apply and
+reconciliation owner; ordinary editor and shell workflows supply source navigation.
 
-The maintainer selected ordinary typed operations, original native readers and headless reports.
-Production CodeMode, protocol tasks/Docket, Apps/UI and multi-question evidence batching are
-deferred under [R-55](../../adr/register.md). Revisit requires a concrete consumer that existing
-owners cannot adequately serve; task integration also needs a compatible actual host. A future
-positive selection preserves original provenance, native outcome and cancellation/drain authority
-and requires its own integration/acceptance. Framework availability alone is insufficient.
-
-> Decision: [ADR-0231](../../adr/0231-retained-native-read-currency.md) (proposed; maintainer-selected RC06 target).
-
-**Implemented:** eligible native reads reuse a foreground endpoint-owned worker and actual immutable
-Runtime/physical/model objects under their original authored scientific source, provider,
-artifact generation and deployment context. Both native dispatch routes and the foreground CLI share this owner; standalone calls
-retain a dedicated lifetime. Each request carries its own identity, correlation and original
-optional deadline. Known opaque cursors bind their original native basis and session incarnation;
-changed requests and retired sessions refuse rather than attaching the cursor to a replacement.
-Unknown portable continuations still enter original native admission. Numeric page offsets retain
-their separate meaning. Independent contexts can use sibling workers under existing admission.
-
-Observer cancellation detaches observation while queued or running native work, retained bytes and
-protections stay owned and charged until actual completion. Endpoint EOF settles all owned work;
-retirement physically drains before replacement and retains individual failures. Effectful,
-mutable diagnostic and crash-isolated operations retain dedicated execution. No database transaction
-spans pages, daemon, host CPU partition or persistent compiler product cache follows.
+Rust scientific and canonical declarations retain their existing owners. Original request identity,
+correlation, deadlines, cursor/issuer/selection binding and physical-context rules remain native
+contracts. Observation close is distinct from scientific cancellation, durable completion and
+physical release. Protected result custody survives another reader or publisher closing; native
+and connection owners retain actual settlement and independent cleanup failures. Removing a
+frontend does not qualify remaining native consumers or the broader Python facade retirement.
 
 **Implemented (ADR-0231, maintainer-directed):** ordinary editable dev/native and fixed
 evidence-executable construction publish a completed immutable artifact generation through the
@@ -696,20 +671,14 @@ source edits affect later construction, not the validity of the existing generat
 generation survives mutable installation-alias changes and newer publications until explicit
 replacement drains its owner. Original cursors never attach silently to a replacement.
 
-Each attachment names its checkout and interpreter. Environment/provider lifetime remains with
-its original owner. Serving-code edits require explicit endpoint drain/reload before edited code
-serves requests, including lazy imports; live source scanning does not establish this contract.
-No new ledger or general validation mechanism follows. Source-only discovery never prepares native
-prerequisites. Explicit stages compare their requested mode, profile and validation contract before
-import or stub publication; generic installed capture retains its separate meaning. Foreground CLI
-admission uses its captured loaded-wire contract without serving-source scans. On EOF its explicit
-`capabilities_drain` handshake closes native admission and joins the original native owners before
-transport disconnect. Concurrent close observers join one retained drain; cancellation cannot release
-its charges or admit a successor early. The [Plan56f audit-gap implementation](../../plans/56f-host-agent-and-observability-contracts.md#audit-gap-implementation--2026-10-27)
-records adoption; its closure Outcome records completed actual two-generation native/foreground CLI acceptance.
-Native observation activates only after the helper admits its image and retains the same process
-shutdown owner. Independent endpoint resource owners settle despite sibling teardown failures;
-retained failures and cancellation remain visible after settlement.
+A retained Python extension attachment names its checkout and interpreter. Environment/provider
+lifetime remains with its original owner. Explicit image replacement drains its native owners;
+source edits affect later construction. Source-only discovery never prepares native prerequisites. Explicit stages compare their requested mode, profile and validation contract before
+import or stub publication; generic installed capture retains its separate meaning. The former
+foreground capability CLI and `capabilities_drain` handshake are retired with their endpoint.
+Their historical two-generation qualification remains in §24.2 and the original Plan56 Outcome;
+it is not acceptance of Plan58 replacements. Original native owners still close admission and
+retain resources until actual settlement; observer loss cannot confer release authority.
 
 > Decision: [ADR-0219](../../adr/0219-selected-development-evidence.md) (proposed; maintainer-authorized Plan51d target).
 

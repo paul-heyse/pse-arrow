@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts import semantic_edits as edits
-from scripts import semantic_navigation, structural_migrations
+from scripts import structural_migrations
 
 
 class SemanticEditTests(unittest.TestCase):
@@ -153,7 +153,7 @@ class SemanticEditTests(unittest.TestCase):
         self.assertFalse(state["complete"])
         self.assertEqual(state["basis"][0]["state"], "diverged")
 
-    def test_one_based_utf16_and_non_ascii(self) -> None:
+    def test_zero_based_utf16_and_non_ascii(self) -> None:
         (self.root / "a.py").write_text('s = "😀"; name = 1\n')
         raw = {
             "changes": [
@@ -162,8 +162,8 @@ class SemanticEditTests(unittest.TestCase):
                     "edits": [
                         {
                             "range": {
-                                "start": {"line": 1, "character": 11},
-                                "end": {"line": 1, "character": 15},
+                                "start": {"line": 0, "character": 10},
+                                "end": {"line": 0, "character": 14},
                             },
                             "new_text": "result",
                         }
@@ -174,8 +174,8 @@ class SemanticEditTests(unittest.TestCase):
         selected = edits.preview(
             self.root,
             edits.capture(self.root, ["a.py"]),
-            semantic_navigation.edit_result(raw),
-            producer="mcpls fixture",
+            raw,
+            producer="utf16 fixture",
         )
         self.assertEqual(selected["files"][0]["after"], 's = "😀"; result = 1\n')
 
@@ -212,7 +212,7 @@ class SemanticEditTests(unittest.TestCase):
             )
 
     def test_real_code_action_shape_with_insertion_and_replacement(self) -> None:
-        # Pyrefly extraction returns an insertion and replacement at the same start.
+        # An insertion and replacement may share the same start.
         raw = {
             "changes": [
                 {
@@ -220,15 +220,15 @@ class SemanticEditTests(unittest.TestCase):
                     "edits": [
                         {
                             "range": {
-                                "start": {"line": 1, "character": 1},
-                                "end": {"line": 1, "character": 1},
+                                "start": {"line": 0, "character": 0},
+                                "end": {"line": 0, "character": 0},
                             },
                             "new_text": "# extracted\n",
                         },
                         {
                             "range": {
-                                "start": {"line": 1, "character": 1},
-                                "end": {"line": 1, "character": 5},
+                                "start": {"line": 0, "character": 0},
+                                "end": {"line": 0, "character": 4},
                             },
                             "new_text": "result",
                         },
@@ -239,8 +239,8 @@ class SemanticEditTests(unittest.TestCase):
         selected = edits.preview(
             self.root,
             edits.capture(self.root, ["a.py"]),
-            semantic_navigation.edit_result(raw),
-            producer="mcpls action fixture",
+            raw,
+            producer="insertion fixture",
         )
         self.assertEqual(selected["files"][0]["after"], "# extracted\nresult = 1\n")
         self.assertTrue(edits.apply(selected, self.root / "receipt.json")["complete"])

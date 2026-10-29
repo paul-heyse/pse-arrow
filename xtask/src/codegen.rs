@@ -10,7 +10,6 @@ mod grpc_wire;
 mod private_store;
 
 #[cfg(feature = "product-schemas")]
-mod host_operations;
 #[cfg(feature = "native-abi")]
 mod ipopt;
 #[cfg(feature = "evidence-tools")]
@@ -422,7 +421,6 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
             pse_runtime::tooling::metric_declarations::metric_declarations(),
         )?,
     );
-    host_operations::append(&mut private, &private_documents::documents())?;
     add_python_manifest(&mut private, Path::new(documents::PRIVATE_PYTHON_ROOT))?;
     check_private_python_candidate(&private)?;
     tree.roots.extend(private.roots);
@@ -591,9 +589,6 @@ fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
         // generator must preserve every sidecar on partial regeneration.
         .chain([
             PathBuf::from(provenance::ROOT),
-            // The source-only capability reference has its own Python producer.
-            PathBuf::from("docs/generated/capabilities"),
-            PathBuf::from("scripts/generated/capabilities"),
         ])
         .filter(|candidate| {
             !tree.roots.contains(candidate)
@@ -1258,66 +1253,23 @@ mod tests {
     }
 
     #[test]
-    fn markdown_generation_preserves_capability_reference_owner_and_checks_own_stale_files() {
+    fn generation_prunes_retired_mcp_outputs_from_original_roots() {
         let checkout = tempfile::tempdir().unwrap();
         let scratch = tempfile::tempdir().unwrap();
-        let reference = checkout
-            .path()
-            .join("docs/generated/capabilities/reference.md");
-        fs::create_dir_all(reference.parent().unwrap()).unwrap();
-        fs::write(&reference, b"capability producer bytes\n").unwrap();
-        let mut markdown = GeneratedTree::empty(Language::Markdown.roots());
-        markdown.files.insert(
-            PathBuf::from("docs/generated/enums.md"),
-            b"# Enum reference\n".to_vec(),
-        );
-        write_tree(checkout.path(), &markdown).unwrap();
-        write_tree(scratch.path(), &markdown).unwrap();
-        assert_eq!(
-            fs::read(&reference).unwrap(),
-            b"capability producer bytes\n"
-        );
-        // The nested reference is absent in scratch and may change independently.
-        compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
-        fs::write(&reference, b"updated capability producer bytes\n").unwrap();
-        compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
-        let stale = checkout.path().join("docs/generated/stale.md");
-        fs::write(&stale, b"stale Markdown owner output\n").unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &markdown).is_err());
-        write_tree(checkout.path(), &markdown).unwrap();
-        assert!(!stale.exists());
-        assert_eq!(
-            fs::read(&reference).unwrap(),
-            b"updated capability producer bytes\n"
-        );
-        compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
-    }
-
-    #[test]
-    fn private_contracts_preserve_cli_nested_owner_without_hiding_stale_source() {
-        let checkout = tempfile::tempdir().unwrap();
-        let scratch = tempfile::tempdir().unwrap();
-        let cli = checkout
-            .path()
-            .join("scripts/generated/capabilities/cli.py");
-        fs::create_dir_all(cli.parent().unwrap()).unwrap();
-        fs::write(&cli, b"independent CLI producer\n").unwrap();
-        let mut contracts =
-            GeneratedTree::empty(vec![PathBuf::from(documents::PRIVATE_PYTHON_ROOT)]);
-        contracts.files.insert(
-            PathBuf::from("scripts/generated/fixture.py"),
-            b"contract = 1\n".to_vec(),
-        );
-        write_tree(checkout.path(), &contracts).unwrap();
-        write_tree(scratch.path(), &contracts).unwrap();
-        assert_eq!(fs::read(&cli).unwrap(), b"independent CLI producer\n");
-        compare_tree(checkout.path(), scratch.path(), &contracts).unwrap();
-        let stale = checkout.path().join("scripts/generated/stale.py");
-        fs::write(&stale, b"stale = 1\n").unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &contracts).is_err());
-        write_tree(checkout.path(), &contracts).unwrap();
-        assert!(!stale.exists());
-        assert!(cli.is_file());
+        for (root, retired) in [
+            (PathBuf::from("docs/generated"), "docs/generated/capabilities/reference.md"),
+            (PathBuf::from(documents::PRIVATE_PYTHON_ROOT), "scripts/generated/capabilities/cli.py"),
+        ] {
+            let original = checkout.path().join(retired);
+            fs::create_dir_all(original.parent().unwrap()).unwrap();
+            fs::write(&original, b"retired MCP presentation output\n").unwrap();
+            let tree = GeneratedTree::empty(vec![root]);
+            write_tree(scratch.path(), &tree).unwrap();
+            assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+            write_tree(checkout.path(), &tree).unwrap();
+            assert!(!original.exists());
+            compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
+        }
     }
 
     #[test]

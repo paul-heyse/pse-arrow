@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Explicit finite SDK -> Collector -> OpenObserve -> canonical STDIO acceptance.
+"""Explicit finite SDK -> Collector -> OpenObserve acceptance.
 
 Requires an already running selected service; never installs, starts, interrupts or
 stops it. Fixture stimuli exercise the production host instruments and Views, not
@@ -404,55 +404,6 @@ def environment(state: Path, sampler: str = "always_on") -> dict[str, str]:
     return selected
 
 
-async def mcp_points(
-    state: Path, requests: dict[str, QueryRequest], selected_environment: dict[str, str]
-) -> dict[str, QueryAnswer]:
-    from fastmcp import Client  # noqa: PLC0415
-    from fastmcp.client.transports import StdioTransport  # noqa: PLC0415
-
-    transport = StdioTransport(
-        command=sys.executable,
-        args=["-m", "scripts.capabilities"],
-        cwd=str(ROOT),
-        env=selected_environment,
-        keep_alive=False,
-    )
-    async with Client(transport, timeout=10) as client:
-        await client.call_tool(
-            "capabilities_describe",
-            {"capability": "telemetry_query", "include_schema": True},
-        )
-        selection = await client.call_tool(
-            "capabilities_select", {"capabilities": ["telemetry_query"]}
-        )
-        require(
-            "telemetry_query"
-            in sequence(mapping(selection.structured_content)["callable_tools"]),
-            "operational.mcp_capability_not_selected",
-        )
-        answers = {}
-        for stream, request in requests.items():
-            result = await client.call_tool(
-                "capabilities_invoke_read",
-                {
-                    "capability": "telemetry_query",
-                    "arguments": {
-                        "state": str(state),
-                        "request": request.model_dump(mode="json"),
-                    },
-                },
-            )
-            content = mapping(result.structured_content)
-            while set(content) == {"result"}:
-                content = mapping(content["result"])
-            require(
-                content.get("operation") == "telemetry_query",
-                "operational.mcp_wrong_operation",
-            )
-            answers[stream] = QueryAnswer.model_validate(content["payload"])
-        return answers
-
-
 async def observe_phase(state: Path, output: Path, sampler: str) -> dict[str, object]:
     ready, release = output / f"{sampler}-ready.json", output / f"{sampler}-release"
     command = [
@@ -479,7 +430,6 @@ async def observe_phase(state: Path, output: Path, sampler: str) -> dict[str, ob
         )
         backend = BackendClient()
         answers: dict[str, QueryAnswer] = {}
-        mcp_answers: dict[str, QueryAnswer] = {}
         trace_answer: QueryAnswer | None = None
         try:
             deadline = time.monotonic() + TIMEOUT_SECONDS
@@ -492,7 +442,6 @@ async def observe_phase(state: Path, output: Path, sampler: str) -> dict[str, ob
             produced = mapping(json.loads(ready.read_bytes()))
             validate_sdk(produced)
             starts = validate_sdk(produced)
-            requests = {}
             for stream in STREAMS:
                 while True:
                     request = QueryRequest(
@@ -506,16 +455,13 @@ async def observe_phase(state: Path, output: Path, sampler: str) -> dict[str, ob
                     answer = await backend.query(state, request)
                     if answer.status == "available" and answer.records:
                         validate_points(answer, produced, stream)
-                        answers[stream], requests[stream] = answer, request
+                        answers[stream] = answer
                         break
                     require(
                         time.monotonic() < deadline,
                         "operational.backend_metric_not_visible",
                     )
                     await asyncio.sleep(0.2)
-            mcp_answers = await mcp_points(state, requests, environment(state))
-            for stream, answer in mcp_answers.items():
-                validate_points(answer, produced, stream)
             while True:
                 trace_answer = await backend.query(
                     state,
@@ -546,10 +492,6 @@ async def observe_phase(state: Path, output: Path, sampler: str) -> dict[str, ob
                         name: answer.model_dump(mode="json")
                         for name, answer in answers.items()
                     },
-                    "canonical_mcp": {
-                        name: answer.model_dump(mode="json")
-                        for name, answer in mcp_answers.items()
-                    },
                     "trace": trace_answer.model_dump(mode="json")
                     if trace_answer is not None
                     else None,
@@ -564,15 +506,12 @@ async def observe_phase(state: Path, output: Path, sampler: str) -> dict[str, ob
                 await asyncio.to_thread(process.wait, timeout=5)
         require(process.returncode == 0, "operational.producer_failed")
     final = mapping(json.loads((output / f"{sampler}-stdout.json").read_bytes()))
-    for stream, answer in {**answers, **mcp_answers}.items():
+    for stream, answer in answers.items():
         validate_points(answer, final, stream, exact_timestamps=True)
     return {
         "producer": final,
         "backend": {
             name: answer.model_dump(mode="json") for name, answer in answers.items()
-        },
-        "canonical_mcp": {
-            name: answer.model_dump(mode="json") for name, answer in mcp_answers.items()
         },
         "sampled_trace_observation": trace_answer.model_dump(mode="json")
         if trace_answer is not None
@@ -586,7 +525,7 @@ async def run(state: Path, output: Path) -> int:
         "baseline_failures": 0,
         "status": "running",
         "state": str(state),
-        "scope": "Python production SDK policy, actual existing Collector/OpenObserve and canonical STDIO typed reads",
+        "scope": "Python production SDK policy and actual existing Collector/OpenObserve reads",
         "not_established": [
             "native metric populations or Rust exemplars",
             "rates, increases or quantile estimates",
@@ -638,7 +577,6 @@ async def run(state: Path, output: Path) -> int:
                 "original SDK cumulative start and point timestamps retained",
                 "independent process reset starts and resource incarnations",
                 "filtered invocation IDs absent from SDK/backend dimensions",
-                "canonical STDIO typed reads retain source clocks and backend incarnation",
             ],
         )
     except Exception as error:

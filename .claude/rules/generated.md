@@ -25,7 +25,6 @@ next regeneration silently reverts, and a red `just codegen-check` in the meanti
 | `python/pse/generated/` | Runtime-owned project-operation declarations and typed receiver glue through xtask's existing schema generation |
 | `docs/generated/` | `crates/pse-schema` (`--only docs`) |
 | `scripts/generated/` | Compiled Rust private host contracts through the schema code generator (`--only schemas`) |
-| `scripts/generated/capabilities/` | Source-only schema-derived Cyclopts client (`python -m scripts.capabilities.cli_codegen`); nested owner preserved by Rust schema generation |
 | `crates/pse-ipopt-sys/src/bindings.rs` | bindgen over `IpStdCInterface.h`, run inside the solver container (`--only bindgen`) |
 | `crates/pse-operations/src/generated/` | `crates/pse-schema` canonical relations and indexes (`--only surreal`): native schema, functions and exact codecs |
 | `python/pse/_native.pyi` | `cargo xtask python-stubs` from the compiled extension's PyO3 metadata |

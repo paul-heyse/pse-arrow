@@ -111,10 +111,9 @@ bad-revision predicate. Missing observations never establish assertion reach. Ob
 cleanup failure does not mutate frozen assurance. Restart peers join authentic frozen child
 invocation identities in the same registry and report driver cleanup separately.
 
-The canonical FastMCP surface consumes these operation/result owners through Plan52i–52k.
-Exposure and reveal do not authorize effects, and transport success does not qualify tests.
-Retained native drivers are implementation controls; they do not establish host attachment
-or progressive-reveal qualification.
+Test execution and readout retain their original operation/result owners. A successful
+read does not qualify tests. Retained native drivers establish only the selected controls
+and conditions they actually exercise.
 
 Boundary coverage executes through the installed correctness extension. The disabled
 `pse-py` cdylib Rust harness is not evidence. Active Python tests exercise generated settings,
@@ -302,14 +301,12 @@ Whole-archive inspection explicitly verifies the complete manifest. Historical v
 receipts remain available through explicit original inspection and cannot supply automatic
 unchanged-input reuse under the current policy.
 
-The typed `assessment_read` capability uses this same protected reader. Its answer completeness
-describes the requested read, independently of a gate's workload outcome: a complete selected
-answer can faithfully report a failed gate. Summary-only reads retain exact detail/source
-references and explicitly omit bodies. Selecting one gate acquires its detail before typed
-presentation without opening unrelated gate bodies or the source map. An oversized explicitly
-selected answer refuses rather than truncating native facts; the native full export remains
-available. Reused gates retain their original evidence attribution, with origin protection
-established before consumer publication and held while reading.
+The protected reader's completeness describes the requested read independently of a gate's
+workload outcome: a complete selected answer can faithfully report a failed gate. Summary-only
+reads retain exact detail/source references and explicitly omit bodies. Reused gates retain
+their original evidence attribution, with origin protection established before consumer
+publication and held while reading. The optional MCP answer projection has been retired;
+original assessment records and explicit exports retain their reader semantics.
 
 The assessment lists the focused default-feature selection once. The linked Rust wrapper
 owns its one explicit nextest listing and persists the raw JSON beside binary/link
@@ -422,8 +419,8 @@ own teardown, and historical resource maintenance remains explicit through the e
 
 Aggregate `codegen-check` uses `codegen-all-check` for the Rust-owned outputs: one compiled
 full-codegen invocation checks registry languages, physical fixtures, document schemas and
-header-derived bindings. Independent Python contract, installed compiled-stub and FastMCP
-reference checks remain separate. Independent generation, candidate validation, byte comparison
+retained document/project bindings. Independent Python contract and installed compiled-stub
+checks remain separate. Independent generation, candidate validation, byte comparison
 and tracking failures are reported together; comparison drift does not suppress tracking or
 later targets. Check mode writes only scratch candidates. The focused `codegen-*-check` commands
 remain useful when a smaller owner is changing or the full generator cannot compile. A failed

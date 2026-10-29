@@ -22,7 +22,7 @@ from pydantic import (
 )
 
 from scripts import telemetry_service
-from scripts.capabilities.read_contracts import JSON_RECORD, Contract, OwnerRecord
+from scripts.report_contracts import JSON_RECORD, Contract, OwnerRecord
 from scripts.telemetry_metrics import METRIC_DECLARATIONS
 
 if TYPE_CHECKING:

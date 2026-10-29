@@ -32,7 +32,7 @@ replacement capabilities work. This adds no automatic engine migration or blanke
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | G01 | in progress | 58g | Retained/lost behavior and integrated caller/declaration deletion boundaries classified |
-| G02 | planned | 58g | Python MCP and its bridges removed with retained consumer cutovers |
+| G02 | done | 58g | Python MCP, global catalogue, frontend sessions and generated clients retired; joined native consumer qualification remains with B/C/D/H |
 | G03 | in progress | 58g | Required Python product projections and operating dependencies retired with their declarations and consumers |
 | G04 | planned | 58g | Future optional binding seam defined; unnecessary ABI/catalogue/frontends explicitly unselected |
 
@@ -150,3 +150,36 @@ thread-offload adapter or second Python wait coordinator replaces the removed br
 Compiled metadata regenerates the changed stub through the existing owner.
 [58a's local checkpoint](58a-native-product-and-scientific-workflows.md#native-local-operation-checkpoint--2026-10-28)
 owns results and remaining qualification; G01/G03 remain in progress.
+
+## Python MCP retirement checkpoint — 2026-10-29
+
+The Python FastMCP server, fixed capability/native-read workers, retained frontend sessions,
+generic invokers, generated capability CLI, Codex attachment/reconnect helpers and mcpls
+presentation clients are deleted with their dedicated tests. Their recipes, validation
+declarations, dependencies and agent settings are reconciled. The global Runtime operation
+catalogue, worker-family/eligibility/envelope projections and PyO3 catalogue exposure are removed;
+the retained project-operation declaration owns its still-consumed effect facts directly.
+No Rust dispatch catalogue, replacement MCP server or compatibility invoker was introduced.
+
+Passive telemetry/evidence/report readers retain their real schema and report owners without
+importing endpoint code. Structural migration retains its original preview/apply/reconcile
+mechanism. Schema generation prunes retired MCP outputs through its owner; the obsolete
+Python rendering dependency is removed from the lockfile without upgrading other packages.
+The current architecture and interface guide now describe the retirement, preserving historical
+MCP qualification as original evidence. The installed Codex CLI confirms that `pse-capabilities`
+is no longer configured; an already-running session can retain its earlier attachment snapshot.
+
+**Tested:** the retained pure-tooling selection passes 128 controls against zero failures.
+After refreshing the selected force-validated development extension, `scripts/pse-env --
+.venv/bin/python -m unittest scripts.tests.test_telemetry_reads
+scripts.tests.test_telemetry_process` passes all 31 controls against zero failures; this resolves
+the earlier stale native-extension import error. An initial pytest invocation stopped before
+collection on a foreign-owned temporary root and supplies no test evidence. The stdlib unittest
+route is the owner for these controls; no foreign temporary directory was changed.
+`just py-extension-prepare dev` and `just py-stubs-prepare dev` complete successfully; compiled
+metadata no longer exports the catalogue. Full `just codegen` publishes all ten schema targets.
+
+G02's functional retirement is complete. G01/G03, the still-used scientific Python/PyO3 facade,
+parity candidate isolation and remaining host/runtime/control consumers are separate open work.
+These focused results do not establish assembled B/C/D/H or live exporter acceptance, and no
+performance benefit is measured. Formal ADR statuses remain unchanged.

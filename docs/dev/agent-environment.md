@@ -219,18 +219,13 @@ parse Cargo dep-info or logs, hash the image again or fence its metadata on ever
 unrelated builds and source edits do not invalidate the issued generation. Supported local images
 load from their published immutable path. A retained worker keeps that generation until explicit
 drain/replacement; new publication does not silently replace an existing import or cursor owner.
-Native provider resources retain their original lifetimes. Serving-code edits require draining
-and reloading affected endpoints before edited code serves operations, including lazy imports.
-There is no source watcher or secondary freshness ledger establishing that editing contract.
-
-Capability requirements distinguish the installed correctness extension from explicit native
-correctness. The installed receipt supplies omitted mode/profile selections; it never defaults an
-unknown installation to dev or discards a native installation's provider requirements. Prepare the
-chosen mode explicitly, then restart/reattach after replacement. Eligible endpoint reads retain
-actual native objects only within their original immutable source/context/image premises. EOF and
-endpoint teardown settle admitted work and close those owners; observer cancellation alone does
-not release them. See the [capability guide](capability-interface.md#native-schemas-actions-and-protected-reads)
-for cursor and lifetime limits.
+Native provider resources retain their original lifetimes. The installed receipt supplies
+omitted mode/profile selections; it never defaults an unknown installation to dev or discards
+a native installation's provider requirements. Prepare the chosen mode explicitly, then start
+a new process to consume the replacement generation. Scientific requests and operation handles
+retain their native admission, cancellation and explicit drain requirements. The retired Python
+MCP frontend adds no import eligibility or source-currency mirror; see the
+[native tool guide](capability-interface.md#native-schemas-actions-and-protected-reads).
 
 ## Worktrees
 
@@ -523,31 +518,20 @@ deliberately with `just --yes <recipe>`.
 
 ## Runtime capabilities
 
-### Canonical capability entry point
+### Native operations and optional presentation
 
-`just capabilities` launches this checkout's fixed, source-only FastMCP STDIO entry point without
-workload admission or startup preparation. Each attachment owns a process. Follow the
-[capability interface guide](capability-interface.md) for connection configuration, exact
-browse/describe/select/reset, progressive instructions and same-endpoint read/action invocation
-for hosts retaining a static callable inventory. Trusted-project Codex startup loads the checked-in
-`.codex/config.toml` attachment through `just --quiet capabilities`, including from checkout
-subdirectories; restart the client/MCP connection after configuration changes and inspect `/mcp`.
-`just codex-session` supplies explicit selected-service/language overrides to the same attachment
-and demand-driven internal resources. Native tool routes remain available;
-effectful operation admission, source protection and terminal/drain truth retain their native owners.
-Scientific reads require an explicitly prepared compatible extension/import environment, as the
-interface guide describes; browsing performs no such preparation. Restart for relevant
-serving code/instruction changes. This exception accepts no arbitrary executable or command.
+Use direct native APIs and the existing command recipes described in the
+[native tool guide](capability-interface.md). The optional Python MCP endpoint, generated
+capability CLI, retained frontend sessions and selected-session/reconnect launch helpers are
+retired. The checked-in Codex configuration contains no required repository Python MCP
+attachment. Ordinary editor/shell workflows supply source editing and navigation; existing
+structural migrations retain their own controlled application contract.
 
-Use `capability_readiness` for one binding's passive declarations/recorded preparation, and
-`capability_readiness_check` only for explicitly selected live prerequisites. Import checks
-observe the fixed checkout interpreter in the endpoint's inherited provider environment; they
-do not prepare native providers. A prepared artifact can therefore coexist with an incompatible
-import. The explicit `python_extension_dev_stage`/`python_extension_native_stage` tools consume
-the existing environment, prepare, stubs, stubs-check and admit stages separately. Native stage
-preparation happens in its child; it does not change the already-running endpoint's environment.
-Reattach from the prepared native environment before native reads that require it. Foreground
-progress is optional observation; authentic invocation readers retain result and drain authority.
+This retirement grants no execution or service authority. Prepared executables, native
+requests, performing handles and original manager/kernel containment retain their actual
+owners. Source-only help and passive reads do not prepare an executable or start a database.
+Other Python operator adapters and scientific/reference environments retain their own
+remaining Plan58 migration and qualification scope.
 
 ### Focused command and source context
 
@@ -715,14 +699,12 @@ Name prefixes do not select arbitrary inner spans or tracing events. Explicit fi
 capture retains its own broader inner-event contract; this ordinary-export filter does not
 change that capture's scope.
 
-The repository Codex attachment forwards names of supported `OTEL_*`, `PSE_TELEMETRY_STATE`
-and `XDG_STATE_HOME` settings through its checked-in `env_vars` allowlist. It stores no secret
-values. Restart an existing attachment to change its process-owned telemetry selection.
-The canonical FastMCP endpoint exposes configuration, health, typed queries, copied offline
-investigations, explicit native capture escalation and native alert controls through the
-[capability guide](capability-interface.md#typed-telemetry-investigations). Configuration and local
-producer health belong to the calling MCP process; target process observations use the original
-native diagnostic readers. Passive reads start no services.
+Native processes inherit their explicitly selected `OTEL_*`, `PSE_TELEMETRY_STATE` and
+`XDG_STATE_HOME` settings through their existing environment owner. Process-owned telemetry
+selection does not change because a later shell or editor changes its environment. Passive
+configuration/health readers and copied telemetry reports remain directly callable through
+the [native tool guide](capability-interface.md#typed-telemetry-investigations); they start no
+service and infer no target process identity from the calling process's own health.
 
 Owner-issued operational metrics remain independent of span sampling. Native checkpoint6
 retains supervisor admission/dispatch/join populations, overlapping frontier/basis acquisition,
@@ -754,11 +736,10 @@ configuration/incarnation and local delivery separately; disabled, missing-data,
 unsupported observations are not successful evaluations. Backend-down diagnosis remains with
 `health`. No MCP polling scheduler, external notification or automatic remediation is installed.
 
-Focused actual SDK→Collector→OpenObserve→canonical STDIO acceptance covers selected populations,
-estimators, Python related examples and investigation readers; it does not establish all
-cross-language propagation, assembled agent workflows or whole-series qualification. Those
-remaining obligations retain their [52g](../plans/52g-agent-and-operator-workflows.md) and
-[52h](../plans/52h-qualification-and-publication.md) owners.
+Historical SDK→Collector→OpenObserve→STDIO acceptance retains its original conditions in the
+[retired interface assessment](capability-interface.md#historical-interface-evidence). It does
+not qualify the native replacement, all cross-language propagation or whole-series behavior.
+Current acceptance and remaining scope belong to [Plan58](../plans/58-rust-owned-system.md).
 
 ### Project and evidence commands
 

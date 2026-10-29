@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, JsonValue
 
-from scripts.capabilities.read_contracts import (
+from scripts.report_contracts import (
     Contract,
     OwnerReference,
     ReaderSuggestion,

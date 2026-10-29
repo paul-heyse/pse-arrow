@@ -794,14 +794,6 @@ impl crate::documents::DocumentType for pse_model::strategy::NumericalStrategyDo
     const VERSION: Option<u32> = Some(4);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
-impl crate::documents::DocumentType
-for pse_runtime::host_operations::OperationCatalogue {
-    const INPUT_NAME: &'static str = "OperationCatalogue";
-    const OUTPUT_NAME: &'static str = "OperationCatalogue";
-    const DISTINCT_DIRECTIONS: bool = false;
-    const VERSION: Option<u32> = None;
-    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
-}
 impl crate::documents::DocumentType for pse_diagnostics::observation::OperationId {
     const INPUT_NAME: &'static str = "OperationId";
     const OUTPUT_NAME: &'static str = "OperationId";

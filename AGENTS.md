@@ -113,9 +113,6 @@ carry force-validation. Workload recipes run through `scripts/pse-env`; the fixe
 `just activity` observer runs directly so unavailable workload admission or compiler setup
 remains diagnosable. These exceptions accept observer options or the fixed capability server,
 never an arbitrary command.
-`just capabilities` similarly serves the source-only FastMCP read/control interface without
-lifetime workload admission; see the [interface guide](docs/dev/capability-interface.md).
-Effectful bindings retain their native environment/admission owners.
 Direnv and Claude
 sessions load the same environment, and Codex commands prefix `scripts/pse-env --`.
 

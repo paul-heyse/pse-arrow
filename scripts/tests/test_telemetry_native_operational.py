@@ -9,12 +9,12 @@ from __future__ import annotations
 import unittest
 from typing import TYPE_CHECKING
 
-from scripts.capabilities.read_contracts import OwnerRecord
+from scripts.report_contracts import OwnerRecord
 from scripts.telemetry_investigation import QueryAnswer, QueryRequest, QuerySource
 from scripts.tests.telemetry_native_operational_acceptance import compare_points
 
 if TYPE_CHECKING:
-    from scripts.capabilities.read_contracts import JsonValue
+    from scripts.report_contracts import JsonValue
 
 
 class NativePopulationComparisonTests(unittest.TestCase):

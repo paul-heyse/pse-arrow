@@ -48,7 +48,6 @@ from pse._build import (
 from pse._build import (
     native_version as native_version,
 )
-from pse._host_operations import host_operation_catalogue as host_operation_catalogue
 from pse._inspection import TableStream as TableStream
 from pse._inspection import registry_table as registry_table
 from pse._modeling import (

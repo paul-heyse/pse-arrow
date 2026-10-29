@@ -26,7 +26,6 @@ use pyo3::prelude::*;
 mod diagnostics;
 mod documents;
 mod enums;
-mod host_operations;
 mod identities;
 mod inspection;
 mod telemetry;
@@ -112,7 +111,6 @@ mod _native {
             diagnostic_render_analysis, diagnostic_review_arrow, diagnostic_review_pack,
         },
         documents::check_document_header,
-        host_operations::host_operation_catalogue,
         identities::{
             content_hash_from_prefixed, content_hash_to_prefixed, semantic_id_from_hex,
             semantic_id_to_hex,

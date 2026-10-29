@@ -1818,18 +1818,6 @@
       "wire": "FlatV1"
     },
     {
-      "direction": "output",
-      "exported_name": "OperationCatalogue",
-      "name": "OperationCatalogue",
-      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
-      "rust_type": "pse_runtime :: host_operations :: OperationCatalogue",
-      "schema_path": "docs/generated/schema/host-operation-catalogue.output.schema.json",
-      "schema_sha256": "2a9c98744ea0482b9d0c6a0699b7864443ee886daebce84db620e626d6da4e5e",
-      "slug": "host-operation-catalogue",
-      "version": null,
-      "wire": "Native"
-    },
-    {
       "direction": "input",
       "exported_name": "IdasSettings",
       "name": "IdasSettings",
@@ -5958,6 +5946,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:ebce70362c331b341ee8d5f08250fcea7f7537e880952dbf1860f035d8cfbe20",
+  "schema_set_fingerprint": "blake3:bcdb11d607855873750bb5ac722d5733daa26156719c83925868189ef8eb807b",
   "version": 1
 }

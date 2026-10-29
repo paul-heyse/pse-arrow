@@ -13,55 +13,7 @@ enabled = true
 default_subagent_model = "gpt-6.1-sol"
 default_subagent_reasoning_effort = "high"
 
-# Ordinary Codex startup discovers this checkout's existing fixed STDIO recipe.
-# Just finds the nearest justfile even when Codex starts in a checkout subdirectory;
-# the recipe selects that checkout's absolute .venv interpreter and repository cwd.
-[mcp_servers.pse-capabilities]
-command = "just"
-args = ["--quiet", "capabilities"]
-# Names only: selected launch configuration is forwarded without storing credential values.
-env_vars = [
-  "PSE_TELEMETRY_STATE",
-  "XDG_STATE_HOME",
-  "OTEL_SDK_DISABLED",
-  "OTEL_SERVICE_NAME",
-  "OTEL_RESOURCE_ATTRIBUTES",
-  "OTEL_EXPORTER_OTLP_ENDPOINT",
-  "OTEL_EXPORTER_OTLP_PROTOCOL",
-  "OTEL_EXPORTER_OTLP_HEADERS",
-  "OTEL_EXPORTER_OTLP_TIMEOUT",
-  "OTEL_TRACES_SAMPLER",
-  "OTEL_TRACES_SAMPLER_ARG",
-  "OTEL_BSP_MAX_QUEUE_SIZE",
-  "OTEL_BSP_MAX_EXPORT_BATCH_SIZE",
-  "OTEL_BSP_SCHEDULE_DELAY",
-  "OTEL_BSP_EXPORT_TIMEOUT",
-  "OTEL_METRIC_EXPORT_INTERVAL",
-  "OTEL_TRACES_EXPORTER",
-  "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
-  "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
-  "OTEL_EXPORTER_OTLP_TRACES_HEADERS",
-  "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT",
-  "OTEL_LOGS_EXPORTER",
-  "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
-  "OTEL_EXPORTER_OTLP_LOGS_PROTOCOL",
-  "OTEL_EXPORTER_OTLP_LOGS_HEADERS",
-  "OTEL_EXPORTER_OTLP_LOGS_TIMEOUT",
-  "OTEL_METRICS_EXPORTER",
-  "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
-  "OTEL_EXPORTER_OTLP_METRICS_PROTOCOL",
-  "OTEL_EXPORTER_OTLP_METRICS_HEADERS",
-  "OTEL_EXPORTER_OTLP_METRICS_TIMEOUT",
-]
-enabled = true
-required = true
-startup_timeout_sec = 30
-# Explicit native actions can include cold compilation; native owners retain drain.
-tool_timeout_sec = 1800
-
-# This workstation inherits a standalone Rust attachment. Keep it disabled here:
-# the canonical endpoint owns lazy language access. A complete fallback transport
-# avoids an invalid transportless entry on a host without that inherited setting.
+# Preserve the explicit workstation override for the standalone Rust attachment.
 [mcp_servers.rust-analyzer]
 command = "rust-analyzer-mcp"
 enabled = false

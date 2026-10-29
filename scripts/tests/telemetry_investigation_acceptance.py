@@ -11,33 +11,26 @@ records with independent source cuts, not claims about actual live backend work.
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
-import os
 import shutil
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
 from scripts import telemetry_selection, telemetry_service
-from scripts.capabilities.read_contracts import OwnerRecord
+from scripts.report_contracts import OwnerRecord
 from scripts.telemetry_investigation import (
     BackendClient,
     QueryAnswer,
     QueryRequest,
     QuerySource,
 )
-from scripts.telemetry_selection import SelectionPage, SelectionReference
 from scripts.tests.telemetry_pipeline_acceptance import mapping, records, require
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from fastmcp import Client
-    from fastmcp.client.client import CallToolResult
 
-ROOT = Path(__file__).resolve().parents[2]
 MAXIMUM_BYTES = 8 << 20
 
 
@@ -274,114 +267,11 @@ def offline(output: Path, answers: list[QueryAnswer]) -> dict[str, object]:
     }
 
 
-def content(result: CallToolResult) -> dict[str, object]:
-    value = mapping(result.structured_content)
-    while set(value) == {"result"}:
-        value = mapping(value["result"])
-    return value
+def capture_cases(output: Path, target: dict[str, object]) -> dict[str, object]:
+    from pse import codec, diagnostics  # noqa: PLC0415 -- explicit native control
+    from pse.contracts import documents  # noqa: PLC0415
 
-
-async def invoke(
-    client: Client, name: str, arguments: dict[str, object], *, action: bool = False
-) -> dict[str, object]:
-    await client.call_tool(
-        "capabilities_describe", {"capability": name, "include_schema": True}
-    )
-    await client.call_tool("capabilities_select", {"capabilities": [name]})
-    return content(
-        await client.call_tool(
-            "capabilities_invoke_action" if action else "capabilities_invoke_read",
-            {"capability": name, "arguments": arguments},
-        )
-    )
-
-
-def selected_page(value: dict[str, object]) -> SelectionPage:
-    return SelectionPage.model_validate(value["payload"])
-
-
-async def stdio(
-    output: Path,
-    answers: list[QueryAnswer],
-    target: dict[str, object],
-    evidence: dict[str, object],
-) -> dict[str, object]:
-    from fastmcp import Client  # noqa: PLC0415
-    from fastmcp.client.transports import StdioTransport  # noqa: PLC0415
-    from mcp_types import TextContent, TextResourceContents  # noqa: PLC0415
-
-    environment = {**os.environ, "OTEL_SDK_DISABLED": "true"}
-    transport = StdioTransport(
-        command=sys.executable,
-        args=["-m", "scripts.capabilities"],
-        cwd=str(ROOT),
-        env=environment,
-        keep_alive=False,
-    )
-    async with Client(transport, timeout=30) as client:
-        exported = await invoke(
-            client,
-            "telemetry_investigation_export",
-            {
-                "destination": str(output / "stdio-copied"),
-                "question": "Which original observations can a later connection read?",
-                "selections": [answer.model_dump(mode="json") for answer in answers],
-                "maximum_output_bytes": MAXIMUM_BYTES,
-            },
-            action=True,
-        )
-        reference = SelectionReference.model_validate(exported)
-        arguments: dict[str, object] = {
-            "reference": reference.model_dump(mode="json"),
-            "selection": 0,
-            "limit": 2,
-        }
-        fixed = selected_page(
-            await invoke(client, "telemetry_selection_read", arguments)
-        )
-        direct = selected_page(
-            content(await client.call_tool("telemetry_selection_read", arguments))
-        )
-        require(
-            fixed == direct and [row["fixture_row"] for row in fixed.records] == [0, 1],
-            "investigation.fixed_and_direct_reads_differ",
-        )
-        uri = f"pse://telemetry/selection/{telemetry_selection.resource_reference(reference)}/0/2"
-        resource = (await client.read_resource(uri))[0]
-        if not isinstance(resource, TextResourceContents):
-            raise TypeError("investigation.resource_not_json_text")
-        direct_resource = selected_page(mapping(json.loads(resource.text)))
-        projection = await client.call_tool("read_resource", {"uri": uri})
-        projected = projection.content[0]
-        if not isinstance(projected, TextContent):
-            raise TypeError("investigation.projection_not_json_text")
-        projected_resource = selected_page(mapping(json.loads(projected.text)))
-        require(
-            direct_resource == fixed and projected_resource == fixed,
-            "investigation.resource_projections_changed_source",
-        )
-        captures: dict[str, object] = {}
-        evidence.update(
-            {
-                "reference": reference.model_dump(mode="json"),
-                "direct": direct.model_dump(mode="json"),
-                "fixed_invoker": fixed.model_dump(mode="json"),
-                "resource": direct_resource.model_dump(mode="json"),
-                "projected_resource": projected_resource.model_dump(mode="json"),
-                "capture": captures,
-            }
-        )
-        await capture_cases(client, output, target, answers[0], captures)
-        return evidence
-
-
-async def capture_cases(
-    client: Client,
-    output: Path,
-    target: dict[str, object],
-    suspect: QueryAnswer,
-    evidence: dict[str, object],
-) -> dict[str, object]:
+    expected = codec.decode_json(json.dumps(target["expected"]), documents.CheckpointIdentity)
     request = {
         "version": 1,
         "checkpoint": target["checkpoint"],
@@ -391,87 +281,47 @@ async def capture_cases(
         "duration": {"secs": 0, "nanos": 50_000_000},
         "budget": {"memory_bytes": 4 << 20, "output_bytes": MAXIMUM_BYTES},
     }
-    supplied = {
-        "request": request,
-        "expected": target["expected"],
-        "suspect": suspect.model_dump(mode="json"),
-    }
-    timeline = mapping(
-        (await invoke(client, "telemetry_profile_capture", supplied, action=True))[
-            "payload"
-        ]
-    )
-    evidence["timeline"] = timeline
+    diagnostics.read_checkpoint(Path(str(target["checkpoint"])), expected=expected)
+    with diagnostics.capture(codec.decode_json(json.dumps(request), documents.CaptureRequest)) as session:
+        document = session.wait()
+    timeline = mapping(codec.document_builtins(document))
     require(
-        timeline.get("outcome") == "observed", "investigation.timeline_capture_refused"
-    )
-    document = mapping(timeline["document"])
-    require(
-        document.get("kind") == "Timeline"
-        and document.get("operation") == target["operation"],
+        timeline.get("kind") == "Timeline" and timeline.get("operation") == target["operation"],
         "investigation.timeline_target_changed",
     )
+    require(records(timeline["outputs"]), "investigation.timeline_output_absent")
+    targets = records(timeline["targets"])
+    require(bool(targets), "investigation.timeline_target_absent")
+    selected = targets[0]
+    locator = mapping(selected["locator"])
     require(
-        mapping(timeline["telemetry_context"])["atomic_identity_admission"] is False,
-        "investigation.capture_identity_overclaimed",
+        selected["process"] == expected.process
+        and locator["pid"] == expected.locator.pid
+        and locator["start_ticks"] == expected.locator.start_ticks,
+        "investigation.timeline_identity_changed",
     )
-    require(records(document["outputs"]), "investigation.timeline_output_absent")
     cpu_output = output / "finished-cpu-refused"
-    cpu = mapping(
-        (
-            await invoke(
-                client,
-                "telemetry_profile_capture",
-                {
-                    **supplied,
-                    "request": {**request, "kind": "Cpu", "output": str(cpu_output)},
-                },
-                action=True,
-            )
-        )["payload"]
-    )
-    evidence["finished_cpu_refusal"] = cpu
-    require(
-        cpu.get("outcome") != "observed" and not cpu_output.exists(),
-        "investigation.completed_operation_cpu_accepted",
-    )
-    wrong = {
-        **mapping(target["expected"]),
-        "process": "deliberately-wrong-process-incarnation",
-    }
-    wrong_output = output / "wrong-identity-refused"
-    identity = mapping(
-        (
-            await invoke(
-                client,
-                "telemetry_profile_capture",
-                {
-                    **supplied,
-                    "expected": wrong,
-                    "request": {**request, "output": str(wrong_output)},
-                },
-                action=True,
-            )
-        )["payload"]
-    )
-    evidence["wrong_identity_refusal"] = identity
-    require(
-        identity.get("outcome") != "observed" and not wrong_output.exists(),
+
+    def finished_cpu() -> None:
+        with diagnostics.capture(codec.decode_json(json.dumps({**request, "kind": "Cpu", "output": str(cpu_output)}), documents.CaptureRequest)) as session:
+            session.wait()
+
+    cpu = expect_refusal(finished_cpu, "investigation.completed_operation_cpu_accepted")
+    require(not cpu_output.exists(), "investigation.refused_cpu_published_output")
+    wrong = codec.decode_json(json.dumps({**mapping(target["expected"]), "process": "deliberately-wrong-process-incarnation"}), documents.CheckpointIdentity)
+    identity = expect_refusal(
+        lambda: diagnostics.read_checkpoint(Path(str(target["checkpoint"])), expected=wrong),
         "investigation.wrong_process_identity_accepted",
     )
-    return {
-        "timeline": timeline,
-        "finished_cpu_refusal": cpu,
-        "wrong_identity_refusal": identity,
-    }
+    return {"timeline": timeline, "finished_cpu_refusal": cpu, "wrong_identity_refusal": identity}
 
 
-async def run(output: Path, target_path: Path) -> int:
+def run(output: Path, target_path: Path) -> int:
     output.mkdir(parents=True, exist_ok=False, mode=0o700)
     receipt: dict[str, object] = {
         "status": "running",
         "baseline_failures": 0,
-        "scope": "finite supplied telemetry observations in real native custody and canonical STDIO capture",
+        "scope": "finite supplied telemetry observations in real native custody and direct native capture",
         "maximum_output_bytes": MAXIMUM_BYTES,
     }
     try:
@@ -481,9 +331,7 @@ async def run(output: Path, target_path: Path) -> int:
             name: target[name] for name in ("checkpoint", "operation", "expected")
         }
         receipt["offline"] = offline(output, answers)
-        canonical: dict[str, object] = {}
-        receipt["canonical_stdio"] = canonical
-        await stdio(output, answers, target, canonical)
+        receipt["native_capture"] = capture_cases(output, target)
         receipt["status"] = "passed"
     except Exception as error:
         receipt.update(
@@ -504,7 +352,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--native-target", type=Path, required=True)
     args = parser.parse_args()
-    return asyncio.run(run(args.output.absolute(), args.native_target.absolute()))
+    return run(args.output.absolute(), args.native_target.absolute())
 
 
 if __name__ == "__main__":

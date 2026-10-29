@@ -154,7 +154,7 @@ class ValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             recipe = match.group().replace(
-                '"{{ py }}" -m scripts.arrow_validation', '"{{ py }}" capture.py'
+                'scripts/cargo-bin/cargo-pse-correctness', '"{{ py }}" capture.py'
             )
             (root / "justfile").write_text(
                 f'py := "{sys.executable}"\n'
@@ -436,8 +436,6 @@ class ValidationTests(unittest.TestCase):
                 "codegen-all-check",
                 "python-contracts-check",
                 "python-stubs-check",
-                "codegen-capabilities-check",
-                "codegen-capability-cli-check",
             ],
         )
         for independent in (

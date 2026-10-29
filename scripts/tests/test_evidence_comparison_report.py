@@ -238,10 +238,10 @@ class EvidenceComparisonReportTests(unittest.TestCase):
     def test_native_local_refs_and_resource_id_resolve_without_network_retrieval(
         self,
     ) -> None:
-        original = report.SchemaSet(report.ROOT, family="evidence")
+        original = report.EvidenceSchemas(report.ROOT)
         schema = original.document("evidence-comparison", "output")
         schema["$id"] = "https://example.invalid/native-owned-resource"
-        with patch.object(report, "SchemaSet") as owner:
+        with patch.object(report, "EvidenceSchemas") as owner:
             owner.return_value.document.return_value = schema
             owner.return_value.identity.return_value = original.identity(
                 "evidence-comparison", "output"
@@ -253,7 +253,7 @@ class EvidenceComparisonReportTests(unittest.TestCase):
         report.object_value(schema["properties"])["summary"] = {
             "$ref": "https://example.invalid/never-retrieved"
         }
-        with patch.object(report, "SchemaSet") as owner:
+        with patch.object(report, "EvidenceSchemas") as owner:
             owner.return_value.document.return_value = schema
             with self.assertRaisesRegex(ValueError, "native output schema"):
                 report.write_report(self.source, self.root / "remote-ref", plots=False)

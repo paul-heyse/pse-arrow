@@ -23,7 +23,6 @@ macro_rules! for_each_boundary_document {
             (StudyKpiExport, pse_runtime::workflow::StudyKpiExport, "study-kpi-export", Output, Native),
             (ProjectOperationRequest, pse_runtime::host_operations::project::ProjectOperationRequest, "project-operation-request", Both, Native),
             (ProjectAction, pse_runtime::host_operations::project::ProjectAction, "project-action", Both, Native),
-            (OperationCatalogue, pse_runtime::host_operations::OperationCatalogue, "host-operation-catalogue", Output, Native),
             (ProductionProfiles, pse_runtime::workflow::ProductionProfiles, "production-profiles", Both, Native),
             (RegisteredNativeContext, pse_runtime::workflow::RegisteredNativeContext, "registered-native-context", Both, Native),
             (DeploymentObservation, pse_runtime::workflow::DeploymentObservation, "deployment-observation", Both, FlatV1),

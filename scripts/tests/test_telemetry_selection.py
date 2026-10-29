@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from scripts import telemetry_selection as selection
-from scripts.capabilities.read_contracts import InvocationReference
+from scripts.report_contracts import InvocationReference
 from scripts.telemetry_investigation import QueryAnswer, QueryRequest
 
 

@@ -1659,13 +1659,14 @@ Physical identity declarations generate re-exports of the source-owned native ty
 second Rust wrappers. Generated document, Arrow and Python projections consume the same domain
 declaration. `PhysicalContext.describe`, `resolve_quantity`, `resolve_unit` and
 `resolve_reference_state` expose the admitted physical owner directly; native result inspection
-and MCP use that same projection and its exact-context rules (§8.1/§19.2). Host callers need no
+uses that same projection and its exact-context rules (§8.1/§19.2). Native callers need no
 independent physical YAML interpretation to obtain named input addresses or readable result meaning.
 
 `ResultInspectionRequest` and its version-2 schema/children/metadata/physical/values/refusal document are
 Rust-owned members of the directional catalogue under proposed ADR-0224. Required version headers
 are checked before body decoding; old inspection documents are not reinterpreted. PyO3 and
-Python's `Runtime.inspect_result` consume generated records; MCP composes original schemas.
+Python's retained `Runtime.inspect_result` consume generated records. The optional Python MCP
+projection is retired under proposed ADR-0233; remaining Python consumer cutovers belong to Plan58.
 Shallow descriptors and metadata have independent native pages; typed struct/list paths preserve
 null parents, null elements, absent indexes, original numeric widths and IEEE bits. Native cursor
 continuation binds issuer, protected selection, manifest, original window/paths and schema contract.

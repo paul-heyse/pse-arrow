@@ -5,7 +5,7 @@ explain focused development workflows. [Current work](../plans/README.md) owns a
 status; the current qualification basis is
 [§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
 
-- [Structured capability interface](capability-interface.md): local STDIO attachment, exact discovery/reveal, instructions and native authority.
+- [Native tools and agent access](capability-interface.md): direct owner routes, passive report readers and retired optional presentation.
 - [Agent environment](agent-environment.md): `scripts/pse-env`, scopes and slices, worktrees, test selection, hooks and runtime capabilities.
 - [Qualification commands](validation-assessment.md): assessment, native tests, case measurements and shared fixtures.
 - [Simulation diagnostics](simulation-diagnostics.md): passive live/recent inspection, typed Python/CLI readers and explicit CPU/timeline capture.

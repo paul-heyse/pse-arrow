@@ -197,8 +197,6 @@ def run() -> dict[str, object]:
             for name in (
                 "opentelemetry-api",
                 "opentelemetry-sdk",
-                "fastmcp",
-                "mcp",
                 "pydantic",
             )
         },

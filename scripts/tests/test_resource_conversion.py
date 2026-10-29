@@ -246,8 +246,8 @@ class ResourceConversionTests(unittest.TestCase):
         ):
             self.convert()
 
-    def test_idle_capability_server_does_not_block_registry_conversion(self) -> None:
-        # Endpoint identity is unrelated to acquired registry ownership. Ordinary
+    def test_unrelated_idle_process_does_not_block_registry_conversion(self) -> None:
+        # Process identity is unrelated to acquired registry ownership. Ordinary
         # conversion must not census arbitrary live servers or require restarts.
         self.processes.side_effect = AssertionError("unrelated process census")
         self.assertEqual(self.convert()["version"], 3)
@@ -467,7 +467,7 @@ class ProcessCohortTests(unittest.TestCase):
     def test_proc_discovery_retains_live_exact_identity_and_ignores_dead_processes(
         self,
     ) -> None:
-        self.process(123, ["/venv/python", "-m", "scripts.capabilities"])
+        self.process(123, ["/venv/python", "-m", "scripts.example_worker"])
         self.process(124, [], state="Z")
         self.assertEqual(
             conversion.processes(time.monotonic() + 5, self.proc),
@@ -475,7 +475,7 @@ class ProcessCohortTests(unittest.TestCase):
                 {
                     "pid": 123,
                     "start": "123",
-                    "argv": ["/venv/python", "-m", "scripts.capabilities"],
+                    "argv": ["/venv/python", "-m", "scripts.example_worker"],
                 }
             ],
         )
@@ -505,7 +505,7 @@ class ProcessCohortTests(unittest.TestCase):
     def test_missing_command_of_still_live_peer_cannot_be_treated_as_departure(
         self,
     ) -> None:
-        path = self.process(123, ["python", "-m", "scripts.capabilities"])
+        path = self.process(123, ["python", "-m", "scripts.example_worker"])
         (path / "cmdline").unlink()
         with self.assertRaisesRegex(files.StoreError, "Unresolved live process"):
             conversion.processes(time.monotonic() + 5, self.proc)
@@ -513,7 +513,7 @@ class ProcessCohortTests(unittest.TestCase):
     def test_proc_discovery_refuses_pid_reuse_between_command_observations(
         self,
     ) -> None:
-        self.process(123, ["python", "-m", "scripts.capabilities"])
+        self.process(123, ["python", "-m", "scripts.example_worker"])
         before = "123 (python) " + " ".join(["S", *(["0"] * 18), "1"])
         after = "123 (python) " + " ".join(["S", *(["0"] * 18), "2"])
         with (

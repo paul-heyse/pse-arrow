@@ -31,10 +31,6 @@ keep it accurate when you change them.
 - **Fixed observation.** `just activity` runs its read-only observer directly, without workload
   admission or compiler preparation. It accepts observer options, never an arbitrary executable;
   report unavailable observations as unavailable, not empty success.
-- **Fixed capability serving.** `just capabilities` launches the checkout's canonical STDIO
-  read/control endpoint without lifetime workload admission or startup setup. It accepts no
-  arbitrary executable. Selected effectful operations must retain their native environment,
-  admission and lifetime owners; presentation changes do not grant execution permission.
 - **Placement owns resource policy.** The selected ordinary native path uses configured
   unbounded sharing, all 16 physical cores and 32 logical compiler jobs without a slot ledger
   or new OS memory cap. Explicit finite selections retain original physical containment and

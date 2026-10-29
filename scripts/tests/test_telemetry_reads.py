@@ -23,7 +23,6 @@ from scripts import (
     telemetry_query,
     telemetry_service,
 )
-from scripts.capabilities import telemetry_contracts
 
 TRACE_ID = "1234567890abcdef1234567890abcdef"
 PARENT_TRACE_ID = "abcdef1234567890abcdef1234567890"
@@ -156,7 +155,7 @@ class TelemetryReadTests(unittest.TestCase):
         with patch.object(telemetry_service, "inspect", return_value=self.inspected):
             return telemetry.health(self.state)
 
-    def test_health_host_projection_preserves_local_sdk_loss_without_native_import(
+    def test_health_preserves_local_sdk_loss_without_native_import(
         self,
     ) -> None:
         class Native:
@@ -198,8 +197,7 @@ class TelemetryReadTests(unittest.TestCase):
             ),
         ):
             answer = telemetry.health(self.state)
-            projected = telemetry_contracts.health(answer).model_dump(mode="json")
-        payload = mapping(projected["payload"])
+        payload = mapping(answer)
         producer = mapping(payload["producer"])
         loss = mapping(producer["dropped_records"])
         native = mapping(loss["native_rust"])
@@ -209,7 +207,6 @@ class TelemetryReadTests(unittest.TestCase):
         self.assertEqual(native["delivery"], "not_observed")
         self.assertEqual(native["abrupt_exit_loss"], "unknown")
         self.assertEqual(mapping(loss["python"])["status"], "unavailable")
-        self.assertFalse(projected["complete"])
         self.assertEqual(self.requests, [])
 
     def test_failed_service_inspection_preserves_local_reader(self) -> None:

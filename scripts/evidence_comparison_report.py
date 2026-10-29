@@ -20,9 +20,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
-from scripts.capabilities.native_schema import (
+from scripts.evidence_schema import (
     JSON_OBJECT,
-    SchemaSet,
+    EvidenceSchemas,
     object_value,
     text_value,
 )
@@ -540,7 +540,7 @@ def write_report(
         raise ValueError("original comparison exceeds its selected bound")
     original_digest = hashlib.sha256(raw).hexdigest()
     comparison = JSON_OBJECT.validate_json(raw, strict=True)
-    schemas = SchemaSet(ROOT, family="evidence")
+    schemas = EvidenceSchemas(ROOT)
     schema = schemas.document("evidence-comparison", "output")
     try:
         Draft202012Validator(schema, registry=Registry()).validate(comparison)
