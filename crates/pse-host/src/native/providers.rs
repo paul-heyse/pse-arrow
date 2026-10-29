@@ -1112,6 +1112,11 @@ fn copy_external(root: &Path, source: &Path, destination: &Path) -> Result<(), H
             copy_external(root, &path, &output)?;
         } else if target.is_file() {
             fs::copy(&target, &output)?;
+            // Immutable external inputs remain untouched. Only our private staged
+            // copy needs owner-write permission for metadata relocation; publication
+            // seals the complete destination after validation.
+            let mode = output.metadata()?.permissions().mode();
+            fs::set_permissions(&output, fs::Permissions::from_mode(mode | 0o200))?;
         } else {
             return Err(invalid(
                 "external provider contains directory symlinks or special files",
@@ -1557,7 +1562,13 @@ mod tests {
             "PSE_ROOT_ISOLATION_DIR".into(),
             source.clone().into_os_string(),
         );
+        let metadata_path = source.join("share/pkgconfig/ibex.pc");
+        let original_metadata = fs::read(&metadata_path).unwrap();
+        fs::set_permissions(&metadata_path, fs::Permissions::from_mode(0o400)).unwrap();
         let prefix = prepare_external(directory.path(), &env, "isolation").unwrap();
+        assert_eq!(fs::read(&metadata_path).unwrap(), original_metadata);
+        assert_eq!(metadata_path.metadata().unwrap().permissions().mode() & 0o777, 0o400);
+        assert_eq!(prefix.join("share/pkgconfig/ibex.pc").metadata().unwrap().permissions().mode() & 0o222, 0);
         fs::remove_dir_all(&source).unwrap();
         let selected = apply_provider(directory.path(), &env, "isolation").unwrap();
         assert_eq!(
