@@ -191,13 +191,12 @@ files = [
 [[asset_bundles]]
 name = "pipeline-diagnostics-and-review-artifacts-2026-10-18"
 root = "design_review/evidence/pipeline-diagnostics-and-review-artifacts-2026-10-18"
-files = ["reader-probe.py", "reader-probe.json"]
+files = ["reader-probe.json"]
 
 [[asset_bundles]]
 name = "post-plan44-pipeline-optimization-2026-10-18"
 root = "design_review/evidence/post-plan44-pipeline-optimization-2026-10-18"
 files = [
-  "local-pipeline-probe.py",
   "local-pipeline-summary.json",
   "local-pipeline-observations.jsonl.gz",
   "response-membership-probe.rs",
@@ -207,7 +206,7 @@ files = [
 [[asset_bundles]]
 name = "pipeline-performance-optimization-2026-10-17"
 root = "design_review/evidence/pipeline-performance-optimization-2026-10-17"
-files = ["case-observations.json", "short-cases.py", "other-cases.py"]
+files = ["case-observations.json"]
 
 [[asset_bundles]]
 name = "agent-effectiveness-enhancements-2026-10-09"

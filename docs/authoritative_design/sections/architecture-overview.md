@@ -14,8 +14,9 @@ contracts live in the numbered pages it links. Source owners are the workflow in
 
 ## 0. Purpose and scope
 
-`pse-arrow` is a clean-room process systems engineering core in Rust with a Python
-authoring and result boundary. It re-implements the modeling capability of IDAES-PSE,
+`pse-arrow` is a clean-room process systems engineering core in Rust with callable native
+authoring, execution and protected result boundaries (§21). It re-implements the modeling
+capability of IDAES-PSE,
 compared against `idaes-pse==2.13.0` through an isolated parity harness only; see
 [Relationship to IDAES](../../relationship-to-idaes.md). Routes, authority and notation
 are in the [reading guide](reading-guide.md).
@@ -113,7 +114,7 @@ sensitivities, global identifiability and claims beyond local first-order validi
 outside the profile ([§13](workflows-and-results.md#section-13),
 [§15.5](numerical-execution.md#section-15-5), [§19](workflows-and-results.md#section-19)).
 
-**Workflows.** Rust and Python callers use immutable canonical model revisions, selected preparation, supervised native work and exact retained results. Ordinary execution retains its scientific outcome in the authenticated SurrealDB graph and relational substrate; explicit local execution owns admitted immutable model and physical inputs without canonical source admission. Local study admission is effect-free; explicit recording publishes the exact retained sources and creates portable recorded study descriptors. Short guarded transactions establish revisions, claims and terminal admission; numerical work runs outside them. Native selectors and bounded Arrow streams connect problems, runs, outputs and persisted analysis ([§20.6](identity-and-publication.md#section-20-6), [§21](workflows-and-results.md#section-21)). Pyomo and IDAES remain reference tools in the clean-room parity harness. The registry generates public declaration contracts.
+**Workflows.** Native Rust callers use immutable canonical model revisions, selected preparation, supervised native work and exact retained results. Ordinary execution retains its scientific outcome in the authenticated SurrealDB graph and relational substrate; explicit local execution owns admitted immutable model and physical inputs without canonical source admission. Local study admission is effect-free; explicit recording publishes the exact retained sources and creates portable recorded study descriptors. Short guarded transactions establish revisions, claims and terminal admission; numerical work runs outside them. Native selectors and bounded Arrow streams connect problems, runs, outputs and persisted analysis ([§20.6](identity-and-publication.md#section-20-6), [§21](workflows-and-results.md#section-21)). Pyomo and IDAES remain reference tools in the clean-room parity harness. The registry generates public declaration contracts.
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed; implemented under maintainer authorization). Assembled qualification and measured performance remain separate evidence.
 
@@ -141,9 +142,9 @@ Limits are recorded in
 | Separate lifecycles | Package revisions, specialized models, case bindings, resolved numerical policy, prepared products, starts, results and publications have distinct ownership. | modeling runtime, `pse-compiler::workspace`, `pse-math::assembly` | [§5](identity-and-publication.md#section-5) |
 | Scientific binding | Entity kinds, sets, tables, interfaces, functions and definitions carry materials, states and property choices; branch-local closures refuse unproved crossings. | authored reference packages and generic modeling mechanisms | [§9](physical-semantics.md#section-9) |
 | Conservation and reactions | Generic accumulators consume signed contributions with explicit roles, transfer identities and closure checks; science chooses subjects and energy conventions. | `pse-modeling` and authored process/reaction definitions | [§10](models-and-composition.md#section-10) |
-| Shared vocabulary | Registry-owned tags projected into `pse-model`, Arrow codecs, Python contracts and native canonical codecs. Every decision vocabulary that crosses a boundary is a registry enumeration with one Rust type: a hand-written source (`pse-vocabulary`, `pse-diagnostics`, `pse-quantity`) is re-exported, never copied. Diagnostics classify the failure kind and keep source identities, stage and observations. | `pse-schema`, `pse-vocabulary`, `pse-model`, `pse-diagnostics` | [§4.1](schema-and-relations.md#section-4-1), [§23](operations-and-validation.md#section-23) |
+| Shared vocabulary | Registry-owned tags projected into `pse-model`, Arrow codecs and native canonical codecs. Every decision vocabulary that crosses a boundary is a registry enumeration with one Rust type: a hand-written source (`pse-vocabulary`, `pse-diagnostics`, `pse-quantity`) is re-exported, never copied. Diagnostics classify the failure kind and keep source identities, stage and observations. | `pse-schema`, `pse-vocabulary`, `pse-model`, `pse-diagnostics` | [§4.1](schema-and-relations.md#section-4-1), [§23](operations-and-validation.md#section-23) |
 | Identity projections | Versioned, named projections per scope under one `Frame` catalog. Entity identities are declared in the registry and generated as typed ids. Floating framing preserves signed zero. Semantic contract identity excludes documentation and encoding; a document's identity is framed from its typed value. | `pse-ids`, `pse-model`, `pse-compiler::physical_identity` | [§5](identity-and-publication.md#section-5) |
-| Boundary documents | Rust-owned documents (settings, job payload, termination detail, source manifest, study definition) are typed, versioned serde types; their JSON Schemas and Python msgspec types are generated. | owning crates; `pse-codegen` | [§21.5](workflows-and-results.md#section-21-5) |
+| Boundary documents | Rust-owned documents (settings, job payload, termination detail, source manifest, study definition) are typed, versioned serde types; their JSON Schemas are generated. | owning crates; `pse-codegen` | [§21.5](workflows-and-results.md#section-21-5) |
 | Operational state | Registry-generated canonical run/attempt/study facts and exact immutable operation receipts; guarded claims, cancellation and terminal admission through the remote native client. | `pse-operations`, `pse-runtime::workflow` | [§20.6](identity-and-publication.md#section-20-6) |
 | Retention and exact selection | Closed result manifests, staged self-contained IPC blocks, lifecycle-owned roots, renewable read protection and bounded guarded reclamation. | `pse-operations`, `pse-runtime::workflow` | [§20](identity-and-publication.md#section-20) |
 | Ordinary evidence | Ordinary tests, benchmarks and factual execution records. Executed, reused, transferred and not-run evidence are labelled separately. A source digest identifies inputs only. | `xtask`, recipes | [§24.2](operations-and-validation.md#section-24-2) |
@@ -170,7 +171,7 @@ Dependencies point from foundations towards orchestration. Crate roles are owned
 | Data | `pse-engine`, `pse-rules`, `pse-operations` | DataFusion admission/inspection and caches; bounded canonical graph/relational operations through the remote SDK | Declaration and foundations; scientific policy remains in Rust |
 | Mathematics | `pse-kernels`, `pse-math`, `pse-structural`, `pse-authoring`, `pse-modeling`, `pse-compiler`, `pse-backend-native`, `pse-ipopt-sys` | External functions; library mathematics; graph projections; syntax; generic checking and specialization; Salsa preparation; native solver adapters | Foundations, `pse-model`, `pse-buildinfo` |
 | Orchestration | `pse-runtime` | Selected admission, resources, native workflows and canonical retained results | All of the above |
-| Boundary | `pse-py` | Python extension over the workflow and inspection | `pse-runtime` and the crates whose types it exposes |
+| Host boundary | `pse-host` | Independent environment, OS process/service ownership and operator effects | `pse-diagnostics`; no product schema, database client, mathematics or Arrow/DataFusion |
 | Tooling | `pse-codegen`, `pse-buildinfo`, `pse-testkit`, `xtask` | Generation, build provenance, dev fixtures | Declaration; `pse-testkit` is never a production dependency |
 
 The mathematics layer has no Arrow, DataFusion or Delta dependency. `pse-runtime` is the
@@ -182,7 +183,7 @@ composition root that joins data, mathematics and canonical persistence. Relatio
 |---|---|---|---|
 | Authored definitions and the selected revision | Modeling documents, checked package revisions, cases and analysis declarations; generic `authored` and physical `reference` relations | `pse-authoring`, `pse-modeling`, runtime modeling admission, registry | Compiler and inspection |
 | Prepared immutable products | Checked modeling revision/context, `CaseStructure`, `PreparedCase`, `BodySpec`, `CasePlan`, compiled bodies, artifact requests, eligibility | `pse-compiler`, `pse-math`, `pse-backend-native::routing` | Attempt workers and native adapters |
-| Attempts and results | Supervised native state, canonical run/attempt/study facts, original completion and self-contained scientific IPC blocks; connected exact result and analysis selectors | `pse-runtime`, `pse-operations` | Rust, Arrow and Python readers |
+| Attempts and results | Supervised native state, canonical run/attempt/study facts, original completion and self-contained scientific IPC blocks; connected exact result and analysis selectors | `pse-runtime`, `pse-operations` | Rust and Arrow readers |
 
 Nothing flows backward: a derived product or result never writes into authored
 definitions. Initialization stages are overlays on immutable case bindings
@@ -196,7 +197,7 @@ pins live in `Cargo.toml`, rationale in [§3.3](workspace-and-dependencies.md#se
 
 | Library | Role | Owner crate |
 |---|---|---|
-| Arrow | Columnar boundary, extension types, result tables, Python transfer through pyo3-arrow | `pse-columnar`, `pse-relations`, `pse-py` |
+| Arrow | Columnar boundary, extension types, result tables and protected native data access | `pse-columnar`, `pse-relations` |
 | DataFusion | Admission and set-oriented queries, invariant checks, inspection, retained artifact cache | `pse-engine`, `pse-rules` |
 | SurrealDB, SurrealQL, supervised persistent SurrealMX | Canonical authored revisions, dependencies, portable products, lifecycle, results and analysis; bounded guarded structural operations | `pse-operations`, supervision tooling |
 | Salsa | Pure semantic preparation and reuse | `pse-compiler` |
@@ -206,7 +207,7 @@ pins live in `Cargo.toml`, rationale in [§3.3](workspace-and-dependencies.md#se
 | petgraph, rustworkx-core | Flowsheet SCCs, deterministic ordering | `pse-structural` |
 | FeOS, num-dual | Independent thermodynamic reference only; absent from production | conformance test feature |
 | Ipopt, POUNCE, KINSOL, HiGHS, Clarabel, SCIP, Diffsol, IDAS | Class-specific native solving ([§0.5](#section-0-5)) | `pse-backend-native` |
-| pyo3, pyo3-async-runtimes, tokio | Python extension, async joined jobs | `pse-py`, `pse-runtime` |
+| tokio | Native async operations and joined jobs | `pse-host`, `pse-operations`, `pse-runtime` |
 | blake3 | Identity hashing, only through `pse-ids` | `pse-ids` |
 
 ## 2. Architectural decisions
@@ -228,11 +229,11 @@ The linked section owns the detailed contract.
 
 Each meaning has one authoritative declaration. Scientific relations, identities and vocabularies
 remain in the `pse-schema` registry. Non-scientific boundary documents and their local enums live
-with their responsibility, using the existing generator for Rust-derived schema/Python publication.
+with their responsibility, using the existing generator for Rust-derived schema publication.
 Product and development contributions have separate output families; xtask composes development
 contributions without imposing their implementation on normal product consumers. Generation
 remains checked for equivalence. Authored definitions, loaded from modeling documents through
-Rust or Python, are the model authority; no handwritten structure shadows a generated one.
+native admission, are the model authority; no handwritten structure shadows a generated one.
 *Because* parallel descriptions drift silently.
 See [§4](schema-and-relations.md#section-4).
 
@@ -346,23 +347,24 @@ and factorization. Resource admission is held until native threads exit. *Becaus
 immutable products make reuse safe while mutable scratch stays private. See
 [§14](mathematics-and-compilation.md#section-14) and [§18](numerical-execution.md#section-18).
 
-### D12. Native class-specific execution; Python is the authoring and result boundary
+### D12. Native class-specific execution and native application boundaries
 
 > Decision: [ADR-0083](../../adr/0083-class-specific-native-execution.md)
 
 > Amendment: [ADR-0233](../../adr/0233-rust-owned-host-and-execution-boundaries.md)
 > (proposed; maintainer-authorized Plan58 target, independently assessed in its §13 review).
 
-The retained first-party target is callable Rust authoring, operation execution and protected
-result access. Python is optional; no mandatory foreign ABI, extension crate, packaging or
-generated Python contract follows from this decision. Plan58 removes the remaining `pse-py`
-boundary with its actual consumers. Until those cuts pass their targeted acceptance, the
-paragraph below records the existing boundary rather than completion of the native target.
-Independent Python scientific references remain eligible isolated tools.
+The first-party application provides callable Rust authoring, operation execution and protected
+result access. The Python product, extension crate and generated Python contracts are retired.
+Any future foreign adapter requires a named consumer; no mandatory foreign ABI, packaging or
+frontend follows from this decision. Independent Python scientific references remain eligible
+isolated tools. Implementation of the cut does not establish assembled or deployment qualification
+([§24.2](operations-and-validation.md#section-24-2)).
 
 Production execution uses class-specific native Rust adapters through one admitted
-lifecycle. Python builds declarations, starts jobs and reads results; it performs no
-mathematics. Pyomo and IDAES are isolated reference tools; there is no production Pyomo or
+lifecycle. Native application callers build declarations, start jobs and read results; optional
+adapters may call those same owners without acquiring mathematical or execution policy.
+Pyomo and IDAES are isolated reference tools; there is no production Pyomo or
 NL route and no compatibility compiler. *Because* one execution path keeps meaning and
 failure semantics singular. See [§18](numerical-execution.md#section-18) and
 [§21](workflows-and-results.md#section-21).

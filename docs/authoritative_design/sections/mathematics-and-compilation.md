@@ -751,7 +751,7 @@ belongs to actual persisted acquisition or new eligible publication. Already adm
 immutable mathematics remains independently valid under complete scientific identity and
 the initialized process symbol universe: reserved-symbol registration rejects incompatible
 attributes/callbacks, registration only appends, and reset with live products is prohibited.
-Stable active mathematical implementation remains a supported worker/imported-Python root
+Stable active mathematical implementation remains a supported native worker/application root
 premise. Later mutable evaluators and native providers retain separate scientific admission
 and managed-generation lifetimes. Unknown receiving premises refuse replay while ordinary
 fresh admission and historical reads remain available (ADR-0164; §5.3).
@@ -1364,10 +1364,10 @@ evaluators must not call `optimize_stack()` after vectorization. Qualification b
 **Implemented — optional scalar compiled arithmetic:** Symbolica 3.0.1 C++ export serves eligible Value, selected First/Second partials, weighted Hessian and directional/action arithmetic under the demanded-product contract in §14.3 and proposed ADR-0193. Interpreted evaluation remains the default; providers, branch selection, ordered source/domain/derivative-eligibility guards and cancellation remain at their host owners. Unsupported regions retain their explicit supported realization. First-only demands do not construct or compile unused Second products. Product/layout/evaluator policy participates in compilation identity; runtime weights/directions participate in completed-product identity. No inline assembly, fast/unsafe math, host-native ISA or FP contraction is inherited. The preparation owner admits source/compiler overlap and executable storage, cancels and joins its compiler child, and publishes only successful preparation; each worker owns admitted independent scratch. Existing coordinate mapping and complete requested-product finite/error checks remain. This does not select automatic JIT specialization, SIMD/batched execution or a changed scientific guarantee. Plan43b/43g record analytic, interpreted/compiled, product-guard and assembled consumer qualification; no universal evaluator speedup or whole-model qualification is claimed.
 
 
-The optional `compiled-evaluator` deployment feature is forwarded from `pse-py` through
+The optional `compiled-evaluator` deployment feature is forwarded from
 `pse-runtime` to its `pse-math` owner. Ordinary builds leave it disabled; preparation still
-selects the evaluator policy explicitly and missing support refuses that selection. The
-extension's existing compiled-feature observation reports actual availability. The
+selects the evaluator policy explicitly and missing support refuses that selection. Build
+availability alone does not establish observed compilation or evaluation work. The
 [simulation diagnostics guide](../../dev/simulation-diagnostics.md) gives the opt-in build
 command and distinguishes availability from observed compilation/evaluation work.
 

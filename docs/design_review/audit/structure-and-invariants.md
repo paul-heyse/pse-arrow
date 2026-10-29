@@ -103,7 +103,7 @@ and the admission prefix branch is gone.
 **Counterevidence:** the field `TYPE` assertions are derived, and refusal codes have a registry
 (`pse-schema/src/catalog/canonical_refusals.rs`).
 
-## <a id="da-050"></a>DA-050 — Identity derivations are catalogued per frame but minted inline at consumers through uncatalogued sub-contexts
+## <a id="da-050"></a>DA-050 — Identity derivations are catalogued per frame but minted inline at consumers through uncataloged sub-contexts
 
 **Principles:** AP-04, AP-05, DP-01, DP-04, DP-09, DP-24.
 

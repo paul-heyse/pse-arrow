@@ -208,8 +208,8 @@ and Separator definitions; it does not promise arbitrary convention conversion.
 > (proposed; implementation authorized).
 
 Modeling source and generated declaration values share one admission boundary. A checked
-package revision retains its actual dependency closure and physical context. Runtime and
-Python wrappers cannot mutate checked products or substitute a different physical owner.
+package revision retains its actual dependency closure and physical context. Runtime callers and
+any future foreign adapters cannot mutate checked products or substitute a different physical owner.
 
 ### 22.1 Package layout
 

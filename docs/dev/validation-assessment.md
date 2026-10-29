@@ -122,6 +122,13 @@ those environments with `UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --
 parity --python 3.13` and `UV_PROJECT_ENVIRONMENT=build/plan14-reference uv sync --locked
 --only-group thermo-reference --python 3.12`. These checks do not run a reference campaign.
 
+For optional native CLI consumer controls, build the explicitly selected xtask features and
+capture that executable before a later Cargo selection. `target/debug/xtask` is mutable Cargo
+output: building a smaller feature set can replace it. `PSE_CANONICAL_TOOLS` selects the
+captured executable for graph/query operator tests; the enclosing native fixture still owns
+its private service and physical settlement. This is caller-owned test setup, not a second
+production installer or an executable-reuse claim.
+
 ### Selected behavioral investigations
 
 `just features-combinations` and `just features-no-default` use pinned cargo-hack 0.6.45 with

@@ -35,10 +35,10 @@ PSE_RESOURCE_CLASS=functional scripts/pse-env --native=solver,klu -- \
   root /tmp/pipeline-root-example --detail
 ```
 
-Use a fresh output directory. The [short driver](short-cases.py) accepts `root`, `edits`,
+Use a fresh output directory. The [short driver](https://github.com/paul-heyse/pse-arrow/blob/f83bac0399d1d815b6ce91b692158b965fa054c7/docs/design_review/evidence/pipeline-performance-optimization-2026-10-17/short-cases.py) accepts `root`, `edits`,
 `sparse`, `dense`, `guard`, `mixed`, `qp`, `nlp`, `implicit`, `ode`, `dae`, `events`, `fit`,
 `reference` and `cancel`, with backend, size, parameter-count and selected-detail options.
-The [workflow driver](other-cases.py) covers conic, recycle, discrete, independent and
+The [workflow driver](https://github.com/paul-heyse/pse-arrow/blob/f83bac0399d1d815b6ce91b692158b965fa054c7/docs/design_review/evidence/pipeline-performance-optimization-2026-10-17/other-cases.py) covers conic, recycle, discrete, independent and
 continuation studies, and result reads:
 
 ```bash

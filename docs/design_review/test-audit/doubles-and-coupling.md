@@ -146,7 +146,7 @@ when logic is unchanged, while the rules themselves are never checked against va
 **Evidence and uncertainty.** Shared-state cause established; interference suspected, not observed.
 The journal location derives from `XDG_RUNTIME_DIR`, which also serves bus discovery, so separating them
 may need a production override (unverified). **Counterevidence:** reading the real policy catches an
-unparseable or contradictory file, a separate valuable claim; real containment journeys need the real
+unparsable or contradictory file, a separate valuable claim; real containment journeys need the real
 manager.
 
 ## <a id="dta-070"></a>DTA-070 — Python orchestration tests certify flows whose real first step now refuses, against test-authored configuration

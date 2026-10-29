@@ -6,7 +6,7 @@ status: current
 # Schema registry and relation families
 
 This page explains how durable meaning is declared, how the declarations become generated
-Rust, Python and documentation, and what each relation family is for. `pse-schema` owns
+Rust and documentation, and what each relation family is for. `pse-schema` owns
 the registry and its admitted contracts, and `pse-codegen` renders it. `pse-relations`
 and `pse-model` hold the generated Arrow and plain-value projections. `pse-engine`,
 `pse-rules` enforces relational obligations; `pse-operations` owns controlled canonical transitions. Column-level detail
@@ -26,7 +26,7 @@ either generated from the registry or checked against it.
 
 > Decision: [ADR-0226](../../adr/0226-source-owned-physical-identities.md) (proposed) supplements
 > ADR-0115: identity declarations may name an existing source-owned Rust type. Generation
-> aliases that owner and retains the shared model, Arrow, schema, Python and native role projections.
+> aliases that owner and retains the shared model, Arrow, schema and native role projections; optional foreign adapters follow §21.
 > Source paths are generation metadata, not scientific identity or persisted physical meaning.
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Canonical object versions, membership, products, execution and result envelopes extend this declaration route. Finite scientific f64 storage uses authoritative bit bytes and a derived finite projection; explicitly declared diagnostics may preserve raw nonfinite bits. Full-range unsigned fields lower to native checked decimal integers. Reader, schema, codec and structural-function interpretations are versioned.
@@ -109,7 +109,7 @@ runtime owner shells are fresh. Current array receiving remains explicitly valid
 Custom or changed registries retain their actual declaration-owned builder. A partial image
 or a timing-only comparison does not establish complete hydration equivalence.
 
-> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Surreal schema/codecs replace persistence-only PostgreSQL/Cornucopia outputs at the canonical boundary. Scientific shapes are not duplicated in hand-authored database DDL. Arrow and typed Python lowerings remain at their consumed boundaries.
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Surreal schema/codecs replace persistence-only PostgreSQL/Cornucopia outputs at the canonical boundary. Scientific shapes are not duplicated in hand-authored database DDL. Arrow and native typed lowerings remain at their consumed boundaries; ADR-0233 retires the mandatory Python projection (§21).
 
 > Decision: [ADR-0031](../../adr/0031-generated-sources-committed-and-diff-checked.md),
 > [ADR-0051](../../adr/0051-generated-trees-and-regeneration-check.md)
@@ -128,15 +128,14 @@ equivalence for every generated output.
 | Generated tree | Content | Main consumers |
 |---|---|---|
 | `crates/pse-model/src/generated/` | Plain semantic rows, enums (re-exports for source-owned vocabularies), typed ids, named structures and extension values, without Arrow | compiler, workflow, native adapters, the operational store |
-| `crates/pse-relations/src/generated/` | Relation identities, Arrow views/builders/codecs, enum and algorithm-argument adapters | engine, runtime, `pse-py` |
-| `crates/pse-authoring/src/generated/`, `crates/pse-runtime/src/generated/` | Strict document structs and document-to-row adapters | document loading ([§22](models-and-composition.md#section-22)) |
+| `crates/pse-relations/src/generated/` | Relation identities, Arrow views/builders/codecs, enum and algorithm-argument adapters | engine, runtime, native data consumers |
+| `crates/pse-authoring/src/generated/` | Strict document structs and document-to-row adapters | document loading ([§22](models-and-composition.md#section-22)) |
 | `crates/pse-quantity/src/generated/` | Arrow-free physical fixtures projected from admitted reference packages ([§6.15.7](#section-6-15-7)) | tests and fixture registries |
-| `python/pse/contracts/` | Contract classes, enums with IDAES bindings, `pyarrow` extension types, content digest | Python package ([§21](workflows-and-results.md#section-21)) |
 | `docs/generated/` | Relation, enumeration, extension-type, algorithm and invariant reference; the frame catalog; the authoring JSON Schema | readers and editors |
 | `crates/pse-operations/src/generated/` | Versioned native SurrealQL DDL, field codecs, structural functions and interpretation fingerprint | canonical client and supervised schema initialization |
-| `docs/generated/schema/`, `python/pse/contracts/documents/` | JSON Schemas of the Rust-owned boundary documents, derived by schemars in their owning crates, and the frozen msgspec types generated from them ([§21.5](workflows-and-results.md#section-21-5)) | Python package, readers |
+| `docs/generated/schema/` | JSON Schemas of the Rust-owned boundary documents, derived by schemars in their owning crates ([§21.5](workflows-and-results.md#section-21-5)) | native document consumers, readers |
 
-> Decision: [ADR-0116](../../adr/0116-typed-boundary-documents.md) retains Rust-owned boundary documents and generated Python types; [ADR-0164](../../adr/0164-unify-simulation-substrate.md) replaces the database-specific generator. `python/pse/_native.pyi` is generated by the owning Python-stub recipe and protected like other generated trees. The authoring JSON Schema retains its own emitter for pre-hydration documents, with shared fields checked against schemars.
+> Decisions: [ADR-0116](../../adr/0116-typed-boundary-documents.md) retains Rust-owned boundary documents; [ADR-0233](../../adr/0233-rust-owned-host-and-execution-boundaries.md) retires generated Python contracts and extension stubs. [ADR-0164](../../adr/0164-unify-simulation-substrate.md) replaces the database-specific generator. The authoring JSON Schema retains its own emitter for pre-hydration documents, with shared fields checked against schemars.
 
 Canonical schema and codec generation needs no live database. Generated writes preserve unchanged bytes and mtimes and delete stale outputs; the registry owns declarations, while versioned structural functions own bounded guarded transitions. Offline or ordinary runtime opening cannot silently regenerate or upgrade a database. Explicit initialization checks complete query success and the installed interpretation before admission ([§20.5](identity-and-publication.md#section-20-5)).
 
@@ -197,7 +196,7 @@ Metadata has exactly three shapes: `{"v":1}`, `{"v":1,"enum_id":…}` and
 they enter logical hashes (`pse_schema::ext_metadata`). Factories reject any other
 shape, and a new metadata version is how an extension evolves.
 
-Enforcement happens in three places:
+Native enforcement has two complementary owners:
 
 - **Rust.** `pse_relations::ext` implements Arrow's `ExtensionType` for every declared
   type, and reads use `try_extension_type`. The panicking accessor is banned in
@@ -207,10 +206,11 @@ Enforcement happens in three places:
   `pse_engine::session::admission` actively checks fields at every platform logical-plan
   boundary, including subqueries and nested children. `pse_relations::ext::formatter`
   renders values meaningfully in plans and diagnostics.
-- **Python.** `python/pse/contracts/extension_types.py` registers the generated
-  `pyarrow` classes once. An unregistered `pse.*` type degrades to its storage type in
-  Python, while Rust admission rejects an unregistered name. The contract layer records
-  that difference ([§21](workflows-and-results.md#section-21)).
+
+Any future foreign Arrow adapter must preserve extension metadata and the receiving
+admission contract; an unknown type cannot silently acquire its scientific meaning
+([§21.6](workflows-and-results.md#section-21-6)). The retired Python registration layer is
+not a current enforcement owner.
 
 Metadata parsing can check the syntax of an ordinal target. Only bundle admission can
 show that the target exists and that every ordinal is in range.
@@ -592,7 +592,7 @@ and `objective_levels_prepare_once_per_level` (runtime units).
 > policy within the same decision (`authored.modeling_declarations` version 7).
 
 Case and test scopes in the modeling IR carry root bindings, values, fixed/free state,
-bounds and analysis choices. `route steady|simultaneous|integrated;` and `procedure check|solve|initialize|integrate|shooting;` are independent authored choices. Rust defaults omitted clauses to steady Solve, admits valid combinations and procedure inputs, and produces `DeclaredExecution` for direct execution, initialization, inspection, diagnostics and studies. Initialization may retain a simultaneous route. Explicit initialization overrides must agree with authored choices; Python forwards optional choices to the same Rust owner. The removed `run` fixture clause has no compatibility parser. All routes share the same definitions. A fixture retains expected outcomes, oracle provenance and
+bounds and analysis choices. `route steady|simultaneous|integrated;` and `procedure check|solve|initialize|integrate|shooting;` are independent authored choices. Rust defaults omitted clauses to steady Solve, admits valid combinations and procedure inputs, and produces `DeclaredExecution` for direct execution, initialization, inspection, diagnostics and studies. Initialization may retain a simultaneous route. Explicit initialization overrides must agree with authored choices. All native callers pass optional choices to that same Rust owner; future adapters must do likewise (§21). The removed `run` fixture clause has no compatibility parser. All routes share the same definitions. A fixture retains expected outcomes, oracle provenance and
 physical/relative tolerances. Conformance records derivative sampling as not applicable
 while free discrete variables remain: sampling perturbs a continuous oracle, and
 integrality is never relaxed implicitly. The seed price-taker fixture

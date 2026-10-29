@@ -61,13 +61,13 @@ project invariants, checked when the corresponding command is run manually:
 
 | Gate | What it protects |
 |---|---|
-| `just family-check` (`rust / family-check` when manually dispatched) | **One type universe.** Exactly one resolved `arrow`, `parquet`, `object_store`, `datafusion` and `pyo3`. Two majors make `downcast_ref` return `None` with no compile error — a silent failure that reads like a logic bug. This is the invariant `deny.toml`'s `multiple-versions` used to stand in for, and it states it far more precisely. |
+| `just family-check` (`rust / family-check` when manually dispatched) | **One type universe.** Exactly one resolved `arrow`, `parquet`, `object_store` and `datafusion`. Two majors make `downcast_ref` return `None` with no compile error — a silent failure that reads like a logic bug. This is the invariant `deny.toml`'s `multiple-versions` used to stand in for, and it states it far more precisely. |
 | `tests/governance/tests/dependency_pins.rs` | **Exact pins.** Every registry requirement in `[workspace.dependencies]` is a single exact `=x.y.z` (path dependencies exempt); a git source names a full commit; family members are exact at the family version; a hold in `[workspace.metadata.pse.pins]` has a reason and names a declared, pinned dependency. Blueprint tables are not a second pin authority. |
 | Committed `Cargo.lock` and `uv.lock`, every gate `--locked` | Reproducibility. Versions move only by a deliberate pin or lock edit; a run never resolves anew. |
-| ADR for **majoring** one of the four pinned families | A family major changes shared API and type contracts. |
+| ADR for **majoring** a declared dependency family | A family major changes shared API and type contracts. |
 | ADR for adding or removing a **workspace** (`pse-*`) crate | A crate boundary is architecture, not a dependency. |
 | `reuse lint` | SPDX headers on **our own** files. Unrelated to third-party licences. |
-| import-linter contracts in `pyproject.toml` | Architecture, not hygiene: numpy/scipy at the array boundary, pyomo/pint in the adapter, `idaes` in the parity environment only (uv workspaces enforce a single `requires-python`, so an `idaes` import inside `pse` would drag the platform package back to the parity interpreter range). |
+| Native dependency-boundary governance and isolated reference environments | Product/host dependency direction is checked against resolved Cargo metadata. IDAES/Pyomo, SciPy and teqp remain independent oracle tools in their explicitly selected reference environments; the first-party Python product/import graph has retired. |
 | The clean-room rule (CONTRIBUTING.md §8) | *Copying* code from a reference implementation. Unchanged, and a different question from *depending* on a library. |
 
 ## Running the check manually

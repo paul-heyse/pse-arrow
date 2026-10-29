@@ -88,7 +88,8 @@ generator emits one typed id per identity into `pse-model` through the single
 `semantic_id_newtype!` macro of `pse-ids`, which the `pse-quantity` physical-registry ids
 also use. A typed id is a transparent wrapper with `From` in both directions and
 `Display`; its serde form and framing are those of the wrapped value, so no identity byte
-moved. Generated rows and the Python `NewType`s of `pse.contracts.identities` follow.
+moved. Generated native rows use those ids. Future foreign adapters must preserve their
+identity domain and framing (§21); the former Python `NewType` projection is retired.
 Modeling identities include package, declaration, instance and fit. There is no separate
 model or case identity: a model is named by the root declaration it specializes and a case
 by its case declaration, both as `declaration` ([§20.3](#section-20-3)). Consumers take typed
@@ -188,7 +189,11 @@ this evolution introduces no sole-fingerprint cache or durable fast-hash replace
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Versioned relevant producer identities replace whole-tree build hashes in scientific product eligibility. Actual consumed source/generated/native inputs and Cargo units govern those identities; unknown inputs block persistent reuse. Complete executable attestation remains at the run boundary.
 
-Relevant producer capture uses the actual selected Cargo production root and its units, resolved source/version,
+> Amendment: [ADR-0233](../../adr/0233-rust-owned-host-and-execution-boundaries.md)
+> (proposed; maintainer-authorized Plan58 cutover). Native operating owners follow §21;
+> historical Python producer and receiver receipts remain custody data, not current controllers.
+
+Retained relevant-producer receipts bind the actual selected Cargo production root and its units, resolved source/version,
 features/profile/target and emitted compiler dep-info, including consumed generated/native inputs.
 Uncompiled tests/examples are excluded; ambiguous associations and unreviewed executable I/O
 remain refusals. A source-bound completeness declaration can qualify reviewed build-script and
@@ -198,8 +203,9 @@ inline text changes. No blanket closure claim follows from Cargo rerun hints or 
 Operator qualification binds the expected package, target, kind, profile, features and ABI
 of the actual selected production root to its relevant build-input identity and independently
 observed deployed artifact bytes. Relevant inputs are identified before linking; artifact
-association follows build/install, including admitted Python installation transformations.
-Complete dirty outer source/build observation, including authored Rust, Python and tooling
+association follows build/install. Historical Python installation transformations retain
+their recorded admission meaning; the retired producer does not issue current evidence.
+Complete dirty outer source/build observation, including recorded authored Rust, Python and tooling
 composition roots, root build declarations/locks and Git context, is recorded at
 deployment/run admission and is not a compiled input of every associated role. Role capture
 retains the tool and flag inputs actually consumed by that artifact. An installed artifact
@@ -224,20 +230,29 @@ authority. Generated invocations meet the same owner checks. Stock effectful and
 owners retain conservative caller/grammar requirements; a package name or metadata flag
 alone grants nothing. Relevant caller code still enters scientific identity.
 
-The proposed ADR-0189 finite preparation operation acquires target-local ownership before dependency setup, bootstraps the capture tool, then refreshes the selected executor-family union once before captures. Its actual writer descendants retain that exclusion; it is not host-wide admission or protection from arbitrary Cargo tools. A first exact executor compilation requires successful non-Fresh compiler evidence. Later Fresh reuse requires preceding compilation within that same operation and unchanged dependency-complete source/configuration/reviewed input/environment/native/absence and original-output premises. Actual Maturin child context remains authoritative; unknown families and terminal/incomplete operations refuse. Build-script output messages are associations, not independent proof of execution in that child. Sealed history and final original-path current verification retain their separate meanings.
+Historical ADR-0189 preparation receipts retain target-local writer exclusion rather than
+host-wide admission. Exact first compilation required non-Fresh compiler evidence; subsequent
+Fresh reuse depended on preceding compilation in the same operation and unchanged complete
+source/configuration/input/environment/native/absence and original-output premises. Where a
+receipt records a Maturin child, that actual child context remains its authority; unknown families
+and terminal/incomplete operations confer no eligibility. Build-script output messages remain
+associations rather than proof of execution in that child. Sealed history and original-path
+verification keep their distinct meanings. Plan58 retires the Python capture/installation
+controllers; these receipt rules do not require recreating them.
 
-The maintainer withdrew the additional environment/provenance proof targets from Plan39 on 2026-10-14: strict all-role capture, source-completeness investigations, executor projections and compiler/launcher/installer phase associations. These targets are eliminated, not deferred; no revisit or future campaign is retained. Ordinary design-phase validation exercises current worker/Python builds, installed workflows and scientific behavior, with explicit Arrow force-validation and existing runtime safeguards. Environment fingerprints retain their provenance meaning; minor changes alone do not invalidate useful functional results. Existing strict producer mechanisms retain their current conservative semantics without becoming an implementation or acceptance obligation for this work.
+The maintainer withdrew the additional environment/provenance proof targets from Plan39 on 2026-10-14: strict all-role capture, source-completeness investigations, executor projections and compiler/launcher/installer phase associations. These targets are eliminated, not deferred; no revisit or future campaign is retained. Ordinary design-phase validation exercises current native builds, workflows and scientific behavior, with explicit Arrow force-validation and existing runtime safeguards. Environment fingerprints retain their provenance meaning; minor changes alone do not invalidate useful functional results. Retained strict producer receipts keep their conservative interpretation without reviving a retired capture mechanism or becoming a new acceptance obligation.
 
 Deployment preparation owns startup observation before store effects, native join before
 scratch release, and only escaped observation data afterward. Strict captures preserve
 raw unit associations, consumed volatile inputs and selected artifacts in a sealed historical
 view before another role refreshes mutable Cargo paths. Historical reconstruction never
-grants current deployment freshness. Python strict preparation captures Maturin's actual
-Cargo child and protects that raw realization before installation; independent import and
-full-byte admitted transformation checks still establish the installed association.
+grants current deployment freshness. Historical Python strict-preparation receipts describe
+Maturin's actual Cargo child, its protected raw realization, independent import and full-byte
+admitted installation transformations. They remain readable evidence of that original
+association, not a current Python operating path.
 
 Ordinary preparation can instead use a distinct versioned deployment-local admission:
-exact independently observed receiving role/artifact, interpreter, supported loaded ELF
+exact independently observed native receiving role/artifact and supported loaded ELF
 closure and effective reconstruction configuration. It requires no source/compiler receipt
 and confers no cross-build relevant-source qualification. On the controlled Linux/glibc
 2.39 profile, actual persisted receiving and new eligible publication qualify that
@@ -283,7 +298,7 @@ Current numerical strategy documents use version4 and `NumericalStrategyV4`: a p
 its real `NumericalMethod` (native backend or residual LM), rather than assigning every method
 an NLP backend. `FitProfileV5` includes the requested fitting optimizer. Replay constructors
 retain that choice under their current versioned artifact contract. Producers, decoding,
-strategy projection and published/Python documents migrate together; no old-field shim
+strategy projection and published native documents migrate together; no old-field shim
 reinterprets historical bytes. Frozen old frame spellings remain historical and do not
 admit execution. Physical scalar-cache encoding integrity has its separate nonsemantic role.
 
@@ -787,7 +802,7 @@ its exact persisted grant or admitted read/header association and no live strong
 It retains a released terminal grant receipt for retry without advancing the replacement
 authority floor; new acquisition and renewal still require current authority.
 
-**Explicit selected results (ADR-0187 proposed amendment; accepted Plan45 RC04).** Full snapshots preserve complete frozen relation/range inventory and synchronous access. A distinct selected reader receives immutable output/range predicates before discovery and uses bounded selected pages under exact read protection. Explicit asynchronous selected snapshots freeze the complete original selected universe, never an unread tail; their native providers restrict that universe before residual filters, limits and projection. Full and selected paths share one protected codec/admission owner. Python selected streams retain their existing meaning. A full reader consumes its frozen inventory without a second storage walk. Selected readers discover only their selected universe; independent full readers and actual IPC imports retain complete receiving checks.
+**Explicit selected results (ADR-0187 proposed amendment; accepted Plan45 RC04).** Full snapshots preserve complete frozen relation/range inventory and synchronous access. A distinct selected reader receives immutable output/range predicates before discovery and uses bounded selected pages under exact read protection. Explicit asynchronous selected snapshots freeze the complete original selected universe, never an unread tail; their native providers restrict that universe before residual filters, limits and projection. Full and selected paths share one protected codec/admission owner. Future foreign selected streams must preserve those same selection and custody semantics (§21.6). A full reader consumes its frozen inventory without a second storage walk. Selected readers discover only their selected universe; independent full readers and actual IPC imports retain complete receiving checks.
 
 **Protected evidence composition within ADR-0182.** Analysis and standalone promotion share one protected selection and bounded byte/context-bound scientific facts produced during the copy. Provisional member coordinates become usable graph evidence only after exact artifact/member acknowledgments, final locator binding and independently retained artifact input/read authority. Unknown acknowledgments keep original intent and unsettled protection; independent reopen still performs receiving admission. Activation acknowledgments are checked against the generated whole-row request with only the permitted active lifecycle transition normalized. Temporary equality copies are prepaid. Client evidence qualification uses bounded indexes, and each server graph page resolves distinct endpoint/artifact/block facts once while preserving every edge predicate and retirement lock. Standalone artifact copies remain independently owned; no shared-file ownership transfer or arbitrary projected-schema admission is implied.
 
@@ -989,25 +1004,23 @@ one export/count/checksum traversal, with allowance before avoidable copy and fi
 > Decision: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md) (proposed):
 > implemented selected Plan56 RC05 and deployment ownership; qualification remains with Plan56e.
 
-Rust owns versioned deployment/profile/context/receiver/readiness documents and one relational
-allocation validator callable before setup effects. Generated bootstrap contracts support Python's
-environment/systemd realization. Production profiles are separately typed sections of
+Rust owns versioned native deployment/profile/context/readiness documents and one relational
+allocation validator callable before setup effects. The independent native host realizes
+environment and systemd ownership (§21.7); generated Python bootstrap contracts are retired.
+Production profiles are separately typed sections of
 `.config/agent-capacity.toml`; conformance selects a profile. Materialize one admitted allocation
-for supervisor, runtime, worker and host consumers, preserving explicit override precedence and
+for native service, runtime, worker and host consumers, preserving explicit override precedence and
 all selected numeric values, reference sixteen lanes, distinct fixture lanes and uncapped ordinary
-workstation behavior. Host, observer, receiver and worker scopes retain their different meanings.
+workstation behavior. Host, observer and worker scopes retain their different meanings.
 
-Receiver generations include their actual owned import closure, regular-package parents, generated
-bindings, required configuration and executable/provider identities. Explicitly declared dynamic
-imports are included; unknown owned dynamic imports refuse. Validate an isolated frozen import
-before publication. Unrelated development scripts do not invalidate product receiver identity.
-The immutable v2 generation contains its Rust-owned prepared runtime-input descriptor, exact
-selected nonsecret values and absence, original provider receipt hashes and interpreter/helper
-identity. Frozen runtime launch verifies and pins those existing managed generations without
-compiler discovery, Cargo or provider preparation. Invocation-owned secrets and allocation-owned
-thread/worker budgets remain separate. Missing or changed preparation refuses; v1 receiver
-generations within a supported server profile remain observable/drainable and require explicit
-readmission before current activation.
+Current native service/worker composition pins the actual selected executable, prepared
+runtime inputs, exact nonsecret environment values and absence, and native provider identities.
+Launch consumes completed preparation without compiler discovery, Cargo or implicit provider
+preparation. Invocation-owned secrets and allocation-owned thread/worker budgets remain
+separate; missing or changed preparation refuses. Historical Python receiver generations retain
+their original import closure, package parents, generated bindings, interpreter/helper identity
+and provider receipt hashes as data. They cannot activate a current native service or worker.
+Readability of an old descriptor grants neither current readiness nor execution authority.
 
 Shared leaf observations report authenticated process facts and explicit uncertainty. Existing
 admission/resource authority exposes borrowers independently of report/fixture custody. Owners
@@ -1257,24 +1270,24 @@ clock and finite server backstops remain enforced; loss of a submitted DDL respo
 leaves an unknown catalog outcome. Only acknowledged creation admits context selection.
 Atomic schema installation and scientific mutations retain their final transaction fences.
 
-Disk/service identity, immutable receiver artifacts and invocation/database context have
-separate lifetimes. Compatible receiver changes do not stop storage; schema creation is
-explicit and ordinary open refuses an incompatible interpretation. Python forwards explicit
-database selection to the same Rust context validation. Persistent owned user-manager
+Disk/service identity, immutable native worker artifacts and invocation/database context have
+separate lifetimes. Compatible worker changes do not stop storage; schema creation is
+explicit and ordinary open refuses an incompatible interpretation. Native callers forward
+explicit database selection to the same Rust context validation. Persistent owned user-manager
 services consume host admission on startup/restart and cannot relaunch during intentional
-parking. Fixed host lanes account independent commands, services and receivers; nested
-work borrows its authentic owner and capacity is released only after actual descendant drain.
-Storage readiness validates its own charged allocation, actual unit invocation/cgroup,
-PID start, finite memory/CPU caps and affinity independently of science placement.
-Qualified restart retains that storage charge through the restart delay and only rebinds
-after the owned predecessor drains. Missing or stale ownership refuses replacement.
+parking. Native host ownership follows authentic OS units/processes rather than a Python allocation
+ledger. Nested work borrows its authentic owner and physical release requires actual
+descendant drain. Storage readiness validates its own selected allocation, actual unit
+invocation/cgroup, PID start and applicable resource controls independently of science
+placement. Qualified restart preserves original ownership through the restart delay and
+only rebinds after the owned predecessor drains. Missing or stale ownership refuses replacement.
 Dedicated timing storage and its separately admitted timing caller retain their selected lane.
 
 Canonical connection construction consumes storage identity, credentials, interpretation
-and admission only. Native allocation and receiver association are interpreted together by
+and admission only. Native allocation and managed-worker association are interpreted together by
 runtime deployment composition for the selected database, from the same authoritative
 declaration. Storage-only access does not validate unused native policy. Managed execution
-still requires finite native allocation, the actual receiver association and fresh admission;
+still requires finite native allocation, the actual managed-worker association and fresh admission;
 configuration selection alone is not execution authority.
 
 The native scientific composition root consumes the service's `SchemaReady` and explicitly
@@ -1303,9 +1316,10 @@ Actual mutations retain lifecycle exclusion and authentic descendant-drain check
 Allocation admission reconciles ended owners without starting unrelated parked services.
 An explicit store demand resumes only its selected service through the current allocation
 owner; independent storage and reference storage retain their respective admission rules.
-Recovery compares immutable receiver content and exact permitted installation mapping,
-including intermediate-directory associations, permissions and the external interpreter.
-Service invocation, readiness and admission are re-established for the restored incarnation.
+Recovery validates immutable native service/worker/helper artifacts and the exact selected
+configuration and path/permission associations. Historical receiver installation mappings retain
+their original interpretation but grant no current activation. Service invocation, schema
+readiness and execution admission are re-established for the restored incarnation.
 
 Context selection uses a private read-only system account and an exact-record probe,
 then restores the write account. Selection and acknowledged reconnect replay cannot
@@ -1434,12 +1448,17 @@ The native product recovery helper owns bounded inventory, stable descriptors, a
 digest validation, instance locks and copy/restore publication. Copy holds directory and file
 descriptors, uses anonymous temporary files and no-replace publication, and synchronizes the
 inode and parent; unsupported filesystems refuse. Archive restore does not require source locks
-that belong only to a live placement. Python owns freeze, service/manager/cgroup authentication,
-maintenance and exact target recovery. Uncertain ownership remains protective.
+that belong only to a live placement. Any future end-to-end recovery application must compose
+freeze, native service/manager/cgroup authentication, maintenance and exact target recovery.
+Plan58 retains the physical helper and native ownership primitives but retires the Python
+archive/recovery presentation; it does not deliver or qualify that complete operator workflow.
+Physical drain, schema applicability and scientific settlement remain distinct; uncertain
+ownership stays protective.
 
-Fresh regeneration preserves recorded telemetry while publishing a closed current target. The
-selected Plan56d target is v10; prior v9 qualification retains its original scope in §24.2. Explicit
-readmission may install current supervisor/receiver/helper artifacts on a stopped, drained
+The reconstruction target preserves recorded telemetry while publishing a closed current target. Historical
+Plan56d target-v10 and prior v9 qualification retain their original scope in §24.2; they do not
+qualify the current native composition. Explicit
+readmission may install current native service/worker/helper artifacts on a stopped, drained
 quiesced or validation-required target, preserving allocation, identity and pending initializer.
 Initialization/validation and application readmission remain separate operations.
 

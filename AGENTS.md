@@ -145,7 +145,7 @@ dispatched.
    do not need them. `Tested` and `Measured` must name the test or benchmark and its
    conditions.
 5. **An ADR comes before the change**, not after, when the change alters a D1–D14
-   decision, adds or removes a crate, or majors one of the four pinned families. See
+   decision, adds or removes a crate, or majors a declared dependency family. See
    "When an ADR is required" below. **Adding a third-party dependency needs none of it** —
    no library and no licence is refused during phases 0–1
    ([dependency policy](docs/dev/dependency-policy.md), ADR-0066).

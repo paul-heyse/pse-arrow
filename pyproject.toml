@@ -133,7 +133,19 @@ ignore = [
 "tests/reference/oracles/*.py" = ["INP001", "PLC0415"]
 "scripts/tests/**" = ["S101"]
 # Independent oracle drivers own explicit subprocesses, JSON and terminal reports.
-"scripts/**" = ["T20", "INP001", "S603", "S607", "S602", "D1", "E501", "TRY003", "DTZ011", "PERF401", "TID251"]
+"scripts/**" = [
+  "T20",
+  "INP001",
+  "S603",
+  "S607",
+  "S602",
+  "D1",
+  "E501",
+  "TRY003",
+  "DTZ011",
+  "PERF401",
+  "TID251",
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["scripts"]
@@ -165,8 +177,14 @@ ban-relative-imports = "parents"
 # Retained Python is independent reference code, checked in its actual environment.
 project-includes = ["scripts", "tests/reference"]
 project-excludes = [
-  "**/.venv*/**", "**/target/**", "external/**", "build/**", "vendor/**",
-  "scripts/plan14_reference.py", "scripts/feos_entropy_reference.py", "scripts/pr_stability_reference.py",
+  "**/.venv*/**",
+  "**/target/**",
+  "external/**",
+  "build/**",
+  "vendor/**",
+  "scripts/plan14_reference.py",
+  "scripts/feos_entropy_reference.py",
+  "scripts/pr_stability_reference.py",
 ]
 python-version = "3.13"
 python-interpreter-path = ".venv-parity/bin/python"

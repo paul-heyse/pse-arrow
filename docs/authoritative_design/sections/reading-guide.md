@@ -31,7 +31,7 @@ working corpus; Git history keeps them. Source inspection settles implementation
 | Find what is supported | [Scope and open design §25–§26](scope-and-open-design.md) | The owning page's limits; [qualification basis §24.2](operations-and-validation.md#section-24-2) |
 | Model authoring and composition | [Models and composition §10–§12, §22](models-and-composition.md) | [Physical semantics §8–§9](physical-semantics.md) |
 | Mathematics and preparation | [Mathematics and compilation §7, §14](mathematics-and-compilation.md) | [Numerical execution §15–§18](numerical-execution.md) |
-| Running cases, dynamics, fitting, Python | [Workflows and results §13, §19, §21](workflows-and-results.md) | [Numerical execution](numerical-execution.md) |
+| Running cases, dynamics, fitting, native applications and optional adapters | [Workflows and results §13, §19, §21](workflows-and-results.md) | [Numerical execution](numerical-execution.md) |
 | Schemas, identity and storage | [Schema and relations §4, §6](schema-and-relations.md), [identity and publication §5, §20](identity-and-publication.md) | [Generated reference](../../generated/README.md) |
 | Crates, libraries and pins | [Workspace and dependencies §3](workspace-and-dependencies.md) | [Capability maps](../../capability-maps/README.md) and the library skills |
 | Errors, tests and qualification | [Operations and validation §23–§24](operations-and-validation.md) | [Development guides](../../dev/README.md) |

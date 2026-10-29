@@ -186,6 +186,6 @@ change.
 
 - <a id="da-041"></a>**DA-041** — *Edited vendored trees have no truthful patch record.*
   - Resolved: `vendor/deltas/*.patch` and `vendor/deltas/readme.md` give a reconstructable
-    record (`4867afe89`, `dede74bc2`).
+    record (`4867afe89c0aceb50e984636eaf11f7fdd10f0df`, `dede74bc2`).
   - The SurrealDB SDK is de-vendored at exact `=3.3.4`.
   - Full text at source `682fc3830`.

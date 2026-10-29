@@ -204,7 +204,12 @@ required-features = ["native-study-tests"]
 
 [[test]]
 name = "native_boundary_acceptance"
-required-features = ["native-study-tests", "product-operators", "solver-scip", "solver-ipopt"]
+required-features = [
+  "native-study-tests",
+  "product-operators",
+  "solver-scip",
+  "solver-ipopt",
+]
 
 [[test]]
 name = "reference_sensitivity_exchange"

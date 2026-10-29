@@ -165,7 +165,7 @@ The central owners are good, and generation stops short of the consumers in each
   guarded functions are invoked through hand positional strings, and about 300 hand statements
   decode positional field lists. `observe` does not bind the study-module hash that claims bind.
   The writer-trust boundary itself is decided by ADR-0164.
-- **Frame catalog.** It owns hash contexts, but identities are minted inline through uncatalogued
+- **Frame catalog.** It owns hash contexts, but identities are minted inline through uncataloged
   tags, and attempt lineage is derived twice.
 - **Diagnostic vocabulary.** It is well typed, but a `contract()` helper with about 2,390 call
   sites, and blanket canonical and host mappings, decide the class.

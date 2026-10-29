@@ -679,8 +679,8 @@ do not substitute for complete work evidence.
 > [ADR-0093](../../adr/0093-qualified-native-strategies.md) — transactional stages. Plan 22
 > A6 (implemented) runs every block as a solve step of one staged sequence on a retained
 > native session; [ADR-0116](../../adr/0116-typed-boundary-documents.md) — initialization
-> admission in Rust and typed attempts across the Python boundary (Plan 22 A5,
-> implemented).
+> admission in Rust and typed attempts (Plan 22 A5,
+> implemented; the former Python projection is retired under ADR-0233).
 
 `pse-structural::initialization::Plan` converts a complete, structurally sound square
 analysis into predecessor-first conditional blocks, each with its original rows, solved
@@ -705,10 +705,11 @@ thread, at least one stage and at most 4096 stage-block steps. A stage overlay m
 only declared, finite fixed or parameter inputs, never a solved column, and every block
 boundary value must be present. Admission returns every block's route and the resolved
 numerical policy. Each block attempt keeps its stage, route, boundary, result or typed
-failure, its shared numerical trace, and whether it committed; the Python boundary exposes the routes and the ordered
-attempts as typed values (`NativeStrategyAttempt`, exactly one of a native report and a
-typed failure; [§18.7](#section-18-7)). *Tested* by `initialization_admission_in_rust`
-(runtime units) and `test_route_and_eligibility_are_typed` (Python unit test).
+failure, its shared numerical trace, and whether it committed. Ordered
+attempts remain typed native `BlockAttempt` values, each with exactly one native report or
+typed failure ([§18.7](#section-18-7)). *Tested* by `initialization_admission_in_rust`
+(runtime units). The retired `test_route_and_eligibility_are_typed` Python test retains only
+its historical evidence scope; it is not current native qualification.
 
 Execution is transactional over immutable case bindings:
 
@@ -1341,7 +1342,7 @@ receipt and an output seed, and from a certifying adapter a `GlobalRecord`: the 
 box, the ranked solution pool, the infeasible subsystem, the exact rational objective and
 whether a retained search tree was reused ([§18.10.1](#section-18-10-1)). Fit response
 derivatives remain candidate data distinct from estimator qualification. The shared tags are registry-owned and projected into Rust,
-Arrow and Python ([ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md)); candidate
+Arrow ([ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md)); candidate
 use (§16.6) combines these facts with physical closure.
 
 > Decision: [ADR-0154](../../adr/0154-declared-numerical-strategy.md) and
@@ -1411,7 +1412,7 @@ Contextual candidate assessment composes shared class/intent/rank policy with ad
 > realizations only on adapters with the handler (Plan 22 M3 and M4, implemented; SCIP
 > consumes every handler since Plan 22 G7, implemented);
 > [ADR-0116](../../adr/0116-typed-boundary-documents.md) — typed routes, eligibility rows
-> and registry reason codes across the Python boundary (Plan 22 A5, implemented);
+> and registry reason codes (Plan 22 A5, implemented; former Python projection retired);
 > [ADR-0111](../../adr/0111-multi-objective-optimization.md) — lexicographic and weighted
 > multi-objective routes (Plan 22 C3, implemented: the authored members and levels and
 > the native and staged lexicographic routes, [§6.8](schema-and-relations.md#section-6-8)).
@@ -1557,9 +1558,11 @@ not optimize lexicographically in one solve (`several_objectives_route_only_to_a
 `least_squares` marks a Gauss–Newton Hessian requested for anything but a least-squares fit
 objective, which only fitting declares ([§19.4](workflows-and-results.md#section-19-4)); every
 adapter refuses it before native work (`gauss_newton_requires_least_squares_objective`). The
-Python boundary exposes them as `NativeRoute`, `NativeEligibility` and `NativeIneligible`
-values in registry spellings, never as Rust `Debug` text. No runtime relation publishes
-them. *Tested* by `test_route_and_eligibility_are_typed` (Python unit test).
+native API retains `pse_backend_native::routing::{Route, Eligibility, Ineligible}` and
+registry-owned decision/reason codes. Boundary documents use registry spellings, never Rust
+`Debug` text; diagnostic projections do not create scientific authority. The former Python
+`test_route_and_eligibility_are_typed` test is historical evidence for the retired projection,
+not current native qualification.
 
 Unsupported bound, derivative, nonsmooth and thread combinations
 fail during preparation, before worker acquisition. Typed backend settings must belong to
@@ -2127,9 +2130,9 @@ units).
 second-order, exponential, power, generalized power and PSD triangle, tagged by `kind`) and
 `conic::Settings`, the mode, the KKT direct solver and every admitted native control;
 iteration and time budgets, stopping tolerances, equilibration and threads belong to the
-shared controls and the resolved accuracy. These types are the Python wire format and
+shared controls and the resolved accuracy. These types define the native document representation and
 the request identity (`pse.cone.layout.v3`) and map to Clarabel's own types only inside the
-adapter, so a Clarabel upgrade cannot change a Python contract or an identity; Clarabel's
+adapter, so a Clarabel upgrade cannot silently change that document contract or an identity; Clarabel's
 spellings are refused. Matrix, dimension and parameter checks precede the mapping. SDP uses
 packed PSD-triangle cones under the backend feature `sdp` (`pse-runtime/solver-sdp`), whose
 BLAS/LAPACK calls resolve into the image's one oneMKL provider (LP64, GNU threading)
@@ -2336,7 +2339,7 @@ deviation must not exceed 10⁻⁹ for any global claim to transfer (`GlobalEvid
 `lp/threads`, `nlpi/ipopt/linear_solver`, `nlpi/ipopt/hsllib`, `nlpi/ipopt/pardisolib` and
 every `parallel/`, `concurrent/`, `iis/`, `reoptimization/` and `exact/` option are set only
 from typed settings and controls; a caller-supplied value for one of them is refused. `catchctrlc` is false, because signal
-handling belongs to the Python boundary; the time limit is the attempt's remaining deadline;
+handling belongs to the native application/process owner (§21.7), which requests cancellation and retains join/drain ownership; the time limit is the attempt's remaining deadline;
 the memory limit is the job's foreign allowance in MiB (`Execution::memory`,
 [§18.8](#section-18-8)); the relative and absolute gaps come from `ResolvedAccuracy`, the
 absolute one converted to original objective units; the feasibility tolerance is the

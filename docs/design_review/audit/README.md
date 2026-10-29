@@ -114,7 +114,7 @@ interact.
 |---|---|---|---|
 | [DA-048](semantic-model-and-authority.md#da-048) | Only fit statistics have an owned product permission; other derived products are qualified by their consumers | Semantic model | 1 |
 | [DA-049](semantic-model-and-authority.md#da-049) | Study, review and portability boundaries summarize permission in lossy, unenforced vocabularies | Semantic model | 1 |
-| [DA-050](structure-and-invariants.md#da-050) | Identity derivations are catalogued per frame but minted inline at consumers through uncatalogued sub-contexts | Structure | 3 |
+| [DA-050](structure-and-invariants.md#da-050) | Identity derivations are catalogued per frame but minted inline at consumers through uncataloged sub-contexts | Structure | 3 |
 | [DA-051](structure-and-invariants.md#da-051) | Canonical transition authority is split across four representations and invoked through hand positional strings; settlement omits the module-hash binding | Structure | 3 |
 | [DA-052](boundaries-and-composition.md#da-052) | Durable and service documents outside the exported set re-implement versioning and interpretation by hand | Boundaries | 3 |
 | [DA-053](boundaries-and-composition.md#da-053) | Analysis modes compose native admission, routing, execution control and lane custody themselves | Boundaries | 2 |

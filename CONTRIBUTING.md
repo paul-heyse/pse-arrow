@@ -88,7 +88,7 @@ state and next steps. Document acceptance, implementation and product qualificat
 
 | Change | Needs |
 |---|---|
-| Alters D1–D14; adds or removes a crate; majors one of the four pinned families (arrow, datafusion, object_store, pyo3); changes the hashing contract, the Python boundary contract, metadata conventions, or the commit contract; any SHOULD deviation; governance changes | **ADR + design review** — label `needs-review`; verdict Accept or Accept-scoped before the ADR becomes `accepted` |
+| Alters D1–D14; adds or removes a crate; majors a declared dependency family; changes the hashing contract, the Python boundary contract, metadata conventions, or the commit contract; any SHOULD deviation; governance changes | **ADR + design review** — label `needs-review`; verdict Accept or Accept-scoped before the ADR becomes `accepted` |
 | A new relation family, pass, kernel contract, or backend binding *within* an accepted decision; a small local SHOULD deviation; moving the parity pin; a deferred trigger firing | **ADR (short)**; review at maintainer discretion |
 | Bug fixes; refactors inside existing contracts; tests; documentation wording; a patch bump inside an already-pinned family; adding, removing, upgrading or (with a recorded reason) pinning a third-party dependency; tooling | **Neither** — an ordinary PR with the evidence field filled |
 
@@ -149,8 +149,7 @@ Say what you verified using the §D vocabulary, and say what you did not.
   affects; no wholesale re-resolve unless the operator asks (ADR-0165).
 - **A hold needs a reason.** A pin that must not be bumped casually carries its reason in
   `[workspace.metadata.pse.pins]` (Rust) or beside the pin in `pyproject.toml` (Python);
-  `dependency_pins` checks the Rust side. A family **major** (arrow, datafusion, pyo3,
-  object_store) needs an ADR and a green `family-check`.
+  `dependency_pins` checks the Rust side. A declared family **major** needs an ADR and a green `family-check`.
 - **Adding a dependency needs none of that.** No library is refused and no licence is
   grounds to refuse one through phases 0–1: add it pinned exactly, commit the
   lockfile, and carry on. See [dependency policy](docs/dev/dependency-policy.md) for what
