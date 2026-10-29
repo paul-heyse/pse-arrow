@@ -159,6 +159,40 @@ a universal publication protocol.
 | [B04](#b04) | in progress | 58b | Service/compiler consumers integrated |
 | [B05](#b05) | in progress | 58b | Cold-start and host journey acceptance |
 
+## Execution dependencies
+
+The maintainer authorized the entire B01–B05 scope on 2026-10-29, including necessary
+C/D/F/G consumer cuts. The following stages describe dependencies, not additional status
+owners. Package progress remains in the table above. A prerequisite slice means a working
+capability; it does not require completion of its enclosing companion.
+
+| Stage | Delivery | Working prerequisites |
+| --- | --- | --- |
+| 1 | B02 uncertainty handling, physical observation and direct diagnosis | Existing B01 |
+| 2 | B03 environment, placement and admission | Stage 1; C04/F02 owned/borrowed fixture seam |
+| 3A | B04 retained provider and compiler consumers | Stage 2; F01/F02 native configuration |
+| 3B | B04 native server construction and physical service fixture | Stage 2; exact retained server recipe |
+| 4 | D01 connection and D05 readiness/migration slice | Stage 3B fixture; F03 declarations/generation |
+| 5 | B04 native service composition and host-consumer retirement | Stages 3A/4; C04 shutdown and necessary F/G consumer cuts |
+| 6 | B05 assembled acceptance and closeout | Stages 1–5 implemented and integrated |
+
+Stages 3A and 3B may progress independently. Construction and low-effect policy can develop
+before launch/admission integration; consumers receive no acceptance credit until their working
+prerequisites exist. D05 consumes B's physical fixture and supplies schema-ready admission to
+B04 application composition, avoiding a whole-B04/whole-D05 dependency cycle. Full D03 study
+progression and the unrelated F developer surface are not prerequisites for the host owner.
+
+Retain existing zbus/systemd/Tokio facilities. The reviewed sd-notify and hierarchical-shutdown
+options remain conditional: this delivery uses Type=exec plus D-owned application readiness,
+and explicit retained futures/joins for the flat host controller. Cargo fingerprints, native
+sccache and immutable prepared-provider generations retain distinct authority. Current pin
+and feature-unification/profile decisions are not changed by overview version differences.
+
+Whole-B03 completion includes the dependent consumer cuts needed to retire the named old
+host mechanisms. Moving their remaining imports to another plan is not retirement. Explicit
+finite/custom/reference/timing modes and retained compiler/solver/isolation/UNO/PETSc routes
+are unfinished scope, not exclusions inferred from their current refusal.
+
 <a id="b01"></a>
 ### B01 — Establish the independent construction root
 
