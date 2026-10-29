@@ -275,6 +275,42 @@ fn foreground_sigterm_settles_and_reports_signal_status() {
 }
 
 #[test]
+fn foreground_explicit_finite_scope_and_nested_borrow_keep_actual_envelope_and_release() {
+    let temp = tempfile::tempdir().unwrap();
+    let observation = temp.path().join("finite-observation");
+    let mut command = host();
+    command.current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
+        .env("PSE_BUILD_MODE", "unbounded").env_remove("PSE_HOST_ALLOCATION")
+        .env_remove("PSE_MEMORY_MAX").env("PSE_SLICE", "pse.slice")
+        .args(["boundary", "--resource-class", "light", "--", "/bin/sh", "-ec", r#"
+cat /proc/self/cgroup > "$1"
+group=$(sed -n 's/^0:://p' /proc/self/cgroup)
+cat "/sys/fs/cgroup$group/memory.max" >> "$1"
+printf '%s\n' "$PSE_HOST_ALLOCATION" >> "$1"
+"$2" boundary --resource-class light -- /bin/sh -ec 'cat /proc/self/cgroup; printf "%s\n" "$PSE_HOST_ALLOCATION"' >> "$1"
+exit 7
+"#, "fixture"]).arg(&observation).arg(env!("CARGO_BIN_EXE_pse-host"));
+    let mut child = Guard::top_level(&mut command);
+    let status = child.wait().unwrap();
+    let mut errors = String::new();
+    child.stderr.take().unwrap().read_to_string(&mut errors).unwrap();
+    assert_eq!(status.code(), Some(7), "{errors}");
+    let document = fs::read_to_string(observation).unwrap();
+    let lines = document.lines().collect::<Vec<_>>();
+    assert_eq!(lines.len(), 5, "{document}");
+    assert_eq!(lines[1], (2_u64 << 30).to_string());
+    assert_eq!(lines[0], lines[3], "nested command must reuse original containment");
+    assert_eq!(lines[2], lines[4], "nested command must reuse original charge");
+    let group = lines[0].strip_prefix("0::").unwrap();
+    assert!(group.contains("pse.slice/pse-"), "{group}");
+    record_fresh_group(&mut child, group);
+    wait_empty(group);
+    let journal = Path::new(&std::env::var_os("XDG_RUNTIME_DIR").unwrap()).join("pse-host-admission/finite.json");
+    let state: serde_json::Value = serde_json::from_slice(&fs::read(journal).unwrap()).unwrap();
+    assert!(state["finite"].get(lines[2]).is_none(), "original finite charge remains after successful boundary release");
+}
+
+#[test]
 fn foreground_exec_failures_retain_shell_statuses() {
     let missing = host()
         .args(["run", "/definitely/missing/pse-command"])

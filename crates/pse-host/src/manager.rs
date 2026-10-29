@@ -8,7 +8,7 @@
 use crate::HostError;
 use futures_util::StreamExt;
 use pse_diagnostics::process_facts::{ProcessIdentity, ProcessRead, ProcessReader};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::{self, Read, Seek, SeekFrom},
@@ -24,7 +24,7 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 const DESTINATION: &str = "org.freedesktop.systemd1";
 
 /// Original intent, generated before the effect and retained for uncertain replies.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct LaunchIntent {
     /// Unique unit name; not by itself permission to stop it.
     unit: String,
@@ -36,6 +36,17 @@ impl LaunchIntent {
     pub fn fresh_scope() -> Result<Self, HostError> {
         let mut value = Self::fresh()?;
         value.unit = value.unit.replace(".service", ".scope");
+        Ok(value)
+    }
+    /// Fresh allocation slice below the selected finite aggregate ancestry.
+    pub fn fresh_allocation(parent: &str) -> Result<Self, HostError> {
+        let prefix = parent.strip_suffix(".slice").filter(|prefix| !prefix.is_empty())
+            .ok_or_else(|| HostError::Ownership("invalid finite parent slice".into()))?;
+        if prefix.bytes().any(|byte| !byte.is_ascii_alphanumeric() && !matches!(byte, b'-' | b'_')) {
+            return Err(HostError::Ownership("invalid finite parent slice".into()));
+        }
+        let mut value = Self::fresh()?;
+        value.unit = format!("{prefix}-allocation_{}.slice", value.unit.strip_prefix("pse-host-").and_then(|unit| unit.strip_suffix(".service")).ok_or_else(|| HostError::Ownership("fresh allocation identity absent".into()))?.replace('-', "_"));
         Ok(value)
     }
     /// Original unique unit name, without construction authority.
@@ -55,6 +66,71 @@ impl LaunchIntent {
             description: format!("pse-host original {nonce}"),
         })
     }
+}
+
+/// Explicit finite controls; absent fields leave ordinary placement unchanged.
+#[derive(Clone, Debug, Default)]
+pub struct ResourceControls {
+    /// Exact byte ceiling for this owned unit.
+    pub memory_max: Option<u64>,
+    /// Exact swap ceiling for this owned unit.
+    pub memory_swap_max: Option<u64>,
+    /// CPU time per second, in microseconds.
+    pub cpu_quota_per_sec_usec: Option<u64>,
+    /// Systemd little-endian CPU bit mask, empty for inherited placement.
+    pub allowed_cpus: Vec<u8>,
+}
+impl ResourceControls {
+    fn properties(&self) -> Result<Vec<(String, OwnedVariant)>, HostError> {
+        let mut result = Vec::new();
+        if let Some(value) = self.memory_max { result.push(property("MemoryMax", value)?); }
+        if let Some(value) = self.memory_swap_max { result.push(property("MemorySwapMax", value)?); }
+        if let Some(value) = self.cpu_quota_per_sec_usec { result.push(property("CPUQuotaPerSecUSec", value)?); }
+        if !self.allowed_cpus.is_empty() { result.push(property("AllowedCPUs", self.allowed_cpus.clone())?); }
+        Ok(result)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub(crate) struct UnitBinding {
+    pub invocation: Vec<u8>,
+    pub group: String,
+    pub device: u64,
+    pub inode: u64,
+}
+
+/// Private runtime provenance, minted only after original native parent creation.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct ParentProof {
+    manager: String,
+    intent: LaunchIntent,
+    invocation: Vec<u8>,
+}
+
+/// Observation-only service facts used to account a separately owned resident.
+#[derive(Clone, Debug)]
+pub(crate) struct ResidentServiceFacts {
+    pub observation: UnitObservation,
+    pub binding: UnitBinding,
+    pub executable: String,
+    pub arguments: Vec<String>,
+    pub fragment: PathBuf,
+    pub slice: String,
+    pub memory_max: u64,
+    pub memory_swap_max: u64,
+    pub kernel_memory_max: u64,
+    pub kernel_memory_swap_max: u64,
+    pub process: ProcessIdentity,
+}
+/// Supported shared-parent update, separate from private original-unit mutation.
+pub(crate) struct FiniteParentRequest<'a> {
+    pub selected: &'a str,
+    pub aggregate: u64,
+    pub declared: &'a Path,
+    pub proof: Option<&'a ParentProof>,
+    pub known: &'a [LaunchIntent],
+    pub borrowed: &'a [crate::admission::BorrowedResidentCharge],
+    pub isolated: bool,
 }
 
 /// Complete native service request. The executable is passed directly, without shell parsing.
@@ -295,7 +371,14 @@ impl HostManager {
         }
         let unit = self.unit(name).await?;
         let invocation = unit.invocation_id().await?;
-        let (main_pid, exit_code, exit_status, control_group) = if name.ends_with(".scope") {
+        let (main_pid, exit_code, exit_status, control_group) = if name.ends_with(".slice") {
+            let slice = SliceProxy::builder(&self.connection)
+                .destination(self.owner.as_str())
+                .path(unit.inner().path().to_owned())
+                .cache_properties(CacheProperties::No)
+                .build().await?;
+            (0, 0, 0, slice.control_group().await?)
+        } else if name.ends_with(".scope") {
             let scope = ScopeProxy::builder(&self.connection)
                 .destination(self.owner.as_str())
                 .path(unit.inner().path().to_owned())
@@ -455,6 +538,19 @@ impl HostManager {
         deadline: Instant,
         stop_timeout: Duration,
     ) -> Result<OwnedUnit, HostError> {
+        self.start_scope_controlled(intent, pidfd, binds_to, slice, deadline, stop_timeout, &ResourceControls::default()).await
+    }
+    /// Attach a private scope with explicitly admitted finite controls.
+    pub async fn start_scope_controlled(
+        &self,
+        intent: &LaunchIntent,
+        pidfd: std::os::fd::OwnedFd,
+        binds_to: &str,
+        slice: &str,
+        deadline: Instant,
+        stop_timeout: Duration,
+        controls: &ResourceControls,
+    ) -> Result<OwnedUnit, HostError> {
         if Instant::now() >= deadline {
             return Err(HostError::Deadline(
                 "scope launch expired before dispatch".into(),
@@ -465,7 +561,7 @@ impl HostManager {
             let manager = self.manager().await?;
             let mut removed = manager.receive_job_removed().await?;
             let fd = zbus::wire::Fd::from(pidfd);
-            let properties = vec![
+            let mut properties = vec![
                 property("AddRef", true)?,
                 property("Description", intent.description.clone())?,
                 property("Slice", slice.to_owned())?,
@@ -481,6 +577,7 @@ impl HostManager {
                 property("BindsTo", vec![binds_to.to_owned()])?,
                 property("After", vec![binds_to.to_owned()])?,
             ];
+            properties.extend(controls.properties()?);
             let result = launch_job(
                 intent,
                 manager.start_transient_unit(intent.unit.clone(), "fail".into(), properties, vec![]),
@@ -575,6 +672,218 @@ impl HostManager {
         owned.launch_job_result = Some(job_result);
         Ok(owned)
     }
+    /// Construct a private allocation ancestor through the same original-unit owner.
+    pub async fn start_slice(&self, intent: &LaunchIntent, controls: &ResourceControls, deadline: Instant) -> Result<OwnedUnit, HostError> {
+        if !intent.unit.ends_with(".slice") { return Err(HostError::Ownership("allocation is not a slice".into())); }
+        tokio::time::timeout_at(deadline.into(), async {
+            self.validate_view()?;
+            let manager = self.manager().await?;
+            let mut removed = manager.receive_job_removed().await?;
+            let mut properties = vec![property("AddRef", true)?, property("Description", intent.description.clone())?, property("CollectMode", "inactive-or-failed".to_owned())?];
+            properties.extend(controls.properties()?);
+            let result = launch_job(intent, manager.start_transient_unit(intent.unit.clone(), "fail".into(), properties, vec![]), removed.by_ref().map(|signal| {
+                let args = signal.args()?;
+                Ok(JobEvent { job: args.job().clone(), unit: args.unit().to_owned(), result: args.result().to_owned() })
+            })).await?;
+            if result != "done" { return Err(unknown_launch(intent, format!("allocation activation: {result}"))); }
+            self.reconcile_inner(intent).await.map_err(|error| unknown_launch(intent,error))
+        }).await.map_err(|_| unknown_launch(intent,"allocation startup deadline"))?
+    }
+    pub(crate) fn identity_key(&self) -> String {
+        format!("{}:{}:{}:{}:{}:{}",self.boot,self.owner,self.manager_process.pid,self.manager_process.start_ticks,self.cgroup_root.0,self.cgroup_root.1)
+    }
+    pub(crate) fn boot_id(&self) -> &str { &self.boot }
+    pub(crate) async fn validate_binding(&self,intent:&LaunchIntent,binding:&UnitBinding)->Result<(),HostError> {
+        let observed=self.observe(intent.unit()).await?;
+        let unit=self.unit(intent.unit()).await?;
+        require_original_identity(intent,&unit.description().await?,&binding.invocation,&observed.invocation)?;
+        if observed.control_group!=binding.group { return Err(HostError::Ownership("inherited cgroup path changed".into())); }
+        let group=Group::open(&binding.group,false)?;
+        if group.device!=binding.device || group.inode!=binding.inode {
+            return Err(HostError::Ownership("inherited original cgroup identity changed".into()));
+        }
+        Ok(())
+    }
+    pub(crate) async fn original_drained(&self, intent: &LaunchIntent, binding: Option<&UnitBinding>) -> Result<bool, HostError> {
+        self.validate_view()?;
+        let unit = match self.unit(intent.unit()).await {
+            Ok(unit) => Some(unit),
+            Err(HostError::Manager(zbus::Error::MethodError(name, _, _))) if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit" => None,
+            Err(error) => return Err(error),
+        };
+        let observed = if let Some(unit) = unit {
+            if unit.description().await? != intent.description { return Ok(false); }
+            Some(self.observe(intent.unit()).await?)
+        } else { None };
+        if let Some(binding) = binding {
+            if !binding.group.is_empty() {
+                let path = Group::path(&binding.group)?;
+                match std::fs::metadata(&path) {
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(true),
+                    Ok(meta) if meta.dev() != binding.device || meta.ino() != binding.inode => return Ok(true),
+                    Ok(_) => {
+                        if !Group::open(&binding.group, false)?.empty()? { return Ok(false); }
+                    }
+                    Err(error) => return Err(error.into()),
+                }
+            }
+            if let Some(observed) = observed.as_ref() {
+                if observed.invocation != binding.invocation { return Ok(false); }
+                if !observed.control_group.is_empty() && observed.control_group != binding.group { return Ok(false); }
+            }
+        }
+        match observed {
+            None => Ok(true),
+            Some(observed) if matches!(observed.active_state.as_str(),"inactive" | "failed") => {
+                Ok(Group::open(&observed.control_group,true)?.empty()?)
+            }
+            _ => Ok(false),
+        }
+    }
+    pub(crate) async fn ordinary_workloads(&self, excluded: &[String], finite: &[String]) -> Result<bool,HostError> {
+        self.validate_view()?;
+        for (name, description, _, _, _, _, _, _, _, _) in self.manager().await?.list_units_by_patterns(vec![],vec!["pse-host-*.scope".into(),"pse-host-*.service".into()]).await? {
+            if excluded.contains(&name) || finite.contains(&name) { continue; }
+            let Some(nonce) = name.strip_prefix("pse-host-").and_then(|name| name.strip_suffix(".scope").or_else(||name.strip_suffix(".service"))) else { continue; };
+            if description != format!("pse-host original {nonce}") { continue; }
+            // A disconnected or disappearing observation is uncertainty, not an empty result.
+            let observed = self.observe(&name).await?;
+            if (name.ends_with(".service") || self.native_workload(&observed).await?) && !Group::open(&observed.control_group,matches!(observed.active_state.as_str(),"inactive" | "failed"))?.empty()? { return Ok(true); }
+        }
+        Ok(false)
+    }
+    pub(crate) async fn resident_cache_candidates(&self) -> Result<Vec<ResidentServiceFacts>,HostError> {
+        self.validate_view()?;
+        let mut result=Vec::new();
+        // A name selects candidates only; private role declarations plus these
+        // original manager/kernel facts must validate before a charge is minted.
+        for (name,_,_,_,_,_,_,_,_,_) in self.manager().await?.list_units_by_patterns(vec![],vec!["pse-compiler-cache-*.service".into()]).await? {
+            let observed=self.observe(&name).await?;
+            if matches!(observed.active_state.as_str(),"inactive" | "failed") && observed.control_group.is_empty() { continue; }
+            let group=Group::open(&observed.control_group,matches!(observed.active_state.as_str(),"inactive" | "failed"))?;
+            if group.empty()? { continue; }
+            let unit=self.unit(&name).await?;
+            let fragment=PathBuf::from(unit.fragment_path().await?);
+            let service=ServiceProxy::builder(&self.connection).destination(self.owner.as_str()).path(unit.inner().path().to_owned()).cache_properties(CacheProperties::No).build().await?;
+            let starts=service.exec_start().await?;
+            let [(executable,arguments,_,_,_,_,_,_,_,_)]=starts.as_slice() else { return Err(HostError::Ownership("resident cache has an ambiguous launch declaration".into())); };
+            let process=match ProcessReader::default().process(observed.main_pid) {
+                ProcessRead::Present(facts) if facts.identity.boot_id==self.boot && process_group(observed.main_pid)?==observed.control_group=>facts.identity,
+                _=>return Err(HostError::Ownership("resident cache original process identity unavailable".into())),
+            };
+            let facts=ResidentServiceFacts {
+                binding:UnitBinding {invocation:observed.invocation.clone(),group:observed.control_group.clone(),device:group.device,inode:group.inode},
+                observation:observed,executable:executable.clone(),arguments:arguments.clone(),fragment,slice:service.slice().await?,memory_max:service.memory_max().await?,memory_swap_max:service.memory_swap_max().await?,kernel_memory_max:group.limit("memory.max")?,kernel_memory_swap_max:group.limit("memory.swap.max")?,process,
+            };
+            self.validate_resident(&facts).await?;
+            result.push(facts);
+        }
+        Ok(result)
+    }
+    pub(crate) async fn validate_resident(&self,facts:&ResidentServiceFacts)->Result<(),HostError> {
+        let observed=self.observe(&facts.observation.unit).await?;
+        if observed.invocation!=facts.binding.invocation || observed.control_group!=facts.binding.group || observed.main_pid!=facts.process.pid {
+            return Err(HostError::Ownership("borrowed resident original unit changed".into()));
+        }
+        let group=Group::open(&observed.control_group,false)?;
+        if group.device!=facts.binding.device || group.inode!=facts.binding.inode || group.empty()? {
+            return Err(HostError::Ownership("borrowed resident original kernel group changed".into()));
+        }
+        let unit=self.unit(&observed.unit).await?;
+        let service=ServiceProxy::builder(&self.connection).destination(self.owner.as_str()).path(unit.inner().path().to_owned()).cache_properties(CacheProperties::No).build().await?;
+        let starts=service.exec_start().await?;
+        let stable_start=matches!(starts.as_slice(),[(executable,arguments,_,_,_,_,_,_,_,_)] if executable==&facts.executable && arguments==&facts.arguments);
+        if !stable_start || service.slice().await?!=facts.slice || PathBuf::from(unit.fragment_path().await?)!=facts.fragment
+            || service.memory_max().await?!=facts.memory_max || service.memory_swap_max().await?!=facts.memory_swap_max
+            || group.limit("memory.max")?!=facts.kernel_memory_max || group.limit("memory.swap.max")?!=facts.kernel_memory_swap_max
+        { return Err(HostError::Ownership("borrowed resident original launch/resource facts changed".into())); }
+        if !matches!(ProcessReader::default().process(observed.main_pid),ProcessRead::Present(current) if current.identity==facts.process) {
+            return Err(HostError::Ownership("borrowed resident original process changed".into()));
+        }
+        Ok(())
+    }
+    /// Configure the declared shared finite ancestor. The caller holds only the
+    /// dedicated configuration lock, never the admission journal lock.
+    pub(crate) async fn ensure_finite_parent(&self, request: FiniteParentRequest<'_>, deadline: Instant) -> Result<Option<ParentProof>,HostError> {
+        let FiniteParentRequest {selected,aggregate,declared,proof,known,borrowed,isolated}=request;
+        tokio::time::timeout_at(deadline.into(), async {
+            self.validate_view()?;
+            let manager = self.manager().await?;
+            let mut created = None;
+            let root = match self.unit("pse.slice").await {
+                Ok(unit) => unit,
+                Err(HostError::Manager(zbus::Error::MethodError(name, _, _))) if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit" => {
+                    if proof.is_some() { return Err(HostError::Ownership("recorded finite parent disappeared; explicit reconstruction required".into())); }
+                    let mut intent = LaunchIntent::fresh()?;
+                    intent.unit = "pse.slice".into();
+                    let owned = self.start_slice(&intent,&ResourceControls::default(),deadline).await?;
+                    let binding = owned.binding().await?;
+                    created = Some(ParentProof { manager:self.identity_key(), intent, invocation:binding.invocation });
+                    self.unit("pse.slice").await?
+                }
+                Err(error) => return Err(error),
+            };
+            let fragment = root.fragment_path().await?;
+            if fragment.is_empty() {
+                let original = created.as_ref().or(proof).ok_or_else(|| HostError::Ownership("transient finite parent has no original native provenance".into()))?;
+                if original.manager != self.identity_key() || !root.transient().await? {
+                    return Err(HostError::Ownership("finite parent manager/provenance changed".into()));
+                }
+                require_original_identity(&original.intent,&root.description().await?,&original.invocation,&root.invocation_id().await?)?;
+            } else {
+                if !declared_unit_matches(Path::new(&fragment),declared)? {
+                    return Err(HostError::Ownership("configured finite parent does not match its declared installed user unit".into()));
+                }
+            }
+            let proxy = SliceProxy::builder(&self.connection).destination(self.owner.as_str()).path(root.inner().path().to_owned()).cache_properties(CacheProperties::No).build().await?;
+            let root_group = proxy.control_group().await?;
+            if root_group.is_empty() { return Err(HostError::Ownership("finite parent cgroup is not realized".into())); }
+            let current=proxy.memory_max().await?;
+            let swap=proxy.memory_swap_max().await?;
+            let update=finite_parent_update(current,swap,aggregate);
+            // Existing sufficient owned limits need no mutation and no takeover of
+            // unrelated children. Isolation and actual configuration changes still
+            // require authoritative population/ownership checks.
+            if update.is_some() || isolated {
+                for (name, description, _, active, _, _, _, _, _, _) in manager.list_units().await? {
+                    if ![".scope", ".service", ".slice"].iter().any(|suffix| name.ends_with(*suffix)) { continue; }
+                    let observed=self.observe(&name).await?;
+                    if !observed.control_group.starts_with(&format!("{root_group}/")) { continue; }
+                    let group=Group::open(&observed.control_group,matches!(active.as_str(),"inactive" | "failed"))?;
+                    if group.empty()? { continue; }
+                    let registered=known.iter().any(|intent|intent.unit==name && intent.description==description);
+                    let intermediate=name.strip_suffix(".slice").is_some_and(|prefix|known.iter().any(|intent|intent.unit.starts_with(&format!("{prefix}-")))
+                        || borrowed.iter().any(|resident|resident.facts().slice==name || resident.facts().slice.starts_with(&format!("{prefix}-"))))
+                        || name==selected || selected.strip_suffix(".slice").is_some_and(|selected|name.strip_suffix(".slice").is_some_and(|prefix|selected.starts_with(&format!("{prefix}-"))));
+                    let resident=borrowed.iter().find(|resident|resident.matches(&observed,group.device,group.inode));
+                    if let Some(resident)=resident { self.validate_resident(resident.facts()).await?; }
+                    if !registered && !intermediate && resident.is_none() {
+                        return Err(HostError::Ownership(format!("populated unregistered or legacy finite descendant {name} prevents parent configuration/isolation")));
+                    }
+                }
+            }
+            if let Some(desired)=update {
+                manager.set_unit_properties("pse.slice".into(),true,vec![property("MemoryMax",desired)?,property("MemorySwapMax",0_u64)?]).await?;
+                if proxy.memory_max().await?!=desired || proxy.memory_swap_max().await?!=0 {
+                    return Err(HostError::Ownership("finite aggregate readback differs".into()));
+                }
+            }
+            let unit = self.unit(selected).await?;
+            let proxy = SliceProxy::builder(&self.connection).destination(self.owner.as_str()).path(unit.inner().path().to_owned()).cache_properties(CacheProperties::No).build().await?;
+            let group = proxy.control_group().await?;
+            let mut path = Group::path(&group)?;
+            loop {
+                if path == Path::new("/sys/fs/cgroup") { break; }
+                let limit = std::fs::read_to_string(path.join("memory.max"))?;
+                if limit.trim() != "max" && limit.trim().parse::<u64>().ok().is_none_or(|limit|limit < aggregate) {
+                    return Err(HostError::Ownership("foreign finite ancestor is below requested aggregate".into()));
+                }
+                if path == Path::new("/sys/fs/cgroup") { break; }
+                if !path.pop() { return Err(HostError::Ownership("finite hierarchy root absent".into())); }
+            }
+            Ok(created)
+        }).await.map_err(|_|HostError::Deadline("finite parent configuration".into()))?
+    }
     async fn require_reference(&self, unit: &UnitProxy<'_>) -> Result<(), HostError> {
         let client = self
             .connection
@@ -649,6 +958,30 @@ impl HostManager {
             reference_released: false,
         })
     }
+}
+
+fn finite_parent_update(current:u64,swap:u64,requested:u64)->Option<u64> {
+    let desired=if current==u64::MAX { requested } else {current.max(requested)};
+    (current!=desired || swap!=0).then_some(desired)
+}
+
+fn declared_unit_matches(installed:&Path,declared:&Path)->Result<bool,HostError> {
+    // Read the same opened installed file whose ownership and mode were checked.
+    // Supported installations may be symlinks to the declared checkout unit.
+    let mut file=File::open(installed)?;
+    let meta=file.metadata()?;
+    if !meta.is_file() || meta.uid()!=rustix::process::geteuid().as_raw() || meta.mode() & 0o022!=0 {
+        return Ok(false);
+    }
+    let mut contents=String::new();
+    file.read_to_string(&mut contents)?;
+    let declared=std::fs::read_to_string(declared)?;
+    Ok(operative_unit_lines(&contents).eq(operative_unit_lines(&declared)))
+}
+fn operative_unit_lines(contents:&str)->impl Iterator<Item=&str> {
+    // Compare ordered text, not an INI map: section boundaries, repeated settings
+    // and physical backslash continuation lines must remain present and ordered.
+    contents.lines().map(str::trim).filter(|line|!line.is_empty() && !line.starts_with('#') && !line.starts_with(';'))
 }
 
 fn unknown_launch(intent: &LaunchIntent, detail: impl std::fmt::Display) -> HostError {
@@ -829,6 +1162,10 @@ pub struct OwnedUnit {
     reference_released: bool,
 }
 impl OwnedUnit {
+    pub(crate) async fn binding(&self) -> Result<UnitBinding,HostError> {
+        let observed = self.observe().await?;
+        Ok(UnitBinding { invocation: observed.invocation, group: observed.control_group, device: self.group.device, inode: self.group.inode })
+    }
     /// Correlated management-job result, distinct from the actual child exit.
     /// Reconciliation without the original signal leaves this unknown.
     pub fn launch_job_result(&self) -> Option<&str> {
@@ -1080,6 +1417,14 @@ impl Group {
             )),
         }
     }
+    fn limit(&self,name:&str)->Result<u64,HostError> {
+        let directory=self.directory.as_ref().ok_or_else(||HostError::Ownership("original resident cgroup directory unavailable".into()))?;
+        let fd=rustix::fs::openat(directory,name,rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NOFOLLOW,rustix::fs::Mode::empty()).map_err(io::Error::from)?;
+        let mut contents=String::new();
+        File::from(fd).read_to_string(&mut contents)?;
+        if contents.trim()=="max" { return Ok(u64::MAX); }
+        contents.trim().parse().map_err(|_|HostError::Ownership("original cgroup resource bound is malformed".into()))
+    }
     #[allow(unsafe_code, reason = "Tokio registration owns the original cgroup.events File for its whole lifetime")]
     fn watch(&self) -> Result<Option<GroupEvents>, HostError> {
         let Some(directory) = self.directory.as_ref() else { return Ok(None); };
@@ -1172,6 +1517,63 @@ fn parse_population(contents: &str) -> Result<bool, HostError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn sufficient_owned_parent_limits_require_no_update_and_widening_never_lowers() {
+        let gib=1_u64 << 30;
+        assert_eq!(finite_parent_update(160*gib,0,160*gib),None);
+        assert_eq!(finite_parent_update(168*gib,0,160*gib),None);
+        assert_eq!(finite_parent_update(144*gib,0,160*gib),Some(160*gib));
+        assert_eq!(finite_parent_update(u64::MAX,0,160*gib),Some(160*gib));
+        assert_eq!(finite_parent_update(160*gib,u64::MAX,160*gib),Some(160*gib));
+    }
+    #[test]
+    fn installed_unit_provenance_ignores_comments_and_preserves_directive_structure() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let directory=tempfile::tempdir().unwrap();
+        let installed=directory.path().join("installed.slice");
+        let declared=directory.path().join("declared.slice");
+        let original="[Unit]\nDescription=finite parent\n[Slice]\nCPUWeight=30\nMemoryMax=160G\n";
+        std::fs::write(&declared,original).unwrap();
+        std::fs::write(&installed,"# older installation comment\n\n[Unit]\nDescription=finite parent\n; retained comment\n[Slice]\nCPUWeight=30\nMemoryMax=160G\n").unwrap();
+        std::fs::set_permissions(&installed,std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(declared_unit_matches(&installed,&declared).unwrap());
+        for changed in [
+            original.replace("CPUWeight=30","CPUWeight=31"),
+            original.replace("[Slice]","[Service]"),
+            original.replace("CPUWeight=30\nMemoryMax=160G","MemoryMax=160G\nCPUWeight=30"),
+            original.replace("CPUWeight=30","CPUWeight=30\nCPUWeight=31"),
+        ] {
+            std::fs::write(&installed,changed).unwrap();
+            assert!(!declared_unit_matches(&installed,&declared).unwrap());
+        }
+        std::fs::write(&installed,original).unwrap();
+        std::fs::set_permissions(&installed,std::fs::Permissions::from_mode(0o664)).unwrap();
+        assert!(!declared_unit_matches(&installed,&declared).unwrap());
+        let continued="[Service]\nExecStart=/usr/bin/tool \\\n --argument\nEnvironment=A=first\nEnvironment=A=second\n";
+        assert!(operative_unit_lines(continued).eq(operative_unit_lines(continued)));
+        assert!(!operative_unit_lines(continued).eq(operative_unit_lines(&continued.replace(" \\\n --argument"," --argument"))));
+        assert!(!operative_unit_lines(continued).eq(operative_unit_lines(&continued.replace("Environment=A=first\nEnvironment=A=second","Environment=A=second\nEnvironment=A=first"))));
+    }
+    #[tokio::test]
+    async fn real_user_manager_private_slice_enforces_controls_and_drains() {
+        let manager = HostManager::connect_user(None).await.unwrap();
+        let current = manager.current_unit().await.unwrap();
+        let (parent, _, _) = manager.foreground_placement(&current).await.unwrap();
+        let intent = LaunchIntent::fresh_allocation(&parent).unwrap();
+        let controls = ResourceControls { memory_max:Some(1_u64 << 30), memory_swap_max:Some(0), ..ResourceControls::default() };
+        let mut owned = manager.start_slice(&intent,&controls,Instant::now()+Duration::from_secs(5)).await.unwrap();
+        let checked:Result<(),HostError> = async {
+            let observed = owned.observe().await?;
+            let group = Group::path(&observed.control_group)?;
+            if std::fs::read_to_string(group.join("memory.max"))?.trim() != (1_u64 << 30).to_string()
+                || std::fs::read_to_string(group.join("memory.swap.max"))?.trim() != "0"
+            { return Err(HostError::Ownership("private slice controls differ from kernel readback".into())); }
+            Ok(())
+        }.await;
+        let cleanup = owned.stop_and_drain(Instant::now()+Duration::from_secs(5)).await;
+        assert!(checked.is_ok(),"{checked:?}");
+        assert!(cleanup.is_ok(),"{cleanup:?}");
+    }
     fn job_event(job: &str, unit: &str, result: &str) -> Result<JobEvent, zbus::Error> {
         Ok(JobEvent { job: job.try_into().unwrap(), unit: unit.to_owned(), result: result.to_owned() })
     }

@@ -4,6 +4,7 @@
 
 pub mod boundary;
 pub mod activity;
+pub mod admission;
 pub mod correctness;
 pub mod environment;
 pub mod foreground;
@@ -11,7 +12,7 @@ mod manager;
 pub mod native;
 pub mod server;
 pub use manager::{
-    BorrowedUnit, HostManager, LaunchIntent, OwnedUnit, ServiceSpec, UnitObservation,
+    BorrowedUnit, HostManager, LaunchIntent, OwnedUnit, ResourceControls, ServiceSpec, UnitObservation,
 };
 
 /// A host boundary failure, never a scientific outcome.

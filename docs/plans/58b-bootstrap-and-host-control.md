@@ -486,3 +486,76 @@ have finished. B02–B05 retain their broader fault, placement, provider and ser
 F/C/G retain their other consumers. The next execution choice must select its actual consumer
 and dependencies from those existing owners; no broader campaign or service cutover is started
 by this checkpoint.
+
+## Full host execution checkpoint — 2026-10-29
+
+The full B01–B05 execution is authorized, with the dependencies above. B02–B05 remain
+in progress; individual source delivery and focused controls do not close these packages.
+
+**Implemented:** `bc299317e` records the execution dependencies. `9f43ec587` retains
+original launch identity through acknowledgement/signal failure and replaces the production
+10ms manager-drain poll with manager notifications plus original cgroup event observations.
+`9a0333398` adds explicit native provider preparation/selection, preserving compiler/KLU and
+covering compiler-only, solver image, isolation, UNO and PETSc protocols. Bare `--native`
+retains the full profile/caller override; explicit `--native=` selects provider-free runtime
+settings. `b95a32dc8` adds the exact patched-server constructor and source-free immutable
+selection, plus partial direct activity diagnosis when manager observation is unavailable.
+Neither executable selection nor process start establishes schema/write readiness.
+
+**Tested:** `just unit-package pse-host manager::tests` passed18 controls against zero
+failures for the committed B02 slice. `scripts/pse-env -- cargo test --locked -p pse-host
+native:: --lib` passed25 controls against zero failures after the external-metadata correction.
+`scripts/pse-env -- cargo test --locked -p pse-host server --lib --test server` passed14
+controls against zero failures (10 server library controls, one incidental activity-name
+match, three server integration controls). The targeted activity/boundary/native binaries
+passed11 tests; their ignored lock-holder is an explicitly invoked subprocess fixture, not
+credited as another passing test. Native-default parser controls also pass3 tests; their
+name filter did not execute the integration targets, which were run separately without it.
+New B03 manager methods initially produced unused-code warnings while their admission module
+was unexported; its subsequent compile check passes without warnings. These are focused
+host/protocol results, not whole-package or scientific qualification.
+
+Independent source review found an accepted native Cargo target selecting the wrong server
+artifact path, and external isolation metadata still pointing at the original mutable prefix.
+The corrections preserve target-specific artifact identity and relocate copied `.pc`/`.cmake`
+metadata. The regression controls include a stale host artifact and actual `pkg-config`
+consumption after deleting the original isolation prefix. Review also corrected an initial
+bare-native default inference and its mixed-option precedence. A fixture spawn intermittently
+failed ETXTBSY before entering the boundary; the frontdoor fixture now references the actual
+checked-in immutable shell adapters instead of executing freshly copied scripts. Its affected
+controls then pass without retries. No previous failure is counted as a pass.
+
+A real explicit compiler-only preparation and selected C compile/run consumer also pass against
+zero failures using a private cache under `build/plan58-native-compiler-control/`. The C control
+checks actual executable exit7. Other newly added provider source/image builds, linked scientific
+consumers, full upstream server compilation and schema-ready service establishment remain
+unqualified; command fixtures do not establish them. No existing database or cache generation
+was reset, collected or restarted. Performance benefits remain unmeasured.
+
+Current integration implements finite admission and ordinary exclusion using the user manager,
+a shared runtime lock/revision and finite-only reservation state, with the original gated child
+retained through uncertain attachment. The controller stays in its actual prior parent while
+finite workload/service roles share an owned allocation slice; owner references and physical
+workload drain remain distinct. B03 remains open for assembled acceptance, resident-service
+parking/borrowing and cross-parent ordinary placement. D01/D05 source work supplies native
+schema/version fencing and quiescent migration before B04 service composition can open writes;
+configuration-file checks do not establish that boundary. Existing host consumers and their
+replaced Python mechanisms still require the stage5 cutover; H qualification is not started.
+
+The assembled finite foreground control now passes: an explicitly selected light workload
+receives an actual 2GiB kernel envelope, its nested request borrows the same original cgroup
+and charge, exit7 is preserved, and physical drain precedes charge removal. The installed
+parent's comments differed from the repository declaration; provenance comparison now preserves
+the ordered operative directives while ignoring comments. Existing sufficient parent limits
+need no mutation. Actual parent changes and isolation still require descendant ownership
+checks. A separately owned legacy compiler-cache service contributes only a freshly validated
+read-only capacity observation, with no stop, reference or configuration capability.
+
+**Tested:** `just check-package pse-host` passes without warnings after the qualification fix;
+`just unit-package pse-host 'test(admission::tests) | test(manager::tests)'` passes33 tests,
+zero failures. `scripts/pse-env -- cargo test --locked -p pse-host --test foreground
+foreground_explicit_finite_scope_and_nested_borrow_keep_actual_envelope_and_release --
+--nocapture` passes its one selected real-manager control, zero failures. Final readback finds
+no native finite reservation. These results do not close remaining B03 placement, resident-role
+or consumer-retirement obligations. Concurrent release reconciliation is being hardened against
+unrelated admission revisions before broader assembled acceptance.

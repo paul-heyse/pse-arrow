@@ -102,8 +102,8 @@ fn boundary_unsupported_modes_refuse_before_personal_or_command_effects() {
         vec!["--native=unknown"],
         vec!["--store"],
         vec!["--bind-allocation"],
-        vec!["--resource-class", "compile"],
-        vec!["--recipe-default-class", "timing"],
+        vec!["--resource-class", "unknown"],
+        vec!["--recipe-default-class", "unknown"],
     ] {
         let result = frontdoor(root)
             .args(&options)

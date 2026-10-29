@@ -73,21 +73,7 @@ fn parse(arguments: &[OsString]) -> Result<Options, HostError> {
                     .next()
                     .ok_or_else(|| invalid("resource class requires a value"))?
                     .clone();
-                if !matches!(
-                    value.to_str(),
-                    Some(
-                        "light"
-                            | "build"
-                            | "compile"
-                            | "functional"
-                            | "wide"
-                            | "exclusive"
-                            | "timing"
-                            | "exclusive-observer"
-                    )
-                ) {
-                    return Err(invalid("unknown resource class"));
-                }
+                crate::admission::validate_class(value.to_str().ok_or_else(||invalid("resource class must be UTF-8"))?)?;
                 if argument == "--resource-class" {
                     result.class = Some(value);
                 } else {
@@ -139,53 +125,7 @@ fn root() -> Result<PathBuf, HostError> {
 }
 fn known_selections(options: &Options, values: &Environment) -> Result<(), HostError> {
     native_request(options, values)?;
-    if values
-        .get(OsStr::new("PSE_BUILD_MODE"))
-        .is_some_and(|value| value != "unbounded")
-    {
-        return Err(unsupported(
-            "bounded host admission; select PSE_BUILD_MODE=unbounded for ordinary work",
-        ));
-    }
-    for key in ["PSE_MEMORY_MAX", "PSE_BUILD_MEASUREMENT_TIMING"] {
-        if values.contains_key(OsStr::new(key)) {
-            return Err(unsupported(key));
-        }
-    }
-    // Explicit resource classes keep their meaning; recipe hints may select ordinary
-    // unbounded work, as before. No numeric resource policy is reconstructed here.
-    if options
-        .class
-        .as_ref()
-        .or_else(|| values.get(OsStr::new("PSE_RESOURCE_CLASS")))
-        .is_some_and(|value| value != "build")
-    {
-        return Err(unsupported("explicit finite/scientific resource class"));
-    }
-    if options
-        .recipe_class
-        .as_ref()
-        .is_some_and(|value| matches!(value.to_str(), Some("timing" | "exclusive-observer")))
-    {
-        return Err(unsupported("reference/timing recipe"));
-    }
-    if values
-        .get(OsStr::new("PSE_SLICE"))
-        .is_some_and(|value| !value.is_empty() && value != "none")
-    {
-        return Err(unsupported("custom slice placement"));
-    }
-    Ok(())
-}
-fn ordinary(options: &Options, values: &mut Environment) -> Result<(), HostError> {
-    known_selections(options, values)?;
-    if !values.contains_key(OsStr::new("PSE_BUILD_MODE")) {
-        return Err(unsupported(
-            "bounded host admission; select PSE_BUILD_MODE=unbounded for ordinary work",
-        ));
-    }
-    values.remove(OsStr::new("PSE_RESOURCE_CLASS"));
-    Ok(())
+    crate::admission::validate_request(values)
 }
 
 /// Execute the supported ordinary command or fixed, source-free environment read.
@@ -197,7 +137,7 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
     if arguments.is_empty() || options.help {
         writeln!(
             std::io::stdout(),
-            "pse-env [--docs] [--cache auto|on|off] [--native=CAPABILITIES] -- command [args...]\npse-env --print | --explain [--json]\nNative foreground ownership; explicit preparation: scripts/bootstrap-host.\nNative providers require explicit preparation; finite admission and store setup remain unavailable."
+            "pse-env [--docs] [--cache auto|on|off] [--native[=CAPABILITIES]] [--resource-class CLASS] -- command [args...]\npse-env --print | --explain [--json]\nNative foreground ownership; explicit preparation: scripts/bootstrap-host.\nNative providers require explicit preparation; store setup remains unavailable."
         )?;
         return Ok(0);
     }
@@ -242,21 +182,26 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
         options.docs,
     )?
     .values;
-    ordinary(&options, &mut selected)?;
+    known_selections(&options, &selected)?;
+    let root = root()?;
+    let selection = crate::admission::Selection::load(&root, &selected,
+        options.class.as_ref().map(|value| value.to_str().ok_or_else(||invalid("resource class must be UTF-8"))).transpose()?,
+        options.recipe_class.as_ref().map(|value| value.to_str().ok_or_else(||invalid("recipe class must be UTF-8"))).transpose()?)?;
+    let coordinator = crate::admission::Coordinator::open(&root, &selected)?;
     if let Some(capabilities) = native_request(&options, &selected)? {
-        selected = crate::native::select_capabilities(&root()?, &selected, &capabilities)?;
+        selected = crate::native::select_capabilities(&root, &selected, &capabilities)?;
     }
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
-        .block_on(foreground::run(ForegroundRequest {
+        .block_on(foreground::run_with_admission(ForegroundRequest {
             command: options.command,
             environment: selected,
             cwd: std::env::current_dir()?,
             startup_deadline: Instant::now() + Duration::from_secs(30),
             drain_timeout: Duration::from_secs(30),
             require_enclosing: options.no_scope,
-        }))
+        }, coordinator, selection))
 }
 
 #[cfg(test)]
@@ -288,21 +233,8 @@ mod tests {
             assert!(parse(&args(&[mode, "--", "/bin/true"])).is_err());
         }
         let mut values = Environment::from([("PSE_BUILD_MODE".into(), "unbounded".into())]);
-        assert!(
-            ordinary(
-                &parse(&args(&["--recipe-default-class", "compile", "--", "tool"])).unwrap(),
-                &mut values
-            )
-            .is_ok()
-        );
-        assert!(
-            ordinary(
-                &parse(&args(&["--resource-class", "compile", "--", "tool"])).unwrap(),
-                &mut values
-            )
-            .is_err()
-        );
+        assert!(known_selections(&Options::default(), &values).is_ok());
         values.insert("PSE_MEMORY_MAX".into(), "".into());
-        assert!(ordinary(&Options::default(), &mut values).is_err());
+        assert!(known_selections(&Options::default(), &values).is_err());
     }
 }

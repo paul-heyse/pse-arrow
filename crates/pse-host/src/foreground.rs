@@ -3,6 +3,7 @@
 //! Foreground process ownership through private native scopes and an exec gate.
 use crate::{HostError, HostManager, LaunchIntent, OwnedUnit, environment::Environment};
 use command_fds::{CommandFdExt, FdMapping};
+use crate::admission::{Coordinator, Permit, Selection};
 use std::{
     ffi::OsString,
     io::{Read, Write},
@@ -192,7 +193,17 @@ async fn reap(child: &mut Child, deadline: Instant) -> Result<(), HostError> {
 
 /// Execute in authenticated enclosing containment or establish caller-owned
 /// scopes. The manager, rather than a resident helper, enforces caller death.
-pub async fn run(mut request: ForegroundRequest) -> Result<i32, HostError> {
+pub async fn run(request: ForegroundRequest) -> Result<i32, HostError> {
+    let coordinator = Coordinator::ordinary(&request.environment)?;
+    run_owned(request, coordinator, None).await
+}
+
+/// Run with an explicitly resolved host policy; construction does not grant admission.
+pub async fn run_with_admission(request: ForegroundRequest, coordinator: Coordinator, selection: Selection) -> Result<i32, HostError> {
+    run_owned(request, coordinator, Some(selection)).await
+}
+
+async fn run_owned(mut request: ForegroundRequest, coordinator: Coordinator, selection: Option<Selection>) -> Result<i32, HostError> {
     if request.command.is_empty() {
         return Err(HostError::Ownership("empty foreground command".into()));
     }
@@ -214,6 +225,10 @@ pub async fn run(mut request: ForegroundRequest) -> Result<i32, HostError> {
     .await
     .map_err(|_| HostError::Deadline("enclosing workload authentication".into()))??;
     if native {
+        let inherited = coordinator.inherit(&request.environment, &manager, selection.as_ref(), &current, request.startup_deadline).await?;
+        if inherited.is_none() && selection.as_ref().is_some_and(|selection| !selection.profile().ordinary()) {
+            return Err(HostError::Ownership("nested finite selection requires an authenticated existing allocation; start it from an application scope".into()));
+        }
         return exec_result(
             Command::new(&request.command[0])
                 .args(&request.command[1..])
@@ -234,9 +249,18 @@ pub async fn run(mut request: ForegroundRequest) -> Result<i32, HostError> {
     )
     .await
     .map_err(|_| HostError::Deadline("foreground slice authentication".into()))??;
+    if let Some(selection) = selection.as_ref().filter(|selection| selection.profile().ordinary()) {
+        let requested = selection.slice();
+        if !matches!(requested, "" | "none" | "pse.slice") && requested != slice {
+            return Err(HostError::Ownership("ordinary custom placement must match the authenticated application parent; cross-parent relocation remains unavailable".into()));
+        }
+    }
     preflight(&current.control_group, default_tasks_max)?;
     let owner_intent = LaunchIntent::fresh_scope()?;
     let workload_intent = LaunchIntent::fresh_scope()?;
+    if let Some(selection) = &selection {
+        selection.apply_pending_environment(&mut request.environment, &workload_intent);
+    }
     request.environment.insert(
         "PSE_HOST_WORKLOAD_UNIT".into(),
         workload_intent.unit().into(),
@@ -261,21 +285,34 @@ pub async fn run(mut request: ForegroundRequest) -> Result<i32, HostError> {
     let child_pid = child.id();
     let mut owner: Option<OwnedUnit> = None;
     let mut workload: Option<OwnedUnit> = None;
+    let mut permit: Option<Permit> = None;
     let mut cancellation = None;
     let operation = async {
         let caller_fd = pidfd(std::process::id())?;
         let workload_fd = pidfd(child_pid)?;
         let startup = async {
+            if let Some(selection) = selection.as_ref().filter(|selection| !selection.profile().ordinary()) {
+                permit = Some(coordinator.admit(&manager, selection, &owner_intent, &workload_intent, child_pid, request.startup_deadline).await?);
+                permit.as_mut().ok_or_else(||HostError::Ownership("finite reservation missing".into()))?.prepare(&manager, request.startup_deadline).await?;
+            }
             owner = Some(manager.start_scope(&owner_intent, caller_fd, &current.unit, &slice, request.startup_deadline, request.drain_timeout.saturating_sub(Duration::from_secs(1))).await?);
             owner.as_ref().ok_or_else(|| HostError::Ownership("owner missing after activation".into()))?.assert_population(&[std::process::id()]).await?;
-            workload = Some(manager.start_scope(&workload_intent, workload_fd, owner_intent.unit(), &slice, request.startup_deadline, request.drain_timeout.saturating_sub(Duration::from_secs(1))).await?);
+            if let Some(permit) = &permit { permit.bind(owner.as_ref().ok_or_else(||HostError::Ownership("owner missing".into()))?, request.startup_deadline).await?; }
+            let workload_slice = permit.as_ref().and_then(Permit::allocation_slice).unwrap_or(&slice);
+            let workload_group = if workload_slice == slice { slice_group.clone() } else { manager.observe(workload_slice).await?.control_group };
+            let controls = match &permit { Some(permit) => permit.profile().controls()?, None => crate::ResourceControls::default() };
+            workload = Some(manager.start_scope_controlled(&workload_intent, workload_fd, owner_intent.unit(), workload_slice, request.startup_deadline, request.drain_timeout.saturating_sub(Duration::from_secs(1)), &controls).await?);
             workload.as_ref().ok_or_else(|| HostError::Ownership("workload missing after activation".into()))?.assert_population(&[child_pid]).await?;
-            for unit in [&owner, &workload].into_iter().flatten() {
+            for (unit, group) in [(&owner, &slice_group), (&workload, &workload_group)] {
+                let unit = unit.as_ref().ok_or_else(|| HostError::Ownership("scope missing".into()))?;
                 let observed = unit.observe().await?;
-                if Path::new(&observed.control_group).parent() != Some(Path::new(&slice_group)) {
+                if Path::new(&observed.control_group).parent() != Some(Path::new(group)) {
                     return Err(HostError::Ownership("new scope escaped selected slice ancestry".into()));
                 }
             }
+            let unit = workload.as_ref().ok_or_else(||HostError::Ownership("workload missing".into()))?;
+            if let Some(permit) = &permit { permit.bind(unit, request.startup_deadline).await?; }
+            else { coordinator.admit_ordinary(&manager, &unit.observe().await?, request.startup_deadline).await?; }
             Ok::<(), HostError>(())
         };
         let startup = tokio::time::timeout_at(request.startup_deadline.into(), startup);
@@ -344,6 +381,13 @@ pub async fn run(mut request: ForegroundRequest) -> Result<i32, HostError> {
         Err(error) => Err(error.into()),
     };
     let reaped = reap(&mut child, drain_deadline).await;
+    let finite_release = if let Some(permit) = &mut permit {
+        match permit.release(&manager, drain_deadline).await {
+            Ok(true) => Ok(()),
+            Ok(false) => Err(HostError::Ownership("finite charge retained until original physical drain".into())),
+            Err(error) => Err(error),
+        }
+    } else { Ok(()) };
     let released = if let Some(unit) = &mut owner {
         unit.release_reference(drain_deadline).await
     } else {
@@ -355,6 +399,7 @@ pub async fn run(mut request: ForegroundRequest) -> Result<i32, HostError> {
         drained,
         killed,
         reaped,
+        finite_release,
         released,
     ]
     .into_iter()

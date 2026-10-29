@@ -15,7 +15,10 @@ explicit connectivity/reactive investigations. The coordinator owns the review-q
 dispositions; companion packages preserve their current implementation and qualification state.
 Integrated replacements retire Python mechanisms, bespoke build observation and redundant fixture
 guards. Scientific calculation observation and independent reference assurance remain.
-The maintainer has authorized T01/T02 and 58b execution with necessary C/D/F prerequisite slices.
+The maintainer has authorized T01/T02 and the entire 58b scope, including necessary C/D/F/G
+prerequisite and consumer-retirement slices. Its [execution dependencies](58b-bootstrap-and-host-control.md#execution-dependencies)
+separate native host admission, provider preparation, physical server construction and working
+D01/D05 readiness; package progress remains with 58b and the contributing companions.
 The [coordinator checkpoint](58-rust-owned-system.md#execution-checkpoint--2026-10-28) and
 [58b checkpoint](58b-bootstrap-and-host-control.md#execution-checkpoint--2026-10-28) own current
 implementation and remaining acceptance. The database-free ordinary native frontdoors and
