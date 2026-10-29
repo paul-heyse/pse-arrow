@@ -254,6 +254,16 @@ backup/disaster-recovery qualification is a separate persistent-deployment relea
 <a id="f05"></a>
 ### F05 — Finish integrated cutovers and the native developer journey
 
+The A04 native conformance consumer now preserves the per-package/pure scientific and
+preparation assertions formerly exercised through Python. Its [A checkpoint](58a-native-product-and-scientific-workflows.md#public-native-conformance-and-remaining-handoff)
+owns targeted acceptance and the deleted duplicate scientific assertions. This does not
+replace `pse.conformance`'s manifest/run selection, report files or command behavior. F05
+must explicitly retain those developer outcomes through a native consumer or retire the
+optional command with its recipes/tests/docs. `thermodynamic_campaign.py` separately uses
+the current manifest/document helpers for its retained evidence campaign; do not delete that
+shared reader with the generic command or treat a native per-package call as a full campaign.
+This handoff adds no mandatory product CLI or new campaign qualification.
+
 Compose F01–F04 and B through actual Rust APIs/executables: explain/prepare selected capabilities,
 run a targeted check, inspect its outcome, diagnose failure and settle resources without first-party
 Python/MCP. Each coherent cutover includes new owner, callers, configuration, generation, tests and

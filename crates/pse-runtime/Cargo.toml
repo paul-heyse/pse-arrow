@@ -233,3 +233,6 @@ required-features = ["solver-kinsol"]
 
 [[test]]
 name = "native_design"
+
+[[test]]
+name = "native_conformance"

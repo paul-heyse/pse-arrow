@@ -77,7 +77,7 @@ PyO3 implementation is deferred; its absence cannot block native scientific comp
 | [A03](#a03) Prepared local execution and results | in progress | Runtime/math owner | Typed author→prepare→execute→inspect composition independent of Python |
 | [A04](#a04) Complete scientific mode callers | in progress | Scientific workflow owners | Every supported mode constructible and failures honestly scoped |
 | [A05](#a05) Native studies and replay | in progress | Study/runtime owner | Generated studies, durable handoff and recorded-point replay |
-| [A06](#a06) Adaptive study decision and retained strategies | in progress | Study strategy owner | Bounded comparison decided; retained native strategies migrated |
+| [A06](#a06) Adaptive study decision and retained strategies | done | Study strategy owner | Retained actor and native strategy callers tested; external batch ask-and-tell extension deferred to an actual consumer |
 | [A07](#a07) Consumer cutover and assurance handoff | in progress | Native workflow integrator | Replaced consumers deleted and required H journeys ready |
 
 <a id="a01"></a>
@@ -508,4 +508,38 @@ the recorded-point replay consumer retain the scientific claims. The reduced PyO
 compiled-stub publication pass; independent bounded source review found no material issues,
 with the ordinal correction established by execution. Generic conformance/manifest execution
 and the thermodynamic evidence campaign remain separate F consumers; the per-package native
-conformance caller is the next A04 coverage cut. These results do not close A07/G or H.
+conformance caller supplies the next A04 coverage cut below. These results do not close A07/G or H.
+
+### Public native conformance and remaining handoff
+
+**Implemented and Tested:** `native_conformance` passes two public-caller tests, zero
+failures/skips, using the prepared native correctness route with `--test native_conformance`
+and the same selected feature set above. The target itself requires no linked solver or
+scientific capsule. Direct per-package and independently budgeted standalone pure requests
+preserve an exact arithmetic expectation, original typed trial-rejection/form/variable lineage,
+selected-versus-package coverage, unknown-selection refusal, incomplete/unattempted inventory,
+and report-owned tables after producer closure. One-byte evaluator scratch refuses with the
+original typed resource code/rule/class/detail on both native and pure request paths.
+
+Initial test construction needed an explicit async error type and incorrectly selected an
+inapplicable numeric expectation from the fixture whose expected outcome is rejection. The
+corrected assertion examines the sole evaluated numeric comparison while separately requiring
+the declared original rejection and its passed expected-failure check. No scientific requirement
+or tolerance was relaxed. The corresponding Python scientific/preparation assertions retire;
+their still-consumed CLI export subcase remains a developer-adapter test. No CLI/report protocol,
+thermodynamic campaign or shared document helper is removed by this A04 scientific cut.
+
+A06's bounded decision and retained-strategy caller acceptance are complete: keep the full
+actor, with eight existing library-state controls and two public construction/continuation/
+failure controls, plus native initialization/recycle callers. A newly named externally
+scheduled adaptive batch consumer is the observable trigger for revisiting the deferred
+ask-and-tell extension; snapshot persistence or a second optimizer is not selected.
+
+Remaining A01–A05/A07 acceptance must reconcile all actual scientific/source consumers and
+frontend retirement with their F/G owners before whole-plan closure. F05 owns generic
+conformance manifest/run/CLI/report orchestration and the distinct thermodynamic evidence
+campaign; native per-mode callers do not replace those developer semantics by implication.
+E01/E02 still own residual-limit and payload-custody/reclamation controls. H owns composed
+scientific/reference and scope-end static/manual qualification; it has not run for this scope.
+Unrelated paused B/C/D work is not reopened. Native capabilities and selected passing cuts
+must not be reported as complete first-party Python retirement or full-series acceptance.

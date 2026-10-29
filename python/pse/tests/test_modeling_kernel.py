@@ -506,91 +506,6 @@ def test_complete_preparation_policy_controls_public_preparation_and_execution(
         )
 
 
-@pytest.mark.component
-def test_conformance_preparation_policy_reaches_native_and_pure_compilers(
-    tmp_path: Path,
-    inspection_settings: pse.EngineSettings,
-    canonical_substrate: CanonicalFixture,
-) -> None:
-    root = Path(__file__).resolve().parents[3]
-    physical_root = root / "tests/fixtures/packages/physical-primitives"
-    manifest = on_primitives(
-        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
-        .read_text()
-        .replace('id_policy = "explicit"', 'id_policy = "named"')
-    )
-    source = {
-        "package.toml": manifest,
-        "models/pure.pse": """package p {
-      fn square(x:Scalar)->Scalar=x*x;
-      test positive fixture {dof 0; route steady; procedure check;} {
-        expect square(2)==4 tolerance 1e-12;
-      }
-    }""",
-    }
-    physical_documents = {
-        str(path.relative_to(physical_root)): path.read_text()
-        for path in physical_root.rglob("*")
-        if path.is_file()
-    }
-    runtime = canonical_substrate.runtime(inspection_settings)
-    package = runtime.modeling_from_documents([source], physical(runtime))
-    default = package.conform(pse.SolveSettings())
-    assert default.passed
-    assert default.complete
-    policy = preparation_policy(1_000_000)
-    positive = package.conform(pse.SolveSettings(), preparation=policy)
-    assert positive.passed
-    assert positive.complete
-    # Even a constant result needs a numeric evaluator frame. One positive byte
-    # cannot hold its scalar, unlike an unused coefficient-class proof allowance.
-    insufficient = msgspec.structs.replace(
-        policy,
-        compiler=msgspec.structs.replace(
-            policy.compiler,
-            evaluation=msgspec.structs.replace(
-                policy.compiler.evaluation, scratch_bytes=1
-            ),
-        ),
-    )
-    refused = package.conform(pse.SolveSettings(), preparation=insufficient)
-    assert not refused.passed
-    failure = refused.failure(0)
-    assert failure is not None
-    assert failure.envelope is not None
-    assert failure.envelope.code == DiagnosticCode.RUNTIME_RESOURCE_LIMIT
-    assert failure.envelope.rule == DiagnosticRule.MATH_LIMIT
-    assert failure.envelope.class_ == NativeBoundaryClass.RESOURCE_LIMIT
-    detail = failure.envelope.observations["detail"]
-    assert isinstance(detail, documents.ObservationText)
-    assert detail.value == "math limit exceeded: worker scratch bytes"
-    engine = pse.EngineSettings(
-        memory_limit_bytes=8 << 30,
-        math_worker_bytes=8 << 20,
-        math_workspace_bytes=8 << 20,
-        threads=1,
-        spill_dir=str(tmp_path),
-        max_spill_bytes=1 << 30,
-        batch_size=1024,
-    )
-    positive = pse.ModelingConformance.pure(
-        [source], physical_documents, engine, preparation=policy
-    )
-    assert positive.passed
-    assert positive.complete
-    refused = pse.ModelingConformance.pure(
-        [source], physical_documents, engine, preparation=insufficient
-    )
-    assert not refused.passed
-    failure = refused.failure(0)
-    assert failure is not None
-    assert failure.envelope is not None
-    assert failure.envelope.code == DiagnosticCode.RUNTIME_RESOURCE_LIMIT
-    assert failure.envelope.rule == DiagnosticRule.MATH_LIMIT
-    assert failure.envelope.class_ == NativeBoundaryClass.RESOURCE_LIMIT
-    detail = failure.envelope.observations["detail"]
-    assert isinstance(detail, documents.ObservationText)
-    assert detail.value == "math limit exceeded: worker scratch bytes"
 
 
 @pytest.mark.integration
@@ -1424,16 +1339,11 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
 
 
 @pytest.mark.component
-def test_pure_conformance_has_no_process_runtime_and_retains_findings(
+def test_pure_conformance_cli_exports_reports(
     tmp_path: Path,
 ) -> None:
     root = Path(__file__).resolve().parents[3]
     physical_root = root / "tests/fixtures/packages/physical-primitives"
-    physical_documents = {
-        str(path.relative_to(physical_root)): path.read_text()
-        for path in physical_root.rglob("*")
-        if path.is_file()
-    }
     manifest = (
         (root / "tests/fixtures/packages/minimal_explicit/package.toml")
         .read_text()
@@ -1452,57 +1362,8 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
       } {expect root(-1)==1 tolerance 0;}
     }"""
     documents = {"package.toml": manifest, "models/pure.pse": source}
-    # Distinct budgets must be accepted even if another test already owns the process
-    # Runtime.
-    for threads in (1, 2):
-        result = pse.ModelingConformance.pure(
-            [documents],
-            physical_documents,
-            pse.EngineSettings(
-                memory_limit_bytes=8 << 30,
-                math_worker_bytes=8 << 20,
-                math_workspace_bytes=8 << 20,
-                threads=threads,
-                spill_dir=str(tmp_path),
-                max_spill_bytes=1 << 30,
-                batch_size=1024,
-            ),
-            controls=pse.PureConformanceControls(maximum_checks=32),
-        )
-        assert result.passed
-        assert result.complete
-        inventory = pa.table(result.fixture_statuses())
-        assert inventory.num_rows == 2
-        assert inventory.column("status").to_pylist() == ["passed", "passed"]
-        findings = pa.table(result.findings())
-        assert findings.column("rule").to_pylist() == ["math.validity"]
-        # Plan 23 H5: the finding carries the rejected predicate's typed lineage.
-        (lineage,) = findings.column("validity").to_pylist()
-        assert lineage["layer"] == "form"
-        assert lineage["variables"] == [0]
-        assert result.failure(0).boundary_class == "trial_rejected"
-        table = result.table()
-        del result
-        assert pa.table(table).num_rows > 0
-    limited = pse.ModelingConformance.pure(
-        [documents],
-        physical_documents,
-        pse.EngineSettings(
-            memory_limit_bytes=8 << 30,
-            math_worker_bytes=8 << 20,
-            math_workspace_bytes=8 << 20,
-            threads=1,
-            spill_dir=str(tmp_path),
-            max_spill_bytes=1 << 30,
-            batch_size=1024,
-        ),
-        controls=pse.PureConformanceControls(maximum_checks=1),
-    )
-    assert not limited.complete
-    assert not limited.passed
-    assert len(limited.fixtures()) == 2
-    statuses = pa.table(limited.fixture_statuses()).column("status").to_pylist()
-    assert sorted(statuses) == ["inconclusive", "unattempted"]
+    # Native conformance owns the scientific, validity and preparation assertions
+    # in native_conformance.rs; this retained developer adapter checks CLI export.
     package_path = tmp_path / "pure"
     (package_path / "models").mkdir(parents=True)
     for name, content in documents.items():

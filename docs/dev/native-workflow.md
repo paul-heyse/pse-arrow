@@ -71,8 +71,14 @@ Pure local Rust checks use `CompilerWorkspace::check_modeling_expectations` afte
 the source declarations into a workspace with the actual physical inputs. This path applies
 authored fixture values and explicit candidate overrides, returns physical comparisons, and
 constructs no runtime or native solver. External and nested capabilities require the workflow
-harness. Python `ModelingPackage.conform` and `python -m pse.conformance` run that full harness;
-their oracle references identify the authored assertion, not a live upstream execution.
+harness. Native `ModelingPackage::conform` receives the existing execution capabilities and
+typed `ModelingConformancePolicy`; `conform_pure_request` independently admits complete physical
+and modeling documents with its supplied budget, without a process Runtime or solver.
+The [public conformance caller](../../crates/pse-runtime/tests/native_conformance.rs) retains
+typed validity findings, selected/package coverage, incomplete inventory, preparation refusals
+and report-table custody. Oracle references identify the authored assertion, not a live
+upstream execution. The remaining `python -m pse.conformance` command is a retiring developer
+adapter, with manifest/CLI/report orchestration owned by Plan58f.
 
 ## Declare and prepare
 
