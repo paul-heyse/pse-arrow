@@ -2125,6 +2125,32 @@ impl OwnedUnit {
         .await
         .map_err(|_| HostError::Deadline("resident borrow construction".into()))?
     }
+    /// Abruptly kill the original private population, then prove its physical drain.
+    /// A signal acknowledgement alone establishes neither drain nor application cleanup.
+    /// Retain a failed signal and independently attempt stop/drain under the same clock.
+    pub async fn kill_and_drain(
+        &mut self,
+        deadline: Instant,
+    ) -> Result<UnitObservation, HostError> {
+        tokio::time::timeout_at(deadline.into(), async {
+            self.observe_bound(true).await?;
+            let unit = self.manager.unit(&self.intent.unit).await?;
+            let signal = tokio::time::timeout_at(deadline.into(), unit.kill("all".into(), 9))
+                .await
+                .map_err(|_| HostError::Deadline("original kill reply; ownership retained".into()))
+                .and_then(|result| result.map_err(HostError::from));
+            let drain = self.stop_and_drain_inner(deadline).await;
+            match (signal, drain) {
+                (Ok(()), result) => result,
+                (Err(operation), Ok(_)) => Err(operation),
+                (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
+                    operation: Box::new(operation), cleanup: Box::new(cleanup),
+                }),
+            }
+        })
+        .await
+        .map_err(|_| HostError::Deadline("absolute kill/drain deadline; original ownership retained".into()))?
+    }
     /// Request stop and prove the original cgroup empty before reporting release.
     pub async fn stop_and_drain(
         &mut self,
@@ -3017,6 +3043,44 @@ mod tests {
             Err(error) => panic!("resident reference observation failed: {error}"),
         };
         assert!(!retained, "read-only borrow retained a manager reference after owned drain");
+    }
+    #[tokio::test]
+    async fn real_owned_unit_sigkill_drains_original_escaped_population() {
+        use futures_util::FutureExt;
+        let manager = HostManager::connect_user(None).await.unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let marker = directory.path().join("escaped");
+        let spec = ServiceSpec {
+            intent: LaunchIntent::fresh().unwrap(), executable: "/bin/sh".into(),
+            arguments: vec!["-c".into(), "setsid /bin/sh -c 'echo $$ > \"$1\"; exec /bin/sleep 60' escaped \"$1\" & wait".into(),
+                "original".into(), marker.to_str().unwrap().into()],
+            environment: vec!["PATH=/usr/bin:/bin".into()],
+        };
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let mut owned = manager.start_service(&spec, deadline).await.unwrap();
+        let body = std::panic::AssertUnwindSafe(async {
+            while !marker.exists() {
+                assert!(Instant::now() < deadline, "escaped child did not enter");
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            let pid = std::fs::read_to_string(&marker).unwrap().trim().parse().unwrap();
+            let original = match ProcessReader::default().process(pid) {
+                ProcessRead::Present(facts) => facts.identity,
+                observed => panic!("original escaped process unavailable: {observed:?}"),
+            };
+            let observed = owned.kill_and_drain(deadline).await.unwrap();
+            assert!(owned.released());
+            assert!(matches!(observed.active_state.as_str(), "failed" | "inactive"));
+            assert!(owned.group.empty().unwrap());
+            assert!(!matches!(ProcessReader::default().process(pid),
+                ProcessRead::Present(facts) if facts.identity == original));
+        }).catch_unwind().await;
+        let cleanup = if owned.released() { Ok(()) } else { owned.stop_and_drain(deadline).await.map(|_| ()) };
+        if let Err(panic) = body {
+            if let Err(error) = cleanup { eprintln!("original abrupt-death cleanup failed: {error}"); }
+            std::panic::resume_unwind(panic);
+        }
+        cleanup.unwrap();
     }
     #[tokio::test]
     async fn real_user_manager_keeps_original_child_exit() {

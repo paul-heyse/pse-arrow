@@ -736,3 +736,23 @@ prepared-claim recovery and old-module upgrade passes four controls against zero
 15 excluded, with no warnings (run `1c842d19-8844-4cf6-ac7f-c8baa2904570`). `just ready` passes
 after the two internal dependency edges; no package version was changed. Broader B/H and
 remaining legacy supervisor/provider consumer retirement remain open.
+
+## Original-owner abrupt termination — 2026-10-29
+
+The retained native unit owner now supplies `OwnedUnit::kill_and_drain` for abrupt death and
+subsequent physical settlement. Only the performing capability can invoke it; read-only
+borrows gain no signal or release authority. It checks the original binding, uses systemd's
+typed unit `Kill(all, SIGKILL)` operation and independently attempts original stop/drain under
+one absolute deadline, retaining both failures if needed. A signal acknowledgement is not a
+drain or application/native-join receipt. This uses the installed pinned zbus_systemd API and
+[systemd255's unit-method contract](https://github.com/systemd/systemd/blob/v255/man/org.freedesktop.systemd1.xml).
+The existing private-unit sole-mutator premise remains explicit; this is not authority over
+arbitrary existing units or concurrent external restart/reconfiguration.
+
+**Tested:** correctness nextest `-p pse-host --lib --locked --no-fail-fast -E
+ 'test(real_owned_unit_sigkill_drains_original_escaped_population)'` passes one real user-manager
+control against zero failures, 132 excluded, no warnings (run
+`7c14293e-9e8d-4a86-848a-c4088606b09b`). A real setsid descendant is inside the original opened
+cgroup, and release follows actual empty population rather than leader exit. This supplies the
+physical primitive needed to replace raw-name Python/systemctl killing in retained native
+scientific fixtures; their caller cutover and application-level qualification remain separate.
