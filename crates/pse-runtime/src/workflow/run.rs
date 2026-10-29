@@ -1951,19 +1951,28 @@ mod cancellation_tests {
             receiver,
             progress: std::sync::Arc::new(pse_backend_native::solve::Progress::new(0)),
             run_id: pse_model::generated::identities::RunId::from_bytes([4; 16]),
-            attempt_id: None, canonical_keys: None,
+            attempt_id: None,
+            canonical_keys: None,
         };
         let mut wait = Box::pin(handle.wait());
         assert!(futures_util::poll!(wait.as_mut()).is_pending());
         drop(wait);
         drop(handle.observations());
         assert!(!checks.token().is_cancelled());
-        let alias = handle.clone(); drop(handle);
-        assert!(!checks.token().is_cancelled(), "a remaining owner retains the run");
+        let alias = handle.clone();
+        drop(handle);
+        assert!(
+            !checks.token().is_cancelled(),
+            "a remaining owner retains the run"
+        );
         let mut retry = Box::pin(alias.wait());
-        assert!(futures_util::poll!(retry.as_mut()).is_pending()); drop(retry);
+        assert!(futures_util::poll!(retry.as_mut()).is_pending());
+        drop(retry);
         drop(alias);
-        assert!(checks.token().is_cancelled(), "last immediate owner requests stop");
+        assert!(
+            checks.token().is_cancelled(),
+            "last immediate owner requests stop"
+        );
     }
     #[test]
     fn current_progress_remains_whole_without_retained_history() {

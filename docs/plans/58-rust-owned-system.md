@@ -238,3 +238,11 @@ owns implementation, verification and remaining limits. Preparation is an explic
 launch never builds a missing provider. The operator selected a Rust-owned subdirectory of the
 existing cache with legacy generations preserved and no automatic collection. Other provider
 profiles, services, finite/reference/timing modes and H qualification remain outside this wave.
+
+
+The subsequent native local-operation wave selects A01/A03, source-admission-only A02,
+local C01/C02, F02 and the necessary compiled-stub F03/G retirement slices. The
+[58a checkpoint](58a-native-product-and-scientific-workflows.md#native-local-operation-checkpoint--2026-10-28)
+owns composed results. It uses public Rust constructors and retires Python asyncio run
+waiting; no database/service, additional solver, mandatory CLI or new lifecycle framework
+is selected. Broader package and H qualification obligations remain with their owners.

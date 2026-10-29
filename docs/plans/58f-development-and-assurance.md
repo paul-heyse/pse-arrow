@@ -319,3 +319,14 @@ valid compiler output now have focused live controls; this updates the earlier c
 evidence limit for C only. [58b's compiler/KLU checkpoint](58b-bootstrap-and-host-control.md#explicit-compilerklu-consumer-checkpoint--2026-10-28)
 owns commands, results and limits. F03, broad runner/report migration and full F/H acceptance
 remain open; this slice did not require registry or fixture generation changes.
+
+## Local caller and compiled-stub slice — 2026-10-28
+
+F02's selected caller constructs physical/model sources and runtime services through public
+Rust APIs in a downstream integration target. Its owned spill fixture settles before a test
+error or assertion panic escapes. F03 only adjusts existing python-stubs recipes to accept
+an explicit freshly compiled library without broad native provider setup or a required
+installed extension. The actual introspection owner regenerates the stub and provenance;
+there is no source-parser replacement, hand-edited generated file or new publishing pipeline.
+[58a's local checkpoint](58a-native-product-and-scientific-workflows.md#native-local-operation-checkpoint--2026-10-28)
+owns assembled evidence. Other developer/generation work and H remain open.

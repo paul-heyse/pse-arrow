@@ -20,10 +20,18 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class RecipeArgumentTests(unittest.TestCase):
-    def test_python_stubs_accept_explicit_artifact_without_installed_extension(self) -> None:
-        artifact = 'library with spaces; $HOME `pwd` $(touch injected).so'
-        for recipe, flags in [("python-stubs", []), ("python-stubs-check", ["--check"])]:
-            with self.subTest(recipe=recipe), tempfile.TemporaryDirectory() as directory:
+    def test_python_stubs_accept_explicit_artifact_without_installed_extension(
+        self,
+    ) -> None:
+        artifact = "library with spaces; $HOME `pwd` $(touch injected).so"
+        for recipe, flags in [
+            ("python-stubs", []),
+            ("python-stubs-check", ["--check"]),
+        ]:
+            with (
+                self.subTest(recipe=recipe),
+                tempfile.TemporaryDirectory() as directory,
+            ):
                 root = Path(directory)
                 environment = self.fixture(root)
                 native = root / "scripts/cargo-bin/cargo-pse-correctness"
@@ -36,14 +44,30 @@ class RecipeArgumentTests(unittest.TestCase):
                 )
                 native.chmod(0o700)
                 result = subprocess.run(
-                    ["just", recipe, "--extension", artifact], cwd=root,
-                    env=environment, capture_output=True, text=True, check=False,
+                    ["just", recipe, "--extension", artifact],
+                    cwd=root,
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
                 self.assertEqual(result.returncode, 7, result.stderr)
                 self.assertEqual(
                     json.loads((root / "arguments.json").read_text()),
-                    ["run", "--bin", "xtask", "-p", "xtask", "--no-default-features",
-                     "--locked", "--", "python-stubs", *flags, "--extension", artifact],
+                    [
+                        "run",
+                        "--bin",
+                        "xtask",
+                        "-p",
+                        "xtask",
+                        "--no-default-features",
+                        "--locked",
+                        "--",
+                        "python-stubs",
+                        *flags,
+                        "--extension",
+                        artifact,
+                    ],
                 )
                 self.assertFalse((root / "injected").exists())
 

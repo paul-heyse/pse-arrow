@@ -72,8 +72,8 @@ control plan; selective result and delivery custody belong to the results plan.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [C01](#c01) Settle lifecycle composition | planned | Runtime integrator | Exact-source root comparison decided and shared contracts accepted |
-| [C02](#c02) Native operation ownership | planned | Runtime/math owner | Observer/stop/join behavior implemented and targeted tests pass |
+| [C01](#c01) Settle lifecycle composition | in progress | Runtime integrator | Exact-source root comparison decided and shared contracts accepted |
+| [C02](#c02) Native operation ownership | in progress | Runtime/math owner | Observer/stop/join behavior implemented and targeted tests pass |
 | [C03](#c03) Shared preparation and worker admission | planned | Runtime worker owner | Producer/waiter and nested admission behavior integrated |
 | [C04](#c04) Service-root shutdown and host handoff | in progress | Runtime/host integrators | Admission sealed, failures retained and actual owned work drained |
 | [C05](#c05) Publication and delivery settlement | planned | Runtime/control/results integrators | Native completion, durable publication and output release remain distinct |
@@ -229,3 +229,14 @@ source admission and execution services; their original binding guard remains in
 owns the commands and bounded results. These controls extend the selected C04 handoff evidence;
 they do not complete C01–C06, qualify arbitrary solver cancellation, or select a new Runtime
 root/lifecycle framework.
+
+## Local operation ownership checkpoint — 2026-10-28
+
+The selected local C01/C02 slice retains the existing supervisor, cancellation lease and
+native joins. Dropping a wait future or passive observer does not stop a still-owned run;
+explicit cancel and final immediate-owner departure request stop while original supervisors
+retain physical cleanup. Logical caller close seals new admission, not already admitted work.
+No new lifecycle framework or long-lived worker policy is selected. The public local caller
+uses existing lane shutdown for final fixture settlement, including on assertion failure.
+[58a's local checkpoint](58a-native-product-and-scientific-workflows.md#native-local-operation-checkpoint--2026-10-28)
+owns the composed acceptance and limits; this does not close the broader C packages.

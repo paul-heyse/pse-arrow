@@ -46,11 +46,11 @@ class PreparedKluTests(unittest.TestCase):
                     patch.object(
                         operation, "current", side_effect=AssertionError("timing")
                     ),
-                ):
-                    with self.assertRaisesRegex(
+                    self.assertRaisesRegex(
                         ValueError, "Python KLU preparation is retired"
-                    ):
-                        entry(requested, {operation.BUILD_TIMING: "must-not-write"})
+                    ),
+                ):
+                    entry(requested, {operation.BUILD_TIMING: "must-not-write"})
 
     def test_retired_cli_refuses_before_environment_or_receiver_effects(self) -> None:
         with (
@@ -76,11 +76,11 @@ class PreparedKluTests(unittest.TestCase):
                 "read",
                 side_effect=AssertionError("receiver"),
             ),
-        ):
-            with self.assertRaisesRegex(
+            self.assertRaisesRegex(
                 ValueError, "native prepare --capabilities compiler,klu"
-            ):
-                operation.main()
+            ),
+        ):
+            operation.main()
 
     def test_legacy_cache_cli_has_no_klu_constructor(self) -> None:
         with (

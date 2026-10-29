@@ -12,7 +12,7 @@ review_sources: [docs/functional_reviews/rust-first-system-functional-opportunit
 # Native product and scientific workflows
 
 This supporting plan develops the scientific application target of [Plan58](58-rust-owned-system.md). It is a new decomposition of the
-Rust-owned target, superseding Plan57's delivery scope rather than copying its packages. All packages are planned; authoring this
+Rust-owned target, superseding Plan57's delivery scope rather than copying its packages. The package table and checkpoints distinguish selected implementation from remaining work; authoring this
 document authorizes no implementation. The source [functional
 review](../functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md) supplies O01, O10 and O12, with a bounded O13
 decision. Its observations are planning inputs, not evidence that a native application journey has already passed.
@@ -64,9 +64,9 @@ PyO3 implementation is deferred; its absence cannot block native scientific comp
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [A01](#a01) Native application contract | planned | Native workflow owner | Accepted shared contract and complete retained scientific caller scope |
-| [A02](#a02) Incremental workspace and source workflows | planned | Authoring/compiler owner | Native revision/edit/reuse behavior and source/history consumers |
-| [A03](#a03) Prepared local execution and results | planned | Runtime/math owner | Typed author→prepare→execute→inspect composition independent of Python |
+| [A01](#a01) Native application contract | in progress | Native workflow owner | Accepted shared contract and complete retained scientific caller scope |
+| [A02](#a02) Incremental workspace and source workflows | in progress | Authoring/compiler owner | Native revision/edit/reuse behavior and source/history consumers |
+| [A03](#a03) Prepared local execution and results | in progress | Runtime/math owner | Typed author→prepare→execute→inspect composition independent of Python |
 | [A04](#a04) Complete scientific mode callers | planned | Scientific workflow owners | Every supported mode constructible and failures honestly scoped |
 | [A05](#a05) Native studies and replay | planned | Study/runtime owner | Generated studies, durable handoff and recorded-point replay |
 | [A06](#a06) Adaptive study decision and retained strategies | planned | Study strategy owner | Bounded comparison decided; retained native strategies migrated |
@@ -190,6 +190,89 @@ Keep genuine external scientific contracts, not mechanism-specific drift guards.
 behavior, with explicit force-validation on actual Arrow correctness closures. Package descriptions specify discriminating cases, not
 executed tests. [H](58h-qualification-and-publication.md) owns assembled native local/durable scientific journeys, independent
 oracle/reference selection, scope-end integration/solver/component checks, `just hygiene` and manual governance/docs/native/powerset
-checks. Measurements need a separate decision purpose; no speedup is claimed here. All implementation and qualification are **not_run**;
-no production code, tests or builds changed. Completion requires the coordinator's combined acceptance and truthful zero-baseline
+checks. Measurements need a separate decision purpose; no speedup is claimed here. At authoring, implementation and qualification were **not_run**; the checkpoint below records subsequent authorized execution. Completion requires the coordinator's combined acceptance and truthful zero-baseline
 reporting, not this document's package count or a local targeted pass.
+
+## Native local operation checkpoint — 2026-10-28
+
+The selected A01/A03 wave uses existing public Rust constructors and a database-free KINSOL
+operation, with only source-admission A02, local C01/C02, F02 and the selected G retirement.
+It introduces no application facade, executor, database dependency or CLI. SharedRuntime,
+its registry-bound factory, Runtime::from_shared_local, original physical/model document
+admission and PreparedOperation/RunHandle compose the downstream caller. The package and
+execution services retain the same actual bindings; invalid physical input and incompatible
+receivers remain refusals. Module documentation records the public composition.
+
+The agreed Python cut removes asyncio run waiting and CancelWait; shared synchronous
+adapters and unrelated asynchronous cursor interfaces remain with their existing owners.
+Scientific Python assertions are retained through synchronous joins, with live-cursor joins
+after asynchronous consumption/detachment. No replacement future adapter is introduced.
+F03 is limited to making the actual compiled-metadata stub owner callable with an explicit
+artifact, without the retired broad native profile or installed-module prerequisite.
+
+A01–A03 remain in progress for the series: this selection does not deliver incremental edits,
+all scientific modes, durable studies or all source/history consumers. C01's long-lived root
+comparison and other C packages retain their own obligations. Existing local last-owner stop,
+passive observation, repeatable waits and original native-drain semantics remain authoritative.
+
+### Selected verification and outcome
+
+**Implemented:** the downstream `local_operation` target uses only production constructors,
+source-backed physical/model admission and PreparedOperation/RunHandle. Rust module docs
+record construction and lifetime semantics. Existing native owners needed no new lifecycle
+behavior, public type, scheduler or facade. Python asyncio run waiting and its cancellation
+guard are deleted together with their dedicated bridge test and callers. Retained scientific
+assertions use synchronous joins; shared synchronous and asynchronous cursor adapters remain.
+The actual compiled-metadata generator updates only the removed method and its provenance.
+
+**Tested:** five selected local/native lifecycle controls pass against zero failures:
+
+```sh
+scripts/pse-env --native=compiler,klu -- cargo t -p pse-runtime --lib \
+  --features pse-runtime/solver-kinsol \
+  -E 'test(local_waiter_and_observer_detach_without_cancelling_original_handle) | test(caller_departure_cancels_only_immediate_child_and_keeps_durable_owner_live) | test(abandoned_caller_holds_pool_and_cpu_through_tls_destructor) | test(compiler_authority_and_workspace_remain_owned_through_tls_destructor_and_abandonment) | test(cancelled_serial_preparation_keeps_loan_and_storage_until_child_drain)'
+```
+
+The native Cargo-restoration setup passes; 1249 unselected inventory tests receive no
+acceptance credit. The new handle control establishes waiter/lease policy; existing actual
+TLS/preparation controls establish lower native resource retention and drain. This is
+composed coverage, not an experiment interrupting a live KINSOL callback.
+
+The validated PyO3 construction passes through
+`scripts/pse-env --native=compiler,klu -- scripts/cargo-bin/cargo-pse-correctness build --locked
+-p pse-py --lib --features pse-py/solver-kinsol --message-format=json`. Cargo's actual artifact
+is supplied to `just python-stubs --extension target/debug/lib_native.so` and
+`just python-stubs-check --extension target/debug/lib_native.so`; both pass without extension
+installation. The generated API diff removes only wait_async; independent review confirms
+its provenance hashes. The recipe transport control passes one test with publish/check
+subcases, literal spaced/metacharacter paths and original exit preservation:
+`scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_recipe_arguments.RecipeArgumentTests.test_python_stubs_accept_explicit_artifact_without_installed_extension -v`.
+
+Initial public-test construction exposed accessor/type and downstream recursion-limit issues;
+these were corrected without changing production guards. Its first executable success case
+incorrectly expected one solve-variable row: the original table records both parameter p and
+variable x. The correction checks their distinct roles, the authored parameter, actual KINSOL
+selection and the original equation under propagated physical tolerance; it does not discard
+parameter output. Review also replaced a feature-dependent Ipopt-unavailable assertion with
+the intrinsically unsupported HiGHS nonlinear-root route. The negative case had passed before
+the positive row assertion was corrected. All failure baselines remain zero.
+
+No full Python solver, canonical-store, other solver, feature-matrix, parity or performance
+campaign ran. Broad H qualification and the remaining A/C/F/G packages stay open. Scientific
+and construction evidence remain distinct; no quantitative speed or memory benefit is claimed.
+
+**Tested:** the final public caller command
+`scripts/pse-env --native=compiler,klu -- cargo t -p pse-runtime --test local_operation
+--features pse-runtime/solver-kinsol` passes two tests, zero failures/skips, and its native
+Cargo-restoration setup passes. It covers actual source admission, KINSOL/equation assessments,
+repeatable shared results, retained rows after caller/cache/native-lane closure, invalid
+physical sources, wrong bindings, incompatible route, prestart cancellation and sealed caller.
+Fixture bodies settle before propagating errors or assertion panics. Independent bounded source
+and generated-output review has no remaining material findings. The selected local wave is
+complete at this acceptance level; enclosing packages retain their broader obligations.
+
+The root's `just turn-end` passes ADR-index generation and formatting against zero failures.
+Final independent user-manager readback finds no owned pse-host/pse-foreground units, and
+all selected construction/test runs have finished. Formal ADR status is unchanged. The
+architecture amendment used the authorized PSE_DESIGN_EDIT=1 route; the pre-existing tracked
+.design-edit content was preserved. No full-series qualification or new speed claim follows.

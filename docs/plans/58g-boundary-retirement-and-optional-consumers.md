@@ -116,3 +116,15 @@ other provider artifacts; they are not an alternative KLU constructor. Other nat
 their helper-image consumers, Python MCP and product frontends retain their existing owners.
 G01/G03 remain in progress. [58b](58b-bootstrap-and-host-control.md#explicit-compilerklu-consumer-checkpoint--2026-10-28)
 owns the selected replacement's verification and limitations.
+
+## Selected Python asyncio run-wait retirement — 2026-10-28
+
+The maintainer selected deletion of NativeRunHandle.wait_async, Python RunHandle.wait_async
+and CancelWait. Their dedicated cancellation test retires; retained scientific assertions
+use synchronous joins, with asynchronous cursor work finished/detached before joining.
+The shared synchronous run handle and unrelated asynchronous cursor adapters remain for
+later cutovers, including their still-needed pyo3-async-runtimes dependency. No shim,
+thread-offload adapter or second Python wait coordinator replaces the removed bridge.
+Compiled metadata regenerates the changed stub through the existing owner.
+[58a's local checkpoint](58a-native-product-and-scientific-workflows.md#native-local-operation-checkpoint--2026-10-28)
+owns results and remaining qualification; G01/G03 remain in progress.
