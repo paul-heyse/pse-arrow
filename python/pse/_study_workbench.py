@@ -8,13 +8,11 @@ import time
 from typing import TYPE_CHECKING, Self
 
 import attrs
-import pyarrow as pa
 
 from pse import codec
 from pse._build import (
     _NativeFrozenStudyCohort,
     _NativeRuntime,
-    _NativeStudyKpiAnalysis,
     _NativeStudyObserver,
 )
 from pse._inspection import TableStream
@@ -25,51 +23,16 @@ if TYPE_CHECKING:
 
     from pse._runs import RunHandle
     from pse.contracts.documents import (
-        StudyCohortClassificationPage,
         StudyCohortHeaderPage,
         StudyCohortMemberPage,
         StudyCohortPageRequest,
         StudyCohortReceipt,
         StudyCohortRequest,
-        StudyCohortScanProgress,
-        StudyKpiRequest,
         StudyObservationCursor,
         StudyObservationCursorOutput,
         StudyObservationPageOutput,
         StudyObservationRequest,
     )
-
-
-@attrs.frozen
-class StudyKpiAnalysis:
-    """Original population and selected Arrow aggregates; minimum is sample-local."""
-
-    _handle: _NativeStudyKpiAnalysis
-
-    @property
-    def cohort(self) -> StudyCohortReceipt:
-        return self._handle.cohort
-
-    @property
-    def included(self) -> int:
-        return self._handle.included
-
-    @property
-    def unavailable(self) -> int:
-        return self._handle.unavailable
-
-    @property
-    def progress(self) -> StudyCohortScanProgress:
-        return self._handle.progress
-
-    def classification_page(
-        self, request: StudyCohortPageRequest
-    ) -> StudyCohortClassificationPage:
-        return self._handle.classification_page(codec.encode_json(request))
-
-    def batches(self) -> tuple[pa.RecordBatch, ...]:
-        """Return selected aggregates with original quantity and unit columns."""
-        return tuple(pa.record_batch(batch) for batch in self._handle.batches())
 
 
 @attrs.frozen
@@ -92,10 +55,6 @@ class FrozenStudyCohort:
         self, member: int, relation: str, *, start: int, end: int
     ) -> TableStream:
         return TableStream(self._handle.result(member, relation, start=start, end=end))
-
-    def aggregate(self, request: StudyKpiRequest) -> StudyKpiAnalysis:
-        return StudyKpiAnalysis(self._handle.aggregate(codec.encode_json(request)))
-
 
 @attrs.frozen
 class StudyObserver:

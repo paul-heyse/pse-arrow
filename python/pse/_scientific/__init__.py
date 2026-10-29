@@ -138,7 +138,6 @@ from pse._strategies import PreparedFlow as PreparedFlow
 from pse._strategies import PreparedStrategy as PreparedStrategy
 from pse._strategies import StrategyResult as StrategyResult
 from pse._study_workbench import FrozenStudyCohort as FrozenStudyCohort
-from pse._study_workbench import StudyKpiAnalysis as StudyKpiAnalysis
 from pse._study_workbench import StudyObserver as StudyObserver
 from pse._transfer import FieldTransfer as FieldTransfer
 from pse._workflow import (

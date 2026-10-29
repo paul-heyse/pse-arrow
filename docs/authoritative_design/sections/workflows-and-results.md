@@ -623,7 +623,13 @@ Immutable modeling, fitting and prepared scientific values retain source, physic
 input owners and necessary protection leases. Effectful Rust operations receive explicit
 PreparationServices, SourceServices or ExecutionServices from the existing Runtime composition
 root. These capabilities carry actual caller admission, allocation, validation, mathematics and
-selected publication policy; they are not a second Runtime. A receiver must have compatible
+selected publication policy; they are not a second Runtime. Protected retained reads instead
+receive `RetainedDataServices`, independently constructible from an opened canonical store and
+registry-bound engine model without `SharedRuntime`, source loading or mathematical services.
+Readers, snapshots, progress interpretation and frozen cohorts retain that narrower capability.
+Extraction from Runtime shares its logical caller; independent construction creates a distinct
+read caller. Close seals new admission while admitted continuations and returned protected
+buffers retain their actual custody. A receiver must have compatible
 original registry/native bindings, and durable publication authenticates the source's immutable
 original issuer before effects. A separate caller over the same bindings remains lawful after
 the original caller closes. Ephemeral execution suppresses automatic publication while retaining
@@ -891,6 +897,16 @@ must change/fence the checked incarnation before reopening; a timestamp-only byp
 Known pre-effect busy handling retains original clocks/cancellation and computed numerical output,
 never repeats scientific execution. One protected relation provider owns selected manifests through
 scan drain; captured unavailable members retain their original classification.
+
+Native `StudyCohortRelation` exposes the exact capture's provider, configured SessionState and
+traversal/classification knowledge. DataFusion DataFrame composition preserves the original
+functions and shared deployment pool; an unrelated pool refuses. Native states need no mutable
+default catalog: direct read_table/alias/join_on composition supports cross-attempt comparison.
+Pending, captured unavailable and empty selections remain distinct from numerical observations.
+The native aggregation/export operations remain; their optional Python aggregate/result
+projection is retired under proposed ADR-0233. Frozen browsing and other unmigrated Python
+wrappers retain their existing owners; this native read construction does not establish that
+those wrappers have stopped retaining mathematics.
 
 The unguarded 10,000-member SSI surrogate conflicted and rolled back. The resulting gated native
 implementation passes the complete public 10,000-point creation/capture/provider/summary journey,

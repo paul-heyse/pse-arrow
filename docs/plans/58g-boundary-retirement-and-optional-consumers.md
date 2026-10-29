@@ -1,6 +1,6 @@
 ---
 title: "Plan58: Boundary retirement and optional consumers"
-status: draft
+status: in-progress
 date: 2026-10-28
 adrs: []
 review_sources: [docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md, docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
@@ -91,6 +91,32 @@ RMCP remains deferred until a concrete agent workflow earns it beyond direct API
 ## Verification and handoff
 
 **Proposed:** G01–G04. No runtime execution or product qualification occurred for this amendment. H receives retained/lost outcomes, final dependency closures and actual integrated caller/declaration deletions. Optional consumers cannot hold native core completion open. Applicable rule/architecture changes precede dependent implementation; this document does not change ADR status or authorize data disposal.
+
+## Native repeated-analysis consumer cut — 2026-10-29
+
+The authorized A01–A07 execution retires Python `FrozenStudyCohort.aggregate` and
+`StudyKpiAnalysis`, their PyO3 method/class, module registration, aliases, exports and generated
+stub. The native `FrozenStudyCohort::aggregate` and retained-data export operations remain.
+The direct Rust repeated-analysis caller preserves original captured-unavailable membership,
+typed aggregate statistics, exact attempt/manifest attribution and corrected-context comparison;
+its selected evidence is [owned by A](58a-native-product-and-scientific-workflows.md#native-repeated-analysis-and-scientific-caller-cut).
+The existing CLI export test retains its independent expected aggregate rows directly rather
+than calling the deleted Python aggregate projection. No replacement Python adapter is added.
+
+**Implemented:** native retained readers/cohorts retain `RetainedDataServices`; mathematical
+services are no longer part of their actual capability. Separately consumed Python frozen
+browsing, stored-result and stream wrappers still retain their full Python runtime owners.
+Those wrappers and remaining scientific consumers keep G01/G03 open; removing this one projection
+does not resolve the entire Python read-owner finding or establish complete facade retirement.
+
+**Interface-checked:** the reduced native module builds with zero failures through
+`scripts/pse-env --native=compiler,solver,klu -- scripts/cargo-bin/cargo-pse-correctness build
+--locked -p pse-py --lib --features solver-kinsol,solver-ipopt,solver-scip,solver-highs,solver-diffsol
+--message-format=json`. `just python-stubs --extension target/debug/lib_native.so`, under the
+same prepared environment, publishes the actual compiled metadata. Inspection confirms only
+the retired class/method and its provenance leave generated output. Independent bounded source
+review found no material actionable issues. No extension installation, Python component journey,
+scope-end static campaign or complete A/G/H qualification is claimed.
 
 ## Selected ordinary host retirement checkpoint — 2026-10-28
 

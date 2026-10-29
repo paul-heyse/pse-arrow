@@ -24,9 +24,7 @@ pub(crate) use modeling::{
     NativeModelingTrajectory, NativeStudyReport,
 };
 use routes::{NativeEligibility, NativeRoute};
-pub(crate) use study_workbench::{
-    NativeFrozenStudyCohort, NativeStudyKpiAnalysis, NativeStudyObserver,
-};
+pub(crate) use study_workbench::{NativeFrozenStudyCohort, NativeStudyObserver};
 mod strategies;
 use crate::inspection::{self, errors, runtime};
 use pse_runtime::{CancelSource, workflow as native};

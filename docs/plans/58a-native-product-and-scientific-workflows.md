@@ -456,8 +456,10 @@ without imputation or silent retry. Snapshotting is an owned observation, not se
 regeneration. The service ask-and-tell extension remains deferred until a named externally
 scheduled adaptive batch consumer requires it; no second optimizer is selected.
 
-A07 is cutting the now-replaced Python aggregate projection while retaining native aggregation,
-export and the separately consumed frozen browsing/observer interfaces. Compiled stub publication
-and independent review are still part of that integration. Full A/E/G and H acceptance,
+A07 deletes the now-replaced Python aggregate projection while retaining native aggregation,
+export and the separately consumed frozen browsing/observer interfaces. The reduced PyO3 module
+build and actual compiled-stub publication pass; independent source review found no material
+actionable issues. [G's consumer cut](58g-boundary-retirement-and-optional-consumers.md#native-repeated-analysis-consumer-cut--2026-10-29)
+owns that integration and its remaining Python boundaries. Full A/E/G and H acceptance,
 remaining scientific/frontend consumers, residual-limit and payload-custody controls keep their
 own obligations; no complete scope-end qualification or measured speed claim follows.

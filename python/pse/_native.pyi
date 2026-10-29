@@ -219,11 +219,9 @@ from pse.contracts.documents import (
     SourceRecordingLaunchRequestOutput,
     SourceSettlementOutput,
     StudyCancel,
-    StudyCohortClassificationPage,
     StudyCohortHeaderPage,
     StudyCohortMemberPage,
     StudyCohortReceipt,
-    StudyCohortScanProgress,
     StudyDefinitionOutput,
     StudyObservationCursorOutput,
     StudyObservationPageOutput,
@@ -563,7 +561,6 @@ class NativeDiagnostics:
 
 @final
 class NativeFrozenStudyCohort:
-    def aggregate(self, /, request: bytes) -> NativeStudyKpiAnalysis: ...
     def header_page(self, /, request: bytes) -> StudyCohortHeaderPage: ...
     def member_page(self, /, request: bytes) -> StudyCohortMemberPage: ...
     @property
@@ -1611,21 +1608,6 @@ class NativeStudyHandle:
     def wait(
         self, /, *, controls: StudyWaitControls | StudyWaitControlsOutput | None = None
     ) -> StudyResults: ...
-
-@final
-class NativeStudyKpiAnalysis:
-    def batches(self, /) -> list[ArrowArrayInput]: ...
-    def classification_page(
-        self, /, request: bytes
-    ) -> StudyCohortClassificationPage: ...
-    @property
-    def cohort(self, /) -> StudyCohortReceipt: ...
-    @property
-    def included(self, /) -> int: ...
-    @property
-    def progress(self, /) -> StudyCohortScanProgress: ...
-    @property
-    def unavailable(self, /) -> int: ...
 
 @final
 class NativeStudyObserver:

@@ -6,7 +6,7 @@ date: 2026-10-15
 
 # Native workflow
 
-**Implemented:** the public Rust and Python workflow connects generated declarations,
+**Implemented:** the callable Rust workflow connects generated declarations,
 the Salsa compiler, library-owned mathematics, native algebraic/dynamic solvers,
 parameter fitting, the native supervisor and canonical retained results. Targeted
 contract tests establish the boundaries below. The architecture owners are
@@ -76,6 +76,36 @@ their oracle references identify the authored assertion, not a live upstream exe
 
 ## Declare and prepare
 
+The native application uses `Runtime::from_shared_local(shared, bound_model)` for local
+science. The application supplies its existing `SharedRuntime` and registry-bound engine
+model; construction creates no executor, canonical service or Python dependency. Package
+document ingress retains its manifest dependency closure and explicit physical definitions.
+For already admitted `package`, explicit `request` and application-owned `runtime`, the
+generic local composition is:
+
+```rust
+let stop = pse_runtime::CancelSource::new();
+let prepared = package.prepare_operation(
+    &runtime.preparation_services(),
+    &pse_runtime::workflow::OperationSource::of(&package),
+    &pse_runtime::workflow::PreparationSettings::default(),
+    request,
+    None,
+    &stop,
+).await?;
+let run = prepared.start(&runtime.execution_services(), &stop).await?;
+let result = run.wait().await?;
+```
+
+The [public local caller](../../crates/pse-runtime/tests/local_operation.rs) supplies complete
+source admission and independent equation checks. The
+[immutable workspace caller](../../crates/pse-runtime/tests/native_workspace.rs) edits values
+and structure with `SourceDelta`/`with_delta`, then re-solves while retaining the earlier result.
+Typed failures and partial results retain their original scientific scope. Detaching an
+observer does not cancel its run; actual cancellation and native completion remain separate.
+Specialized dynamics, strategies and host-only shooting use their existing native owners;
+they need no persisted study variant merely to share this entry point.
+
 `pse_runtime::workflow::Runtime::from_shared` borrows a deployment's existing
 `SharedRuntime`, schema registry and engine factory, and attaches its explicit
 `CanonicalDeployment`. It creates no executor or independent resource budget. Python
@@ -94,7 +124,7 @@ come from admitted source rows retained in canonical revisions. The fixture curr
 not a default. Package manifests bind quantity aliases; imports require the declared exact
 package closure. Failed admission leaves earlier package revisions usable.
 
-The Python sequence, with application-supplied source maps and a semantic case ID, is:
+The retiring Python binding's sequence, with application-supplied source maps and a semantic case ID, is:
 
 ```python
 runtime = pse.Runtime(engine_settings, substrate=state_directory)
@@ -230,12 +260,33 @@ owns its final buffers independently of the result and model handles.
 
 ## Completion and retained results
 
-Blocking waits release Python and check signals; interruption requests cancellation
-and waits for the existing native supervisor to join before propagating the signal.
-Asyncio uses pyo3-async-runtimes on the same process Tokio executor. Cancelling an
-async waiter requests native stop, while the handle retains access to the eventual
-terminal result. Native factorization may finish before cooperative cancellation is
-observed. Repeated waits never rerun a solver.
+Retained native reads can construct `RetainedDataServices::new(store, bound_model)` directly
+from an opened canonical store and configured engine model. This creates an independent
+logical caller without constructing `SharedRuntime`, source preparation or mathematical
+services. Closing that caller seals new admission; protected returned data retains its actual
+custody. Extracting `runtime.retained_data_services()` instead shares that runtime's logical
+caller, including its close behavior.
+
+`FrozenStudyCohort::relation` supplies a protected `TableProvider`, its configured
+`SessionState` and traversal/classification information. Use that state with DataFusion's
+native DataFrame joins, filters and aggregates. Native states deliberately omit a mutable
+default catalog; `read_table`, `alias` and `join_on` compose captured providers directly.
+An unrelated deployment pool refuses. Preserve quantity/unit identities and distinguish
+unavailable captured members from empty selections and numerical zero.
+
+The [native repeated-analysis caller](../../crates/pse-runtime/tests/native_repeated_analysis.rs)
+compares original and corrected engineering contexts after scientific shutdown, retains the
+earlier frozen population, and replays recorded realized points under their original source
+and context. Domain effective time and revision ancestry remain distinct from storage MVCC.
+Native `FrozenStudyCohort::aggregate` and `RetainedDataServices::export_study_analysis`
+retain aggregation/export; the Python `aggregate`/`StudyKpiAnalysis` projection is retired.
+
+Native waits are asynchronously repeatable and never rerun a solver. Cancellation
+requests stop; the original native supervisor owns actual completion and resource drain.
+Native factorization may finish before cooperative cancellation is observed. The retiring
+Python binding's blocking wait releases the interpreter and checks signals; interruption
+requests cancellation and joins the supervisor before propagating the signal. Its asyncio
+run-wait bridge is removed; unrelated asynchronous cursor adapters retain their own owners.
 
 Ordinary runs retain source, attempt and scientific result identities in the canonical
 store. Save `result.canonical_run_key` and `result.canonical_attempt_key`; reopen a relation
@@ -250,7 +301,10 @@ and native solver factors are never durable authorities.
 
 ## Development profile and verification
 
-`just py-sync-native` installs the explicit native-solver editable profile and
+Rust correctness commands run through the prepared native environment and explicitly
+validated Cargo route described in [the environment guide](agent-environment.md).
+Product execution does not require installing a Python extension. For remaining Python
+consumers, `just py-sync-native` installs the explicit native-solver editable profile and
 generates stubs from the actual compiled API. `just py-native-contracts` runs the
 boundary units with the pinned Ipopt/MUMPS runtime path. `just py-sync` remains the
 default profile and can replace that extension with a different linked capability

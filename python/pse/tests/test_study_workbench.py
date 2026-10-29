@@ -139,28 +139,6 @@ def test_study_workbench_public_snapshot_and_passive_reconnect(
         start=0,
         end=1,
     )
-    # The first capture predates native completion; later usable results must
-    # not promote its originally unavailable members.
-    original_analysis = frozen.aggregate(kpi)
-    assert (original_analysis.included, original_analysis.unavailable) == (0, 2)
-    assert original_analysis.progress.state == "complete"
-    assert not original_analysis.batches()
-    analysis = completed.aggregate(kpi)
-    assert (analysis.included, analysis.unavailable) == (2, 0)
-    assert analysis.progress.state == "complete"
-    aggregate_rows = pa.Table.from_batches(analysis.batches()).to_pylist()
-    assert len(aggregate_rows) == 1
-    (aggregate_row,) = aggregate_rows
-    assert (aggregate_row["count"], aggregate_row["mean"]) == (2, 2.0)
-    assert aggregate_row["quantity_id"] == original_row["quantity_id"]
-    assert aggregate_row["unit_id"] == original_row["unit_id"]
-    classified = analysis.classification_page(
-        StudyCohortPageRequest(maximum=2, cursor=None)
-    )
-    assert [row.value.availability for row in classified.members] == [
-        "included",
-        "included",
-    ]
     with completed.result(0, "runtime.solve_variables", start=0, end=1) as detail:
         assert pa.table(detail).to_pylist() == original_rows
 
@@ -276,7 +254,14 @@ def test_study_workbench_public_snapshot_and_passive_reconnect(
     assert isinstance(cli_analysis, dict)
     assert (cli_analysis["included"], cli_analysis["unavailable"]) == (2, 0)
     with pa.ipc.open_file(aggregate_path) as reader:
-        assert reader.read_all().to_pylist() == aggregate_rows
+        # The retained CLI export uses native aggregation. The removed Python
+        # aggregate projection is exercised directly by native_repeated_analysis.
+        aggregate_rows = reader.read_all().to_pylist()
+        assert len(aggregate_rows) == 1
+        (aggregate_row,) = aggregate_rows
+        assert (aggregate_row["count"], aggregate_row["mean"]) == (2, 2.0)
+        assert aggregate_row["quantity_id"] == original_row["quantity_id"]
+        assert aggregate_row["unit_id"] == original_row["unit_id"]
     detail_path = tmp_path / "detail.arrow"
     cli_detail = invoke(
         {

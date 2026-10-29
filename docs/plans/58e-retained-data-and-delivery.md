@@ -95,6 +95,14 @@ the native extraction does not establish that those wrappers are math-free. Prot
 residual-limit, wrong-pool and payload-custody coverage remains necessary at the relevant
 native consumer before E02 closes.
 
+The subsequent native repeated-analysis test now exercises protected cross-attempt joins,
+typed aggregates, original unavailable/empty classifications and wrong-pool refusal after
+all scientific callers and native lanes close. It preserves original captured attempts and
+repeats comparison under corrected engineering context without rebuilding science. A owns
+that selected passing evidence and G the deleted Python aggregate projection. Residual-limit,
+sealed-payload/reclamation and full E01/E02 acceptance remain open; these are not implied by
+the narrower passing consumer.
+
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [E01](#e01) | in progress | Result selection and decode owners | Retained reads construct from actual data capabilities without SourceServices/math. |

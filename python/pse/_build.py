@@ -101,7 +101,6 @@ _NativeLiveSimulationCursor = _native.NativeLiveSimulationCursor
 _NativeLiveSimulationEvent = _native.NativeLiveSimulationEvent
 _NativeStudyHandle = _native.NativeStudyHandle
 _NativeFrozenStudyCohort = _native.NativeFrozenStudyCohort
-_NativeStudyKpiAnalysis = _native.NativeStudyKpiAnalysis
 _NativeStudyObserver = _native.NativeStudyObserver
 _NativeRunResult = _native.NativeRunResult
 _NativeScientificReplay = _native.NativeScientificReplay
