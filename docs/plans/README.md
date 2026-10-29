@@ -8,6 +8,11 @@ retirement and qualification. CLIs and MCP are optional; PyO3 implementation is 
 The coordinator owns shared target decisions and O01–O15/I01–I14 dispositions; companions own packages.
 Expanded 58d delivers minimal native migration infrastructure; exhaustive persistent-production
 recovery qualification is a later release obligation before non-regenerable/shared operational data.
+The [SurrealDB boundary amendment](58-rust-owned-system.md#surrealdb-boundary-dispositions)
+integrates the 2026-10-29 review into the existing A–H owners: complete bounded canonical
+progression, native preparation/physical ownership, retained persistent MX, protected IPC and
+explicit connectivity/reactive investigations. The coordinator owns the review-qualified O01–O10
+dispositions; companion packages preserve their current implementation and qualification state.
 Integrated replacements retire Python mechanisms, bespoke build observation and redundant fixture
 guards. Scientific calculation observation and independent reference assurance remain.
 The maintainer has authorized T01/T02 and 58b execution with necessary C/D/F prerequisite slices.

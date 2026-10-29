@@ -3,7 +3,7 @@ title: "Plan58: Boundary retirement and optional consumers"
 status: draft
 date: 2026-10-28
 adrs: []
-review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
+review_sources: [docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md, docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [current-work, architecture, design, libraries, validation]
@@ -13,13 +13,19 @@ doc_topics: [current-work, architecture, design, libraries, validation]
 
 ## Target and foundation
 
-**Proposed:** retire first-party Python operating machinery and the Python MCP stack while preserving supported scientific outcomes through Rust owners. O03/O04 supply the original opportunity; the [improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I01), especially I01/I07–I09/I12/I13, supplies the integrated cutover and requirement reductions. The [coordinator](58-rust-owned-system.md) owns their dispositions. Baseline is `c3b7f136d`; no product replacement is implemented by this amendment.
+**Proposed:** retire first-party Python operating machinery and the Python MCP stack while preserving supported scientific outcomes through Rust owners. O03/O04 supply the original opportunity; the [improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I01), especially I01/I07–I09/I12/I13, supplies the integrated cutover and requirement reductions. The [coordinator](58-rust-owned-system.md) owns their dispositions. The original authoring baseline was `c3b7f136d`; subsequent checkpoints record delivered retirements. This document amendment itself implements no product replacement.
 
 A cutover includes the retained outcome's native owner, real callers, configuration, generator declarations, tests and old-path deletion. Temporary incomplete development states receive no acceptance credit, but need no compatibility bridge. G contributes to each owning change; it is not a final cleanup wave that permits replaced mechanisms to linger. Independent cuts need not become one repository-wide commit.
 
 No full Python API, FastMCP feature parity, CLI or MCP requirement survives merely because it once existed. Existing useful CLIs may stay as thin adapters with direct native calls. No universal operation catalogue, Rust proxy for a FastMCP child, replacement agent framework or embedded Python controller is selected. Qualified native C/Fortran solvers and ordinary third-party subprocess tools remain eligible.
 
 The current facade, control client, generated documents/stubs, native worker bridge, retained MCP sessions, source/extension currency checks and CLI generation have different consumers. Inspect those consumers to locate deletion boundaries, not to infer that each mechanism must be ported. Rust types and validated construction carry established internal premises; remaining external files, requests and persisted records still require their actual boundary validation.
+
+The [database-boundary review](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md)
+is incorporated at `a6a144bce` on 2026-10-29. The coordinator owns its source-qualified
+opportunity dispositions; D owns the bounded canonical action/connectivity contracts and E
+the payload boundary. G supplies integrated caller/declaration retirement when those actual
+replacement capabilities work. This adds no automatic engine migration or blanket deletion.
 
 ## Package state
 
@@ -37,6 +43,15 @@ Consume T01/T02 and A/D/E/F capability designs. Classify public authoring/result
 
 Use I08's actual consumers to distinguish deletion from replacement. F owns replacement of the active `grpc_wire_schema.py` invocation by Rust parsing/generation and retained native-engine boundary checks. G removes frontend-only generated private/attrs modules, stubs, manifests, dynamic self-check expectations and configuration references with their last retained caller. Explicit resource-conversion actions, SurrealKit beta recipes/pending-state branches, `IDAES_NAMES` and probe assets require reachability/meaning assessment; a pathname or old schema difference alone does not establish disposability. Coordinate native migration infrastructure with D and development reconstruction with F; no existing store or authored/reference evidence is erased by this plan.
 
+For boundary O01/O03/O04/O08, name the native operation that replaces each client-side
+readiness traversal, authoritative policy interpretation, reconnect/progress mirror, redundant
+codec or data-holder bridge before deleting its last retained caller. Classify the current
+worker loop by responsibility: D can absorb shared-state discovery/progression, while Rust
+must still prepare, execute, propagate cancellation and join effects. `CandidateGroup` only
+suppresses duplicate local preparation; canonical claims do not automatically replace that
+useful role. SDK delegation removes only plumbing whose required contract it actually covers,
+not original request custody, unknown-ACK reconciliation or native physical drain by name.
+
 Targeted acceptance is a concrete retained consumer transition with input/output/failure expectations and absent obsolete dependencies. It is not a module-count target or blanket ban on reference-only Python.
 
 <a id="g02"></a>
@@ -50,6 +65,13 @@ Targeted tests exercise retained behavior directly at Rust owners and startup/he
 
 <a id="g03"></a>
 ### G03 — Retire required Python product/runtime adapters
+
+Integrate canonical-state retirement with D03/D04 and data consumers with E01–E03. A completed
+cut includes actual caller/configuration/registry or generator changes, replacement tests and
+old-path deletion together. Retain scientific/reference assertions at their real native owner;
+remove mechanism-only tests with the mechanism. Do not keep a compatibility shim or duplicate
+state journal to bridge an unavailable intermediate path. A payload's accepted metadata and
+its physical publication/custody remain different responsibilities after Python disappears.
 
 With each migrated retained consumer, remove the corresponding scientific facade, HTTP orchestration, generated Python mirrors/stubs, PyO3-specific workflow roots and build dependencies. Change generator emissions, manifests, registration and self-check declarations, then regenerate through the owning generator; never hand-edit generated output. Reconcile version/build metadata authority without retaining package-facing Python merely to validate its own removed projections. Generation is explicit development/build publication, never an import/read/help side effect.
 

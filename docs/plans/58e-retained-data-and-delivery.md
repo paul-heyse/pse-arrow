@@ -3,7 +3,7 @@ title: "Plan 58e: Retained data and delivery"
 status: draft
 date: 2026-10-28
 adrs: []
-review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
+review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md, docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md]
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [storage, design]
@@ -21,7 +21,10 @@ mathematical initialization or provider preparation. The
 [coordinator](58-rust-owned-system.md) owns cross-package decisions and assembled acceptance;
 this document owns E01–E04. This draft schedules work and authorizes no production changes.
 
-The inspected source baseline is `0659343f123fefa2371ac7d1659e3af7f75f9949`, on 2026-10-28.
+The original inspected source baseline was `0659343f123fefa2371ac7d1659e3af7f75f9949`, on 2026-10-28.
+The 2026-10-29 amendment incorporates the [database-boundary review](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md)
+at `a6a144bce`. Its source-qualified O05/O08 inform repeated analysis and the protected payload
+boundary; the coordinator owns those dispositions separately from the original O01–O15.
 Blueprint §20.2, §20.4, §20.6 and §23 own publication, protected result lifetime and operational
 meaning. Core 3.4, its efficient-architecture companion and Process Simulator 1.5 guide the
 foundation assessment. Selection/delivery preserves physical metadata and partiality; it
@@ -52,9 +55,12 @@ move existing providers onto them; no mandatory new crate or universal data serv
 Compact [control](58d-canonical-control-and-connectivity.md#d01) needs connection/auth/bounds;
 retained data adds protected selection, receiving validation, decoding and delivery custody.
 Scientific execution separately adds model/math/native services. Direct Rust consumers use
-typed requests, snapshots and Arrow batches without Python serialization. Authoritative
-completed payloads remain sealed Arrow IPC. Parquet is an explicitly selected export
-derivative; no database backend or authoritative payload migration is presumed.
+typed requests, snapshots and Arrow batches without Python serialization. Preserve the actual protected
+IPC hybrid: `result_projection.rs` keeps admitted encoded blocks up to the declared
+`RESULT_INLINE_BYTES` threshold inline and uses `reserve_result_file`/`seal_file` for larger bodies.
+Canonical manifests, grants and accepted lineage refer to those same blocks. Parquet is an explicitly
+selected export derivative; no database backend or authoritative payload migration is presumed.
+The threshold remains registry-owned rather than copied into another configuration authority.
 
 Persisted definitions/revisions, attempts, realized points and useful calculation observations
 must identify these same result references. A later comparison of repeated studies reads their
@@ -83,7 +89,10 @@ manifest descriptors. Supply immutable registry/schema interpretation, receiving
 configured native state, deployment pool and activity/cancellation owners directly to the
 retained-data operations. Do not obtain them by constructing preparation/math services.
 Share the existing `ProtectedResultDecode`, `ResultBlockDecode` and IPC receiving logic
-between ordinary terminal reads, selected readers and captured cohorts.
+between ordinary terminal reads, selected readers and captured cohorts. Decode the existing bounded
+inline IPC body or protected sealed file through the same retained interpretation contract; do not
+assume every payload is external, or expand numeric arrays into scalar database records to simplify
+metadata selection. D decides which exact output is applicable; E admits and retains the actual bytes.
 
 A Rust client reopens a terminal attempt, requests one relation/owner/field/range selection,
 and receives exact selection authority before payload discovery. Full snapshots retain their
@@ -126,9 +135,19 @@ retain cohort partiality after early scan termination. Compare results to small 
 specified expected rows, not only a second use of the same pruning implementation. Retire
 replaced Python-only query assembly once retained consumer paths use this native composition.
 
-Add a repeated-study comparison that selects recorded attempts and realized-point/source lineage
-from canonical state, then joins their protected outputs. Worker replacement must not create a
-different history interpretation or require importing the deleted Python projection machinery.
+Consume A05's repeated-analysis caller from
+[database-boundary O05](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O05):
+select accepted attempts by authored revision, physical/effective context, realized point and original
+scientific qualification from D's canonical history, then join only the demanded protected numeric
+relations here. Compare yesterday's and today's studies and a later corrected context while preserving
+the earlier frozen cohort. Domain effective time, recorded revision and optional future storage-version
+time are distinct; MX MVCC/snapshots do not supply that analytical history automatically.
+
+Worker replacement must not create a different history interpretation or require importing deleted
+Python projection machinery. Retire duplicated execution-history indices, repeated client hydration and
+summary reconstruction only where the canonical query plus protected native relation covers their
+retained meaning. Expected comparison rows must be independently specified, including unavailable,
+empty and scientifically unusable outputs rather than treating every recorded attempt as usable.
 
 <a id="e03"></a>
 ## E03 — Delivery custody and useful exports
@@ -154,6 +173,14 @@ close with retained arrays, sliced Bytes leases, malformed/oversized IPC before 
 partial attachment, cancellation during delivery and failed export completion. Remove
 replaced Python materialization/stream holders and their mechanism-specific fixtures together.
 
+For external bodies, construct/seal immutable bytes before canonical acceptance of their reference.
+A stale attempt must not attach a result after a new fence; a sealed body followed by failed or lost
+canonical acknowledgement retains the original operation identity for reconciliation. Reclaim an
+unaccepted body only when its ownership and publication uncertainty permit it, never merely because a
+receipt was not observed. Inline bodies still require original admission and canonical acceptance.
+Targeted controls distinguish file completion, accepted reference, acknowledged publication and actual
+reader/transport release, including a retained reader while the publishing caller closes.
+
 Keep publication semantics specific: immutable payload creation retains its no-replace/completion
 contract, selected executable descriptors may replace atomically, and canonical scientific commits
 have transaction/acknowledgement semantics. Reuse private staging/filesystem primitives where they
@@ -171,7 +198,16 @@ Migrate each actual consumer with its owner, configuration, generator/manifest e
 tests; delete retired outputs and assertions for the removed mechanism in that same cutover.
 No temporary Python stream bridge is needed to make an unfinished development unit appear complete.
 
-For O15, a named immutable-file download need first selects ordinary completed IPC-file HTTP
+For [database-boundary O08](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O08),
+a bucket/file-value extension needs a named artifact consumer and a demonstrated reduction in existing
+catalogue/publication machinery. Compare it with the current IPC hybrid and require an explicit
+record-versus-file/object visibility, protection, uncertain publication and reclamation contract.
+Bucket writes do not automatically commit atomically with canonical records; do not select them
+merely because the database exposes a file API. Retain the current payload path with a documented
+non-selection when that obligation adds more machinery than it removes. Any chosen migration is
+separately authorized and joins D05's schema/fence boundary; no existing data reset is implied.
+
+For original-review O15, a named immutable-file download need first selects ordinary completed IPC-file HTTP
 delivery. Investigate Arrow Flight only when an actual interoperable batch-stream consumer
 requires it: 59.3 `FlightDataEncoderBuilder`, `FlightRecordBatchStream` and `DoGet` are
 candidates, with dictionary fidelity, oversized values, queues, authentication and original

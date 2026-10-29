@@ -6,6 +6,7 @@ doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [current-work, environment, validation]
 review_sources:
+  - docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md
   - docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md
   - docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md
 ---
@@ -16,14 +17,14 @@ This companion develops O05 and the host portion of O02/O06. The
 [coordinator](58-rust-owned-system.md) owns selection, rule changes and overall acceptance;
 this document owns the packages below. Creation authorizes planning only. Plan57 is superseded; its failed/interrupted evidence remains historical under its original conditions.
 
-This revision incorporates [I01/I03–I05/I10–I12](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I01). The amendment baseline is `c3b7f136d`; reviewed production source remains `bd1c4891e`. Recommendation disposition belongs to the coordinator.
+This revision incorporates [I01/I03–I05/I10–I12](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I01). That authoring amendment used `c3b7f136d` and inspected production source `bd1c4891e`; the subsequent checkpoints record delivered native scope. Recommendation disposition belongs to the coordinator.
 
 ## Baseline and target
 
-The functional review's inspected baseline is `bd1c4891ea7d71178e809b11045dd4fd89602c0f`.
+The original functional review inspected `bd1c4891ea7d71178e809b11045dd4fd89602c0f`. At that baseline,
 `scripts/pse-env`, `scripts/setup-env`, `scripts/bootstrap.sh`, the compiler-cache launcher
-and `scripts/cargo-bin/cargo-pse-correctness` still enter first-party Python. Even rust-only
-bootstrap invokes Python tool/configuration helpers. `xtask/Cargo.toml` has unconditional
+and `scripts/cargo-bin/cargo-pse-correctness` entered first-party Python; rust-only
+bootstrap invoked Python tool/configuration helpers. The native cutovers below replace those paths. `xtask/Cargo.toml` has unconditional
 `pse-codegen`, `pse-columnar`, `pse-schema` and Arrow dependencies; `default = []` does not
 make its existing executable a small bootstrap root. These are inspected source facts,
 not measurements of cold-build duration. Existing environment and lifetime contracts live
@@ -50,15 +51,23 @@ directory, wholesale lock resolution or product build follows. An explicit updat
 the tool; the running executable and its children retain their original generation until exit.
 Missing/stale tools produce actionable preparation instructions; ordinary reads never rebuild.
 
+The [database-boundary review](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O06)
+is incorporated for planning on 2026-10-29 at `a6a144bce`. Its opportunity identities are
+source-qualified and dispositioned by the coordinator. B owns physical deployment construction,
+not canonical state interpretation. Retain the selected source-built SurrealDB 3.3.4/MX1
+patch tuple, explicit SSI and synchronous AOL/every-append persistence profile; this is persistent
+canonical authority, not a second disposable cache. Neither a KV backend, direct working store,
+embedded deployment nor a different host resource policy is selected by this amendment.
+
 ## Native manager and physical ownership
 
 Select exact `zbus =6.1.0` and `zbus_systemd =0.26201.0`, using only the required systemd1
 proxies and a Tokio connection runtime. The [library reference](../libraries/zbus_and_zbus_systemd.md),
 especially its runtime, job and transient-unit sections, supplies the capability basis;
 [zbus's version-six guide](https://z-galaxy.github.io/zbus/upgrading-to-6.html) supplies the
-API migration context. Confirm the resolved release manifests before integration: zbus's
-Tokio requirement `^1.53.3` conflicts with today's workspace `=1.53.2`. Plan the narrow exact
-Tokio move to `=1.53.3` with affected callers and lock diff, rather than two runtime versions.
+API migration context. The original assessment identified zbus's Tokio requirement `^1.53.3`
+against the then-workspace pin `=1.53.2`; the native implementation checkpoint below records
+the narrow exact move to `=1.53.3` and affected callers. Preserve one resolved Tokio runtime.
 
 Connect to the actual **user** manager through `Connection::session()` or an explicitly
 selected user-bus address; never silently target PID 1. Compose `ManagerProxy`, unit/service/
@@ -187,7 +196,20 @@ cutover. Temporary incompleteness receives no acceptance credit and needs no fal
 
 B03 supplies physical ownership and the environment contract. Integrate required database/service
 launch with D's schema-ready/write-admission capability, without pulling schema clients into the
-cold root. Integrate compiler callers with F02's native sccache configuration and remove the old
+cold root. Bind explicit server construction to the effective source/patch/profile identity from
+`scripts/surreal_source.py`; carry the established executable/deployment capability rather than
+rechecking source on every call. B establishes authentication/physical ownership and delegates
+schema interpretation and open-write admission to D. An unavailable database cannot prevent
+B/C from stopping and joining owned native work. A server restart, engine snapshot or successful
+health request alone cannot establish D05's schema/version fence.
+
+A future engine/topology trigger from [boundary O06](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O06)
+requires D's deliberate compatibility/invariant decision and H's selected deployment evidence
+before changing B's builder/adapter. It is not per-table MX/KV routing or permission to rebuild,
+replace or reset an existing store. Targeted B04 acceptance pairs supported launch with refusal
+before schema readiness and cleanup while canonical connectivity is unavailable.
+
+Integrate compiler callers with F02's native sccache configuration and remove the old
 per-compiler wrapper. Choose the native server/client startup and compiler placement using pinned
 source; isolate any genuinely missing retained capability instead of inventing another daemon.
 Targeted controls cover compiler success/failure, cache loss with valid output, selected native

@@ -3864,3 +3864,71 @@ kind = "depends-on"
 from = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D04"
 to = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D05"
 kind = "depends-on"
+
+# Database-boundary review O01-O10 are distinct from the original review's IDs.
+[[scope_tables]]
+path = "docs/plans/58-rust-owned-system.md"
+name = "surrealdb-boundary-dispositions"
+heading = "SurrealDB boundary dispositions"
+headers = [
+  "Review opportunity",
+  "Disposition",
+  "Primary work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/58-rust-owned-system.md::surrealdb-boundary-dispositions::O01"
+to = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/58-rust-owned-system.md::surrealdb-boundary-dispositions::O02"
+to = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/58-rust-owned-system.md::surrealdb-boundary-dispositions::O03"
+to = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/58-rust-owned-system.md::surrealdb-boundary-dispositions::O04"
+to = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/58-rust-owned-system.md::surrealdb-boundary-dispositions::O05"
+to = "docs/plans/58a-native-product-and-scientific-workflows.md::package-state::A05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/58-rust-owned-system.md::surrealdb-boundary-dispositions::O06"
+to = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/58-rust-owned-system.md::surrealdb-boundary-dispositions::O07"
+to = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/58-rust-owned-system.md::surrealdb-boundary-dispositions::O08"
+to = "docs/plans/58e-retained-data-and-delivery.md::package-state::E01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/58-rust-owned-system.md::surrealdb-boundary-dispositions::O09"
+to = "docs/plans/58f-development-and-assurance.md::package-state::F05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/58-rust-owned-system.md::surrealdb-boundary-dispositions::O10"
+to = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D05"
+kind = "depends-on"

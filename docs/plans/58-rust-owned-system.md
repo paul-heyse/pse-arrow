@@ -3,7 +3,7 @@ title: "Plan58: Rust-owned system"
 status: draft
 date: 2026-10-28
 adrs: []
-review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
+review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md, docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md]
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [current-work, architecture, design, libraries, validation]
@@ -19,10 +19,13 @@ The [Rust-first functional review](../functional_reviews/rust-first-system-funct
 and the [hard-cutover improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md)
 supply this target. The latter incorporates the colleague's review/evidence with explicit adapted
 and declined proposals; its eighteen-cluster and Wave0–5 dispositions remain the source rationale.
-The amendment baseline is `c3b7f136d`; production source remains at the reviewed `bd1c4891e`
-basis. User-supplied untracked library/external-review inputs remain untouched. Core 3.4,
+The initial amendment baseline was `c3b7f136d`, with source assessed at `bd1c4891e`.
+The 2026-10-29 database-boundary amendment consumes review commit `a6a144bce` and
+the implemented native checkpoints below; those earlier source identities are historical bases. User-supplied untracked library/external-review inputs remain untouched. Core 3.4,
 efficiency heuristics 1.0, test assessment 1.2 and process-simulator 1.5 apply.
-The operator authorized these document amendments on 2026-10-28, not production execution.
+Initial document amendments were authorized on 2026-10-28; subsequent selected execution
+is recorded below. The operator authorized the database-boundary document amendment on
+2026-10-29; that amendment grants no additional production execution.
 
 The latest operator instruction overrides both the review's mandatory-CLI recommendation and the earlier planning answer: **CLIs are optional conveniences**, not completion requirements. No broad command framework, universal operation catalogue or agent execution engine is selected. RMCP remains conditional. PyO3 gets a future interface seam; implementation is deferred. Production robustness and simplicity outrank peripheral interface parity.
 
@@ -37,7 +40,7 @@ scientific effects; the database does not own host process death or native threa
 58d owns this model and minimal schema evolution together, avoiding divided transition/version
 policy. A owns scientific callers, C physical execution, B service mechanics and E payloads.
 
-Current strengths inspected through the review and focused source assessment include Rust authoring/compiler/runtime, maintained Symbolica/faer, native joined pools, canonical command/receipt policy, result snapshots/providers and Rust generation. Existing Python runtime facade, control transport, MCP workers, environment/compiler wrappers and test-resource calls add boundaries to replace or delete. Their behavior is assessed by consumer need; no ledger, receipt, scan, wrapper or validation pass is preserved merely because it exists.
+The original review inspected Rust authoring/compiler/runtime, maintained Symbolica/faer, native joined pools, canonical command/receipt policy, result snapshots/providers and Rust generation. It identified Python runtime facade, control transport, MCP workers, environment/compiler wrappers and test-resource boundaries; subsequent checkpoints record the selected host/compiler and asyncio-wait retirements, while remaining consumers keep their owning packages. Their behavior is assessed by consumer need; no ledger, receipt, scan, wrapper or validation pass is preserved merely because it exists.
 
 Preserve physical meaning, original-space outcome assessment, supported square/root and optimization modes, dynamics/events, fitting/sensitivity, initialization/recycles, studies/sampling, diagnostics and project/source/result history within current supported limits. This does not promise unimplemented IDAES families or broaden numerical claims. Python reference tools may remain isolated independent oracles. The unresolved historical SIGSEGV and arithmetic limits remain evidence to understand where relevant, not inherited implementation packages or proof of language causation.
 
@@ -46,14 +49,14 @@ Preserve physical meaning, original-space outcome assessment, supported square/r
 | Responsibility | Selected target and limit |
 | --- | --- |
 | Native product | Existing domain/runtime owners with independently constructible scientific, control and retained-data capabilities; no frontend-specific policy. |
-| Host/bootstrap | A small planned Rust tool/library root independent of Arrow, math, native solvers, database and generated product schemas. New crate and dependency direction receive ADR/design review before implementation. A tiny shell seed may locate/build/install it, with no duplicate host policy. |
-| Linux control | Typed zbus/systemd user-manager control is the planned replacement for the Python systemctl/systemd-run orchestration. Used interfaces must work on host systemd255. Select Tokio-backed zbus, not an extra runtime. No permanent parallel Python controller or administrative-credential fallback. |
+| Host/bootstrap | The implemented small Rust tool/library root independent of Arrow, math, native solvers, database and generated product schemas. New crate and dependency direction receive ADR/design review before implementation. A tiny shell seed may locate/build/install it, with no duplicate host policy. |
+| Linux control | Typed zbus/systemd user-manager control implements the selected ordinary foreground replacement; broader B process/service obligations remain open. Used interfaces must work on host systemd255. Select Tokio-backed zbus, not an extra runtime. No permanent parallel Python controller or administrative-credential fallback. |
 | Runtime lifecycle | Existing Tokio/Futures/Rayon ownership and explicit native OS joins remain the foundation. Compare hierarchical shutdown only for long-lived application subsystems before selecting it; do not insert a second scheduler or treat task abort as native release. |
 | Canonical state | Effective patched SurrealDB3.3.4/MX1 SSI and synchronous persistence initially retained. Bounded store-side progression/recheck/claim, native schema/migration and narrow actor command/connection ownership; no mandatory new RPC, embedded backend or module-hosted science. |
 | Data | Protected Arrow IPC snapshots and configured DataFusion providers, selective typed metadata, existing charged Bytes custody. Flight/remote objects/Parquet derivatives require their actual consumer. |
 | Consumers | Native Rust first; useful low-cost executable adapters optional. Delete Python MCP without feature parity. No RMCP or PyO3 delivery dependency. |
 
-Library research informs rather than follows the interfaces. The review's full overview research and focused exact-source checks are reused. New lifecycle overviews were read end to end and checked through Context7/primary sources during preparation. zbus6.1 requires Tokio ^1.53.3 while current pin is1.53.2; B owns a deliberate exact1.53.3 move after resolution/feature validation. Proxy generation targeting a newer systemd is not evidence of runtime support. sd-notify0.5's send/absent-socket success is not readiness observation; abstract sockets/barrier and early environment mutation require explicit disposition. tokio-graceful-shutdown0.20 abort/timeout cannot establish native completion. These are bounded integration questions, not an excuse for a fallback framework.
+Library research informs rather than follows the interfaces. The review's full overview research and focused exact-source checks are reused. New lifecycle overviews were read end to end and checked through Context7/primary sources during preparation. The initial zbus6.1 assessment required moving Tokio1.53.2 to1.53.3; B's implemented host checkpoint records the integrated dependency move. Proxy generation targeting a newer systemd is not evidence of runtime support. sd-notify0.5's send/absent-socket success is not readiness observation; abstract sockets/barrier and early environment mutation require explicit disposition. tokio-graceful-shutdown0.20 abort/timeout cannot establish native completion. These are bounded integration questions, not an excuse for a fallback framework.
 
 ## Confirmed target/rule directions
 
@@ -131,6 +134,65 @@ References O01–O15 mean anchors in the source functional review. Scheduled mea
 | O14 | deferred | [58f F06](58f-development-and-assurance.md#f06) | Discrete explanation consumer beyond ordinary validation justifies Z3 |
 | O15 | deferred | 58e | Actual remote interoperable batch/artifact consumer justifies Flight or signing |
 
+## SurrealDB boundary dispositions
+
+These O01–O10 references belong exclusively to the
+[2026-10-29 database-boundary review](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md),
+not the earlier review's Opportunity dispositions above. This table alone owns their disposition;
+companions own implementation packages. Scheduled means selected planning scope, not implemented
+or qualified. Conditional mechanisms inside a scheduled opportunity are not mandatory adoption.
+
+| Review opportunity | Disposition | Primary work owner | Evidence or revisit trigger |
+| --- | --- | --- | --- |
+| [O01](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O01) | scheduled | 58d D03 | Complete bounded progression/action/premise handoff; competing workers, sparse continuation, stale preparation and fenced acceptance. |
+| [O02](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O02) | scheduled | 58d D03 | Co-design access paths and summaries using existing references/inline graph mechanisms; decide justified projections/events/views rather than mandate new graph storage. |
+| [O03](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O03) | scheduled | 58d D03 | Canonical catch-up and observer contract; select events/live/feed only for a named consumer with actor, ordering, retry and finality evidence. |
+| [O04](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O04) | scheduled | 58d D01 | Bounded exact-release SDK/API/gRPC comparison: delegated duty, retained gap and removed code; no unconditional client replacement. |
+| [O05](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O05) | scheduled | 58a A05 | Repeated analysis over original revisions/context/points/attempts; D03 owns canonical lineage and E02 protected output joins. |
+| [O06](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O06) | scheduled | 58d D03 | Retain patched persistent MX/SSI; KV/embedded alternatives remain conditional on a concrete history, capacity, encryption or deployment need and complete compatibility/migration evidence. |
+| [O07](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O07) | scheduled | 58d D03 | Retain one stateless shared readiness policy; broader module effects require permission, parent rollback, mutability, complete-output and resource evidence. |
+| [O08](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O08) | scheduled | 58e E01 | Independent protected reads over bounded inline IPC/sealed payloads and canonical manifests; buckets/payload relocation require a concrete lifecycle benefit. |
+| [O09](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O09) | deferred | 58f F05 | Named shared multi-key working collection whose transactional/query contract removes more machinery than it introduces; discovery can identify a valuable future consumer, but no second authority follows automatically. |
+| [O10](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O10) | scheduled | 58d D05 | Native version/fence/migration infrastructure, stale handles and original in-flight settlement; H owns later non-regenerable/shared deployment recovery qualification. |
+
+### Database-boundary target and integration order
+
+**Proposed:** one canonical authority on patched persistent MX, complete bounded canonical
+transitions, native scientific execution and physical custody, and protected IPC data with
+canonical manifests. State authority, storage backend, execution placement and connectivity
+are separate choices. [58d's shared contract](58d-canonical-control-and-connectivity.md#state-placement-and-shared-contract)
+owns the detailed placement and transaction handoff; A owns scientific interpretation,
+B process mechanics, C actual preparation/admission/drain, and E protected data custody.
+Temporary shared state may justify database semantics without needing crash recovery, but
+single-owner numerical working state remains native. No new rule reduction is selected.
+
+Settle D's bounded action/premise, actor/connection and version/write-fence contracts first,
+with C's native preparation/launch-capacity handoff and E's payload acceptance boundary.
+Those early contracts permit parallel design; consumer cutover requires the actual working
+capability. Do not encode a whole-D03/whole-C03 dependency cycle: the preparation interface
+is an early shared slice, while integrated claim/execution tests exercise both implementations.
+D05's minimal schema-ready/version capability and B's usable server establishment are real
+prerequisites for database consumers, not source-level declarations of readiness.
+
+D03's first integrated delivery co-designs indexed bounded progression with the worker
+consumer and deletion of subsumed authoritative choreography. D01's connection comparison
+settles supplier coverage and retained custody gaps before that transport's consumers move.
+A05/D03/E02 then demonstrate repeated analysis against the same recorded lineage and protected
+outputs. G/F participate in each cut, not a final cleanup wave. H joins owner-local cases
+at scope end. One canonical transition does not imply that every loop, CandidateGroup,
+request identity, resource lease or file-publication protocol can disappear.
+
+The review's scenarios are developed at their native owners and referenced by H; they are
+not a second scenario registry here. D's [decision investigations](58d-canonical-control-and-connectivity.md#decision-investigations)
+record alternatives, evidence, exit decisions and constrained consumers. Retaining a current
+mechanism can be a successful investigation outcome. Conditional KV, embedded/direct-engine,
+event/feed, bucket or broader module adoption cannot hold unrelated native delivery open.
+No generic performance ladder, fixed crossover threshold or mandatory benchmark campaign is
+selected. Existing local science remains database-free. Formal ADR status is unchanged;
+any selected contract/engine/privilege change follows the existing decision route before
+its implementation. No existing store, authored input or independent evidence is disposable
+by virtue of this amendment.
+
 ## Improvement dispositions
 
 I01–I14 link to the [source improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md).
@@ -164,13 +226,16 @@ Delete replaced code/callers/tests/fixtures as soon as targeted replacement evid
 
 ## Verification and current checkpoint
 
+The following authoring assessment retains its original evidence scope; later execution and
+the 2026-10-29 database-boundary amendment are recorded separately below.
+
 **Proposed:** target, packages and conditional branches. **Interface-checked:** functional review research, focused source/foundation assessment and lifecycle library source contracts. No product implementation, dependency bump, test, native build or service was run to author these plans. Documentation integrity/publication checks are reported separately from product qualification. Quantitative speed/memory/robustness benefits remain unmeasured.
 
 At authoring all execution packages started planned; T01/T02 foundation delivery is recorded below, while B and other runtime packages retain their own current state; optional deferred delivery does not block the native core. The first executable scope is T01/T02 and the shared contract/cold-start design slices of A/B/C/D/E, followed by the smallest original native workflow with its actual host/control/data consumers. Production execution was paused at authoring; the maintainer subsequently authorized T01/T02 and B01–B05 as recorded in the execution checkpoint below. Other implementation and broad qualification remain separately selectable. Improvement recommendations I01–I14 are now
 scheduled in this coordinator and their companion packages. No new companion is needed: expanded
-58d keeps canonical transition/schema/admission reasoning together. First execution remains
-T01/T02, including D05's bounded migration/drain decision, then independent cold-start/host and
-native capability slices. Full production recovery qualification has an owner/trigger in H;
+58d keeps canonical transition/schema/admission reasoning together. The initial execution began with T01/T02 and independent cold-start/host/native capability
+slices. The remaining durable work begins with D03/D05's bounded action, migration/drain and
+actor/connection contracts and their implemented prerequisites, preserving the completed slices. Full production recovery qualification has an owner/trigger in H;
 it is not a regenerable-development acceptance gate.
 
 
@@ -186,7 +251,8 @@ functions/worker progression plus `canonical.rs::WriteAdmission` and maintenance
 Current file-backed admission reads do not alone establish future stale-handle or cross-process
 migration fencing. D05 therefore schedules that bounded design/verification before dependent
 code. This correction prevents typed construction from being mistaken for permanent authority.
-All packages remain planned/deferred. Document validation is separate from runtime qualification.
+That assessment did not establish implementation. Current package states and the later
+execution checkpoints own subsequent progress; document validation is separate from runtime qualification.
 
 ## Execution checkpoint — 2026-10-28
 
@@ -246,3 +312,20 @@ local C01/C02, F02 and the necessary compiled-stub F03/G retirement slices. The
 owns composed results. It uses public Rust constructors and retires Python asyncio run
 waiting; no database/service, additional solver, mandatory CLI or new lifecycle framework
 is selected. Broader package and H qualification obligations remain with their owners.
+
+## Database-boundary amendment checkpoint — 2026-10-29
+
+**Proposed:** review-qualified O01–O10 dispositions, updated A–H responsibilities,
+owner-local acceptance, dependency handoffs and conditional investigations. The focused
+foundation assessment reuses the review's actual worker/generator/module/transport/payload
+inspection: existing graph features and one shared readiness policy are foundations;
+repeated outer progression is the consolidation opportunity, not every native loop.
+No completed T/B/A/C/F/G slice is reopened or promoted by document adoption. Persisted
+interpretation/write fences remain dynamic external premises, not permanent authority from
+Rust construction. Existing native host and local KINSOL evidence retains its exact scope.
+
+This amendment changes plans and their metadata only. Production/database execution,
+service readiness, schema application and H qualification receive no new acceptance credit.
+No new guarantee reduction, data reset, global resource ledger, mandatory frontend or
+performance threshold is selected. Formal ADR status remains unchanged; newly selected
+engine/transport/privilege contracts must follow the decision route before dependent code.

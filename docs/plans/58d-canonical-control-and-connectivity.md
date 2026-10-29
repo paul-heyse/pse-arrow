@@ -3,7 +3,7 @@ title: "Plan 58d: Canonical execution, schema evolution and connectivity"
 status: draft
 date: 2026-10-28
 adrs: []
-review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
+review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md, docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md]
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [storage, design]
@@ -21,7 +21,14 @@ headers or requesting stop must not construct mathematical services or prepare a
 The [coordinator](58-rust-owned-system.md) owns shared rule decisions, sequencing and overall
 acceptance; this document owns D01–D05, including the durable-model and migration foundation selected from improvement-review I02/I03. Creating this draft does not authorize implementation.
 
-The amendment baseline is `c3b7f136d`, on 2026-10-28; production source remains at the reviewed `bd1c4891e` basis. The [improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I02) supplies I02/I03; adoption is planned work, not implemented behavior.
+The original amendment used `c3b7f136d` and the reviewed `bd1c4891e` production basis on
+2026-10-28. The 2026-10-29 amendment consumes the
+[database-boundary review](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md)
+at `a6a144bce`, especially its O01–O08/O10; these source-qualified references are distinct
+from the principal review's O01–O15. The [coordinator](58-rust-owned-system.md) owns current
+dispositions. The [improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I02)
+continues to supply I02/I03. Subsequent native host/local-operation delivery retains its
+original checkpoint evidence and does not establish canonical progression acceptance.
 Relevant current contracts are blueprint §20.6 and §23; the selected assessment standard is
 Core 3.4 with its efficient-architecture companion and Process Simulator 1.5. Existing
 scientific admission, stop intent and physical release remain separate responsibilities.
@@ -51,6 +58,37 @@ the complete contract, and existing bounded gRPC for workers where useful. Compa
 with exact-release SDK use before adding a protocol. No new Tonic/Prost service, Arrow Flight
 control plane, registry, crate or universal connection abstraction is selected by this plan.
 
+## State placement and shared contract
+
+This is the detailed owner of the database/native boundary; the coordinator summarizes the
+combined target, A owns scientific callers, C physical execution, E payloads and F/G retained
+operating consumers and retirement. One fact can have a canonical authority and a different
+immutable execution representation without becoming two independently writable authorities.
+
+| Meaning or operation | Canonical responsibility | Native or adjacent responsibility |
+| --- | --- | --- |
+| Shared model/context revisions, study definitions, dependencies and realized points | Store explicit domain identity, admissible relationships and useful history | A admits physical/scientific meaning and prepares revision-bound models; registry declarations remain authoritative |
+| Eligibility, assignment, cancellation intent and acceptance | Complete short transactions over the relevant generation/revisions/fences | C acquires actual resources, delivers stop and witnesses destruction/join |
+| Candidate discovery and progression | Bounded applicable action, exact preparation premises and continuation | Native caller performs scientific preparation and returns evidence; no local durable scheduler truth |
+| Accepted output lineage and selection | Canonical attempt/result references, grants and manifest identity | E retains the existing bounded inline IPC/sealed-file hybrid, selective Arrow/DataFusion reads and buffer custody |
+| Shared temporary worksets | Same canonical records where queryability/atomicity removes real coordination | Single-owner solver/workspace state stays native; O09's direct working-store adoption is deferred under F05 |
+| Process, task, socket, token and provider state | Logical intent/status only | B/C own actual handles, admission, callback lifetime and physical release |
+
+Retain one source-built SurrealDB3.3.4/MX1 authority with the effective patch tuple, SSI,
+synchronous AOL and every-append persistence. MX is a persistent canonical database here,
+not a disposable cache. There is no automatic MX/KV per-table routing or dual writable
+canonical copy. Engine recovery snapshots/MVCC are not domain revision history or D05 schema
+migration. No performance ladder, universal duration crossover or guaranteed lane/group-commit
+benefit is an acceptance premise.
+
+The complete shared interaction is: bounded canonical selection/progression; native input,
+seed and resource preparation outside a transaction; a short current-premise claim recheck;
+native execution without an open database transaction; and fenced canonical acceptance after
+scientific assessment and required payload construction/drain. A preparation candidate is not
+execution authority. Lease expiry/reassignment does not prove the former worker stopped.
+Local pure science remains database-free. This target selects no new rule reduction; broader
+engine, transport, module privilege or payload changes require their applicable decision route.
+
 ## Package state
 
 | Package | Status | Owner | Completion |
@@ -69,6 +107,17 @@ Consume [T01's decision route](58-rust-owned-system.md#t01) and
 shapes. Extend operations/deployment owners so an authenticated native caller
 can select its canonical issuer, bounds and declared browse/cancel grants without creating
 `workflow::Runtime`, `SourceServices`, compiler preparation, math or solver services.
+Before fixing the connection realization, complete O04's exact-release comparison between
+native SDK, existing bounded gRPC and constrained actor APIs. Record which responsibilities
+are delegated, which disappear and which genuine gaps remain: typed values/integers, request
+identity, response extents, original deadlines, session admission and physical completion.
+The [tagged SDK query implementation](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealdb/src/method/query.rs)
+exposes `stream_items` with provisional rows/terminal statement items, but no public physical-drain
+completion handle on the returned stream; output-boundary stop is not proof of a stopped
+non-emitting execution phase. Do not use arriving rows as irrevocable execution authority.
+The comparison can conclude that selected custom custody remains necessary; SDK replacement,
+another protocol and a universal connection abstraction are not completion requirements.
+
 Reuse connection admission, deadlines and close/drain ownership. Provisioning actors and
 installing schema remain explicitly privileged operations, outside ordinary client startup.
 
@@ -105,6 +154,10 @@ strict UTF-8/JSON decoding, opaque string identity and exact integers. API-body 
 remain necessary even with endpoint `PERMISSIONS`. Preserve the patched rollback behavior
 for evaluation/conversion errors; an intentionally returned refusal response has its stated
 transaction meaning. Remove independently maintained frontend retry/transition decisions.
+If a selected derived-state/event operation participates in this policy, preserve real actor
+and grant restrictions explicitly. Event execution privileges must be checked on the effective
+server rather than assumed identical to ordinary caller mutation checks. Constrained API
+handlers must retain the complete issued-intent/receipt contract regardless of transport.
 Targeted controls exercise identical/reused intent, actor denial, full-u64 boundaries, stale
 fence, lost ACK, missing receipt, failed readback, restore issuer and API rollback/refusal.
 
@@ -123,8 +176,30 @@ readiness apply, admission, claim, settlement and conclusion are foundations to 
 proof the client loops are necessary. `workflow/worker.rs::work_once_scoped` currently pages
 studies, advances readiness and fetches candidates; `work_study_candidate` fetches scope,
 evaluates policy, prepares and reevaluates before claim. Replace repeated client interpretation
-with bounded store-side progression that returns the applicable domain action and exact durable
-premises. Reuse domain types; no universal next-action catalogue or new workflow engine.
+with complete bounded store-side progression that returns the applicable domain action and
+exact durable premises. Include readiness advancement, candidate selection, applicable settlement
+and conclusion in the shared operation where their invariant fits; do not retain client
+choreography merely because separate functions exist today. A returned candidate carries its
+issuing store, generation, consumed point/dependency revisions, cancellation and seed premises.
+Continuation distinguishes an examined page from exhaustive no work. Reuse domain types and
+`pse-model::study_policy`; no universal next-action catalogue or new workflow engine.
+
+Co-design the consumed access paths with that contract. The current registry generator already
+emits selected `INLINE EDGES 64 INLINE REFERENCES 32` caches and typed
+`REFERENCE ON DELETE REJECT READONLY` links. Evaluate actual dependency loading, candidate
+ordering, indexed counts and high-degree/skewed populations before selecting more graph
+machinery. Study dependency edges carry metadata and stable identities: `LIGHTWEIGHT` is not
+a drop-in replacement. Compare explicitly maintained transaction summaries with supported
+`AS SELECT` aggregates or small synchronous events; retain one generated schema owner. The
+[tagged table implementation](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealdb/core/src/legacy/expr/statements/define/table.rs)
+and [3.3 release mechanisms](https://surrealdb.com/releases/3.3) supply feature-level evidence,
+not proof of an efficient application access path.
+
+Delete outer paging/readiness/finalization sequencing and repeated authoritative action
+interpretation only as the complete canonical operation replaces their consumers. Native
+bounded continuation and the effect loop remain necessary. `CandidateGroup` suppresses local
+duplicate preparation; it is not a competing claim ledger. Retain it unless the selected
+preparation/access path removes that purpose or deliberately replaces that contention handling.
 
 Prefer ordinary SurrealQL select/recheck/transition composition; retain the readiness module
 where shared bounded Rust policy earns its boundary. Preparation and resource admission precede
@@ -134,27 +209,74 @@ snapshot. Invalidated preparation cannot grant a stale claim. A bounded examined
 continuation is distinct from exhaustive no work; workers advance continuation rather than
 mistaking an unproductive page for global idle. Original operation identity reconciles uncertain
 acknowledgement. Notifications only wake workers; canonical catch-up handles loss and replacement.
+Use live notifications for freshness and retained changefeeds only for a consumer requiring
+historical changes. Optional subscriptions cannot become indispensable execution truth.
+Synchronous events may maintain small related state in the originating transaction; asynchronous
+events are delayed, repeatable database maintenance, not scientific dispatch or exactly-once
+claims. Their [documented contract](https://surrealdb.com/docs/reference/query-language/statements/define/event)
+includes separate execution transactions and at-least-once delivery. Check actual actor/grant
+privileges, ordering, reentrancy and retry/latency requirements before adopting an event.
+View/event maintenance must cover the selected write, import/reconstruction and migration paths;
+ordinary event invocation is not assumed for every ingestion route.
 
 Preserve existing dependency-installation limits: add edges before activation/cancellation,
 not live graph mutation. Record realized points and scientifically useful observations at useful
-analysis granularity, with actual attempt/result lineage. Do not persist native pointers, task
-handles or every implementation event. Later repeated analysis queries this same history.
+analysis granularity, with actual attempt/result lineage. Native A05/E02 consumers compare
+repeated studies using authored revision, effective context, recorded point, actual attempt,
+scientific qualification and protected result selection. Effective time, recording time and
+storage version time remain distinct. Explicit domain revisions/frozen cohorts remain necessary
+without MX `VERSION` access and would still be needed with KV history. Do not reconstruct a
+parallel execution history from task logs, persist native pointers/task handles, or mirror every
+implementation event. Later repeated analysis queries this same canonical history.
 
-Before extending Surrealism, check exact 3.3.4 permissions, controller limits, complete outputs,
-rollback and intentional-refusal semantics against [guest imports](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealism/src/imports.rs)
+Keep the existing stateless, read-only `pse-study-module` adapter over shared bounded Rust
+policy: SQL selects scope/performs effects, while the module returns complete decisions. Its
+manifest forbids arbitrary queries/functions, network and KV. Before extending Surrealism,
+check exact 3.3.4 permissions, controller limits, complete outputs, rollback and intentional-refusal
+semantics against [host context](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealdb/core/src/surrealism/host.rs)
 and [WIT ABI](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealism/wit/surrealism.wit).
 `sql_with_vars`, `run` and writeability metadata are candidates, not authority already granted.
-Current readiness forbids arbitrary queries, network and KV; module-local volatile KV does not
-share record-transaction rollback. Native science and host release stay outside modules.
+Broader query/write grants are not selected. Module-local volatile KV and per-controller
+memory have separate lifetimes and do not share record-transaction rollback. Neither may
+carry assignment, deduplication or publication authority. Any justified cache is reconstructible
+and keyed by immutable/versioned inputs. Native science and host release stay outside modules;
+removing repeated conversion must preserve exact integers, missing values and bounded output.
 
 Targeted controls cover two competing workers, stale prepared evidence, cancellation before
-claim, a bounded empty eligible page with continuation, dependency edits refused after activation,
-and replacement worker selection followed by a lineage query. These tests challenge actual
+claim, a bounded empty eligible page with later work/continuation, high-degree dependency access,
+dependency edits refused after activation, missed notification catch-up, and replacement worker
+selection followed by a lineage query. A delayed former worker must physically drain and fail
+publication under a newer fence. If events/views/modules are selected, exercise their real actor,
+rollback, import/rebuild and complete-output contract at the same owner. These tests challenge actual
 canonical operations, not a second scheduler. Database speedup remains unmeasured.
 
-Embedded deployment, SurrealKV history/checkpoints, payload-format migration and progressive
-transport remain conditional on actual consumers. Compare isolation/durability and integration
-cost if triggered; none substitutes for D05's required schema evolution. Keep patched MX selected.
+Embedded deployment, SurrealKV history/checkpoints, buckets, direct MX and broader modules
+remain conditional as specified below; none substitutes for D05's required schema evolution.
+Use D01's comparison outcome for any selected progressive transport. Keep patched MX selected.
+
+## Decision investigations
+
+These are bounded decisions inside the existing packages, not a second status ledger or
+mandatory feature-adoption list. The coordinator owns review opportunity dispositions.
+A decision may retain the existing realization; only dependent implementation waits for the
+applicable result. A credible selected consumer can justify reopening a conditional capability.
+
+| Question and owner | Evidence / allowed outcome | Constrains |
+| --- | --- | --- |
+| D01: SDK/API/gRPC responsibility split | Exact-release interface/source comparison; focused issued-request, response/finality and close/drain control if unresolved. Delegate covered plumbing or retain the actual custody gap, with candidate deletions named. | D01 construction and D04 transport migration; not independent local science |
+| D03: dependency access and operational summaries | Current generated references/indexes plus representative sparse/skewed query shape; compare explicit updates, supported view or event and its ingestion/migration behavior. Retain current structure if no simplification earns its cost. | Chosen progression access path and summary consumer |
+| D03/D02: reactive maintenance and catch-up | Prove real actor/grant, retry, ordering and catch-up behavior for the selected event/feed. Retain canonical polling/catch-up when notification machinery adds no useful contract. | Selected observer/maintenance cut, not execution correctness on notification availability |
+| D03: larger Surrealism effect surface | A named shared rule must remove concrete client coordination; establish parent transaction rollback, refusal, mutability metadata, output and permission semantics before widening grants. Otherwise retain pure module. | Only that optional module extension |
+| D target/B04: KV or embedded topology | Reopen for supported working set beyond MX envelope, storage history, encryption/keys, backup characteristics or a concrete deployment benefit. Compare actual claim/capacity/dependency invariants, adapter, migration and isolation; KV1 selected read tracking is not predicate SSI. | Only the selected backend/topology cut; current MX delivery remains independent |
+| F05 with A/D: direct working collection (O09) | Named multi-key/query workload, lifetime, key/index/schema obligations and publication/reconstruction direction must remove more machinery than added. Same canonical records remain default for shared domain meaning. | Deferred working-store adoption; no independent knowledge/evidence authority |
+| E with D: buckets or payload relocation | A concrete artifact consumer must preserve protected readers, complete file construction, uncertain publication and reclamation. Object writes are not presumed atomic with canonical records. | Only that optional payload/artifact change; existing IPC hybrid remains selected |
+| D05: migration interpretation and health | Inspect actual write fences/open-handle behavior and existing metrics, then select allowed old-attempt settlement, successor activation and adjacent-version tests. Compare toolkit helpers only against remaining gaps. | New canonical writes and publication crossing that interpretation boundary |
+
+MX group commit and existing storage/query diagnostics are enabling mechanisms, not a measured
+application benefit or a reason to build another watcher. Use current engine metrics for pinned
+readers, retained versions, GC, snapshots and queues when qualifying the selected workload.
+Optional measurement must resolve a concrete choice under equivalent semantics/durability;
+no generic latency ladder or full benchmark campaign blocks authoring or ordinary development.
 
 <a id="d05"></a>
 ## D05 — Deliver minimal native schema evolution and write admission
@@ -162,7 +284,10 @@ cost if triggered; none substitutes for D05's required schema evolution. Keep pa
 Consume T01's decision authority and the registry-owned schema declaration. Deliver native
 ordered predecessor/successor transformations and their application owner during the cutover;
 this is required infrastructure, not a deferred interface. Reuse existing generation and
-canonical maintenance facilities before selecting a migration library. Do not duplicate schema
+canonical maintenance facilities before selecting a migration library. SurrealKit frozen rollout,
+schema inspection and isolated actor/API testing are comparison leads, not a second schema
+authority or mandatory framework. Storage-format conversion, checkpoint/backup and MX recovery
+do not provide supported domain predecessor/successor transformation. Do not duplicate schema
 meaning or revive the full SurrealKit beta/operator experiment merely to supply migrations.
 
 Construction establishes supported schema/version and issuer premises once and returns the
@@ -199,11 +324,27 @@ service owner supplying that later evidence. Minimal infrastructure above still 
 <a id="d04"></a>
 ## D04 — Migrate control consumers and hand off acceptance
 
-Move retained native study recording/inspection, cancellation and original-command reconciliation callers to D01/D02/D03, with schema applicability from D05,
+Move retained native study recording/inspection, cancellation, repeated-analysis lineage and
+original-command reconciliation callers to D01/D02/D03, with schema applicability from D05,
 coordinating Python HTTP client retirement with its owning frontend package. Delete replaced
 orchestration, caller-owned retry policy and tests/fixtures for retired machinery in the same
 integrated cutover. Include callers, configuration, generators, targeted tests and deletion together; temporary development incompleteness earns no acceptance and needs no compatibility bridge. Preserve tests of retained durable guarantees at their Rust owner. A CLI
 is an optional caller; PyO3 remains deferred and MCP is conditional under the coordinator.
+
+Every integrated cut names the replaced worker traversal/action/summary/notification or
+connection mechanism, the complete canonical/native replacement and actual migrated caller.
+Remove only proven redundant mirrors or orchestration: retain original effect identity, dynamic
+write fences, native preparation suppression where still useful, physical custody and protected
+IPC/file lifetime. D publishes applicable attempt/result references; E selects and reads their
+bounded inline/sealed payloads without mathematical construction. File sealing followed by
+failed/lost canonical acknowledgement cannot invent accepted output or trigger a second solve.
+
+Sequence early D01 connection/actor and D03/D05 premise/version decisions before their consumers,
+then integrate native preparation/claim and selected observation/data cuts. C03 consumes D03's
+early handoff while D03 implementation consumes C's usable preparation/resource capability;
+this is not a whole-package completion cycle. D04 acceptance requires the actual relevant D03
+and D05 capability, not merely agreed prose. B service launch and schema readiness remain
+separate; backend restart cannot silently authorize stale workers to publish.
 
 **Proposed verification:** targeted owner controls above establish local behavior, with zero
 failures as the baseline. [H](58h-qualification-and-publication.md#h01) owns assembled
@@ -211,7 +352,10 @@ acceptance of authenticated direct/native and
 retained published ingress, restart/lost-ACK reconciliation, denied actors, missed notification
 catch-up, durable worker replacement/later lineage, D05 migration and stop-versus-physical-drain. H selects integrated tests and scope-end static checks
 once functional scope is complete; protocol examples or local controls do not qualify science.
-No tests, builds or production changes ran for this draft; no speedup is claimed.
+The 2026-10-29 document amendment is **Proposed** design and scheduled work, informed by
+**Interface-checked** review/source assessment. No product test, build, service or migration ran
+to author it. Existing native host/local-operation passes retain their named scope; no new
+canonical/scientific qualification or speedup follows from these amended documents.
 
 For release-specific research use the principal review's library appendix: SurrealDB tooling
 schema/API request tests are integration aids, not scientific schema authority. Hyper 1.11.1

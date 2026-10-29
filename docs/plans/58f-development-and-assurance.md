@@ -6,6 +6,7 @@ doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [current-work, environment, validation]
 review_sources:
+  - docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md
   - docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md
   - docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md
 ---
@@ -16,19 +17,20 @@ This companion develops O02/O11 and developer O03/O09. The [coordinator](58-rust
 owns outcomes, rules and qualification; this document owns package state. Plan57 remains superseded historical evidence.
 
 The [hard-cutover review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md)
-supplies I01/I03–I14 for this amendment at `c3b7f136d`; its production source baseline remains
-`bd1c4891e`. The coordinator owns recommendation disposition.
+supplied I01/I03–I14 for the authoring amendment at `c3b7f136d`, inspecting production
+source `bd1c4891e`; later checkpoints retain their actual delivered scope. The coordinator owns recommendation disposition.
 
 ## Baseline and foundation choices
 
 The source functional review inspected `bd1c4891ea7d71178e809b11045dd4fd89602c0f`.
-Rust already owns xtask, scientific contracts and generators, while `scripts/` still owns
+At that baseline Rust already owned xtask, scientific contracts and generators, while `scripts/` owned
 first-party environment/configuration, compiler coordination, correctness composition, test
 fixtures, documentation/governance and evidence workflows in Python. Existing capability CLI
-invoke/session routes still enter MCP. Moving their presentation alone leaves the operational
-dependency intact. Source inspection of `xtask/Cargo.toml`, `scripts/arrow_validation.py`,
-`scripts/test_run.py`, compiler launchers and agent configuration confirms these boundaries;
-it establishes neither complete native coverage nor a performance result.
+invoke/session routes entered MCP. Moving their presentation alone would leave the operational
+dependency intact. That source inspection of `xtask/Cargo.toml`, `scripts/arrow_validation.py`,
+`scripts/test_run.py`, compiler launchers and agent configuration established those boundaries;
+it establishes neither complete native coverage nor a performance result. Later checkpoints
+record the implemented native cutovers.
 
 Use Core 3.4, efficiency heuristics 1.0, test assessment 1.2 and the selected pse-arrow binding.
 Blueprint §3.2 and §24.1/§24.2 own product/development separation and qualification. Retain
@@ -44,6 +46,13 @@ typed Rust functions and original operation handles directly. CLI adapters are o
 help and structured output can serve them. A unified command tree, universal catalogue, generated
 dispatcher and MCP presence are not completion conditions. Keep CLI/agent/frontend libraries
 outside ordinary product dependency closures. Existing Rust owners can remain separate roots.
+
+The [database-boundary review](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md)
+amendment is based on `a6a144bce`, dated 2026-10-29. The coordinator owns its separate
+O01–O10 dispositions. F consumes canonical domain operations and data capabilities from D/E;
+these do not make the cold host or offline supplied-detail inspection depend on a database.
+F05 owns the conditional working-collection inquiry from boundary O09; no second developer
+evidence authority or direct engine is selected by this plan update.
 
 ## Retained value and retirement
 
@@ -195,6 +204,14 @@ emission together with output declarations, manifests, registrations, dynamic se
 last consumers. `check_generated.py` is a deletion candidate after remaining presentation/config
 references and actual generation-check ownership are reconciled; do not create another checker.
 
+For [boundary O10](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O10),
+keep registry-owned canonical DDL and interpretation/version metadata authoritative. F supplies
+explicit generation and useful schema/actor/API test tooling; D05 owns migration sequencing,
+write fences and predecessor/successor applicability. Compare SurrealKit's frozen rollout and
+isolated actor/API testing only against a named retained gap. Adoption cannot introduce a
+second schema declaration or revive the entire beta operator. A useful tool-side result is a
+reproducible native schema/actor check, not another continuously reconstructed mirror.
+
 Use library private staging/atomic filesystem mechanics where appropriate. Executable descriptor
 replacement (B), immutable payload no-replace publication (E) and canonical scientific commits (D)
 have distinct contracts; share compatible mechanics without a universal generation protocol.
@@ -213,6 +230,15 @@ evidence readers, diagnostics and handoff through existing native owners; canoni
 the selected index/state path, with no independent embedded evidence authority. Offline supplied-detail
 inspection remains usable without a database. Preserve actual scientific failures, setup failures,
 missing reports and leaks as distinct observations without another universal evidence framework.
+
+For [boundary O05](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O05),
+native evidence/developer queries consume explicit source/context revisions, realized points,
+actual attempts and protected result references from the same canonical meaning used by A05.
+Do not reconstruct execution history from task logs or keep a separate evidence scheduler.
+Use E's configured protected relations for numeric comparisons rather than hydrate/filter
+loops. Engine MVCC history and snapshots are not domain revision/effective-time history.
+Targeted evidence acceptance includes a later correction and repeated analysis that retain
+original failed/partial scientific outcomes and exact source/attempt attribution.
 
 Move valuable Python scenarios to the narrowest real Rust owner or consumer; retained black-box
 assertions can temporarily challenge the replacement, but the old implementation is not its oracle.
@@ -233,6 +259,23 @@ run a targeted check, inspect its outcome, diagnose failure and settle resources
 Python/MCP. Each coherent cutover includes new owner, callers, configuration, generation, tests and
 deletion. Temporary broken development paths have no acceptance credit; no FastMCP proxy, Python
 fallback or compatibility DTO is needed to hide them. Independent cuts need not form one mega-commit.
+
+#### Conditional transactional working collections — boundary O09
+
+F05 is the primary work owner for [boundary O09](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O09).
+Adoption remains deferred until a named shared draft, candidate graph or evidence-workspace
+activity supplies a useful multi-key/query contract and identifies the synchronization,
+indexing or coordination it would replace. Discovery may establish a valuable future workflow;
+a pre-existing production caller is not required. Mere hot access or a single-owner vector
+is insufficient. This inquiry does not block the selected native core or F05/H completion.
+
+Prefer the canonical SurrealDB owner when the collection needs its schema, authorization,
+relations or transition meaning. Consider direct MX only for a distinct byte-oriented working
+contract whose native transactional/ordered/borrowed-value operations remove more machinery
+than key encoding, indexes and a separate consistency domain introduce. The decision must state
+its consumer, owned lifetime, reconstruction and publication direction, dropped mechanism and
+retained failure handling. No adoption leaves current native collections in place. A separate
+engine/authority requires its applicable decision route before dependent implementation.
 
 The [I08 deletion assessment](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I08)
 identifies real active consumers, not automatic preservation obligations. In addition to F02/F03:

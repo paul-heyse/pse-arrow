@@ -6,31 +6,38 @@ adrs: []
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [current-work, architecture, libraries, validation]
-review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
+review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md, docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md]
 ---
 
 # Rust runtime lifecycles
 
 This supporting plan develops O06 of the [Rust-owned functional
 review](../functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md) under [Plan58](58-rust-owned-system.md). It is
-new target-oriented scope replacing Plan57's frontend-shaped lifecycle decomposition. All packages are planned. Planning does not
+new target-oriented scope replacing Plan57's frontend-shaped lifecycle decomposition. The package table and
+checkpoints distinguish implemented local/host slices from remaining work. Planning does not
 authorize implementation, resume interrupted qualification or attribute existing native failures to Python.
 
 The [hard-cutover review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I02),
 published at `c3b7f136d`, supplies I01/I02/I04/I10/I11/I12/I14. Its coordinator-owned dispositions
 replace preservation of Python-shaped coordination with actual native ownership and canonical durable policy.
 
+The 2026-10-29 amendment incorporates the [database-boundary review](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md)
+at `a6a144bce`; its opportunity references are source-qualified to distinguish them from the earlier
+review. Existing dated acceptance below is preserved. The coordinator owns dispositions, D owns
+canonical meaning and C owns actual execution/resource custody. This amendment supplies no new
+runtime or qualification evidence.
+
 ## Target and foundation assessment
 
-Retain existing Tokio 1.53.2, tokio-util 0.7.19, Futures and Rayon composition, original native-job admission and actual OS-thread joins
+Retain the current Tokio 1.53.3, tokio-util 0.7.19, Futures and Rayon composition, original native-job admission and actual OS-thread joins
 as the foundation. Async tasks own polling/I/O and service coordination; Futures compose scoped operation work; native compute and
 library teams retain their current scientific/native supervisors. `math/joined_pool.rs` explicitly drops the Rayon pool and joins every
 retained worker, including partial construction. `native_thread.rs` and `math.rs` retain actual native custody. A canceled future,
 finished task or dropped pool is insufficient evidence that a started foreign call and its destruction ended.
 
-[B](58b-bootstrap-and-host-control.md) owns the proposed deliberate Tokio move to exact 1.53.3 for zbus 6.1 backend compatibility after
-source/resolution checks; C depends on the lifecycle contract, not preservation of the old patch pin. Migrate and test affected runtime
-consumers together.
+[B](58b-bootstrap-and-host-control.md) owns the delivered host integration and its deliberate Tokio move
+to exact 1.53.3 for zbus 6.1 backend compatibility. Its dated checkpoints retain actual evidence and
+remaining limits; C consumes the lifecycle contract without reopening that dependency choice.
 
 The key distinctions are observing, requesting scientific stop, joining native execution, publishing durable results, draining delivery
 and physically releasing resources. Existing `workflow/worker.rs`, `operation_preparation.rs`, `math/{joined_pool,native_child}.rs` and
@@ -123,10 +130,27 @@ execution owner instead of dropping authority at a wrapper boundary. Targeted te
 concurrent cases, retained-to-fresh fallback and failed construction without leaked permits/populations. Remove replaced admission
 wrappers and their obsolete tests once these consumers use the owner.
 
-For persisted work, consume D03's bounded preparation/claim handoff. Preparation and resource admission happen
-before execution claim; return prepared seed/premise evidence for canonical rechecking against current revisions
-and cancellation. Selection continuation must not be mistaken for exhaustive no-work. Keep preparation and
-foreign calls outside transactions. D owns whether a point can run; C supplies the owned resources needed to run it.
+For persisted work, consume [D03](58d-canonical-control-and-connectivity.md#d03)'s bounded applicable
+action, exact preparation premises and continuation from
+[database-boundary O01](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O01).
+A candidate is not an execution claim. Keep source loading, seed resolution, scientific preparation and
+actual launch-resource admission outside transactions; carry the original launch owner/prepayment through
+D's current premise recheck and execution claim. Return the prepared seed/revision/generation evidence
+needed by the canonical owner rather than independently deciding durable eligibility again in the worker.
+On a stale or cancelled premise, release the unused native admission without recording native start.
+Continuation over an unproductive page must not be mistaken for exhaustive no-work.
+
+The contract can be agreed alongside D03; a production worker needs the implemented progression/claim
+slice and actual C admission owner, not merely an agreed interface. Keep native scheduling, immutable
+preparation sharing and the physical effect loop. Remove worker-side paging/readiness/action sequencing
+only where the complete canonical operation covers it. `CandidateGroup` suppresses duplicate local
+preparation and is not a competing claim authority; retain it unless the replacement eliminates that
+wasted-work role or supplies a deliberately selected alternative. A database allocation record cannot
+replace actual CPU/memory admission, and this scope adds no parallel global resource ledger.
+
+Targeted controls pair two workers discovering one point with exactly one current claim, stale prepared
+evidence/cancellation before claim with no native dispatch, and retained-to-fresh preparation without
+lost admission. D's logical authorization and C's physical ownership must remain separately observable.
 
 <a id="c04"></a>
 ## C04 — Join service roots and hand physical ownership to the host owner
@@ -141,6 +165,13 @@ owner, even if the database is unavailable. Root deadline or forced task abort r
 tests race admission against shutdown, fail one sibling while another drains, stop idle and busy roots, and keep a blocked native child
 owned after async timeout. Delete superseded root coordinators and process-release duplication only after host/runtime consumers migrate
 together.
+
+Canonical cancellation, lease expiry or reassignment records logical intent/authority; none proves that
+an old native child has stopped. Deliver stop to the original token and drain the original owned work
+even if the database is unavailable. A replacement worker must not accept the old worker's late output
+under its new fence. Notifications may wake this root, but D's bounded canonical catch-up determines
+applicable work; missed wakeups must not require a second local scheduler journal. Controls include
+replacement while an old child is slow to stop and failure of database readback during native cleanup.
 
 F02's disposable test resources consume a real owned fixture/worker capability with private constructors and explicit
 borrowed-service constraints. Nextest groups are scheduling, not permissions. Settle owned resources after a
@@ -164,6 +195,15 @@ generic all-purpose settlement receipt is introduced. Optional RMCP, if selected
 cannot stand for domain/native drain. Targeted tests cover late delivery, reader close with retained output, publication failure after
 native completion, lost acknowledgement and abandoned delivery while another reader remains live. Delete frontend-only settlement
 files/bridges whose last consumer retires, keeping original owners.
+
+A completed payload and a canonical accepted reference are distinct even when an encoded block is
+small enough to remain inline. For sealed external payloads, retain the original publication identity
+when file construction succeeds but canonical append/acknowledgement fails. Never rerun science to
+repair an uncertain acknowledgement or treat a database complete record as proof of unfinished file
+construction. Targeted settlement covers that seal/commit boundary, stale late publication and another
+reader retaining the original result after publisher/connection close. E owns actual payload protection;
+D owns accepted lineage and fences. These cases implement
+[database-boundary O08](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O08).
 
 Store construction establishes schema applicability; it cannot alone settle a later migration boundary.
 Consume [D05](58d-canonical-control-and-connectivity.md#d05)'s explicit admission/version-fence and

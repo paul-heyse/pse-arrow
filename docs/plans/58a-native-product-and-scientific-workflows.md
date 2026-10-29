@@ -6,7 +6,7 @@ adrs: []
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [current-work, architecture, libraries, validation]
-review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
+review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md, docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md]
 ---
 
 # Native product and scientific workflows
@@ -21,6 +21,14 @@ The [hard-cutover review](../plan_improvement_reviews/plan58-rust-hard-cutover-2
 published at `c3b7f136d`, additionally supplies I01/I02/I07/I09/I10/I13/I14. The coordinator owns
 their dispositions. This amendment retains scientific outcomes while removing unnecessary Python delivery
 requirements; no package inherits unfinished Plan57 work.
+
+The 2026-10-29 amendment integrates the [database-boundary review](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md),
+published at `a6a144bce`, against the subsequent implemented checkpoints below. References to that
+review are source-qualified here; its O01–O10 are distinct from the original functional review's
+O01–O15. The coordinator owns their dispositions. This plan owns the native repeated-analysis
+workflow for [database-boundary O05](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O05),
+consuming D's canonical history and E's protected-result composition. Document adoption establishes
+no new runtime or qualification evidence.
 
 ## Target and foundation assessment
 
@@ -97,6 +105,15 @@ deterministic traversal must not confuse physical recycles with acyclic dependen
 A02 owns migration of native source/project/history callers through the existing runtime/project and
 operations revision/publication owners. D supplies connection/authentication and canonical transition policy
 where persistence is selected; A owns the scientific source/submission callers and their preparation.
+Shared source/configuration revision facts belong to D's canonical operations when persistence or
+cross-caller agreement is selected. Their native typed/compiled representations remain revision-bound
+execution products, not another writable source authority. Database graph access may support project
+inspection; native equation incidence, SCCs, formulation and numerical preparation remain with their
+scientific owners. A database schema does not replace physical admission or the existing registry.
+Transactional shared drafts are a possible [database-boundary O09](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O09)
+consumer for F05's bounded inquiry, not permission to move single-owner workspaces or Salsa into a
+second engine. Select that extension only with an actual shared update/query contract and identified
+coordination retired; ordinary local edit/re-solve remains database-free.
 Salsa persistence is deferred pending a concrete consumer: if selected later, compatibility/input namespaces and safe
 recomputation are mandatory. Targeted compiler tests distinguish value-only, structural and deletion edits, concurrent read/write drain
 and unavailable-cache recomputation. Delete Python-only workspace caching after caller migration.
@@ -137,24 +154,50 @@ Retain original tolerances and physical interpretation; a deliberately wrong can
 ## A05 — Compose native designs, studies and reproducible results
 
 Consume A03/A04, [D01](58d-canonical-control-and-connectivity.md#d01)'s connection/authentication,
-[D03](58d-canonical-control-and-connectivity.md#d03)'s canonical execution policy and
-[C03](58c-runtime-lifecycles.md#c03)'s worker admission contracts. A05 owns native recording/submission
-callers and scientific preparation; D owns persisted submission, readiness, claim and settlement meaning.
-Native generated designs produce owned realized overlays; local studies remain local until explicit recording.
-Durable submission carries exact original source/operation identity and uses the same canonical definitions,
-dependencies, attempts, assignments and result references later queried for analysis. Workers perform effects
-without maintaining a second durable interpretation of readiness. D02 supplies original command reconciliation. Keep
-recorded-realized-point replay, warm-start dependencies, actual failures, original result provenance and source/history retention.
-Cancellation and restart must not reinterpret an imputed value as an observation or regenerate realized points from a seed. Reuse shared
-prepared structure across cases while respecting nested native admission and attempt isolation. Preparation and
-required resource admission precede execution claim; D must recheck prepared seed evidence, dependency revisions
-and cancellation before granting that claim. Expensive preparation/native science stays outside short database
-transactions. Install dependency edges before activation; this scope does not introduce live graph mutation.
-Notifications only wake workers; canonical state resolves missed events. Retain useful calculation/progress
-observations at scientific granularity, not every runtime event or live object graph. Targeted tests cover deterministic point
-identity under reordered completion, generation failure, recorded replay after producer closure and interrupted
-publication/reconciliation, cancellation or dependency revision changes after preparation, and worker replacement followed
-by analysis of the original lineage. Delete Python study assembly and redundant conversion with migrated consumers.
+[D03](58d-canonical-control-and-connectivity.md#d03)'s bounded canonical progression and
+[C03](58c-runtime-lifecycles.md#c03)'s native preparation/resource handoff. A05 owns scientific
+recording/submission and the repeated-analysis consumer from
+[database-boundary O05](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O05).
+D owns persisted submission, readiness, revisions, claim and settlement meaning; E02 owns protected
+numeric relations. These are early usable capability slices, not a requirement to finish every
+package in A/C/D/E before composing one study.
+
+Native generated designs produce owned realized overlays; local studies remain local until explicit
+recording. Submit exact original source/context/operation identity, policies, points and dependencies
+through the canonical owner. Consume D's bounded applicable action and exact preparation premises,
+including continuation rather than interpreting an unproductive page as global idle. Native workers
+prepare admitted immutable inputs, resolve seeds and acquire actual launch resources outside database
+transactions, then return prepared evidence to D for a current revision/generation/dependency/cancellation
+recheck before execution claim. A preparation candidate grants no execution authority. Keep the original
+issued claim/operation identity for uncertain acknowledgements; do not add a preparation-ticket protocol
+merely to mirror the existing native owner.
+
+The worker retains its effect loop and native handle/token/resource custody; it must not retain a second
+authoritative readiness or transition interpretation. Migrate callers with D03/D04 and C03–C05 and remove
+subsumed paging, action interpretation and frontend retry/assembly code only when the complete operation
+covers their retained meaning. Local duplicate-preparation suppression is not a canonical claim ledger;
+its retirement requires showing that the replacement removes its useful wasted-work role.
+
+Retain recorded-realized-point replay, warm-start dependencies, actual failures and original result
+provenance. Cancellation/restart must not reinterpret imputed values as observations or regenerate
+recorded points from a seed. Install dependency edges before activation; this scope does not introduce
+live graph mutation. Notifications wake consumers; canonical catch-up resolves missed events. Record
+useful calculation/progress observations at scientific granularity, not every native runtime event.
+
+A repeated-analysis workflow selects yesterday's and today's accepted attempts by authored revision,
+physical/effective context, realized point and scientific qualification, then uses E02's protected IPC
+relations for comparison. Explicit domain revisions, effective time and frozen cohort identity are not
+interchangeable with database MVCC or a future KV storage timestamp. The current persistent MX path
+can supply this domain history without storage-level time travel or a separate execution-history index.
+
+Targeted acceptance covers deterministic point identity under reordered completion, generation failure,
+recorded replay after producer closure, sparse bounded pages with continuation, two competing workers,
+stale prepared evidence/cancellation before claim, and lost publication acknowledgement under original
+identity. The repeated-analysis case includes worker replacement and a later context correction while
+preserving the earlier frozen selection. A stale native completion must not overwrite a current accepted
+attempt. Expected science remains independent of the producer; full joined journeys belong to H.
+Delete Python study assembly, duplicated history reconstruction and redundant conversion with the
+migrated retained callers, keeping independent scientific/reference evidence and E's read custody.
 
 <a id="a06"></a>
 ## A06 — Decide adaptive composition without inventing another optimizer

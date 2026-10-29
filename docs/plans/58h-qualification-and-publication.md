@@ -3,7 +3,7 @@ title: "Plan58: Qualification and publication"
 status: draft
 date: 2026-10-28
 adrs: []
-review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
+review_sources: [docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md, docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [current-work, architecture, design, libraries, validation]
@@ -13,9 +13,16 @@ doc_topics: [current-work, architecture, design, libraries, validation]
 
 ## Purpose and preserved limits
 
-**Proposed:** establish the native target through original product and host journeys once selected functional scope is implemented. O11 supplies the original opportunity; [I14](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I14), with I01–I07/I10–I12, reshapes acceptance around retained science, model-driven durable work and lean native operation. The coordinator owns dispositions; companions own local evidence. Baseline is `c3b7f136d`.
+**Proposed:** establish the native target through original product and host journeys once selected functional scope is implemented. O11 supplies the original opportunity; [I14](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I14), with I01–I07/I10–I12, reshapes acceptance around retained science, model-driven durable work and lean native operation. The coordinator owns dispositions; companions own local evidence. The original authoring baseline was `c3b7f136d`; selected native results remain at their companion checkpoints.
 
 This is neither a continuation of Plan57 qualification nor a demand to reproduce every old fixture, registry, recovery or build-observation failure mode. Existing passes, failures, unresolved SIGSEGV and full-matrix deferral retain their original conditions. Deliberately retired requirements have explicit coordinator dispositions; renaming a test or silently deleting a retained assertion establishes no acceptance. Scientific adequacy, interface implementation and measured benefit remain distinct.
+
+The [database-boundary review](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md)
+amendment uses `a6a144bce`, dated 2026-10-29. Its opportunities enter the coordinator's separate
+source-qualified dispositions. H consumes owner-local D/C/E/A acceptance rather than creating
+another scenario or execution catalogue. Retained MX, native computation/physical custody and
+the protected IPC hybrid are the starting target; optional engine, event, module-effect or
+streaming branches acquire evidence obligations only when selected.
 
 ## Package state
 
@@ -42,6 +49,28 @@ For a persisted study, create a definition/revision, realized points and a depen
 
 Original submit/cancel/status/reconcile distinguishes exact replay, changed intent under one identity, actor refusal, committed effect with lost acknowledgement and absent receipt. Notifications can wake work but missed/lagged events require authoritative catch-up. Observe actual native entry before cancellation where claimed, then original task/thread/process exit, result publication and physical release. Include observer disconnect without scientific cancellation, explicit stop, concurrent studies, partial startup and unavailable database/manager. Stop only authenticated owned resources and preserve unknown ownership. Failed acceptance triggers no blind retry or data reset.
 
+For the database-boundary extension, compose [D03's progression and prepared-evidence claim](58d-canonical-control-and-connectivity.md#d03),
+[C03's actual admission](58c-runtime-lifecycles.md#c03), [C05's settlement](58c-runtime-lifecycles.md#c05)
+and [E02/E03's retained data](58e-retained-data-and-delivery.md#e02) through the selected A05
+scientific caller. Their acceptance must reveal competing workers, a bounded early page with
+no eligible item but remaining continuation, changed preparation premises, cancellation/lease
+expiry while an old native owner drains, lost ACK under original identity, and notification
+loss followed by canonical catch-up. Verify no stale claim or late publication becomes accepted;
+a cancelled/expired database record alone does not prove physical release.
+
+The repeated-analysis case selects recorded source/context revisions, realized points and
+actual attempts, then reads protected results before and after a later context correction.
+The sealed-payload/uncertain-publication case retains original effect identity and protected
+readers without inventing accepted completion or rerunning science. Keep small inline and
+sealed-file payload cases under E's actual publication/custody contract.
+
+If event-maintained state is selected, include real actor/grant behavior and the chosen event's
+transaction, retry and catch-up semantics. If Surrealism gains database effects, include parent
+rollback on failure/conversion and explicit intentional-refusal meaning; module KV/network
+state is not record rollback. An SDK/stream replacement must exercise original request custody,
+terminal statement finality and actual close/drain gaps, not infer them from arriving rows or
+stream drop. These conditional cases do not require unselected mechanisms to be implemented.
+
 <a id="h03"></a>
 ### H03 — Bootstrap, development, migration and independent assurance
 
@@ -62,10 +91,21 @@ After selected functional scope is implemented, choose relevant integration/comp
 
 Publish enduring contracts through architecture/ADR owners. Record Proposed/Implemented/Tested/Measured boundaries, actual commands/modes, exclusions, original failures, corrected mistakes and deliberate deviations in the Outcome. Required manual checks include governance/docs and applicable native/powerset lints; select actual affected scope, not an old Plan57 filter.
 
+Use the selected engine's existing metrics/query tools only where they answer a concrete
+capacity, pinned-reader, conflict or access-path question. Structural consolidation establishes
+no latency or throughput number. No cost ladder, universal 100 ms threshold, assumed sixteen-lane
+group-commit gain or general benchmark campaign is a completion condition.
+
 **Persistent-deployment release obligation:** D's database/schema owner supplies supported-version migration and write-admission implementation; H owns assembled qualification, coordinated with the deployment/operations owner. Before claiming support for stores holding non-regenerable data or shared operational deployments, qualify the supported historical migration paths, backup/restore and disaster recovery against that deployment. This trigger is separate from completion of the regenerable development cutover; essential migration infrastructure is not deferred. Preserve uniquely authored inputs/reference evidence outside automatic disposal.
 
 Retire superseded Plan57 documents after inbound-link/executable-consumer preflight and repair historical citations to immutable commits or enduring owners. Their retained records authorize nothing. Do not edit accepted ADR history except permitted reference relocation. No archive tree, shadow status ledger or inferred completion from supersession. Reconcile lifecycle/publication metadata. Plans28/32/40/53/54 retain independent scope; this series does not absorb them automatically.
 
 ## Current checkpoint
 
-**Proposed:** H01–H04 and the selected future release boundary. No product test, build, solver or database workload ran for this amendment. Qualification remains unstarted; production work remains paused. Required next work is the coordinator's decision/shared-contract scope and D's durable/schema boundaries, not a restart of an interrupted historical campaign.
+**Proposed:** H01–H04 and the selected future release boundary remain unqualified as assembled
+series scope. This 2026-10-29 amendment ran no product test, build, solver or database workload.
+It preserves the already delivered foundation/host/compiler/local-operation evidence at its
+existing owners without treating those focused passes as H acceptance. Required durable next
+work is D's bounded progression/connectivity and schema/write-admission capability with actual
+A/C/E consumers; no interrupted historical campaign is restarted. New optional branches remain
+conditional, and uniquely authored inputs/existing stores remain protected.
