@@ -11,7 +11,6 @@ from pse._physical import PhysicalContext
 from pse._project_bundle import ProjectBundle
 from pse._project_operations_glue import ProjectRuntimeGlue
 from pse._research import ResearchRuntimeGlue
-from pse._study_workbench import FrozenStudyCohort, StudyObserver, StudyWorkbenchGlue
 from pse.contracts.documents import (
     ArtifactIntent,
     ArtifactIntentBody,
@@ -68,10 +67,6 @@ from pse.contracts.documents import (
     ResearchSelectionRequest,
     SourceDelta,
     SourceDeltaOutput,
-    StudyCohortRequest,
-    StudyObservationCursor,
-    StudyObservationCursorOutput,
-    StudyObservationRequest,
 )
 from pse.generated.project_operation_defaults import DEFAULT_BRANCH
 
@@ -1214,51 +1209,4 @@ class ResearchRuntime(ResearchRuntimeGlue):
     )
 
 
-class StudyWorkbenchMixin(StudyWorkbenchGlue):
-    """Public runtime composition; the native owner performs selection and admission."""
-
-    def freeze_study_cohort(self, request: StudyCohortRequest) -> FrozenStudyCohort:
-        """Freeze a complete bounded cohort before protected analytical reads.
-
-        Effects:
-            scope: capture
-            read_only: false
-            idempotent: false
-            destructive: false
-        """
-        return self._host_freeze_study_cohort(request)
-
-    _public_metadata(
-        freeze_study_cohort,
-        StudyWorkbenchGlue,
-        "_host_freeze_study_cohort",
-        "StudyWorkbenchMixin",
-        "pse._study_workbench",
-    )
-
-    def observe_study(
-        self,
-        request: StudyObservationRequest,
-        *,
-        cursor: StudyObservationCursor | StudyObservationCursorOutput | None = None,
-    ) -> StudyObserver:
-        """Open or reconnect passive observation of one exact selected study.
-
-        Effects:
-            scope: observation
-            read_only: true
-            idempotent: true
-            destructive: false
-        """
-        return self._host_observe_study(request, cursor=cursor)
-
-    _public_metadata(
-        observe_study,
-        StudyWorkbenchGlue,
-        "_host_observe_study",
-        "StudyWorkbenchMixin",
-        "pse._study_workbench",
-    )
-
-
-__all__ = ("ProjectRuntimeOperations", "ResearchRuntime", "StudyWorkbenchMixin")
+__all__ = ("ProjectRuntimeOperations", "ResearchRuntime")

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 308
+revision: 309
 date: 2026-10-29
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 309 | 2026-10-29 | Extend narrow retained-data construction to passive study observers; retire the replaced Python frozen-cohort/observer projection while preserving native APIs and operator actions (§19). | Authorized Plan58 A/E/G consumer cut under proposed ADR-0233; `PSE_DESIGN_EDIT=1`. Selected native/API and operator acceptance; assembled qualification remains open. |
 | 308 | 2026-10-29 | Publish independently constructed native retained-data capabilities and protected configured cohort composition; retire the Python aggregate projection in §19. | Authorized Plan58 A/E/G cut under proposed ADR-0233; `PSE_DESIGN_EDIT=1`. Targeted native evidence only; full-series qualification remains open. |
 | 307 | 2026-10-29 | Publish explicit native scientific-worker construction, exact schema/invocation readiness, final connection/native drain and distinct physical-death evidence in §20.6. | Authorized Plan58 B/C/D and G consumer cut under proposed ADR-0233; `PSE_DESIGN_EDIT=1`. Whole-series qualification remains open. |
 | 306 | 2026-10-29 | Publish native connection-only browse/cancel/reconcile in §3.3/§21 and retire the Python HTTP control client; preserve actor/API and original-receipt semantics. | Authorized Plan58 D04/G03 under proposed ADR-0233; PSE_DESIGN_EDIT=1. Scientific facade, parity migration and assembled qualification remain open. |

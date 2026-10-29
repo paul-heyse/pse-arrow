@@ -222,7 +222,6 @@ PYTHON_DURABLE_OWNERS = frozenset(
     {
         "test_projects.py",
         "test_project_portability.py",
-        "test_study_workbench.py",
         "test_project_contexts.py",
         "test_project_cli.py",
         "test_modeling_strategies.py",

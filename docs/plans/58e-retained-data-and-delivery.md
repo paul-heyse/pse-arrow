@@ -90,7 +90,8 @@ records these checks. This establishes the native construction slice; full E01/E
 and assembled H qualification remain open.
 
 Independent source review found that retiring Python stored-result/cohort/stream wrappers
-still capture their full Python runtime owner. A07/E04 own their actual consumer retirement;
+still captured their full Python runtime owner. The cohort/observer projection is now
+removed by A07/G03; stored-result/stream consumers retain their retirement obligations. A07/E04 own their actual consumer retirement;
 the native extraction does not establish that those wrappers are math-free. Protected join,
 residual-limit, wrong-pool and payload-custody coverage remains necessary at the relevant
 native consumer before E02 closes.

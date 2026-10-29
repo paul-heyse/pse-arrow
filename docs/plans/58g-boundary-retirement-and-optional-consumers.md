@@ -104,8 +104,8 @@ The existing CLI export test retains its independent expected aggregate rows dir
 than calling the deleted Python aggregate projection. No replacement Python adapter is added.
 
 **Implemented:** native retained readers/cohorts retain `RetainedDataServices`; mathematical
-services are no longer part of their actual capability. Separately consumed Python frozen
-browsing, stored-result and stream wrappers still retain their full Python runtime owners.
+services are no longer part of their actual capability. The subsequent frozen browsing/passive-observer cut is recorded below; remaining Python
+stored-result and stream wrappers still retain their full Python runtime owners.
 Those wrappers and remaining scientific consumers keep G01/G03 open; removing this one projection
 does not resolve the entire Python read-owner finding or establish complete facade retirement.
 
@@ -130,6 +130,25 @@ only this retired projection and its provenance. Native design/document contract
 This additional deletion removes the Python handle's retained PreparationServices/math owner,
 without redesigning another Python adapter. Generic conformance and thermodynamic campaign
 orchestration remain separate F consumers with their shared document reader intact.
+
+The next integrated cut retires Python `FrozenStudyCohort`, `StudyObserver` and the PyO3
+polling state machine, their Runtime forwarding declarations, exports/aliases, projection
+family and wrapper-only assertions. Native `Runtime`/`RetainedDataServices` operations and
+all five existing study operator actions remain. The feature-gated actual Rust executable
+consumer in `native_repeated_analysis` preserves their workbench, bounded cohort export,
+analysis, protected detail IPC and observation wire behavior. [A's read/observation checkpoint](58a-native-product-and-scientific-workflows.md#native-read-and-observation-follow-up)
+owns the passing native and projection-generator evidence. This removes the frozen wrapper's
+full Runtime owner; stored-result/stream, other scientific and external-reference consumers
+still keep G01/G03 open. No replacement Python adapter or complete boundary-retirement claim
+is introduced.
+The reduced PyO3 build and actual compiled-stub publication pass with the commands above;
+full `just codegen` regenerates the Rust/Python forwarding surfaces and source relationships.
+The retained project/research facade tests pass seven cases, zero failures, selecting
+`python/pse/tests/test_project_operation_facade.py -q` with the prepared native environment,
+explicit compiled image and a caller-owned pytest `--basetemp`. The initial default temporary
+root refused ownership before any tests; selecting a private temporary root fixes that setup
+without changing shared temporary files. These are interface controls, not scientific or
+complete Python qualification.
 
 ## Selected ordinary host retirement checkpoint — 2026-10-28
 

@@ -12,6 +12,10 @@
     reason = "isolated integration fixture and independent scientific assertions"
 )]
 
+#[cfg(feature = "product-operators")]
+#[path = "native_project_views_support.rs"]
+mod project_views;
+
 use datafusion::{arrow::array::{Array, FixedSizeBinaryArray, Float64Array, Int64Array}, prelude::{SessionContext, col}, logical_expr::JoinType};
 use futures_util::{FutureExt, StreamExt, future::BoxFuture};
 use pse_admission::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
@@ -1120,6 +1124,18 @@ fn journey<'a>(science: &'a mut Science, service: &'a mut NativeCanonicalService
         assert_aggregate(&corrected, &coordinates, Some([3., 14_f64.sqrt()])).await;
         assert_captured_exports(&data.0, &original, &original_definition, &original_study,
             &coordinates, &original_rows[&POINT_KEYS[0]]).await;
+        #[cfg(feature = "product-operators")]
+        {
+            let mut selected = original.result(0, "runtime.solve_variables", 0, u64::MAX,
+                CancellationToken::new()).await.unwrap();
+            let digest = selected.selection().manifest().digest.clone();
+            selected.close();
+            project_views::check(service.state().to_owned(),
+                data.0.canonical_store().unwrap().database().to_owned(), original_study.clone(),
+                request(&original_definition, &original_study, true),
+                kpi(&coordinates, coordinates.variable), original_rows[&POINT_KEYS[0]].clone(),
+                data.0.validation_context(), digest).await.unwrap();
+        }
         assert_wrong_pool_refused(&original, &coordinates).await;
         compare(&original, &corrected, &coordinates).await;
         // A second fresh native query must select the same protected original

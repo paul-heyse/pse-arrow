@@ -28332,20 +28332,6 @@
     {
       "basis": "declared",
       "contract_sections": [],
-      "declaration_key": "python/pse/_study_workbench.py::StudyWorkbenchGlue",
-      "declaration_kind": "project_operation_projection",
-      "direction": "input_output",
-      "generator_path": "xtask/src/codegen/project_operations.rs",
-      "generator_symbol": "append",
-      "output_path": "python/pse/generated/project_operations.py",
-      "source_identity": null,
-      "source_path": "python/pse/_study_workbench.py",
-      "source_role": "definition",
-      "source_symbol": "StudyWorkbenchGlue"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [],
       "declaration_key": "reference.algorithm_arguments@1",
       "declaration_kind": "relation",
       "direction": null,

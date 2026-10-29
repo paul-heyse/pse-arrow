@@ -34,13 +34,6 @@ FAMILIES = {
         "ResearchRuntime",
         "pse._research",
     ),
-    "study": (
-        "pse._study_workbench",
-        "StudyWorkbenchGlue",
-        "StudyWorkbenchMixin",
-        "StudyWorkbenchMixin",
-        "pse._study_workbench",
-    ),
 }
 BUILTINS = {
     "self",
@@ -340,7 +333,7 @@ def _public_metadata(public: object, glue: type[object], helper: str, owner: str
 
 """
     source += "\n\n".join(blocks) + "\n"
-    source += '\n__all__ = ("ProjectRuntimeOperations", "ResearchRuntime", "StudyWorkbenchMixin")\n'
+    source += '\n__all__ = ("ProjectRuntimeOperations", "ResearchRuntime")\n'
     validate_python_floor(root, source)
     return source
 

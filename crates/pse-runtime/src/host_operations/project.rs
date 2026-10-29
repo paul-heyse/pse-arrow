@@ -396,8 +396,6 @@ pub enum FacadeFamily {
     Project,
     /// Existing immutable research receiver methods.
     Research,
-    /// Existing bounded study observation/cohort receiver methods.
-    Study,
 }
 /// A finite public projection over genuinely typed receiver glue.
 /// The helper AST supplies types; this owner supplies publication and shared defaults.
@@ -413,18 +411,6 @@ pub struct ProjectMethod {
     pub effect_facts: EffectFacts,
 }
 const METHODS: &[ProjectMethod] = &[
-    ProjectMethod {
-        name: "freeze_study_cohort",
-        family: FacadeFamily::Study,
-        pyo3_signature: None,
-        effect_facts: EffectFacts::CAPTURE,
-    },
-    ProjectMethod {
-        name: "observe_study",
-        family: FacadeFamily::Study,
-        pyo3_signature: Some("signature=(request,*,cursor=None)"),
-        effect_facts: EffectFacts::OBSERVATION,
-    },
     ProjectMethod {
         name: "modeling_revision",
         family: FacadeFamily::Project,
@@ -766,14 +752,15 @@ mod tests {
             .iter()
             .map(|method| method.name)
             .collect::<std::collections::BTreeSet<_>>();
-        assert_eq!(names.len(), 52);
-        assert!(!names.contains("study_workbench_page"));
+        assert_eq!(names.len(), 50);
+        for retired in ["study_workbench_page", "freeze_study_cohort", "observe_study"] {
+            assert!(!names.contains(retired), "retired frontend method {retired}");
+        }
         for expected in [
             "project_import_issue",
             "project_context_append",
             "lifecycle_release",
             "research_publish",
-            "freeze_study_cohort",
             "modeling_revision",
         ] {
             assert!(names.contains(expected));
@@ -786,13 +773,6 @@ mod tests {
                 .effect_facts
                 .destructive
         );
-        let capture = methods()
-            .iter()
-            .find(|method| method.name == "freeze_study_cohort")
-            .unwrap()
-            .effect_facts;
-        assert!(matches!(capture.scope, EffectScope::Capture));
-        assert!(!capture.read_only && !capture.idempotent && !capture.destructive);
         assert!(matches!(
             methods()
                 .iter()
@@ -829,6 +809,9 @@ mod tests {
             .find(|variant| variant["properties"]["kind"]["const"] == "study_cohort")
             .unwrap();
         assert_eq!(cohort["x-pse-effect-facts"]["scope"], "capture");
+        assert_eq!(cohort["x-pse-effect-facts"]["read_only"], false);
+        assert_eq!(cohort["x-pse-effect-facts"]["idempotent"], false);
+        assert_eq!(cohort["x-pse-effect-facts"]["destructive"], false);
         let admitted = variants
             .iter()
             .find(|variant| variant["properties"]["kind"]["const"] == "draft_admit_version")

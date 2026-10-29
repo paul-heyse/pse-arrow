@@ -14,7 +14,6 @@ pub(crate) use project_portability::NativeProjectBundle;
 mod routes;
 mod settings;
 mod source_settlement;
-mod study_workbench;
 pub(crate) use modeling::{
     ModelingDiagnosticSettings, ModelingLimits, NativeLocalStudy,
     NativeModelingConformance, NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
@@ -24,7 +23,6 @@ pub(crate) use modeling::{
     NativeModelingTrajectory, NativeStudyReport,
 };
 use routes::{NativeEligibility, NativeRoute};
-pub(crate) use study_workbench::{NativeFrozenStudyCohort, NativeStudyObserver};
 mod strategies;
 use crate::inspection::{self, errors, runtime};
 use pse_runtime::{CancelSource, workflow as native};

@@ -43,10 +43,6 @@ class ProjectProjectionTests(unittest.TestCase):
     def _host_research_read(self, request: str) -> str:
         return request
 """,
-            "pse._study_workbench": """class StudyWorkbenchGlue:
-    def _host_observe_study(self, request: str, *, cursor: str | None) -> tuple[str, str | None]:
-        return request, cursor
-""",
         }
         for module, source in self.sources.items():
             path = self.root / "python" / (module.replace(".", "/") + ".py")
@@ -64,12 +60,6 @@ class ProjectProjectionTests(unittest.TestCase):
                 "pyo3_signature": None,
                 "receiver_description": "Original Rust research receiver documentation.",
             },
-            {
-                "name": "observe_study",
-                "family": "study",
-                "pyo3_signature": "signature=(request,*,cursor=None)",
-                "receiver_description": "Original Rust study receiver documentation.",
-            },
         ]
         self.declarations[0]["effect_facts"] = {
             "scope": "canonical_command",
@@ -81,12 +71,6 @@ class ProjectProjectionTests(unittest.TestCase):
             "scope": "observation",
             "read_only": True,
             "idempotent": True,
-            "destructive": False,
-        }
-        self.declarations[2]["effect_facts"] = {
-            "scope": "capture",
-            "read_only": False,
-            "idempotent": False,
             "destructive": False,
         }
 
@@ -135,18 +119,6 @@ class ProjectProjectionTests(unittest.TestCase):
             inspect.signature(method).parameters["branch_name"].default, "main"
         )
         self.assertFalse(hasattr(instance, "unpublished"))
-        self.assertEqual(
-            public.StudyWorkbenchMixin().observe_study("study"), ("study", None)
-        )
-        self.assertTrue(
-            public.StudyWorkbenchMixin.observe_study.__doc__.startswith(
-                "Original Rust study receiver documentation.\n\n"
-            )
-        )
-        self.assertIn(
-            "Effects:\n    scope: capture\n    read_only: false\n    idempotent: false\n    destructive: false",
-            public.StudyWorkbenchMixin.observe_study.__doc__,
-        )
 
     def test_missing_helper_and_unknown_default_refuse_generation(self) -> None:
         for changed in [
@@ -184,7 +156,7 @@ class ProjectProjectionTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             render(self.root, changed)
         changed = [{**row} for row in self.declarations]
-        changed[2]["receiver_description"] = ""
+        changed[1]["receiver_description"] = ""
         with self.assertRaises(ValueError):
             render(self.root, changed)
 

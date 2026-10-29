@@ -155,11 +155,6 @@ pub(super) fn append(tree: &mut GeneratedTree) -> Result<()> {
             "ResearchRuntimeGlue",
             &python_path,
         ),
-        (
-            "python/pse/_study_workbench.py",
-            "StudyWorkbenchGlue",
-            &python_path,
-        ),
     ] {
         tree.relationships.push(provenance::SourceRelationship {
             declaration_key: format!("{source}::{symbol}"),

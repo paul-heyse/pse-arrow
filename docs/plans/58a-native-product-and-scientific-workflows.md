@@ -579,7 +579,20 @@ and its manifest field carries a digest rather than the storage key. The correct
 check original export attribution and exact generated fields/arrays without weakening registry
 admission. No production wire format or scientific tolerance changed.
 
-A07's next cut removes the replaced Python frozen-cohort/passive-observer projection and its
-polling state machine, with its method declarations, generator sources, outputs and actual
-consumers. Existing native ProjectAction wire outcomes receive their own retained consumer;
-the core Rust API remains independent of a CLI. Remaining frontend, E and H work stays open.
+The following A07 cut removes the Python frozen-cohort/passive-observer projection and its
+polling state machine, both facade method declarations, registration/exports, generator family
+and adapter-only tests. The existing native APIs and five typed study ProjectAction variants
+remain. Their actual executable consumer now runs within the private repeated-analysis journey,
+checking bounded workbench paging, cohort NDJSON/export refusal, exact result IPC metadata and
+arrays, typed analysis, and terminal observation/history coverage. Core Rust construction does
+not require product-operators; the executable consumer is explicitly feature-gated.
+
+**Tested:** the same explicit private fixture/correctness route selecting
+`--test native_repeated_analysis` with
+`--features native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-scip,solver-highs,solver-diffsol`
+passes one test, zero failures/skips (run `9198e1e6-2722-450d-974c-2e292ca3c266`).
+The projection generator's remaining project/research interface, effects, defaults and refusal
+controls pass five tests, zero failures, using `scripts/pse-env -- .venv/bin/python -m unittest
+scripts.tests.test_project_operation_projection`. Its missing-document control now targets
+the retained research declaration after the study declaration's deletion. Remaining scientific
+consumer reconciliation, E delivery custody and H qualification stay open.

@@ -626,15 +626,18 @@ root. These capabilities carry actual caller admission, allocation, validation, 
 selected publication policy; they are not a second Runtime. Protected retained reads instead
 receive `RetainedDataServices`, independently constructible from an opened canonical store and
 registry-bound engine model without `SharedRuntime`, source loading or mathematical services.
-Readers, snapshots, progress interpretation and frozen cohorts retain that narrower capability.
+Readers, snapshots, progress interpretation, passive study observers and frozen cohorts retain that narrower capability.
+Closing an observer stops observation only; reconnect uses canonical progress without retaining
+a scientific cancellation lease.
 Extraction from Runtime shares its logical caller; independent construction creates a distinct
 read caller. Close seals new admission while admitted continuations and returned protected
 buffers retain their actual custody. A receiver must have compatible
 original registry/native bindings, and durable publication authenticates the source's immutable
 original issuer before effects. A separate caller over the same bindings remains lawful after
 the original caller closes. Ephemeral execution suppresses automatic publication while retaining
-configured canonical read capabilities. Python facades supply these services without exposing
-the Rust plumbing to their callers.
+configured canonical read capabilities. Remaining Python facades supply services to their retained consumers; the frozen-cohort and
+passive-study-observer Python projections are retired. Native APIs and existing typed study
+operator actions retain their original capabilities.
 
 `ModelingTrajectory` is a clone-shared immutable completion snapshot. Read-only accessors
 expose the native outcome and retained checks; `accepted()` derives the composed permission.

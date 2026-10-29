@@ -114,9 +114,7 @@ they need no persisted study variant merely to share this entry point.
 
 `pse_runtime::workflow::Runtime::from_shared` borrows a deployment's existing
 `SharedRuntime`, schema registry and engine factory, and attaches its explicit
-`CanonicalDeployment`. It creates no executor or independent resource budget. Python
-`pse.Runtime(engine_settings, substrate=state_directory)` shares the process owners;
-settings must agree with the process's first runtime. Initialize the selected substrate
+`CanonicalDeployment`. It creates no executor or independent resource budget. Initialize the selected substrate
 through the [operator route](operational-store.md#setup-and-runtime-ownership) before opening it.
 
 `authored.modeling_declarations` is the generated generic declaration authority.
@@ -130,22 +128,25 @@ come from admitted source rows retained in canonical revisions. The fixture curr
 not a default. Package manifests bind quantity aliases; imports require the declared exact
 package closure. Failed admission leaves earlier package revisions usable.
 
-The retiring Python binding's sequence, with application-supplied source maps and a semantic case ID, is:
+For application-supplied, admitted `OwnedDocumentSet` values, source construction is native:
 
-```python
-runtime = pse.Runtime(engine_settings, substrate=state_directory)
-physical = runtime.physical_from_documents(physical_documents)
-package = runtime.modeling_from_documents(package_bundles, physical)
-prepared = package.prepare_solve(
-    case_id,
-    pse.SolveSettings(intent="optimize", backend="auto"),
-)
-job = prepared.start()
-result = job.wait()
+```rust
+let physical = runtime.physical_from_documents(
+    &physical_documents,
+    &pse_columnar::CancellationToken::new(),
+).await?;
+let package = runtime.modeling_from_documents(
+    &model_documents,
+    physical,
+    &pse_runtime::CancelSource::new(),
+).await?;
 ```
 
-Use `intent="root"` for square equalities without an objective, `"optimize"` for an
-authored objective, or an explicitly selected supported feasibility intent. Physical
+`OwnedDocumentSet::try_from_bundles` and `load_package_documents_owned` receive the original
+registry, pool and validation context. They preserve dependency closure rather than inferring
+physical definitions. The public local caller linked above includes the complete construction.
+Select `SolveIntent::Root` for square equalities without an objective, `SolveIntent::Optimize`
+for an authored objective, or an explicitly selected supported feasibility intent. Physical
 numerical requirements follow the selected semantic coordinate order. Native inventory
 from `capabilities()` does not establish contextual eligibility. Preparation shares
 immutable compiler products, never a mutable solver.
@@ -294,7 +295,12 @@ compares original and corrected engineering contexts after scientific shutdown, 
 earlier frozen population, and replays recorded realized points under their original source
 and context. Domain effective time and revision ancestry remain distinct from storage MVCC.
 Native `FrozenStudyCohort::aggregate` and `RetainedDataServices::export_study_analysis`
-retain aggregation/export; the Python `aggregate`/`StudyKpiAnalysis` projection is retired.
+retain aggregation/export. `RetainedDataServices::observe_study` opens a passive observer
+through the same independent read capability; observer close/cancellation leaves scientific
+execution unchanged. The Python frozen-cohort, aggregation and study-observer projections
+are retired. Existing typed `pse-project` study actions remain optional consumers of these
+Rust capabilities, with their wire/export behavior exercised in the native repeated-analysis
+journey.
 
 Native waits are asynchronously repeatable and never rerun a solver. Cancellation
 requests stop; the original native supervisor owns actual completion and resource drain.

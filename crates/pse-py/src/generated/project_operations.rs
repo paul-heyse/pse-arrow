@@ -7,24 +7,6 @@
 use super::*;
 #[pymethods]
 impl NativeRuntime {
-    /// Freeze a complete bounded cohort before protected analytical reads.
-    fn freeze_study_cohort(
-        &self,
-        py: Python<'_>,
-        request: &[u8],
-    ) -> PyResult<NativeFrozenStudyCohort> {
-        self._host_freeze_study_cohort(py, request)
-    }
-    /// Open or reconnect passive observation of one exact selected study.
-    #[pyo3(signature = (request, *, cursor = None))]
-    fn observe_study(
-        &self,
-        py: Python<'_>,
-        request: &[u8],
-        cursor: Option<&[u8]>,
-    ) -> PyResult<NativeStudyObserver> {
-        self._host_observe_study(py, request, cursor)
-    }
     /// Reopen an exact retained canonical source selection without authored document replay.
     fn modeling_revision(
         &self,

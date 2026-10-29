@@ -10,13 +10,12 @@ from typing import TYPE_CHECKING, cast
 import pytest
 
 import pse
-from pse import codec
 from pse._project_bundle import ProjectBundle
 from pse.contracts import documents as d
 from pse.tests.invalid_call import invalid_call
 
 if TYPE_CHECKING:
-    from pse._build import _NativeProjectBundle, _NativeRuntime, _NativeStudyObserver
+    from pse._build import _NativeProjectBundle, _NativeRuntime
 
 
 class FacadeBoundary:
@@ -25,7 +24,6 @@ class FacadeBoundary:
     def __init__(self) -> None:
         self.calls: list[tuple[str, object]] = []
         self.import_intent = object()
-        self.observer = object()
         self.datasets = d.ResearchReadResultOutputDatasets(rows=())
         self.branches = d.ProjectBranchPageOutput(
             branches=(),
@@ -57,12 +55,6 @@ class FacadeBoundary:
         self.calls.append(("research", request))
         return self.datasets
 
-    def observe_study(
-        self, request: bytes, *, cursor: bytes | None
-    ) -> _NativeStudyObserver:
-        self.calls.append(("observe", (request, cursor)))
-        return cast("_NativeStudyObserver", self.observer)
-
 
 def runtime(boundary: FacadeBoundary) -> pse.Runtime:
     result = object.__new__(pse.Runtime)
@@ -76,7 +68,6 @@ def runtime(boundary: FacadeBoundary) -> pse.Runtime:
     [
         ("project_import_issue", "Runtime.project_import_issue", "pse._workflow"),
         ("research_read", "ResearchRuntime.research_read", "pse._research"),
-        ("observe_study", "StudyWorkbenchMixin.observe_study", "pse._study_workbench"),
     ],
 )
 def test_projected_public_methods_retain_inspection_identity(
@@ -105,11 +96,6 @@ def test_public_annotations_preserve_existing_eager_and_postponed_forms() -> Non
         == "PhysicalContext"
     )
     assert pse.Runtime.research_read.__annotations__["request"] is d.ResearchReadRequest
-    assert (
-        pse.Runtime.observe_study.__annotations__["request"]
-        == "StudyObservationRequest"
-    )
-    assert pse.Runtime.observe_study.__annotations__["return"] == "StudyObserver"
 
 
 @pytest.mark.unit
@@ -160,17 +146,6 @@ def test_research_projection_forwards_the_original_typed_request_and_result() ->
     )
     assert runtime(boundary).research_read(request) is boundary.datasets
     assert boundary.calls == [("research", request)]
-
-
-@pytest.mark.unit
-def test_study_observation_preserves_encoded_request_and_optional_cursor() -> None:
-    boundary = FacadeBoundary()
-    request = d.StudyObservationRequest(
-        study="original-study", maximum_members=2, maximum_events=3
-    )
-    observer = runtime(boundary).observe_study(request)
-    assert observer._handle is boundary.observer
-    assert boundary.calls == [("observe", (codec.encode_json(request), None))]
 
 
 @pytest.mark.unit

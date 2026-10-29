@@ -4,23 +4,6 @@
 use super::*;
 
 impl NativeRuntime {
-    /// Freeze a complete bounded cohort before protected analytical reads.
-    pub(super) fn _host_freeze_study_cohort(
-        &self,
-        py: Python<'_>,
-        request: &[u8],
-    ) -> PyResult<NativeFrozenStudyCohort> {
-        self.freeze_study_cohort_native(py, request)
-    }
-    /// Open or reconnect passive observation of one exact selected study.
-    pub(super) fn _host_observe_study(
-        &self,
-        py: Python<'_>,
-        request: &[u8],
-        cursor: Option<&[u8]>,
-    ) -> PyResult<NativeStudyObserver> {
-        self.observe_study_native(py, request, cursor)
-    }
     /// Reopen an exact retained canonical source selection without authored document replay.
     pub(super) fn _host_modeling_revision(
         &self,

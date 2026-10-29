@@ -91,14 +91,13 @@ from pse.diagnostics import Diagnostics
 from pse.generated.project_operations import (
     ProjectRuntimeOperations,
     ResearchRuntime,
-    StudyWorkbenchMixin,
 )
 
 ProjectBundle = _project_bundle.ProjectBundle
 
 
 @attrs.frozen(init=False)
-class Runtime(ProjectRuntimeOperations, ResearchRuntime, StudyWorkbenchMixin):
+class Runtime(ProjectRuntimeOperations, ResearchRuntime):
     """One native deployment budget with explicit local or durable composition."""
 
     _handle: _NativeRuntime

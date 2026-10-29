@@ -24,12 +24,16 @@ owned state from current definitions and fixtures; it requires no old-data migra
 backfill or historical reader. Current scientific document versions and current-version
 backup/restore retain their own contracts. Explicit reconstruction and frozen forward
 maintenance follow the [operator route](surreal-substrate.md#explicit-design-phase-reconstruction-and-recovery).
-Python attaches with `pse.Runtime(settings, substrate="/path/to/private/state")`.
+Rust attaches an explicit `CanonicalDeployment` through `Runtime::from_shared` with its
+existing shared runtime and registry-bound engine model. Data-only callers use
+`RetainedDataServices::new(store, bound_model)` without constructing mathematical services;
+see the [native construction route](native-workflow.md#declare-and-prepare).
 The engine, mathematical preparation, native work and returned buffers share the
 admitted deployment budget. Managed workers consume the native application owner's explicit process and shared-pool allocation.
 An optional qualified `producer` receipt enables eligible stored-product reuse. An
 absent receipt permits admission and persistent execution while refusing cross-build
-scientific reuse. `ephemeral=True` explicitly selects process-local numerical outcomes.
+scientific reuse. `Runtime::from_shared_local` selects a store-free caller with process-local numerical outcomes;
+`with_durability(DurabilitySelection::Ephemeral)` selects local outcomes on an existing attached caller.
 
 `runtime.close()` releases that logical caller and its aliases. Independently created
 runtimes retain their own admission. Already admitted reads, durable publication and native

@@ -216,12 +216,7 @@ from pse.contracts.documents import (
     SourceRecordingLaunchRequestOutput,
     SourceSettlementOutput,
     StudyCancel,
-    StudyCohortHeaderPage,
-    StudyCohortMemberPage,
-    StudyCohortReceipt,
     StudyDefinitionOutput,
-    StudyObservationCursorOutput,
-    StudyObservationPageOutput,
     StudyPointDefinition,
     StudyResults,
     StudyStatusOutput,
@@ -555,16 +550,6 @@ class NativeDiagnostics:
     def record_from_environment(
         self, /, supported_families: Sequence[str]
     ) -> NativeDetailSession | None: ...
-
-@final
-class NativeFrozenStudyCohort:
-    def header_page(self, /, request: bytes) -> StudyCohortHeaderPage: ...
-    def member_page(self, /, request: bytes) -> StudyCohortMemberPage: ...
-    @property
-    def receipt(self, /) -> StudyCohortReceipt: ...
-    def result(
-        self, /, member: int, relation: str, *, start: int, end: int
-    ) -> TableStream: ...
 
 @final
 class NativeLaunchedCommand:
@@ -1160,7 +1145,6 @@ class NativeRuntime:
     ) -> ParameterCovarianceOutput: ...
     def forget_analysis_results(self, /, analysis: str) -> bool: ...
     def forget_study_results(self, /, study: str) -> None: ...
-    def freeze_study_cohort(self, /, request: bytes) -> NativeFrozenStudyCohort: ...
     @staticmethod
     def initialize_database(
         settings: EngineSettings, *, substrate: str, database: str
@@ -1197,9 +1181,6 @@ class NativeRuntime:
         self, /, revision: str, physical: NativePhysicalContext
     ) -> NativeModelingPackage: ...
     def observations(self, /) -> NativeDiagnostics: ...
-    def observe_study(
-        self, /, request: bytes, *, cursor: bytes | None = None
-    ) -> NativeStudyObserver: ...
     def output_results(
         self,
         /,
@@ -1596,13 +1577,6 @@ class NativeStudyHandle:
     def wait(
         self, /, *, controls: StudyWaitControls | StudyWaitControlsOutput | None = None
     ) -> StudyResults: ...
-
-@final
-class NativeStudyObserver:
-    def attach_run(self, /, run: NativeRunHandle) -> None: ...
-    def close(self, /) -> None: ...
-    def cursor(self, /) -> StudyObservationCursorOutput: ...
-    def poll(self, /) -> StudyObservationPageOutput: ...
 
 @final
 class NativeStudyReport:
