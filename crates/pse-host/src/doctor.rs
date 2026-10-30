@@ -523,34 +523,9 @@ pub async fn inspect(root: &Path, environment: &Environment) -> Report {
 }
 
 /// Offline help and direct native doctor text/JSON output.
-pub async fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
-    if arguments
-        .iter()
-        .any(|argument| argument == "--help" || argument == "-h")
-    {
-        writeln!(
-            std::io::stdout(),
-            "doctor [--json]\nRead-only native prerequisites; no build, repair, database or scientific startup."
-        )?;
-        return Ok(0);
-    }
-    if arguments.len() > 1
-        || arguments
-            .first()
-            .is_some_and(|argument| argument != "--json")
-    {
-        return Err(HostError::Ownership("doctor accepts only --json".into()));
-    }
-    let mut root = std::env::current_dir()?;
-    while !root.join(".config/diagnostic-tools.toml").is_file() {
-        if !root.pop() {
-            return Err(HostError::Ownership(
-                "run doctor inside a pse-arrow checkout".into(),
-            ));
-        }
-    }
+pub(crate) async fn execute(root: &Path, json: bool) -> Result<i32, HostError> {
     let report = inspect(&root, &std::env::vars_os().collect()).await;
-    if !arguments.is_empty() {
+    if json {
         serde_json::to_writer_pretty(std::io::stdout(), &report).map_err(std::io::Error::other)?;
         writeln!(std::io::stdout())?;
     } else {

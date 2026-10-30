@@ -5,7 +5,7 @@ use crate::HostError;
 use serde_json::Value;
 use std::{
     collections::VecDeque,
-    ffi::{OsStr, OsString},
+    ffi::OsStr,
     fs,
     io::{Read, Write},
     path::{Component, Path, PathBuf},
@@ -259,35 +259,14 @@ fn default_root() -> Result<PathBuf, HostError> {
     {
         return Ok(root);
     }
-    let mut root = std::env::current_dir()?;
-    while !root.join(".config/diagnostic-tools.toml").is_file() {
-        if !root.pop() {
-            return Err(invalid("run agent hooks inside a pse-arrow checkout"));
-        }
-    }
-    Ok(root)
+    crate::cli::checkout_root(None)
 }
 
 /// The lean host hook endpoint. Help remains offline and never reads standard input.
-pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
-    if arguments.is_empty()
-        || arguments == [OsString::from("--help")]
-        || arguments == [OsString::from("-h")]
-    {
-        writeln!(std::io::stdout(), "agent-hook guard|session-env")?;
-        return Ok(0);
-    }
-    let action = arguments.first().and_then(|value| value.to_str());
-    if arguments.len() != 1 || !matches!(action, Some("guard" | "session-env")) {
-        writeln!(
-            std::io::stderr(),
-            "BLOCKED: expected agent-hook guard|session-env"
-        )?;
-        return Ok(2);
-    }
+pub(crate) fn execute(action: crate::cli::HookAction) -> Result<i32, HostError> {
     let mut input = String::new();
     let read = std::io::stdin().lock().read_to_string(&mut input);
-    if action == Some("session-env") {
+    if matches!(action, crate::cli::HookAction::SessionEnv) {
         let result: Result<(), HostError> = (|| {
             let default = default_root()?;
             let payload = serde_json::from_str(&input).unwrap_or(Value::Null);

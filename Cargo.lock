@@ -6455,6 +6455,7 @@ version = "0.0.1"
 dependencies = [
  "base64 0.22.1",
  "cargo_metadata",
+ "clap",
  "command-fds",
  "flate2",
  "futures-util",

@@ -3,7 +3,7 @@
 //! Public native server selection is read-only and does not depend on Python or source.
 #![cfg(test)]
 use pse_host::{environment::Environment, server};
-use std::{ffi::OsString, fs};
+use std::fs;
 
 #[test]
 fn server_missing_selection_refuses_without_creating_tools_or_reading_checkout() {
@@ -41,7 +41,14 @@ fn server_cli_rejects_implicit_build_and_service_arguments_before_effects() {
         "build-server",
         "prepare --force",
     ] {
-        assert!(server::run_cli(&[OsString::from(command)]).is_err());
+        assert!(
+            !std::process::Command::new(env!("CARGO_BIN_EXE_pse-host"))
+                .args(["server", command])
+                .output()
+                .unwrap()
+                .status
+                .success()
+        );
     }
     for arguments in [
         vec!["prepare", "--from-release"],
@@ -49,13 +56,13 @@ fn server_cli_rejects_implicit_build_and_service_arguments_before_effects() {
         vec!["prepare", "--from-release", "/unused", "--force"],
     ] {
         assert!(
-            server::run_cli(
-                &arguments
-                    .into_iter()
-                    .map(OsString::from)
-                    .collect::<Vec<_>>()
-            )
-            .is_err()
+            !std::process::Command::new(env!("CARGO_BIN_EXE_pse-host"))
+                .arg("server")
+                .args(arguments)
+                .output()
+                .unwrap()
+                .status
+                .success()
         );
     }
 }

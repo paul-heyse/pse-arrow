@@ -898,15 +898,11 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
             std::env::var_os(FIXTURE_METADATA_CAPTURE).as_deref(),
         );
     }
-    if arguments
-        .first()
-        .is_some_and(|arg| arg == "--help" || arg == "-h")
-        || arguments.is_empty()
-    {
-        writeln!(
-            io::stdout(),
-            "cargo pse-correctness check|build|test|bench|run|clippy [Cargo arguments]\ncargo pse-correctness nextest run|list [native nextest arguments]\nSource-build correctness only. Nextest supports this executable checkout; foreign workspace, manifest/config overrides, archive/reused binaries are refused before nextest starts."
-        )?;
+    if arguments.is_empty() {
+        crate::cli::validate_correctness(&[OsString::from("--help")])?;
+        return Ok(0);
+    }
+    if !crate::cli::validate_correctness(&arguments)? {
         return Ok(0);
     }
     if arguments.first().is_some_and(|arg| arg == "nextest") {

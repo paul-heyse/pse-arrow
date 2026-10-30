@@ -9,7 +9,6 @@ use crate::{
 use std::{
     ffi::{OsStr, OsString},
     io::Write as _,
-    path::PathBuf,
     time::{Duration, Instant},
 };
 
@@ -19,7 +18,6 @@ struct Options {
     command: Vec<OsString>,
     docs: bool,
     read: bool,
-    help: bool,
     native: Option<String>,
     native_default: bool,
     no_scope: bool,
@@ -53,95 +51,62 @@ fn native_request(options: &Options, values: &Environment) -> Result<Option<Stri
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(message.into())
 }
-fn unsupported(selection: &str) -> HostError {
-    invalid(format!(
-        "{selection} is unavailable during the Plan58 native cutover; no command or compatibility controller was started (58b/58f)"
-    ))
-}
+#[cfg(test)]
 fn parse(arguments: &[OsString]) -> Result<Options, HostError> {
+    use clap::Parser as _;
+    #[derive(clap::Parser)]
+    struct Boundary {
+        #[command(flatten)]
+        options: crate::cli::BoundaryArgs,
+    }
+    let args = Boundary::try_parse_from(
+        std::iter::once(OsString::from("pse-env")).chain(arguments.iter().cloned()),
+    )
+    .map_err(|error| invalid(error.to_string()))?;
+    options(args.options)
+}
+fn options(args: crate::cli::BoundaryArgs) -> Result<Options, HostError> {
     let mut result = Options::default();
-    let mut args = arguments.iter();
-    while let Some(argument) = args.next() {
-        match argument.to_str() {
-            Some("--") => {
-                result.command.extend(args.cloned());
-                break;
-            }
-            Some("--help" | "-h") => {
-                result.help = true;
-                break;
-            }
-            Some("--print" | "--explain") => {
-                result.read = true;
-                result.environment.push(argument.clone());
-            }
-            Some("--json") => result.environment.push(argument.clone()),
-            Some("--docs") => {
-                result.docs = true;
-                result.environment.push(argument.clone());
-            }
-            Some("--no-scope") => result.no_scope = true,
-            Some("--resource-class" | "--recipe-default-class") => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| invalid("resource class requires a value"))?
-                    .clone();
-                crate::admission::validate_class(
-                    value
-                        .to_str()
-                        .ok_or_else(|| invalid("resource class must be UTF-8"))?,
-                )?;
-                if argument == "--resource-class" {
-                    result.class = Some(value);
-                } else {
-                    result.recipe_class = Some(value);
-                }
-            }
-            Some("--cache") => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| invalid("--cache requires auto, on or off"))?;
-                result.cache = match value.to_str() {
-                    Some("auto") => CacheMode::Auto,
-                    Some("on") => CacheMode::On,
-                    Some("off") => CacheMode::Off,
-                    _ => return Err(invalid("--cache requires auto, on or off")),
-                };
-                result.environment.extend([argument.clone(), value.clone()]);
-            }
-            Some("--native") => {
-                result.native = Some(DEFAULT_NATIVE_CAPABILITIES.into());
-                result.native_default = true;
-            }
-            Some("--store" | "--bind-allocation") => {
-                return Err(unsupported(argument.to_str().unwrap_or("selection")));
-            }
-            Some(value) if value.starts_with("--native=") => {
-                let capabilities = value.trim_start_matches("--native=");
-                crate::native::validate_capabilities(capabilities)?;
-                result.native = Some(capabilities.to_owned());
-                result.native_default = false;
-            }
-            Some(value) if value.starts_with('-') => {
-                return Err(invalid("unknown boundary option; use --help"));
-            }
-            _ => {
-                result.command.push(argument.clone());
-                result.command.extend(args.cloned());
-                break;
-            }
+    result.docs = args.docs;
+    result.read = args.print || args.explain;
+    result.no_scope = args.no_scope;
+    result.class = args.resource_class.map(OsString::from);
+    result.recipe_class = args.recipe_default_class.map(OsString::from);
+    result.cache = args.cache.into();
+    result.command = args.command;
+    result.native_default = args.native.as_ref().is_some_and(Option::is_none);
+    result.native = args
+        .native
+        .map(|value| value.unwrap_or_else(|| DEFAULT_NATIVE_CAPABILITIES.into()));
+    if let Some(native) = &result.native {
+        crate::native::validate_capabilities(native)?;
+    }
+    for (enabled, name) in [
+        (args.print, "--print"),
+        (args.explain, "--explain"),
+        (args.json, "--json"),
+        (args.docs, "--docs"),
+    ] {
+        if enabled {
+            result.environment.push(name.into());
         }
     }
+    result.environment.extend([
+        OsString::from("--cache"),
+        OsString::from(match args.cache {
+            crate::cli::CacheArg::Auto => "auto",
+            crate::cli::CacheArg::On => "on",
+            crate::cli::CacheArg::Off => "off",
+        }),
+    ]);
     Ok(result)
 }
-fn root() -> Result<PathBuf, HostError> {
-    let mut root = std::env::current_dir()?;
-    while !root.join(".config/diagnostic-tools.toml").is_file() {
-        if !root.pop() {
-            return Err(invalid("run inside a pse-arrow checkout"));
-        }
+fn args_cache(cache: CacheMode) -> crate::cli::CacheArg {
+    match cache {
+        CacheMode::Auto => crate::cli::CacheArg::Auto,
+        CacheMode::On => crate::cli::CacheArg::On,
+        CacheMode::Off => crate::cli::CacheArg::Off,
     }
-    Ok(root)
 }
 fn known_selections(options: &Options, values: &Environment) -> Result<(), HostError> {
     native_request(options, values)?;
@@ -149,17 +114,13 @@ fn known_selections(options: &Options, values: &Environment) -> Result<(), HostE
 }
 
 /// Execute the supported ordinary command or fixed, source-free environment read.
-pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
-    let options = parse(arguments)?;
+pub(crate) fn execute(
+    args: crate::cli::BoundaryArgs,
+    selected_root: Option<&std::path::Path>,
+) -> Result<i32, HostError> {
+    let options = options(args)?;
     if options.native.is_some() && options.docs {
         return Err(invalid("--docs and --native select different environments"));
-    }
-    if arguments.is_empty() || options.help {
-        writeln!(
-            std::io::stdout(),
-            "pse-env [--docs] [--cache auto|on|off] [--native[=CAPABILITIES]] [--resource-class CLASS] -- command [args...]\npse-env --print | --explain [--json]\nNative foreground ownership; explicit preparation: scripts/bootstrap-host.\nNative providers require explicit preparation; store setup remains unavailable."
-        )?;
-        return Ok(0);
     }
     if options.read {
         if options.no_scope || options.class.is_some() || options.recipe_class.is_some() {
@@ -180,7 +141,18 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
             writeln!(std::io::stdout(), "{explanation}")?;
             return Ok(0);
         }
-        return Ok(environment::run_cli(&options.environment)?);
+        return Ok(environment::execute(
+            crate::cli::EnvironmentArgs {
+                print: options.environment.iter().any(|value| value == "--print"),
+                explain: options.environment.iter().any(|value| value == "--explain"),
+                json: options.environment.iter().any(|value| value == "--json"),
+                activation_data: false,
+                docs: options.docs,
+                root: None,
+                cache: args_cache(options.cache),
+            },
+            selected_root,
+        )?);
     }
     if options.environment.iter().any(|value| value == "--json") {
         return Err(invalid("--json requires --explain"));
@@ -195,7 +167,7 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
         overrides.insert("PSE_RESOURCE_CLASS".into(), class.clone());
     }
     let mut selected = environment::activate_with_options(
-        &root()?,
+        &crate::cli::checkout_root(selected_root)?,
         &caller,
         &overrides,
         options.cache,
@@ -203,7 +175,7 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
     )?
     .values;
     known_selections(&options, &selected)?;
-    let root = root()?;
+    let root = crate::cli::checkout_root(selected_root)?;
     let selection = crate::admission::Selection::load(
         &root,
         &selected,

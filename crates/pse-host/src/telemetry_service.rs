@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    ffi::{OsStr, OsString},
+    ffi::OsStr,
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     net::{Ipv4Addr, SocketAddrV4, TcpListener},
@@ -1176,77 +1176,14 @@ pub async fn recover_previous_configuration(
     inspect_with(&receipt.previous, &directory, &control).await
 }
 /// Native leaf command adapter. All stateful actions must be selected by name.
-pub async fn command(
+pub(crate) async fn execute(
     root: &Path,
     environment: &Environment,
-    arguments: &[OsString],
+    action: crate::cli::TelemetryAction,
 ) -> Result<Value, HostError> {
-    let Some(action) = arguments.first().and_then(|value| value.to_str()) else {
-        return Err(invalid(
-            "telemetry-service requires install|setup|inspect|start|stop|reconfigure|recover-configuration",
-        ));
-    };
-    if matches!(action, "--help" | "-h" | "help") {
-        return Ok(
-            json!({"usage":"telemetry-service install|setup|inspect|start|stop|reconfigure|recover-configuration [--state PATH] [setup: --port NAME=PORT --organization NAME --stream SIGNAL=NAME --retention-days DAYS]","passive":"inspect never installs, loads, repairs or starts","login_activation":"existing enabled deployments must be explicitly disabled before reconfiguration"}),
-        );
-    }
-    let mut state = None;
-    let mut options = SetupOptions::default();
-    let mut index = 1;
-    while index < arguments.len() {
-        let option = arguments[index]
-            .to_str()
-            .ok_or_else(|| invalid("telemetry option must be UTF-8"))?;
-        let value = arguments
-            .get(index + 1)
-            .ok_or_else(|| invalid("telemetry option requires a value"))?;
-        match option {
-            "--state" => {
-                if state.replace(PathBuf::from(value)).is_some() {
-                    return Err(invalid("duplicate telemetry state selection"));
-                }
-            }
-            "--port" if action == "setup" => {
-                let (name, port) = value
-                    .to_str()
-                    .and_then(|value| value.split_once('='))
-                    .ok_or_else(|| invalid("telemetry port must be NAME=PORT"))?;
-                let port = port.parse::<u16>().map_err(|_| {
-                    invalid("telemetry port must be an integer from 1 through 65535")
-                })?;
-                if options.ports.insert(name.into(), port).is_some() {
-                    return Err(invalid("duplicate telemetry listener selection"));
-                }
-            }
-            "--organization" if action == "setup" => {
-                options.organization = value
-                    .to_str()
-                    .ok_or_else(|| invalid("telemetry organization must be UTF-8"))?
-                    .into()
-            }
-            "--stream" if action == "setup" => {
-                let (name, stream) = value
-                    .to_str()
-                    .and_then(|value| value.split_once('='))
-                    .ok_or_else(|| invalid("telemetry stream must be SIGNAL=NAME"))?;
-                options.streams.insert(name.into(), stream.into());
-            }
-            "--retention-days" if action == "setup" => {
-                options.retention_days = value
-                    .to_str()
-                    .and_then(|value| value.parse().ok())
-                    .ok_or_else(|| invalid("telemetry retention must be an integer"))?
-            }
-            _ => return Err(invalid("unsupported telemetry command option")),
-        }
-        index += 2;
-    }
+    use crate::cli::TelemetryAction;
     match action {
-        "install" => {
-            if state.is_some() {
-                return Err(invalid("telemetry install has no state selection"));
-            }
+        TelemetryAction::Install => {
             let mut paths = BTreeMap::new();
             for name in TOOLS {
                 paths.insert(
@@ -1256,15 +1193,29 @@ pub async fn command(
             }
             Ok(json!({"installed":paths}))
         }
-        "setup" => setup(root, environment, state.as_deref(), &options).await,
-        "inspect" => inspect(environment, state.as_deref()).await,
-        "start" => start(environment, state.as_deref()).await,
-        "stop" => stop(environment, state.as_deref()).await,
-        "reconfigure" => reconfigure(environment, state.as_deref()).await,
-        "recover-configuration" => {
-            recover_previous_configuration(environment, state.as_deref()).await
+        TelemetryAction::Setup(args) => {
+            let mut options = SetupOptions {
+                organization: args.organization,
+                retention_days: args.retention_days,
+                ..SetupOptions::default()
+            };
+            for (name, port) in args.ports {
+                if options.ports.insert(name, port).is_some() {
+                    return Err(invalid("duplicate telemetry listener selection"));
+                }
+            }
+            for (name, stream) in args.streams {
+                options.streams.insert(name, stream);
+            }
+            setup(root, environment, args.state.as_deref(), &options).await
         }
-        _ => Err(invalid("unknown telemetry service operation")),
+        TelemetryAction::Inspect(args) => inspect(environment, args.state.as_deref()).await,
+        TelemetryAction::Start(args) => start(environment, args.state.as_deref()).await,
+        TelemetryAction::Stop(args) => stop(environment, args.state.as_deref()).await,
+        TelemetryAction::Reconfigure(args) => reconfigure(environment, args.state.as_deref()).await,
+        TelemetryAction::RecoverConfiguration(args) => {
+            recover_previous_configuration(environment, args.state.as_deref()).await
+        }
     }
 }
 #[cfg(test)]

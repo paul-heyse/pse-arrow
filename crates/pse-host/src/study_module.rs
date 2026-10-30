@@ -1311,91 +1311,30 @@ fn tool_root(env: &Environment) -> Result<PathBuf, HostError> {
     Ok(crate::paths::HostPaths::new(env).surreal_tools()?)
 }
 /// Narrow explicit setup surface. Selection requires an exact receipt, never current sources.
-pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
-    if arguments == [OsString::from("--help")]
-        || arguments == [OsString::from("-h")]
-        || (arguments.len() == 2
-            && matches!(arguments[0].to_str(), Some("prepare" | "select"))
-            && matches!(arguments[1].to_str(), Some("--help" | "-h")))
-    {
-        writeln!(
-            std::io::stdout(),
-            "study-module prepare [--tool-root PATH] [--qualification [--long-hold]] | select --receipt PATH [--qualification [--long-hold]]\nPreparation uses the already selected native server CLI; selection never builds or hashes source.\nLong-hold preparation builds an owned source snapshot with its declared alternate configuration. No database is started or changed."
-        )?;
-        return Ok(0);
-    }
-    let operation = arguments
-        .first()
-        .and_then(|value| value.to_str())
-        .ok_or_else(|| invalid("expected prepare or select"))?;
-    let mut qualification = false;
-    let mut long_hold = false;
-    let mut selected_record = None;
-    let mut selected_root = None;
-    let mut index = 1;
-    while index < arguments.len() {
-        match arguments[index].to_str() {
-            Some("--qualification") if !qualification => qualification = true,
-            Some("--long-hold") if !long_hold => long_hold = true,
-            Some("--receipt") if selected_record.is_none() => {
-                index += 1;
-                selected_record = Some(PathBuf::from(
-                    arguments
-                        .get(index)
-                        .ok_or_else(|| invalid("--receipt needs a path"))?,
-                ));
-            }
-            Some("--tool-root") if selected_root.is_none() => {
-                index += 1;
-                selected_root = Some(PathBuf::from(
-                    arguments
-                        .get(index)
-                        .ok_or_else(|| invalid("--tool-root needs a path"))?,
-                ));
-            }
-            _ => {
-                return Err(invalid(
-                    "unknown or duplicate study-module argument; use --help",
-                ));
-            }
-        }
-        index += 1;
-    }
-    if long_hold && !qualification {
-        return Err(invalid("--long-hold requires --qualification"));
-    }
-    let variant = if long_hold {
+pub(crate) fn execute(root: &Path, action: crate::cli::StudyAction) -> Result<i32, HostError> {
+    let variant = match &action {
+        crate::cli::StudyAction::Prepare { variant, .. }
+        | crate::cli::StudyAction::Select { variant, .. } => variant,
+    };
+    let variant = if variant.long_hold {
         Variant::LongHold
-    } else if qualification {
+    } else if variant.qualification {
         Variant::Qualification
     } else {
         Variant::Production
     };
-    let receipt = match operation {
-        "select" if selected_root.is_none() => select(
-            &selected_record.ok_or_else(|| invalid("select requires --receipt"))?,
-            variant,
-        )?,
-        "prepare" if selected_record.is_none() => {
-            let mut root = std::env::current_dir()?;
-            while !root.join(".config/diagnostic-tools.toml").is_file() {
-                if !root.pop() {
-                    return Err(invalid(
-                        "run explicit preparation inside the selected checkout",
-                    ));
-                }
-            }
+    let receipt = match action {
+        crate::cli::StudyAction::Select { receipt, .. } => select(&receipt, variant)?,
+        crate::cli::StudyAction::Prepare {
+            tool_root: selected_root,
+            ..
+        } => {
             let env = std::env::vars_os().collect();
             let tools = selected_root.map(Ok).unwrap_or_else(|| tool_root(&env))?;
             tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()?
-                .block_on(prepare(&root, &env, &tools, variant))?
-        }
-        _ => {
-            return Err(invalid(
-                "expected prepare [--tool-root PATH] or select --receipt PATH",
-            ));
+                .block_on(prepare(root, &env, &tools, variant))?
         }
     };
     serde_json::to_writer(std::io::stdout(), &receipt).map_err(invalid)?;

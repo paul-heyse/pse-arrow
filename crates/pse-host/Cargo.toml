@@ -12,6 +12,18 @@ homepage.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+[[bin]]
+name = "pse"
+path = "src/bin/pse.rs"
+
+[[bin]]
+name = "pse-host"
+path = "src/main.rs"
+
+[[bin]]
+name = "cargo-pse-correctness"
+path = "src/bin/cargo-pse-correctness.rs"
+
 [lib]
 doctest = false
 
@@ -19,6 +31,7 @@ doctest = false
 workspace = true
 
 [dependencies]
+clap.workspace = true
 pse-diagnostics.workspace = true
 pse-buildinfo.workspace = true
 thiserror.workspace = true

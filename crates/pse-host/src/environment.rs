@@ -798,66 +798,23 @@ fi
 "#;
 
 /// Fixed environment command: explanation and script generation never evaluate personal code.
-pub fn run_cli(arguments: &[OsString]) -> Result<i32, EnvironmentError> {
-    let mut print = false;
-    let mut explain = false;
-    let mut json = false;
-    let mut transfer = false;
-    let mut docs = false;
-    let mut selected_root = None;
-    let mut cache = CacheMode::Auto;
-    let mut args = arguments.iter();
-    while let Some(argument) = args.next() {
-        match argument.to_str() {
-            Some("--help" | "-h") => {
-                use std::io::Write as _;
-                std::io::stdout()
-                    .lock()
-                    .write_all(b"env --print|--explain [--json] [--docs] [--cache auto|on|off]\n")
-                    .map_err(|error| failure(error.to_string()))?;
-                return Ok(0);
-            }
-            Some("--print") => print = true,
-            Some("--explain") => explain = true,
-            Some("--json") => json = true,
-            Some("--activation-data") => transfer = true,
-            Some("--docs") => docs = true,
-            Some("--root") => {
-                selected_root = Some(PathBuf::from(
-                    args.next()
-                        .ok_or_else(|| failure("--root requires a path"))?,
-                ))
-            }
-            Some("--cache") => {
-                cache = match args.next().and_then(|arg| arg.to_str()) {
-                    Some("auto") => CacheMode::Auto,
-                    Some("on") => CacheMode::On,
-                    Some("off") => CacheMode::Off,
-                    _ => return Err(failure("--cache requires auto, on or off")),
-                }
-            }
-            _ => {
-                return Err(failure(
-                    "expected --print or --explain [--json] [--docs] [--cache auto|on|off]",
-                ));
-            }
-        }
-    }
-    if u8::from(print) + u8::from(explain) + u8::from(transfer) != 1
-        || (json && !explain)
-        || (selected_root.is_some() && !transfer)
-    {
-        return Err(failure("select exactly one environment operation"));
-    }
-    let mut root = selected_root
-        .unwrap_or(std::env::current_dir().map_err(|error| failure(error.to_string()))?);
-    while !root.join(".config/diagnostic-tools.toml").is_file() {
-        if !root.pop() {
-            return Err(failure(
-                "run environment selection inside a pse-arrow checkout",
-            ));
-        }
-    }
+pub(crate) fn execute(
+    options: crate::cli::EnvironmentArgs,
+    selected: Option<&Path>,
+) -> Result<i32, EnvironmentError> {
+    let crate::cli::EnvironmentArgs {
+        print,
+        explain: _,
+        json: _,
+        activation_data: transfer,
+        docs,
+        root: selected_root,
+        cache,
+    } = options;
+    let cache = cache.into();
+    let selected_root = selected_root.or_else(|| selected.map(Path::to_path_buf));
+    let root = crate::cli::checkout_root(selected_root.as_deref())
+        .map_err(|error| failure(error.to_string()))?;
     let caller = std::env::vars_os().collect();
     let output = if print {
         activation_script(

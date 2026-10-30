@@ -217,9 +217,9 @@ async fn passive_inspection_and_help_never_create_state_or_request_manager_effec
     let observed = inspect(&environment, Some(&selected)).await.unwrap();
     assert_eq!(observed["status"], "unconfigured");
     assert!(!selected.exists());
-    command(directory.path(), &environment, &["--help".into()])
-        .await
-        .unwrap();
+    use clap::Parser as _;
+    let help = crate::cli::Cli::try_parse_from(["pse", "telemetry-service", "--help"]).unwrap_err();
+    assert_eq!(help.kind(), clap::error::ErrorKind::DisplayHelp);
     assert!(!directory.path().join(".local").exists());
     let (_directory, environment, config) = fixture().await;
     let control = Control::new(&config);

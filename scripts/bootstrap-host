@@ -30,12 +30,12 @@ trap discard_incomplete EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
-for tool in pse-host cargo-pse-correctness; do
+for tool in pse pse-host cargo-pse-correctness; do
     cp -- "$root/target/debug/$tool" "$staged/$tool"
     chmod 700 "$staged/$tool"
     "$staged/$tool" --version 9>&-
 done
-# One selector publishes the completed pair. Running commands keep their actual
+# One selector publishes the completed tool set. Running commands keep their actual
 # immutable executable path, including nextest's invocation-local Cargo adapter.
 ln -s "$(basename -- "$staged")" "$staged/selection"
 mv -Tf -- "$staged/selection" "$selected/current"

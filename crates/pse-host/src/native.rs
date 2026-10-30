@@ -804,25 +804,7 @@ pub fn select(root: &Path, environment: &Environment) -> Result<Environment, Hos
     Ok(selected)
 }
 /// Execute the narrow explicit native preparation command within authenticated containment.
-pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
-    if arguments
-        .first()
-        .is_some_and(|value| value == "--help" || value == "-h")
-    {
-        writeln!(
-            std::io::stdout(),
-            "native prepare --capabilities compiler[,solver,klu,isolation,uno,petsc]\nRun explicitly through scripts/pse-env; native launches never prepare missing artifacts."
-        )?;
-        return Ok(0);
-    }
-    if arguments.len() != 3 || arguments[0] != "prepare" || arguments[1] != "--capabilities" {
-        return Err(invalid(
-            "expected native prepare --capabilities compiler[,solver,klu,isolation,uno,petsc]",
-        ));
-    }
-    let capabilities = arguments[2]
-        .to_str()
-        .ok_or_else(|| invalid("capabilities must be UTF-8"))?;
+pub(crate) fn execute(root: &Path, capabilities: &str) -> Result<i32, HostError> {
     providers::capabilities(capabilities)?;
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -837,12 +819,6 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
             }
             Ok::<(), HostError>(())
         })?;
-    let mut root = std::env::current_dir()?;
-    while !root.join(".config/diagnostic-tools.toml").is_file() {
-        if !root.pop() {
-            return Err(invalid("run inside the selected checkout"));
-        }
-    }
     let prepared = prepare_capabilities(&root, &std::env::vars_os().collect(), capabilities)?;
     for (capability, prefix) in prepared {
         writeln!(

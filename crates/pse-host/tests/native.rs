@@ -4,7 +4,6 @@
 #![cfg(test)]
 use pse_host::{environment::Environment, native};
 use std::{
-    ffi::OsString,
     fs::{File, OpenOptions},
     io::Write,
     process::{Command, Stdio},
@@ -15,12 +14,12 @@ use std::{
 fn native_cli_rejects_unsupported_profiles_without_effects() {
     for profile in [",", "ipopt", "compiler,ipopt", "compiler,klu,ipopt"] {
         assert!(
-            native::run_cli(&[
-                OsString::from("prepare"),
-                OsString::from("--capabilities"),
-                OsString::from(profile)
-            ])
-            .is_err()
+            !Command::new(env!("CARGO_BIN_EXE_pse-host"))
+                .args(["native", "prepare", "--capabilities", profile])
+                .output()
+                .unwrap()
+                .status
+                .success()
         );
     }
 }

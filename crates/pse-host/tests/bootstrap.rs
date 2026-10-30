@@ -28,6 +28,7 @@ fn checkout() -> tempfile::TempDir {
         "previous completed selection",
     )
     .unwrap();
+    executable(&root.path().join("target/debug/pse"), "#!/bin/sh\nexit 0\n");
     root
 }
 fn seed(root: &Path) -> Command {
@@ -65,6 +66,7 @@ fn successful_construction_publishes_only_completed_executable() {
         "#!/bin/sh\n[ -z \"${RUSTC_WRAPPER+x}\" ] || exit 92\n[ -z \"${RUSTC_WORKSPACE_WRAPPER+x}\" ] || exit 93\nexit 0\n",
     );
     let artifact = "#!/bin/sh\nprintf 'completed native selection\\n'\n";
+    executable(&root.path().join("target/debug/pse"), artifact);
     executable(&root.path().join("target/debug/pse-host"), artifact);
     executable(
         &root.path().join("target/debug/cargo-pse-correctness"),
@@ -78,6 +80,10 @@ fn successful_construction_publishes_only_completed_executable() {
     );
     assert_eq!(
         fs::read_to_string(root.path().join("target/host-tools/current/pse-host")).unwrap(),
+        artifact
+    );
+    assert_eq!(
+        fs::read_to_string(root.path().join("target/host-tools/current/pse")).unwrap(),
         artifact
     );
     assert_eq!(
