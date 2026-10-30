@@ -119,6 +119,13 @@ pub enum RuntimeInputObservation {
     NotCapturedByDiscovery,
 }
 
+/// Waiting for listing processes does not establish original physical descendant drain.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PhysicalScopeObservation {
+    /// The enclosing physical owner must still establish settlement.
+    NotEstablishedByDiscovery,
+}
+
 /// Exact selected-test handoff for reconciliation/rerun, with original binary and policy.
 #[derive(Debug, Serialize)]
 pub struct CapturedTest<'a> {
@@ -157,6 +164,11 @@ pub struct Inventory {
     pub setup: SetupObservation,
     /// Scope limit of captured bytes; inventory alone is not an execution-readiness grant.
     pub runtime_inputs: RuntimeInputObservation,
+    /// Independent physical settlement obligation, never inferred from Cargo/nextest exit.
+    pub physical_scope: PhysicalScopeObservation,
+    /// Live custody for the enclosing physical owner; serialized inventory grants no release.
+    #[serde(skip)]
+    pub generation_use: Option<generation::GenerationUse>,
 }
 impl Inventory {
     /// Actual selected tests; duplicate names in different binaries remain distinct.
@@ -248,6 +260,7 @@ fn output(
     mut command: Command,
     directory: &Path,
     stage: &'static str,
+    child_started: Option<&mut bool>,
 ) -> Result<Output, DiscoveryError> {
     let stdout = directory.join(format!("{stage}.stdout"));
     let stderr = directory.join(format!("{stage}.stderr"));
@@ -262,6 +275,9 @@ fn output(
         .mode(0o400)
         .open(&stderr)?;
     let mut child = command.stdout(stdout_file).stderr(stderr_file).spawn()?;
+    if let Some(started) = child_started {
+        *started = true;
+    }
     let status = child.wait().map_err(|error| DiscoveryError::Unsettled {
         stage,
         pid: child.id(),
@@ -307,12 +323,13 @@ pub fn list(
         .ok_or_else(|| invalid("native host is unprepared; run scripts/bootstrap-host"))?;
     let tools = checkout.join("target/host-tools");
     let generation_use = generation::GenerationUse::acquire(&tools, &prepared.generation)?;
+    let mut source_child_started = false;
     let result = (|| {
         directory(destination)?;
         let nextest = capture::executable(nextest, &destination.join("cargo-nextest"))?;
         let mut version = Command::new(&nextest.captured);
         version.arg("--version");
-        let version = output(version, destination, "version")?;
+        let version = output(version, destination, "version", None)?;
         let version = String::from_utf8(version.stdout)
             .map_err(|_| invalid("nextest version is not UTF-8"))?;
         let declared: toml::Value = toml::from_str(&fs::read_to_string(
@@ -366,11 +383,17 @@ pub fn list(
                 .env("PSE_CORRECTNESS_BUILD_CAPTURE", &build_directory)
                 .env("PSE_CORRECTNESS_EXECUTABLE", &correctness)
                 .env_remove("NEXTEST_TEST_PHASE");
-            let binary_output = output(build, &group_directory, "build")?;
+            let binary_output = output(
+                build,
+                &group_directory,
+                "build",
+                Some(&mut source_child_started),
+            )?;
             let mut binaries: BinaryListSummary = serde_json::from_slice(&binary_output.stdout)?;
             let captured: BuildCapture =
                 serde_json::from_slice(&fs::read(build_directory.join("build.json"))?)?;
-            if captured.version != 1 || captured.cargo_exit != 0 {
+            if captured.version != 1 || captured.cargo_exit != 0 || !captured.incomplete.is_empty()
+            {
                 return Err(invalid("source build capture is incomplete or failed"));
             }
             group.validate_resolution(&captured.resolution)?;
@@ -407,7 +430,7 @@ pub fn list(
                 .env_remove("NEXTEST_TEST_PHASE");
             enumerate.args(["--profile", runner_profile]);
             add_filters(&mut enumerate, resolved.plan());
-            let listing_output = output(enumerate, &group_directory, "list")?;
+            let listing_output = output(enumerate, &group_directory, "list", None)?;
             let listing: TestListSummary = serde_json::from_slice(&listing_output.stdout)?;
             validate_listing(&binaries, &listing, resolved.plan().ignored())?;
             groups.push(ListedGroup {
@@ -428,12 +451,17 @@ pub fn list(
             groups,
             setup: SetupObservation::NotRunByListing,
             runtime_inputs: RuntimeInputObservation::NotCapturedByDiscovery,
+            physical_scope: PhysicalScopeObservation::NotEstablishedByDiscovery,
+            generation_use: None,
         };
         capture::write_json(&destination.join("inventory.json"), &inventory)?;
         Ok(inventory)
     })();
-    if matches!(&result, Err(DiscoveryError::Unsettled { .. })) {
-        return result;
+    if source_child_started {
+        return result.map(|mut inventory| {
+            inventory.generation_use = Some(generation_use);
+            inventory
+        });
     }
     match (result, generation_use.settle()) {
         (Ok(value), Ok(())) => Ok(value),

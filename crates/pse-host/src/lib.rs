@@ -25,6 +25,7 @@ pub mod repository;
 pub mod selection;
 pub mod server;
 pub mod study_module;
+pub mod stream_records;
 pub use manager::{
     BorrowedService, BorrowedUnit, HostManager, LaunchIntent, OrdinaryPlacement, OwnedUnit,
     ResourceControls, ServiceSpec, UnitObservation,

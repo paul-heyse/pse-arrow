@@ -6,8 +6,10 @@ use cargo_metadata::{Artifact, Message};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
+    collections::BTreeMap,
+    fmt::Display,
     fs::{self, File, OpenOptions},
-    io::{self, BufRead, Read, Write},
+    io::{self, Read, Write},
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -151,6 +153,176 @@ pub struct BuildCapture {
     pub artifacts: Vec<BuiltArtifact>,
     /// Cargo child exit, independent of capture/forwarding success.
     pub cargo_exit: i32,
+    /// At most one bounded first cause per domain; a zero Cargo exit does not clear these.
+    pub incomplete: BTreeMap<CaptureFailureDomain, String>,
+}
+
+/// Independent capture domains; none establishes physical descendant settlement.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CaptureFailureDomain {
+    /// Original pipe could not be drained completely.
+    Read,
+    /// Raw storage stopped accepting bytes.
+    Storage,
+    /// A required record could not be decoded within the supported record policy.
+    Protocol,
+    /// A required executable could not be captured.
+    Artifact,
+    /// Original byte forwarding stopped accepting bytes.
+    Forwarding,
+    /// Retained raw storage could not be synchronized.
+    Synchronization,
+    /// Capture manifest publication failed.
+    Manifest,
+    /// Requested child termination failed after a pipe read failure.
+    Termination,
+}
+
+// This is a decoding contract for one Cargo JSON record, not a workload memory/CPU cap.
+// Oversized records remain fully streamed to storage/forwarding and make capture incomplete.
+const MAX_RECORD_BYTES: usize = 4 * 1024 * 1024;
+const MAX_CAUSE_CHARS: usize = 2048;
+type Failures = BTreeMap<CaptureFailureDomain, String>;
+
+fn first_failure(failures: &mut Failures, domain: CaptureFailureDomain, cause: impl Display) {
+    failures
+        .entry(domain)
+        .or_insert_with(|| cause.to_string().chars().take(MAX_CAUSE_CHARS).collect());
+}
+
+fn sink(
+    bytes: &[u8],
+    output: &mut impl Write,
+    domain: CaptureFailureDomain,
+    failures: &mut Failures,
+) {
+    if !failures.contains_key(&domain)
+        && let Err(error) = output.write_all(bytes).and_then(|()| output.flush())
+    {
+        first_failure(failures, domain, error);
+    }
+}
+
+fn record(
+    bytes: &[u8],
+    directory: &Path,
+    artifacts: &mut Vec<BuiltArtifact>,
+    failures: &mut Failures,
+) {
+    if failures.contains_key(&CaptureFailureDomain::Protocol)
+        || failures.contains_key(&CaptureFailureDomain::Artifact)
+    {
+        return;
+    }
+    if bytes
+        .iter()
+        .copied()
+        .find(|byte| !byte.is_ascii_whitespace())
+        != Some(b'{')
+    {
+        return;
+    }
+    let value: serde_json::Value = match serde_json::from_slice(bytes) {
+        Ok(value) => value,
+        Err(error) => {
+            first_failure(failures, CaptureFailureDomain::Protocol, error);
+            return;
+        }
+    };
+    if value.get("reason").and_then(serde_json::Value::as_str) != Some("compiler-artifact") {
+        return;
+    }
+    match serde_json::from_value::<Message>(value) {
+        Ok(Message::CompilerArtifact(artifact)) => {
+            if let Some(path) = &artifact.executable {
+                match executable(
+                    path.as_std_path(),
+                    &directory.join(format!("artifact-{}", artifacts.len())),
+                ) {
+                    Ok(executable) => artifacts.push(BuiltArtifact {
+                        cargo: artifact,
+                        executable,
+                    }),
+                    Err(error) => first_failure(failures, CaptureFailureDomain::Artifact, error),
+                }
+            }
+        }
+        Ok(_) => first_failure(
+            failures,
+            CaptureFailureDomain::Protocol,
+            "required compiler artifact decoded as another record",
+        ),
+        Err(error) => first_failure(failures, CaptureFailureDomain::Protocol, error),
+    }
+}
+
+fn consume_frame(
+    frame: crate::stream_records::Frame<'_>,
+    forwarded: &mut impl Write,
+    directory: &Path,
+    artifacts: &mut Vec<BuiltArtifact>,
+    failures: &mut Failures,
+) {
+    use crate::stream_records::Frame;
+    match frame {
+        Frame::Complete(bytes) => {
+            record(bytes, directory, artifacts, failures);
+            sink(bytes, forwarded, CaptureFailureDomain::Forwarding, failures);
+        }
+        Frame::Oversized { bytes, .. } => {
+            first_failure(
+                failures,
+                CaptureFailureDomain::Protocol,
+                "Cargo record exceeds the supported 4MiB decoding policy; raw stream retained independently",
+            );
+            sink(bytes, forwarded, CaptureFailureDomain::Forwarding, failures);
+        }
+        Frame::Truncated(bytes) => {
+            first_failure(
+                failures,
+                CaptureFailureDomain::Protocol,
+                "Cargo stream ended without a record delimiter; original bytes retained independently",
+            );
+            sink(bytes, forwarded, CaptureFailureDomain::Forwarding, failures);
+        }
+    }
+}
+
+fn drain(
+    input: &mut impl Read,
+    raw: &mut impl Write,
+    forwarded: &mut impl Write,
+    directory: &Path,
+    artifacts: &mut Vec<BuiltArtifact>,
+    failures: &mut Failures,
+) -> io::Result<()> {
+    use crate::stream_records::RecordFramer;
+    let mut chunk = [0_u8; 65536];
+    let limit = std::num::NonZeroUsize::new(MAX_RECORD_BYTES)
+        .ok_or_else(|| io::Error::other("record decoding policy is zero"))?;
+    let mut framer = RecordFramer::new(limit);
+    loop {
+        let count = match input.read(&mut chunk) {
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            result => result?,
+        };
+        if count == 0 {
+            break;
+        }
+        // Raw retention remains independent of record decoding and failed presentation sinks.
+        sink(
+            &chunk[..count],
+            raw,
+            CaptureFailureDomain::Storage,
+            failures,
+        );
+        framer.push(&chunk[..count], |frame| {
+            consume_frame(frame, forwarded, directory, artifacts, failures)
+        });
+    }
+    framer.finish(|frame| consume_frame(frame, forwarded, directory, artifacts, failures));
+    Ok(())
 }
 
 pub(super) fn write_json(path: &Path, value: &impl Serialize) -> Result<(), CorrectnessError> {
@@ -182,46 +354,23 @@ pub(crate) fn execute_build(
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()?;
-    let stdout = child
+    let mut stdout = child
         .stdout
         .take()
         .ok_or_else(|| invalid("Cargo stdout was not captured"))?;
-    let mut stdout = io::BufReader::new(stdout);
-    let mut failures = Vec::new();
+    let mut failures = Failures::new();
     let mut artifacts = Vec::new();
-    let mut line = Vec::new();
-    loop {
-        line.clear();
-        match stdout.read_until(b'\n', &mut line) {
-            Ok(0) => break,
-            Ok(_) => {}
-            Err(error) => {
-                failures.push(error.to_string());
-                let _ = child.kill();
-                break;
-            }
-        }
-        if let Err(error) = stream.write_all(&line) {
-            failures.push(error.to_string());
-        }
-        for message in Message::parse_stream(io::Cursor::new(&line)) {
-            if let Ok(Message::CompilerArtifact(artifact)) = message
-                && let Some(path) = &artifact.executable
-            {
-                match executable(
-                    path.as_std_path(),
-                    &directory.join(format!("artifact-{}", artifacts.len())),
-                ) {
-                    Ok(executable) => artifacts.push(BuiltArtifact {
-                        cargo: artifact,
-                        executable,
-                    }),
-                    Err(error) => failures.push(error.to_string()),
-                }
-            }
-        }
-        if let Err(error) = forwarded.write_all(&line).and_then(|()| forwarded.flush()) {
-            failures.push(error.to_string());
+    if let Err(error) = drain(
+        &mut stdout,
+        &mut stream,
+        forwarded,
+        directory,
+        &mut artifacts,
+        &mut failures,
+    ) {
+        first_failure(&mut failures, CaptureFailureDomain::Read, error);
+        if let Err(error) = child.kill() {
+            first_failure(&mut failures, CaptureFailureDomain::Termination, error);
         }
     }
     let status = child.wait()?;
@@ -229,23 +378,27 @@ pub(crate) fn execute_build(
     let cargo_exit = status
         .code()
         .unwrap_or_else(|| 128 + status.signal().unwrap_or(1));
+    if let Err(error) = stream.sync_all() {
+        first_failure(&mut failures, CaptureFailureDomain::Synchronization, error);
+    }
     let captured = BuildCapture {
         version: 1,
         resolution: resolution.clone(),
         artifacts,
         cargo_exit,
+        incomplete: failures.clone(),
     };
-    if let Err(error) = stream
-        .sync_all()
-        .map_err(CorrectnessError::from)
-        .and_then(|()| write_json(&directory.join("build.json"), &captured))
-    {
-        failures.push(error.to_string());
+    if let Err(error) = write_json(&directory.join("build.json"), &captured) {
+        first_failure(&mut failures, CaptureFailureDomain::Manifest, error);
     }
     if !failures.is_empty() {
         return Err(invalid(format!(
             "Cargo exited {cargo_exit}; artifact capture/forwarding failed: {}",
-            failures.join("; ")
+            failures
+                .iter()
+                .map(|(domain, cause)| format!("{domain:?}: {cause}"))
+                .collect::<Vec<_>>()
+                .join("; ")
         )));
     }
     Ok(cargo_exit)

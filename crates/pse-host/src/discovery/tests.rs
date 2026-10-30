@@ -124,6 +124,7 @@ fn metadata_cannot_invent_a_built_artifact_or_change_the_embedded_binary_id() {
         },
         artifacts: vec![],
         cargo_exit: 0,
+        incomplete: Default::default(),
     };
     assert!(
         pin_binaries(&mut declared, &captured)
@@ -192,6 +193,14 @@ fn explicit_real_host_listing_captures_actual_inventory_without_setup_or_provide
     )
     .unwrap();
     assert_eq!(inventory.setup, SetupObservation::NotRunByListing);
+    assert_eq!(
+        inventory.physical_scope,
+        PhysicalScopeObservation::NotEstablishedByDiscovery
+    );
+    assert!(
+        inventory.generation_use.is_some(),
+        "original pin custody remains with the physical owner"
+    );
     assert!(inventory.all_suites_listed());
     assert_eq!(inventory.selected_tests().len(), 1);
     assert!(

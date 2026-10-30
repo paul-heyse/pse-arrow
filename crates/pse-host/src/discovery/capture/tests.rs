@@ -114,8 +114,112 @@ fn forwarding_failure_still_waits_and_retains_original_child_status() {
     let build: BuildCapture =
         serde_json::from_slice(&fs::read(root.path().join("build.json")).unwrap()).unwrap();
     assert_eq!(build.cargo_exit, 9);
+    assert_eq!(build.incomplete.len(), 1);
+    assert!(
+        build
+            .incomplete
+            .contains_key(&CaptureFailureDomain::Forwarding)
+    );
     assert_eq!(
         fs::read(root.path().join("cargo-artifacts.jsonl")).unwrap(),
         b"original raw line\n"
+    );
+}
+
+#[test]
+fn failed_sinks_are_not_retried_and_failure_retention_does_not_grow_per_line() {
+    #[derive(Default)]
+    struct Closed {
+        attempts: usize,
+    }
+    impl Write for Closed {
+        fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+            self.attempts += 1;
+            Err(io::Error::other("closed sink"))
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+    let bytes = b"ordinary output\n".repeat(50_000);
+    let mut input = io::Cursor::new(&bytes);
+    let mut raw = Closed::default();
+    let mut forwarded = Closed::default();
+    let mut failures = Failures::new();
+    drain(
+        &mut input,
+        &mut raw,
+        &mut forwarded,
+        Path::new("/unused"),
+        &mut vec![],
+        &mut failures,
+    )
+    .unwrap();
+    assert_eq!(input.position(), bytes.len() as u64);
+    assert_eq!((raw.attempts, forwarded.attempts), (1, 1));
+    assert_eq!(failures.len(), 2);
+    assert!(failures.contains_key(&CaptureFailureDomain::Storage));
+    assert!(failures.contains_key(&CaptureFailureDomain::Forwarding));
+}
+
+#[test]
+fn oversized_record_is_streamed_in_full_and_capture_remains_incomplete() {
+    #[derive(Default)]
+    struct Count(usize);
+    impl Write for Count {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            assert!(bytes.iter().all(|byte| *byte == b'x' || *byte == b'\n'));
+            self.0 += bytes.len();
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+    let size = MAX_RECORD_BYTES * 3 + 19;
+    let mut input = io::repeat(b'x')
+        .take(size as u64)
+        .chain(io::Cursor::new(b"\n"));
+    let mut raw = Count::default();
+    let mut forwarded = Count::default();
+    let mut failures = Failures::new();
+    let mut artifacts = vec![];
+    drain(
+        &mut input,
+        &mut raw,
+        &mut forwarded,
+        Path::new("/unused"),
+        &mut artifacts,
+        &mut failures,
+    )
+    .unwrap();
+    assert_eq!((raw.0, forwarded.0), (size + 1, size + 1));
+    assert!(artifacts.is_empty());
+    assert_eq!(failures.len(), 1);
+    assert!(failures.contains_key(&CaptureFailureDomain::Protocol));
+}
+
+#[test]
+fn malformed_required_record_and_zero_child_exit_do_not_create_a_complete_capture() {
+    let root = tempfile::tempdir().unwrap();
+    fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let mut command = Command::new("/bin/sh");
+    command.args([
+        "-c",
+        "printf '%s\\n' '{\"reason\":\"compiler-artifact\",\"package_id\":3}'; exit 0",
+    ]);
+    let mut forwarded = vec![];
+    assert!(execute_build(command, &resolution(), root.path(), &mut forwarded).is_err());
+    let captured: BuildCapture =
+        serde_json::from_slice(&fs::read(root.path().join("build.json")).unwrap()).unwrap();
+    assert_eq!(captured.cargo_exit, 0);
+    assert!(
+        captured
+            .incomplete
+            .contains_key(&CaptureFailureDomain::Protocol)
+    );
+    assert_eq!(
+        forwarded,
+        fs::read(root.path().join("cargo-artifacts.jsonl")).unwrap()
     );
 }
