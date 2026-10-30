@@ -138,7 +138,10 @@ authenticated recovery evidence is separately attributed by the actual settlemen
 
 **Detached property set.** It does not reuse `start_service_inner`, because `RemainAfterExit=true`
 would leave the unit active(exited) and the finalizer would never run.
-- `Type=exec`, `RemainAfterExit=false`, `KillMode=control-group`.
+- `Type=notify`, `NotifyAccess=main`, `RemainAfterExit=false`, `KillMode=control-group`.
+  The service sends native readiness only after original invocation, origin lease (foreground),
+  payload custody and control readiness are established. Observe the matching manager job/unit
+  as acknowledgement; successful datagram transport alone is not startup completion.
 - `ExecStartEx`: the pinned generation's `pse __supervise <invocation-id>`.
 - `ExecStopPostEx`: that generation's `pse __finalize <invocation-id>`, which receives `$SERVICE_RESULT`, `$EXIT_CODE` and
   `$EXIT_STATUS`.
@@ -147,6 +150,24 @@ would leave the unit active(exited) and the finalizer would never run.
   supervisor's tee, so the two writers never interleave.
 - `WorkingDirectory`, `Environment` and `RuntimeMaxUSec`.
 - The usual `CollectMode`.
+
+**Library-owned lifecycle realization (operator-authorized October30).** Use pinned zbus/
+zbus_systemd for transient-service/dependency/job state, `sd-notify` for native readiness/status,
+and `tokio-graceful-shutdown` with a concrete host error type for named cooperative supervisor
+subsystems. Tokio/tokio-util own cancellation tokens and the appropriate task joins/tracking;
+independent errors remain collected, rather than fail-fast cleanup. Pipe/extractor custody must
+survive the control task's shutdown request until physical cancellation and required output
+observation have been attempted. `TaskTracker::close` does not close new-work admission;
+the actual parent-launch owner still supplies that cutoff. Async abort/runtime shutdown does
+not stop running blocking/Rayon work or establish external descendant drain.
+
+The installed systemd255 path governs capability selection, independently of generated bindings
+for262. Its `ExecStopPost` does not normally inherit fd-store descriptors (`EXEC_PASS_FDS` is
+on the main start path, not ordinary stop-post). Keep fd-store adoption conditional on an actual
+supported retention/recipient protocol; it cannot silently replace the finalizer's original
+cgroup identity authentication. No automatic restart/retry is selected for possibly committed
+operations. The actual notifier must reject an absent or unsupported notification endpoint
+rather than treat `sd-notify`'s optional no-op as managed readiness.
 
 **The supervisor** (`__supervise`):
 - Runs the child through the established ownership path. Current `foreground_placement` accepts

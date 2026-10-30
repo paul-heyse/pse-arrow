@@ -56,6 +56,10 @@ explicitly omits that lease after acknowledged launch. The supervisor stays in i
 cgroup; invoking current `run_owned` unchanged would move it into a scope and violate that
 ownership. Placement/admission are supplied by their shared owners.
 
+Use native `Type=notify`/main-process readiness after initialization, with the original manager
+job/unit observation as acknowledgement. Tokio/tokio-util and tokio-graceful-shutdown coordinate
+cooperative async subsystems; those completions do not establish external subtree settlement.
+
 Keep immutable original systemd root, actual current member and owned invocation subgroup as
 distinct capabilities. Create nested work beneath the authenticated current invocation/member,
 so cancelling A contains B. Authenticate opened directory/component/inode, boot/namespace and
