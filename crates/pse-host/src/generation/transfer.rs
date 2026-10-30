@@ -27,9 +27,25 @@ pub(super) struct UseHandoff {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Claim {
+    #[serde(with = "os_path")]
     tools: PathBuf,
     generation: String,
     record: String,
+}
+
+mod os_path {
+    use super::*;
+    pub(super) fn serialize<S: serde::Serializer>(
+        value: &Path,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        value.as_os_str().serialize(serializer)
+    }
+    pub(super) fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<PathBuf, D::Error> {
+        OsString::deserialize(deserializer).map(PathBuf::from)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -284,9 +300,21 @@ fn cancel(entry: &EntryGuard, target: GenerationUse) -> Result<(), HostError> {
     let settled = target.settle();
     match (restore, settled) {
         (Ok(()), Ok(())) => Ok(()),
-        (source, target) => Err(invalid(format!(
-            "exec handoff cleanup: source={source:?}; target={target:?}"
-        ))),
+        (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
+            operation: Box::new(operation),
+            cleanup: Box::new(cleanup),
+        }),
+        (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error),
+    }
+}
+
+fn failed(entry: &EntryGuard, target: GenerationUse, operation: HostError) -> HostError {
+    match cancel(entry, target) {
+        Ok(()) => operation,
+        Err(cleanup) => HostError::Settlement {
+            operation: Box::new(operation),
+            cleanup: Box::new(cleanup),
+        },
     }
 }
 
@@ -322,29 +350,29 @@ pub fn rebuild_and_reexec(
     // reaped; the requested new-work command has not dispatched or handed off any paths yet.
     let handoff = match begin(entry, &target, &reference) {
         Ok(value) => value,
-        Err(error) => {
-            cancel(entry, target)?;
-            return Err(error);
-        }
+        Err(error) => return Err(failed(entry, target, error)),
     };
-    let payload =
-        String::from_utf8(encoded(&handoff)?).map_err(|_| invalid("handoff is not UTF-8"))?;
-    if payload.len() > 4096 {
-        cancel(entry, target)?;
-        return Err(invalid("executable handoff locator exceeds its bound"));
-    }
-    let marker = String::from_utf8(encoded(&identity()?)?)
-        .map_err(|_| invalid("process identity is not UTF-8"))?;
+    let prepared = (|| {
+        let payload =
+            String::from_utf8(encoded(&handoff)?).map_err(|_| invalid("handoff is not UTF-8"))?;
+        if payload.len() > 4096 {
+            return Err(invalid("executable handoff locator exceeds its bound"));
+        }
+        let marker = String::from_utf8(encoded(&identity()?)?)
+            .map_err(|_| invalid("process identity is not UTF-8"))?;
+        Ok((payload, marker))
+    })();
+    let (payload, marker) = match prepared {
+        Ok(value) => value,
+        Err(error) => return Err(failed(entry, target, error)),
+    };
     let error = Command::new(executable)
         .args(arguments)
         .env("PSE_HOST_REEXEC", marker)
         .env(HANDOFF, payload)
         .exec();
     // exec returned, so no replacement process exists. Keep the original performing guard.
-    if let Err(cleanup) = cancel(entry, target) {
-        return Err(invalid(format!("exec failed: {error}; {cleanup}")));
-    }
-    Err(error.into())
+    Err(failed(entry, target, error.into()))
 }
 
 #[cfg(test)]

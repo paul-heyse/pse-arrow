@@ -193,3 +193,36 @@ fn loop_marker_is_scoped_to_actual_process_identity() {
     );
     assert!(!was_reexecuted(&inputs).unwrap());
 }
+
+#[test]
+fn claim_locators_preserve_non_utf8_unix_checkout_paths() {
+    use std::os::unix::ffi::OsStringExt;
+    let claim = Claim {
+        tools: PathBuf::from(OsString::from_vec(
+            b"/checkout/\xff/target/host-tools".to_vec(),
+        )),
+        generation: "generation.fixture".into(),
+        record: uuid::Uuid::new_v4().to_string(),
+    };
+    let decoded: Claim = serde_json::from_slice(&encoded(&claim).unwrap()).unwrap();
+    assert_eq!(
+        decoded.tools.as_os_str().as_bytes(),
+        claim.tools.as_os_str().as_bytes()
+    );
+}
+
+#[test]
+fn original_transfer_failure_and_both_cleanup_failures_are_preserved() {
+    let (_fixture, tools) = crate::generation::tests::installed_fixture();
+    let source = entry(&tools, "generation.fixture");
+    let target = GenerationUse::acquire(&tools, "generation.fixture").unwrap();
+    fs::remove_file(&source.usage.as_ref().unwrap().record).unwrap();
+    fs::remove_file(&target.record).unwrap();
+    let error = failed(&source, target, invalid("original transfer failure"));
+    let HostError::Settlement { operation, cleanup } = error else {
+        panic!("original failure was lost");
+    };
+    assert!(operation.to_string().contains("original transfer failure"));
+    assert!(matches!(*cleanup, HostError::Settlement { .. }));
+    source.complete(EntrySettlement::Unresolved).unwrap();
+}
