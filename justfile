@@ -1004,13 +1004,6 @@ build-uncached +args:
 activity *args:
     exec scripts/pse-host activity "$@"
 
-[group('env')]
-[doc('Git-owned worktree creation; pass literal git worktree add arguments, then prepare its native host explicitly')]
-[positional-arguments]
-[script("bash", "-euo", "pipefail")]
-worktree +args:
-    exec git worktree add "$@"
-
 [group('local')]
 [doc('Compile the native process measurement target with pinned native environment and force validation')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]

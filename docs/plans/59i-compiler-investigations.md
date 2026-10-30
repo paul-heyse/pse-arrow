@@ -127,7 +127,7 @@ extraction remain explicit instead of becoming empty successful answers.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [I01](#i01) | planned | 59i | Original diagnostic/probe/artifact foundation with explicit generation and context |
+| [I01](#i01) | in-progress | 59i | Original diagnostic reference/detail pages preserve native related spans, suggestions and context; explicit artifact generation follows |
 | [I02](#i02) | planned | 59i | Selected ownership, destruction and async investigations through lighter evidence routes |
 | [I03](#i03) | planned | 59i | Context-bound constant and concrete layout/ABI investigations |
 | [I04](#i04) | planned | 59i | Selected instance and MIR/code-generation investigations |
@@ -135,6 +135,20 @@ extraction remain explicit instead of becoming empty successful answers.
 
 <a id="i01"></a>
 ## I01 — Original evidence and explicit generation foundation
+
+The first slice exposes `compiler diagnostics INVOCATION` and addressed `compiler diagnostic`
+reads through the existing authenticated performing report and checked private artifact descriptor.
+It retains primary/secondary spans, child notes, exact replacement/applicability, macro context and
+optional opaque original JSON. Related records page against the original report, selected bytes,
+descriptor metadata and decoder/context identity. These observations never compile. Optional
+`--source` compares original native lines to independently acquired current source, maps original
+line/Unicode-scalar coordinates into current bytes and distinguishes changed raw offsets. B02 did
+not retain a full original-source digest or actual rustc version; both remain explicitly unknown,
+even when visible lines match. The original prepared host and admitted selected compiler context
+remain mandatory envelope provenance under projection. A native E0382 fixture already exercises
+the existing correctness admission/adapter and B02 decoder, then changes source before reading
+the retained native diagnostic. Explicit native artifact production and the I02–I04 consumers remain
+the next implementation boundary; no pin-specific driver or implicit replay is selected.
 
 **Consumes:** A03's output/source-location contract, A04's artifact resolver and A05's prepared
 tool identity; C07's working selected-operation slice for new compiler actions; B02's generic

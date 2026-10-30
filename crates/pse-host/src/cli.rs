@@ -20,6 +20,7 @@ mod api;
 pub mod bundle;
 mod changes;
 mod code;
+mod compiler;
 mod control;
 mod docs;
 mod probe;
@@ -27,6 +28,7 @@ mod product;
 mod selection;
 mod testing;
 mod tools;
+mod worktree;
 
 /// Selects the fixed executable protocol, never inferred from an executable filename.
 #[derive(Clone, Copy, Debug)]
@@ -72,6 +74,16 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Read retained native compiler diagnostics without rebuilding.
+    Compiler {
+        #[command(subcommand)]
+        action: compiler::Action,
+    },
+    /// Create prepared sibling worktrees or inspect native checkout users.
+    Worktree {
+        #[command(subcommand)]
+        action: worktree::Action,
+    },
     /// Attempt every independent Just recipe under one native foreground owner.
     RunAll(bundle::Options),
     #[command(name = "__bundle", hide = true)]
@@ -348,6 +360,7 @@ impl Command {
     fn generation_intent(&self) -> GenerationIntent {
         match self {
             Self::Tools { action } => action.intent(),
+            Self::Worktree { action } => action.intent(),
             Self::Wait(_) | Self::Cancel(_) => GenerationIntent::ExistingControl,
             Self::Observe { action } => action.intent(),
             Self::Probe { action } => action.intent(),
@@ -371,6 +384,7 @@ impl Command {
             | Self::Dep { .. }
             | Self::Changes(_)
             | Self::Code { .. }
+            | Self::Compiler { .. }
             | Self::Outline { .. }
             | Self::Show { .. }
             | Self::Artifact { .. }
@@ -792,6 +806,14 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "code query" => envelope::schema::<crate::source_query::QueryReport>(command, view),
         "code preview" => envelope::schema::<crate::source_query::PreviewReport>(command, view),
         "code origin" => envelope::schema::<crate::source_command::GeneratedOrigin>(command, view),
+        "compiler diagnostics" => {
+            envelope::schema::<crate::compiler_investigation::DiagnosticPage>(command, view)
+        }
+        "compiler diagnostic" => {
+            envelope::schema::<crate::compiler_investigation::DetailPage<'static>>(command, view)
+        }
+        "worktree new" => envelope::schema::<crate::worktree::NewReport>(command, view),
+        "worktree list" => envelope::schema::<crate::worktree::ListReport>(command, view),
         "api prepare" | "probe run" => envelope::schema::<ManagedReply>(command, view),
         "probe new" => envelope::schema::<crate::probe::Probe>(command, view),
         "probe rm" => envelope::schema::<PathBuf>(command, view),
@@ -1091,6 +1113,8 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
         Command::Docs(args) => docs::dispatch(args, selected, presentation, entry),
         Command::Api(args) => api::dispatch(args, &checkout_root(selected)?, presentation, entry),
         Command::Code { action } => code::dispatch(action, selected, presentation),
+        Command::Compiler { action } => compiler::dispatch(action, selected, presentation),
+        Command::Worktree { action } => worktree::dispatch(action, selected, presentation),
         Command::Dep {
             package,
             metadata,
@@ -2279,6 +2303,7 @@ pub fn main(kind: BinKind) -> ExitCode {
                                     | Command::Show { .. }
                                     | Command::Api(_)
                                     | Command::Code { .. }
+                                    | Command::Compiler { .. }
                             )
                         )
                         && (cli.fields.is_some() || cli.budget.is_some())

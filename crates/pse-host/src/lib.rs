@@ -17,6 +17,7 @@ pub mod artifacts;
 pub mod boundary;
 pub mod catalog;
 pub mod cli;
+pub mod compiler_investigation;
 pub mod correctness;
 pub mod dependency;
 pub mod diagnostic_tools;
@@ -51,6 +52,7 @@ pub mod stream_records;
 pub mod study_module;
 pub mod test_inventory;
 pub mod test_workflow;
+pub mod worktree;
 pub use manager::{
     BorrowedService, BorrowedUnit, CurrentMembership, HostManager, LaunchIntent, OrdinaryPlacement,
     OwnedUnit, ResourceControls, ServiceFinalizer, ServiceSpec, UnitObservation,

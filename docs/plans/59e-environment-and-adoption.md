@@ -157,7 +157,7 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [E01](#e01) | planned | 59e | `pse worktree new\|list\|rm`; `just worktree` retired; environment guide §Worktrees updated (direnv wording unchanged) |
+| [E01](#e01) | in-progress | 59e | `new`/`list` implemented with stage evidence, native-byte paths and passive original users; removal awaits the selected safety scope. Creation recipe retired; direnv behavior unchanged |
 | [E02](#e02) | superseded | 59e | Generic session brief/status-line target removed by review O01; existing passive status remains |
 | [E03](#e03) | in-progress | 59e (continuing) | Testing/runtime guidance, roles and active recipe consumers migrated with this wave; replaced generic/fixture recipes are deleted. Adoption of remaining feature verbs continues as they ship |
 | [E04](#e04) | complete | 59e | Current-work pointer links native status owners; lifecycle validate passed with zero errors |
@@ -165,6 +165,17 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 
 <a id="e01"></a>
 ### E01 — Worktrees ready on creation
+
+Current slice: sibling-name `new` and passive `list` are implemented through native Git/gix,
+the existing immutable host bootstrap and invocation-state owner. Partial creation preserves the
+destination, every original stage and its recovery route; unselected warm work remains skipped.
+Git's own repository-local environment list is cleared when selecting another checkout.
+The public `worktree_commands` test exercises original preparation exit 42 and subsequent passive
+inventory; unit tests cover native-byte linked paths, ancestry, dirty state, unchanged local
+configuration, ambient foreign Git selectors and standalone namespace registration. Full successful
+creation/copy qualification remains separate. `rm` is absent while the maintainer selects whether
+to defer it or establish a checkout-wide cooperative retirement boundary; a passive inventory and
+terminal history are not deletion authority. The remaining removal acceptance below is unchanged.
 
 **Consumes:**
 - [59a A04](59a-cli-foundation.md#a04) (store, checkout ID) and [A05](59a-cli-foundation.md#a05)

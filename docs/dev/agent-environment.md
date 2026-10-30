@@ -227,15 +227,23 @@ and targets; do not create cold copies merely to split a matrix.
 ## Worktrees
 
 ```bash
-just worktree ../pse-arrow-other -b other HEAD
+scripts/pse worktree new pse-arrow-other --branch other --base HEAD
+scripts/pse worktree list
 ```
 
-This forwards literal arguments to `git worktree add`. It does not install Python, build a
-native host or run doctor. Prepare the new checkout explicitly and supply its personal
-`.envrc.local` deliberately; review/allow its direnv configuration. Every worktree has its own
+Creation uses a sibling directory, copies the selected checkout's `.envrc.local` bytes and mode,
+and explicitly prepares the new native host with `bootstrap-host --from`. A matching completed
+generation is copied; changed source inputs use an explicit local build. Original Git, configuration,
+preparation, registration and optional `--warm` launch results remain separate. A failure leaves
+the created checkout present with its recovery route. Review/allow its direnv configuration. Every worktree has its own
 `target/`. Never set `CARGO_TARGET_DIR` or share targets between checkouts (ADR-0122). The
 sccache cache is shared. Remove a worktree only after integrating its changes and preserving
 necessary evidence, using `git worktree remove PATH`.
+
+`worktree list` observes Git paths, direct commit ancestry, dirty paths and recorded native
+invocation users without preparing tools or settling owners. Unknown native facts remain unknown;
+neither a terminal result nor this inventory grants removal authority. `--warm` submits the existing
+detached workspace check after successful preparation; its acknowledgement is not build completion.
 
 ## Choosing tests
 

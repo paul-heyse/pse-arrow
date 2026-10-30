@@ -326,9 +326,10 @@ so follow the same policy for every action.
 ## Personal-project checkout workflow
 
 Use the existing checkout on `main` for ordinary development and GitHub updates. Use a
-worktree only when concurrent agents genuinely need isolation — `just worktree <git-add-args>`
-passes literal arguments to Git. Copy the maintainer-selected `.envrc.local` into the new
-checkout before starting work, and explicitly prepare its own native host. Coordinate file
+worktree only when concurrent agents genuinely need isolation — `scripts/pse worktree new NAME`
+creates a sibling checkout, copies the maintainer-selected `.envrc.local` bytes/mode and explicitly
+prepares its own native host. Inspect independent preparation stages and `scripts/pse worktree list`.
+Review/allow the new checkout's direnv configuration. Coordinate file
 ownership, preserve other agents' uncommitted changes, and remove fully merged worktrees. Never set `CARGO_TARGET_DIR` or point two
 checkouts at one target directory (ADR-0122); the sccache cache is shared. Details:
 [agent environment guide](docs/dev/agent-environment.md#worktrees).
