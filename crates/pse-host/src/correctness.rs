@@ -138,7 +138,7 @@ fn arrow(package: &Package) -> bool {
 }
 
 /// The validated original scope, with qualified features and selected diagnostic isolation.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct Resolution {
     /// Actual Cargo arguments, excluding its executable.
     pub arguments: Vec<OsString>,
@@ -152,7 +152,9 @@ pub struct Resolution {
 }
 
 /// Cargo's selected compiler-unit context, retained without collapsing host/target instances.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub struct CompilerUnit {
     /// Cargo package identity; names alone cannot join versions or sources.
     pub package_id: String,
@@ -1022,6 +1024,30 @@ pub fn run(
 mod tests {
     use super::*;
     use serde_json::{Value, json};
+
+    #[test]
+    fn resolution_schema_preserves_non_utf8_operating_system_arguments() {
+        use std::os::unix::ffi::OsStringExt;
+        let resolution = Resolution {
+            arguments: vec![OsString::from_vec(vec![b'-', 0xff])],
+            packages: vec![],
+            units: vec![],
+            native_capabilities: BTreeSet::new(),
+        };
+        let value = serde_json::to_value(&resolution).unwrap();
+        assert_eq!(value["arguments"][0], json!({"Unix":[45,255]}));
+        let schema = schemars::generate::SchemaSettings::default()
+            .for_serialize()
+            .into_generator()
+            .into_root_schema_for::<Resolution>();
+        let validator = jsonschema::validator_for(schema.as_value()).unwrap();
+        assert!(validator.is_valid(&value));
+        let mut lossy = value.clone();
+        lossy["arguments"][0] = json!("lossy string");
+        assert!(!validator.is_valid(&lossy));
+        let restored: Resolution = serde_json::from_value(value).unwrap();
+        assert_eq!(restored.arguments, resolution.arguments);
+    }
     #[test]
     fn usage_failure_reports_no_generation_resource_effects() {
         let mut settlement = crate::generation::EntrySettlement::Unresolved;

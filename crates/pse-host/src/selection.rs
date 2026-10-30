@@ -7,11 +7,12 @@
 
 use crate::correctness::{self, CorrectnessError};
 use cargo_metadata::Metadata;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, ffi::OsString};
 
 /// Compiler action shared by test, check, discovery and explain consumers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum Operation {
     /// Source-built tests; listing is a separate explicit preparation step.
@@ -21,7 +22,7 @@ pub enum Operation {
 }
 
 /// Ignored tests remain part of selection identity, including exact reruns.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum IgnoredPolicy {
     /// Run ordinary tests only.
@@ -34,7 +35,7 @@ pub enum IgnoredPolicy {
 }
 
 /// Literal filter inputs. The test runner owns filter grammar and matching.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Filters {
     /// Bare test-name words, retained independently of full filtersets.
     pub words: Vec<String>,
@@ -43,7 +44,7 @@ pub struct Filters {
 }
 
 /// One intended feature context. Absence controls must survive grouping and admission.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Features {
     /// Whether Cargo's default features are enabled.
     pub defaults: bool,
@@ -66,7 +67,7 @@ impl Default for Features {
 }
 
 /// Explicit target intent; kind disambiguates a same-named bin and integration target.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct TargetIntent {
     /// Cargo target name.
     pub name: String,
@@ -75,7 +76,7 @@ pub struct TargetIntent {
 }
 
 /// One independently meaningful package/target and feature context.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct PackageIntent {
     /// Exact Cargo package ID or unambiguous workspace package name.
     pub package: String,
@@ -120,7 +121,7 @@ pub struct Request {
 }
 
 /// Declared target identity; this is not a binary identity.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct DeclaredTarget {
     /// Target name.
     pub name: String,
@@ -133,7 +134,7 @@ pub struct DeclaredTarget {
 }
 
 /// A compatible Cargo invocation. Independent contexts are never feature-unioned.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Group {
     package_id: String,
     package_name: String,
@@ -200,7 +201,7 @@ impl Group {
 }
 
 /// Pure normalized intent. Explain can render this without building or listing.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Plan {
     operation: Operation,
     groups: Vec<Group>,
@@ -251,7 +252,7 @@ impl Plan {
 
 /// One admitted operation for explain, capability/fixture resolution and execution.
 /// There are deliberately no binary paths or test IDs until explicit build/list preparation.
-#[derive(Debug)]
+#[derive(Debug, Serialize, JsonSchema)]
 pub struct Resolved {
     plan: Plan,
     admitted: Vec<correctness::Resolution>,
