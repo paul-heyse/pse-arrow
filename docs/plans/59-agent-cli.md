@@ -428,14 +428,14 @@ an agreed interface. The native lifecycle bindings mirror these dependencies.
 | G02/G03 | Working owned analyzer placement from B03, A03/A04/A05 and selected C07 context | Sessions outlive queries; no test-fixture or generic packet gate. |
 | G04–G07; H01–H05; I01–I04 | Their actual semantic, documentation, selected diagnostic/probe producers | Preserve each companion's bounded prerequisites. Original compiler facts do not require live analysis or generic D01 composition. |
 | G09/H06 and failure next actions | Their available original producers and A03 views | Direct consumer integration; no base brief/packet prerequisite. |
-| J01/J02; G07/G08 | Existing D03 source, A03 addressed views; J02 proposals for edit producers | Minimal J01/J02 exception only. No D08 transaction gate. J03–J05 remain outside execution scope. |
+| J01–J05; G07/G08 | Existing D03 source, A03 addressed views; J02 proposals for edit producers | Entire J scope is authorized in the remaining-series wave. Syntax has no semantic-session or D08 transaction gate. |
 | E01 / E03 | Actual worktree users / each delivered verb | Worktree removal still requires genuine user safety; no generation-GC qualification gate. Guidance and deletions accompany migrated callers. |
 
-The next implementation wave starts with A09 and the bounded C02/C06/C08 foundation decisions,
-then delivers foreground and detached consumers, native report composition and selected fixtures
-in coherent slices. These dependencies do not authorize restarting implementation. Delete
-replaced mechanisms with migrated consumers and targeted acceptance; do not preserve compatibility
-paths or port tests for mechanisms deliberately removed. Final assembled checks run at scope end.
+The foundation and testing wave is delivered. The remaining-series wave consumes those owners
+for product, source, semantic, API and compiler capabilities; package tables own readiness and
+acceptance. Delete replaced mechanisms with migrated consumers and targeted acceptance; do not
+preserve compatibility paths or port tests for mechanisms deliberately removed. Final assembled
+checks run at scope end.
 
 <a id="foundation-state"></a>
 ## Foundation state
@@ -486,18 +486,20 @@ completed simplification/testing wave, not the boundary of this new execution.
 D05/D08 remain deferred and E02 superseded; conditional investigations keep their
 recorded adoption criteria. The existing B/C owners remain the runtime/test foundation.
 
-The first integrated slice extends producer-owned output and addressed source/proposals,
-isolated authored probes and exact-format API acquisition, and passive product follow plus
-explicit capture/analysis/export. Typed unprojected output now serializes directly; fixed
-arrays/tuples remain indivisible under record budgets. Source pages and product continuations
-retain their own source/context. API acquisition uses the pinned toolchain's observed
-rustdoc format 61. Semantic sessions, broader API/compiler consumers, worktree commands,
-generated references and remaining source queries are still open. No assembled-series
-completion or performance benefit is claimed by this checkpoint.
+The selected F product consumers and H API/dependency consumers now pass their actual public
+journeys; their outcomes own exact scope and limitations. J's server-free source/query/preview
+producers and shared version2 proposal are integrated. Worktree creation/listing and original
+compiler diagnostic reads are delivered. The native semantic session implementation is integrated;
+its main-checkout public controls pass11/11. Independent review identified omitted effective
+workspace inputs and stale compiled macro inputs; those preparation fences are being corrected
+before G acceptance. The remaining compiler-artifact/probe-custody contribution is being finished
+in its isolated checkout.
 
-Next integrate the actual source/probe/product CLI consumers and targeted controls, then
-advance J03 and the dependent API/semantic/compiler producers on their actual prerequisites.
-Static and assembled qualification remains at functional scope end.
+Next integrate those bounded corrections, join original diagnostics to explicitly fresh source
+observations, publish the final parser-derived references and qualify the assembled series.
+E01's removal/admission scope decision remains with the maintainer; no deletion feature or selected
+deferral is implied by the question. Static and assembled qualification remains at functional scope
+end. No whole-series completion or performance benefit is claimed by this checkpoint.
 
 ### First remaining-feature integration outcome — 2026-10-30
 
