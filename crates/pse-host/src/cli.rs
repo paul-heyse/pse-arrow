@@ -67,11 +67,11 @@ pub(crate) struct Cli {
 #[derive(Debug, Subcommand)]
 enum Command {
     /// Explicitly build/list the actual selected native test population.
-    Tests(selection::TestArgs),
+    Tests(testing::Tests),
     /// Build, execute and reconcile the actual selected native tests.
-    Test(selection::TestArgs),
+    Test(testing::Tests),
     /// Check the selected source through the correctness and compiler observation owners.
-    Check(selection::SelectionArgs),
+    Check(testing::Check),
     #[command(name = "__workflow", hide = true)]
     Workflow(ManagedEntryArgs),
     /// Explicit captured development-tool preparation, discovery and managed native forwarding.
@@ -759,24 +759,27 @@ fn dispatch(
         )),
         Command::Tests(args) => testing::start(
             crate::test_workflow::execute::Action::List,
-            args.request()?,
-            args.profile,
+            args.selection.request()?,
+            args.selection.profile,
+            args.run,
             selected,
             entry,
             presentation,
         ),
         Command::Test(args) => testing::start(
             crate::test_workflow::execute::Action::Test,
-            args.request()?,
-            args.profile,
+            args.selection.request()?,
+            args.selection.profile,
+            args.run,
             selected,
             entry,
             presentation,
         ),
         Command::Check(args) => testing::start(
             crate::test_workflow::execute::Action::Check,
-            args.request(crate::selection::Operation::Check)?,
+            args.selection.request(crate::selection::Operation::Check)?,
             "default".into(),
+            args.run,
             selected,
             entry,
             presentation,
@@ -1730,7 +1733,13 @@ pub fn main(kind: BinKind) -> ExitCode {
             None // Bootstrap's raw probe precedes manifest publication.
         } else {
             match EntryGuard::acquire_current() {
-                Ok(entry) => Some(entry),
+                Ok(mut entry) => {
+                    if let Err(error) = entry.promote() {
+                        let _ = writeln!(io::stderr(), "arrow-validation: {error}");
+                        return ExitCode::from(2);
+                    }
+                    Some(entry)
+                }
                 Err(error) => {
                     let _ = writeln!(io::stderr(), "arrow-validation: {error}");
                     return ExitCode::from(2);
@@ -1882,6 +1891,7 @@ pub fn main(kind: BinKind) -> ExitCode {
                             );
                         }
                         if intent != GenerationIntent::Passive {
+                            entry.promote()?;
                             settlement = EntrySettlement::Unresolved;
                         }
                         dispatch(cli, &presentation, &entry, &mut settlement)

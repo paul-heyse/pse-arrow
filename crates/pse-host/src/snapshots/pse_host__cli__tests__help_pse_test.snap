@@ -29,6 +29,8 @@ Options:
   -E, --filterset <EXPRESSIONS>    Native nextest filtersets; nextest owns their grammar
       --ignored <IGNORED>          [default: default] [possible values: default, only, all]
       --profile <PROFILE>          Selected nextest policy profile, without running its setup during explain [default: default]
+      --detach                     Return the original managed launch identity and leave its owner running
+      --session <SESSION>          Correlate this operation with an agent session without granting control authority
   -h, --help                       Print help (see more with '--help')
 --help
 Build, execute and reconcile the actual selected native tests
@@ -109,6 +111,12 @@ Options:
           Selected nextest policy profile, without running its setup during explain
 
           [default: default]
+
+      --detach
+          Return the original managed launch identity and leave its owner running
+
+      --session <SESSION>
+          Correlate this operation with an agent session without granting control authority
 
   -h, --help
           Print help (see a summary with '-h')

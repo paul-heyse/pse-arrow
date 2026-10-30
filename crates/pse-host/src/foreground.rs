@@ -63,7 +63,7 @@ pub fn trampoline(arguments: &[OsString]) -> Result<i32, HostError> {
         .map_err(|error| HostError::Ownership(format!("foreground gate: {error}")))?;
     let mut gate = std::fs::File::from(descriptor);
     // Descriptor initialization/ownership above must precede every generation file open.
-    let entry = crate::generation::EntryGuard::acquire_current()?;
+    let mut entry = crate::generation::EntryGuard::acquire_current()?;
     let operation = (|| {
         let mut release = [0_u8; 1];
         match gate.read_exact(&mut release) {
@@ -77,6 +77,7 @@ pub fn trampoline(arguments: &[OsString]) -> Result<i32, HostError> {
             Err(error) => return Err(error.into()),
         }
         drop(gate);
+        entry.promote()?;
         exec_result(Command::new(&arguments[0]).args(&arguments[1..]).exec())
     })();
     // A successful exec never returns here. Returned paths acquired no child/resource
