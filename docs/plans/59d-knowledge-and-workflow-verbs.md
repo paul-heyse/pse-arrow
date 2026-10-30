@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md]
 ---
 
 # Knowledge and workflow verbs
@@ -28,6 +28,13 @@ Sources: [O06](../functional_reviews/rust-agent-cli-2026-10-29.md#O06) (generate
 [O16](../functional_reviews/rust-agent-cli-2026-10-29.md#O16),
 [O17](../functional_reviews/rust-agent-cli-2026-10-29.md#O17),
 [O18](../functional_reviews/rust-agent-cli-2026-10-29.md#O18).
+
+The amendment incorporates [new O07–O08](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O07),
+[I09](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I09),
+[I10](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I10) and
+[I11](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I11).
+The target is **Proposed**; no stopped/reverted implementation is reinstated. D02's recorded
+trial remains evidence of that trial only.
 
 Rule basis:
 - [R4](59-agent-cli.md#rule-changes): documents inform instead of block.
@@ -84,24 +91,26 @@ one checkout.
 
 ## Target
 
-Each verb is a host subcommand. Where the owner of the knowledge is xtask, the verb is
-**federated**: its schema comes from the generated xtask export ([59a A06](59a-cli-foundation.md#a06)),
-and dispatching it runs xtask through the correctness adapter. Prebuilt xtask is reused when
-current.
+Each verb is a host subcommand. Where the owner of the knowledge is xtask, the verb delegates
+to its authoritative parser through [59a A06](59a-cli-foundation.md#a06). Owner-generated
+discovery/help is associated with the executable/schema version; it cannot reconstruct
+arbitrary typed parsers, validators or dynamic semantics. The owner validates before effects.
+Preparation is explicit; help/catalogue reads never build an unprepared owner. Execution uses
+a current, immutable captured xtask selected through A05 rather than a mutable Cargo output.
 
 | Verb | Owner | Behaviour |
 | --- | --- | --- |
 | `pse changes [--base REF]` | host | Changed paths grouped by owning crate; generated and protected paths with their regeneration verb (from the map below); affected tests as a ready `pse test --changed`; applicable `.claude/rules/*` by path scope; content-hash hunk IDs for `pse commit`. |
 | `pse brief [--paths …] [--libraries …]` | host | A delegation packet: HEAD and dirty state, active plan pointers, applicable rule files with content hashes, exact pins, features and overview paths for the named libraries, the evidence-label vocabulary, and document conventions. |
 | `pse dep <crate>` | host | Exact locked version, enabled features, workspace users, `[workspace.metadata.pse.pins]` reason, locked source path and `docs/libraries` overview. |
-| `pse api <crate> <path>`, `pse api <crate> --search W` | host | Item signature, docs, feature gates and source location, from rustdoc JSON generated once per (crate, version, features). Cached in `<store>/api/`. Re-exports into another crate also generate that crate's JSON. `format_version` is checked first; a mismatch is one diagnostic naming the `rustdoc-types` bump. |
-| `pse probe new\|run\|rm <name> --deps …` | host | Scratch crate under `<store>/probes/` with a copied `rust-toolchain.toml`, a `Cargo.lock` seeded from the workspace lock, and the workspace's feature selections. It runs through the ordinary placement path. Probes are throwaway. |
+| `pse api <crate> <path>`, `pse api <crate> --search W` | host | Item signature, docs, feature gates and source location, from rustdoc JSON keyed by exact package/version and source identity, resolved features, target/cfg, pinned toolchain and rustdoc format. Cached in `<store>/api/`. Re-exports generate the addressed crate's JSON in that same context. Check `format_version` before decoding; report unsupported format with a remedy. |
+| `pse probe new\|run\|rm <name> --deps …` | host | Scratch crate under `<store>/probes/`, copied toolchain pin, seeded workspace lock and explicit selected features. A separate target/build context isolates artifacts; report actual scratch resolution and its source/target/toolchain identity. The workspace lock is unchanged; a copied lock does not freeze every modified scratch manifest. Runs use ordinary placement and disposal refuses live users. |
 | `pse outline <file>`, `pse show <file>::<item>` | host | Server-free syntactic extraction with line numbers: items, impls and tests via `syn` with span locations; headings for Markdown. |
 | `pse owner <path>` | host | Generator plus narrowest regeneration verb for generated paths; section ID plus route for architecture documents; supersession for accepted ADRs; crate and owning plan for code. |
-| `pse docs check [--changed\|<files…>]` | xtask (federated) | Pinned `lychee --offline --include-fragments` over the files, plus `metadata.rs` front-matter validation, `#section-N-M` link resolution against `section_owners`, review `O`-anchor checks and README index presence. Reported as O02 diagnostics. |
+| `pse docs check [--changed\|<files…>]` | xtask (delegated) | Pinned `lychee --offline --include-fragments` over named/changed files, plus metadata, section/O-anchor and README index checks. Typed diagnostics distinguish changed-file issues from external/historical issues. No automatic historical cleanup or unrelated check expansion. |
 | `pse ref <ID>` | xtask (federated) | ADR number → title, status, decision and supersession (`adr::inspect`); `§N.M` → section file and anchor (`section_owners`); plan packet, review `O` IDs and DP/AP IDs → file, heading and lead paragraph. |
 | `pse new review\|plan\|probe <slug>` | xtask (federated) | Pre-decided placement and name, front matter, standard version from `standard.toml`, HEAD as baseline, evidence labels and a README index stub. `pse new plan` moves `just plan`'s bash numbering into xtask. `pse new adr` routes to `xtask adr new`. |
-| `pse commit --paths … [--hunk ID…] -m … [--trailer …]` | host | Builds the commit from a private `GIT_INDEX_FILE` (HEAD plus exactly the named paths or hunks). Advances HEAD with a compare-and-swap (`git update-ref HEAD <new> <old>`), then refreshes only those entries in the shared index. Hunk IDs are content hashes and a changed hunk refuses. Files committed whole are formatted with the pinned formatters before commit; the formatted content is written back only if the file is unchanged since it was read. In hunk mode formatting is reported only. A touched generator input adds a `next` hint to run its scoped `codegen-check`; it is not a gate. Trailers are applied with `git interpret-trailers`. Never pushes. |
+| `pse commit --paths … [--hunk ID…] -m … [--trailer …]` | host | Proposed private-index tree construction (HEAD plus named paths/hunks), conditional HEAD publication and concurrency-safe shared-index reconciliation under the strategy decided by D09. Content-hash hunk IDs refuse stale selection. Whole-file formatting uses pinned tools and preserves concurrent content edits; hunk mode only reports formatting. A touched generator adds its scoped drift-check hint, not a gate. Trailers use `git interpret-trailers`. Report whether publication occurred, including committed-with-unreconciled-index. Never automatically retry publication or push. |
 
 **Generated-outputs map (one authority).**
 - `just codegen` emits a generated JSON map. For each `--only` target it records:
@@ -132,16 +141,23 @@ current.
 
 ### Decisions with reasons
 
-- **Federate rather than port documentation verbs.** xtask already owns metadata, section
+- **Delegate rather than port documentation verbs.** xtask already owns metadata, section
   anchors, the ADR index and lifecycle. Porting them into the host would duplicate those
-  interpreters (DP-01). The federated schema keeps them in the `pse` catalog and help.
+  interpreters (DP-01). Its owner-generated catalogue supplies discovery, while its own parser
+  remains authoritative. D07 publishes that discovery without becoming an execution grammar.
 - **lychee for links.** A pinned, maintained link checker with fragment support (DP-13) does the
   work. Only the publish-time section anchors need the xtask-side map.
 - **`rustdoc-types` for API lookup.** It reads the exact locked version with unified features,
-  which docs.rs cannot. The existing `rustdoc-mcp` server is trialled for Claude in D02; if it
-  serves, `pse api` reduces to producing the JSON it reads.
-- **A private index for commits.** It removes the shared-index race, which was the reason only the
-  coordinator committed (R5).
+  which docs.rs cannot establish for this checkout. The D02 Claude trial rejected the existing
+  `rustdoc-mcp` server under this pin; full lookup and context-keyed JSON generation remain
+  planned in `pse api`.
+- **A private index for tree construction.** It isolates proposed staging, but HEAD publication
+  and shared-index refresh are separate transactions. D09 must settle their interaction before
+  D08 adoption; a private index alone does not preserve concurrent same-path staged intent.
+- **Delegated product inspection.** [59f F01](59f-simulation-observability-and-diagnostics.md#f01)
+  owns the prepared product executable/schema boundary and causal correlation. D's briefs and
+  catalogues reference its exact invocation/scientific locators without importing model/runtime
+  or Arrow interpretation into the host, or becoming another mutable status ledger.
 
 ## Package state
 
@@ -155,6 +171,7 @@ current.
 | [D06](#d06) | planned | 59d | Generated-outputs map; `pse owner`; guard informs for documents; `.design-edit`/`PSE_DESIGN_EDIT` retired |
 | [D07](#d07) | planned | 59d | Generated Markdown CLI reference under `docs/generated/` with drift check |
 | [D08](#d08) | planned | 59d | `pse commit` with private index, hunk IDs, whole-file formatting, scoped drift check and trailers |
+| [D09](#d09) | planned | 59d | Bounded Git transaction investigation and exit decision required before D08 implementation/adoption |
 
 <a id="d01"></a>
 ### D01 — Orientation and delegation briefs
@@ -162,7 +179,10 @@ current.
 **Consumes:** [59a A03–A04](59a-cli-foundation.md), and the D06 map for generated-path flags.
 Until the map exists, use the guard's current prefixes.
 
-**Delivers:** `pse changes` and `pse brief` as described above.
+**Delivers:** `pse changes` and `pse brief` as described above. Briefs link authoritative plan
+state and immutable B invocation evidence, selected failures and pending authored intent. Once
+F01 correlation exists they carry its exact product locators; that is incremental integration,
+not a prerequisite for the initial source/dependency brief.
 
 **Acceptance:**
 - A tree with one Rust change, one generated-path change and one document change yields three
@@ -172,19 +192,21 @@ Until the map exists, use the guard's current prefixes.
 <a id="d02"></a>
 ### D02 — Dependency facts, API lookup and probes
 
-**Consumes:** [59a A04](59a-cli-foundation.md#a04).
+**Consumes:** [59a A04](59a-cli-foundation.md#a04) and A05's immutable selected-artifact/build
+identity contract for prepared tools. Probe builds use their own target directory, never the
+main checkout's Cargo target.
 
 **Delivers, in order:**
-1. **The trial.** A `rustdoc-mcp` entry in the repository `.mcp.json` for Claude. The trial
-   checks that it builds through the checkout's pinned toolchain (not `+nightly`) and answers item
-   lookups at locked versions. The outcome is recorded here.
+1. **The trial (already concluded).** The Claude-only `rustdoc-mcp` trial checked pinned
+   toolchain behavior and locked-version item lookup. Preserve its outcome below; do not
+   reinstate the rejected server or repeat its configuration as uncompleted implementation.
 2. **`pse dep` and `pse probe`.**
-3. **`pse api`.** If the trial serves, `pse api` only produces the locked-version JSON the server
-   reads. Otherwise it is the full lookup described above.
+3. **`pse api`.** The full lookup and exact-context JSON generation described above, following
+   the concluded trial's rejection of the server route.
 4. **A pins reason.** A `[workspace.metadata.pse.pins]` reason on `rustdoc-types` tying it to the
    toolchain date.
 
-**Trial outcome (2026-10-29): the server serves only partly; `pse api` is built in full.**
+**Trial outcome (2026-10-29): the server serves only partly; full `pse api` remains planned.**
 `rustdoc-mcp` 0.10.0 over stdio JSON-RPC resolved `tokio::process::Command::kill_on_drop` at
 1.53.3 and the `clap::Command::arg` re-export at `clap_builder` 4.6.7, from format-61 JSON. It
 cannot be used here, for these reasons:
@@ -197,15 +219,19 @@ cannot be used here, for these reasons:
 - **No feature gates.** Its output carries no feature-gate information.
 - **Network fallback.** It can fall back to docs.rs.
 
-So `pse api` owns generation itself: pinned-toolchain JSON per (crate, version, features) into
-`<store>/api/`, multi-version addressing, feature gates and the `format_version` check.
-`.mcp.json` stays empty.
+So the proposed `pse api` owns generation itself: pinned-toolchain JSON keyed by exact source,
+package/version, resolved features, target/cfg and rustdoc format into `<store>/api/`,
+multi-version addressing, feature gates and the `format_version` check.
+This trial leaves `.mcp.json` empty; a future optional product adapter is a separate F06 inquiry.
 
 **Acceptance:**
 - `pse api tokio process::Command::kill_on_drop` prints the 1.53.3 signature and docs.
 - A re-exported item is found through its re-export.
 - A probe depending on `serde_json` compiles under the pinned toolchain with the workspace lock
   unchanged.
+- Equal package/version with different source, target/cfg, feature context or toolchain cannot
+  reuse the wrong API cache. Probe failure reports its actual scratch resolution, with isolated
+  artifacts and no workspace lock or build-output mutation.
 
 <a id="d03"></a>
 ### D03 — Structural reading
@@ -214,6 +240,8 @@ So `pse api` owns generation itself: pinned-toolchain JSON per (crate, version, 
 
 **Delivers:** `pse outline` and `pse show` over `syn` (full, span locations) for Rust and over
 headings for Markdown, with the outline logic shared with `just lib-outline`.
+This is syntactic extraction, not semantic symbol resolution; absent or ambiguous items yield
+an actionable diagnostic rather than a guessed item or implicit language-server startup.
 
 **Acceptance:**
 - `pse show crates/pse-host/src/manager.rs::HostManager::observe` prints exactly that method with
@@ -230,12 +258,15 @@ headings for Markdown, with the outline logic shared with `just lib-outline`.
   `diagnostic-tools install` path.
 - `xtask docs check [--changed|<files…>]`, federated as `pse docs check`. It runs lychee offline
   with fragments, `metadata.rs` validation, a section-anchor map from `section_owners`, `O`-ID
-  anchor checks and README index presence.
+  anchor checks and README index presence. Named/changed files bound the diagnostic scope;
+  external or historical issues are classified without rewriting unrelated records.
 
 **Acceptance:**
 - A document with one broken relative link, one bad heading fragment and one bad
   `#section-N-M` link yields three diagnostics with file and line.
 - A clean new review passes.
+- An unrelated historical broken link does not trigger cleanup or a broader campaign; changed
+  links to external/historical evidence report that category and actionable source context.
 
 <a id="d05"></a>
 ### D05 — Citations and scaffolds
@@ -288,7 +319,8 @@ headings for Markdown, with the outline logic shared with `just lib-outline`.
 <a id="d07"></a>
 ### D07 — Generated CLI reference
 
-**Consumes:** [59a A06](59a-cli-foundation.md#a06) (the catalog walker).
+**Consumes:** [59a A06](59a-cli-foundation.md#a06)'s parser-owned catalogue/discovery contract
+and explicit schema-publication route, including associated owner executable/schema versions.
 
 **Delivers:**
 - `just codegen` runs `cargo run -p pse-host --bin pse -- commands --markdown`, so xtask never
@@ -298,24 +330,61 @@ headings for Markdown, with the outline logic shared with `just lib-outline`.
 - It is linked from the documentation site and the environment guide.
 
 **Acceptance:** the reference renders every verb's usage, arguments, possible values and
-examples, and `codegen-check` flags drift after a deliberate flag change.
+examples, and `codegen-check` flags drift after a deliberate flag change. Scoped discovery keeps
+candidate source/freshness/completeness; missing metadata is unknown rather than an empty valid
+domain. Direct and delegated parser rejection agrees; stale discovery cannot dispatch silently
+under different semantics. Generating this reference is development publication, never a side
+effect of help/status.
 
 <a id="d08"></a>
 ### D08 — Shared-tree commits
 
-**Consumes:** [59a A01](59a-cli-foundation.md#a01) (R5 landed), D01 (hunk IDs) and D06 (map).
+**Consumes:** [59a A01](59a-cli-foundation.md#a01) (R5 landed), D01 (hunk IDs), D06 (map), and
+D09's decided transaction strategy with counterexample evidence. D09 gates implementation and
+adoption of the commit path; it does not gate unrelated D verbs.
 
 **Delivers:** `pse commit` as described above.
 
 **Acceptance:**
 - **Private index.** In a tree where another file is staged in the shared index, `pse commit
   --paths a.rs` commits only `a.rs` and leaves the other staged entry untouched.
+- **Same-path staging.** A concurrent stage of different content on the same path survives
+  publication/reconciliation, including deleted/renamed entries and partial hunk intent.
 - **Concurrent HEAD.** A HEAD that moved during the commit is refused by the compare-and-swap.
 - **Hunk mode.** A hunk whose content changed after listing is refused.
 - **Formatting.** An unformatted whole file is formatted before commit, unless the file changed
   after it was read.
 - **Drift hint.** A touched generator input yields the scoped `codegen-check` hint in `next`.
 - **Trailers.** Trailers appear exactly as passed.
+- **Publication then failure.** If HEAD advanced and shared-index reconciliation fails, report
+  committed-with-unreconciled-index with the commit identity and recovery action. Preserve the
+  concurrent index and never retry the commit. Formatter failure or concurrent working-tree
+  edits preserve dirty work and accurately report whether a commit was created.
+
+<a id="d09"></a>
+### D09 — Git publication and index reconciliation investigation
+
+**Consumes:** D08's proposed ownership boundary, the existing shared-checkout workflow and
+[I10](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I10).
+
+**Produces:** a bounded decision selecting a concrete Git transaction/reconciliation strategy
+before D08 implementation. Compare private-index preparation, conditional HEAD publication and
+shared-index locking/conflict checks using actual Git behavior in disposable repositories.
+Identify the snapshot/conflict scope needed to preserve unrelated and same-path staged content,
+working edits, hunk selection and rename/delete intent. Avoid holding a publication lock across
+formatting or unrelated work where private preparation and checked publication suffice.
+
+**Evidence and failure closure:** counterexamples must include moved HEAD; staging on an
+unrelated and on the same path during preparation; concurrent file edits; deleted/renamed paths;
+formatter failure; and failure after HEAD publication but before safe index reconciliation.
+Distinguish refused-before-publication from committed-with-unreconciled-index. Evidence must
+inspect surviving staged/dirty bytes as well as the resulting commit tree.
+
+**Exit decision:** record the selected algorithm, its conflict/refusal and post-publication
+recovery contract and supporting focused test results here, then amend D08 to consume it.
+If no sound strategy is established, leave D08 planned/blocked on that decision and preserve
+the existing manual commit route. No claim that Git offers a cross-HEAD/index atomic operation
+or that a private index alone resolves concurrency is made by this proposal.
 
 ## Verification and handoff
 

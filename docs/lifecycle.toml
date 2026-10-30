@@ -4022,3 +4022,299 @@ id_pattern = '^(E[0-9]+)'
 status_profile = "packet"
 status_column = 1
 owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59-agent-cli.md"
+name = "simulation-observability-dispositions"
+heading = "Simulation observability dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required evidence or trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59-agent-cli.md"
+name = "cli-improvement-dispositions"
+heading = "CLI improvement dispositions"
+headers = [
+  "Improvement",
+  "Disposition",
+  "Work owner",
+  "Required evidence or trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59f-simulation-observability-and-diagnostics.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A03"
+to = "docs/plans/59a-cli-foundation.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A03"
+to = "docs/plans/59a-cli-foundation.md::package-state::A07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A05"
+to = "docs/plans/59a-cli-foundation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A05"
+to = "docs/plans/59a-cli-foundation.md::package-state::A04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A05"
+to = "docs/plans/59a-cli-foundation.md::package-state::A07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B02"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B03"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B03"
+to = "docs/plans/59a-cli-foundation.md::package-state::A05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B03"
+to = "docs/plans/59a-cli-foundation.md::package-state::A07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B04"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B05"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B05"
+to = "docs/plans/59a-cli-foundation.md::package-state::A06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
+to = "docs/plans/59a-cli-foundation.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C01"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C03"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C03"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C04"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C04"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C04"
+to = "docs/plans/59a-cli-foundation.md::package-state::A04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C04"
+to = "docs/plans/59a-cli-foundation.md::package-state::A05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C05"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C05"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C05"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D08"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D09"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D08"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D08"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59e-environment-and-adoption.md::package-state::E01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59e-environment-and-adoption.md::package-state::E01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59e-environment-and-adoption.md::package-state::E02"
+to = "docs/plans/59a-cli-foundation.md::package-state::A06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59e-environment-and-adoption.md::package-state::E02"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F02"
+to = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F03"
+to = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F03"
+to = "docs/plans/59a-cli-foundation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F04"
+to = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F04"
+to = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F05"
+to = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F05"
+to = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F06"
+to = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F06"
+to = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F06"
+to = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F06"
+to = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F06"
+to = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F05"
+kind = "depends-on"

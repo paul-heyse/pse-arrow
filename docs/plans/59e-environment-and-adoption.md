@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, documentation]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md]
 ---
 
 # Environment and adoption
@@ -25,6 +25,14 @@ Sources: [O22](../functional_reviews/rust-agent-cli-2026-10-29.md#O22),
 [O10](../functional_reviews/rust-agent-cli-2026-10-29.md#O10) items 2–3,
 [O11](../functional_reviews/rust-agent-cli-2026-10-29.md#O11) start routes, and
 [O12](../functional_reviews/rust-agent-cli-2026-10-29.md#O12).
+
+The amendment incorporates [new O07–O08](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O07),
+[I08](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I08),
+[I10](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I10) and the
+incremental adoption of [I06](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I06)
+through [59f](59f-simulation-observability-and-diagnostics.md). These targets remain
+**Proposed**; E05's completed guidance and the stopped/reverted implementation checkpoint are
+unchanged.
 
 Operator directions:
 - No direnv changes; the operator's separate environment work owns them.
@@ -65,18 +73,31 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
   1. runs `git worktree add`;
   2. copies `.envrc.local` with its current behaviour and mode;
   3. prepares host tools with `scripts/bootstrap-host --from <source>`, which copies a
-     fingerprint-matching generation ([59a A05](59a-cli-foundation.md#a05));
+     fingerprint-matching immutable generation ([59a A05](59a-cli-foundation.md#a05)); copying
+     holds a generation-use pin and verifies the destination identity. A nonmatching generation
+     uses the explicit bootstrap preparation route and reports any build failure;
   4. relies on the already-shared native provider caches;
   5. registers the checkout in the store ([59a A04](59a-cli-foundation.md#a04));
   6. with `--warm`, starts a detached `pse check --workspace` ([59b B03](59b-runs-and-continuity.md#b03))
      so the first real build hits the shared sccache.
 
   It does not touch direnv.
+  Git creation, environment copy, generation preparation, registration and optional warm launch
+  have distinct outcomes. If preparation fails after Git succeeds, return the existing checkout
+  and failed/pending step with a remedy; do not call it ready or delete it automatically. Another
+  participant may already be using the new checkout. A failed warm launch leaves an accurately
+  reported prepared checkout and the failed invocation evidence.
 - **Listing and removal.**
   - `pse worktree list` shows each worktree's branch, ahead/behind, dirty state, live runs and
     last activity.
-  - `pse worktree rm` removes a worktree. It asks for `--force` only when uncommitted changes or
-    unmerged commits would be lost, and keeps the worktree's run history in the store.
+  - `pse worktree rm` first checks actual live users and referenced artifacts through A04/A05's
+    invocation and generation-use contracts, including unrecorded adapter/boundary users,
+    supervisor/finalizer pins, warm runs and fixture owners. It refuses while users, unresolved
+    settlement or required artifacts protect the checkout. An explicit stop-and-settle operation
+    may precede removal;
+    `--force` never overrides that protection. Once safe, `--force` authorizes loss of dirty or
+    unmerged work only. Run history remains in the store under A04's typed retention rules;
+    fixture evidence, scientific data and protected artifacts do not become disposable logs.
 - **Claude orientation.**
   - The session-start context hook from [59b B05](59b-runs-and-continuity.md#b05) returns
     `pse status --brief` (HEAD, dirty count, active plan, live runs, stale host) and one line
@@ -91,7 +112,12 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
   - The environment, validation and documentation guides route their workflows through `pse`.
   - Role contracts and process skills name the verb for each step: `pse brief` when delegating,
     `pse handoff` before long work, `pse new`/`ref`/`docs check` in review and plan skills, and
-    `pse commit` when committing.
+    `pse commit` when D09/D08 establish its tested transaction strategy.
+  - As [59f](59f-simulation-observability-and-diagnostics.md) ships, guides show passive
+    process/operation inspection, follow continuity, study history/current availability, and
+    explicit capture/analysis/export escalation. Optional backend/MCP inquiries remain choices;
+    ordinary shell workflows and local checkpoints work without them. Observation disconnect
+    does not cancel science; acknowledgements and nonterminal waits do not assert subject success.
   - Recipes for covered work delegate to `pse` or are retired with their replacement (59c and
     59d own the retirements).
   - Envelope `next` hints and diagnostic remedies already use `pse` forms ([59a A03](59a-cli-foundation.md#a03)).
@@ -118,8 +144,12 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 
 **Consumes:**
 - [59a A04](59a-cli-foundation.md#a04) (store, checkout ID) and [A05](59a-cli-foundation.md#a05)
-  (`bootstrap-host --from`, fingerprints).
+  (`bootstrap-host --from`, immutable fingerprinted generations and use pins covering every
+  supported retaining route, not only live ledger entries).
 - [59b B03](59b-runs-and-continuity.md#b03) for `--warm`; until it lands, `--warm` is absent.
+- B's independent stop/settlement evidence and C04's actual fixture ownership contract before
+  removal of a checkout with those users. A terminal invocation alone does not clear a fixture's
+  retained-state decision.
 
 **Delivers:** `pse worktree new|list|rm` as described.
 
@@ -131,14 +161,21 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 **Acceptance:**
 - `pse worktree new scratch-x` produces a checkout where `scripts/pse status` works immediately,
   with host tools copied rather than rebuilt and `.envrc.local` present with its original mode.
+  A failed copy/build/preparation reports the created checkout's partial state and preparation
+  remedy without automatic deletion. Help/list/status do not invoke preparation.
 - `pse worktree rm scratch-x` on a clean, merged worktree removes it without prompting, and
   refuses without `--force` when an uncommitted change exists.
+- A clean worktree with a live invocation, warm run, unrecorded adapter using a generation,
+  unresolved fixture ownership or required referenced artifacts is protected even with `--force`.
+  After an explicitly requested stop
+  and demonstrated owner settlement/release, ordinary removal succeeds. Pruning presentation
+  logs cannot erase finalizer generations, fixture decisions or scientific artifacts.
 
 <a id="e02"></a>
 ### E02 — Claude session-start brief and status line
 
 **Consumes:** [59a A06](59a-cli-foundation.md#a06) (`status`) and [59b B05](59b-runs-and-continuity.md#b05)
-(context hook).
+(context hook), with A05's non-building existing-work control path for unprepared/stale tools.
 
 **Delivers:**
 - The `--brief` content: one compact block plus the main-verbs line.
@@ -150,17 +187,25 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 - A new Claude session's first context includes the brief.
 - The status line renders from cached state well under its timeout, and prints a neutral line
   when tools are unprepared.
+- Host source changes or a missing product executable do not trigger a status-line build or
+  prevent existing-work observation through a compatible control generation. Unknown/stale
+  observations remain labelled; status never claims settled science from command exit alone.
 
 <a id="e03"></a>
 ### E03 — Communication and routing (continuing)
 
-**Consumes:** each verb as it ships.
+**Consumes:** each verb as it ships, including F01–F05's actual supported product contracts and
+F06's eventual inquiry decisions. No guide advertises a proposed bridge, backend or MCP adapter
+as available. D08 commit guidance waits for the D09 decision and D08 delivery.
 
 **Delivers, per verb, in the same change as the verb:**
 - its AGENTS.md task-table row;
 - the guide route that replaces the old raw or recipe form;
 - the role or skill mention where that workflow is described;
 - removal of documentation for retired recipes.
+- concise interpretation of new results: invocation versus scientific identity; command
+  acknowledgement versus subject/settlement outcome; passive versus effectful diagnostics;
+  current observation versus retained history; gaps/coverage and optional capture failure.
 
 Affected owners:
 - AGENTS.md, including "Start here" and the Execution rhythm's named recipes (`check-package`,
@@ -176,12 +221,18 @@ Affected owners:
   recipe as the route to run. Historical plan records are left as they were.
 
 These are shared guidance, not Codex configuration.
+Scope the changed-document checks to the named adoption edits through D04; classify unrelated
+historical/external issues without initiating cleanup. Architecture edits still use their
+normal decision route and revision row; D06's informing guard is not a waiver of authority.
 
 **Acceptance:**
 - The AGENTS.md start route gives a short set of task-to-verb entries and points to
   `pse commands` for the rest. It is not a second, hand-written catalog.
 - No current guide, skill or active plan route names a retired recipe.
 - `just lint-agents` passes.
+- A documented local inspection/follow workflow works without a backend or Codex configuration
+  change; numerical escalation explicitly names its effects and target, and optional interface
+  proposals remain distinguishable from delivered capabilities.
 
 <a id="e04"></a>
 ### E04 — Slim plan index

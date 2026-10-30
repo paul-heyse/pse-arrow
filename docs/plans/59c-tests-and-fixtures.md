@@ -5,21 +5,27 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, validation]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md]
 ---
 
 # Tests and fixtures
 
 Part of [Plan59](59-agent-cli.md). This plan adds intent-level `pse test`, `pse check` and
 `pse tests` verbs that work out their own features, native capabilities, force-validation,
-fixtures and filters. It also adds fixture resolution that removes hand-plumbed environment
-variables and `/tmp` receipt paths, and it gives blueprint §24.1's reconciled-pass rule a Rust
-owner.
+fixtures and filters. It replaces caller-assembled fixture inputs with resolution through the
+actual fixture owners, and gives blueprint §24.1's reconciled-pass rule a Rust owner.
+The targets and packages below are **Proposed**; the stopped/reverted implementation state is
+unchanged by this amendment.
 
 Sources: [O04](../functional_reviews/rust-agent-cli-2026-10-29.md#O04),
 [O05](../functional_reviews/rust-agent-cli-2026-10-29.md#O05),
 [O19](../functional_reviews/rust-agent-cli-2026-10-29.md#O19), and the fixture and test-route
 items of [O11](../functional_reviews/rust-agent-cli-2026-10-29.md#O11).
+
+The amendment adopts [new O05–O06](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O06)
+and [I03](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I03),
+[I07](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I07) and
+[I08](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I08).
 
 Evidence from the review: in one post-retirement morning, agents made 194 inline `PSE_*`
 assignments and chose between eight hand-picked `--native` capability sets. Tests ran through
@@ -27,7 +33,9 @@ four different entry forms, including 73 bare `cargo test` runs that skip force-
 
 ## Baseline
 
-The following facts come from a code map at `68e075493`.
+The original code map is at `68e075493`; the 2026-10-29 amendment corrects fixture ownership
+against `crates/pse-operations/src/native_fixture.rs`, its `pse-canonical-test` caller and
+`crates/pse-runtime/tests/native_study.rs`.
 
 **`affected`.**
 - `xtask/src/development/affected.rs` has 538 lines plus 264 lines of tests, and is nearly
@@ -72,10 +80,13 @@ The following facts come from a code map at `68e075493`.
 **Receipts.** `pse-host study-module prepare` is idempotent and content-addressed. It prints
 receipt JSON but no path, and keeps no current pointer.
 
-**Database runner.** `pse-canonical-test` (clap) owns fresh-service-per-run database tests and
-sets the fixture variables for its child. It takes `--root`, `--correctness`, `--nextest`,
-`--helper`, `--module-receipt`, `--state-parent`, `--build-arg…`, the timeouts, and
-`-- run_args`. Only `just native-test`/`canonical-test` compose it.
+**Two fixture ownership modes.** `pse-canonical-test` delegates to `NativeTestCommand`.
+Its `prepare` source-builds/lists through the correctness adapter and captures Cargo/binary
+metadata before creating a service; `run` lends `FixtureSelection` through
+`PSE_NATIVE_CANONICAL_FIXTURE`. `ChildExitPremise` protects retained state after signal or
+unknown scientific joins. Separately, `native_study.rs` and other targets construct their own
+`NativeCanonicalService` from helper/module variables. A runner-owned service cannot replace
+those preparation inputs. Neither ledger terminality nor child exit authorizes fixture disposal.
 
 **Correctness adapter.**
 - `resolve_with` returns the force-validation feature splice and resolved packages.
@@ -93,8 +104,10 @@ sets the fixture variables for its child. It takes `--root`, `--correctness`, `-
 - **Selection.** Positional `pkg[:target]` targets (combinable with `clap-cargo`'s `-p`), or
   `--workspace [--exclude …]`, or `--changed [--base REF]`. Bare words become `test(word)`
   filters; full filtersets pass through `-E`.
-- **Features.** Read each target's `required-features` from Cargo metadata and add the caller's
-  `--features`.
+- **Resolved selection.** C07 resolves package, target kind/name, platform, features/defaults,
+  filters and ignored-test policy once. Required-feature activation follows explicit target
+  intent; grouping only combines compatible selections. Do not union every target's features:
+  that could erase feature-absence and refusal controls already expressed in the justfile.
 - **Native capabilities.**
   1. Ask the adapter's unit graph which `pse-backend-native` features the selection reaches.
   2. Map them through the single declaration (below).
@@ -103,24 +116,33 @@ sets the fixture variables for its child. It takes `--root`, `--correctness`, `-
      diagnostic naming `pse native prepare --capabilities …`.
 - **Force-validation.** Run through the correctness adapter, which adds the Arrow closure as
   today.
-- **Fixtures.** Resolve and prepare what the target declares (below), and set the variables for
-  the child.
-- **Database tests.** Targets that need a fresh canonical service go through `pse-canonical-test`
-  rather than reimplementing its lifecycle.
+- **Fixtures.** Resolve declarations into the target's actual owner mode. Borrowing targets
+  use `NativeTestCommand` and its typed selection; targets constructing their own service
+  receive the captured helper/module inputs. Never create a redundant runner service or a
+  second global fixture-permission authority.
+- **Preparation.** Source build/list and immutable tool/helper capture precede service creation.
+  A mutable `target/debug` path or fixture current pointer is discovery, not a pinned executable.
 - **Running.** Through the [59b](59b-runs-and-continuity.md) run modes: foreground by default,
   `--detach` available, nextest libtest extraction.
-- **Reconciled verdict** (blueprint §24.1 P00). The verb exits 0 only when nextest exits 0 and
-  the libtest records cover every selected test, ending in a terminal record. Anything else is
-  `incomplete` (exit 1), with `child_exit` recorded.
-- **Rerun.** `--rerun-failed` reruns the failed IDs from the run's own ledger as an exact
-  `test(=…)` filterset, since nextest's `-R` is refused and races.
-- **Explain.** `--explain` prints all of the above without effects.
+- **Reconciled verdict** (blueprint §24.1 P00). A reconciled pass requires successful setup,
+  the actual selected binary/test population, complete required records and terminal runner
+  evidence. Missing evidence is `incomplete`; a known test/setup failure remains that failure.
+  Preserve child exit, observation completeness, settlement and scientific acceptance separately.
+  Launch acknowledgements and nonterminal waits may exit 0 under A03/B's command contract;
+  they do not assert a reconciled workload pass. Raw adapter exits keep their existing meaning.
+- **Rerun.** `--rerun-failed` uses recorded package, binary/target identity and exact test ID,
+  with the original features/platform/policy. A same-named test in another binary is distinct.
+  No ambiguous name-only filter or nextest `-R` substitutes for the captured selection.
+- **Explain.** `--explain` renders the same resolved selection as execution, redacts secrets,
+  and distinguishes known selection from pending preparation without building/listing or
+  starting a fixture. Changed external premises require explicit re-resolution.
 
 `pse check` does the same selection and features for `cargo check --message-format=json`, through
 the adapter with cargo-message extraction.
 
 `pse tests <pattern>` runs `nextest list --message-format json` through the adapter with the same
-features `pse test` would use. Listing builds the binaries, so a following `pse test` reuses them.
+features `pse test` would use. Listing explicitly builds binaries; help/explain do not.
+Reuse by a following test requires the captured immutable build identity to remain valid.
 It joins the results with target and fixture declarations, and returns each match with its
 package, target, required features, capabilities, fixtures and exact `pse test` command.
 
@@ -140,8 +162,9 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 - The justfile's literal capability lists retire with the recipes they belong to.
 
 **Fixture declaration.**
-- Targets that need prepared state declare it in their package's metadata, keyed by target *and*
-  feature: `[package.metadata.pse.test.<target>]`, with an optional `when-features = [...]`. That
+- Targets that need prepared state declare inputs and runner-borrowed or target-owned service
+  mode in package metadata, keyed by target kind/name and feature context under
+  `[package.metadata.pse.test.<target>]`, with an optional `when-features = [...]`. That
   keeps canonical database lib subsets, selected by `canonical-tests` plus a filter, apart from
   ordinary `--lib` runs.
 - Fixture names include:
@@ -157,12 +180,15 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
   - `study-module` wraps the idempotent `study-module prepare` and records a current pointer at
     `<store>/fixtures/study-module.json`;
   - `canonical-service` builds the bin through the adapter (`-p pse-operations --features
-    native-service --bin pse-canonical-service`) and records its path;
+    native-service --bin pse-canonical-service`) and captures its immutable artifact identity;
   - `scientific-inputs` dispatches the federated `xtask scientific-inputs` and records the
     capsule;
   - evidence and tool directories come from the store.
-- `pse test` sets `PSE_NATIVE_FIXTURE_*`, `PSE_SCIENTIFIC_INPUTS`, `PSE_DIAGNOSTIC_EVIDENCE` and
-  `PSE_CANONICAL_TOOLS` from these records.
+- `pse test` supplies `PSE_NATIVE_FIXTURE_*` for target-owned services and other declared
+  inputs from these records; runner-owned services lend `PSE_NATIVE_CANONICAL_FIXTURE` through
+  the existing owner. Prepared tools, including xtask outputs, are captured before a later
+  Cargo feature selection can overwrite their original output paths. Retention follows A05
+  generation-use pins and the fixture owner's positive disposal decision.
 - Historical module-state selectors (`…_MODULE_STATE`, `…_PREDECESSOR_…`, `…_TARGET_…`) are
   recorded inputs. They are explicit `pse fixture` and `pse test` arguments, never defaults.
 
@@ -192,14 +218,15 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 | [C01](#c01) | planned | 59c | Capability declaration on `pse-backend-native` (build.rs unchanged); unit-graph capability derivation |
 | [C02](#c02) | planned | 59c | `pse test` and `pse check` with selection, features, capabilities, force-validation, reconciled verdict, explain and rerun; replaced recipes retired |
 | [C03](#c03) | planned | 59c | `affected` in `pse-host`; `pse test --changed`; xtask `affected` and its recipe retired |
-| [C04](#c04) | planned | 59c | Fixture declarations, `pse fixture`, receipt pointer, `CARGO_BIN_EXE_pse-worker`; database targets through `pse-canonical-test`; `worker-test`/`native-test`/`canonical-test` retired |
+| [C04](#c04) | planned | 59c | Fixture declarations and immutable inputs for both real service ownership modes; `pse fixture`; replaced fixture recipes retired |
 | [C05](#c05) | planned | 59c | `pse tests <pattern>` discovery; `list-native-contracts` retired |
 | [C06](#c06) | deferred | 59c | Bindeps for the cross-package service helper; trigger below |
+| [C07](#c07) | planned | 59c | Shared resolved test/check selection; explain/preparation boundary and exact binary identities |
 
 <a id="c01"></a>
 ### C01 — One capability declaration
 
-**Consumes:** [59a A02](59a-cli-foundation.md#a02).
+**Consumes:** [59a A02](59a-cli-foundation.md#a02) and C07's resolved feature/platform selection.
 
 **Delivers:**
 - The `[package.metadata.pse.native-capabilities]` table on `pse-backend-native`.
@@ -220,7 +247,7 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 <a id="c02"></a>
 ### C02 — `pse test` and `pse check`
 
-**Consumes:** C01, [59a A03](59a-cli-foundation.md#a03), and [59b B01–B02](59b-runs-and-continuity.md)
+**Consumes:** C07, C01, [59a A03](59a-cli-foundation.md#a03), and [59b B01–B02](59b-runs-and-continuity.md)
 (the foreground runs and extractors). It also uses [B03](59b-runs-and-continuity.md#b03) for
 `--detach` when present.
 
@@ -247,8 +274,9 @@ Its recipe-retirement documentation edits include the architecture section
 **Acceptance:**
 - `try_parse_from` selection cases.
 - An `--explain` snapshot for `pse-runtime:native_study`.
-- A reconciliation unit test: a nextest exit 0 with a missing selected record yields
-  `incomplete` and exit 1.
+- Reconciliation cases: nextest exit 0 with a missing selected record is incomplete;
+  setup failure and zero-match selection remain explicit; duplicate test names across binaries
+  and ignored-policy changes cannot produce an incorrect pass or rerun.
 - **Force-validation.** It is present for a small Arrow-consuming target and absent for
   `pse-host`, which has no Arrow, both through the real adapter. A passing run yields the
   reconciled verdict.
@@ -276,15 +304,23 @@ its dependents with the derived capabilities.
 <a id="c04"></a>
 ### C04 — Fixtures
 
-**Consumes:** C02, and [59a A04](59a-cli-foundation.md#a04) (store).
+**Consumes:** C07, C02, [59a A04](59a-cli-foundation.md#a04) (store) and A05's immutable
+artifact capture/generation-use pin contract before retaining helpers or pruning their generation.
 
 **Delivers:**
-- Fixture declarations for the targets and lib tests listed in the baseline.
+- Fixture declarations for the targets and lib tests listed in the baseline, including both
+  service ownership modes and their actual preparation inputs.
 - `pse fixture prepare|show`.
 - The study-module current pointer, written by `study-module prepare` through the store resolver.
 - `pse test` setting fixture variables from the records.
-- Database-backed targets run through `pse-canonical-test` with its arguments filled from the
-  records.
+- Borrowing targets use `NativeTestCommand` through `pse-canonical-test`, preserving source
+  build/capture before service creation and `ChildExitPremise`. Target-owned service tests
+  receive helper/module records without another runner service. Original owners settle and
+  decide retained-state disposal even if the host invocation has become terminal.
+- Bind the source-build correctness adapter and helper/tool metadata to A05's authenticated
+  checkout/generation identity. Migrate current-pointer path checks where necessary so an
+  immutable selected generation remains identifiable after a later build advances `current`;
+  preserve the source-build admission check rather than trusting arbitrary recorded paths.
 - `worker`, `native_worker_lifecycle` and `native_boundary_acceptance` switch to
   `env!("CARGO_BIN_EXE_pse-worker")` and drop `PSE_WORKER_BINARY`/`PSE_NATIVE_STUDY_WORKER`. The
   lib test in `study_tests.rs` keeps its variable, supplied by its `lib` fixture declaration.
@@ -297,11 +333,15 @@ recipe bodies. Their scenarios become `pse test` invocations.
   caller-set fixture variables.
 - A missing preparation yields `fixture.unprepared` with the exact prepare command in `next`.
 - A second `pse fixture prepare study-module` reuses the cached module.
+- Both runner-borrowed and target-owned service journeys receive their required inputs.
+  Source-build failure creates no service; signal/unknown-join evidence preserves owner state.
+- A later different-feature Cargo build cannot change an already selected helper/tool.
 
 <a id="c05"></a>
 ### C05 — Test discovery
 
-**Consumes:** C01, C02, C04.
+**Consumes:** C07, C01, C02 and C04's declaration/immutable-input slice. Actual fixture startup
+is not a prerequisite to listing.
 
 **Delivers:** `pse tests <pattern> [--package P]` over adapter `nextest list --message-format json`
 with derived features, joined with declarations. Results are cached per build identity in the
@@ -333,6 +373,27 @@ on the `pse-canonical-service` artifact.
 
 **Acceptance:** the decision and its evidence are recorded here. If adopted, the cross-package
 targets run without the fixture variable.
+
+<a id="c07"></a>
+### C07 — Shared resolved selection foundation
+
+**Consumes:** [59a A02](59a-cli-foundation.md#a02)'s typed command/configuration inputs and
+the existing correctness adapter's selection/force-validation contract.
+
+**Delivers:** one resolved operation value for package IDs, target kind/name, platform,
+features/defaults, filter and ignored-test policy. C01 derives capabilities from this value;
+C02 runs/checks it; C04 resolves its fixture inputs; C05 lists and matches its actual binaries.
+[59a A06](59a-cli-foundation.md#a06)'s test/check explain consumes the same value. Generic
+non-test explain needs only A02/A06's operation-specific resolver, not all of C07 or C04.
+Selection resolution produces preparation requirements; explicit build/list captures exact
+binary identities and immutable tool inputs for execution and reconciliation. B02 consumes
+the actual selected binary/test population and setup policy for its nextest reconciler.
+
+**Failure closure and acceptance:** parser cases cover workspace exclusions, explicit targets,
+incompatible required features, feature-absence controls and ignored tests. Explain/execution
+agree for unchanged inputs, with secret redaction and pending preparation visible. A dry explain
+does not build binaries, prepare providers or start services. Independent expected selections
+and duplicate-name binaries challenge normalization rather than deriving the oracle from it.
 
 ## Verification and handoff
 

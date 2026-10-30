@@ -1,15 +1,19 @@
 # Current work and plans
 
 [Plan59: Agent-first pse CLI](59-agent-cli.md) is a new draft series from the
-[agent-first Rust CLI review](../functional_reviews/rust-agent-cli-2026-10-29.md). Its five
+[agent-first Rust CLI review](../functional_reviews/rust-agent-cli-2026-10-29.md) and the
+[CLI/observability amendment](59-agent-cli.md#simulation-observability-dispositions). Its six
 companions plan:
 - a clap-based `pse` front door in `pse-host`, with a versioned output contract;
 - owned runs with a ledger;
 - intent-level test and fixture verbs;
 - knowledge and workflow verbs;
 - worktree and Claude orientation surfaces.
+- [simulation observation and diagnostics](59f-simulation-observability-and-diagnostics.md).
 
-The operator accepted rule changes R1–R5. Direnv and Codex configuration are out of scope.
+The operator accepted R1–R5, the R3 existing-work control exception and R6's command/subject
+distinction. Dependencies and review dispositions are owned by the coordinator; planning is
+not runtime completion. Direnv and Codex configuration are out of scope.
 Execution stopped on 2026-10-29 at the operator's request, and its code changes were reverted.
 
 [Plan58: Rust-owned system](58-rust-owned-system.md) owns the Rust-first functional,
