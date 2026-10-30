@@ -344,17 +344,26 @@ pub(super) fn prepare<'a, T: JsonSchema>(
     })
 }
 pub(super) fn write_prepared<T: Serialize>(
-    writer: impl Write,
+    mut writer: impl Write,
     envelope: Envelope<T>,
     format: OutputFormat,
     prepared: PreparedView<'_, T>,
 ) -> io::Result<i32> {
+    let (code, frame) = encode_prepared(envelope, format, prepared)?;
+    writer.write_all(&frame)?;
+    Ok(code)
+}
+pub(super) fn encode_prepared<T: Serialize>(
+    envelope: Envelope<T>,
+    format: OutputFormat,
+    prepared: PreparedView<'_, T>,
+) -> io::Result<(i32, Vec<u8>)> {
     let view = prepared.view;
     let code = envelope.exit_code();
     if view.fields.is_none() && view.budget.is_none() {
         let mut envelope = envelope;
         envelope.schema = identity(&envelope.command, view);
-        return write_frame(writer, envelope, format, code);
+        return encode_frame(envelope, format, code);
     }
     let raw = serde_json::value::to_raw_value(&envelope.payload)?;
     let shape = prepared
@@ -372,14 +381,13 @@ pub(super) fn write_prepared<T: Serialize>(
     let mut envelope = envelope.with_payload(payload);
     envelope.view = detail;
     envelope.schema = identity(&envelope.command, view);
-    write_frame(writer, envelope, format, code)
+    encode_frame(envelope, format, code)
 }
-fn write_frame<T: Serialize>(
-    mut writer: impl Write,
+fn encode_frame<T: Serialize>(
     mut envelope: Envelope<T>,
     format: OutputFormat,
     code: i32,
-) -> io::Result<i32> {
+) -> io::Result<(i32, Vec<u8>)> {
     // Serialize a complete response before publication. I/O can still fail mid-write;
     // no serializer failure can publish a syntactically partial response as evidence.
     let mut frame = Vec::new();
@@ -400,6 +408,5 @@ fn write_frame<T: Serialize>(
             writeln!(frame)?;
         }
     }
-    writer.write_all(&frame)?;
-    Ok(code)
+    Ok((code, frame))
 }

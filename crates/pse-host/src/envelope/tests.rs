@@ -17,6 +17,36 @@ fn payload() -> Payload {
     }
 }
 #[test]
+fn owned_transport_receives_the_same_complete_frame_and_original_exit() {
+    for format in [
+        OutputFormat::Json,
+        OutputFormat::Ndjson,
+        OutputFormat::Human,
+    ] {
+        let options = OutputOptions {
+            format,
+            presentation: Presentation::default(),
+            invocation_id: CliInvocationId::new(),
+            artifact_directory: None,
+        };
+        let response = || {
+            let mut response = Envelope::response("observe follow", "original failure", payload());
+            response.invocation_id = options.invocation_id.clone();
+            response.outcome = CommandOutcome::BoundaryFailure;
+            response.child_exit = Some(125);
+            response
+        };
+        let mut expected = Vec::new();
+        let expected_code =
+            write(&mut expected, response(), format, &options.presentation).unwrap();
+        let (code, frame) = options.encode_frame(response()).unwrap();
+        assert_eq!(code, expected_code);
+        assert_eq!(frame, expected);
+        assert!(frame.ends_with(b"\n"));
+        assert_eq!(code, 125);
+    }
+}
+#[test]
 fn producer_page_omissions_survive_direct_and_projected_emission() {
     for fields in [None, Some(vec!["records".into()])] {
         let mut response = Envelope::response("page", "selected original records", payload());

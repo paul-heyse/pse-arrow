@@ -37,10 +37,18 @@ impl OutputOptions {
         write(std::io::stdout().lock(), response, self.format, &projection)
     }
     /// Publish a response using the invocation's established identity and view.
-    pub fn emit<T: Serialize + JsonSchema>(
+    pub fn emit<T: Serialize + JsonSchema>(&self, response: Envelope<T>) -> std::io::Result<i32> {
+        use std::io::Write as _;
+        let (code, frame) = self.encode_frame(response)?;
+        std::io::stdout().lock().write_all(&frame)?;
+        Ok(code)
+    }
+    /// Prepare one complete frame for an owned transport to publish. Limited legacy
+    /// views retain their original evidence through the same route as `emit`.
+    pub fn encode_frame<T: Serialize + JsonSchema>(
         &self,
         mut response: Envelope<T>,
-    ) -> std::io::Result<i32> {
+    ) -> std::io::Result<(i32, Vec<u8>)> {
         response.invocation_id = self.invocation_id.clone();
         let prepared = presentation::prepare::<T>(&response.command, &self.presentation)?;
         if self.presentation.fields.is_some() || self.presentation.budget.is_some() {
@@ -52,7 +60,7 @@ impl OutputOptions {
             })?;
             retain(&mut response, directory)?;
         }
-        presentation::write_prepared(std::io::stdout().lock(), response, self.format, prepared)
+        presentation::encode_prepared(response, self.format, prepared)
     }
 }
 /// Retain the full response before presenting a limited view, with immutable content identity.

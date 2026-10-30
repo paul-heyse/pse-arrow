@@ -11,6 +11,37 @@ fn syntax() -> ProducerContext {
         configuration: "Rust 2024; written tokens only".into(),
     }
 }
+#[test]
+fn small_preview_keeps_exact_original_region_without_serializing_unselected_file() {
+    let text = format!("old();\n/*{}*/", "unselected".repeat(100_000));
+    let original = source("/source/large.rs", &text);
+    let identity = original.identity().clone();
+    let edit = EditCandidate::new(identity.clone(), 0..3, "new".into());
+    let checked = proposal(vec![original.clone()], vec![edit], vec![0]).unwrap();
+    let bytes = serde_json::to_vec(&checked).unwrap();
+    assert!(bytes.len() < 4096);
+    let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        value["sources"][0]["source_sha256"],
+        identity.source_sha256()
+    );
+    assert_eq!(value["selected_edits"][0]["original"], "old");
+    assert_eq!(value["selected_edits"][0]["replacement"], "new");
+    assert_eq!(
+        value["selected_edits"][0]["range"],
+        serde_json::json!({"start":0,"end":3})
+    );
+    checked.validate_sources(&[original]).unwrap();
+    assert_eq!(checked.sources()[0].text(), text);
+    let schema = schemars::generate::SchemaSettings::draft2020_12()
+        .for_serialize()
+        .into_generator()
+        .into_root_schema_for::<ChangeProposal>();
+    jsonschema::validator_for(schema.as_value())
+        .unwrap()
+        .validate(&value)
+        .unwrap();
+}
 fn proposal(
     sources: Vec<SourceText>,
     candidates: Vec<EditCandidate>,

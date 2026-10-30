@@ -114,7 +114,7 @@ pub enum FileOperation {
 }
 
 /// Checked proposal; it grants no write, compilation or Git-publication authority.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug)]
 pub struct ChangeProposal {
     producer: ProducerContext,
     sources: Vec<SourceText>,
@@ -124,6 +124,52 @@ pub struct ChangeProposal {
     conflicts: Vec<CandidateConflict>,
     limitations: Vec<String>,
     unresolved_placeholders: Vec<UnresolvedPlaceholder>,
+}
+
+/// Borrowed output: exact addressed identities and selected before/after regions.
+/// Full originals remain inside the checked proposal for validation, without making
+/// an unrelated large file the default response to a one-region preview.
+#[derive(Serialize, JsonSchema)]
+#[schemars(rename = "ChangeProposal")]
+struct ProposalView<'a> {
+    producer: &'a ProducerContext,
+    sources: Vec<&'a SourceIdentity>,
+    file_operations: &'a [FileOperation],
+    candidates: &'a [EditCandidate],
+    selected: &'a [usize],
+    selected_edits: Vec<EditInspection<'a>>,
+    conflicts: &'a [CandidateConflict],
+    limitations: &'a [String],
+    unresolved_placeholders: &'a [UnresolvedPlaceholder],
+}
+impl Serialize for ChangeProposal {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        ProposalView {
+            producer: &self.producer,
+            sources: self.sources.iter().map(SourceText::identity).collect(),
+            file_operations: &self.file_operations,
+            candidates: &self.candidates,
+            selected: &self.selected,
+            selected_edits: (0..self.selected.len())
+                .filter_map(|index| self.inspect(index))
+                .collect(),
+            conflicts: &self.conflicts,
+            limitations: &self.limitations,
+            unresolved_placeholders: &self.unresolved_placeholders,
+        }
+        .serialize(serializer)
+    }
+}
+impl JsonSchema for ChangeProposal {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        ProposalView::schema_name()
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        concat!(module_path!(), "::ChangeProposal").into()
+    }
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        ProposalView::json_schema(generator)
+    }
 }
 
 /// Borrowed selected replacement inspection, retaining exact before/after text.
