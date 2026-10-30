@@ -56,5 +56,8 @@ tar.workspace = true
 flate2.workspace = true
 zip.workspace = true
 base64.workspace = true
+syn.workspace = true
+proc-macro2.workspace = true
+pulldown-cmark.workspace = true
 
 [dev-dependencies]
