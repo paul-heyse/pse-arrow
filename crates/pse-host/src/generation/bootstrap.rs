@@ -586,6 +586,19 @@ fn construct_selected(
     mode: BootstrapMode,
 ) -> Result<BootstrapOutcome, HostError> {
     let root = root.canonicalize()?;
+    let target = root.join("target");
+    match fs::DirBuilder::new().mode(0o700).create(&target) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(error) => return Err(error.into()),
+    }
+    let metadata = fs::symlink_metadata(&target)?;
+    if !metadata.is_dir()
+        || metadata.file_type().is_symlink()
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+    {
+        return Err(invalid("checkout target is not an owned direct directory"));
+    }
     let tools = root.join("target/host-tools");
     prepare_root(&tools)?;
     let lock = owned_file(&tools.join(".update.lock"), true)?;

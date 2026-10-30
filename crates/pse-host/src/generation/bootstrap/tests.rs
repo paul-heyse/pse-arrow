@@ -273,6 +273,7 @@ fn matching_copy_has_exact_bytes_without_destination_build_and_releases_source_u
     let environment = environment();
     lock_fixture(source.path(), &environment);
     lock_fixture(destination.path(), &environment);
+    fs::remove_dir_all(destination.path().join("target")).unwrap();
     assert_eq!(
         construct(
             source.path(),
