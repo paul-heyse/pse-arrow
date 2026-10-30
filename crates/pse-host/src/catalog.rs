@@ -40,6 +40,8 @@ impl MetadataSnapshot {
 pub enum Domain {
     /// Workspace members from a supplied Cargo metadata snapshot.
     Packages,
+    /// Exact source-qualified packages in a supplied dependency metadata context.
+    Dependencies,
     /// Unambiguous package/target intentions accepted by the current selection owner.
     Targets,
     /// Checkout-authenticated invocation IDs; metadata grants no control or workload status.
@@ -52,6 +54,7 @@ impl Domain {
     pub fn name(self) -> &'static str {
         match self {
             Self::Packages => "workspace-packages",
+            Self::Dependencies => "dependency-identities",
             Self::Targets => "workspace-targets",
             Self::Invocations => "invocation-ids",
             Self::NativeCapabilities => "native-capability-atoms",
@@ -66,6 +69,7 @@ impl Domain {
     fn parse(name: &str) -> Option<Self> {
         [
             Self::Packages,
+            Self::Dependencies,
             Self::Targets,
             Self::Invocations,
             Self::NativeCapabilities,
@@ -136,7 +140,7 @@ impl Context<'_> {
             .into());
         };
         match domain {
-            Domain::Packages | Domain::Targets => {
+            Domain::Packages | Domain::Targets | Domain::Dependencies => {
                 let Some(metadata) = self.metadata else {
                     return Ok(CandidateSet::unavailable(
                         domain.name(),
@@ -148,6 +152,15 @@ impl Context<'_> {
                     generation: self.metadata_generation.map(str::to_owned),
                     freshness: self.metadata_freshness.unwrap_or(Freshness::Unknown),
                 };
+                if domain == Domain::Dependencies {
+                    let values = metadata.packages.iter().map(|package| Candidate {
+                        value: package.id.to_string(),
+                        aliases: vec![format!("{}@{}", package.name, package.version)],
+                        help: Some(format!("exact metadata source identity for {} {}; equal names/versions may be ambiguous", package.name, package.version)),
+                        hidden: false,
+                    }).collect();
+                    return Ok(suggestions(source, if metadata.resolve.is_some() { Exhaustiveness::Exhaustive } else { Exhaustiveness::Unknown }, values, vec!["captured metadata context only; absent resolve graph cannot certify a full dependency domain".into()]));
+                }
                 let values=metadata.workspace_packages().into_iter().flat_map(|package| {
                     if domain==Domain::Packages {return vec![Candidate{value:package.name.to_string(),aliases:vec![package.id.repr.clone()],help:Some("workspace member in the supplied metadata snapshot".into()),hidden:false}];}
                     package.targets.iter().filter_map(|target| {
@@ -221,12 +234,22 @@ impl Context<'_> {
 }
 /// Shared parser with descriptive associations only; argument validation is unchanged.
 pub fn command_tree() -> Command {
-    let tree = crate::cli::Cli::command().mut_subcommand("native", |command| {
+    let mut tree = crate::cli::Cli::command().mut_subcommand("native", |command| {
         command.mut_subcommand("prepare", |command| {
             command.mut_arg("capabilities", |arg| {
                 arg.add(Domain::NativeCapabilities.association())
             })
         })
+    });
+    for name in ["result", "log"] {
+        tree = tree.mut_subcommand(name, |command| {
+            command.mut_arg("invocation", |arg| {
+                arg.add(Domain::Invocations.association())
+            })
+        });
+    }
+    tree = tree.mut_subcommand("dep", |command| {
+        command.mut_arg("package", |arg| arg.add(Domain::Dependencies.association()))
     });
     fn attach(mut command: Command, path: Vec<String>) -> Command {
         let name = path.join(" ");

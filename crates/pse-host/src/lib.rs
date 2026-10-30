@@ -23,6 +23,7 @@ pub mod catalog;
 pub mod cli;
 pub mod correctness;
 pub mod diagnostic_tools;
+pub mod dependency;
 pub mod discovery;
 pub mod doctor;
 pub mod envelope;

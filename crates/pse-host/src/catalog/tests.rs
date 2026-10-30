@@ -436,6 +436,37 @@ fn explicit_metadata_snapshot_identity_is_over_exact_source_bytes() {
         Err(crate::correctness::CorrectnessError::Json(_))
     ));
 }
+
+#[test]
+fn actual_read_verbs_expose_lazy_invocation_and_exact_dependency_candidates() {
+    let data = metadata();
+    let context = Context {
+        metadata: Some(&data),
+        ..Context::default()
+    };
+    let dependencies =
+        candidates(&["dep".into()], "package", &Window::default(), &context).unwrap();
+    assert!(!dependencies.page.records.is_empty());
+    assert_eq!(dependencies.page.exhaustiveness, Exhaustiveness::Unknown);
+    assert!(
+        dependencies
+            .page
+            .records
+            .iter()
+            .any(|record| record.value == data.packages[0].id.repr)
+    );
+    for verb in ["result", "log"] {
+        let page = candidates(
+            &[verb.into()],
+            "invocation",
+            &Window::default(),
+            &Context::default(),
+        )
+        .unwrap();
+        assert_eq!(page.page.availability, Availability::Unavailable);
+        assert!(page.page.records.is_empty());
+    }
+}
 #[test]
 fn flags_do_not_advertise_internal_boolean_defaults_as_accepted_value_tokens() {
     let tree = Command::new("fixture").arg(

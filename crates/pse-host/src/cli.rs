@@ -60,6 +60,13 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Inspect exact locked dependency identities, features and direct workspace consumers.
+    Dep {
+        package: String,
+        /// Read this explicit Cargo metadata snapshot instead of collecting locked offline metadata.
+        #[arg(long)]
+        metadata: Option<PathBuf>,
+    },
     /// Read an explicit retained file without interpreting its content as a protocol.
     Artifact {
         #[command(subcommand)]
@@ -205,6 +212,7 @@ impl Command {
                 GenerationIntent::NewWork
             }
             Self::Boundary(_)
+            | Self::Dep { .. }
             | Self::Outline { .. }
             | Self::Show { .. }
             | Self::Artifact { .. }
@@ -582,6 +590,7 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             crate::catalog::description::Page<crate::catalog::description::Candidate>,
         >(command, view),
         "status" => envelope::schema::<crate::status::Report>(command, view),
+        "dep" => envelope::schema::<crate::dependency::Report>(command, view),
         "history" => envelope::schema::<crate::invocation_view::HistoryPage>(command, view),
         "result" => envelope::schema::<crate::invocation_view::ResultView>(command, view),
         "log" => envelope::schema::<crate::invocation_view::LogView>(command, view),
@@ -629,6 +638,25 @@ fn dispatch(
         return Ok(0);
     };
     match command {
+        Command::Dep { package, metadata } => {
+            let snapshot = if let Some(path) = metadata.as_ref() {
+                crate::catalog::MetadataSnapshot::read(&source_path(selected, path.clone())?)?
+            } else {
+                crate::dependency::capture(
+                    &checkout_root(selected)?,
+                    &std::env::vars_os().collect(),
+                )?
+            };
+            Ok(presentation.emit(crate::dependency::inspect(
+                &snapshot,
+                &package,
+                if metadata.is_some() {
+                    "explicit_retained_snapshot"
+                } else {
+                    "locked_offline_metadata"
+                },
+            ))?)
+        }
         Command::Artifact {
             action:
                 ArtifactAction::Read {
@@ -1122,6 +1150,7 @@ fn catalog_dispatch(
             |name| {
                 if name == catalog::Domain::Packages.name()
                     || name == catalog::Domain::Targets.name()
+                    || name == catalog::Domain::Dependencies.name()
                 {
                     if let Some(path) = &args.metadata {
                         let path = if path.is_relative() {
