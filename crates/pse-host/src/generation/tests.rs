@@ -376,6 +376,30 @@ fn kernel_users_and_abandoned_claims_have_distinct_protection() {
 }
 
 #[test]
+fn concurrent_first_users_share_private_directories_without_creation_races() {
+    let fixture = Fixture::new();
+    fixture.generation();
+    let barrier = std::sync::Barrier::new(16);
+    std::thread::scope(|scope| {
+        let users: Vec<_> = (0..16)
+            .map(|_| {
+                scope.spawn(|| {
+                    barrier.wait();
+                    GenerationUse::acquire(&fixture.tools, "generation.fixture").unwrap()
+                })
+            })
+            .collect();
+        for user in users {
+            user.join().unwrap().settle().unwrap();
+        }
+    });
+    assert_eq!(
+        GenerationUse::inspect(&fixture.tools, "generation.fixture").unwrap(),
+        GenerationUseState::Available
+    );
+}
+
+#[test]
 fn traversal_aliases_and_unprepared_generations_cannot_mint_use_claims() {
     let fixture = Fixture::new();
     let generation = fixture.generation();

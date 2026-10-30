@@ -2,6 +2,29 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 
+#[test]
+fn host_construction_exclusion_does_not_block_passive_generation_protection() {
+    let root = tempfile::tempdir().unwrap();
+    let lock = owned_file(&root.path().join(".construction.lock"), true).unwrap();
+    rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockExclusive).unwrap();
+    let passive = owned_file(&root.path().join(".update.lock"), true).unwrap();
+    rustix::fs::flock(&passive, rustix::fs::FlockOperation::NonBlockingLockShared).unwrap();
+    let publishing = owned_file(&root.path().join(".update.lock"), true).unwrap();
+    assert_eq!(
+        rustix::fs::flock(
+            &publishing,
+            rustix::fs::FlockOperation::NonBlockingLockExclusive
+        ),
+        Err(rustix::io::Errno::WOULDBLOCK)
+    );
+    drop(passive);
+    rustix::fs::flock(
+        &publishing,
+        rustix::fs::FlockOperation::NonBlockingLockExclusive,
+    )
+    .unwrap();
+}
+
 fn checkout() -> tempfile::TempDir {
     let root = tempfile::tempdir().unwrap();
     for directory in [

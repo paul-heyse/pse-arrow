@@ -51,7 +51,7 @@ selected="$root/target/host-tools"
 mkdir -p "$selected"
 # Only explicit updates serialize, per checkout. Cargo and installed tools never
 # inherit this descriptor; ordinary workload/admission is independent.
-exec 9>"$selected/.update.lock"
+exec 9>"$selected/.construction.lock"
 flock 9
 cargo build --locked --package pse-host --bins 9>&-
 # The freshly built seed establishes source coherence around the authoritative

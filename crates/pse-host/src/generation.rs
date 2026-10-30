@@ -137,8 +137,12 @@ fn checked_input(root: &Path, path: &Path) -> Result<PathBuf, HostError> {
     Ok(selected)
 }
 fn private_directory(path: &Path, create: bool) -> Result<(), HostError> {
-    if create && !path.exists() {
-        fs::DirBuilder::new().mode(0o700).create(path)?;
+    if create {
+        match fs::DirBuilder::new().mode(0o700).create(path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error.into()),
+        }
     }
     let metadata = fs::symlink_metadata(path)?;
     if !metadata.is_dir()

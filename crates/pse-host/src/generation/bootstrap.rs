@@ -601,7 +601,9 @@ fn construct_selected(
     }
     let tools = root.join("target/host-tools");
     prepare_root(&tools)?;
-    let lock = owned_file(&tools.join(".update.lock"), true)?;
+    // Serialize mutable build outputs separately. Passive entry protection takes the
+    // publication lock and must remain usable throughout a cold host compilation.
+    let lock = owned_file(&tools.join(".construction.lock"), true)?;
     rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockExclusive)
         .map_err(std::io::Error::from)?;
     let observe = || {
@@ -619,6 +621,7 @@ fn construct_selected(
     let before = observe()?;
     if let Some(source) = source.filter(|source| source.usage.manifest().source() == &before) {
         let after = observe()?;
+        let _publication = publication_lock(&tools)?;
         publish(
             &root,
             &source.directory,
@@ -661,6 +664,7 @@ fn construct_selected(
         });
     }
     let after = observe()?;
+    let _publication = publication_lock(&tools)?;
     publish(
         &root,
         &root.join("target/debug"),
@@ -673,6 +677,13 @@ fn construct_selected(
         exit_code: 0,
         settlement: EntrySettlement::Unresolved,
     })
+}
+
+fn publication_lock(tools: &Path) -> Result<File, HostError> {
+    let lock = owned_file(&tools.join(".update.lock"), true)?;
+    rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockExclusive)
+        .map_err(std::io::Error::from)?;
+    Ok(lock)
 }
 
 #[cfg(test)]
