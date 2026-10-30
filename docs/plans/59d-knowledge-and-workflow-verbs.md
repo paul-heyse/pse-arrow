@@ -164,12 +164,12 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [D01](#d01) | in-progress | 59d | Native changed Git layers, package grouping, generated owners, authored advisory rule scopes and conservative test handoff implemented; final public acceptance remains |
-| [D02](#d02) | in-progress | 59d | Exact dependency facts, API acquisition/search/facades/examples and isolated probes delivered; H adds selected units/structural comparisons/native documentation checks; combined remaining consumer acceptance stays open |
+| [D01](#d01) | complete | 59d | Native changed Git layers, package grouping, generated owners, authored advisory rules and conservative test handoff pass focused and actual public consumers |
+| [D02](#d02) | complete | 59d | Exact dependency/API and isolated probe consumers delivered; H and I Outcomes record selected units, constraints, comparison, native documentation and safe probe retention/removal |
 | [D03](#d03) | complete | 59d | Native lossless outline/show, exact source selections and shared lib-outline route integrated; batch CPU execution and source/schema/actual CLI tests cover malformed/Unicode/ambiguous/CommonMark reads |
 | [D04](#d04) | in-progress | 59d | Scoped native checker, exact prepared forwarding and passive help/schema delivered with actual broken/clean controls; final generated-discovery acceptance remains |
 | [D05](#d05) | deferred | 59d | Citation/scaffold wrappers deferred pending demonstrated workflow need; existing native routes remain |
-| [D06](#d06) | in-progress | 59d | Testing-wave generated contributor/affected consumers and publication routing are delivered and qualified. Aggregate output map, original contributor reads and advisory guard remain integrated; broader document/source owner federation stays open |
+| [D06](#d06) | complete | 59d | Generated/contributor/guard routes, captured source-package scope and separately prepared native document-owner federation delivered; actual owner read passes and undeclared source-to-plan binding stays unknown |
 | [D07](#d07) | in-progress | 59d | Parser-derived Markdown reference and generator delivered; republish final integrated grammar and scope-end drift check remain |
 | [D08](#d08) | deferred | 59d | Operator-confirmed deferral; D09 investigation retained, no commit CLI implementation required |
 | [D09](#d09) | complete | 59d | Native Git transaction strategy selected with 11 passing disposable-repository probes; D08 runtime acceptance remains outstanding |
@@ -507,3 +507,21 @@ briefs, citation wrappers and scratch commit adoption are not series completion 
 
 [59e E03](59e-environment-and-adoption.md#e03) adds each verb to the AGENTS.md task table and the
 skills that use it, in the same change as the verb.
+
+### Integrated focused consumers — 2026-10-30
+
+**Implemented and Tested:** `pse changes --base 80c0abf27` observed27 changed paths in the actual
+main checkout, grouped18 under the captured `pse-host` package and9 as unmapped, with current
+authored advisory rule scopes and the conservative test-selection next action. It did not run
+tests or infer active-plan authority from package membership. Focused scope/join/path controls
+retain byte-safe Git names, unknown owners and distinct comparison/live layers.
+
+`pse tools prepare xtask` explicitly captured native selection
+`200a00b2-04ae-4deb-9165-80ba49919f58`; the subsequent passive `pse owner
+docs/plans/59-agent-cli.md --xtask-selection ...` returned the actual native document owner,
+role, retention and status with zero failures. Source-package, generated/contributor and document
+ownership remain independent sections. The native interpreter does not declare source-path-to-plan
+authority, so that section explicitly remains `not_declared` rather than manufacturing a map.
+J's actual query→origin→emitter consumer independently exercises generated lineage and regeneration.
+H and I Outcomes own actual API/probe/native evidence acceptance; D04/D07 final parser publication
+and whole-series static/manual qualification remain separate.
