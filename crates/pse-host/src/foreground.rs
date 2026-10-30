@@ -62,19 +62,29 @@ pub fn trampoline(arguments: &[OsString]) -> Result<i32, HostError> {
     let descriptor = command_fds::inherited::take_fd_ownership(3)
         .map_err(|error| HostError::Ownership(format!("foreground gate: {error}")))?;
     let mut gate = std::fs::File::from(descriptor);
-    let mut release = [0_u8; 1];
-    match gate.read_exact(&mut release) {
-        Ok(()) if release == [1] => {}
-        Ok(()) => {
-            return Err(HostError::Ownership(
-                "invalid foreground gate release".into(),
-            ));
+    // Descriptor initialization/ownership above must precede every generation file open.
+    let entry = crate::generation::EntryGuard::acquire_current()?;
+    let operation = (|| {
+        let mut release = [0_u8; 1];
+        match gate.read_exact(&mut release) {
+            Ok(()) if release == [1] => {}
+            Ok(()) => {
+                return Err(HostError::Ownership(
+                    "invalid foreground gate release".into(),
+                ));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(125),
+            Err(error) => return Err(error.into()),
         }
-        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(125),
-        Err(error) => return Err(error.into()),
-    }
-    drop(gate);
-    exec_result(Command::new(&arguments[0]).args(&arguments[1..]).exec())
+        drop(gate);
+        exec_result(Command::new(&arguments[0]).args(&arguments[1..]).exec())
+    })();
+    // A successful exec never returns here. Returned paths acquired no child/resource
+    // obligations; the original parent still owns actual workload drain and retirement.
+    settle_result(
+        operation,
+        entry.complete(crate::generation::EntrySettlement::NoEffects),
+    )
 }
 
 fn exec_result(error: std::io::Error) -> Result<i32, HostError> {

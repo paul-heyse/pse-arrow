@@ -940,7 +940,13 @@ fn execute_adapter(
     execute(cargo, &resolution.arguments)
 }
 /// Native external Cargo command and invocation-local nextest build adapter.
-pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
+/// Report no-effects only until this owner actually starts an external child. Direct
+/// child status alone does not establish settlement of exported adapter descendants.
+pub fn run(
+    arguments: Vec<OsString>,
+    settlement: &mut crate::generation::EntrySettlement,
+) -> Result<i32, CorrectnessError> {
+    *settlement = crate::generation::EntrySettlement::NoEffects;
     let mut arguments = arguments;
     if arguments
         .first()
@@ -966,6 +972,7 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
     }
     let cargo = real_cargo()?;
     if cargo_adapter {
+        *settlement = crate::generation::EntrySettlement::Unresolved;
         return execute_adapter(
             &cargo,
             &arguments,
@@ -989,6 +996,7 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
             ));
         }
         reject_reuse(&arguments[2..])?;
+        *settlement = crate::generation::EntrySettlement::Unresolved;
         require_nextest_workspace(&cargo)?;
         let executable = std::env::current_exe()?;
         return Ok(exit_status(
@@ -1002,7 +1010,11 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
                 .status()?,
         ));
     }
-    let resolution = resolve_with(&arguments, |args| capture(&cargo, args))?;
+    let resolution = resolve_with(&arguments, |args| {
+        *settlement = crate::generation::EntrySettlement::Unresolved;
+        capture(&cargo, args)
+    })?;
+    *settlement = crate::generation::EntrySettlement::Unresolved;
     execute(&cargo, &resolution.arguments)
 }
 
@@ -1010,6 +1022,12 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
 mod tests {
     use super::*;
     use serde_json::{Value, json};
+    #[test]
+    fn usage_failure_reports_no_generation_resource_effects() {
+        let mut settlement = crate::generation::EntrySettlement::Unresolved;
+        assert!(run(args(&["--unknown-source-build-mode"]), &mut settlement).is_err());
+        assert_eq!(settlement, crate::generation::EntrySettlement::NoEffects);
+    }
     #[test]
     fn fixture_metadata_capture_forwards_exact_original_bytes_and_exit()
     -> Result<(), CorrectnessError> {

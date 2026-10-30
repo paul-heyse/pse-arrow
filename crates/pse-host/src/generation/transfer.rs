@@ -336,12 +336,10 @@ pub fn rebuild_and_reexec(
     if !result.success() {
         return Ok(result.code().unwrap_or(125));
     }
-    let environment = std::env::vars_os().collect();
-    if freshness(&root, &environment)? != Freshness::Current {
-        return Err(invalid(
-            "host inputs changed after construction; retry the top-level command",
-        ));
-    }
+    // The replacement may intentionally implement a newer fingerprint policy. The old
+    // image authenticates prepared bytes, never interprets their source freshness using
+    // its superseded policy. The new image checks freshness before command dispatch;
+    // its same-process loop marker refuses actual post-publication input drift.
     let reference = prepared(&root)?
         .ok_or_else(|| invalid("bootstrap did not publish a prepared generation"))?;
     let executable = reference.executable(&root, tool)?;

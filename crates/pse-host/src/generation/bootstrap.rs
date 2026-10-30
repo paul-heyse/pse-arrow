@@ -11,7 +11,7 @@ const EXTERNAL_INPUTS: &[&str] = &[
 ];
 
 /// Freshness is an observation and never starts Cargo or changes the selector.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Freshness {
     /// Prepared bytes and their recorded inputs agree with the checkout.
@@ -23,7 +23,7 @@ pub enum Freshness {
 }
 
 /// Authenticated prepared identity suitable for an invocation's control reference.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PreparedGeneration {
     /// Relative component below the fixed checkout tool root, never an executable path.
@@ -169,6 +169,7 @@ fn build_environment(inputs: &Environment) -> Result<Environment, HostError> {
                 || name.starts_with("AR_")
                 || name.starts_with("CFLAGS_")
                 || name.starts_with("CXXFLAGS_")
+                || name.starts_with("SCCACHE_")
         })
         .map(|(key, value)| (key.clone(), value.clone()))
         .collect())

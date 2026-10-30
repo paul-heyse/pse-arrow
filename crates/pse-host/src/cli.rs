@@ -5,6 +5,7 @@ use crate::envelope::{
     self, CommandOutcome, Completeness, Envelope, ErrorRecord, OutputFormat, OutputOptions,
     Presentation, RedactionPolicy,
 };
+use crate::generation::{EntryGuard, EntrySettlement, HostTool, NewWorkDecision};
 use crate::{HostError, environment::Environment};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::{
@@ -123,6 +124,81 @@ impl Command {
             Self::Env(options) => options.print || options.activation_data,
             _ => false,
         }
+    }
+
+    // Effect/ownership intent belongs to the actual command declaration, separately
+    // from its presentation protocol. Control and internal entries never auto-rebuild.
+    fn generation_intent(&self) -> GenerationIntent {
+        match self {
+            Self::HostGenerationBootstrap => GenerationIntent::Internal,
+            Self::Boundary(options)
+                if !options.print && !options.explain && !options.command.is_empty() =>
+            {
+                GenerationIntent::NewWork
+            }
+            Self::Boundary(_)
+            | Self::Schema { .. }
+            | Self::AgentHook { .. }
+            | Self::Doctor { .. }
+            | Self::CargoTools { .. }
+            | Self::Env(_)
+            | Self::Activity { .. }
+            | Self::DiagnosticTools {
+                action: ToolAction::Verify { .. },
+            }
+            | Self::Server {
+                action: ServerAction::Select,
+            }
+            | Self::StudyModule {
+                action: StudyAction::Select { .. },
+            }
+            | Self::TelemetryService {
+                action: TelemetryAction::Inspect(_),
+            } => GenerationIntent::Passive,
+            Self::TelemetryService {
+                action: TelemetryAction::Stop(_) | TelemetryAction::RecoverConfiguration(_),
+            } => GenerationIntent::ExistingControl,
+            Self::Run { .. }
+            | Self::Native { .. }
+            | Self::DiagnosticTools {
+                action: ToolAction::Install { .. },
+            }
+            | Self::Server {
+                action: ServerAction::Prepare { .. },
+            }
+            | Self::StudyModule {
+                action: StudyAction::Prepare { .. },
+            }
+            | Self::TelemetryService { .. } => GenerationIntent::NewWork,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GenerationIntent {
+    Passive,
+    NewWork,
+    ExistingControl,
+    Internal,
+}
+
+fn settle_entry(
+    result: Result<i32, HostError>,
+    entry: EntryGuard,
+    settlement: EntrySettlement,
+) -> Result<i32, HostError> {
+    match (result, entry.complete(settlement)) {
+        (result, Ok(())) => result,
+        (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
+            operation: Box::new(operation),
+            cleanup: Box::new(cleanup),
+        }),
+        (Ok(code), Err(cleanup)) => Err(HostError::Settlement {
+            operation: Box::new(HostError::Ownership(format!(
+                "command returned {code}; generation settlement failed"
+            ))),
+            cleanup: Box::new(cleanup),
+        }),
     }
 }
 #[derive(Debug, Subcommand)]
@@ -572,7 +648,31 @@ fn dispatch(cli: Cli, presentation: &OutputOptions) -> Result<i32, HostError> {
 pub fn main(kind: BinKind) -> ExitCode {
     let arguments: Vec<OsString> = std::env::args_os().skip(1).collect();
     if matches!(kind, BinKind::Correctness) {
-        return match crate::correctness::run(arguments) {
+        let entry = if arguments.as_slice() == [OsString::from("--version")] {
+            None // Bootstrap's raw probe precedes manifest publication.
+        } else {
+            match EntryGuard::acquire_current() {
+                Ok(entry) => Some(entry),
+                Err(error) => {
+                    let _ = writeln!(io::stderr(), "arrow-validation: {error}");
+                    return ExitCode::from(2);
+                }
+            }
+        };
+        let mut settlement = EntrySettlement::NoEffects;
+        let result = crate::correctness::run(arguments, &mut settlement);
+        if let Some(entry) = entry {
+            // The raw Cargo owner has not yet supplied original descendant-settlement
+            // evidence. Preserve the claim independently of its command exit status.
+            if let Err(error) = entry.complete(settlement) {
+                let _ = writeln!(io::stderr(), "arrow-validation: {error}");
+                if let Err(original) = result {
+                    let _ = writeln!(io::stderr(), "arrow-validation: {original}");
+                }
+                return ExitCode::from(2);
+            }
+        }
+        return match result {
             Ok(code) => ExitCode::from(u8::try_from(code).unwrap_or(125)),
             Err(error) => {
                 let _ = writeln!(io::stderr(), "arrow-validation: {error}");
@@ -660,21 +760,55 @@ pub fn main(kind: BinKind) -> ExitCode {
                 };
                 raw_protocol = cli.command.as_ref().is_some_and(Command::raw_protocol);
                 (|| {
-                    if !raw_protocol
-                        && !matches!(cli.command.as_ref(), Some(Command::Schema { .. }))
-                        && (cli.fields.is_some() || cli.budget.is_some())
-                    {
-                        let root = checkout_root(cli.root.as_deref())?;
-                        presentation.artifact_directory = Some(
-                            crate::paths::CheckoutState::resolve(
+                    let mut entry = EntryGuard::acquire_current()?;
+                    let mut settlement = EntrySettlement::NoEffects;
+                    let result = (|| {
+                        let intent = cli
+                            .command
+                            .as_ref()
+                            .map(Command::generation_intent)
+                            .unwrap_or(GenerationIntent::Passive);
+                        if intent == GenerationIntent::NewWork && entry.prepared().is_some() {
+                            let root = checkout_root(cli.root.as_deref())?;
+                            let environment = std::env::vars_os().collect();
+                            match runtime()?.block_on(crate::generation::new_work_decision(
                                 &root,
-                                &std::env::vars_os().collect(),
-                            )?
-                            .root
-                            .join("artifacts"),
-                        );
-                    }
-                    dispatch(cli, &presentation)
+                                &environment,
+                            ))? {
+                                NewWorkDecision::Current | NewWorkDecision::PreserveNested => {}
+                                NewWorkDecision::Rebuild => {
+                                    settlement = EntrySettlement::Unresolved;
+                                    let tool = match kind {
+                                        BinKind::Pse => HostTool::Pse,
+                                        BinKind::Host => HostTool::Host,
+                                        BinKind::Correctness => HostTool::Correctness,
+                                    };
+                                    return crate::generation::rebuild_and_reexec(
+                                        &root, tool, &arguments, &mut entry,
+                                    );
+                                }
+                            }
+                        }
+                        if !raw_protocol
+                            && !matches!(cli.command.as_ref(), Some(Command::Schema { .. }))
+                            && (cli.fields.is_some() || cli.budget.is_some())
+                        {
+                            let root = checkout_root(cli.root.as_deref())?;
+                            presentation.artifact_directory = Some(
+                                crate::paths::CheckoutState::resolve(
+                                    &root,
+                                    &std::env::vars_os().collect(),
+                                )?
+                                .root
+                                .join("artifacts"),
+                            );
+                        }
+                        if intent != GenerationIntent::Passive {
+                            settlement = EntrySettlement::Unresolved;
+                        }
+                        dispatch(cli, &presentation)
+                    })();
+                    settle_entry(result, entry, settlement)
                 })()
             }
             Err(error) => {
@@ -840,6 +974,47 @@ mod tests {
     fn command_tree_is_consistent() {
         Cli::command().debug_assert();
         CorrectnessCli::command().debug_assert();
+    }
+    #[test]
+    fn generation_intent_is_independent_of_output_protocol_and_child_arguments() {
+        for (arguments, expected) in [
+            (
+                vec!["pse", "run", "child", "--help"],
+                GenerationIntent::NewWork,
+            ),
+            (
+                vec!["pse", "boundary", "--print"],
+                GenerationIntent::Passive,
+            ),
+            (
+                vec!["pse", "boundary", "--explain"],
+                GenerationIntent::Passive,
+            ),
+            (
+                vec!["pse", "boundary", "child", "--explain"],
+                GenerationIntent::NewWork,
+            ),
+            (
+                vec!["pse", "agent-hook", "guard"],
+                GenerationIntent::Passive,
+            ),
+            (vec!["pse", "schema", "doctor"], GenerationIntent::Passive),
+            (
+                vec!["pse", "telemetry-service", "stop"],
+                GenerationIntent::ExistingControl,
+            ),
+            (
+                vec!["pse", "telemetry-service", "start"],
+                GenerationIntent::NewWork,
+            ),
+            (
+                vec!["pse", "__host-generation-bootstrap"],
+                GenerationIntent::Internal,
+            ),
+        ] {
+            let cli = Cli::try_parse_from(arguments).unwrap();
+            assert_eq!(cli.command.unwrap().generation_intent(), expected);
+        }
     }
     #[test]
     fn early_format_prefix_comes_from_the_shared_parser_tail_declaration() {

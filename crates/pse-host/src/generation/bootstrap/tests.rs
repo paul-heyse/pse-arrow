@@ -158,9 +158,14 @@ fn builder_environment_is_explicit_and_private_values_are_digest_only() {
         ("SYMBOLICA_LICENSE".into(), "private-license".into()),
         ("PSE_UNDECLARED_BUILD_INPUT".into(), "ignored".into()),
         ("RUSTC_WRAPPER".into(), "/old/wrapper".into()),
+        ("SCCACHE_DIR".into(), "/shared/compiler-cache".into()),
     ]);
     let selected = build_environment(&inputs).unwrap();
-    assert_eq!(selected.len(), 2);
+    assert_eq!(selected.len(), 3);
+    assert_eq!(
+        selected.get(OsStr::new("SCCACHE_DIR")),
+        Some(&OsString::from("/shared/compiler-cache"))
+    );
     let value = context("rustc fixture".into(), "cargo fixture".into(), &selected);
     assert!(
         !String::from_utf8(encoded(&value).unwrap())

@@ -98,9 +98,20 @@ pub(super) fn installed_fixture() -> (tempfile::TempDir, PathBuf) {
 }
 
 pub(super) fn transfer_fixture() -> (tempfile::TempDir, PathBuf) {
+    transfer_fixture_with_input(false)
+}
+
+pub(super) fn transfer_fixture_with_input(future: bool) -> (tempfile::TempDir, PathBuf) {
     let fixture = Fixture::new();
     let source = fixture.fingerprint();
     for name in ["generation.source", "generation.target"] {
+        let mut source = source.clone();
+        if future && name == "generation.target" {
+            source.context.environment.insert(
+                "future_build_input".into(),
+                Some(digest(b"new-policy-input")),
+            );
+        }
         let directory = fixture.tools.join(name);
         private_directory(&directory, true).unwrap();
         fs::copy(std::env::current_exe().unwrap(), directory.join("pse-host")).unwrap();

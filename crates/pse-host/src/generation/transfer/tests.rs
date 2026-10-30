@@ -28,8 +28,29 @@ fn handoff_child() {
     };
     let executable = std::env::current_exe().unwrap();
     let tools = executable.parent().unwrap().parent().unwrap();
-    if mode == "prepare" {
+    let source_image = executable.parent().unwrap().file_name().unwrap() == "generation.source";
+    if mode == "prepare" || (mode == "prepare_future" && source_image) {
         let source = EntryGuard::acquire_current().unwrap();
+        if mode == "prepare_future" {
+            let root = tools.parent().unwrap().parent().unwrap();
+            let source_manifest =
+                GenerationManifest::load(&tools.join("generation.source")).unwrap();
+            let target_manifest =
+                GenerationManifest::load(&tools.join("generation.target")).unwrap();
+            assert!(
+                !target_manifest
+                    .source
+                    .matches_sources(root, &source_manifest.source.context)
+                    .unwrap(),
+                "old policy must disagree with the future policy"
+            );
+            let mut source = source;
+            let arguments = ["--exact", CHILD, "--nocapture"].map(OsString::from);
+            // The same payload test process implements the future policy branch after
+            // actual exec. The fixed bootstrap fixture has already published its target.
+            let result = rebuild_and_reexec(root, HostTool::Host, &arguments, &mut source);
+            panic!("future-policy reexec unexpectedly returned: {result:?}");
+        }
         let target = GenerationUse::acquire(tools, "generation.target").unwrap();
         let handoff = begin(&source, &target, &reference(tools, "generation.target")).unwrap();
         let payload = String::from_utf8(encoded(&handoff).unwrap()).unwrap();
@@ -42,11 +63,29 @@ fn handoff_child() {
     }
     let adopted = EntryGuard::acquire_current().unwrap();
     assert_eq!(adopted.prepared().unwrap().generation, "generation.target");
-    if mode == "adopt" {
+    if mode == "adopt" || mode == "prepare_future" {
         assert_eq!(
             GenerationUse::inspect(tools, "generation.source").unwrap(),
             GenerationUseState::Available
         );
+        if mode == "prepare_future" {
+            let root = tools.parent().unwrap().parent().unwrap();
+            let target = GenerationManifest::load(&tools.join("generation.target")).unwrap();
+            let mut current_policy = GenerationManifest::load(&tools.join("generation.source"))
+                .unwrap()
+                .source
+                .context;
+            current_policy.environment.insert(
+                "future_build_input".into(),
+                Some(digest(b"new-policy-input")),
+            );
+            assert!(
+                target
+                    .source
+                    .matches_sources(root, &current_policy)
+                    .unwrap()
+            );
+        }
     } else {
         assert_eq!(mode, "foreign");
         assert_eq!(
@@ -75,6 +114,43 @@ fn actual_same_process_exec_authenticates_target_before_retiring_source() {
     assert!(
         result.status.success(),
         "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert!(receipt.is_file());
+    assert_eq!(
+        GenerationUse::inspect(&tools, "generation.source").unwrap(),
+        GenerationUseState::Available
+    );
+    assert_eq!(
+        GenerationUse::inspect(&tools, "generation.target").unwrap(),
+        GenerationUseState::Available
+    );
+}
+
+#[test]
+fn new_image_applies_new_fingerprint_policy_after_actual_reexec() {
+    use std::os::unix::fs::PermissionsExt;
+    let (_fixture, tools) = crate::generation::tests::transfer_fixture_with_input(true);
+    let root = tools.parent().unwrap().parent().unwrap();
+    fs::create_dir(root.join("scripts")).unwrap();
+    fs::write(root.join("scripts/bootstrap-host"), "#!/bin/sh\nexit 0\n").unwrap();
+    fs::set_permissions(
+        root.join("scripts/bootstrap-host"),
+        fs::Permissions::from_mode(0o700),
+    )
+    .unwrap();
+    std::os::unix::fs::symlink("generation.target", tools.join("current")).unwrap();
+    let receipt = tools.join("receipt");
+    let result = Command::new(tools.join("generation.source/pse-host"))
+        .args(["--exact", CHILD, "--nocapture"])
+        .env(MODE, "prepare_future")
+        .env(RECEIPT, &receipt)
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&result.stdout),
         String::from_utf8_lossy(&result.stderr)
     );
     assert!(receipt.is_file());
