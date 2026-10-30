@@ -174,28 +174,28 @@ pub struct Inventory {
 impl Inventory {
     /// Actual selected tests; duplicate names in different binaries remain distinct.
     pub fn selected_tests(&self) -> Vec<TestIdentity> {
-        self.groups
-            .iter()
-            .enumerate()
-            .flat_map(|(group, listed)| {
-                listed.listing.rust_suites.values().flat_map(move |suite| {
-                    suite
-                        .test_cases
-                        .iter()
-                        .filter(|(_, case)| case.filter_match.is_match())
-                        .map(move |(name, _)| TestIdentity {
-                            group,
-                            package_id: suite.binary.package_id.clone(),
-                            binary_id: suite.binary.binary_id.to_string(),
-                            test_name: name.to_string(),
-                        })
-                })
+        self.selected_tests_iter().collect()
+    }
+    /// Traverse selected identities without constructing an entire presentation population.
+    pub fn selected_tests_iter(&self) -> impl Iterator<Item = TestIdentity> + '_ {
+        self.groups.iter().enumerate().flat_map(|(group, listed)| {
+            listed.listing.rust_suites.values().flat_map(move |suite| {
+                suite
+                    .test_cases
+                    .iter()
+                    .filter(|(_, case)| case.filter_match.is_match())
+                    .map(move |(name, _)| TestIdentity {
+                        group,
+                        package_id: suite.binary.package_id.clone(),
+                        binary_id: suite.binary.binary_id.to_string(),
+                        test_name: name.to_string(),
+                    })
             })
-            .collect()
+        })
     }
     /// Zero selected matches is a population fact, never a successful workload result.
     pub fn is_zero_match(&self) -> bool {
-        self.selected_tests().is_empty()
+        self.selected_tests_iter().next().is_none()
     }
     /// Whether every reported suite was actually enumerated; skipped suites stay visible.
     pub fn all_suites_listed(&self) -> bool {
@@ -312,6 +312,8 @@ pub fn list(
     checkout: &Path,
     nextest: &Path,
     destination: &Path,
+    runner_profile: &str,
+    environment: &crate::environment::Environment,
 ) -> Result<Inventory, DiscoveryError> {
     if resolved.plan().operation() != Operation::Test {
         return Err(invalid("only test selections have a nextest inventory"));
@@ -329,7 +331,11 @@ pub fn list(
         directory(destination)?;
         let nextest = capture::executable(nextest, &destination.join("cargo-nextest"))?;
         let mut version = Command::new(&nextest.captured);
-        version.arg("--version");
+        version
+            .arg("--version")
+            .env_clear()
+            .envs(environment)
+            .current_dir(&checkout);
         let version = output(version, destination, "version", None)?;
         let version = String::from_utf8(version.stdout)
             .map_err(|_| invalid("nextest version is not UTF-8"))?;
@@ -352,9 +358,8 @@ pub fn list(
             .join("cargo-pse-correctness");
         let captured_correctness =
             capture::executable(&correctness, &destination.join("cargo-pse-correctness"))?;
-        let cargo = crate::correctness::real_cargo()?;
+        let cargo = crate::correctness::real_cargo_in(environment)?;
         let nextest_configuration = fs::read(checkout.join(".config/nextest.toml"))?;
-        let runner_profile = "default";
         let configuration = destination.join("nextest.toml");
         fs::write(&configuration, &nextest_configuration)?;
         let mut groups = Vec::new();
@@ -367,6 +372,8 @@ pub fn list(
             let mut build = Command::new(&nextest.captured);
             build
                 .current_dir(&checkout)
+                .env_clear()
+                .envs(environment)
                 .args([
                     "nextest",
                     "list",
@@ -416,6 +423,8 @@ pub fn list(
             let mut enumerate = Command::new(&nextest.captured);
             enumerate
                 .current_dir(&checkout)
+                .env_clear()
+                .envs(environment)
                 .args([
                     "nextest",
                     "list",
@@ -475,7 +484,7 @@ pub fn list(
     }
 }
 
-fn add_filters(command: &mut Command, plan: &selection::Plan) {
+pub(crate) fn add_filters(command: &mut Command, plan: &selection::Plan) {
     command.args([
         "--run-ignored",
         match plan.ignored() {

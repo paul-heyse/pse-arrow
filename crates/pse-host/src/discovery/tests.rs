@@ -190,9 +190,12 @@ fn explicit_real_host_listing_captures_actual_inventory_without_setup_or_provide
         checkout,
         &nextest,
         &root.path().join("inventory"),
+        "local",
+        &std::env::vars_os().collect(),
     )
     .unwrap();
     assert_eq!(inventory.setup, SetupObservation::NotRunByListing);
+    assert_eq!(inventory.runner_profile, "local");
     assert_eq!(
         inventory.physical_scope,
         PhysicalScopeObservation::NotEstablishedByDiscovery

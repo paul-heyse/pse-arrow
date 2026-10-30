@@ -251,7 +251,7 @@ pub fn capture(
 ) -> Result<MetadataSnapshot, CorrectnessError> {
     let mut builder = cargo_metadata::MetadataCommand::new();
     builder
-        .cargo_path(crate::correctness::real_cargo()?)
+        .cargo_path(crate::correctness::real_cargo_in(environment)?)
         .current_dir(root)
         .other_options(vec!["--locked".into(), "--offline".into()]);
     let mut command = builder.cargo_command();

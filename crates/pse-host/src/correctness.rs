@@ -797,7 +797,40 @@ fn native_command_with_rustflags(
     command
 }
 pub(crate) fn capture(cargo: &OsStr, arguments: &[OsString]) -> Result<Vec<u8>, CorrectnessError> {
-    let output = native_command(cargo, arguments).output()?;
+    capture_command(native_command(cargo, arguments))
+}
+/// Query the same native compiler policy in an explicit checkout/environment, without
+/// changing process-global state or weakening diagnostic Rustflags and adapter isolation.
+pub(crate) fn capture_at(
+    cargo: &OsStr,
+    arguments: &[OsString],
+    checkout: &Path,
+    environment: &crate::environment::Environment,
+) -> Result<Vec<u8>, CorrectnessError> {
+    let mut command = native_command_with_rustflags(
+        cargo,
+        arguments,
+        environment
+            .get(OsStr::new("CARGO_ENCODED_RUSTFLAGS"))
+            .cloned(),
+        environment.get(OsStr::new("RUSTFLAGS")).cloned(),
+    );
+    let overrides: Vec<_> = command
+        .get_envs()
+        .map(|(key, value)| (key.to_owned(), value.map(OsStr::to_owned)))
+        .collect();
+    command.env_clear().envs(environment).current_dir(checkout);
+    for (key, value) in overrides {
+        if let Some(value) = value {
+            command.env(key, value);
+        } else {
+            command.env_remove(key);
+        }
+    }
+    capture_command(command)
+}
+fn capture_command(mut command: Command) -> Result<Vec<u8>, CorrectnessError> {
+    let output = command.output()?;
     if !output.status.success() {
         return Err(invalid(format!(
             "Cargo graph request failed: {}",
@@ -813,9 +846,22 @@ fn exit_status(status: ExitStatus) -> i32 {
         .unwrap_or_else(|| 128 + status.signal().unwrap_or(1))
 }
 pub(crate) fn real_cargo() -> Result<OsString, CorrectnessError> {
-    let cargo = std::env::var_os(REAL_CARGO)
+    real_cargo_in(&std::env::vars_os().collect())
+}
+/// Select Cargo through the same recursion guard from a complete explicit child environment.
+pub(crate) fn real_cargo_in(
+    environment: &crate::environment::Environment,
+) -> Result<OsString, CorrectnessError> {
+    let cargo = environment
+        .get(OsStr::new(REAL_CARGO))
+        .cloned()
         .filter(|value| !value.is_empty())
-        .or_else(|| std::env::var_os("CARGO").filter(|value| !value.is_empty()))
+        .or_else(|| {
+            environment
+                .get(OsStr::new("CARGO"))
+                .cloned()
+                .filter(|value| !value.is_empty())
+        })
         .unwrap_or_else(|| "cargo".into());
     if std::fs::canonicalize(&cargo)
         .ok()

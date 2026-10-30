@@ -47,6 +47,7 @@ pub mod source_read;
 pub mod status;
 pub mod stream_records;
 pub mod study_module;
+pub mod test_workflow;
 pub use manager::{
     AttachedChild, BorrowedService, BorrowedUnit, CreationOutcome, CurrentMembership,
     DirectoryBinding, HostManager, LaunchIntent, OpenedSubgroupCustody, OrdinaryPlacement,
