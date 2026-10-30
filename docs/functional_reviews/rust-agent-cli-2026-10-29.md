@@ -17,8 +17,8 @@ doc_topics: [environment, libraries, design, current-work]
 > - [first-principles opportunities](#first-principles) O15–O21, judged by the agent as the tool's
 >   user;
 > - [environment changes](#environment-followup) O23–O25, plus the operator's new direction that
->   the CLI is strongly recommended now and required later, set out as the
->   [adoption path](#adoption-path) and O22.
+>   the CLI is the strongly recommended agent interface. It is adopted by being the easiest path
+>   and clearly communicated, with no enforcement ([adoption](#adoption-path) and O22).
 >
 > The follow-up amends O01, O04, O06, O07, O11 and O14 in place, keeps every earlier ID, and
 > updates the order of work, proposed direction changes and delivery statements. Its companion-crate checks
@@ -69,7 +69,8 @@ explicitly not recommended ([Not recommended](#not-recommended)).
   - test discovery ([O19](#O19));
   - continuity across compaction ([O20](#O20));
   - soft claims, as a candidate ([O21](#O21)).
-- **Adoption.** A staged path enforced through both harnesses' shell hooks ([O22](#O22)).
+- **Adoption.** `pse` is made the easiest path and clearly communicated, with no enforcement
+  hooks ([O22](#O22)).
 - **Environment.** A worktree lifecycle ([O23](#O23)), one checkout-scoped home for results, logs
   and scratch ([O24](#O24)), and harness orientation surfaces ([O25](#O25)).
 
@@ -1319,36 +1320,41 @@ it:
 | The clap overview was a duplicate of `futures.md` | Corrected by the operator; this revision uses it |
 
 <a id="adoption-path"></a>
-## Adoption path: recommended now, required later
+## Adoption: the easiest path, clearly communicated
 
-**Operator direction (2026-10-29):** the CLI is strongly recommended now and will be required
-later, but not immediately. Both harnesses can enforce this through one mechanism:
-- Claude Code and Codex both run `PreToolUse` hooks on shell commands, matching `Bash`, with the
-  command at `tool_input.command`.
-- The same contract applies in both: exit 2 or `permissionDecision: "deny"` blocks;
-  `additionalContext` annotates.
-- One `pse agent-hook shell` handler can therefore serve both, alongside the existing edit guard.
+**Operator direction (2026-10-29):** `pse` is the strongly recommended agent interface. The
+audience is capable agents who judge for themselves whether to use it. Adoption therefore comes
+from `pse` being the easiest way to get work done, and from agents knowing it exists and what it
+does. It does not come from enforcement.
 
 <a id="O22"></a>
-### O22 — Staged adoption hooks
+### O22 — Make `pse` the obvious first choice
 
-| Stage | Instructions | Hook behaviour | Covers |
-| --- | --- | --- | --- |
-| **Recommended** (at first delivery) | AGENTS.md "Start here" routes through `pse`. Recipes for covered work delegate to `pse`. Every envelope carries `next` commands in `pse` form. | None. | Everything `pse` does. |
-| **Strongly recommended** (once O02–O05 cover the episodes in this review) | The same, plus the environment guide marks the raw forms as legacy. | `pse agent-hook shell` adds `additionalContext` naming the `pse` equivalent, but never blocks. | Covered raw forms are handled: bare `cargo test` and direct adapter nextest runs, `tail` and `ps` polling of run logs, hand-set `PSE_NATIVE_FIXTURE_*`/`PSE_WORKER_BINARY`, and `> /tmp/*.log &`-style launches. |
-| **Required** (after coverage is complete and envelopes are stable) | AGENTS.md states that `pse` is the agent interface for covered work; bare tools remain for uncovered work. | The hook denies covered raw forms with the exact `pse` replacement. Uncovered commands always pass. An explicit `PSE_RAW=1` prefix is the escape hatch for diagnosis. | The same raw forms. |
+**Easiest path.**
+- Common tasks need no flags to remember.
+- `pse` finds its checkout itself.
+- Output leads with the answer, and verbs are named after tasks: `test`, `check`, `wait`,
+  `result`, `fixture`, `api`, `owner`, `commit`, `worktree`.
 
-**Hook behaviour.**
-- **Fails open.** The new handler fails open on its own errors: a crash or timeout allows the
-  command. This is unlike the edit guard, which prints `BLOCKED` on error. Both harnesses also
-  fail open on hook errors.
-- **Matches command shapes, not text.** It splits commands into shell words, including compound
-  commands (`&&`, `;`, `|`) and the `scripts/pse-env [flags] --` wrapper, and matches the
-  resulting command shapes.
-- **Conservative.** A false block costs more than a missed nudge.
-- **Codex tool names.** Check which tool names Codex `PreToolUse` actually reports. Shell commands
-  arrive as `Bash`. Edits arrive as `apply_patch`, which Codex documents `Edit`/`Write` as
-  aliases for. Confirm that the existing edit matcher fires.
+If agents keep using a raw form for something, that marks a capability `pse` should do better.
+Improve it there.
+
+**Communicate presence and capability where agents already look:**
+- **AGENTS.md "Start here".** A short task-to-verb table ("run a test → `pse test`", "wait on a
+  build → `pse wait`", "exact dependency API → `pse api`", …) pointing to `pse commands --json`
+  and the generated reference ([O06](#O06)).
+- **The environment guide.** `docs/dev/agent-environment.md` routes each workflow through `pse`.
+- **Role contracts and process skills.** `.agents/roles/*`, `execute-plan` and the review skills
+  name the `pse` verb for each step they describe, for example `pse brief` when delegating and
+  `pse handoff` before long work.
+- **Session start.** The [O25](#O25) status brief ends with one line naming the main verbs.
+- **In every result.** Each envelope's `next` field and every diagnostic remedy use `pse` forms
+  ([O02](#O02)). Using `pse` once teaches the next step.
+- **Recipes.** Recipes for work `pse` covers delegate to it or are retired, so recipe users land
+  on it too.
+
+No hooks enforce or nudge adoption. The orientation and handoff hooks in [O20](#O20) and
+[O25](#O25) only provide context.
 
 <a id="environment-followup"></a>
 ## Environment changes for agent effectiveness
@@ -1420,7 +1426,7 @@ $XDG_STATE_HOME/pse-arrow/<checkout-id>/
   probes/<name>/                                                       # O15 scratch crates
   scratch/<session-id>/                                                # Codex sessions (Claude uses its harness scratchpad)
   handoff/<session-id>.json                                            # O20
-  index.json                                                           # recent runs, claims (O21), raw-use records (O22), worktree link (O23)
+  index.json                                                           # recent runs, claims (O21), worktree link (O23)
 ```
 
 Rules for the store:
@@ -1448,8 +1454,8 @@ Rules for the store:
 - **Status line (Claude).** `.claude/settings.json` gains a `statusLine` command running
   `pse status --line`. It is read-only and quick, and prints nothing useful but harmless when
   the seed exits 125 because the tools are unprepared.
-- **Hook wiring.** Add the `Bash` hook group for [O22](#O22): `.codex/hooks.json` (which needs
-  the one-time `/hooks` trust) and the `Bash` matcher in `.claude/settings.json`.
+- **Hook trust.** The session-start and compaction hooks in this item and [O20](#O20) only add
+  context. Codex needs a one-time `/hooks` trust for them.
 - **No new permissions.** Claude already allows `Bash`, and Codex approvals stay inherited from
   user configuration.
 - **Tool servers.** Enable the rust-analyzer MCP for Codex ([O11](#O11)), and trial `rustdoc-mcp`
@@ -1509,9 +1515,8 @@ The operator intends to plan and execute all of these. The order follows depende
    - [O14](#O14) `ref`/`new`;
    - [O07](#O07) `changes`/`brief`;
    - [O18](#O18) `commit`.
-7. **[O22](#O22) stages:**
-   - *strongly recommended* hooks once steps 3–5 cover the episodes in this review;
-   - *required* once step 6 is complete and the [direction changes](#direction-changes) are adopted.
+7. **[O22](#O22) communication** lands with each step. The AGENTS.md task-to-verb table, guide
+   routes and skill mentions are updated as each verb ships, not at the end.
 8. **The `pse-host` → `pse` rename of the hook path**, if still wanted, landing atomically with
    `just setup-test`.
 
@@ -1524,7 +1529,7 @@ The operator intends to plan and execute all of these. The order follows depende
 - O05 completes O04 for integration and database targets.
 - O06 is derived from the clap tree, and O19 from O04's declarations.
 - O14, O16 and O07 share citation, ownership and rule resolution.
-- O22's hooks reuse the edit-guard entry point (`agent-hook`) and name O02 `next` commands.
+- O22's communication relies on O02 `next` hints, O06's catalog and O25's session brief.
 
 <a id="direction-changes"></a>
 ## Direction changes proposed
@@ -1536,12 +1541,11 @@ gates on the work.
 
 1. **The CLI becomes the agent interface.** Plan58 §Purpose and its Outcome say "CLIs are optional
    conveniences", with no command framework, universal catalogue or agent execution engine.
-   - Replace that with the operator's 2026-10-29 direction: strongly recommended now, required
-     later.
+   - Replace that with the operator's 2026-10-29 direction: `pse` is the strongly recommended
+     agent interface, adopted by being the easiest path ([O22](#O22)).
    - The catalog is derived from the parser (O06), not authored, so the I09 "universal
      catalogue" concern does not apply.
-   - Blueprint §21.7/§24.1's "no mandatory CLI" changes at the *required* stage. Products stay
-     callable without it.
+   - Blueprint §21.7/§24.1's "no mandatory CLI" can stay: nothing is made mandatory.
 2. **Owned-run supervision is not build observation.** Plan58, 58b and 58h retired bespoke build
    observation along with its wait and freshness consumers. The environment guide retired watch
    cursors.
@@ -1570,11 +1574,8 @@ gates on the work.
 7. **Worktrees are ready on creation.** Replace the environment guide's manual §Worktrees steps
    (supply `.envrc.local` and review/allow direnv "deliberately") with `pse worktree new`, which
    does all of it ([O23](#O23)).
-8. **The required stage's hook.**
-   - AGENTS.md "Bare tools are first-class too" yields to `pse` for covered work only; uncovered
-     work and the `PSE_RAW=1` escape stay.
-   - ADR-0149 limits agent effects to role contracts. Extend it to repository hooks that steer
-     covered raw forms, as the edit guard already does ([O22](#O22)).
+8. **AGENTS.md "Start here" leads with `pse`.** Bare tools stay first-class. The guidance simply
+   puts the easiest path first ([O22](#O22)).
 
 Nothing else in this review needs a rule change:
 - the new dependencies (tracing-subscriber `json`, clap `env`/`string`/`unstable-ext`, schemars
@@ -1604,7 +1605,7 @@ claims at first use:
   - `pse tests <pattern>` returning a runnable command;
   - after compaction, the session resuming from the `pse handoff` context it was given;
   - `pse worktree new` producing a ready checkout whose first build hits the shared cache;
-  - at the *strongly recommended* stage, a raw `cargo test` drawing the hook's `pse test` nudge.
+  - agents reaching for `pse` first because the start route and results point there.
 
 Ordinary implementation tests cover the contracts:
 - each verb's envelope validates against its schema;

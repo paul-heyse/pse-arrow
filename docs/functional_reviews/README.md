@@ -21,7 +21,7 @@ A same-day follow-up revision, using the corrected clap overview, adds:
 - a clap usage contract covering every capability family;
 - first-principles opportunities: pinned-API lookup, owner routing, documentation checks,
   shared-tree commits, test discovery and compaction handoff;
-- a staged recommended-to-required adoption path enforced through both harnesses' shell hooks;
+- adoption by making `pse` the easiest, clearly communicated path, with no enforcement hooks;
 - a worktree lifecycle and one checkout-scoped results store.
 
 An enablement pass proposes changing the directions that cost agents effort: Plan58's
