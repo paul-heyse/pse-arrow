@@ -1039,10 +1039,4 @@ pub fn serve(mut input: impl Read, mut output: impl Write) -> Result<i32, Reader
     Ok(encoded.exit_code())
 }
 #[cfg(test)]
-fn dispatch(bytes: &[u8]) -> ReaderResponse {
-    let result = decode(bytes).and_then(|request| handle(request.request));
-    response(correlation(bytes), result)
-}
-
-#[cfg(test)]
 mod tests;
