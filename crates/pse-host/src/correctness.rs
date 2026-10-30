@@ -18,6 +18,7 @@ use std::{
 const REAL_CARGO: &str = "PSE_CORRECTNESS_REAL_CARGO";
 const ADAPTER: &str = "PSE_CORRECTNESS_ADAPTER";
 const FIXTURE_METADATA_CAPTURE: &str = "PSE_FIXTURE_CARGO_METADATA_CAPTURE";
+const BUILD_CAPTURE: &str = "PSE_CORRECTNESS_BUILD_CAPTURE";
 const CARGO_HACK_ADAPTER: &str = "CARGO_HACK_CARGO_SRC";
 const DIAGNOSTIC_TARGET: &str = "x86_64-unknown-linux-gnu";
 const DIAGNOSTIC_CFG: &str = "target.'cfg(all())'.rustflags=[\"--cfg\",\"tokio_unstable\"]";
@@ -137,7 +138,7 @@ fn arrow(package: &Package) -> bool {
 }
 
 /// The validated original scope, with qualified features and selected diagnostic isolation.
-#[derive(Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Resolution {
     /// Actual Cargo arguments, excluding its executable.
     pub arguments: Vec<OsString>,
@@ -767,7 +768,7 @@ fn exit_status(status: ExitStatus) -> i32 {
         .code()
         .unwrap_or_else(|| 128 + status.signal().unwrap_or(1))
 }
-fn real_cargo() -> Result<OsString, CorrectnessError> {
+pub(crate) fn real_cargo() -> Result<OsString, CorrectnessError> {
     let cargo = std::env::var_os(REAL_CARGO)
         .filter(|value| !value.is_empty())
         .or_else(|| std::env::var_os("CARGO").filter(|value| !value.is_empty()))
@@ -928,6 +929,14 @@ fn execute_adapter(
         return execute(cargo, arguments);
     }
     let resolution = resolve_with(arguments, |args| capture(cargo, args))?;
+    if let Some(directory) = std::env::var_os(BUILD_CAPTURE) {
+        return crate::discovery::capture::execute_build(
+            native_command(cargo, &resolution.arguments),
+            &resolution,
+            Path::new(&directory),
+            &mut io::stdout().lock(),
+        );
+    }
     execute(cargo, &resolution.arguments)
 }
 /// Native external Cargo command and invocation-local nextest build adapter.

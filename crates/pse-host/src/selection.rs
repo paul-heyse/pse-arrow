@@ -167,6 +167,36 @@ impl Group {
     pub fn arguments(&self) -> &[String] {
         &self.arguments
     }
+
+    pub(crate) fn validate_resolution(
+        &self,
+        resolution: &correctness::Resolution,
+    ) -> Result<(), CorrectnessError> {
+        let roots: Vec<_> = resolution.units.iter().filter(|unit| unit.root).collect();
+        if roots.is_empty() || roots.iter().any(|unit| unit.package_id != self.package_id) {
+            return Err(invalid(
+                "admitted Cargo roots differ from normalized package selection",
+            ));
+        }
+        for unit in roots {
+            if let Some(target) = &self.target
+                && (unit.target_name != target.name
+                    || unit.target_kinds != target.kinds
+                    || unit.source_path != target.source_path)
+            {
+                return Err(invalid(
+                    "admitted Cargo target differs from explicit target intent",
+                ));
+            }
+            if !unit.features.is_disjoint(&self.features.absent) {
+                return Err(invalid(format!(
+                    "{} activates a feature required absent",
+                    self.package_name
+                )));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Pure normalized intent. Explain can render this without building or listing.
@@ -209,29 +239,7 @@ impl Plan {
         for group in &self.groups {
             let arguments: Vec<_> = group.arguments.iter().map(OsString::from).collect();
             let resolution = admit(&arguments)?;
-            let roots: Vec<_> = resolution.units.iter().filter(|unit| unit.root).collect();
-            if roots.is_empty() || roots.iter().any(|unit| unit.package_id != group.package_id) {
-                return Err(invalid(
-                    "admitted Cargo roots differ from normalized package selection",
-                ));
-            }
-            for unit in roots {
-                if let Some(target) = &group.target
-                    && (unit.target_name != target.name
-                        || unit.target_kinds != target.kinds
-                        || unit.source_path != target.source_path)
-                {
-                    return Err(invalid(
-                        "admitted Cargo target differs from explicit target intent",
-                    ));
-                }
-                if !unit.features.is_disjoint(&group.features.absent) {
-                    return Err(invalid(format!(
-                        "{} activates a feature required absent",
-                        group.package_name
-                    )));
-                }
-            }
+            group.validate_resolution(&resolution)?;
             admitted.push(resolution);
         }
         Ok(Resolved {
