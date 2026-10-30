@@ -14,7 +14,8 @@ Part of [Plan59](59-agent-cli.md).
 
 The current target incorporates the [CLI/test/runtime review](../functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md)
 O01/O11. The coordinator owns its dispositions and confirmed rule decisions; historical
-implementation evidence below retains its original scope. Product execution remains paused. This plan covers the environment around the CLI:
+implementation evidence below retains its original scope. The selected simplification/testing
+wave includes its operating-guidance migrations. This plan covers the environment around the CLI:
 - worktrees that are ready on creation;
 - Claude's orientation surfaces;
 - guidance that makes `pse` the obvious first choice;

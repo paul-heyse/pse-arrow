@@ -115,8 +115,8 @@ integration checks run once all functional scope is implemented, or when the mai
 requests qualification.
 
 `just assessment --output <output>` collects the full local default/native/Python scope without
-stopping at the first failure. `just native-test` and `just native-python <output>`
-are ordinary linked execution commands; `just py-sync-native` refreshes the extension.
+stopping at the first failure. `scripts/pse test` selects native Rust tests and resolves their
+declared fixture inputs; independent Python references use their isolated environments.
 After functional qualification, `just case-measure <output> --functional-from <report>`
 collects the declared case campaign using Criterion CSV samples. Compilation is untimed
 setup. Reports distinguish fresh execution, unchanged-input reuse and explicitly

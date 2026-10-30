@@ -904,10 +904,14 @@ mechanisms establish no measured speedup or general permission to widen canonica
 Current implementation, qualification and scientific limits remain at the Plan53 coordinator.
 
 **Commands.** During implementation, compile touched packages and run targeted owning tests with
-`just check-package <pkg>` and `just unit-package <pkg> <filter>`; declaration changes include
-`just codegen`. Native correctness routes use Cargo/nextest with explicit selected Arrow validation.
-`just native-test <module-receipt> ...` builds selected tests and runs them against a private fresh
-native canonical fixture using that immutable module. `just docs-test` exercises the native
+`scripts/pse check <pkg> --all-targets` and `scripts/pse test <pkg> --lib -E '<filterset>'`;
+declaration changes include `just codegen`. Select integration tests with `<pkg>:<target>` and
+their required features. Native correctness routes retain Cargo/nextest with explicit selected
+Arrow validation. `scripts/pse fixture prepare study-module` explicitly prepares the immutable
+canonical module input. Selected declarations choose borrowing a fresh runner-owned fixture or
+receiving inputs for a target-owned service; connection-only clients never start a configured
+database. `scripts/pse run-all <recipes...>` attempts independent recipe children under one
+enclosing native owner and retains original child results after failures. `just docs-test` exercises the native
 metadata/lifecycle/publisher owners without a scientific product environment. On request, relevant
 native scientific/component/integration journeys, `just doctest`, `just governance-tests`,
 `just setup-test`, `just codegen-check`, family checks and scope-end hygiene/manual publication

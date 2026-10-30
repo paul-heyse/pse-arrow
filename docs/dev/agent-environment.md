@@ -22,6 +22,14 @@ a unique prefix or `latest`, optionally scoped by `--session`. A timed-out wait 
 observation and leaves the subject running. The original child, payload settlement and service
 finalization remain separate facts; a successful control response does not rewrite the child.
 
+Session correlation selects `--session`, then nonempty `PSE_SESSION`, then an existing
+`CODEX_THREAD_ID`, then an existing `CLAUDE_SESSION_ID`, and finally the checkout session.
+An empty environment value is unavailable; an invalid explicit selection refuses. Exact
+invocation IDs retain their identity regardless of the session selection. `latest` resolves
+within the selected session and never silently falls back across sessions. Use
+`history --all-sessions` for an explicit checkout-wide view. Session correlation adds no hooks
+or process ownership authority.
+
 `just bootstrap` prepares development tools. The checkout's Python environment contains
 independent reference and third-party tools only: `pyproject.toml` is the private virtual
 project `pse-arrow-reference-tools`, version `0.0.0`, with `package = false`. The default
@@ -183,7 +191,7 @@ placement are premises. Hosted compile jobs do not establish this local acceptan
 
 ## Native Cargo correctness
 
-`cargo c`, `cargo t` and the check/unit recipes use the prepared native correctness adapter.
+`scripts/pse check|test|tests`, `cargo c` and `cargo t` use the prepared native correctness adapter.
 Pinned Cargo supplies the actual compiler unit graph, including host/build and selected-root
 dev units. The adapter adds necessary validation opt-ins only to consuming roots and verifies
 actual Arrow leaves and final root identities. Unknown coverage refuses; pure closures remain
@@ -192,8 +200,9 @@ pure. Compiler JSON remains unchanged and graph output stays private.
 Nextest owns source-build selection and scheduling. Its invocation-local Cargo adapter sees
 actual translated compiler arguments; setup restores real Cargo for test attempts. Reused
 archives/binaries, foreign workspaces and unsupported workspace/tool overrides refuse before
-runner launch. `PSE_NEXTEST_ACTION=list` selects listing through the same recipe grammar.
-No Python selector, generated per-test runner or invocation ledger surrounds generic nextest.
+runner launch. `scripts/pse tests` lists the actual source-built test population with the same
+package, feature, target and filter selectors as `scripts/pse test`. Direct nextest remains a
+first-class tool; the CLI owns its retained invocation and captures the original native reports.
 
 The pinned cargo-hack owns powerset enumeration, ordering and keep-going. Existing
 `features-combinations`/`features-no-default` recipes select the correctness executable via
@@ -244,24 +253,35 @@ an oversized next row reports its required extent without splitting its identity
 still scans the retained inventory and grants no fixture readiness or executable-reuse authority.
 New command grammar requires an explicitly prepared image containing that grammar.
 
-- `just check-package PACKAGE` compiles all selected package targets without running tests;
-  `check-library` and `check-test` narrow that scope.
-- `just unit-package PACKAGE WORD_OR_FILTER` selects library units; a bare word becomes
-  `test(word)`. Extra Cargo package selectors and filtersets retain native nextest meaning.
-- `just unit-native-package PACKAGE FEATURES FILTER` selects prepared native providers and
-  direct nextest tests. Database consumers use an explicitly owned canonical fixture.
+- `scripts/pse check PACKAGE --all-targets` compiles the package's eligible targets without
+  running tests; `--lib`, `--test NAME` and `--bin NAME` narrow that scope.
+- `scripts/pse test PACKAGE --lib -E 'test(WORD)'` selects actual library test binaries.
+  Multiple packages, native filter expressions and explicit feature selectors remain visible.
+- `scripts/pse test PACKAGE --lib --features FEATURES -E FILTER` derives the required native
+  capabilities from the reached compiler units and selects their already prepared providers.
+  Database consumers use their declared Rust fixture owner.
 - `scripts/pse affected` previews conservative changed-package reach; inspect its explicit
   widening and coverage limits before
   treating the selection as coverage. Run-only reporting and fixture ownership remain separate.
-- `just native-test MODULE_RECEIPT ...` builds/lists source tests first, then starts one fresh
-  canonical fixture. Put Cargo selectors in repeated `--build-arg` and run filters after `--`;
-  see [qualification commands](validation-assessment.md#individual-commands).
+- `scripts/pse test PACKAGE:TARGET --target-kind KIND --features FEATURES -E FILTER`
+  admits and captures selected source tests before resolving their declared fixture inputs.
+  Borrowed canonical cases use the existing Rust fixture owner; target-owned cases receive
+  immutable prepared inputs and retain their own service ownership. Select the module with
+  `PSE_NATIVE_FIXTURE_MODULE_RECEIPT` or the checkout's prepared module selection; see
+  [qualification commands](validation-assessment.md#individual-commands).
 
 Neither a missing fixture nor unavailable native preparation becomes a skip or a pass. The
 Rust application's fixture capability owns service lifetime; selected children borrow its
 private descriptor. It grants no shutdown or persistent-state disposal authority. Rust test
 assertions remain in public caller tests under `crates/pse-runtime/tests/native_*.rs` and their
 workflow owners. Independent reference Python environments remain explicitly isolated.
+
+Same-package integration helpers consume runtime `CARGO_BIN_EXE_<name>`. Cargo supplies this
+variable for direct integration tests; native Nextest supplies it from its non-test-binary
+metadata, which the CLI maps to the exact same-build captured executable. Embedding a
+compile-time `env!("CARGO_BIN_EXE_...")` path would bypass that mapping. Cross-package helper
+inputs remain with their declared fixture owner. Linked libraries and scientific inputs retain
+their independent runtime admission contracts.
 
 ## Selected reproducible experiments
 

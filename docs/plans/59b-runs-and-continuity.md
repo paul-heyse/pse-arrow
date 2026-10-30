@@ -28,7 +28,8 @@ attempts and observations. Specifically:
 The [observability review](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md)
 O01/O03/O05–O07 and [improvement review](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md)
 I01–I08/I10/I11 refine identity, result, control, output and handoff. The coordinator owns
-dispositions; this document schedules its part. Production execution remains stopped.
+dispositions; this document schedules its part. The selected simplification/testing wave is
+authorized and in progress.
 
 The [library-integration review](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md)
 I01–I07/I12–I14 amend the substantive target below: staged selection, owner-enforced finality,
@@ -212,11 +213,11 @@ no configuration or data deletion. Focused result/source links remain independen
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [B01](#b01) | in-progress | 59b | Protected immutable store, raw capture and exact/partial lookup have focused evidence; synchronous foreground capture/result/settlement integration remains under the revised target |
-| [B02](#b02) | in-progress | 59b | Strict Cargo extraction and former event reconciler have prior focused evidence; native completed-report fold and failure/rerun consumers remain |
-| [B03](#b03) | in-progress | 59b | Existing detach/control and nested cleanup controls retain historical scope; single-service contained topology, revised admission and actual crash/finite journeys remain |
-| [B04](#b04) | planned | 59b | Composite execution with shared enclosing ownership and original per-child results; replace recipe composition only with migrated consumers |
-| [B05](#b05) | planned | 59b | Session correlation only; generic handoff and new packet hooks removed from required target |
+| [B01](#b01) | in-progress | 59b | Native synchronous capture, original typed workflow errors and actual owner settlement are implemented; every synchronous selected consumer moved, and foreground service/origin watching was deleted. Current scope-end qualification remains |
+| [B02](#b02) | in-progress | 59b | Original Cargo diagnostics, native Nextest completed reports, frozen failure-text pages and exact fresh-source failed reruns pass focused/public controls; native exit, raw custody and physical settlement remain distinct. Final integrated checks remain |
+| [B03](#b03) | in-progress | 59b | One service now contains wrapper/payload/descendants; finite capacity is reserved before wrapper birth and reconciled only after original native drain. Six ordinary/finite exit/cancel/main-crash cases and public raw-byte transport passed; obsolete external/subtree recovery is deleted. Post-retirement assembled qualification remains |
+| [B04](#b04) | in-progress | 59b | Native synchronous `run-all` retains original per-child results and parent associations. Public failed-then-successful recipe control passed with one physical native unit; recipe migration and scope-end checks remain |
+| [B05](#b05) | in-progress | 59b | Shared explicit/environment/harness precedence, exact session-local latest, checkout-wide history override and independent exact-ID selection are implemented. Three focused controls and actual passive/harness associations pass; current integrated execution qualification remains with the wave |
 
 <a id="b01"></a>
 ### B01 — Foreground operations and retained results
@@ -240,6 +241,15 @@ full/slow-reader/final-flush failure retains readable prefixes and all cleanup f
 Healthy exact result beside corrupt history remains accessible. Wrong terminal combinations
 fail owner construction; selected explain premises survive unchanged execution or refuse before
 effects. No passing foreground test requires service reconnection or a synthetic crash result.
+
+**Execution checkpoint (2026-10-30).** Every synchronous selected workflow uses the original
+native foreground owner, joined raw-stream capture and immutable performing result. Fixed
+helpers authenticate their actual process, opened original root and recorded executable image.
+The generic foreground service mode, origin pidfd watcher and service observer were removed.
+Original typed workflow-report failures reach the performing response. Generic operation
+metadata is decoded as raw verb-owned data until an actual fixed-workflow action selects its
+schema; an eager workflow decode discovered during detached testing was corrected rather than
+reshaping the generic fixture. Native scope/admission/reap failures remain owner results.
 
 <a id="b02"></a>
 ### B02 — Native failure results and explicit next actions
@@ -290,6 +300,31 @@ compile failure during compatible control. Unit replacement/lag/resync cannot co
 Prepare newer tools while old work runs without collection. No topology qualification is claimed
 by this planned scenario list.
 
+**Execution checkpoint (2026-10-30).** The detached wrapper and gated child share the actual
+same native service root. Explicit startup/stop timeouts and `KillMode=mixed` accompany native
+whole-population cooperative TERM, actual child reap and independent stream joins. Finite
+reservation/ancestor configuration precede service dispatch, so the wrapper is constrained from
+birth. The authenticated main binds that reservation before payload release; neither main nor
+stop-post retires a still-live service charge. Recorded wait/cancel and later admission reconcile
+only the original inactive, empty native lifetime, including stop-post and its allocation.
+
+An immutable operation report records child/capture facts while `native_lifetime_pending=true`
+and settlement remains unknown. Completed wait composes actual native drain/capacity with
+complete original observation; it does not rewrite that earlier report or infer missing reap.
+Wrapper raw OS exit reflects actual operation/capture status, independently of its pending
+future lifetime. Authenticated initialization errors are retained before wrapper exit; abrupt
+main death leaves missing original evidence unknown.
+
+Six independent ordinary/finite controls exercised launcher exit, bounded nonterminal wait,
+cooperative cancellation of escaped-session pipe holders, and authenticated original-main
+SIGKILL with native descendant drain. A public detached journey preserved exact non-UTF-8
+argv/cwd and private environment bytes. These passes preceded legacy deletion; current
+post-retirement assembled/static qualification stays with the coordinator. External payload
+relocation, recursive CLI subgroup/ancestry reconstruction, external-resource finalizer recovery,
+launch-closure protocol, ceremonial async hierarchy and their unconsumed APIs/tests are deleted.
+Detachment from an already native-owned workload explicitly refuses; ordinary nested calls
+inherit enclosing foreground ownership and cannot escape its finite envelope.
+
 <a id="b04"></a>
 ### B04 — Composite bundle runs
 
@@ -309,9 +344,18 @@ settles its population; a parent cannot imply scientific acceptance or drain for
 
 **Consumes:** B01/A04 correlation fields, not generic status/brief or a new hook.
 
-**Delivers:** explicit and already available harness session identity with documented precedence
-and honest checkout fallback; selection/history never grants cancellation authority. Do not add
+**Delivers:** one correlation selection owner with precedence `--session`, nonempty
+`PSE_SESSION`, existing `CODEX_THREAD_ID`, existing `CLAUDE_SESSION_ID`, then checkout grouping
+when no identity is available. Empty environment values are unavailable; malformed selected
+identity is an error rather than permission to choose another identity. Selection/history
+never grants cancellation authority. Do not add
 `pse handoff`, PreCompact packet recording or SessionStart packet injection as prerequisites.
+
+Capture the selected identity at launch. Passive history and `latest` selection use the same
+precedence; `history --all-sessions` explicitly selects checkout-wide metadata. A selected
+session without matching invocations has no `latest` result: it never silently selects another
+session's work. Exact IDs and unique prefixes remain independently selectable, and the native
+ownership checks for wait/cancel are unchanged by correlation.
 
 **Acceptance:** distinct session filters, absent identity and explicit override preserve exact
 result associations; grouping never selects an ambiguous latest result or changes native control.

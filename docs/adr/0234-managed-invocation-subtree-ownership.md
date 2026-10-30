@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-03, AP-04, AP-07, DP-15, DP-19]
 blueprint: [§21.7, §24.1]
-review: "not-required: bounded kernel binding within ADR-0233; independent read-only architecture advice inspected source3b1e97490 and systemd255.4/kernel contracts; not formal review acceptance"
+review: docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md
 evidence: Proposed
 supersedes: []
 superseded-by: null
@@ -99,5 +99,8 @@ continuity and independently cancellable nested CLI subtrees. Explicit detach re
 
 - 2026-10-30 — Proposed kernel binding during authorized Plan59 execution after source-grounded
   independent advice identified nested caller-death and launch/settlement races.
+- That earlier advice inspected source `3b1e97490` for the former topology; it does not qualify
+  the replacement. The current functional review and operator-confirmed RT02/RT03 supply its
+  target basis, with native implementation and formal status separately owned.
 
 - 2026-10-30 — A09 publishes operator-confirmed RT02/RT03, replacing the earlier proposed topology.

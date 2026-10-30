@@ -14,7 +14,8 @@ Part of [Plan59](59-agent-cli.md).
 
 The current target incorporates the [CLI/test/runtime review](../functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md)
 O01/O03. The coordinator owns its dispositions and confirmed rule decisions; historical
-implementation evidence below retains its original scope. Product execution remains paused. This plan adds the verbs that remove an agent's lookup and
+implementation evidence below retains its original scope. The selected simplification/testing
+wave includes the necessary generated-source and affected-selection slice. This plan adds the verbs that remove an agent's lookup and
 bookkeeping work:
 - focused changed-path and source facts;
 - exact dependency facts and API lookup;
@@ -196,6 +197,12 @@ producers and guidance. Retain existing native Git/file tools with distinct usef
 staged/unstaged, rename and historical selections preserve actual source kind. An original
 failure can lead directly to source and a runnable selected action without building a brief.
 No content-hash hunk identity is introduced solely for deferred D08.
+
+Removal disposition: the current host CLI, parser catalog and source-hook callers contain no
+generic brief/handoff composer or packet injection mechanism to retain or replace. Existing
+`status --brief`, focused test/check explanations, parser discovery and environment activation
+remain independently useful. The B05 session owner and direct G/H/I source/result links carry
+their own meaning without a packet prerequisite; E02 remains superseded and D05/D08 deferred.
 
 <a id="d02"></a>
 ### D02 — Dependency facts, API lookup and probes

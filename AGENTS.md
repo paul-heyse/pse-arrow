@@ -62,16 +62,17 @@ after a failure and list what failed:
 
 None of these is a commit, push or merge prerequisite. Formatting and lint fixes mid-work
 rewrite lines you did not author, so every agent would have to re-assess changes that are not
-theirs. The exception is the files you commit whole: format them at commit (`pse commit` does
-this once it lands, Plan59 D08), because those lines are yours.
+theirs. The exception is the files you commit whole: format them once at commit, because
+those lines are yours. The specialized `pse commit` transaction is deferred (Plan59 D08).
 
 **While implementing a plan** — compile checks and targeted tests only:
 
-- Compile what you touched: `just check-package <pkg>` (extra `-p` and cargo flags pass
-  through), or `just check` for cross-crate work.
+- Compile what you touched: `scripts/pse check <pkg> --all-targets`, or
+  `scripts/pse check --workspace --all-targets` for cross-crate work.
 - Run, or write, the targeted unit tests that show the new behaviour:
-  `just unit-package <pkg> <word|filterset>`; `scripts/pse affected` previews the tests a change can
-  reach. A new mechanism gets its tests in the same change.
+  `scripts/pse test <pkg> --lib -E '<filterset>'`; `scripts/pse affected` previews the tests a
+  change can reach. Select integration targets with `<pkg>:<target>`. A new mechanism gets
+  its tests in the same change.
 - Run `just codegen` when a generator or registry declaration changes — regeneration is
   part of the change, not polish. `just hygiene` confirms it at scope end (`codegen-check`).
 - **Delete legacy code as soon as it is provably replaced** — the replacement's targeted
@@ -338,8 +339,9 @@ for the entire plan, scope-end qualification or the end of the conversation. Inc
 necessary declarations, generated outputs, consumers and deletions together, and describe
 the verification actually performed and any material remaining obligations. A commit does
 not establish plan completion or authorize a push. Any agent may commit its own paths or
-hunks, preserving unrelated and concurrent work; `pse commit` (Plan59 D08) builds the commit
-from a private index so concurrent staging cannot leak into it.
+hunks, preserving unrelated and concurrent work. Use explicit path/hunk selection and inspect
+the resulting commit; ordinary Git does not provide Plan59 D08's deferred shared-index
+transaction guarantee.
 
 ## Agent coordination and workflow skills
 

@@ -54,8 +54,8 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
 - Amendment basis: the [observability review](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md)
   and [Plan59 improvement review](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md),
   published at `e907d8a1f`, inspecting `890aa07f76fac5739cfc9811a47e823c326be663`.
-- Status: **Execution paused by the operator after bounded closeout**, with only the necessary
-  J01/J02 shared-contract exception. The latest checkpoint owns progress and limits.
+- Status: **The simplification and testing wave is authorized and in progress.** The current
+  checkpoint owns its selected scope and evidence; earlier pauses remain historical.
 
 **Reading route.**
 1. This coordinator: target, shared decisions, rule changes, dependencies, completion.
@@ -98,9 +98,8 @@ Automatic stale-host refresh remains selected. Generic briefs and mandatory sess
 assembly leave required scope; useful focused source/diagnostic capabilities remain. R1/R2/R4/R6
 retain their substantive meanings. RT02 replaces R3's universal per-invocation supervisor;
 RT04 defers R5's specialized interface, not permission for agents to commit owned changes.
-A09 is new work; A07/A08 completion remains historical. Authority documents are unchanged by
-this authoring. Production execution is paused, and no prior physical/numerical qualification
-is enlarged by these proposals.
+A09 owns publication of this wave's contract changes; A07/A08 completion remains historical.
+Publication and focused implementation do not enlarge prior physical/numerical qualification.
 
 <a id="runtime-test-dispositions"></a>
 ## Runtime and test dispositions
@@ -486,10 +485,17 @@ report/target/helper decisions, not further qualification of the superseded even
 collection protocol. Existing source remains the pre-cutover implementation. The checkpoints
 below record historical execution and are not competing target specifications.
 
-Execution is **paused at the operator's request after bounded closeout**.
-No agents or owned validation commands remain running. Remaining A–I is incomplete; the minimal J01/J02
-prerequisite exception remains selected and J03–J05 remain outside this execution scope.
-Resume only on a subsequent operator instruction, using the checkpoint below.
+Execution is **authorized for the simplification and testing wave, 2026-10-30**.
+The selected scope spans A09/necessary foundations, B01–B05, remaining C02–C09 and affected
+D/E guidance and consumer migrations throughout the series. It excludes unrelated replacement
+features, broad G/H/I/F expansion, the new worktree CLI and J03–J05. C01's existing evidence
+remains valid at its recorded scope. Earlier pause/closeout checkpoints below are historical.
+
+A09 target publication is committed at `f00637621` (proposed ADR-0233/0234 and blueprint318).
+Runtime acceptance and formal ADR status remain separate. Native completed reports, existing
+fixture-owner capture adoption and a named reader protocol target are being integrated. The
+former event interpreter and universal service topology remain until their consumers migrate
+and targeted replacement evidence passes; no partial slice establishes this wave's completion.
 
 ### Operator-requested closeout and handoff — 2026-10-30
 

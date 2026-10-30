@@ -4,11 +4,11 @@ The toolchain is the dated nightly in `rust-toolchain.toml`, its only declaratio
 (ADR-0122). The source uses no nightly language feature. The nightly carries Cargo's
 **workspace feature unification** (`-Z feature-unification`,
 `[resolver] feature-unification = "workspace"`), which `.cargo/config.toml` turns on for
-every Cargo run in a checkout, including rust-analyzer and maturin. Dependency features
-resolve over all workspace members whatever `-p` selects, so `check-package`,
-`unit-package`, `unit-native-package` and `check-solver-contracts` share one build of
-symbolica, DataFusion and Arrow per mode. Only opt-in features —
-`pse-relations/force-validate` and `native-solvers` — select a different build.
+every Cargo run in a checkout, including rust-analyzer and the native correctness adapter.
+Dependency features resolve over all workspace members whatever `-p` selects, so
+`scripts/pse check`, `scripts/pse test` and direct native correctness commands share
+eligible builds of Symbolica, DataFusion and Arrow in the same compiler context.
+Opt-in validation and native backend features still select distinct compiled units.
 
 The pinned nightly is the supported Cargo path. ADR-0175 retires the redundant
 workspace-hack fallback and its generator routes after actual target/host/dev/native
@@ -24,9 +24,8 @@ the shared sccache can restore eligible identical compilations.
 
 That reuse depends on `CARGO_TARGET_DIR` staying unset. sccache keys every rustc call on
 its `CARGO_*` environment, so an absolute per-checkout target path would make every Rust
-compilation miss the entries another checkout made. The build environment
-(`scripts/build_environment.py`, applied by `scripts/pse-env` for direnv, every recipe and
-agent commands) therefore removes `CARGO_TARGET_DIR` when it
+compilation miss the entries another checkout made. The native environment owner, applied by
+`scripts/pse-env` and the CLI, therefore removes `CARGO_TARGET_DIR` when it
 names the checkout's own `target/`, which is Cargo's default, and when it is empty or
 points outside the checkout, as a value inherited from another checkout does: a
 long-running agent or editor started under one checkout's direnv carries its absolute path
@@ -42,8 +41,8 @@ Cargo uses content freshness on the pinned nightly: `.cargo/config.toml` enables
 touches and source restorations can remain fresh; changed source and included bytes must
 recompile even when their length and mtime are unchanged. Declared build-script file
 inputs retain Cargo's mtime-based `rerun-if-changed` behavior, and declared environment
-changes still rerun the script. This policy applies to recipes, rust-analyzer and maturin;
-the Python installation context includes these keys. It does not remove meaningful
+changes still rerun the script. This policy applies to recipes, rust-analyzer and native
+correctness commands. It preserves meaningful
 compiler, feature, profile or validation differences.
 
 Ordinary local `just` commands and direnv select the versioned managed `sccache`
@@ -72,22 +71,15 @@ almost all `CARGO_*` variables, so equivalent invocations should avoid accidenta
 without removing values that can affect compiled output.
 
 ```bash
-just build-frontend 2 unit-package pse-compiler 'test(workspace_tests::)'
-just build-uncached check-package pse-compiler
-just build-cache-probe
-just build-storage
+scripts/pse check pse-compiler --lib
+scripts/pse test pse-compiler --lib -E 'test(workspace_tests::)'
+scripts/pse-env --cache off -- scripts/pse check pse-compiler --lib
 ```
 
-`build-frontend N` is the parallel rustc frontend experiment (`-Zthreads=N`, N in 1, 2,
-4, 8). It builds into `target/frontend-N`, so its flags never replace the checkout's
-ordinary artifacts. `.config/build.toml` owns the cache and
-storage budgets; `.cargo/config.toml` owns the default 16 Cargo jobs, and explicit job
-overrides take precedence. For noninteractive commands, use the same environment entry
-point:
-
-```bash
-python3 -m scripts.build_environment --frontend 2 --jobs 16 --cache on -- just check-package pse-compiler
-```
+`.config/build.toml` owns compiler-cache settings; `.cargo/config.toml` owns the default
+32 Cargo jobs. Explicit supported selections retain their precedence. The ordinary local
+unbounded mode shares all configured CPUs; native scientific allocations keep their own
+ownership. The CLI and direct commands use the same native environment entry.
 
 The environment preserves explicit encoded flags, or `RUSTFLAGS`, according to
 Cargo's precedence. Without those overrides it retains the repository target flags,
@@ -101,12 +93,9 @@ disable is introduced. Correctness recipes still request Arrow force validation.
 The automatic local cache has a 100 GiB budget under
 `${XDG_CACHE_HOME:-$HOME/.cache}/pse-arrow/sccache`, with a dedicated endpoint. It
 does not stop the user's default cache server. An explicit `SCCACHE_DIR` keeps the
-user's server configuration. `build-cache-probe` uses a disposable foreground server and checks
-an eligible Rust hit plus incremental pass-through. Its compiler calls and statistics share
-that same endpoint. Explicit measurement runs preserve their owned endpoint through nested
-recipes; ordinary managed-cache statistics observe the admitted service. The canary removes its first outputs before the hit, checks a published entry above
-8 MiB and links a consumer to verify restored payload bytes. Product benefit must be
-measured with `bench-builds`; a canary is insufficient.
+user's server configuration. Ordinary managed-cache statistics observe the admitted service.
+Compiler-cache eligibility, successful artifact restoration and end-to-end feedback latency
+are separate observations; a hit counter alone establishes no workflow speedup.
 
 The shared environment requires sccache client-side compilation, keeping compiler
 children inside the invoking operation's supervision. It disables the C/C++ direct
@@ -171,82 +160,23 @@ supplies the supported C/C++ compiler launchers through `CMAKE_TOOLCHAIN_FILE`, 
 the pinned `cmake` build dependency forwards. KLU also supplies launchers explicitly.
 Fortran is unchanged. GMP/MPFR retains its upstream persistent cache mechanism.
 
-## Measurements and retention
+## Selected timing investigations
+
+Use `scripts/pse timings INVOCATION` to inspect retained native workflow phase durations.
+For a compiler critical-path question, select the actual package and request Cargo's own
+timing output through the correctness adapter:
 
 ```bash
-just bench-builds build/build-measurements/baseline --cache off
-just bench-builds build/build-measurements/cached --cache on --cold-cache --recovery --second-worktree
-just bench-builds build/build-measurements/frontend-screen --frontend 4 --jobs 16 --screen
-just bench-builds build/build-measurements/profile-one --cache on --dependency-opt 1 --execute
-just bench-builds build/build-measurements/native-workflow --cache on --native --workflow --prepare-store
+scripts/pse-env -- scripts/cargo-bin/cargo-pse-correctness check \
+  -p pse-compiler --lib --locked --timings
 ```
 
-Every output directory must be new. The runner snapshots dirty and untracked source
-without changing the original index or files. It compiles current compiler/relations
-test targets, or the explicit native selection, then repeats unchanged, identical-byte touch, private and API
-edit cases three times by default. Each snapshot uses its own default `source/target/`;
-the campaign removes inherited target-directory variables and refuses Cargo target or
-intermediate build-directory settings that escape that selected target. Recovery deletes
-only that authenticated snapshot target; a second snapshot has a separate target.
-An edit-probe anchor is checked before the cold build so source refactors fail early. `--screen` omits edits and cannot establish total edit
-feedback latency. `--workflow` creates an isolated Python environment and measures
-extension → compiled stubs → native units repeatedly; those units execute.
-When the selected native units consume the canonical store, select its serving profile and
-the existing scientific workload allocation in the launch environment. `PSE_REQUIRE_STORE=1`
-keeps that selected service available during admission, equivalent to `pse-env --store`.
-For example, the Plan 28 wide workflow uses `PSE_SURREAL_STATE`, `PSE_WORKER_BINARY`,
-`PSE_RESOURCE_CLASS=exclusive` and `PSE_MEMORY_MAX=144G` outside a workload owner.
-When that selected nonresident service is stopped, `--prepare-store` authenticates the
-fresh complete-operation owner's child handoff, then readmits, starts and checks the
-same selected store within one finite lifecycle reservation. It requires both
-`--native` and `--workflow` and refuses an already active native owner. Store preparation
-is included in the measurement-child and complete-operation durations; its separately
-reported duration overlaps those totals. The option preserves the selected worker,
-receiver and allocation declarations.
-`--execute` repeats compiler/relations library tests with explicit force-validation.
-`--cold-cache` uses an empty compiler cache owned by that campaign. Source downloads
-and native installations remain separately cached. Candidate profile overrides live
-only in the snapshot's Cargo configuration, so nested recipes use the same policy.
-By default, measurements preserve the manifest's dependency optimization level;
-`--dependency-opt 1`, `2` or `3` explicitly selects a candidate override.
+Inspect Cargo's timing output for overlapping compiler work; summed compilation durations
+are not wall time. Record the exact source, feature, provider, profile and validation context,
+the cold/warm premise and concurrent work. Repeat meaningful comparisons before claiming
+a feedback improvement. Cache hits and unchanged-build freshness are narrower evidence than
+an end-to-end edit, compilation and executed-test measurement.
 
-Reports retain source/command identity, Cargo artifact JSON and timing HTML, cache
-statistics, wall/CPU time, disk availability, and Linux process-tree RSS samples.
-RSS is sampled every 100 ms and counts shared resident pages in each process.
-Campaign-owned foreground cache servers are included in CPU/RSS accounting; shared
-servers are explicitly excluded in reports. Wall time excludes cache-server startup
-and shutdown. Inspect Cargo's timing HTML for the critical path;
-summed compilation durations are not wall time. The cold run is a screening sample;
-replicate leading candidates before claiming a cold speedup. Other active builds and
-source changes make a run diagnostic. No linker comparison is included.
-
-`bench-builds` starts a pinned Python observer outside the workload allocation. Its
-workload, including source snapshots and compiler-only builds, enters the existing
-`pse-env` supervisor. With `--native` or `--workflow`, `complete-operation.json`
-separately records launch/admission, selected native setup, the measurement child
-and authenticated final scope drain. It includes initial setup and drain in the
-complete-operation wall time; Cargo and target-operation durations keep their
-original narrower boundaries. A missing or unverified drain fails the measurement.
-An invocation already inside a native owner remains explicitly target-only because
-its earlier setup and later drain cannot be observed from that child.
-
-Keep each checkout's `target/` and at most one temporary campaign. Run
-`just build-storage` before large campaigns. Below the configured
-50 GiB free-space floor, the measurement runner refuses to start. Reclaim identified
-inactive campaign targets explicitly; preserve reports and the active incremental,
-compiler, downloaded-source and native caches. Avoid broad `cargo clean` recovery.
-No automatic deletion or second compiler-artifact cache is implemented.
-
-Build measurements are not product qualification. Cache reuse cannot substitute for
-current source, native-byte and executed-test evidence.
-
-`just build-storage` reports a versioned JSON metadata snapshot of configured stores and the
-bounded legacy report cohorts. It reports allocated/apparent bytes, ownership and unavailable
-or partial observations. `just build-storage --metadata-only` avoids recursive measurement.
-Persistent state and shared skill targets are identity-only observations; nested symlinks are
-not traversed and alias roots are reported once. Hardlinks are deduplicated within each row;
-parent/cohort rows overlap and must not be summed. Concurrent writers make this a non-atomic
-snapshot, and active use/resource identity may remain unknown. There is no reclaimable-byte
-total or generic prune command: assessment, native, compiler-cache, campaign and persistent
-state owners retain their separate disposal contracts. `.git` and `.venv*` are excluded from
-measurement. Ordinary document queries never invoke this scan.
+Build measurements remain separate from product qualification. Cache reuse cannot substitute
+for current source, native-byte and executed-test evidence. Native fixture and retained
+invocation artifacts keep their original ownership; this guide grants no disposal authority.

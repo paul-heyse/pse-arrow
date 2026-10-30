@@ -20,6 +20,6 @@ snapshot changes before accepting them. Diagnose and repair in-scope functional 
 weaken acceptance to obtain a pass. Coordinate shared build and database resources. Return the
 change, removed paths, commands/results and remaining integration or qualification obligations.
 
-Use `just check-package <pkg>` and `just unit-package <pkg> <filter>` for local functional
+Use `scripts/pse check <pkg> --all-targets` and `scripts/pse test <pkg> --lib -E '<filterset>'` for local functional
 checks. Generation changes use `just codegen`; generated paths remain protected. Follow
 AGENTS.md's immediate replacement deletion, explicit force-validation and supervised `scripts/pse-env` scopes.

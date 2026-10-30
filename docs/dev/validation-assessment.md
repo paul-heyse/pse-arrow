@@ -15,10 +15,10 @@ commands and evidence limits, not a claim that full qualification has completed.
 
 | Command | Scope established by successful execution | Exclusions |
 |---|---|---|
-| `just check-package PACKAGE` | Selected package targets compile under the actual admitted graph | Test execution and scientific assertions |
-| `just unit-package PACKAGE FILTER` | Selected source-built library tests under native nextest | Unselected targets, providers and services |
-| `just unit-native-package PACKAGE FEATURES FILTER` | Selected native library tests with explicitly prepared providers | Canonical fixture ownership unless explicitly supplied |
-| `just native-test MODULE_RECEIPT ...` | Selected source-built tests under one fresh native canonical fixture | Other deployments, historical state and unselected scientific cases |
+| `scripts/pse check PACKAGE --all-targets` | Selected package targets compile under the actual admitted graph | Test execution and scientific assertions |
+| `scripts/pse test PACKAGE --lib -E FILTER` | Selected source-built library tests under native nextest | Unselected targets, providers and services |
+| `scripts/pse test PACKAGE --lib --features FEATURES -E FILTER` | Selected native library tests with required already prepared providers and declared fixture inputs | Unselected targets, provider preparation and scientific cases |
+| `scripts/pse test PACKAGE:TARGET ...` | Selected source-built tests with their declared Rust fixture ownership | Other deployments, historical state and unselected scientific cases |
 | `just modeling-conformance ...` | Selected authored conformance runs in the manifest's supported native/pure mode | Unselected packages and independent reference execution |
 | `just parity` | Four native candidate exchanges against the isolated pinned IDAES/Pyomo environment | Other cases, versions and exhaustive parity |
 | `just docs` / `just adr-lint` | Rendering/search or authored decision/register consistency respectively | Truth or quality of the scientific/design prose |
@@ -81,35 +81,38 @@ or full deployment capacity. Broader campaigns require their explicitly selected
 ## Individual commands
 
 ```bash
-just check-package pse-runtime
-just unit-package pse-host 'test(correctness::)'
-just test-package pse-ids --lib
-PSE_NEXTEST_ACTION=list just unit-package pse-ids scientific_replay
+scripts/pse check pse-runtime --all-targets
+scripts/pse test pse-host --lib -E 'test(correctness::)'
+scripts/pse test pse-ids --lib
+scripts/pse tests pse-ids --lib -E 'test(scientific_replay)'
 just doctest
 ```
 
 Nextest does not run doctests. `test-release` and `doctest-release` select the release profile;
-that profile alone establishes no production performance. `check-native-test`,
-`check-native-package`, `unit-native-package` and `unit-native-capability-package` expose the
-current explicit feature/provider selectors. `just --usage RECIPE` is the grammar owner.
+that profile alone establishes no production performance. The CLI's `--features` and actual
+target selection derive required capabilities and select their already prepared providers;
+they never prepare a missing native provider implicitly. Use `scripts/pse COMMAND --help` for
+the CLI grammar and `just --usage RECIPE` for retained specialized recipes.
 
 For a canonical consumer, first explicitly prepare/select the patched server and production
 module using the [environment guide](agent-environment.md#explicit-compilerklu-preparation).
 Save the absolute immutable module receipt. Then, for example:
 
 ```bash
-just native-test /absolute/module.json \
-  --build-arg=-p --build-arg=pse-operations --build-arg=--lib \
-  --build-arg=--features --build-arg=canonical-tests,native-service \
-  --build-arg=--locked -- -E 'test(canonical_server_unit)'
+PSE_NATIVE_FIXTURE_MODULE_RECEIPT=/absolute/module.json \
+  scripts/pse test pse-operations:pse_operations --target-kind lib \
+  --features canonical-tests,native-service -E 'test(canonical_server_unit)'
 ```
 
 Choose the actual target/features/filter for the intended caller; a native solver target also
-requires its actual solver features. The recipe explicitly builds the service/test helper.
-`NativeTestCommand::prepare` runs source build/list through this checkout's prepared
-correctness adapter before starting the fixture, then executes the exact resulting binary/Cargo
-metadata. Build selectors are repeated `--build-arg`; arguments after `--` are run-only filters
-and reports. Caller-supplied archive/metadata paths and run-time build selectors refuse.
+requires its actual solver features. The host admits and captures the source build/list through
+this checkout's prepared correctness adapter. It selectively captures original service/test helpers
+only when selected test declarations require them. Borrowed cases delegate the exact captured
+compiler context to `NativeTestCommand::from_source_capture`, which starts their fresh fixture
+and executes nextest without repeating the build/list. Target-owned cases receive immutable
+inputs and create their own fixture through the original Rust owner. Pure selections prepare
+neither a database nor unused helpers. Caller-supplied archive/metadata paths and run-time build
+selectors refuse.
 The private descriptor is issued only after readiness. Children borrow isolated UUID databases;
 they gain no service shutdown/disposal authority. Exact service/child settlement remains with
 the performing owner. Failed, interrupted or unproved scientific joins retain the fixture for

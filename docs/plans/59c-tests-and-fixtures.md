@@ -14,8 +14,8 @@ Part of [Plan59](59-agent-cli.md). This plan adds intent-level `pse test`, `pse 
 `pse tests` verbs that work out their own features, native capabilities, force-validation,
 fixtures and filters. It replaces caller-assembled fixture inputs with resolution through the
 actual fixture owners, and gives blueprint §24.1's reconciled-pass rule a Rust owner.
-The remaining targets below are **Proposed**; the coordinator's paused 2026-10-30 checkpoint
-and completed evidence below remain unchanged by this documentation amendment.
+The selected testing wave is authorized and in progress. The package table below separates
+its implementation and acceptance from historical checkpoints.
 
 The current target incorporates O02–O08/O12/O14 of the
 [CLI, test and runtime workflow review](../functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md).
@@ -51,8 +51,8 @@ four different entry forms, including 73 bare `cargo test` runs that skip force-
 
 The detailed original map below is historical. At the new review's source baseline
 `26ac0b893`, C01 was complete and C02–C05/C07 were partially integrated as recorded in the
-package table. The current Nextest event reconciler remains implemented until replaced;
-planning its removal does not erase its focused evidence. The recorded reader selection
+package table. The event reconciler existed at that baseline and has now been deleted with
+its dedicated tests after native completed-report consumers replaced it. The recorded reader selection
 compiled `pse-runtime --lib` for 3m56s, then ran 18 selected tests in 6.454s. This establishes
 a broad compile unit followed by narrow execution, not a cache miss or CPU-width defect.
 
@@ -249,13 +249,13 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [C01](#c01) | complete | 59c | Declaration and actual reached-unit capability derivation integrated; targeted real no-build Cargo graphs cover every mapped feature and pure/full runtime; no provider preparation or solver build |
-| [C02](#c02) | in-progress | 59c | Existing managed helper, phase capture and event reconciliation have focused evidence. Native completed-report replacement/isolation, synchronous ownership integration, fixture lifecycle, failure/rerun consumers and recipe retirement remain; prior event checks are not the new target |
-| [C03](#c03) | in-progress | 59c | Native Gitoxide preview and conservative captured declaration closure pass6 controls; prepared CLI preview works and replaced xtask implementation/tests/recipe are deleted. `pse test --changed` integration remains |
-| [C04](#c04) | in-progress | 59c | Source-audited runtime/operations declarations and passive existing-owner prerequisite selection integrated for both service modes; fixture CLI, immutable helper source-build admission, worker variable migration and actual service journeys remain |
-| [C05](#c05) | in-progress | 59c | Source-build capture, complete phase custody and exact native binary/test inventory integrated. Public `tests` retains the inventory; source-built `result ID --tests` reads whole-record pages with byte-bound continuation and stale/foreign cursor refusal. Fixture/capability presentation, exact rerun consumers and `list-native-contracts` retirement remain |
-| [C06](#c06) | planned | 59c | Reopened bounded comparison of selective helper construction and Cargo artifact composition; no adoption or timing benefit established |
-| [C07](#c07) | in-progress | 59c | Compatible groups, absence policies and metadata reuse have focused evidence; remaining scheduling delegates to Nextest and explicitly sequences incompatible groups needing shared exclusion |
-| [C08](#c08) | planned | 59c | Public reader feedback target and useful native compilation explanation; dependency-boundary investigation only where needed |
+| [C02](#c02) | in-progress | 59c | Native completed-report reconciliation, synchronous public execution, exact fresh-source failed reruns and original failure-text pages pass focused/public controls. Replaced generic recipes are retired; final integrated qualification remains |
+| [C03](#c03) | in-progress | 59c | `--changed` uses the common Gitoxide/declaration source-resolution stage for test/list/check intent. Controlled Git→native-target normalization and public changed-source explain pass; broad affected scientific execution is not claimed |
+| [C04](#c04) | in-progress | 59c | Fixture prepare/show, cached module selection, selected helper capture and both canonical owner modes work. Same-package worker paths and recorded-state inputs are preserved; worker-lifecycle/native-study selected public journeys pass without caller fixture variables. Fixture/generic recipe retirement is implemented; remaining declared-target and series qualification stay open |
+| [C05](#c05) | in-progress | 59c | Public source-built inventory and whole-record test/failure pages retain actual target/features, compiler-group capabilities, original fixture declarations and exact failure identities. Actual failed→fresh-source rerun and cursor/foreign-byte refusal pass; list-native-contracts is retired and final integrated qualification remains |
+| [C06](#c06) | complete | 59c | Selective source helper construction retained; pure-selection controls and actual borrowed/target-owned canonical consumers pass. No artifact dependency adopted or timing benefit claimed |
+| [C07](#c07) | in-progress | 59c | Native --lib/--all-targets/--test/--bin selection preserves declared targets/features and absence controls. Native policy queries own group membership; only split contexts sharing a named exclusion sequence, with unrelated contexts concurrent. Focused controls pass; wave-end qualification remains |
+| [C08](#c08) | in-progress | 59c | Named product_reader target, native compilation explanations and opt-in Cargo timings are delivered with focused/public evidence. Existing measured discovery-phase forwarding and native stage attribution pass the real concurrent-producer control; final integrated qualification remains |
 | [C09](#c09) | planned | 59c | Focused real-CLI assertions, meaningful case identities and adversarial framing assurance using established test utilities |
 
 <a id="c01"></a>
@@ -361,7 +361,7 @@ generator change.
 - `pse test --changed [--base REF]` and `pse check --changed` use its reverse-dependency
   selection. They widen to integration targets and native packages through C01, instead of
   listing them as exclusions.
-- `pse affected --json` keeps the preview, versioned as an envelope.
+- `pse --format json affected` keeps the preview, versioned as an envelope.
 
 **Deletes:** xtask's `affected` subcommand, `xtask/src/development/affected*.rs`, and the
 `just affected` recipe.
@@ -385,7 +385,7 @@ passive declaration/input resolution need not wait for its completed report read
   host or rewrite ordinary test bodies to serve CLI control. Nextest setup scripts may export
   inputs where appropriate but do not automatically become an external service teardown owner.
 - `pse fixture prepare|show`.
-- The study-module current pointer, written by `study-module prepare` through the store resolver.
+- The study-module current pointer, written by `pse fixture prepare study-module` through the store resolver.
 - `pse test` setting fixture variables from the records.
 - Borrowing targets use `NativeTestCommand` through `pse-canonical-test`, preserving source
   build/capture before service creation and `ChildExitPremise`. Target-owned service tests
@@ -395,12 +395,29 @@ passive declaration/input resolution need not wait for its completed report read
   checkout/generation identity. Migrate current-pointer path checks where necessary so an
   immutable selected generation remains identifiable after a later build advances `current`;
   preserve the source-build admission check rather than trusting arbitrary recorded paths.
-- `worker`, `native_worker_lifecycle` and `native_boundary_acceptance` switch to
-  `env!("CARGO_BIN_EXE_pse-worker")` and drop `PSE_WORKER_BINARY`/`PSE_NATIVE_STUDY_WORKER`. The
-  lib test in `study_tests.rs` keeps its variable, supplied by its `lib` fixture declaration.
+- `worker`, `native_worker_lifecycle` and `native_boundary_acceptance` consume runtime
+  `CARGO_BIN_EXE_pse-worker` and drop `PSE_WORKER_BINARY`/`PSE_NATIVE_STUDY_WORKER`.
+  Native Nextest's non-test-binary metadata maps that runtime variable to the same-build
+  captured executable; direct Cargo supplies its own runtime variable. The same-package
+  canonical-service helper follows that mechanism. The lib test in `study_tests.rs` keeps
+  its cross-package variable, supplied by its `lib` fixture declaration.
 
 **Deletes:** the `worker-test`, `native-test`, `canonical-test` and `canonical-portable-test`
 recipe bodies. Their scenarios become `pse test` invocations.
+
+**Implementation checkpoint, 2026-10-30:** the four fixture recipes and the helper's separate
+source-build/list path are removed. Actual selected source inventories delegate borrowed
+fixtures to the existing owner; target-owned tests receive prepared inputs. **Tested:** the
+borrowed canonical release and target-owned physical-stop controls each passed 1/1. With all
+caller fixture/worker variables unset, the prepared public CLI also passed
+`native_scientific_worker_ready_then_drains_without_canonical_connectivity` and
+`native_recorded_study_cancelled_before_claim_never_enters_native_and_reopens_its_summary`,
+each selected/completed 1/1 with complete required capture and native settlement. Public
+module preparation, cached repeat preparation and pointer-only show passed. Earlier source
+integration and ENOSPC attempts receive no execution credit. Remaining declared runtime
+fixture targets and series-wide scientific qualification stay open. Immutable helper evidence
+covers host-captured tools; these selected journeys do not establish external Cargo-mutation
+immunity for compile-time `CARGO_BIN_EXE_*` paths.
 
 **Acceptance:**
 - `pse test pse-operations:native_service` and `pse test pse-runtime:native_study` run with no
@@ -420,7 +437,8 @@ recipe bodies. Their scenarios become `pse test` invocations.
 slice. Listing is independent of C02 execution/reconciliation and actual fixture startup;
 C02 consumes this observed inventory rather than forming a reverse prerequisite.
 
-**Delivers:** `pse tests <pattern> [--package P]` over adapter `nextest list --message-format json`
+**Delivers:** `pse tests PACKAGE[:TARGET] -E FILTER` (also workspace/package scopes and native
+test-name filters after `--`) over adapter `nextest list --message-format json`
 with derived features, joined with declarations. Official nextest filtering/listing remains the
 population authority. Map each listed binary back to its exact package/target root, admitted
 context and immutable build identity, including multi-root groups; a package index or test name
@@ -441,6 +459,27 @@ can begin before fixture CLI delivery; adoption needs its working selected consu
 
 **Delivers:** a bounded decision comparing the existing selective helper build plus test build
 with one Cargo DAG. Two Cargo invocations do not establish duplicate expensive compilation.
+
+**Decision, 2026-10-30:** retain selective source construction for this wave. Actual selected
+fixture demand invokes the existing correctness admission and artifact-capture owner for the
+canonical helper/runner; captured test metadata is then adopted without a second test build/list.
+Worker helpers are captured per compiler group with that group's feature context, rather than
+unioning incompatible contexts. Same-package integration tests receive the runtime Cargo binary
+selection; native Nextest's `non-test-binaries` metadata pins it to the same-build captured bytes.
+The package/name/kind/original-path association and captured bytes are checked before mapping.
+This keeps pure selections outside helper construction and avoids a package-wide artifact dev
+dependency. No `bindeps` edge, harness crate or latency benefit is claimed. Revisit artifact
+composition only when a concrete repeated helper-build/context cost warrants it and exact
+selected demand, validation and feature-absence controls can be retained. **Tested:** the prepared
+public CLI ran the borrowed `canonical::canonical_server_unit::source_protection_last_fixture_drop_joins_automatic_release`
+and target-owned `native_service_process_stop_joins_without_database_transport` cases, each
+selected/completed 1/1 with complete required capture and settlement using the existing ABI2
+module receipt. The borrowed owner separately published native exit 0 and fixture settlement true.
+The initial borrowed attempt exposed a missing private capture directory; `3acf14dcf` corrected
+that delegation prerequisite before the successful retry. Host fixture controls (12/12) include
+pure selection without helpers and preservation of original scientific/recorded-state inputs.
+These bounded consumers settle this construction choice, not full C04 or scientific qualification.
+
 For artifact dependencies, examine `-Z bindeps`, `artifact = "bin:pse-canonical-service"` and
 `lib = true` only if library use is needed. Cross-package access is
 `CARGO_BIN_FILE_<DEP>_<NAME>`, not same-package `CARGO_BIN_EXE_*`.
@@ -537,6 +576,14 @@ campaign is required. Native [Cargo timings](https://doc.rust-lang.org/cargo/ref
 answer a selected critical-path question; sccache cannot cache incremental Rust compilations
 or final linker outputs under its documented 0.19 restrictions.
 
+**Execution decision, 2026-10-30:** retain the two-stage cold bootstrap in this wave. The shell
+first obtains a constructor built from current source; that constructor then observes source
+before/after the authoritative build and publishes coherent immutable tools. Removing its
+second, normally fresh Cargo invocation without replacing those observations would weaken
+publication; deriving another build-proof protocol is disproportionate to the observed small
+fresh-check cost. Revisit only if bootstrap construction itself becomes a material measured
+feedback problem. This does not defer phase/context presentation or selected native timings.
+
 **Deletes:** migrated duplicate unit tests, obsolete fixture identities and any duplicate
 construction invocation whose coherence duties are preserved by A05's chosen producer.
 
@@ -579,6 +626,41 @@ cases reject known bad input and retain useful minimized counterexamples when fo
 journeys stay with their physical owner. Utility adoption does not qualify unexercised science.
 
 ## Verification and handoff
+
+### Current testing-wave checkpoint — 2026-10-30
+
+The event lifecycle machine, event-offset failure references and reconstructed observer were
+deleted. Nextest owns actual test scheduling/retries/setup and its completed XML; private
+per-operation/group configuration changes only the selected profile's JUnit destination.
+The original fixture sidecar distinguishes native runner exit from wrapper exit and actual
+fixture settlement. Cargo's existing extractor remains the compiler result owner.
+
+`--changed` resolves observed Git/source reach before common native target/feature
+normalization. Failed reruns consume exact original failed package/binary/test identities and
+actual target/features/platform/ignored policy, then rebuild and enumerate current source.
+The test environment and source may change; this is current-source qualification, not frozen
+environment replay. An original identity absent from the fresh native listing refuses before
+test effects. Declaration-only explanations do not establish sufficient reduced verification.
+
+Focused native-report/selection/source/diagnostic tests pass 16 selected cases; B05's separate
+session controls pass three. The original four real-producer controls include two simultaneous
+Nextest producers with distinct private reports. Actual `pse test` negative assertion and
+`pse test --rerun-failed` positive controls reconcile one exact native test, original failure
+text/source, native exit and complete physical/capture outcomes. `pse result --failures`
+preserves whole rows, continues within the frozen report and refuses a foreign report cursor.
+Actual `pse check pse-host --all-targets`, native `pse tests pse-host --lib --timings`, passive
+test pages and changed-source explanations pass. The failure baseline is zero; intentionally
+failing probes are negative controls. Disk-exhausted and partially edited-source attempts have
+no acceptance credit, and no broad affected scientific campaign is implied.
+
+Native timing HTML remains a mutable Cargo diagnostic at its original emitted path. Its
+presence establishes no cache hit, immutable attachment or numerical speed benefit. Inclusive
+phase measurements forward the existing original wait/drain measurement; genuinely missing
+older measurements remain absent. The retained cold bootstrap performs its coherence duties
+without a second proof mechanism. The actual concurrent-producer control now exercises current
+phase forwarding and native stage attribution. The package-wide control selects two exact
+intended identities so unrelated test additions cannot invalidate its population expectation.
+Remaining scope-end checks still belong to the final integrated source.
 
 ### Code-intelligence selection and candidate handoff
 

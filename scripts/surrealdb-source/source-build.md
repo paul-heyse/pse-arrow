@@ -89,8 +89,8 @@ A Rust application supplies `NativeServiceSpec` with its prepared server, explic
 `pse-canonical-service` helper and `NativeModuleSource::Prepared` capability. The fresh
 `NativeCanonicalService` owns private state, credentials, launch, readiness and settlement.
 Its initialization is explicit native composition, not a Python setup/start fallback.
-`just canonical-test MODULE_RECEIPT` and `just native-test MODULE_RECEIPT ...` own disposable
-source-built test fixtures; see the
+`scripts/pse test` resolves declared fixture inputs and delegates disposable service ownership
+to the original Rust fixture owners after source build/capture; see the
 [qualification guide](../../docs/dev/validation-assessment.md#individual-commands).
 
 For an existing explicitly owned deployment, the product initializer remains a distinct native

@@ -376,8 +376,9 @@ claims; the process, convergence and persistence evidence has its own scope.
 
 Shared authored process fixtures in `tests/fixtures/plan14`, independent offline
 references, public Rust/Python process tests and guarded Criterion workloads exercise
-the workflow. `just native-test`, `just native-python <output>` and `just case-measure`
-execute them. See the [qualification guide](validation-assessment.md) for profiles,
+the workflow. `scripts/pse test` selects native Rust tests with their declared fixture owners.
+Independent references and measurements use their original native interfaces. See the
+[qualification guide](validation-assessment.md) for profiles,
 fixture generation, measurement conditions and the functional-before-performance order.
 
 ## Physical contracts

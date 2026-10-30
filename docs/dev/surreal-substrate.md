@@ -238,12 +238,15 @@ Python lifecycle command. Frozen forward schema publications remain append-only 
 
 ## Targeted fixture controls
 
-`NativeTestCommand` builds/lists validated source tests before creating a fresh
-`NativeCanonicalService`. `just canonical-test MODULE_RECEIPT` selects codec/revision controls;
-`just native-test MODULE_RECEIPT --build-arg=... -- RUN_FILTERS` exposes the source-build route.
-See [qualification commands](validation-assessment.md#individual-commands) for the exact split.
-It admits only this checkout's prepared correctness adapter and exact same-invocation metadata;
-caller-authored archive/metadata paths cannot forge that association.
+`scripts/pse test` admits source build/list through the checkout's prepared correctness adapter
+and resolves the selected tests' fixture declarations. Borrowed cases delegate that exact captured
+compiler context to `NativeTestCommand::from_source_capture` before creating a fresh
+`NativeCanonicalService`; execution does not build/list again. Target-owned cases receive prepared
+immutable inputs and retain their original service owner. Pure selections prepare no fixture or
+unused helper. See [qualification commands](validation-assessment.md#individual-commands) for
+selection and explicit module inputs. Source admission belongs to the host performing owner;
+the fixture owner validates the private capture and runs the selected context. Caller-supplied
+archive/metadata and additional run-time build selectors are rejected.
 
 `FixtureSelection` validates bounded private descriptor bytes, owner/mode, original state device/
 inode and disposable nonce. Children borrow isolated UUID databases only after service readiness.

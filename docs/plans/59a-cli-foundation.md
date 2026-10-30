@@ -224,11 +224,11 @@ feature choices are exactly the review's
 | [A02](#a02) | complete | 59a | Shared clap tree/three binaries merged; targeted parser/protocol and bootstrap tests pass; broader qualification remains at series end |
 | [A03](#a03) | in-progress | 59a | Native output/diagnostic/schema, artifact windows and typed source views integrated. Original performing outcomes stay at the top level; launch/terminal reply schemas and owned payload projection pass focused controls. Captured test pages preserve whole records and continuation identity; other producer pages/direct serialization and product owner integration remain |
 | [A04](#a04) | in-progress | 59a | Resolver/consumer migration, isolated exact lookup, diagnostic partial history and protected owner-record/request access integrated; responsibility-specific retention and concurrent managed invocation acceptance remain with B01 |
-| [A05](#a05) | in-progress | 59a | Immutable publication, stale refresh/copy and prior claim controls retain focused evidence; classify and retire collection-only machinery under A09, preserve unknown artifacts and real owners, retain immutable tools without automatic collection |
+| [A05](#a05) | in-progress | 59a | Immutable image/source/protocol authentication and stale refresh/copy remain; host GC claims, promotion/settlement flags, transfer and finalizer claim protocols plus their callers/tests are deleted. Unknown old files stay untouched; current assembled/static qualification remains |
 | [A06](#a06) | in-progress | 59a | Parser-derived command/help/catalog/schema, selective passive status, invocation/dependency candidates and pure native xtask discovery integrated; staged execution consumers, actual provenance and generated owner federation remain |
 | [A07](#a07) | complete | 59a | Proposed ADR-0233/blueprint315 published and scoped formal review accepts that target at Proposed strength; proposed ADR-0234/blueprint316 refines nested invocation ownership; runtime obligations remain with consumers |
 | [A08](#a08) | complete | 59a | Proposed ADR-0233/0234 and blueprint317 publish accepted RC01–RC04; independent focused target advice found no required correction, not formal acceptance or runtime qualification |
-| [A09](#a09) | planned | 59a | Publish the confirmed native-result, lifetime, generation-retention and reduced-command amendments before dependent implementation |
+| [A09](#a09) | in-progress | 59a | Proposed ADR-0233/0234 and blueprint318 publish the approved target at f00637621; focused assessment/formal status and runtime acceptance remain separate |
 
 <a id="a01"></a>
 ### A01 — Land the accepted rule changes
@@ -549,6 +549,22 @@ an arbitrary recorded path; unsupported versions refuse with the supported recov
 Explicit-only refresh is an unselected alternative, not an incidental consequence of removing
 collection.
 
+**Execution checkpoint (2026-10-30).** Host prepared-image retention no longer creates
+`.uses` records, holds generation-use locks, promotes readers, transfers durable claims across
+exec, or requires unrelated owner-settlement reports merely to retain cached executables.
+Entry authentication, bootstrap copy, discovery, prepared xtask/product readers and compiler
+capture use immutable manifest/protocol/path/executable-byte validation. An entry must be a
+fixed tool actually listed in its validated manifest. Same-process stale-refresh loop detection,
+failed-build refusal, atomic current publication and original image identity remain. Actual
+native process, I/O, resource and evidence owners were preserved; the separate canonical-client
+connection-generation lifetime type is unrelated and unchanged. Existing unknown old claim
+files are neither removed nor declared settled. No automatic collector was added.
+
+Focused generation/foreground/workflow/control tests exercised source-copy coherence and
+integrity, raw wrapper exit versus pending native lifetime, generic metadata dispatch, and
+preservation of unknown claim files. Current post-retirement image/control qualification and
+scope-end checks remain with the coordinator; no end-to-end speedup is claimed.
+
 The host dependency ceiling remains: no product/scientific/Arrow/DataFusion/database schema
 closure in `pse-host`; exact declarations remain with Cargo and the existing family check.
 
@@ -691,8 +707,9 @@ G–I. The 2026-10-30 library-integration review has separate RC01–RC04 identi
 - **A04:** use the existing resolver for analysis/artifacts; derived caches are distinct from
   authored probes, edit intent and original evidence. G owns analysis reuse; D02 API acquisition.
 - **A05:** actual users include analyzer/proc-macro children and separately prepared compiler
-  tools. Protect their generations; help/status/source-only reads and existing-work control
-  never prepare analysis. Preserve the host dependency ceiling and independent cold startup.
+  tools. Retain immutable authenticated images and their actual process owners without host GC
+  claims; help/status/source-only reads and existing-work control never prepare analysis.
+  Preserve the host dependency ceiling and independent cold startup.
 - **A06:** derive new query discovery/schemas from owning parsers and actual provider support.
 
 Acceptance adds ambiguous crate contexts, Unicode positions, unavailable preparation, budgeted

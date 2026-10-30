@@ -135,7 +135,7 @@ caps, serial independent work, data resets or numerical speed claims follow.
 ### Confirmation
 
 The scoped combined formal review must establish architectural acceptance before dependent code.
-B01–B05 supply implementation evidence; D05 and H retain their separate acceptance obligations.
+Plan58 B01–B05 supply implementation evidence; Plan58 D05 and H retain their separate acceptance obligations.
 This proposed ADR changes no accepted-record status; the prescribed ADR PR route owns that.
 
 ## Pros and cons

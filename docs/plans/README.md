@@ -5,7 +5,7 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
-| [59: Agent CLI](59-agent-cli.md#current-state-and-next-step) | Execution paused by the operator after bounded closeout; remaining A–I and minimal J01/J02 prerequisites stay incomplete. J03–J05 remain outside this scope. Native package tables own remaining work and evidence. |
+| [59: Agent CLI](59-agent-cli.md#current-state-and-next-step) | Simplification and testing wave authorized; necessary A/B foundations and remaining C testing consumers are in progress. Other feature expansion and J03–J05 remain outside this wave. Native package tables own work and evidence. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
 | [53: Test architecture](53-test-architecture-target.md) | Test architecture and existing remaining qualification/decision scope. |
