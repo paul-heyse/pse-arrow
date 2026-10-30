@@ -1724,50 +1724,6 @@ pub async fn prepare_from_release(
         .await
         .map_err(|error| invalid(format!("server release import worker failed: {error}")))?
 }
-/// Narrow standalone construction/selection surface. Service startup belongs to composition.
-pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
-    if arguments == [OsString::from("--help")] || arguments == [OsString::from("-h")] {
-        writeln!(
-            std::io::stdout(),
-            "server prepare [--from-release PATH] | select\nExplicit preparation builds the pinned native server or imports a verified source release; selection never builds.\nThis executable capability does not establish schema readiness or write admission."
-        )?;
-        return Ok(0);
-    }
-    let environment: Environment = std::env::vars_os().collect();
-    let selected = if arguments == [OsString::from("select")] {
-        select(&environment)?
-    } else if arguments == [OsString::from("prepare")]
-        || (arguments.len() == 3 && arguments[0] == "prepare" && arguments[1] == "--from-release")
-    {
-        let mut root = std::env::current_dir()?;
-        while !root.join(".config/diagnostic-tools.toml").is_file() {
-            if !root.pop() {
-                return Err(invalid(
-                    "run explicit preparation inside the selected checkout",
-                ));
-            }
-        }
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()?;
-        if arguments.len() == 3 {
-            runtime.block_on(prepare_from_release(
-                &root,
-                &environment,
-                Path::new(&arguments[2]),
-            ))?
-        } else {
-            runtime.block_on(prepare(&root, &environment))?
-        }
-    } else {
-        return Err(invalid(
-            "expected server prepare [--from-release PATH] or server select",
-        ));
-    };
-    writeln!(std::io::stdout(), "{}", selected.executable().display())?;
-    Ok(0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

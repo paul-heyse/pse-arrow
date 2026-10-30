@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    ffi::{OsStr, OsString},
+    ffi::OsStr,
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     net::{Ipv4Addr, SocketAddrV4, TcpListener},
@@ -1195,97 +1195,16 @@ pub async fn recover_previous_configuration(
     write_json(&state.join("reconfiguration.json"), &receipt)?;
     inspect_with(&receipt.previous, &directory, &control).await
 }
-/// Native leaf command adapter. All stateful actions must be selected by name.
-pub async fn command(
-    root: &Path,
-    environment: &Environment,
-    arguments: &[OsString],
-) -> Result<Value, HostError> {
-    let Some(action) = arguments.first().and_then(|value| value.to_str()) else {
-        return Err(invalid(
-            "telemetry-service requires install|setup|inspect|start|stop|reconfigure|recover-configuration",
-        ));
-    };
-    if matches!(action, "--help" | "-h" | "help") {
-        return Ok(
-            json!({"usage":"telemetry-service install|setup|inspect|start|stop|reconfigure|recover-configuration [--state PATH] [setup: --port NAME=PORT --organization NAME --stream SIGNAL=NAME --retention-days DAYS]","passive":"inspect never installs, loads, repairs or starts","login_activation":"existing enabled deployments must be explicitly disabled before reconfiguration"}),
+/// Explicitly install every pinned telemetry tool from the checkout declarations.
+pub fn install(root: &Path, environment: &Environment) -> Result<Value, HostError> {
+    let mut paths = BTreeMap::new();
+    for name in TOOLS {
+        paths.insert(
+            name,
+            diagnostic_tools::install(root, declaration(name), environment)?,
         );
     }
-    let mut state = None;
-    let mut options = SetupOptions::default();
-    let mut index = 1;
-    while index < arguments.len() {
-        let option = arguments[index]
-            .to_str()
-            .ok_or_else(|| invalid("telemetry option must be UTF-8"))?;
-        let value = arguments
-            .get(index + 1)
-            .ok_or_else(|| invalid("telemetry option requires a value"))?;
-        match option {
-            "--state" => {
-                if state.replace(PathBuf::from(value)).is_some() {
-                    return Err(invalid("duplicate telemetry state selection"));
-                }
-            }
-            "--port" if action == "setup" => {
-                let (name, port) = value
-                    .to_str()
-                    .and_then(|value| value.split_once('='))
-                    .ok_or_else(|| invalid("telemetry port must be NAME=PORT"))?;
-                let port = port.parse::<u16>().map_err(|_| {
-                    invalid("telemetry port must be an integer from 1 through 65535")
-                })?;
-                if options.ports.insert(name.into(), port).is_some() {
-                    return Err(invalid("duplicate telemetry listener selection"));
-                }
-            }
-            "--organization" if action == "setup" => {
-                options.organization = value
-                    .to_str()
-                    .ok_or_else(|| invalid("telemetry organization must be UTF-8"))?
-                    .into()
-            }
-            "--stream" if action == "setup" => {
-                let (name, stream) = value
-                    .to_str()
-                    .and_then(|value| value.split_once('='))
-                    .ok_or_else(|| invalid("telemetry stream must be SIGNAL=NAME"))?;
-                options.streams.insert(name.into(), stream.into());
-            }
-            "--retention-days" if action == "setup" => {
-                options.retention_days = value
-                    .to_str()
-                    .and_then(|value| value.parse().ok())
-                    .ok_or_else(|| invalid("telemetry retention must be an integer"))?
-            }
-            _ => return Err(invalid("unsupported telemetry command option")),
-        }
-        index += 2;
-    }
-    match action {
-        "install" => {
-            if state.is_some() {
-                return Err(invalid("telemetry install has no state selection"));
-            }
-            let mut paths = BTreeMap::new();
-            for name in TOOLS {
-                paths.insert(
-                    name,
-                    diagnostic_tools::install(root, declaration(name), environment)?,
-                );
-            }
-            Ok(json!({"installed":paths}))
-        }
-        "setup" => setup(root, environment, state.as_deref(), &options).await,
-        "inspect" => inspect(environment, state.as_deref()).await,
-        "start" => start(environment, state.as_deref()).await,
-        "stop" => stop(environment, state.as_deref()).await,
-        "reconfigure" => reconfigure(environment, state.as_deref()).await,
-        "recover-configuration" => {
-            recover_previous_configuration(environment, state.as_deref()).await
-        }
-        _ => Err(invalid("unknown telemetry service operation")),
-    }
+    Ok(json!({"installed":paths}))
 }
 #[cfg(test)]
 #[path = "telemetry_service_tests.rs"]

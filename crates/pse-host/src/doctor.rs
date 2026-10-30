@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Read-only native checkout diagnostics; no dependency or service preparation.
-use crate::{
-    HostError,
-    environment::{self, Environment, EnvironmentSettings},
-};
+use crate::environment::{self, Environment, EnvironmentSettings};
 use serde::Serialize;
 use std::{
     ffi::{OsStr, OsString},
-    io::Write as _,
     path::{Path, PathBuf},
     process::Stdio,
     time::Duration,
@@ -281,7 +277,7 @@ fn declarations(root: &Path, environment: &Environment) -> (Vec<Check>, Vec<Prob
         admission,
         "inspect .config/agent-capacity.toml and explicit placement selections",
     ));
-    for name in ["pse-host", "cargo-pse-correctness"] {
+    for name in ["pse", "pse-host", "cargo-pse-correctness"] {
         probes.push(Probe::version(
             format!("prepared-{name}"),
             root.join("target/host-tools/current").join(name),
@@ -520,55 +516,6 @@ pub async fn inspect(root: &Path, environment: &Environment) -> Report {
     }
     checks.sort_by(|left, right| left.name.cmp(&right.name));
     Report { version: 1, checks }
-}
-
-/// Offline help and direct native doctor text/JSON output.
-pub async fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
-    if arguments
-        .iter()
-        .any(|argument| argument == "--help" || argument == "-h")
-    {
-        writeln!(
-            std::io::stdout(),
-            "doctor [--json]\nRead-only native prerequisites; no build, repair, database or scientific startup."
-        )?;
-        return Ok(0);
-    }
-    if arguments.len() > 1
-        || arguments
-            .first()
-            .is_some_and(|argument| argument != "--json")
-    {
-        return Err(HostError::Ownership("doctor accepts only --json".into()));
-    }
-    let mut root = std::env::current_dir()?;
-    while !root.join(".config/diagnostic-tools.toml").is_file() {
-        if !root.pop() {
-            return Err(HostError::Ownership(
-                "run doctor inside a pse-arrow checkout".into(),
-            ));
-        }
-    }
-    let report = inspect(&root, &std::env::vars_os().collect()).await;
-    if !arguments.is_empty() {
-        serde_json::to_writer_pretty(std::io::stdout(), &report).map_err(std::io::Error::other)?;
-        writeln!(std::io::stdout())?;
-    } else {
-        for check in &report.checks {
-            writeln!(
-                std::io::stdout(),
-                "{}{}: {}: {}",
-                if check.ok { "ok" } else { "unavailable" },
-                if check.blocking { "" } else { " (optional)" },
-                check.name,
-                check.detail
-            )?;
-            if !check.fix.is_empty() {
-                writeln!(std::io::stdout(), "  {}", check.fix)?;
-            }
-        }
-    }
-    Ok(i32::from(!report.ready()))
 }
 
 #[cfg(test)]

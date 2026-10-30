@@ -4,7 +4,6 @@
 #![cfg(test)]
 use pse_host::{environment::Environment, native};
 use std::{
-    ffi::OsString,
     fs::{File, OpenOptions},
     io::Write,
     process::{Command, Stdio},
@@ -13,16 +12,17 @@ use std::{
 
 #[test]
 fn native_cli_rejects_unsupported_profiles_without_effects() {
+    let directory = tempfile::tempdir().unwrap();
     for profile in [",", "ipopt", "compiler,ipopt", "compiler,klu,ipopt"] {
-        assert!(
-            native::run_cli(&[
-                OsString::from("prepare"),
-                OsString::from("--capabilities"),
-                OsString::from(profile)
-            ])
-            .is_err()
-        );
+        let output = Command::new(env!("CARGO_BIN_EXE_pse"))
+            .args(["native", "prepare", "--capabilities", profile])
+            .current_dir(directory.path())
+            .env("PSE_NATIVE_CACHE", directory.path().join("cache"))
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(125), "{profile}: {output:?}");
     }
+    assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
 }
 #[test]
 fn native_missing_selection_reports_explicit_preparation_without_creation() {
