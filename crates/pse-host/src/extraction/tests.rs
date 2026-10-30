@@ -52,16 +52,19 @@ fn duplicate_presentation_does_not_discard_original_records_or_native_coordinate
         .consume(&terminal(false), origin(2), &policy)
         .expect("terminal");
     let summary = extractor.finish(101);
-    assert_eq!(summary.outcome, CompilerOutcome::Failed);
-    assert_eq!(summary.unique_primary_failures, Some(1));
-    assert_eq!(summary.error_records, 2);
-    assert_eq!(summary.duplicates, 1);
-    assert!(summary.complete);
+    assert_eq!(summary.outcome(), CompilerOutcome::Failed);
+    assert_eq!(summary.unique_primary_failures(), Some(1));
+    assert_eq!(summary.error_records(), 2);
+    assert_eq!(summary.duplicates(), 1);
+    assert!(summary.complete());
 }
 
 #[test]
 fn zero_exit_and_a_valid_tail_cannot_erase_missing_or_malformed_required_evidence() {
-    assert_eq!(extractor(8).finish(0).outcome, CompilerOutcome::Incomplete);
+    assert_eq!(
+        extractor(8).finish(0).outcome(),
+        CompilerOutcome::Incomplete
+    );
     let mut broken = extractor(8);
     let policy = RedactionPolicy::default();
     assert!(
@@ -77,14 +80,14 @@ fn zero_exit_and_a_valid_tail_cannot_erase_missing_or_malformed_required_evidenc
         .consume(&terminal(true), origin(1), &policy)
         .expect("valid terminal");
     let summary = broken.finish(0);
-    assert_eq!(summary.outcome, CompilerOutcome::Incomplete);
-    assert!(!summary.complete);
+    assert_eq!(summary.outcome(), CompilerOutcome::Incomplete);
+    assert!(!summary.complete());
     let mut lost = extractor(8);
     lost.mark_incomplete();
     lost.consume(&terminal(true), origin(1), &policy)
         .expect("valid terminal");
     assert_eq!(
-        lost.finish(7).outcome,
+        lost.finish(7).outcome(),
         CompilerOutcome::Failed,
         "known original failure wins over observation loss"
     );
@@ -110,11 +113,11 @@ fn optional_grouping_capacity_cannot_drop_records_or_change_compiler_outcome() {
         .consume(&terminal(true), origin(2), &policy)
         .expect("terminal");
     let summary = extractor.finish(0);
-    assert_eq!(summary.outcome, CompilerOutcome::Succeeded);
-    assert_eq!(summary.warning_records, 2);
-    assert_eq!(summary.unique_primary_failures, None);
+    assert_eq!(summary.outcome(), CompilerOutcome::Succeeded);
+    assert_eq!(summary.warning_records(), 2);
+    assert_eq!(summary.unique_primary_failures(), None);
     assert!(
-        summary.complete,
+        summary.complete(),
         "grouping capacity is distinct from required protocol completeness"
     );
 }
@@ -129,7 +132,7 @@ fn duplicate_terminal_and_post_terminal_records_are_incomplete() {
     extractor
         .consume(&terminal(true), origin(1), &policy)
         .expect("duplicate observed");
-    assert_eq!(extractor.finish(0).outcome, CompilerOutcome::Incomplete);
+    assert_eq!(extractor.finish(0).outcome(), CompilerOutcome::Incomplete);
 }
 
 #[test]
@@ -201,9 +204,9 @@ fn actual_type_error_retains_one_coded_source_failure_and_full_native_context() 
             .is_some_and(|text| text.contains("mismatched types"))
     );
     let summary = extractor.finish(output.status.code().expect("Cargo exit"));
-    assert_eq!(summary.outcome, CompilerOutcome::Failed);
-    assert_eq!(summary.unique_primary_failures, Some(1));
-    assert!(summary.complete);
+    assert_eq!(summary.outcome(), CompilerOutcome::Failed);
+    assert_eq!(summary.unique_primary_failures(), Some(1));
+    assert!(summary.complete());
 }
 
 fn nextest_listing(binaries: &[(&str, &str, &str)]) -> nextest_metadata::TestListSummary {

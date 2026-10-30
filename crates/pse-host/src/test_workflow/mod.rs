@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Test selection stages, immutable listed commands and required observation, without launch.
+mod check;
 mod observation;
 use crate::{
     catalog::description::Information,
@@ -10,6 +11,10 @@ use crate::{
     extraction::{ExtractionError, NextestExtractor},
     fixtures::{self, FixtureError, Requirement},
     selection::{self, Plan, Request, Resolved},
+};
+pub use check::{
+    AdmittedCheck, CheckIntent, CompilerFailureReference, CompilerObservation,
+    CompilerObservationError, CompilerObserver, PreparedCheck,
 };
 pub use observation::{FailureReference, NextestObserver, Observation, ObservationError};
 use schemars::JsonSchema;
@@ -28,6 +33,17 @@ pub enum WorkflowError {
     /// Original filesystem failure.
     #[error("test workflow I/O: {0}")]
     Io(#[from] std::io::Error),
+    /// Original native host/custody failure.
+    #[error(transparent)]
+    Host(#[from] crate::HostError),
+    /// Original preparation error and independent custody-settlement error.
+    #[error("check preparation failed: {operation}; custody settlement also failed: {settlement}")]
+    Settlement {
+        /// Original preparation failure.
+        operation: Box<WorkflowError>,
+        /// Original independent settlement failure.
+        settlement: crate::HostError,
+    },
     /// Original correctness admission refusal.
     #[error(transparent)]
     Correctness(#[from] CorrectnessError),
@@ -56,8 +72,8 @@ pub enum WorkflowError {
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(this) { match this { Self::Correctness(error) => Some(error), Self::Discovery(error) => Some(error), Self::Fixture(error) => Some(error), Self::Extraction(error) => Some(error), _ => None } },
-    help(_this) { None }, related(_this) { None }, source(_this) { None }
+    forward(this) { match this { Self::Host(error) => Some(error), Self::Correctness(error) => Some(error), Self::Discovery(error) => Some(error), Self::Fixture(error) => Some(error), Self::Extraction(error) => Some(error), _ => None } },
+    help(_this) { None }, related(this) { match this { Self::Settlement { operation, settlement } => { let errors: [&dyn pse_diagnostics::TypedDiagnostic; 2] = [operation.as_ref(), settlement]; Some(Box::new(errors.into_iter())) }, _ => None } }, source(_this) { None }
 }
 #[derive(Debug)]
 struct Input {
@@ -88,6 +104,63 @@ impl std::fmt::Debug for Context {
     }
 }
 impl Context {
+    fn capture(
+        metadata: cargo_metadata::Metadata,
+        plan: &Plan,
+        profile: String,
+        environment: Environment,
+    ) -> Result<Self, WorkflowError> {
+        let checkout = metadata.workspace_root.as_std_path().canonicalize()?;
+        let mut paths: BTreeSet<_> = [
+            "Cargo.toml",
+            "Cargo.lock",
+            "rust-toolchain.toml",
+            ".cargo/config",
+            ".cargo/config.toml",
+        ]
+        .iter()
+        .map(|path| checkout.join(path))
+        .collect();
+        if plan.operation() == selection::Operation::Test {
+            paths.extend([
+                checkout.join(".config/nextest.toml"),
+                checkout.join(".config/diagnostic-tools.toml"),
+            ]);
+        }
+        for root in plan.groups().iter().flat_map(|group| group.roots()) {
+            let package = metadata
+                .packages
+                .iter()
+                .find(|package| package.id.repr == root.package_id())
+                .ok_or_else(|| {
+                    WorkflowError::Invalid("selected package metadata is absent".into())
+                })?;
+            paths.insert(package.manifest_path.as_std_path().to_owned());
+        }
+        let inputs = paths
+            .into_iter()
+            .map(|path| digest(&path).map(|digest| Input { path, digest }))
+            .collect::<Result<_, _>>()?;
+        Ok(Self {
+            checkout,
+            metadata,
+            profile,
+            environment,
+            inputs,
+        })
+    }
+    fn admit(&self, plan: Plan) -> Result<Resolved, WorkflowError> {
+        self.verify()?;
+        let cargo = correctness::real_cargo_in(&self.environment)?;
+        let mut admission = correctness::AdmissionContext::default();
+        let resolved = plan.resolve_with(|arguments| {
+            admission.resolve_with(arguments, |arguments| {
+                correctness::capture_at(&cargo, arguments, &self.checkout, &self.environment)
+            })
+        })?;
+        self.verify()?;
+        Ok(resolved)
+    }
     fn verify(&self) -> Result<(), WorkflowError> {
         for input in &self.inputs {
             if digest(&input.path)? != input.digest {
@@ -171,41 +244,8 @@ impl Intent {
                 "test workflow requires test intent".into(),
             ));
         }
-        let checkout = metadata.workspace_root.as_std_path().canonicalize()?;
-        let mut paths: BTreeSet<_> = [
-            "Cargo.toml",
-            "Cargo.lock",
-            "rust-toolchain.toml",
-            ".cargo/config",
-            ".cargo/config.toml",
-            ".config/nextest.toml",
-            ".config/diagnostic-tools.toml",
-        ]
-        .iter()
-        .map(|path| checkout.join(path))
-        .collect();
-        for root in plan.groups().iter().flat_map(|group| group.roots()) {
-            let package = metadata
-                .packages
-                .iter()
-                .find(|package| package.id.repr == root.package_id())
-                .ok_or_else(|| {
-                    WorkflowError::Invalid("selected package metadata is absent".into())
-                })?;
-            paths.insert(package.manifest_path.as_std_path().to_owned());
-        }
-        let inputs = paths
-            .into_iter()
-            .map(|path| digest(&path).map(|digest| Input { path, digest }))
-            .collect::<Result<_, _>>()?;
         Ok(Self {
-            context: Context {
-                checkout,
-                metadata,
-                profile,
-                environment,
-                inputs,
-            },
+            context: Context::capture(metadata, &plan, profile, environment)?,
             plan,
         })
     }
@@ -227,20 +267,7 @@ impl Intent {
     }
     /// Admit through the existing correctness owner in this exact checkout/environment.
     pub fn admit(self) -> Result<Admitted, WorkflowError> {
-        self.context.verify()?;
-        let cargo = correctness::real_cargo_in(&self.context.environment)?;
-        let mut admission = correctness::AdmissionContext::default();
-        let resolved = self.plan.resolve_with(|arguments| {
-            admission.resolve_with(arguments, |arguments| {
-                correctness::capture_at(
-                    &cargo,
-                    arguments,
-                    &self.context.checkout,
-                    &self.context.environment,
-                )
-            })
-        })?;
-        self.context.verify()?;
+        let resolved = self.context.admit(self.plan)?;
         let requirements = fixtures::requirements(&self.context.metadata, &resolved)?;
         Ok(Admitted {
             context: self.context,

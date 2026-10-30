@@ -873,6 +873,24 @@ pub(crate) fn real_cargo_in(
     }
     Ok(cargo)
 }
+/// Compose a new standalone adapter invocation without inheriting another owner's callback
+/// mode or artifact-capture destination. The original complete environment remains untouched.
+pub(crate) fn standalone_adapter_environment(
+    environment: &crate::environment::Environment,
+) -> Result<crate::environment::Environment, CorrectnessError> {
+    let cargo = real_cargo_in(environment)?;
+    let mut selected = environment.clone();
+    selected.insert(REAL_CARGO.into(), cargo);
+    for key in [
+        ADAPTER,
+        CARGO_HACK_ADAPTER,
+        BUILD_CAPTURE,
+        FIXTURE_METADATA_CAPTURE,
+    ] {
+        selected.remove(OsStr::new(key));
+    }
+    Ok(selected)
+}
 fn execute(cargo: &OsStr, arguments: &[OsString]) -> Result<i32, CorrectnessError> {
     Ok(exit_status(native_command(cargo, arguments).status()?))
 }

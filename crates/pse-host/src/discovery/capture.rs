@@ -95,7 +95,7 @@ fn hash_copy(
 }
 
 /// Capture through an open original handle and refuse a concurrently changed original.
-pub(super) fn executable(
+pub(crate) fn executable(
     original: &Path,
     destination: &Path,
 ) -> Result<Executable, CorrectnessError> {

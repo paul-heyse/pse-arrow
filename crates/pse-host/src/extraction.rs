@@ -60,6 +60,9 @@ pub enum ExtractionError {
     /// Original JSON error and its source chain are retained.
     #[error("invalid extraction protocol record: {0}")]
     Json(#[from] serde_json::Error),
+    /// Required stream framing cannot establish a complete native record.
+    #[error("required protocol framing: {0}")]
+    Framing(&'static str),
     /// The captured selection or native record cannot support the requested interpretation.
     #[error("nextest evidence: {0}")]
     Nextest(String),
@@ -145,26 +148,64 @@ pub enum CompilerOutcome {
     Incomplete,
 }
 /// Independent native outcome, coverage and presentation counts.
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
 pub struct CargoSummary {
     /// Original child status; this is not a CLI managed exit class.
-    pub child_exit: i32,
+    child_exit: i32,
     /// Compiler evidence outcome.
-    pub outcome: CompilerOutcome,
+    outcome: CompilerOutcome,
     /// All required records decoded and exactly one terminal record observed.
-    pub complete: bool,
+    complete: bool,
     /// Original error occurrences, including unlocated compiler summaries.
-    pub error_records: usize,
+    error_records: usize,
     /// Distinct located/coded errors; unknown after the bounded dedup cache fills.
-    pub unique_primary_failures: Option<usize>,
+    unique_primary_failures: Option<usize>,
     /// Unlocated/uncoded compiler errors, retained as context rather than invented source locations.
-    pub unlocated_errors: usize,
+    unlocated_errors: usize,
     /// Original warning occurrences.
-    pub warning_records: usize,
+    warning_records: usize,
     /// Exact duplicate records detected before the cache limit.
-    pub duplicates: usize,
+    duplicates: usize,
     /// Invalid or unavailable required record occurrences.
-    pub incomplete_records: usize,
+    incomplete_records: usize,
+}
+impl CargoSummary {
+    /// Original compiler child status, independent of managed exit and physical settlement.
+    pub fn child_exit(&self) -> i32 {
+        self.child_exit
+    }
+    /// Owner-reconciled compiler result; decoding cannot construct a successful summary.
+    pub fn outcome(&self) -> CompilerOutcome {
+        self.outcome
+    }
+    /// Every required record decoded with exactly one native terminal.
+    pub fn complete(&self) -> bool {
+        self.complete
+    }
+    /// Original error occurrences, including duplicates and unlocated errors.
+    pub fn error_records(&self) -> usize {
+        self.error_records
+    }
+    /// Located/coded unique failures, unknown after the optional grouping cache fills.
+    pub fn unique_primary_failures(&self) -> Option<usize> {
+        self.unique_primary_failures
+    }
+    /// Unlocated original error occurrences.
+    pub fn unlocated_errors(&self) -> usize {
+        self.unlocated_errors
+    }
+    /// Original warning occurrences.
+    pub fn warning_records(&self) -> usize {
+        self.warning_records
+    }
+    /// Known exact duplicate occurrences, without discarding original records.
+    pub fn duplicates(&self) -> usize {
+        self.duplicates
+    }
+    /// Explicit invalid/lost required-record occurrences.
+    pub fn incomplete_records(&self) -> usize {
+        self.incomplete_records
+    }
 }
 
 /// State is bounded by an explicit diagnostic-grouping cache, independent of host RAM policy.
@@ -983,7 +1024,7 @@ impl NextestExtractor {
                         && suite.starts == suite.terminals
                         && suite.last_terminal > suite.last_test)
             })
-            && cargo.as_ref().is_none_or(|summary| summary.complete);
+            && cargo.as_ref().is_none_or(|summary| summary.complete());
         let setup = if child_exit == NextestExitCode::SETUP_SCRIPT_FAILED {
             NextestSetup::FailedByRunner
         } else if selected > 0
@@ -1014,7 +1055,7 @@ impl NextestExtractor {
         } else if child_exit != NextestExitCode::OK
             || cargo
                 .as_ref()
-                .is_some_and(|summary| summary.outcome == CompilerOutcome::Failed)
+                .is_some_and(|summary| summary.outcome() == CompilerOutcome::Failed)
         {
             NextestOutcome::RunnerFailed
         } else if selected > 0 && complete && setup == NextestSetup::SucceededByRunner {
