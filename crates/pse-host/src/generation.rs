@@ -48,6 +48,7 @@ const BUILD_VARIABLES: &[&str] = &[
 ];
 
 mod bootstrap;
+pub(crate) use bootstrap::EXTERNAL_INPUTS;
 pub use bootstrap::{
     BootstrapMode, BootstrapOutcome, Freshness, HostTool, LOCAL_SEED_REQUIRED, PreparedGeneration,
     bootstrap_from, bootstrap_mode, freshness, prepared,
@@ -305,11 +306,22 @@ impl SourceFingerprint {
         metadata: &Metadata,
         context: BuildContext,
     ) -> Result<Self, HostError> {
+        Self::from_metadata_for(root, metadata, context, "pse-host")
+    }
+
+    /// Capture a selected existing product package through the same local normal/build
+    /// closure owner. This does not widen the fixed prepared host-tool manifest.
+    pub fn from_metadata_for(
+        root: &Path,
+        metadata: &Metadata,
+        context: BuildContext,
+        package_name: &str,
+    ) -> Result<Self, HostError> {
         let package = metadata
             .packages
             .iter()
-            .find(|package| package.name == "pse-host")
-            .ok_or_else(|| invalid("pse-host package is missing from metadata"))?;
+            .find(|package| package.name == package_name)
+            .ok_or_else(|| invalid("selected source package is missing from metadata"))?;
         let graph = metadata
             .resolve
             .as_ref()
@@ -334,7 +346,7 @@ impl SourceFingerprint {
                     .as_std_path();
                 let selected = directory
                     .strip_prefix(root)
-                    .map_err(|_| invalid("local host dependency lies outside the checkout"))?;
+                    .map_err(|_| invalid("local source dependency lies outside the checkout"))?;
                 if !relative(selected) {
                     return Err(invalid("local package root is not checkout-relative"));
                 }

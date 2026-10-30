@@ -9,12 +9,16 @@
 )]
 use clap::{Parser, Subcommand};
 #[path = "project/error.rs"]
+#[cfg(feature = "product-operators")]
 mod operator_error;
 #[path = "project/runtime.rs"]
+#[cfg(feature = "product-operators")]
 mod project_runtime;
 #[path = "project/tools.rs"]
+#[cfg(feature = "product-operators")]
 mod project_tools;
 #[path = "support/signals.rs"]
+#[cfg(feature = "product-operators")]
 mod signals;
 #[derive(Parser)]
 struct Cli {
@@ -23,14 +27,22 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    #[cfg(feature = "product-operators")]
     Project(project_tools::ProjectArgs),
+    /// Read one bounded versioned passive observation request from stdin.
+    Observe,
 }
 fn main() -> std::process::ExitCode {
-    let result = match Cli::parse().command {
-        Command::Project(args) => project_tools::run(args),
+    let result: Result<i32, Box<dyn std::error::Error + Send + Sync>> = match Cli::parse().command {
+        #[cfg(feature = "product-operators")]
+        Command::Project(args) => project_tools::run(args).map(|()| 0),
+        Command::Observe => {
+            pse_runtime::tooling::reader::serve(std::io::stdin().lock(), std::io::stdout().lock())
+                .map_err(Into::into)
+        }
     };
     match result {
-        Ok(()) => std::process::ExitCode::SUCCESS,
+        Ok(code) => std::process::ExitCode::from(u8::try_from(code).unwrap_or(125)),
         Err(error) => {
             eprintln!("pse-project: {error}");
             let mut cause = error.source();

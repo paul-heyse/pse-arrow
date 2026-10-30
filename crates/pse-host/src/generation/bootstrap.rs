@@ -5,7 +5,7 @@ use super::*;
 use std::{os::unix::fs::PermissionsExt, process::Command};
 
 const TOOLS: &[&str] = &["pse", "pse-host", "cargo-pse-correctness"];
-const EXTERNAL_INPUTS: &[&str] = &[
+pub(crate) const EXTERNAL_INPUTS: &[&str] = &[
     "crates/pse-study-module/surrealism.toml",
     "crates/pse-study-module/surrealism-qualification-long-hold.toml",
 ];

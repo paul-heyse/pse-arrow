@@ -7,6 +7,7 @@ pub mod inspection;
 pub mod inspection_comparison;
 pub mod metric_declarations;
 pub mod operational_metrics;
+pub mod reader;
 pub mod review_analysis;
 pub mod review_export;
 pub mod review_launch;

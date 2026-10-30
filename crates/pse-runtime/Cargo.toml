@@ -26,8 +26,9 @@ force-validate = [
   "pse-schema/force-validate",
 ]
 default = []
+product-reader = ["dep:clap"]
 product-operators = [
-  "dep:clap",
+  "product-reader",
   "pse-operations/canonical-maintenance",
 ]
 diagnostic-taskdump = ["tokio/taskdump"]
@@ -124,6 +125,7 @@ pse-authoring.workspace = true
 pse-relations.workspace = true
 pse-schema.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 datafusion.workspace = true
 # Package data documents are Parquet, decoded by Arrow type into Arrow-free row sets
 # (ADR-0125).
@@ -483,7 +485,7 @@ required-features = ["product-operators"]
 [[bin]]
 name = "pse-project"
 path = "src/bin/pse-project.rs"
-required-features = ["product-operators"]
+required-features = ["product-reader"]
 [[test]]
 name = "local_operation"
 required-features = ["solver-kinsol"]

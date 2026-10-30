@@ -133,6 +133,47 @@ pub(super) fn transfer_fixture_with_input(future: bool) -> (tempfile::TempDir, P
 }
 
 #[test]
+fn selected_product_source_uses_the_same_closure_owner_without_widening_host_membership() {
+    let fixture = Fixture::new();
+    let source = SourceFingerprint::from_metadata_for(
+        &fixture.root,
+        &fixture.metadata,
+        fixture.context.clone(),
+        "pse-support",
+    )
+    .unwrap();
+    assert_eq!(
+        source.package_roots,
+        BTreeSet::from([PathBuf::from("support")])
+    );
+    fs::write(fixture.root.join("host/src/lib.rs"), "unselected host edit").unwrap();
+    assert!(
+        source
+            .matches_sources(&fixture.root, &fixture.context)
+            .unwrap()
+    );
+    fs::write(
+        fixture.root.join("support/src/lib.rs"),
+        "selected product edit",
+    )
+    .unwrap();
+    assert!(
+        !source
+            .matches_sources(&fixture.root, &fixture.context)
+            .unwrap()
+    );
+    assert!(
+        SourceFingerprint::from_metadata_for(
+            &fixture.root,
+            &fixture.metadata,
+            fixture.context.clone(),
+            "missing-product"
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn local_closure_membership_and_content_invalidate_without_unrelated_crate_scan() {
     let fixture = Fixture::new();
     let fingerprint = fixture.fingerprint();

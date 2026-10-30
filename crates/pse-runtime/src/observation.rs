@@ -684,6 +684,23 @@ impl Write for BoundedImage {
 
 /// Read an already-published bounded image while its scientific process remains occupied.
 pub fn read_checkpoint(path: &Path) -> Result<ProcessCheckpoint, ObservationError> {
+    read_checkpoint_source(path).map(|source| source.image)
+}
+
+/// One copied checkpoint and the identity of the exact bytes decoded by the native reader.
+/// The digest supports read continuation; it is not scientific or native process authority.
+#[derive(Debug)]
+pub struct CheckpointSource {
+    /// Validated owner image from this one bounded read.
+    pub image: ProcessCheckpoint,
+    /// SHA-256 of the original source bytes, before decoding or presentation.
+    pub sha256: String,
+    /// Actual examined source extent.
+    pub bytes: usize,
+}
+
+/// Extend the existing reader with exact byte identity; do not reread a mutable path to hash it.
+pub fn read_checkpoint_source(path: &Path) -> Result<CheckpointSource, ObservationError> {
     let mut bytes = Vec::new();
     std::fs::File::open(path)?
         .take((IMAGE_BYTES + 1) as u64)
@@ -713,7 +730,15 @@ pub fn read_checkpoint(path: &Path) -> Result<ProcessCheckpoint, ObservationErro
             "checkpoint operation process identity mismatch".into(),
         ));
     }
-    Ok(image)
+    use sha2::Digest as _;
+    Ok(CheckpointSource {
+        image,
+        sha256: sha2::Sha256::digest(&bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect(),
+        bytes: bytes.len(),
+    })
 }
 
 fn essential_active(sample: &mut OperationSnapshot) {
