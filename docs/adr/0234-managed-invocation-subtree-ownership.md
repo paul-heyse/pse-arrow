@@ -80,6 +80,15 @@ Nested detachment survives its launching client only within the enclosing owner'
 
 ### Compensating controls
 
+A08's operator-confirmed target retains required capture through ordered shutdown: close
+launch authority, settle original payloads, independently drain required stream/extractor work,
+publish the owner-reconciled result and release eligible custody. Task hierarchy completion
+does not establish OS/file-I/O completion. Separate raw stream writers preserve their original
+failures and available prefixes; optional rendering cannot serialize both required readers.
+Promote generation protection before retained path/child/finalizer effects; unknown historical
+obligations remain protected until positively settled. These Proposed clarifications do not
+establish native implementation or formal acceptance.
+
 Qualify actual cross-group attachment and finalizer permissions; do not fall back to sibling
 allocation or leader-only settlement. Missing core delegation refuses this managed route.
 Original `OwnedUnit` recursive drain remains authoritative for its root. Core-only child

@@ -1736,6 +1736,18 @@ solely by cache-service loss; correctness, real boundary admission and physical 
 Implementation of this cut does not close all Plan58 B–G acceptance or qualify H's assembled and
 durable-deployment campaigns (§24.2).
 
+> Decision: ADR-0233/0234 (proposed Plan59 A08 clarification; operator-confirmed library-integration RC01–RC04).
+
+Generation protection follows retained effects: scoped passive reads remain protected from
+pruning, while child/path/finalizer handoff acquires durable custody before effects. Qualify
+inheritance, promotion and exclusion before selecting a new mechanism; conservative protection
+and disabled pruning remain the fallback. Existing unknown claims require positive settlement.
+Native owners enforce valid terminal facts before presentation. Directional wire schemas and
+common source/range/conflict proposals establish neither scientific validity, semantic name
+resolution nor publication. Source-only readiness has no semantic-session prerequisite;
+semantic operations retain their selected context. A08 publishes a Proposed target, not new
+runtime acceptance; execution presently includes only minimal J01/J02 prerequisite contracts.
+
 ### Conditional and fitting owner lifetimes
 
 > Decision: ADR-0166 and ADR-0186 (proposed amendments; maintainer-approved Plan46 execution).

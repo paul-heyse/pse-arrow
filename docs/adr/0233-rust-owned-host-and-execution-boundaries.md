@@ -167,6 +167,33 @@ adds a crate and requires integrated caller migration. Unit/cgroup uncertainty r
 Rust type cannot prove an independent process alive. Server readiness/migration must remain a
 separate capability rather than inflate the bootstrap closure.
 
+### Plan59 library-integration amendment — 2026-10-30
+
+**Proposed; operator-confirmed review RC01–RC04.** Temporary nonspawning readers retain
+scoped generation protection against pruning. Retained executable paths, children and
+finalizers require durable custody before effects/handoff. Qualify exclusion, inheritance,
+promotion and pruning races before selecting a process-held guard. Until qualified, retain
+conservative protection and disabled pruning. Absent PIDs, terminal metadata or a new protocol
+do not settle historical unknown obligations.
+
+Retain original stdout/stderr bytes in independently owned raw files; an optional compact
+offset index describes observation order, not global producer order. Capture failures retain
+the available original prefix and explicit incomplete/flush outcomes. Required extraction,
+optional views and physical child settlement have independent completion obligations.
+
+Producers own bounded indivisible pages and source/context-bound continuations. Directional
+Serde/Schemars describe wire representation, while the operation owner enforces contextual
+validity (including §21.5 admission) and actual terminal finality. Explain and execution share
+the available semantic stage without implicit preparation or invented execution population.
+Migrate immature wire consumers together without shims or loss of authored/sole original
+evidence. Source-only readiness is independent of semantic sessions. Common source/range/
+conflict proposals do not establish resolution, compilation, equivalence or publication.
+
+A08 publishes this bounded clarification within the existing Proposed decision. Focused
+governing-target advice is not a new formal acceptance and does not extend the prior A07
+review's footprint. A newly changed decision boundary still uses the required review route.
+Current execution includes minimal J01/J02 prerequisites only; J03–J05 features remain deferred.
+
 ## More information
 
 [Plan59](../plans/59-agent-cli.md) owns the subsequent A07/A03/A05/B03/G implementation and

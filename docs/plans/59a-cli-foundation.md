@@ -220,7 +220,7 @@ feature choices are exactly the review's
 | [A05](#a05) | in-progress | 59a | Immutable publication, existing durable entry pins, stale rebuild/reexec and authenticated cold-copy integrated; cold copy passed without destination compilation; effect-shaped promotion investigation and actual descendant/finalizer settlement remain; pruning disabled |
 | [A06](#a06) | in-progress | 59a | Parser-derived command/help/catalog/schema and passive native status integrated; staged shared explain, selective acquisition, actual provenance and owner federation remain planned |
 | [A07](#a07) | complete | 59a | Proposed ADR-0233/blueprint315 published and scoped formal review accepts that target at Proposed strength; proposed ADR-0234/blueprint316 refines nested invocation ownership; runtime obligations remain with consumers |
-| [A08](#a08) | planned | 59a | Publish operator-accepted 2026-10-30 RC01–RC04 amendments before changed generation, capture, page/proposal and syntax dependency contracts; no publication or runtime credit yet |
+| [A08](#a08) | complete | 59a | Proposed ADR-0233/0234 and blueprint317 publish accepted RC01–RC04; independent focused target advice found no required correction, not formal acceptance or runtime qualification |
 
 <a id="a01"></a>
 ### A01 — Land the accepted rule changes

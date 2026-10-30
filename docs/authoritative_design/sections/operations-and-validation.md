@@ -831,6 +831,15 @@ rebuilding broken current sources; failed rebuild still refuses new work. Genera
 protects actual adapter, supervisor/finalizer, fixture and analyzer users until original settlement
 and independent disposal permit release. No ledger-only inference establishes physical drain.
 
+Plan59 A08 (proposed ADR-0233/0234 clarification) retains independent raw stdout/stderr streams
+with original-byte prefixes and explicit incomplete/flush failures. Any offset index records
+observation order, not global producer order. Required capture/extractor completion, optional
+view continuity and physical settlement remain separate. Producer-owned indivisible pages
+and source/context-bound continuations carry directional schemas; serialization/schema success
+does not establish domain validity or a reconciled terminal. Explain consumes the same available
+selection stage as execution without preparing or fabricating later observations. Immature
+wire migrations preserve uniquely authored inputs and sole original evidence.
+
 The same accepted target gives actual selected effect/resource requirements one semantic
 owner across managed affected/native/setup routes. Tool catalogs remain selection
 authority; homogeneous binary/module defaults and explicit exceptions must correspond to
