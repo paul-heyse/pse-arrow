@@ -65,7 +65,7 @@ fn native_construction_publishes_authenticated_bytes_and_passive_staleness() {
         .status()
         .unwrap();
     assert!(lock.success());
-    assert_eq!(construct(fixture.path(), &environment).unwrap(), 0);
+    assert_eq!(construct(fixture.path(), &environment, None).unwrap(), 0);
     let prepared = prepared(fixture.path()).unwrap().unwrap();
     assert_eq!(prepared.protocol, 1);
     assert_eq!(prepared.manifest_digest.len(), 64);
@@ -105,7 +105,7 @@ fn native_construction_publishes_authenticated_bytes_and_passive_staleness() {
         "cannot compile this source\n",
     )
     .unwrap();
-    assert_ne!(construct(fixture.path(), &environment).unwrap(), 0);
+    assert_ne!(construct(fixture.path(), &environment, None).unwrap(), 0);
     assert_eq!(
         fs::read_link(fixture.path().join("target/host-tools/current")).unwrap(),
         prior
@@ -135,7 +135,17 @@ fn construction_rejects_changes_before_and_after_staging_without_selector_public
     )
     .unwrap();
     let after = capture(fixture.path(), &environment, context.clone()).unwrap();
-    assert!(publish(fixture.path(), before.clone(), &after, || Ok(after.clone())).is_err());
+    assert!(
+        publish(
+            fixture.path(),
+            &fixture.path().join("target/debug"),
+            None,
+            before.clone(),
+            &after,
+            || Ok(after.clone())
+        )
+        .is_err()
+    );
     assert!(!fixture.path().join("target/host-tools/current").exists());
     assert!(
         Command::new("cargo")
@@ -147,7 +157,17 @@ fn construction_rejects_changes_before_and_after_staging_without_selector_public
             .unwrap()
             .success()
     );
-    assert!(publish(fixture.path(), after.clone(), &after, || Ok(before)).is_err());
+    assert!(
+        publish(
+            fixture.path(),
+            &fixture.path().join("target/debug"),
+            None,
+            after.clone(),
+            &after,
+            || Ok(before)
+        )
+        .is_err()
+    );
     assert!(!fixture.path().join("target/host-tools/current").exists());
 }
 
@@ -213,4 +233,160 @@ fn effective_config_includes_are_observed_without_making_equivalent_checkouts_di
     let before = observe(first.path());
     fs::write(first.path().join(".cargo/extra.toml"), "[build]\njobs=31\n").unwrap();
     assert_ne!(before, observe(first.path()));
+}
+
+fn lock_fixture(root: &Path, environment: &Environment) {
+    assert!(
+        Command::new("cargo")
+            .args(["generate-lockfile", "--offline"])
+            .current_dir(root)
+            .env_clear()
+            .envs(environment)
+            .status()
+            .unwrap()
+            .success()
+    );
+}
+
+#[test]
+fn matching_copy_has_exact_bytes_without_destination_build_and_releases_source_use() {
+    let source = checkout();
+    let destination = checkout();
+    let environment = environment();
+    lock_fixture(source.path(), &environment);
+    lock_fixture(destination.path(), &environment);
+    assert_eq!(construct(source.path(), &environment, None).unwrap(), 0);
+    let source_reference = prepared(source.path()).unwrap().unwrap();
+    assert_eq!(
+        construct(destination.path(), &environment, Some(source.path())).unwrap(),
+        0
+    );
+    assert!(
+        !destination.path().join("target/debug").exists(),
+        "matching copy must not invoke the compiler"
+    );
+    let copied = prepared(destination.path()).unwrap().unwrap();
+    assert_eq!(copied.manifest_digest, source_reference.manifest_digest);
+    for tool in TOOLS {
+        assert_eq!(
+            hash_file(
+                &source
+                    .path()
+                    .join("target/host-tools")
+                    .join(&source_reference.generation)
+                    .join(tool)
+            )
+            .unwrap(),
+            hash_file(
+                &destination
+                    .path()
+                    .join("target/host-tools")
+                    .join(&copied.generation)
+                    .join(tool)
+            )
+            .unwrap()
+        );
+    }
+    assert_eq!(
+        GenerationUse::inspect(
+            &source.path().join("target/host-tools"),
+            &source_reference.generation
+        )
+        .unwrap(),
+        GenerationUseState::Available
+    );
+    assert_eq!(
+        freshness(destination.path(), &environment).unwrap(),
+        Freshness::Current
+    );
+}
+
+#[test]
+fn mismatch_builds_destination_and_build_failure_preserves_its_previous_selector() {
+    let source = checkout();
+    let destination = checkout();
+    let environment = environment();
+    lock_fixture(source.path(), &environment);
+    lock_fixture(destination.path(), &environment);
+    assert_eq!(construct(source.path(), &environment, None).unwrap(), 0);
+    fs::write(
+        destination.path().join("host/src/bin/pse.rs"),
+        "fn main() { println!(\"destination source\"); }\n",
+    )
+    .unwrap();
+    assert_eq!(
+        construct(destination.path(), &environment, Some(source.path())).unwrap(),
+        0
+    );
+    assert!(destination.path().join("target/debug/pse").is_file());
+    let prior = prepared(destination.path()).unwrap().unwrap();
+    let original = prepared(source.path()).unwrap().unwrap();
+    assert_ne!(
+        hash_file(&prior.executable(destination.path(), HostTool::Pse).unwrap()).unwrap(),
+        hash_file(&original.executable(source.path(), HostTool::Pse).unwrap()).unwrap()
+    );
+    fs::write(
+        destination.path().join("host/src/bin/pse.rs"),
+        "broken destination source\n",
+    )
+    .unwrap();
+    assert_ne!(
+        construct(destination.path(), &environment, Some(source.path())).unwrap(),
+        0
+    );
+    assert_eq!(prepared(destination.path()).unwrap().unwrap(), prior);
+    assert_eq!(
+        GenerationUse::inspect(
+            &source.path().join("target/host-tools"),
+            &original.generation
+        )
+        .unwrap(),
+        GenerationUseState::Available
+    );
+}
+
+#[test]
+fn copy_owner_keeps_source_pinned_and_rejects_changed_bytes_before_probe_or_publication() {
+    let source = checkout();
+    let destination = checkout();
+    let environment = environment();
+    lock_fixture(source.path(), &environment);
+    lock_fixture(destination.path(), &environment);
+    assert_eq!(construct(source.path(), &environment, None).unwrap(), 0);
+    assert_eq!(
+        construct(destination.path(), &environment, None).unwrap(),
+        0
+    );
+    let prior = prepared(destination.path()).unwrap().unwrap();
+    let copy = CopySource::acquire(source.path()).unwrap();
+    let generation = copy.directory.file_name().unwrap().to_str().unwrap();
+    assert_eq!(
+        GenerationUse::inspect(&source.path().join("target/host-tools"), generation).unwrap(),
+        GenerationUseState::Active
+    );
+    use std::os::unix::fs::PermissionsExt;
+    let artifact = copy.directory.join("pse");
+    fs::set_permissions(&artifact, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::write(
+        &artifact,
+        b"corrupt executable bytes which must never reach the probe",
+    )
+    .unwrap();
+    let error = construct_selected(destination.path(), &environment, Some(&copy)).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("copied binary differs from the pinned source manifest"),
+        "corruption must fail before attempting execution: {error}"
+    );
+    assert_eq!(prepared(destination.path()).unwrap().unwrap(), prior);
+    assert_eq!(
+        GenerationUse::inspect(&source.path().join("target/host-tools"), generation).unwrap(),
+        GenerationUseState::Active
+    );
+    copy.usage.settle().unwrap();
+    assert_eq!(
+        GenerationUse::inspect(&source.path().join("target/host-tools"), generation).unwrap(),
+        GenerationUseState::Available
+    );
 }

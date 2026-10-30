@@ -48,7 +48,9 @@ const BUILD_VARIABLES: &[&str] = &[
 ];
 
 mod bootstrap;
-pub use bootstrap::{Freshness, HostTool, PreparedGeneration, bootstrap, freshness, prepared};
+pub use bootstrap::{
+    Freshness, HostTool, PreparedGeneration, bootstrap, bootstrap_from, freshness, prepared,
+};
 mod entry;
 pub use entry::{EntryGuard, EntrySettlement, NewWorkDecision, new_work_decision};
 mod transfer;

@@ -379,6 +379,8 @@ pub fn freshness(root: &Path, inputs: &Environment) -> Result<Freshness, HostErr
 
 fn publish(
     root: &Path,
+    artifacts: &Path,
+    expected: Option<&BTreeMap<String, String>>,
     before: SourceFingerprint,
     after: &SourceFingerprint,
     final_capture: impl FnOnce() -> Result<SourceFingerprint, HostError>,
@@ -390,13 +392,20 @@ fn publish(
         .tempdir_in(&tools)?;
     fs::set_permissions(stage.path(), fs::Permissions::from_mode(0o700))?;
     for tool in TOOLS {
-        let source = root.join("target/debug").join(tool);
+        let source = artifacts.join(tool);
         if !fs::symlink_metadata(&source)?.is_file() {
             return Err(invalid("built tool is not a regular file"));
         }
         fs::copy(source, stage.path().join(tool))?;
         fs::set_permissions(stage.path().join(tool), fs::Permissions::from_mode(0o500))?;
         File::open(stage.path().join(tool))?.sync_all()?;
+        if let Some(expected) = expected {
+            if expected.get(*tool) != Some(&hash_file(&stage.path().join(tool))?) {
+                return Err(invalid(
+                    "copied binary differs from the pinned source manifest",
+                ));
+            }
+        }
         let result = Command::new(stage.path().join(tool))
             .arg("--version")
             .status()?;
@@ -405,6 +414,9 @@ fn publish(
         }
     }
     let manifest = GenerationManifest::capture(stage.path(), before, after, TOOLS)?;
+    if expected.is_some_and(|expected| expected != &manifest.binaries) {
+        return Err(invalid("copied tool set changed before publication"));
+    }
     manifest.write(stage.path())?;
     after.require_unchanged(&final_capture()?)?;
     File::open(stage.path())?.sync_all()?;
@@ -423,10 +435,86 @@ fn publish(
 /// Explicit construction transaction invoked only by the cold seed script. No caller
 /// may hold the update lock across this call; it acquires its own exclusive exclusion.
 pub fn bootstrap(root: &Path) -> Result<i32, HostError> {
-    construct(root, &build_environment(&std::env::vars_os().collect())?)
+    bootstrap_from(root, None)
 }
 
-fn construct(root: &Path, environment: &Environment) -> Result<i32, HostError> {
+/// Explicit preparation with an optional matching immutable source checkout. Only a
+/// source/build identity match copies; a mismatch takes the ordinary construction path.
+pub fn bootstrap_from(root: &Path, from: Option<&Path>) -> Result<i32, HostError> {
+    construct(
+        root,
+        &build_environment(&std::env::vars_os().collect())?,
+        from,
+    )
+}
+
+struct CopySource {
+    directory: PathBuf,
+    usage: GenerationUse,
+}
+impl CopySource {
+    fn acquire(root: &Path) -> Result<Self, HostError> {
+        let root = root.canonicalize()?;
+        let reference = prepared(&root)?
+            .ok_or_else(|| invalid("source checkout has no prepared generation"))?;
+        let usage = GenerationUse::acquire(&root.join("target/host-tools"), &reference.generation)?;
+        let verified = usage.manifest().digest().and_then(|digest| {
+            if digest == reference.manifest_digest
+                && usage.manifest().control_protocol() == reference.protocol
+            {
+                Ok(())
+            } else {
+                Err(invalid(
+                    "source generation identity changed during acquisition",
+                ))
+            }
+        });
+        if let Err(operation) = verified {
+            return Err(match usage.settle() {
+                Ok(()) => operation,
+                Err(cleanup) => HostError::Settlement {
+                    operation: Box::new(operation),
+                    cleanup: Box::new(cleanup),
+                },
+            });
+        }
+        Ok(Self {
+            directory: root.join("target/host-tools").join(reference.generation),
+            usage,
+        })
+    }
+}
+
+fn construct(
+    root: &Path,
+    environment: &Environment,
+    from: Option<&Path>,
+) -> Result<i32, HostError> {
+    // Acquire source use before destination exclusion. A<--B and B<--A concurrent
+    // preparations therefore never hold opposite exclusive update locks.
+    let source = from.map(CopySource::acquire).transpose()?;
+    let operation = construct_selected(root, environment, source.as_ref());
+    // This owner only retained source file paths; every copy descriptor is now closed.
+    // A probe, if any, executed the destination's private copy, never the source path.
+    let released = source.map_or(Ok(()), |source| source.usage.settle());
+    match (operation, released) {
+        (result, Ok(())) => result,
+        (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
+            operation: Box::new(operation),
+            cleanup: Box::new(cleanup),
+        }),
+        (Ok(code), Err(cleanup)) => Err(HostError::Settlement {
+            operation: Box::new(invalid(format!("construction returned {code}"))),
+            cleanup: Box::new(cleanup),
+        }),
+    }
+}
+
+fn construct_selected(
+    root: &Path,
+    environment: &Environment,
+    source: Option<&CopySource>,
+) -> Result<i32, HostError> {
     let root = root.canonicalize()?;
     let tools = root.join("target/host-tools");
     prepare_root(&tools)?;
@@ -446,6 +534,18 @@ fn construct(root: &Path, environment: &Environment) -> Result<i32, HostError> {
         )
     };
     let before = observe()?;
+    if let Some(source) = source.filter(|source| source.usage.manifest().source() == &before) {
+        let after = observe()?;
+        publish(
+            &root,
+            &source.directory,
+            Some(&source.usage.manifest().binaries),
+            before,
+            &after,
+            observe,
+        )?;
+        return Ok(0);
+    }
     let result = Command::new("cargo")
         .args(["build", "--locked", "--package", "pse-host", "--bins"])
         .current_dir(&root)
@@ -456,7 +556,14 @@ fn construct(root: &Path, environment: &Environment) -> Result<i32, HostError> {
         return Ok(result.code().unwrap_or(125));
     }
     let after = observe()?;
-    publish(&root, before, &after, observe)?;
+    publish(
+        &root,
+        &root.join("target/debug"),
+        None,
+        before,
+        &after,
+        observe,
+    )?;
     Ok(0)
 }
 
