@@ -737,12 +737,12 @@ fn dispatch(
             Ok(presentation.emit(response)?)
         }
         Command::HostGenerationBootstrap { from } => {
+            // These synchronous ownership/path checks do not start construction.
+            *settlement = EntrySettlement::NoEffects;
             let mode = crate::generation::bootstrap_mode(entry, from.as_deref())?;
-            let outcome = crate::generation::bootstrap_from(
-                &checkout_root(selected)?,
-                from.as_deref(),
-                mode,
-            )?;
+            let root = checkout_root(selected)?;
+            *settlement = EntrySettlement::Unresolved;
+            let outcome = crate::generation::bootstrap_from(&root, from.as_deref(), mode)?;
             *settlement = outcome.settlement;
             Ok(outcome.exit_code)
         }
@@ -1394,6 +1394,28 @@ fn failure(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn bootstrap_precondition_refusal_reports_no_construction_effects() {
+        let absent = tempfile::tempdir().unwrap();
+        let cli = Cli::try_parse_from([
+            OsString::from("pse"),
+            OsString::from("-C"),
+            absent.path().as_os_str().to_owned(),
+            OsString::from("__host-generation-bootstrap"),
+        ])
+        .unwrap();
+        let entry = EntryGuard::acquire_current().unwrap();
+        let presentation = OutputOptions {
+            format: OutputFormat::Json,
+            presentation: Presentation::default(),
+            invocation_id: envelope::CliInvocationId::new(),
+            artifact_directory: None,
+        };
+        let mut settlement = EntrySettlement::Unresolved;
+        assert!(dispatch(cli, &presentation, &entry, &mut settlement).is_err());
+        assert_eq!(settlement, EntrySettlement::NoEffects);
+        assert_eq!(std::fs::read_dir(absent.path()).unwrap().count(), 0);
+    }
     use clap::CommandFactory as _;
     #[test]
     fn command_tree_is_consistent() {
