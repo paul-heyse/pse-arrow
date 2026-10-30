@@ -95,7 +95,7 @@ pub fn validate_request(environment: &Environment) -> Result<(), HostError> {
     Ok(())
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct Policy {
     version: u32,
     aggregate_gib: u64,
@@ -116,7 +116,7 @@ struct Policy {
     exclusive_observer: Lane,
     production: Production,
 }
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct Lane {
     #[serde(default)]
     slots: u64,
@@ -131,12 +131,12 @@ struct Lane {
     #[serde(default)]
     light_gib: u64,
 }
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct Production {
     version: u32,
     profiles: Vec<ProductionProfile>,
 }
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct ProductionProfile {
     name: String,
     total_memory_bytes: u64,
@@ -194,7 +194,7 @@ impl Profile {
 }
 
 /// Validated policy and caller selection, before any manager effect.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Selection {
     policy: Policy,
     profile: Profile,
@@ -1642,12 +1642,45 @@ impl Permit {
                 "borrowed finite capability cannot register another owner",
             ));
         }
-        let Some(nonce) = self.nonce.as_ref() else {
+        if self.nonce.is_none() {
             return Ok(());
-        };
+        }
         let binding = tokio::time::timeout_at(deadline.into(), unit.binding())
             .await
             .map_err(|_| HostError::Deadline("original finite binding".into()))??;
+        self.bind_original(unit.intent(), binding, deadline).await
+    }
+    /// Register only this actual original service main as its already-admitted controller.
+    /// The service cannot borrow its launcher's bus reference or adopt another live main.
+    pub(crate) async fn bind_service_controller(
+        &self,
+        manager: &HostManager,
+        intent: &LaunchIntent,
+        deadline: Instant,
+    ) -> Result<(), HostError> {
+        if self.borrowed {
+            return Err(invalid(
+                "borrowed finite capability cannot register a service controller",
+            ));
+        }
+        if self.nonce.is_none() {
+            return Ok(());
+        }
+        let binding =
+            tokio::time::timeout_at(deadline.into(), manager.service_controller_binding(intent))
+                .await
+                .map_err(|_| HostError::Deadline("finite service-controller binding".into()))??;
+        self.bind_original(intent, binding, deadline).await
+    }
+    async fn bind_original(
+        &self,
+        intent: &LaunchIntent,
+        binding: UnitBinding,
+        deadline: Instant,
+    ) -> Result<(), HostError> {
+        let Some(nonce) = self.nonce.as_ref() else {
+            return Ok(());
+        };
         let _guard = self.coordinator.lock("admission.lock", deadline).await?;
         let mut current = self.coordinator.read()?;
         let row = current
@@ -1660,7 +1693,7 @@ impl Permit {
         let registered = row
             .units
             .iter_mut()
-            .find(|registered| registered.intent == *unit.intent())
+            .find(|registered| registered.intent == *intent)
             .ok_or_else(|| invalid("unit was not registered before dispatch"))?;
         if registered
             .binding

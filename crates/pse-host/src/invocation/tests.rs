@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
-use crate::envelope::{CommandOutcome, Completeness, Settlement};
+use crate::envelope::{Completeness, RedactionPolicy, Settlement};
+use crate::managed::result::{ManagedSummary, TerminalResult};
 use std::{collections::BTreeMap, os::unix::fs::symlink};
 
 fn store() -> (tempfile::TempDir, InvocationStore) {
@@ -34,14 +35,16 @@ fn spec(session: Option<&str>) -> InvocationSpec<String> {
         scientific: Vec::new(),
     }
 }
-fn response(directory: &InvocationDirectory) -> Envelope<String> {
-    let mut result = Envelope::response("run", "child exited 3", "original detail".to_owned());
-    result.invocation_id = directory.id().clone();
-    result.outcome = CommandOutcome::Failure;
-    result.subject_state = SubjectState::Failed;
-    result.child_exit = Some(3);
-    result.settlement = Settlement::Complete;
-    result
+fn response(directory: &InvocationDirectory) -> TerminalResult<ManagedSummary> {
+    TerminalResult::finalizer_unknown(
+        directory.id(),
+        "run",
+        "signal".into(),
+        vec![HostError::Ownership(
+            "original settlement unavailable".into(),
+        )],
+        &RedactionPolicy::default(),
+    )
 }
 
 #[test]
@@ -101,7 +104,7 @@ fn original_owner_records_requests_and_launch_cutoff_keep_separate_custody() {
     assert!(reopened.try_launch_lock().is_ok());
     assert!(
         store
-            .result::<String, String>(directory.id())
+            .result::<String, ManagedSummary>(directory.id())
             .unwrap()
             .is_none()
     );
@@ -117,7 +120,7 @@ fn original_metadata_and_terminal_response_round_trip() {
     assert_eq!(metadata.checkout_id, store.state.checkout_id.as_str());
     assert!(
         store
-            .result::<String, String>(directory.id())
+            .result::<String, ManagedSummary>(directory.id())
             .expect("not completed")
             .is_none()
     );
@@ -125,12 +128,12 @@ fn original_metadata_and_terminal_response_round_trip() {
         .publish_result(&response(&directory))
         .expect("publish");
     let result = store
-        .result::<String, String>(directory.id())
+        .result::<String, ManagedSummary>(directory.id())
         .expect("read")
         .expect("terminal");
-    assert_eq!(result.child_exit, Some(3));
-    assert_eq!(result.payload, "original detail");
-    assert_eq!(result.settlement, Settlement::Complete);
+    assert_eq!(result.child_exit, None);
+    assert_eq!(result.payload.service_result.as_deref(), Some("signal"));
+    assert_eq!(result.settlement, Settlement::Unknown);
     assert_eq!(result.exit_code(), 1);
 }
 
@@ -138,25 +141,34 @@ fn original_metadata_and_terminal_response_round_trip() {
 fn finality_and_identity_cannot_be_replaced_by_acknowledgements() {
     let (_temporary, store) = store();
     let directory = store.begin(spec(None)).expect("begin");
-    let mut result = response(&directory);
-    result.subject_state = SubjectState::Running;
-    assert!(directory.publish_result(&result).is_err());
-    result.subject_state = SubjectState::Failed;
-    result.invocation_id = CliInvocationId::new();
-    assert!(directory.publish_result(&result).is_err());
-    result.invocation_id = directory.id().clone();
-    result.view.truncated = true;
-    assert!(directory.publish_result(&result).is_err());
+    let wrong_identity = TerminalResult::finalizer_unknown(
+        &CliInvocationId::new(),
+        "run",
+        "signal".into(),
+        Vec::new(),
+        &RedactionPolicy::default(),
+    );
+    assert!(directory.publish_result(&wrong_identity).is_err());
+    let wrong_command = TerminalResult::finalizer_unknown(
+        directory.id(),
+        "test",
+        "signal".into(),
+        Vec::new(),
+        &RedactionPolicy::default(),
+    );
+    assert!(directory.publish_result(&wrong_command).is_err());
     assert!(!directory.path().join("result.json").exists());
-    result.view.truncated = false;
-    result.settlement = Settlement::Unknown;
-    result.observation.completeness = Completeness::Partial;
+    let result = response(&directory);
+    assert_eq!(
+        result.response().observation.completeness,
+        Completeness::Partial
+    );
     directory
         .publish_result(&result)
         .expect("unknown settlement is retained honestly");
     assert_eq!(
         store
-            .result::<String, String>(directory.id())
+            .result::<String, ManagedSummary>(directory.id())
             .expect("read")
             .expect("record")
             .settlement,
@@ -180,7 +192,7 @@ fn competing_terminal_writers_publish_exactly_one_complete_record() {
     assert_eq!(published.iter().filter(|result| result.is_err()).count(), 1);
     assert!(
         store
-            .result::<String, String>(directory.id())
+            .result::<String, ManagedSummary>(directory.id())
             .expect("complete JSON")
             .is_some()
     );
@@ -250,10 +262,8 @@ fn exact_and_unique_prefix_ignore_unrelated_corrupt_history() {
     );
     assert_eq!(history.failures[0].path, corrupt.path());
     let latest_error = store.resolve("latest", None).unwrap_err();
-    let latest_record = crate::envelope::ErrorRecord::from_typed(
-        &latest_error,
-        &crate::envelope::RedactionPolicy::default(),
-    );
+    let latest_record =
+        crate::envelope::ErrorRecord::from_typed(&latest_error, &RedactionPolicy::default());
     assert_eq!(latest_record.children.len(), 1);
     assert!(
         latest_record.children[0]
@@ -289,10 +299,7 @@ fn history_keeps_all_healthy_rows_and_structured_independent_source_failures() {
         .iter()
         .find(|failure| failure.invocation_id.as_ref() == Some(corrupt.id()))
         .unwrap();
-    let record = crate::envelope::ErrorRecord::from_typed(
-        error,
-        &crate::envelope::RedactionPolicy::default(),
-    );
+    let record = crate::envelope::ErrorRecord::from_typed(error, &RedactionPolicy::default());
     assert_eq!(record.code.as_deref(), Some("host.ownership"));
     assert!(
         record
@@ -309,10 +316,8 @@ fn history_keeps_all_healthy_rows_and_structured_independent_source_failures() {
             .any(|failure| failure.path == invalid_name && failure.invocation_id.is_none())
     );
     let latest_error = store.resolve("latest", None).unwrap_err();
-    let latest_record = crate::envelope::ErrorRecord::from_typed(
-        &latest_error,
-        &crate::envelope::RedactionPolicy::default(),
-    );
+    let latest_record =
+        crate::envelope::ErrorRecord::from_typed(&latest_error, &RedactionPolicy::default());
     assert_eq!(latest_record.children.len(), 2);
 }
 
@@ -492,7 +497,7 @@ fn private_unpublished_creation_is_not_an_invocation_and_duplicate_ids_refuse() 
 }
 
 #[test]
-fn serialization_failure_never_publishes_a_partial_response() {
+fn serialization_failure_never_publishes_partial_owner_evidence() {
     struct BrokenPayload;
     impl Serialize for BrokenPayload {
         fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
@@ -501,11 +506,15 @@ fn serialization_failure_never_publishes_a_partial_response() {
     }
     let (_temporary, store) = store();
     let directory = store.begin(spec(None)).expect("begin");
-    let result = response(&directory).with_payload(BrokenPayload);
-    assert!(directory.publish_result(&result).is_err());
+    assert!(
+        directory
+            .publish_evidence(InvocationEvidence::Settlement, &BrokenPayload)
+            .is_err()
+    );
+    assert!(!directory.path().join("settlement.json").exists());
     assert!(
         store
-            .result::<String, String>(directory.id())
+            .result::<String, ManagedSummary>(directory.id())
             .expect("no terminal evidence")
             .is_none()
     );

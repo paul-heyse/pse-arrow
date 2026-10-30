@@ -81,6 +81,8 @@ pub struct InvocationDirectory {
 pub enum InvocationEvidence {
     /// Original service launch selection and intent.
     Launch,
+    /// Service-owned native payload creation intents, before effects can become uncertain.
+    PayloadIntent,
     /// Original initialization and physical resource identities.
     Custody,
     /// The actual resource owner's settlement facts, separate from a terminal projection.
@@ -90,6 +92,7 @@ impl InvocationEvidence {
     fn filename(self) -> &'static str {
         match self {
             Self::Launch => "launch.json",
+            Self::PayloadIntent => "payload-intent.json",
             Self::Custody => "custody.json",
             Self::Settlement => "settlement.json",
         }
@@ -670,8 +673,13 @@ impl InvocationDirectory {
             Some(false) => Err(invalid("invalid launch closure record")),
         }
     }
-    /// Publish exactly one immutable full response. This does not establish its stated facts.
-    pub fn publish_result<T: Serialize>(&self, result: &Envelope<T>) -> Result<(), HostError> {
+    /// Publish exactly one immutable full result constructed by its original performing owner.
+    /// Generic envelopes, acknowledgements and presentation views cannot grant terminal admission.
+    pub fn publish_result<T: Serialize>(
+        &self,
+        terminal: &crate::managed::result::TerminalResult<T>,
+    ) -> Result<(), HostError> {
+        let result = terminal.evidence();
         validate_result(&self.invocation_id, &self.command, result)?;
         directory(&self.path, false)?;
         publish(&self.path, "result.json", result, None)

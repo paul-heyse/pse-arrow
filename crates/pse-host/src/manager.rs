@@ -808,7 +808,16 @@ impl HostManager {
                     "original ordinary source placement changed".into(),
                 ));
             }
-            let (_, source_group, _) = self.foreground_placement(&source).await?;
+            let source_group = if source.unit.ends_with(".service") {
+                let unit = self.unit(&source.unit).await?;
+                let intent = LaunchIntent {
+                    unit: source.unit.clone(),
+                    description: unit.description().await?,
+                };
+                self.managed_service_placement(&intent).await?.2
+            } else {
+                self.foreground_placement(&source).await?.1
+            };
             if !requested.ends_with(".slice") {
                 return Err(HostError::Ownership(
                     "ordinary target is not a slice".into(),
@@ -881,14 +890,74 @@ impl HostManager {
                 "foreground entry requires an application scope".into(),
             ));
         }
+        self.entry_slice(observed).await
+    }
+    /// Resolve only this authenticated original notify controller's actual slice. The
+    /// controller remains in its service root; this grants no sibling/root stop authority.
+    pub(crate) async fn managed_service_placement(
+        &self,
+        intent: &LaunchIntent,
+    ) -> Result<(UnitObservation, String, String), HostError> {
+        let nonce = intent
+            .unit()
+            .strip_prefix("pse-host-")
+            .and_then(|name| name.strip_suffix(".service"))
+            .ok_or_else(|| {
+                HostError::Ownership("managed controller has no original service namespace".into())
+            })?;
+        if intent.description != format!("pse-host original {nonce}") {
+            return Err(HostError::Ownership(
+                "managed controller description differs from its original nonce".into(),
+            ));
+        }
+        let current = self.authenticate_service_controller(intent).await?;
+        let unit = self.unit(intent.unit()).await?;
+        if !self.notify_controller(&unit).await? {
+            return Err(HostError::Ownership(
+                "managed entry requires the original notify controller".into(),
+            ));
+        }
+        let (slice, group, _) = self.entry_slice(&current).await?;
+        Ok((current, slice, group))
+    }
+    pub(crate) async fn service_controller_binding(
+        &self,
+        intent: &LaunchIntent,
+    ) -> Result<UnitBinding, HostError> {
+        let (current, _, _) = self.managed_service_placement(intent).await?;
+        let group = Group::open(&current.control_group, false)?;
+        self.authenticate_service_controller(intent).await?;
+        Ok(UnitBinding {
+            invocation: current.invocation,
+            group: current.control_group,
+            device: group.device,
+            inode: group.inode,
+        })
+    }
+    async fn entry_slice(
+        &self,
+        observed: &UnitObservation,
+    ) -> Result<(String, String, u64), HostError> {
         let unit = self.unit(&observed.unit).await?;
-        let scope = ScopeProxy::builder(&self.connection)
-            .destination(self.owner.as_str())
-            .path(unit.inner().path().to_owned())
-            .cache_properties(CacheProperties::No)
-            .build()
-            .await?;
-        let slice = scope.slice().await?;
+        let slice = if observed.unit.ends_with(".scope") {
+            ScopeProxy::builder(&self.connection)
+                .destination(self.owner.as_str())
+                .path(unit.inner().path().to_owned())
+                .cache_properties(CacheProperties::No)
+                .build()
+                .await?
+                .slice()
+                .await?
+        } else {
+            ServiceProxy::builder(&self.connection)
+                .destination(self.owner.as_str())
+                .path(unit.inner().path().to_owned())
+                .cache_properties(CacheProperties::No)
+                .build()
+                .await?
+                .slice()
+                .await?
+        };
         let slice_unit = self.unit(&slice).await?;
         let slice_proxy = SliceProxy::builder(&self.connection)
             .destination(self.owner.as_str())
@@ -909,6 +978,22 @@ impl HostManager {
             self.manager().await?.default_tasks_max().await?,
         ))
     }
+    async fn notify_controller(&self, unit: &UnitProxy<'_>) -> Result<bool, HostError> {
+        let service = ServiceProxy::builder(&self.connection)
+            .destination(self.owner.as_str())
+            .path(unit.inner().path().to_owned())
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?;
+        Ok(unit.transient().await?
+            && service.type_property().await? == "notify"
+            && service.notify_access().await? == "main"
+            && service.restart().await? == "no"
+            && matches!(service.exec_stop_post_ex().await?.as_slice(),
+                [(executable, argv, flags, ..)] if Path::new(executable).is_absolute()
+                    && argv.first() == Some(executable)
+                    && flags == &vec!["no-env-expand".to_owned()]))
+    }
     /// Authenticate the native workload role using manager dependency facts;
     /// an environment marker alone never establishes enclosing containment.
     pub async fn native_workload(&self, observed: &UnitObservation) -> Result<bool, HostError> {
@@ -924,15 +1009,17 @@ impl HostManager {
             return Ok(false);
         }
         for parent in unit.binds_to().await? {
-            let Some(parent_nonce) = parent
-                .strip_prefix("pse-host-")
-                .and_then(|value| value.strip_suffix(".scope"))
-            else {
+            let Some(parent_nonce) = parent.strip_prefix("pse-host-").and_then(|value| {
+                value
+                    .strip_suffix(".scope")
+                    .or_else(|| value.strip_suffix(".service"))
+            }) else {
                 continue;
             };
             let owner = self.unit(&parent).await?;
             if owner.description().await? == format!("pse-host original {parent_nonce}")
-                && unit.after().await?.contains(&parent)
+                && (parent.ends_with(".service") || unit.after().await?.contains(&parent))
+                && (!parent.ends_with(".service") || self.notify_controller(&owner).await?)
             {
                 return Ok(true);
             }
@@ -963,21 +1050,23 @@ impl HostManager {
         let mut authenticated = false;
         for owner in workload.binds_to().await? {
             if !dependencies.contains(&owner)
-                || !after.contains(&owner)
-                || !workload_after.contains(&owner)
+                || (!owner.ends_with(".service")
+                    && (!after.contains(&owner) || !workload_after.contains(&owner)))
             {
                 continue;
             }
-            let Some(owner_nonce) = owner
-                .strip_prefix("pse-host-")
-                .and_then(|value| value.strip_suffix(".scope"))
-            else {
+            let Some(owner_nonce) = owner.strip_prefix("pse-host-").and_then(|value| {
+                value
+                    .strip_suffix(".scope")
+                    .or_else(|| value.strip_suffix(".service"))
+            }) else {
                 continue;
             };
             let controller = self.unit(&owner).await?;
             if controller.description().await? == format!("pse-host original {owner_nonce}")
                 && controller.active_state().await? == "active"
                 && operation.description().await? == operation_description(&parent, nonce, &owner)
+                && (!owner.ends_with(".service") || self.notify_controller(&controller).await?)
             {
                 authenticated = true;
                 break;
@@ -1135,8 +1224,21 @@ impl HostManager {
                     })?,
                 )?,
                 property("BindsTo", vec![binds_to.to_owned()])?,
-                property("After", vec![binds_to.to_owned()])?,
             ];
+            let service_parent = if binds_to.ends_with(".service") {
+                let parent = self.unit(binds_to).await?;
+                let intent = LaunchIntent {
+                    unit: binds_to.to_owned(),
+                    description: parent.description().await?,
+                };
+                Some((
+                    intent.clone(),
+                    self.managed_service_placement(&intent).await?.0,
+                ))
+            } else {
+                properties.push(property("After", vec![binds_to.to_owned()])?);
+                None
+            };
             if delegated {
                 // An additional Delegate=true would replace this exact empty controller set.
                 properties.push(property("DelegateControllers", Vec::<String>::new())?);
@@ -1166,9 +1268,23 @@ impl HostManager {
                     format!("scope activation: {result}"),
                 ));
             }
-            self.reconcile_inner(intent)
+            let owned = self
+                .reconcile_inner(intent)
                 .await
-                .map_err(|error| unknown_launch(intent, error))
+                .map_err(|error| unknown_launch(intent, error))?;
+            if let Some((controller, original)) = service_parent {
+                let current = self.managed_service_placement(&controller).await?.0;
+                if current.invocation != original.invocation
+                    || current.control_group != original.control_group
+                    || current.main_pid != original.main_pid
+                {
+                    return Err(unknown_launch(
+                        intent,
+                        "original notify controller changed during payload scope activation",
+                    ));
+                }
+            }
+            Ok(owned)
         })
         .await
         .map_err(|_| HostError::UnknownLaunch {
@@ -1540,6 +1656,29 @@ impl HostManager {
         )
         .await
     }
+    /// Establish the same ordinary hierarchy from this authenticated service controller,
+    /// retaining it in its original service root instead of moving it into a scope.
+    pub(crate) async fn start_service_operation_slice(
+        &self,
+        intent: &LaunchIntent,
+        controller: &LaunchIntent,
+        deadline: Instant,
+    ) -> Result<OwnedUnit, HostError> {
+        self.managed_service_placement(controller).await?;
+        let (parent, nonce) = operation_coordinates(intent.unit())?;
+        if intent.description != operation_description(&parent, nonce, controller.unit()) {
+            return Err(HostError::Ownership(
+                "ordinary service operation controller differs".into(),
+            ));
+        }
+        self.start_slice_inner(
+            intent,
+            &ResourceControls::default(),
+            Some(controller.unit()),
+            deadline,
+        )
+        .await
+    }
     async fn start_slice_inner(
         &self,
         intent: &LaunchIntent,
@@ -1561,7 +1700,16 @@ impl HostManager {
             ];
             if let Some(owner) = owner {
                 properties.push(property("BindsTo", vec![owner.to_owned()])?);
-                properties.push(property("After", vec![owner.to_owned()])?);
+                if owner.ends_with(".service") {
+                    let unit = self.unit(owner).await?;
+                    self.managed_service_placement(&LaunchIntent {
+                        unit: owner.to_owned(),
+                        description: unit.description().await?,
+                    })
+                    .await?;
+                } else {
+                    properties.push(property("After", vec![owner.to_owned()])?);
+                }
             }
             properties.extend(controls.properties()?);
             let result = launch_job(

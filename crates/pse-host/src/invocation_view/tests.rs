@@ -83,7 +83,11 @@ fn result_retains_original_identity_failures_and_raw_number_fidelity() {
     terminal.invocation_id = directory.id().clone();
     terminal.subject_state = SubjectState::Failed;
     terminal.child_exit = Some(3);
-    directory.publish_result(&terminal).unwrap();
+    // Simulate an existing external owner's original record. Read compatibility does not
+    // grant generic envelopes the new typed publication capability.
+    let path = directory.path().join("result.json");
+    fs::write(&path, serde_json::to_vec(&terminal).unwrap()).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
     let observed = result(&store, directory.id().as_str(), None).unwrap();
     assert_ne!(observed.invocation_id, *directory.id());
     let original = observed.payload.response.as_ref().unwrap();

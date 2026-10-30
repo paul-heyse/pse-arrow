@@ -61,6 +61,9 @@ pub enum HostError {
     /// Native I/O failed.
     #[error("host I/O: {0}")]
     Io(#[from] std::io::Error),
+    /// Original asynchronous task termination, preserving panic/cancellation cause.
+    #[error("host task: {0}")]
+    Task(#[from] tokio::task::JoinError),
     /// D-Bus transport or manager refused an operation.
     #[error("user manager: {0}")]
     Manager(#[from] zbus::Error),
@@ -115,6 +118,7 @@ pse_diagnostics::impl_diagnostic! {
     HostError,
     code(this) { Some(match this {
         Self::Io(_) => pse_diagnostics::DiagnosticCode::HostIo,
+        Self::Task(_) => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
         Self::Manager(_) => pse_diagnostics::DiagnosticCode::HostManager,
         Self::Ownership(_) => pse_diagnostics::DiagnosticCode::HostOwnership,
         Self::IncompleteInvocationHistory {..} => pse_diagnostics::DiagnosticCode::HostOwnership,
