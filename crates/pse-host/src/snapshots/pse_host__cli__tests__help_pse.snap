@@ -8,6 +8,10 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  affected           Preview conservative changed-source reach through Gitoxide and captured Cargo declarations
+  wait               Observe one original managed invocation; an observation timeout leaves it running
+  cancel             Stop one authenticated original invocation and inspect its original settlement evidence
+  observe            Inspect scientific evidence through an explicitly prepared native product reader
   explain            Resolve test/check intent without building binaries or preparing runtime inputs
   owner              Inspect declared generated-output ownership and existing source contributors
   dep                Inspect exact locked dependency identities, features and direct workspace consumers
@@ -45,6 +49,10 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  affected           Preview conservative changed-source reach through Gitoxide and captured Cargo declarations
+  wait               Observe one original managed invocation; an observation timeout leaves it running
+  cancel             Stop one authenticated original invocation and inspect its original settlement evidence
+  observe            Inspect scientific evidence through an explicitly prepared native product reader
   explain            Resolve test/check intent without building binaries or preparing runtime inputs
   owner              Inspect declared generated-output ownership and existing source contributors
   dep                Inspect exact locked dependency identities, features and direct workspace consumers

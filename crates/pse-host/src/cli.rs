@@ -15,6 +15,9 @@ use std::{
     process::ExitCode,
     time::{Duration, Instant},
 };
+mod affected;
+mod control;
+mod product;
 mod selection;
 
 /// Selects the fixed executable protocol, never inferred from an executable filename.
@@ -61,6 +64,17 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Preview conservative changed-source reach through Gitoxide and captured Cargo declarations.
+    Affected(affected::Selection),
+    /// Observe one original managed invocation; an observation timeout leaves it running.
+    Wait(control::Selection),
+    /// Stop one authenticated original invocation and inspect its original settlement evidence.
+    Cancel(control::Selection),
+    /// Inspect scientific evidence through an explicitly prepared native product reader.
+    Observe {
+        #[command(subcommand)]
+        action: product::Action,
+    },
     #[command(name = "__supervise", hide = true)]
     Supervise(ManagedEntryArgs),
     #[command(name = "__finalize", hide = true)]
@@ -79,6 +93,9 @@ enum Command {
     /// Inspect declared generated-output ownership and existing source contributors.
     Owner {
         path: PathBuf,
+        /// Existing captured Cargo metadata enables exact source-package ownership.
+        #[arg(long)]
+        metadata: Option<PathBuf>,
     },
     /// Inspect exact locked dependency identities, features and direct workspace consumers.
     Dep {
@@ -236,6 +253,8 @@ impl Command {
     // from its presentation protocol. Control and internal entries never auto-rebuild.
     fn generation_intent(&self) -> GenerationIntent {
         match self {
+            Self::Wait(_) | Self::Cancel(_) => GenerationIntent::ExistingControl,
+            Self::Observe { action } => action.intent(),
             Self::HostGenerationBootstrap { .. } | Self::Supervise(_) | Self::Finalize(_) => {
                 GenerationIntent::Internal
             }
@@ -245,6 +264,7 @@ impl Command {
                 GenerationIntent::NewWork
             }
             Self::Boundary(_)
+            | Self::Affected(_)
             | Self::Explain { .. }
             | Self::Owner { .. }
             | Self::Dep { .. }
@@ -629,6 +649,11 @@ struct ServerSelection {
 }
 pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
     match command {
+        "wait" | "cancel" => envelope::schema::<control::ControlView>(command, view),
+        "observe prepare" => envelope::schema::<product::PreparedReader>(command, view),
+        "observe query" | "observe discover" => {
+            envelope::schema::<product::ProductView<'static>>(command, view)
+        }
         "artifact read" => envelope::schema::<crate::artifacts::ArtifactRead>(command, view),
         "outline" => envelope::schema::<crate::source_command::FileOutline>(command, view),
         "outline batch" => envelope::schema::<crate::source_command::batch::Report>(command, view),
@@ -646,7 +671,8 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "explain test full" | "explain check full" => {
             envelope::schema::<crate::test_workflow::Explanation<'static>>(command, view)
         }
-        "owner" => envelope::schema::<crate::ownership::OwnerQuery>(command, view),
+        "owner" => envelope::schema::<OwnerView>(command, view),
+        "affected" => envelope::schema::<crate::affected::Preview>(command, view),
         "dep" => envelope::schema::<crate::dependency::Report>(command, view),
         "history" => envelope::schema::<crate::invocation_view::HistoryPage>(command, view),
         "result" => envelope::schema::<crate::invocation_view::ResultView>(command, view),
@@ -695,6 +721,12 @@ fn dispatch(
         return Ok(0);
     };
     match command {
+        Command::Affected(args) => affected::dispatch(args, selected, presentation, settlement),
+        Command::Wait(args) => control::dispatch(args, false, selected, presentation, settlement),
+        Command::Cancel(args) => control::dispatch(args, true, selected, presentation, settlement),
+        Command::Observe { action } => {
+            product::dispatch(action, selected, presentation, settlement)
+        }
         Command::Supervise(args) => {
             runtime()?.block_on(crate::managed::supervisor::supervise(
                 crate::managed::decode_checkout(&args.checkout_bytes)?,
@@ -752,30 +784,38 @@ fn dispatch(
                 }
             }
         }
-        Command::Owner { path } => {
+        Command::Owner { path, metadata } => {
             let root = checkout_root(selected)?;
-            let query = crate::ownership::query(&root, &path)?;
+            let metadata = metadata
+                .map(|path| {
+                    source_path(selected, path).and_then(|path| {
+                        crate::catalog::MetadataSnapshot::read(&path).map_err(HostError::from)
+                    })
+                })
+                .transpose()?;
+            let source = crate::ownership::source_owner(&root, &path, metadata.as_ref())?;
+            let mut failures = Vec::new();
+            let generated = match crate::ownership::query(&root, &path) {
+                Ok(mut query) => {
+                    failures.append(&mut query.failures);
+                    crate::catalog::description::Information::Available(query)
+                }
+                Err(error) => {
+                    let reason = error.to_string();
+                    failures.push(error);
+                    crate::catalog::description::Information::Unavailable { reason }
+                }
+            };
             let mut response = Envelope::response(
                 "owner",
-                "declared generated-output ownership observed",
-                query,
+                "source and generated-output ownership observed independently",
+                OwnerView { source, generated },
             );
-            response.observation.scope =
-                "generated_output_routing_and_declared_contributors".into();
-            response.subject_state = if matches!(
-                &response.payload.ownership,
-                crate::ownership::OutputOwnership::Declared { .. }
-            ) {
-                envelope::SubjectState::Available
-            } else {
-                envelope::SubjectState::NoMatch
-            };
-            response.observation.limitations = response.payload.coverage_limits.clone();
+            response.observation.scope = "source_package_and_generated_output_routing".into();
+            response.observation.limitations = response.payload.source.coverage_limits.clone();
             let policy = RedactionPolicy::from_environment();
             response.failures.extend(
-                response
-                    .payload
-                    .failures
+                failures
                     .iter()
                     .map(|error| ErrorRecord::from_typed(error, &policy)),
             );
@@ -1242,6 +1282,11 @@ struct RunSelection {
     command: Vec<OsString>,
     cwd: OsString,
     detached: bool,
+}
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+struct OwnerView {
+    source: crate::ownership::SourceOwnerQuery,
+    generated: crate::catalog::description::Information<crate::ownership::OwnerQuery>,
 }
 fn environment_digest(environment: &Environment) -> String {
     use sha2::{Digest as _, Sha256};

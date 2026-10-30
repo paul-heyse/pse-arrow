@@ -1,0 +1,54 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
+---
+-h
+Preview conservative changed-source reach through Gitoxide and captured Cargo declarations
+
+Usage: pse affected [OPTIONS]
+
+Options:
+      --base <BASE>          Explicit Git revision for base-to-HEAD plus observed index/worktree/untracked changes [default: HEAD]
+  -C <checkout>
+      --format <FORMAT>      Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --metadata <METADATA>  Existing metadata snapshot; absence queries locked offline Cargo metadata without a build
+      --fields <FIELDS>      Select comma-separated payload fields while retaining identity, state and coverage
+      --budget <BUDGET>      Limit payload array records; retain complete evidence as an artifact
+  -h, --help                 Print help (see more with '--help')
+--help
+Preview conservative changed-source reach through Gitoxide and captured Cargo declarations
+
+Usage: pse affected [OPTIONS]
+
+Options:
+      --base <BASE>
+          Explicit Git revision for base-to-HEAD plus observed index/worktree/untracked changes
+
+          [default: HEAD]
+
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --metadata <METADATA>
+          Existing metadata snapshot; absence queries locked offline Cargo metadata without a build
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit payload array records; retain complete evidence as an artifact
+
+  -h, --help
+          Print help (see a summary with '-h')
