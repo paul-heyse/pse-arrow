@@ -248,15 +248,32 @@ This trial leaves `.mcp.json` empty; a future optional product adapter is a sepa
 
 **Consumes:** [59a A03](59a-cli-foundation.md#a03).
 
-**Delivers:** `pse outline` and `pse show` over `syn` (full, span locations) for Rust and over
-headings for Markdown, with the outline logic shared with `just lib-outline`.
+**Delivers:** `pse outline` and `pse show` over pinned `ra_ap_syntax` for Rust and over
+CommonMark headings for Markdown, with the outline logic shared with `just lib-outline`.
+The October30 capability assessment selects lossless, error-tolerant typed Rust ASTs instead
+of strict `syn` file parsing: an incomplete function or unrelated syntax error must not erase
+the useful declarations elsewhere in the file. Preserve original UTF-8 byte ranges, source
+digest, explicit parsing edition, enclosing declaration paths and parse diagnostics. Unknown
+or duplicate syntactic paths remain explicit; syntax presence does not establish active cfg,
+expanded macro declarations or resolved impl identity. `show` slices the original source,
+including associated documentation/attributes, rather than regenerating tokens.
 This is syntactic extraction, not semantic symbol resolution; absent or ambiguous items yield
 an actionable diagnostic rather than a guessed item or implicit language-server startup.
+
+Implementation references: [syntax capabilities](../libraries/ra_ap_syntax.md), published
+[0.0.360 source](https://docs.rs/crate/ra_ap_syntax/0.0.360/source/src/lib.rs) and
+[typed AST](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/). Local constructors,
+precedence helpers and `SyntaxEditor` can serve selected syntax-edit proposals under G07/G08;
+incremental reparsing is useful only when the consumer already retains a source snapshot.
+Do not start a persistent analyzer or implement a separate parser cache for one-file reads.
 
 **Acceptance:**
 - `pse show crates/pse-host/src/manager.rs::HostManager::observe` prints exactly that method with
   line numbers.
 - An outline of a Markdown plan lists its headings with line ranges.
+- A broken function body still permits reading a neighboring declaration; parse errors and
+  the selected edition remain visible. Unicode ranges slice the exact original bytes, nested
+  impl/module paths disambiguate where possible, and duplicate paths refuse `show`.
 
 <a id="d04"></a>
 ### D04 — Fast documentation checks

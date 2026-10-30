@@ -286,6 +286,42 @@ Preview rename, import/match/trait-member assists and repeated resolved-call rep
 Preserve captured arguments and report changed effect/evaluation-order obligations for review.
 Returned edits are proposals, not an equivalence proof, applied transaction or automatic fix.
 
+**Structural queries and previews.** The operator's October30 library additions expand the
+available realization mechanisms: assess pinned `ast-grep-core` with its Rust grammar for
+code-shaped patterns, named/sequence captures, composed syntax constraints and `TemplateFix`
+replacement previews. Keep this explicitly syntax-derived alongside semantic SSR, with backend,
+grammar/pattern versions, match strictness, source digest and byte spans in each proposal.
+Default `Smart` matching is not exact CST equivalence; select/report strictness deliberately.
+Enumerate nested matches separately from the non-overlapping edit set and report omissions or
+conflicts. Never infer resolved symbol equality from repeated metavariables or matching names.
+The same G08 publication owner applies to any eventual writes; a library's in-memory edit does
+not provide filesystem concurrency or multi-file atomicity. Use fallible constructors and
+verified release APIs: the inspected0.51.0 `before`/`after`/`append`/`prepend` helpers are
+`todo!()`, and `replace_all` intentionally skips nested overlapping matches.
+
+[AST-grep capabilities](../libraries/ast-grep-core.md),
+[published0.51.0 source](https://docs.rs/crate/ast-grep-core/0.51.0/source/src/node.rs) and
+[Tree-sitter Rust grammar](https://github.com/tree-sitter/tree-sitter-rust) support this inquiry.
+Tree-sitter Rust supplies AST-grep's syntax layer, not an obligatory third independent parsing
+service. Prefer D03's `ra_ap_syntax` typed AST for Rust declaration reads and native constructors;
+adopt the pattern engine when its capture/rewrite consumer removes bespoke matching logic.
+Neither grammar tags nor source-shaped matches establish cross-file references or types.
+
+**Generated syntax and replacement fragments.** The full
+[`syn`/`quote`/`prettyplease` capability reference](../libraries/rust_analyzers/syn_quote_prettyplease.md)
+adds a complementary route, already used by the registry generator: pinned `syn`3.0.5,
+`quote`1.0.47 and `prettyplease`0.3.0. Prefer native `Visit`/`VisitMut`/`Fold`,
+`Punctuated`, `Generics::split_for_impl` and token interpolation when generating or transforming
+owned Rust syntax. Use fallible parsing for externally supplied fragments/identifiers and
+preserve unknown modifier/Verbatim boundaries. `ToTokens` is not a source formatter; render
+new complete files with the existing pretty-printer owner. For a local authored-source edit,
+generated fragments may feed the same byte-range proposal while untouched text stays with
+the CST. Do not round-trip a whole authored file through `syn`/`prettyplease`: ordinary
+comments/layout would be lost, and `verbatim` does not guarantee arbitrary opaque syntax is
+printable without panic. Compiler acceptance, macro expansion and semantic identity remain
+separate. No blanket generator rewrite or dependency upgrade follows this capability review;
+the existing generator pins/byte-equivalence route still own intentional changes there.
+
 **Acceptance:** rename changes the intended entity without unrelated names; a scoped SSR
 rule excludes a similarly spelled different function. A chosen assist shows all files and
 unresolved placeholders. Source change invalidates the proposal. Preview performs no edits,
@@ -351,7 +387,7 @@ package/series qualification owner; no speed benefit is claimed without measurem
 | Capability | Disposition, owner and observable trigger |
 | --- | --- |
 | Rich native HIR/IDE fields or embedding | G01 investigates when a selected O02/O04/O13 result cannot be faithfully exposed through pinned LSP. Adopt only the scoped gap with full workspace/input ownership and required decision route. |
-| Tolerant source parsing | D03 remains syntax-only. Reconsider `ra_ap_syntax`/Rowan with G01/D03 when a real incomplete-file read cannot provide useful structure; no semantic session prerequisite. |
+| Tolerant source parsing | Selected under D03 after the October30 full capability assessment: `ra_ap_syntax` provides useful incomplete-file reads without a semantic session. Preserve errors, source identity and explicit edition; no compiler acceptance claim. |
 | Term search | G06 deferred experiment when an actual expected-type construction question is not served by methods/imports. Use native fuel, report exhaustion/non-exhaustiveness; no synthesis service prerequisite. |
 | StaticIndex, SCIP/LSIF | G01 deferred alternative for an actual immutable-revision browsing/export consumer. Require snapshot/configuration identity and regeneration semantics; no second live graph by default. |
 | Full semantic token/highlight export | Not selected for text-agent output. G04 may add category-filtered source annotations; full token export waits for an actual renderer needing it. |
