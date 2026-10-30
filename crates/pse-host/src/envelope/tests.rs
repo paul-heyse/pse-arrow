@@ -17,6 +17,48 @@ fn payload() -> Payload {
     }
 }
 #[test]
+fn nullable_record_collections_obey_budget_while_optional_tuples_stay_indivisible() {
+    #[derive(Serialize, JsonSchema)]
+    struct Optional {
+        records: Option<Vec<u32>>,
+        pair: Option<(u32, u32)>,
+    }
+    for records in [Some(vec![1, 2, 3]), None] {
+        let view = Presentation {
+            fields: None,
+            budget: Some(1),
+        };
+        let mut output = Vec::new();
+        write(
+            &mut output,
+            Envelope::response(
+                "nullable",
+                "original",
+                Optional {
+                    records: records.clone(),
+                    pair: Some((7, 9)),
+                },
+            ),
+            OutputFormat::Json,
+            &view,
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&output).unwrap();
+        assert_eq!(value["payload"]["pair"], serde_json::json!([7, 9]));
+        if records.is_some() {
+            assert_eq!(value["payload"]["records"], serde_json::json!([1]));
+            assert_eq!(value["view"]["omitted_records"], 2);
+        } else {
+            assert!(value["payload"]["records"].is_null());
+            assert_eq!(value["view"]["omitted_records"], 0);
+        }
+        jsonschema::validator_for(schema::<Optional>("nullable", &view).unwrap().as_value())
+            .unwrap()
+            .validate(&value)
+            .unwrap();
+    }
+}
+#[test]
 fn owned_transport_receives_the_same_complete_frame_and_original_exit() {
     for format in [
         OutputFormat::Json,

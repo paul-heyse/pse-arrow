@@ -105,7 +105,16 @@ fn limit_array(schema: &mut Value, budget: usize) {
     schema["maxItems"] = maximum.into();
 }
 fn record_array(schema: &Value) -> bool {
-    schema.get("type").and_then(Value::as_str) == Some("array")
+    let array = match schema.get("type") {
+        Some(Value::String(kind)) => kind == "array",
+        Some(Value::Array(kinds)) => {
+            kinds.len() == 2
+                && kinds.iter().any(|kind| kind.as_str() == Some("array"))
+                && kinds.iter().any(|kind| kind.as_str() == Some("null"))
+        }
+        _ => false,
+    };
+    array
         && schema.get("prefixItems").is_none()
         && schema.get("minItems").and_then(Value::as_u64).unwrap_or(0) == 0
 }
@@ -148,13 +157,13 @@ pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<S
         }
     }
     if let Some(budget) = view.budget {
-        if payload.get("type").and_then(Value::as_str) == Some("array") {
+        if record_array(&payload) {
             limit_array(&mut payload, budget);
         }
         if let Some(properties) = payload.get_mut("properties").and_then(Value::as_object_mut) {
             for value in properties.values_mut() {
                 let mut resolved = dereference(value, &schema);
-                if resolved.get("type").and_then(Value::as_str) == Some("array") {
+                if record_array(&resolved) {
                     limit_array(&mut resolved, budget);
                     *value = resolved;
                 }

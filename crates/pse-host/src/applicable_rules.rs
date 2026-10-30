@@ -57,6 +57,7 @@ impl Catalog {
     /// Read every current shared Markdown rule once. Malformed or unavailable scope
     /// is a failed source observation, never an empty successful list of applicable rules.
     pub fn load(root: &Path) -> Result<Self, HostError> {
+        let root = root.canonicalize()?;
         let directory = root.join(".claude/rules");
         crate::diagnostic_tools::no_symlinks(&directory)?;
         let mut entries = fs::read_dir(directory)?.collect::<Result<Vec<_>, _>>()?;
@@ -82,7 +83,7 @@ impl Catalog {
             }
             rules.push(Rule {
                 source: path
-                    .strip_prefix(root)
+                    .strip_prefix(&root)
                     .map_err(|error| invalid(&path, error))?
                     .to_owned(),
                 digest: crate::probe::digest(&bytes),
@@ -123,6 +124,16 @@ mod tests {
         let source = directory.path().join(".claude/rules/source.md");
         fs::write(&source,"---\ndescription: authored\npaths: ['crates/**', '*.toml']\n---\nRead these instructions.\n").unwrap();
         let catalog = Catalog::load(directory.path()).unwrap();
+        let relative =
+            pathdiff::diff_paths(directory.path(), std::env::current_dir().unwrap()).unwrap();
+        assert!(!relative.is_absolute());
+        assert_eq!(
+            Catalog::load(&relative)
+                .unwrap()
+                .matching(Path::new("Cargo.toml"))[0]
+                .source,
+            catalog.matching(Path::new("Cargo.toml"))[0].source
+        );
         let path = PathBuf::from(std::ffi::OsString::from_vec(
             b"crates/opaque-\xff.rs".to_vec(),
         ));
