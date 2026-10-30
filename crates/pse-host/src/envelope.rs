@@ -350,6 +350,10 @@ pub struct Envelope<T> {
 impl<T> Envelope<T> {
     /// Preserve every mandatory fact while replacing only the presentation payload.
     pub fn with_payload<U>(self, payload: U) -> Envelope<U> {
+        self.map_payload(|_| payload)
+    }
+    /// Project an owned payload while preserving every original header and evidence field.
+    pub fn map_payload<U>(self, map: impl FnOnce(T) -> U) -> Envelope<U> {
         Envelope {
             summary: self.summary,
             record: self.record,
@@ -368,7 +372,7 @@ impl<T> Envelope<T> {
             artifacts: self.artifacts,
             next: self.next,
             view: self.view,
-            payload,
+            payload: map(self.payload),
         }
     }
     /// A completed command response. This constructor asserts no scientific outcome.

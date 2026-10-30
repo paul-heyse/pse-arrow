@@ -688,8 +688,8 @@ struct ServerSelection {
 }
 pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
     match command {
-        "test" | "tests" | "check" => {
-            envelope::schema::<crate::managed::result::ManagedSummary>(command, view)
+        "run" | "tools run" | "test" | "tests" | "check" => {
+            envelope::schema::<ManagedReply>(command, view)
         }
         "tools prepare" => envelope::schema::<tools::PreparedTool>(command, view),
         "tools catalog" => envelope::schema::<
@@ -1447,7 +1447,7 @@ fn launch_managed(
         let mut response = Envelope::response(
             verb,
             "original service launch acknowledged; completion remains unobserved",
-            launched.observation,
+            ManagedReply::Launched(Box::new(launched.observation)),
         );
         response.subject_state = envelope::SubjectState::Launched;
         response.settlement = envelope::Settlement::Unknown;
@@ -1469,6 +1469,13 @@ struct RunSelection {
     tool: Option<NativeToolSelection>,
     #[serde(skip_serializing_if = "Option::is_none")]
     workflow: Option<crate::managed::workflow::InputBinding>,
+}
+/// Actual managed command replies; launch acknowledgement and terminal evidence stay distinct.
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(untagged)]
+enum ManagedReply {
+    Launched(Box<crate::UnitObservation>),
+    Completed(Box<crate::managed::result::ManagedSummary>),
 }
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 struct OwnerView {
@@ -1509,7 +1516,7 @@ async fn observe_launched(
             .cancel(Instant::now() + Duration::from_secs(30))
             .await?;
     }
-    let result = store.result::<serde::de::IgnoredAny, Box<serde_json::value::RawValue>>(&launched.invocation_id)?
+    let result = store.result::<serde::de::IgnoredAny, crate::managed::result::ManagedSummary>(&launched.invocation_id)?
         .ok_or_else(|| HostError::Ownership("original service stopped without readable owner result; inspect finalization evidence".into()))?;
     let status = if let Some(interrupted) = cancellation {
         interrupted
@@ -1518,7 +1525,7 @@ async fn observe_launched(
     } else {
         run_status(None, &result)
     };
-    let response = crate::invocation_view::result(&store, launched.invocation_id.as_str(), None)?;
+    let response = result.map_payload(|payload| ManagedReply::Completed(Box::new(payload)));
     presentation.emit(response)?;
     Ok(status)
 }
@@ -2193,6 +2200,50 @@ mod tests {
         assert_eq!(run_status(Some(130), &result), 130);
         result.child_exit = None;
         assert_eq!(run_status(None, &result), 125);
+    }
+    #[test]
+    fn performing_managed_reply_schema_accepts_launch_and_original_terminal_views() {
+        let replies = [
+            ManagedReply::Launched(Box::new(crate::UnitObservation {
+                unit: "fixture.service".into(),
+                invocation: vec![1; 16],
+                active_state: "active".into(),
+                sub_state: "running".into(),
+                main_pid: 42,
+                exit_code: 0,
+                exit_status: 0,
+                control_group: "/fixture".into(),
+            })),
+            ManagedReply::Completed(Box::new(crate::managed::result::ManagedSummary {
+                workflow: None,
+                child_exit: Some(125),
+                stdout: None,
+                stderr: None,
+                borrowed_reservation: false,
+                service_result: None,
+            })),
+        ];
+        for reply in replies {
+            let mut response = Envelope::response("test", "original managed command", reply);
+            if matches!(response.payload, ManagedReply::Completed(_)) {
+                response.outcome = CommandOutcome::BoundaryFailure;
+                response.subject_state = envelope::SubjectState::Unknown;
+                response.child_exit = Some(125);
+            }
+            let value = serde_json::to_value(&response).unwrap();
+            let schema = response_schema("test", &Presentation::default()).unwrap();
+            let validator = jsonschema::validator_for(schema.as_value()).unwrap();
+            assert!(
+                validator.is_valid(&value),
+                "{:?}",
+                validator
+                    .iter_errors(&value)
+                    .map(|error| error.to_string())
+                    .collect::<Vec<_>>()
+            );
+            assert_eq!(value["command"], "test");
+            assert!(value["payload"].get("response").is_none());
+        }
     }
     #[test]
     fn early_format_prefix_comes_from_the_shared_parser_tail_declaration() {

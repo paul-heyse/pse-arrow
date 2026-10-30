@@ -17,6 +17,20 @@ fn payload() -> Payload {
     }
 }
 #[test]
+fn owned_payload_projection_preserves_original_terminal_evidence() {
+    let mut original = Envelope::response("test", "original owner failed", vec![1, 2]);
+    original.outcome = CommandOutcome::BoundaryFailure;
+    original.subject_state = SubjectState::Unknown;
+    original.child_exit = Some(125);
+    original.settlement = Settlement::Incomplete;
+    original.observation.completeness = Completeness::Partial;
+    let expected = serde_json::to_value(&original).unwrap();
+    let projected = original.map_payload(|records| records.len());
+    let mut actual = serde_json::to_value(projected).unwrap();
+    actual["payload"] = expected["payload"].clone();
+    assert_eq!(actual, expected);
+}
+#[test]
 fn full_and_projected_serialization_validate_against_their_actual_schemas() {
     for view in [
         Presentation::default(),
