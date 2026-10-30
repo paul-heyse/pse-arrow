@@ -16,7 +16,9 @@ use std::{
 
 mod providers;
 mod requirements;
-pub use providers::{prepare_capabilities, select_capabilities, validate_capabilities};
+pub use providers::{
+    capability_names, prepare_capabilities, select_capabilities, validate_capabilities,
+};
 pub use requirements::requirements_from_backend_features;
 
 const PROFILE: &str = "compiler,klu";

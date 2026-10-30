@@ -6,6 +6,7 @@ pub mod activity;
 pub mod admission;
 pub mod agent_hooks;
 pub mod boundary;
+pub mod catalog;
 pub mod cli;
 pub mod correctness;
 pub mod diagnostic_tools;

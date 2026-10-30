@@ -42,6 +42,10 @@ const PETSC: &[&str] = &[
     "include/petscts.h",
 ];
 const ORDER: &[&str] = &["compiler", "solver", "klu", "isolation", "uno", "petsc"];
+/// Parser-owned capability atoms, without inspecting sources or installed providers.
+pub fn capability_names() -> &'static [&'static str] {
+    ORDER
+}
 fn required(kind: &str) -> &'static [&'static str] {
     match kind {
         "compiler" => &["compiler.json"],
