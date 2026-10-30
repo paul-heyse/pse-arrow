@@ -1,5 +1,11 @@
 # Plan improvement reviews
 
+The [Plan59 library integration and target-design review](plan59-library-integration-and-target-design-2026-10-30.md)
+reassesses the paused implemented foundations and remaining A–I scope. Sixteen proposed
+amendments address library delegation, enforced domain/wire contracts, invocation and stream
+ownership, selective queries, source editing, scientific observation and integrated agent journeys.
+It includes the additional Serde/Schemars assessment. Adoption and implementation remain separate.
+
 The [Plan59 CLI and observability review](plan59-cli-and-observability-2026-10-29.md)
 assesses the remaining A–E scope and links the new functional opportunities. It recommends
 independent existing-work control, precise identity/result/diagnostic contracts, actual
