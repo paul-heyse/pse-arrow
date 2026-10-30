@@ -13,7 +13,6 @@ use std::{
     collections::{BTreeMap, HashMap},
     ffi::OsStr,
     io::Read as _,
-    path::PathBuf,
 };
 
 /// Public status contains no endpoint, credential, resource attribute or configuration path.
@@ -99,23 +98,9 @@ struct LocalConfiguration {
 fn local_configuration(
     environment: &Environment,
 ) -> Result<Option<LocalConfiguration>, TelemetryError> {
-    let directory = if let Some(path) = environment
-        .get(OsStr::new("PSE_TELEMETRY_STATE"))
-        .filter(|path| !path.is_empty())
-    {
-        PathBuf::from(path)
-    } else {
-        let base = environment
-            .get(OsStr::new("XDG_STATE_HOME"))
-            .map(PathBuf::from)
-            .or_else(|| {
-                environment
-                    .get(OsStr::new("HOME"))
-                    .map(|home| PathBuf::from(home).join(".local/state"))
-            })
-            .ok_or_else(|| invalid("telemetry state selection has no home directory"))?;
-        base.join("pse/telemetry")
-    };
+    let directory = crate::paths::HostPaths::new(environment)
+        .telemetry()
+        .map_err(|_| invalid("telemetry state selection has no home directory"))?;
     let path = directory.join("configuration.json");
     match std::fs::metadata(&path) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),

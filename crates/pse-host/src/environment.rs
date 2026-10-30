@@ -95,17 +95,6 @@ fn string_field(value: &toml::Value, path: &[&str]) -> Result<String, Environmen
         .map(str::to_owned)
         .ok_or_else(|| failure(format!("{} must be text", path.join("."))))
 }
-fn home(env: &Environment) -> Result<PathBuf, EnvironmentError> {
-    get(env, "HOME")
-        .map(PathBuf::from)
-        .ok_or_else(|| failure("HOME is required for default user paths"))
-}
-fn base(env: &Environment, name: &str, suffix: &str) -> Result<PathBuf, EnvironmentError> {
-    Ok(match get(env, name).filter(|value| !value.is_empty()) {
-        Some(value) => PathBuf::from(value),
-        None => home(env)?.join(suffix),
-    })
-}
 fn prepend(env: &mut Environment, name: &str, path: &Path) -> Result<(), EnvironmentError> {
     let mut paths = vec![path.to_owned()];
     if let Some(old) = get(env, name) {
@@ -174,8 +163,9 @@ impl EnvironmentSettings {
         };
         let version = string_field(&tools, &["sccache", "version"])?;
         let member = string_field(&tools, &["sccache", "member"])?;
-        let installed = base(inputs, "XDG_DATA_HOME", ".local/share")?
-            .join("pse/tools/sccache")
+        let installed = crate::paths::HostPaths::new(inputs)
+            .tools()?
+            .join("sccache")
             .join(version)
             .join(member);
         let explicit = get(inputs, "PSE_SCCACHE_BINARY");
@@ -326,9 +316,8 @@ pub fn compose_with_cache(
         get(&env, "RUST_MIN_STACK").ok_or_else(|| failure("missing Rust stack selection"))?,
     )?;
     default(&mut env, "UV_PROJECT_ENVIRONMENT", ".venv");
-    let state =
-        base(&env, "XDG_STATE_HOME", ".local/state")?.join("pse-arrow/surreal-functional-v2");
-    default(&mut env, "PSE_SURREAL_STATE", state.into_os_string());
+    let state = crate::paths::HostPaths::new(&env).surreal_state()?;
+    insert(&mut env, "PSE_SURREAL_STATE", state.into_os_string());
     prepend(&mut env, "PATH", &settings.root.join("scripts/cargo-bin"))?;
     let venv = PathBuf::from(
         get(&env, "UV_PROJECT_ENVIRONMENT")
@@ -439,14 +428,11 @@ pub fn compose_with_cache(
                 settings.root.join(".config/sccache.toml").into_os_string(),
             );
             default(&mut env, "SCCACHE_MAX_FRAME_LENGTH", &settings.cache_frame);
-            let directory = base(&env, "XDG_CACHE_HOME", ".cache")?.join("pse-arrow/sccache");
-            default(&mut env, "SCCACHE_DIR", directory.into_os_string());
+            let directory = crate::paths::HostPaths::new(&env).compiler_cache()?;
+            insert(&mut env, "SCCACHE_DIR", directory.into_os_string());
             default(&mut env, "SCCACHE_CACHE_SIZE", &settings.cache_size);
-            let endpoint = match get(&env, "XDG_RUNTIME_DIR").filter(|value| !value.is_empty()) {
-                Some(path) => PathBuf::from(path).join("pse-sccache.sock"),
-                None => base(&env, "XDG_CACHE_HOME", ".cache")?.join("pse-arrow/sccache.sock"),
-            };
-            default(&mut env, "SCCACHE_SERVER_UDS", endpoint.into_os_string());
+            let endpoint = crate::paths::HostPaths::new(&env).compiler_cache_socket()?;
+            insert(&mut env, "SCCACHE_SERVER_UDS", endpoint.into_os_string());
         }
     }
     // A foreign inherited target must not join two checkouts' Cargo state.

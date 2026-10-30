@@ -161,18 +161,7 @@ struct Pointer {
     generation: String,
 }
 fn profile_root(env: &Environment) -> Result<PathBuf, HostError> {
-    let root = if let Some(path) = env.get(OsStr::new("PSE_NATIVE_CACHE")) {
-        PathBuf::from(path)
-    } else {
-        let cache = env
-            .get(OsStr::new("XDG_CACHE_HOME"))
-            .map(PathBuf::from)
-            .unwrap_or_else(|| {
-                PathBuf::from(env.get(OsStr::new("HOME")).cloned().unwrap_or_default())
-                    .join(".cache")
-            });
-        cache.join("pse-arrow/native")
-    };
+    let root = crate::paths::HostPaths::new(env).native_cache()?;
     if !root.is_absolute() {
         return Err(invalid("native cache root must be absolute"));
     }

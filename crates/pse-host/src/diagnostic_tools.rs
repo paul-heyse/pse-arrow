@@ -253,20 +253,8 @@ pub fn binary_path(
     environment: &Environment,
 ) -> Result<PathBuf, HostError> {
     let spec = tool_spec(root, tool)?;
-    let base = match environment
-        .get(std::ffi::OsStr::new("XDG_DATA_HOME"))
-        .filter(|value| !value.is_empty())
-    {
-        Some(value) => PathBuf::from(value),
-        None => PathBuf::from(
-            environment
-                .get(std::ffi::OsStr::new("HOME"))
-                .ok_or_else(|| invalid("HOME is required for diagnostic tool paths"))?,
-        )
-        .join(".local/share"),
-    };
-    let result = base
-        .join("pse/tools")
+    let result = crate::paths::HostPaths::new(environment)
+        .tools()?
         .join(if tool == Tool::TraceProcessor {
             "perfetto"
         } else {

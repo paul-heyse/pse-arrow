@@ -13,6 +13,7 @@ pub mod environment;
 pub mod foreground;
 mod manager;
 pub mod native;
+pub mod paths;
 pub mod server;
 pub mod study_module;
 pub use manager::{

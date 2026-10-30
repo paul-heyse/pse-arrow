@@ -244,15 +244,9 @@ pub fn state_directory(
     state: Option<&Path>,
     environment: &Environment,
 ) -> Result<PathBuf, HostError> {
-    let selected = state.map(Path::to_path_buf).or_else(|| {
-        environment
-            .get(OsStr::new("PSE_TELEMETRY_STATE"))
-            .filter(|value| !value.is_empty())
-            .map(PathBuf::from)
-    });
-    let path = match selected {
-        Some(path) => path,
-        None => base(environment, "XDG_STATE_HOME", ".local/state")?.join("pse/telemetry"),
+    let path = match state {
+        Some(path) => path.to_path_buf(),
+        None => crate::paths::HostPaths::new(environment).telemetry()?,
     };
     let path = if path.is_absolute() {
         path
@@ -263,22 +257,8 @@ pub fn state_directory(
     text_path(&path)?;
     Ok(path)
 }
-fn base(environment: &Environment, name: &str, suffix: &str) -> Result<PathBuf, HostError> {
-    match environment
-        .get(OsStr::new(name))
-        .filter(|value| !value.is_empty())
-    {
-        Some(path) => Ok(PathBuf::from(path)),
-        None => Ok(PathBuf::from(
-            environment
-                .get(OsStr::new("HOME"))
-                .ok_or_else(|| invalid("HOME is required for telemetry paths"))?,
-        )
-        .join(suffix)),
-    }
-}
 fn unit_directory(environment: &Environment) -> Result<PathBuf, HostError> {
-    let path = base(environment, "XDG_CONFIG_HOME", ".config")?.join("systemd/user");
+    let path = crate::paths::HostPaths::new(environment).user_units()?;
     no_symlinks(&path)?;
     Ok(path)
 }

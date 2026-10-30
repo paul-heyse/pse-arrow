@@ -922,24 +922,12 @@ pub struct Coordinator {
 impl Coordinator {
     /// Open only the explicitly selected user runtime directory, with private state.
     pub fn open(root: &Path, environment: &Environment) -> Result<Self, HostError> {
-        let runtime = environment
-            .get(OsStr::new("XDG_RUNTIME_DIR"))
-            .ok_or_else(|| invalid("XDG_RUNTIME_DIR is required for shared host admission"))?;
-        let runtime = PathBuf::from(runtime);
-        if !runtime.is_absolute() {
-            return Err(invalid("XDG_RUNTIME_DIR must be absolute"));
-        }
+        let paths = crate::paths::HostPaths::new(environment);
+        let runtime = paths.runtime()?;
         private_directory(&runtime, false)?;
         let directory = runtime.join("pse-host-admission");
         private_directory(&directory, true)?;
-        let legacy_state = environment
-            .get(OsStr::new("XDG_STATE_HOME"))
-            .map(PathBuf::from)
-            .or_else(|| {
-                environment
-                    .get(OsStr::new("HOME"))
-                    .map(|home| PathBuf::from(home).join(".local/state"))
-            });
+        let legacy_state = paths.base(crate::paths::UserDirectory::State).ok();
         Ok(Self {
             directory,
             declared_parent: root.join(".config/systemd/pse.slice"),

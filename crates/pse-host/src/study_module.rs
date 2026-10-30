@@ -1308,18 +1308,7 @@ pub async fn prepare(
         .map_err(|error| invalid(format!("module preparation worker failed: {error}")))?
 }
 fn tool_root(env: &Environment) -> Result<PathBuf, HostError> {
-    if let Some(root) = env.get(OsStr::new("PSE_SURREAL_TOOLS")) {
-        return Ok(root.into());
-    }
-    let data = match env.get(OsStr::new("XDG_DATA_HOME")) {
-        Some(path) => PathBuf::from(path),
-        None => PathBuf::from(
-            env.get(OsStr::new("HOME"))
-                .ok_or_else(|| invalid("HOME unavailable"))?,
-        )
-        .join(".local/share"),
-    };
-    Ok(data.join("pse-arrow/tools/surreal"))
+    Ok(crate::paths::HostPaths::new(env).surreal_tools()?)
 }
 /// Narrow explicit setup surface. Selection requires an exact receipt, never current sources.
 pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {

@@ -184,21 +184,7 @@ fn private_directory(path: &Path) -> Result<(), HostError> {
     Ok(())
 }
 fn profile_root(environment: &Environment) -> Result<PathBuf, HostError> {
-    let root = if let Some(root) = environment.get(OsStr::new("PSE_SURREAL_TOOLS")) {
-        PathBuf::from(root)
-    } else {
-        let data = if let Some(data) = environment.get(OsStr::new("XDG_DATA_HOME")) {
-            PathBuf::from(data)
-        } else {
-            PathBuf::from(
-                environment
-                    .get(OsStr::new("HOME"))
-                    .ok_or_else(|| invalid("HOME or PSE_SURREAL_TOOLS is required"))?,
-            )
-            .join(".local/share")
-        };
-        data.join("pse-arrow/tools/surreal")
-    };
+    let root = crate::paths::HostPaths::new(environment).surreal_tools()?;
     if !root.is_absolute() {
         return Err(invalid("server tools root must be absolute"));
     }
