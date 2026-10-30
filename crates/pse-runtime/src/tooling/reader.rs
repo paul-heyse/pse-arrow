@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Product-owned passive checkpoint and retained-history protocol, without scientific execution.
+//! Product-owned observations and explicit diagnostic investigation, without scientific execution.
 mod canonical;
+mod follow;
+mod investigation;
 use super::inspection::{
     self, DiagnosticListRequest, DiagnosticProcessPage, InspectionDocument, InspectionRequest,
 };
@@ -13,6 +15,8 @@ use crate::{
     },
 };
 pub use canonical::CanonicalReadSelection;
+pub use follow::{Continuity as FollowContinuity, FollowCursor, FollowSample, ProducerPosition};
+pub use investigation::{Request as InvestigationRequest, ResultView as InvestigationResult};
 use pse_diagnostics::observation::{
     ChildSnapshot, CoherentRecord, Coverage, OperationId, Outcome, ProducerId,
 };
@@ -40,6 +44,16 @@ pub enum Protocol {
     /// Passive product inspection transport.
     #[serde(rename = "pse.product-reader")]
     ProductReader,
+}
+/// Explicit effect class, independent of scientific outcome or result eligibility.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Access {
+    /// Existing evidence only; capture and export refuse before effects.
+    #[default]
+    Passive,
+    /// Caller explicitly admitted a diagnostic attachment or publication request.
+    Investigation,
 }
 /// Product-owned schema generation direction, separate from domain validity.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
@@ -111,7 +125,7 @@ pub enum Section {
     /// Whole producer-owned coherent numerical/phase records.
     Records,
 }
-/// Passive requests only. Configured canonical connections never start a database or science.
+/// Product observations and explicit diagnostic effects; canonical reads never start a database.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, strum::VariantNames)]
 #[strum(serialize_all = "snake_case")]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
@@ -140,6 +154,17 @@ pub enum Request {
         request: InspectionRequest,
         /// Optional explicitly supplied original invocation evidence document.
         invocation: Option<PathBuf>,
+    },
+    /// One passive follow sample; continuation is an opaque product-owned next request.
+    Follow {
+        /// Exact current or retained checkpoint selection.
+        source: CheckpointSelection,
+        /// Existing native inspection selection.
+        request: InspectionRequest,
+        /// Explicit original invocation evidence, when available.
+        invocation: Option<PathBuf>,
+        /// Original product-issued continuity coordinates.
+        resume: Option<FollowCursor>,
     },
     /// A bounded related-operation or coherent-record page from one exact copied checkpoint.
     Page {
@@ -172,6 +197,11 @@ pub enum Request {
         /// Original attempt and native source/batch reconnect position.
         request: crate::workflow::AttemptObservationRequest,
     },
+    /// Explicit diagnostic investigation, separate from passive reading.
+    Investigate {
+        /// Product-owned bounded capture, supplied-evidence or export operation.
+        request: investigation::Request,
+    },
 }
 /// Correlation is an observer request nonce, never a RunId, AttemptId or cancellation capability.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -183,6 +213,9 @@ pub struct ReaderRequest {
     pub version: Version<1>,
     /// Opaque caller correlation; valid requests require one through 128 UTF-8 bytes.
     pub correlation: String,
+    /// Explicit diagnostic-effect admission; absence retains passive behavior.
+    #[serde(default)]
+    pub access: Access,
     /// Product-owned read semantics.
     pub request: Request,
 }
@@ -367,6 +400,16 @@ pub enum Payload {
         /// Original supplied and validated scientific association, when requested.
         association: Option<InvocationAssociation>,
     },
+    /// One original inspection and its explicit continuity interpretation.
+    Follow {
+        /// Product-owned source coordinates, reset/gap state and original inspection.
+        sample: Box<FollowSample>,
+    },
+    /// Explicit diagnostic result, preserving its original typed owner's interpretation.
+    Investigation {
+        /// Capture, frozen inspection, analysis, specification or selected pack.
+        result: investigation::ResultView,
+    },
     /// Whole related/coherent-record page.
     Page {
         /// Whole semantic records and explicit source coverage.
@@ -404,6 +447,9 @@ pub struct ReaderResponse {
     schema: &'static str,
     category: Category,
     payload: Payload,
+    /// Opaque transport continuation; only the product constructs its domain selection.
+    #[schemars(with = "Option<Request>")]
+    next_request: Option<Box<serde_json::value::RawValue>>,
 }
 /// Concrete native protocol failure; read availability stays in a valid typed response.
 #[derive(Debug, thiserror::Error)]
@@ -423,6 +469,12 @@ pub enum ReaderError {
     /// Original retained-data validation/allocation/selection failure.
     #[error(transparent)]
     Workflow(Box<crate::workflow::WorkflowError>),
+    /// Original explicit capture owner failure.
+    #[error(transparent)]
+    Capture(#[from] crate::observation_detail::CaptureError),
+    /// Original selected evidence export owner failure.
+    #[error(transparent)]
+    Pack(#[from] super::review_pack::PackError),
     /// Independent read/encoding failure and original owned-client drain failure.
     #[error("product reader operation failed: {operation}; client drain also failed: {cleanup}")]
     Settlement {
@@ -439,7 +491,7 @@ pub enum ReaderError {
 pse_diagnostics::impl_diagnostic! {
     ReaderError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(this) { match this { Self::Identity(error) => Some(error),Self::Canonical(error)=>Some(error.as_ref()),Self::Workflow(error)=>Some(error.as_ref()), _ => None } },
+    forward(this) { match this { Self::Identity(error) => Some(error),Self::Canonical(error)=>Some(error.as_ref()),Self::Workflow(error)=>Some(error.as_ref()),Self::Capture(error)=>Some(error),Self::Pack(error)=>Some(error), _ => None } },
     help(_this) { None }, related(this) { match this {Self::Settlement{operation,cleanup}=>{let errors:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()];Some(Box::new(errors.into_iter()))},_=>None} }, source(_this) { None }
 }
 fn hash(bytes: &[u8]) -> String {
@@ -495,6 +547,12 @@ fn validate(request: &ReaderRequest) -> Result<(), ReaderError> {
             source,
             request,
             invocation,
+        }
+        | Request::Follow {
+            source,
+            request,
+            invocation,
+            ..
         } => {
             absolute(source.path())?;
             if request.include_related {
@@ -534,6 +592,14 @@ fn validate(request: &ReaderRequest) -> Result<(), ReaderError> {
             request
                 .validate()
                 .map_err(|error| ReaderError::Workflow(Box::new(error)))?;
+        }
+        Request::Investigate { request: selected } => {
+            if selected.has_effects() && request.access != Access::Investigation {
+                return Err(invalid(
+                    "capture/export require explicit investigation admission; passive reads never attach or publish",
+                ));
+            }
+            investigation::validate(selected)?;
         }
     }
     Ok(())
@@ -668,6 +734,13 @@ fn handle(request: Request) -> Result<Payload, ReaderError> {
             },
             document: schema(contract),
         }),
+        Request::Follow {
+            source,
+            request,
+            invocation,
+            resume,
+        } => follow::sample(source, request, invocation, resume),
+        Request::Investigate { request } => investigation::handle(request),
         Request::Processes {
             directory,
             limit,
@@ -935,6 +1008,10 @@ fn response(correlation: String, result: Result<Payload, ReaderError>) -> Reader
             },
         ),
     };
+    let next_request = match &payload {
+        Payload::Follow { sample } => sample.next_request(),
+        _ => None,
+    };
     ReaderResponse {
         protocol: Protocol::ProductReader,
         version: Version,
@@ -942,6 +1019,7 @@ fn response(correlation: String, result: Result<Payload, ReaderError>) -> Reader
         schema: RESPONSE_SCHEMA,
         category,
         payload,
+        next_request,
     }
 }
 /// Complete producer-owned frame after all required protected page/client owners settled.
@@ -988,6 +1066,7 @@ fn encode_response(response: &ReaderResponse) -> Result<EncodedResponse, ReaderE
                     &invalid("whole product response exceeds its declared transport extent"),
                 ),
             },
+            next_request: None,
         };
         frame = serde_json::to_vec(&refusal)?;
         code = 2;

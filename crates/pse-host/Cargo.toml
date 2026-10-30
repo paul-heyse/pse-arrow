@@ -74,3 +74,10 @@ assert_cmd.workspace = true
 proptest.workspace = true
 insta.workspace = true
 jsonschema.workspace = true
+
+[[package.metadata.pse.test-fixtures]]
+id = "prepared-product-observation"
+target = "product_observation"
+kind = "test"
+ownership = "preparation-only"
+inputs = ["product-reader", "observation-helper"]

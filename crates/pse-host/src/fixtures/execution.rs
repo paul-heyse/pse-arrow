@@ -108,6 +108,7 @@ pub struct PreparedExecution {
     tools: BTreeMap<Input, Executable>,
     workers: BTreeMap<usize, Executable>,
     runner: Option<Executable>,
+    reader: Option<crate::product_reader::ProductReaderSelection>,
 }
 impl PreparedExecution {
     /// Source-build only the implementation tools demanded by actual selected tests.
@@ -132,7 +133,10 @@ impl PreparedExecution {
                 return Err(FixtureError::Unprepared(input));
             }
         }
-        if demand.contains(&Input::ServiceHelper) || demand.contains(&Input::Worker) {
+        if demand.contains(&Input::ServiceHelper)
+            || demand.contains(&Input::Worker)
+            || demand.contains(&Input::ObservationHelper)
+        {
             fs::DirBuilder::new()
                 .recursive(true)
                 .mode(0o700)
@@ -157,6 +161,7 @@ impl PreparedExecution {
             tools: BTreeMap::new(),
             workers: BTreeMap::new(),
             runner: None,
+            reader: None,
         };
         if demand.contains(&Input::ServiceHelper) || borrowed {
             let mut bins = vec!["pse-canonical-service"];
@@ -209,6 +214,29 @@ impl PreparedExecution {
                 }
             }
         }
+        if demand.contains(&Input::ProductReader) {
+            selected.reader = Some(
+                crate::product_reader::prepare(root, environment)
+                    .map_err(|error| HostError::ProductReader(Box::new(error)))?,
+            );
+        }
+        if demand.contains(&Input::ObservationHelper) {
+            let artifacts = build(
+                root,
+                environment,
+                &destination.join("observation-helper"),
+                "pse-runtime",
+                &["product-reader".into()],
+                &["pse-observation-fixture"],
+            )?;
+            let executable = artifacts
+                .into_iter()
+                .find_map(|(name, executable)| {
+                    (name == "pse-observation-fixture").then_some(executable)
+                })
+                .ok_or_else(|| invalid("source-built runtime observation helper is absent"))?;
+            selected.tools.insert(Input::ObservationHelper, executable);
+        }
         Ok(selected)
     }
 
@@ -249,6 +277,10 @@ impl PreparedExecution {
         for (input, variable) in [
             (Input::ServiceHelper, "PSE_NATIVE_FIXTURE_SERVICE_HELPER"),
             (Input::Worker, "PSE_WORKER_BINARY"),
+            (
+                Input::ObservationHelper,
+                "PSE_NATIVE_FIXTURE_OBSERVATION_HELPER",
+            ),
         ] {
             if demand.contains(&input) {
                 let executable = if input == Input::Worker {
@@ -262,6 +294,22 @@ impl PreparedExecution {
                     .environment
                     .insert(variable.into(), executable.captured.as_os_str().to_owned());
             }
+        }
+        if demand.contains(&Input::ProductReader) {
+            let selected = self
+                .reader
+                .as_ref()
+                .ok_or_else(|| invalid("prepared product reader input is absent"))?;
+            let reader = crate::product_reader::ProductReaderSelection::open(
+                &command.cwd,
+                &command.environment,
+                selected.id(),
+            )
+            .map_err(|error| HostError::ProductReader(Box::new(error)))?;
+            command.environment.insert(
+                "PSE_NATIVE_FIXTURE_PRODUCT_READER".into(),
+                reader.id().into(),
+            );
         }
         if borrowed {
             let runner = self
@@ -330,7 +378,12 @@ fn recorded_module_selected(environment: &Environment) -> bool {
 
 fn original_input_variable(input: Input) -> Option<&'static str> {
     match input {
-        Input::Server | Input::StudyModule | Input::ServiceHelper | Input::Worker => None,
+        Input::Server
+        | Input::StudyModule
+        | Input::ServiceHelper
+        | Input::Worker
+        | Input::ProductReader
+        | Input::ObservationHelper => None,
         Input::ScientificInputs => Some("PSE_SCIENTIFIC_INPUTS"),
         Input::CanonicalTools => Some("PSE_CANONICAL_TOOLS"),
         Input::DiagnosticEvidence => Some("PSE_DIAGNOSTIC_EVIDENCE"),

@@ -21,9 +21,9 @@ and [I06](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md
 conditional interfaces from O08. The coordinator owns all review dispositions; F owns packages.
 
 Source baseline is review commit `e907d8a1f` and its inspected production baseline
-`890aa07f76fac5739cfc9811a47e823c326be663`. No production implementation is authorized by this
-document amendment. Existing completed evidence is retained; execution remains paused at the
-coordinator's 2026-10-30 checkpoint.
+`890aa07f76fac5739cfc9811a47e823c326be663`. That amendment was planning-only. Authorized
+execution resumed on 2026-10-30; package state and Outcome below distinguish delivered slices
+from remaining acceptance. Existing completed evidence retains its original scope.
 Core3.4, heuristics1.0, test assessment1.2 and process-simulator1.5 apply through the binding.
 
 The foundation already includes `pse-diagnostics::ObservationHub`, coherent producers, coverage,
@@ -110,11 +110,11 @@ memory release; no build telemetry or automatic semantic enrichment is introduce
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [F01](#f01) | in-progress | 59f | Product owns passive protocol and directional schemas; corrected native capture passes10 controls, actual prepared discovery/schema/delegation matches direct product evidence and preserves refusal. Broader identity integration remains |
-| [F02](#f02) | in-progress | 59f | Checkpoint catalogue, exact inspection and source-bound pages pass7 controls with original outcome/coverage; actual prepared CLI inspection agrees with direct native output. Broader composed views remain |
-| [F03](#f03) | planned | 59f | Bounded follow with truthful continuity and optional human progress |
-| [F04](#f04) | in-progress | 59f | Product-owned canonical study/attempt history and cursors pass17 focused controls and an actual source-built two-attempt canonical fixture test; captured CLI history integration remains. Existing checkpoints selected, no extra live-numerics publisher; unavailable live evidence stays explicit |
-| [F05](#f05) | planned | 59f | Explicit capture, frozen analysis/query and selected evidence export |
+| [F01](#f01) | in-progress | 59f | Captured product discovery/directional schemas, direct/delegated agreement, original refusal and distinct observer invocation IDs pass the actual fixture-owned CLI journey. Host transport remains opaque; broader invocation/scientific launch associations remain |
+| [F02](#f02) | in-progress | 59f | Existing catalogue/inspection/source-bound pages retain native facts, units, numerical categories and loss. Actual captured CLI inspection and numerical pages pass; broader native-unit/invocation composition remains |
+| [F03](#f03) | in-progress | 59f | One-sample product continuations, bounded host polling and observer-only cancellation implemented. Reset/gap/resume controls and actual clean NDJSON sample-limit/terminal/expiry journey pass; slow/broken renderer and full cancellation journeys remain |
+| [F04](#f04) | in-progress | 59f | Existing canonical study/attempt history and cursors retain their prior17 focused controls and source-built two-attempt fixture evidence. Captured CLI canonical history remains. Additional-publication inquiry selects existing checkpoints, with no new live snapshot/event bridge; unavailable canonical live numerics remain explicit |
+| [F05](#f05) | in-progress | 59f | Explicit admission separates capture/export from passive reads. Existing collector, supplied frozen interpretation/analysis, maintained query specification and selected review packs are exposed; actual timeline capture/selected export journey passes. External query execution and the remaining failure/portable-read acceptance remain |
 | [F06](#f06) | planned | 59f | Integrated consumer acceptance and conditional backend/interface dispositions |
 
 <a id="f01"></a>
@@ -322,6 +322,65 @@ end. Tests must challenge a wrong identity, unavailable source and incomplete st
 snapshot the renderer. Preservation of native/scientific authority is independent of human polish.
 No broad numerical reference, remote deployment or timing/capacity campaign is implied.
 
-**Interface-checked:** existing source/review integration paths. **Proposed:** all F packages;
-no product execution or new diagnostic collection ran to author this document. Performance and
-resource benefits remain unmeasured. The coordinator owns disposition and the current next work.
+Performance and resource benefits remain unmeasured. The coordinator owns disposition and
+scope-end series qualification; the delivered slices below do not close F01–F06.
+
+## Outcome — 2026-10-30 bounded implementation
+
+**Implemented:** the existing prepared-reader transport now carries an opaque product-issued
+next request. Product follow reads one copied checkpoint and preserves the original inspection,
+source/process identity, publication coordinates and producer generations/sequences. It reports
+unchanged/updated/resynchronized observations, skipped publications, native gaps and terminal
+outcomes. The host continuously polls one outstanding passive helper through Tokio/Futures,
+emits whole records and joins observer cancellation without acquiring scientific control.
+`observe follow` exposes observing/stopped state separately from the original product outcome.
+
+**Implemented:** `observe investigate` explicitly admits diagnostic effects. The product refuses
+capture/export on the passive route before attachment or publication. Investigation delegates to
+the existing capture, frozen-inspection, analysis, maintained-query-specification and review-pack
+owners. The admitted analysis allocation remains held through encoding. Query specifications
+say `executed: false`; no external-query execution is claimed. Capture is bounded below the
+transport deadline and joins its collector before responding. No new crate, mathematical service,
+database startup or generic scientific controller was introduced.
+
+**Tested:** `scripts/pse test pse-host:product_observation` selected and completed one integration
+test with zero failures against the zero baseline, complete required capture and complete native
+settlement. Its existing C04 fixture declarations source-build/capture the product reader and
+runtime publication helper only for the selected target. The journey exercises actual captured
+discovery/schema agreement, direct/delegated checkpoint inspection, distinct CLI observers,
+whole numerical records with units/nonfinite/loss, bounded NDJSON follow, passive capture refusal,
+explicit timeline capture, supplied frozen-analysis/export, original failed terminal outcome and
+expiry/unavailability. The cooperating producer remains alive after follow and capture; this is
+not a solver or assembled scientific qualification. Retained workflow report:
+`01a18e8e-a015-771b-a94d-6c9be60246ea`, with one selected/completed test, no failed or incomplete
+records, no pending obligations in that invocation, and native child exit zero.
+
+**Tested:** the focused host command
+`scripts/cargo-bin/cargo-pse-correctness test -p pse-host --lib --locked product_reader --no-default-features`
+passed12 controls with zero failures against the zero baseline, including lexical opaque
+continuations and cancellation that leaves an independent original native process alive.
+The CLI request lexical control separately passed1 test. The force-validating focused command
+`scripts/cargo-bin/cargo-pse-correctness nextest run -p pse-runtime --lib --locked --features product-reader -E 'test(tooling::reader::tests)'`
+passed10 controls with zero failures against the zero baseline, covering source
+continuity/reset/gaps, refusal, immutable supplied evidence, selected packs and explicit collector
+settlement. Earlier shared-source compilation interruptions established no product acceptance.
+
+**Tested decision, F04:** the bounded cross-process publication inquiry and the actual prepared
+CLI journey show that existing native checkpoints already carry the useful current iteration,
+objective/residual values and original units, nonfinite/unavailable categories, performing producer
+generation/sequence, dropped history, terminal summary and expiry. Reuse those checkpoints. A
+second latest-snapshot publisher would duplicate those facts with another write/identity/expiry
+contract; a separate event stream would add history/storage obligations without an unanswered
+selected consumer question. No additional bridge is selected. Canonical long-term history remains
+with its current owner, and active canonical reads retain `LiveNumericsUnavailable` where no live
+checkpoint is supplied. This closes the additional-publication inquiry, not captured CLI history
+acceptance or a remote event-history service.
+
+Mistake corrected: the initial integration shape put effectful requests under the passive opaque
+route. Explicit product `Access` admission and the separate new-work CLI verb now refuse that
+combination before effects. Deliberate limits: optional animated human rendering was not adopted;
+maintained SQL remains specification-only; existing source-bound pages and native collectors were
+extended instead of replacing their ownership. Full native-unit composition, captured canonical
+study/attempt retry/history, slow/broken renderer and cancellation journeys, missing-tool/clock and
+portable export failure cases remain with F02–F06. No package is promoted to full completion by
+the focused checks or this single actual consumer journey.

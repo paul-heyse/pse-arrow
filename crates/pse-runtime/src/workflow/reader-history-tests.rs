@@ -29,6 +29,7 @@ async fn query(
         protocol: Protocol::ProductReader,
         version: pse_model::document::Version,
         correlation: correlation.into(),
+        access: Default::default(),
         request,
     })?;
     let (status, frame) = tokio::task::spawn_blocking(move || {

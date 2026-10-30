@@ -19,6 +19,7 @@ fn request(correlation: &str, request: Request) -> Vec<u8> {
         protocol: Protocol::ProductReader,
         version: Version,
         correlation: correlation.into(),
+        access: Default::default(),
         request,
     })
     .unwrap()

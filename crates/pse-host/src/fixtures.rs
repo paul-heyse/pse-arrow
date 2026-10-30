@@ -56,6 +56,10 @@ pub enum Input {
     ServiceHelper,
     /// Source-built pse-worker, retained by its artifact owner.
     Worker,
+    /// Explicit source-built/captured product reader, selected by its existing transport owner.
+    ProductReader,
+    /// Source-built runtime publication fixture; it constructs no database or mathematical service.
+    ObservationHelper,
     /// Explicit immutable scientific source capsule, interpreted by its consumer.
     ScientificInputs,
     /// Captured canonical diagnostic executor.
@@ -415,6 +419,7 @@ pub fn readiness(
             }
             Input::ServiceHelper
             | Input::Worker
+            | Input::ObservationHelper
             | Input::CanonicalTools
             | Input::NativeLane
             | Input::TraceProcessor => {

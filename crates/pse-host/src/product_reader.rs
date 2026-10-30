@@ -19,6 +19,8 @@ use std::{
     process::{Command, Stdio},
     time::{Duration, Instant},
 };
+/// Bounded observer polling; no native scientific or canonical control is retained.
+pub mod follow;
 
 const PROTOCOL: &str = "pse.product-reader";
 const REQUEST_SCHEMA: &str = "urn:pse:product-reader:v1:request";
@@ -181,6 +183,7 @@ pub struct ProductReply {
     payload: Box<RawValue>,
     frame: Vec<u8>,
     stderr: Vec<u8>,
+    next_request: Option<Box<RawValue>>,
 }
 impl std::fmt::Debug for ProductReply {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -210,6 +213,10 @@ impl ProductReply {
     pub fn stderr(&self) -> &[u8] {
         &self.stderr
     }
+    /// Opaque product-issued continuation; the host never decodes scientific coordinates.
+    pub fn next_request(&self) -> Option<&RawValue> {
+        self.next_request.as_deref()
+    }
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -220,6 +227,8 @@ struct Response {
     schema: String,
     category: Category,
     payload: Box<RawValue>,
+    #[serde(default)]
+    next_request: Option<Box<RawValue>>,
 }
 #[derive(Serialize)]
 struct Request<'a> {
@@ -227,6 +236,8 @@ struct Request<'a> {
     version: u32,
     correlation: &'a str,
     request: &'a RawValue,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    access: Option<&'static str>,
 }
 #[derive(Debug)]
 struct Output {
@@ -256,10 +267,19 @@ fn prefix(mut input: impl Read, maximum: usize) -> (Vec<u8>, u64, Option<std::io
 // SupervisedChild retains the actual pidfd/group owner. These readers only drain bounded
 // prefixes; neither a pipe EOF nor a successful product response establishes child settlement.
 fn execute(
+    command: Command,
+    input: Vec<u8>,
+    maximum: usize,
+    timeout: Option<Duration>,
+) -> Result<Output, ProductReaderError> {
+    execute_control(command, input, maximum, timeout, None)
+}
+fn execute_control(
     mut command: Command,
     input: Vec<u8>,
     maximum: usize,
     timeout: Option<Duration>,
+    control: Option<&pse_diagnostics::Cancellation>,
 ) -> Result<Output, ProductReaderError> {
     command.stdin(Stdio::piped()).stdout(Stdio::piped());
     let deadline = timeout.map(|timeout| Instant::now() + timeout);
@@ -305,7 +325,7 @@ fn execute(
         }
     };
     if failures.is_empty()
-        && let Err(error) = child.wait_ready(None, deadline)
+        && let Err(error) = child.wait_ready(control, deadline)
     {
         failures.push(error.into());
     }
@@ -404,6 +424,7 @@ fn decode(output: Output, correlation: &str) -> Result<ProductReply, ProductRead
         payload: decoded.payload,
         frame: output.stdout,
         stderr: output.stderr,
+        next_request: decoded.next_request,
     })
 }
 
@@ -547,6 +568,35 @@ impl ProductReaderSelection {
         correlation: &str,
         environment: &Environment,
     ) -> Result<ProductReply, ProductReaderError> {
+        self.read_control(request, correlation, environment, None, false)
+    }
+    /// Explicitly admitted diagnostic effects; passive callers cannot enter this route implicitly.
+    pub fn investigate(
+        &self,
+        request: &RawValue,
+        correlation: &str,
+        environment: &Environment,
+    ) -> Result<ProductReply, ProductReaderError> {
+        self.read_control(request, correlation, environment, None, true)
+    }
+    /// Passive read with an observer-only stop token; cancellation settles only this helper.
+    pub fn read_cancellable(
+        &self,
+        request: &RawValue,
+        correlation: &str,
+        environment: &Environment,
+        control: &pse_diagnostics::Cancellation,
+    ) -> Result<ProductReply, ProductReaderError> {
+        self.read_control(request, correlation, environment, Some(control), false)
+    }
+    fn read_control(
+        &self,
+        request: &RawValue,
+        correlation: &str,
+        environment: &Environment,
+        control: Option<&pse_diagnostics::Cancellation>,
+        investigation: bool,
+    ) -> Result<ProductReply, ProductReaderError> {
         if correlation.is_empty() || correlation.len() > 128 {
             return Err(invalid("correlation requires one through 128 UTF-8 bytes"));
         }
@@ -555,6 +605,7 @@ impl ProductReaderSelection {
             version: 1,
             correlation,
             request,
+            access: investigation.then_some("investigation"),
         })?;
         if bytes.len() > REQUEST_BYTES {
             return Err(invalid("request exceeds product transport extent"));
@@ -567,7 +618,7 @@ impl ProductReaderSelection {
             .env_clear()
             .envs(environment);
         decode(
-            execute(command, bytes, RESPONSE_BYTES, Some(READ_TIMEOUT))?,
+            execute_control(command, bytes, RESPONSE_BYTES, Some(READ_TIMEOUT), control)?,
             correlation,
         )
     }
@@ -907,6 +958,7 @@ pub fn prepare(
                 version: 1,
                 correlation,
                 request: &request,
+                access: None,
             })?;
             let mut command = Command::new(&selected.manifest.executable.captured);
             command

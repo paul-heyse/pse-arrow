@@ -29,6 +29,50 @@ fn opaque_forwarding_keeps_duplicate_keys_numeric_lexemes_and_failed_science() {
     assert_eq!(reply.payload().get(), refusal);
 }
 #[test]
+fn opaque_follow_continuation_preserves_original_domain_bytes() {
+    let next = r#"{"operation":"follow","domain_number":1.00000000000000000001,"domain_number":2}"#;
+    let frame = frame(r#"{"kind":"follow"}"#, "observer", "success");
+    let frame = frame.replace_bytes(
+        b"\"payload\":",
+        format!("\"next_request\":{next},\"payload\":").as_bytes(),
+    );
+    let reply = decode(output(frame, 0), "observer").unwrap();
+    assert_eq!(reply.next_request().unwrap().get(), next);
+}
+#[test]
+fn observer_cancel_joins_only_its_helper_and_leaves_original_native_process_alive() {
+    let mut original = Command::new("/bin/sleep");
+    original.arg("60");
+    let mut original =
+        SupervisedChild::spawn(&mut original, DrainFailurePolicy::Park, None).unwrap();
+    let control = pse_diagnostics::Cancellation::default();
+    let stop = control.clone();
+    let requester = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(25));
+        stop.cancel();
+    });
+    let mut helper = Command::new("/bin/sleep");
+    helper.arg("60");
+    let error = execute_control(
+        helper,
+        vec![],
+        1024,
+        Some(Duration::from_secs(5)),
+        Some(&control),
+    )
+    .unwrap_err();
+    requester.join().unwrap();
+    let ProductReaderError::Execution { failures, .. } = error else {
+        panic!("joined cancellation evidence")
+    };
+    assert!(failures.iter().any(|error| matches!(
+        error,
+        ProductReaderError::Supervision(SupervisionError::Cancelled)
+    )));
+    assert!(original.try_wait().unwrap().is_none());
+    original.cancel().unwrap();
+}
+#[test]
 fn transport_mismatch_and_malformed_frames_preserve_original_bytes() {
     let good = frame(r#"{"scientific":"opaque"}"#, "expected", "success");
     for bad in [

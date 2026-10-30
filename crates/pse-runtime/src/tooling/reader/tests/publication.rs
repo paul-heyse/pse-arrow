@@ -77,6 +77,15 @@ fn checkpoint_publication_fixture() {
         event: crate::workflow::ProgressEventDocument::from(progress.current().unwrap()),
         dropped: progress.snapshot().1,
     };
+    let frozen = crate::tooling::frozen_inspection::FrozenEvidenceSet {
+        checkpoints: vec![read_checkpoint(&evidence.checkpoint).unwrap()],
+        ..Default::default()
+    };
+    std::fs::write(
+        root.join("frozen.json"),
+        serde_json::to_vec(&frozen).unwrap(),
+    )
+    .unwrap();
     std::fs::write(
         root.join("source.json"),
         serde_json::to_vec(&evidence).unwrap(),

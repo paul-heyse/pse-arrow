@@ -4,6 +4,8 @@ use super::*;
 use crate::observation::{Diagnostics, read_checkpoint};
 use pse_diagnostics::observation::{Outcome, Policy};
 mod canonical;
+mod follow;
+mod investigation;
 mod publication;
 
 fn request(correlation: &str, request: Request) -> Vec<u8> {
@@ -11,6 +13,7 @@ fn request(correlation: &str, request: Request) -> Vec<u8> {
         protocol: Protocol::ProductReader,
         version: Version,
         correlation: correlation.into(),
+        access: Access::Passive,
         request,
     })
     .unwrap()
