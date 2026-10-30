@@ -3933,6 +3933,315 @@ from = "docs/plans/58-rust-owned-system.md::surrealdb-boundary-dispositions::O10
 to = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D05"
 kind = "depends-on"
 
+# Plan59 code intelligence: source dispositions stay in the coordinator; G-I own packets.
+[[scope_tables]]
+path = "docs/plans/59-agent-cli.md"
+name = "code-intelligence-dispositions"
+heading = "Code intelligence dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required evidence or trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59g-rust-semantic-intelligence.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(G[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59h-api-and-dependency-intelligence.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(H[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59i-compiler-investigations.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(I[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G02"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G02"
+to = "docs/plans/59a-cli-foundation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G02"
+to = "docs/plans/59a-cli-foundation.md::package-state::A04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G02"
+to = "docs/plans/59a-cli-foundation.md::package-state::A05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G02"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G03"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G03"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G04"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G05"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G06"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G07"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G08"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G08"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G09"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G09"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G09"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G09"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G09"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G09"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G09"
+to = "docs/plans/59a-cli-foundation.md::package-state::A06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H01"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H02"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H03"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H03"
+to = "docs/plans/59a-cli-foundation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H04"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H04"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H04"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H05"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H05"
+to = "docs/plans/59a-cli-foundation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H05"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H06"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H06"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H06"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H06"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H06"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H06"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H06"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H06"
+to = "docs/plans/59a-cli-foundation.md::package-state::A06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I01"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I01"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I01"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I02"
+to = "docs/plans/59i-compiler-investigations.md::package-state::I01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I03"
+to = "docs/plans/59i-compiler-investigations.md::package-state::I01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I03"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I04"
+to = "docs/plans/59i-compiler-investigations.md::package-state::I01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I05"
+to = "docs/plans/59i-compiler-investigations.md::package-state::I01"
+kind = "depends-on"
+
 # Plan59 owns the agent-first pse CLI review's O01-O25 dispositions; companions own packages.
 [[scope_tables]]
 path = "docs/plans/59-agent-cli.md"

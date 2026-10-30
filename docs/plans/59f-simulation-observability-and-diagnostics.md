@@ -3,7 +3,7 @@ title: "Plan59f: Simulation observability and diagnostics"
 status: active
 date: 2026-10-29
 adrs: [ADR-0233]
-review_sources: [docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md]
+review_sources: [docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [architecture, design, libraries, environment, validation]
@@ -68,6 +68,13 @@ these facts. Associations are potentially many-to-many and absent associations r
 The CLI ledger does not become a scientific correlation recorder or a database policy mirror.
 
 ## Package state
+
+F02/F05 may offer source navigation when original observation/capture identifies an actual
+location/build; D01/G09 compose it without moving scientific interpretation into analysis.
+Expose current-source/binary mismatches. Missing scientific-model-to-code mapping stays
+unavailable. F06 includes this composed case when delivered, but base inspection/follow/capture
+does not wait on G–I. Static calls prove neither runtime causal edges, native settlement nor
+memory release; no build telemetry or automatic semantic enrichment is introduced.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |

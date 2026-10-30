@@ -2,7 +2,7 @@
 
 [Plan59: Agent-first pse CLI](59-agent-cli.md) is a new draft series from the
 [agent-first Rust CLI review](../functional_reviews/rust-agent-cli-2026-10-29.md) and the
-[CLI/observability amendment](59-agent-cli.md#simulation-observability-dispositions). Its six
+[CLI/observability amendment](59-agent-cli.md#simulation-observability-dispositions). Its existing
 companions plan:
 - a clap-based `pse` front door in `pse-host`, with a versioned output contract;
 - owned runs with a ledger;
@@ -10,6 +10,13 @@ companions plan:
 - knowledge and workflow verbs;
 - worktree and Claude orientation surfaces.
 - [simulation observation and diagnostics](59f-simulation-observability-and-diagnostics.md).
+
+The [code-intelligence amendment](59-agent-cli.md#code-intelligence-dispositions) adds
+[59g semantic intelligence](59g-rust-semantic-intelligence.md),
+[59h API/dependency intelligence](59h-api-and-dependency-intelligence.md) and
+[59i compiler investigations](59i-compiler-investigations.md). The coordinator owns all sixteen
+new dispositions, confirmed RC01–RC05 and cross-plan dependencies. Reusable sessions and
+preview plus conditional apply are selected targets; authoring does not resume execution.
 
 The operator accepted R1–R5, the R3 existing-work control exception and R6's command/subject
 distinction. Dependencies and review dispositions are owned by the coordinator; planning is

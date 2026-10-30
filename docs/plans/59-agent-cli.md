@@ -3,7 +3,7 @@ title: "Plan59: Agent-first pse CLI"
 status: active
 date: 2026-10-29
 adrs: [ADR-0233]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
@@ -71,8 +71,81 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
    communication and recipe migration.
 7. [59f Simulation observability and diagnostics](59f-simulation-observability-and-diagnostics.md):
    product delegation/correlation, passive inspection, follow, study history and selected investigation.
+8. [59g Rust semantic intelligence](59g-rust-semantic-intelligence.md): reusable sessions,
+   source semantics, candidates, provenance and semantic edit proposals.
+9. [59h API and dependency intelligence](59h-api-and-dependency-intelligence.md): capability
+   discovery, examples, dependency explanations and migration briefs.
+10. [59i Compiler investigations](59i-compiler-investigations.md): selected original evidence,
+    ownership/async, representation and code-generation investigations.
 
 ## Scope decisions
+
+### Code-intelligence amendment basis
+
+The [Rust code-intelligence review](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md)
+at `a569b52e4` adds the G–I companions below. Its O01–O16 identities are scoped to that review,
+not the original O01–O25 or observability review. Source assessment and library research remain
+Interface-checked at their recorded limits; every new target is **Proposed**. Production execution
+remains stopped. A01/E05 and the concluded D02 trial keep their original evidence.
+
+- [59g semantic intelligence](59g-rust-semantic-intelligence.md): reusable analysis sessions,
+  semantic reading/navigation, candidate tests/completion, macros and semantic edit proposals.
+- [59h API/dependency intelligence](59h-api-and-dependency-intelligence.md): capability search,
+  examples, dependency explanations, API evolution and rustdoc diagnostics over D02 acquisition.
+- [59i compiler investigations](59i-compiler-investigations.md): selected ownership/async,
+  representation and code-generation investigations, with conditional pin-specific drivers.
+
+### Code-intelligence rule decisions
+
+The operator explicitly confirmed all five review impacts during preparation on 2026-10-29.
+These decisions select planning scope; governing publication is scheduled in A07 before any
+dependent implementation. Existing R1–R6 are unchanged.
+
+| Review impact | Confirmed decision | Route |
+| --- | --- | --- |
+| RC01 | Extend the CLI/output scope using existing envelope, store and discovery owners. | A03/A04/A06; D01–D03; G–I consumers. |
+| RC02 | Target reusable owned analyzer sessions beyond individual queries, with explicit preparation/status/teardown. | A05/B03 operating slices and G01–G03; A07 routes any enduring contract/service change. |
+| RC03 | Preserve C07 selection, C05 actual tests and F scientific evidence authority. | C05/C07, B02, F01/F02 and corresponding G/H/I adapters. |
+| RC04 | Retain MCP/editor/Codex configuration exclusions; CLI may use stdio LSP. | Clarify D/E guidance; do not revive rejected servers. |
+| RC05 | Edits/probes/generation/compiler preparation are explicit effects under current ownership and qualification rules. | G07/G08, D02, H/I; ordinary dependency policy and scoped decision routes. |
+
+The operator additionally selected **preview plus conditional apply**: G07 delivers previews;
+G08 must settle concurrency, protected paths and partial-failure behavior before application.
+A proportionate failure to establish that route retains useful previews, not an invented
+multi-file atomicity promise. No installation or runtime configuration change follows here.
+
+<a id="code-intelligence-dispositions"></a>
+## Code intelligence dispositions
+
+All references in this table address the [code-intelligence review](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md).
+Scheduling is not resolution. Companion package tables own execution state.
+
+| Opportunity | Disposition | Work owner | Required evidence or trigger |
+| --- | --- | --- | --- |
+| [O01](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O01) | scheduled | G01/G04; D03 | Resolve actual use sites, preserve ambiguity and retain cheap syntax reads. |
+| [O02](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O02) | scheduled | G04 | Selected annotations/types/captures with backend-supported fields and explicit unknowns. |
+| [O03](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O03) | scheduled | G05; D01/C03 | Scoped references plus separately conservative impact selection. |
+| [O04](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O04) | scheduled | G05 | Bounded calls/impl neighborhoods without exhaustive runtime claims. |
+| [O05](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O05) | scheduled | H01; D02 | Usable public paths, constraints and capability search in exact documentation context. |
+| [O06](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O06) | scheduled | H02; D02 | Authored example/setup/mode; explicit probe execution, extraction not execution. |
+| [O07](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O07) | scheduled | G06; C05/C07 | Related-test candidates handed to actual selection/listing owner. |
+| [O08](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O08) | scheduled | G06 | Useful method/import candidates; synthesis conditional on an actual expected-type need. |
+| [O09](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O09) | scheduled | G07/G08 | Revision-bound previews first; conditional apply only after its publication decision. |
+| [O10](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O10) | scheduled | B02; G04/G09; H05 | Original compiler facts, separate IDE diagnostics, scoped rustdoc diagnostics. |
+| [O11](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O11) | scheduled | H03; D02/C07 | Declarations, metadata, unit plans and observed artifacts stay distinct. |
+| [O12](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O12) | scheduled | H04 | Context-matched API evolution using native compatibility tools and selected consumers. |
+| [O13](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O13) | scheduled | G05; D06 | Expansion/origin with honest mapping limits and actual generator ownership. |
+| [O14](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O14) | scheduled | I01/I02/I05 | Selected ownership/async explanations; driver only when I05 establishes its need/fit. |
+| [O15](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O15) | scheduled | I03–I05 | Selected constants/layout/instances; context-bound evidence, no portable ABI/performance proof. |
+| [O16](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O16) | scheduled | D01; G09/H06; F02 | Progressive investigation packets composed from available original sources; no automatic enrichment. |
+
+Review capability families not selected as ordinary delivery retain their companion-owned
+triggers: static indexes/term search in G, archives/Guppy/scraping in H, driver/Polonius in I.
+Tiny editor actions, a replacement checker, custom compiler passes, eager corpora and routine
+build monitoring are not adopted. A conditional inquiry may close with a reasoned deferral;
+it cannot claim the deferred capability was delivered.
+
+## Retained scope decisions
 
 **Operator directions, 2026-10-29:**
 - **Direnv changes are on hold.** A separate environment effort is changing uv and environment
@@ -229,6 +302,26 @@ not schema-qualified scientific/test facts. A03/B define the authoritative share
 
 ## Dependencies and route
 
+### Code-intelligence dependency integration
+
+G/H/I are responsibility groups, not a new serial barrier in front of A–F. Read their
+package-level Consumes sections and native lifecycle edges for exact prerequisites.
+
+| Consumer | Minimum supplied capability | Independence and completion boundary |
+| --- | --- | --- |
+| G01 | Review and pinned backend evidence | Design/coverage investigation can begin before the CLI works. Native embedding requires a demonstrated protocol gap. |
+| G02/G03 | A03/A04/A05, B03 authenticated ownership slice, then C07 context slice | Reusable sessions require working placement and source synchronization; no whole B02/test-fixture prerequisite. |
+| G04–G07 | Working G03 context and selected native operations | Reading, navigation, candidates and previews can progress independently; C05 only gates actual test handoff. |
+| H01–H04 | D02 acquisition/probes, shared output and exact context | Main library journey needs no live analyzer. Local-use enrichment is optional, never a whole-G barrier. |
+| H05 scoped rustdoc checks | D04 dispatch, A03 diagnostics and C07 selected check context | D02 API lookup is optional enrichment; ordinary rustdoc checks do not wait for API/probe delivery. |
+| I01–I04 | Original B02 diagnostics, D02 probes, C07 selected compiler actions | No live analyzer prerequisite. Existing artifacts/probes precede a custom driver. |
+| G08 | G07 previews and owner/guard contracts | Investigation may select apply or documented preview-only outcome. No automatic reuse of Git D09 as a filesystem transaction. |
+| G09/H06 and D01 packet integration | Their selected working producers and D01 base brief | Compose incrementally; base D01 never waits on consumers that themselves use it. |
+| Optional F02 source navigation | Matching original source/build identity and a working source reader | Base F inspection/follow does not wait for G, H or I. |
+
+Existing recommended first waves below remain useful. Establishing source intelligence is
+not a prerequisite for ordinary command control, fixture delivery or scientific observation.
+
 Letters group responsibility, not serial execution lanes. A design/interface can enable parallel
 authoring, but a production consumer needs the actual working prerequisite. The lifecycle binding
 records package edges; the table below explains the delivered capability behind those edges.
@@ -266,6 +359,14 @@ are decision branches, not prerequisites to useful local delivery.
 
 ## Completion and verification
 
+Code-intelligence completion additionally requires the G/H/I consumer scenarios and explicit
+conditional decisions. Native inference, API projection, compiler verdicts and runtime evidence
+retain separate provenance and coverage. Structured-field availability is checked against the
+selected provider; no hover/debug-string parser may invent authoritative structure. Source
+generations, Unicode positions, dirty edits, pending preparation and stale proposals receive
+revealing negative cases. The full review disposition table and all conditional branches must
+have an owner and outcome; merely recording an API inventory does not establish usable delivery.
+
 The series completes when Codex and Claude use the delivered verbs in ordinary work in place of
 the hand-built forms the review recorded. That is a functional judgment by the agents using the
 tools, not a measurement campaign.
@@ -291,6 +392,23 @@ fixture modes, feature-absence/duplicate test identities, output pressure, diagn
 concurrent Git operations. Local snapshots alone cannot qualify physical or scientific lifetimes.
 
 ## Current state and next step
+
+### Code-intelligence planning checkpoint — 2026-10-29
+
+**Proposed:** G–I and the affected A–F slices schedule the code-intelligence review. RC01–RC05,
+reusable sessions and preview plus conditional apply were explicitly confirmed. Document
+authoring changes no runtime, tool preparation, formal ADR status or prior qualification.
+Existing execution remains stopped; no production package has resumed. Begin with the existing
+foundation route or G01's read-only capability investigation when execution is later selected.
+
+**Tested (document amendment only):** `scripts/pse-env -- target/debug/xtask lifecycle validate`
+validated 1,698 scope items with zero errors against baseline zero. A scoped document check
+covered ten Plan59 documents, 299 local file/anchor references, all sixteen new opportunity
+dispositions and acyclic dependency relationships; the final binding has 101 Plan59 dependency
+edges after removing an unnecessary optional-lookup prerequisite. `just turn-end` completed.
+Independent integration reading corrected an unqualified availability claim and kept H05
+independent of optional API acquisition. These checks establish document integration only;
+no new runtime capability, product test, preparation or performance benefit is established.
 
 **2026-10-29 — execution stopped by the operator; production code reverted.** The rule changes
 (A01) and the edit guidance (E05) remain. The code from A02 (the clap tree), C01 (capability

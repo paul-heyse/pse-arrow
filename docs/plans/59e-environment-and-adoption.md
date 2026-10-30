@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, documentation]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
 ---
 
 # Environment and adoption
@@ -255,6 +255,20 @@ stay valid.
 **Acceptance:** the guidance is present and `just lint-agents` passes.
 
 ## Verification and handoff
+
+### Code-intelligence adoption and live users
+
+**E03** adds task routes as G/H/I verbs actually ship, including explain/references, candidate
+tests/completion, API/examples, previews and explicit compiler investigations. No hook starts
+analysis, generates rustdoc or compiles automatically. **E01** lists reusable sessions as actual
+checkout users and refuses removal while they, their children or required generations remain
+live/unsettled; explicit stop-and-settle precedes safe removal. Query completion or absence
+from scientific run lists is not drain evidence. Each checkout retains independent analysis
+context/build state. **E02** may show existing readiness without scans/priming on render;
+**E04** links coordinator-owned G–I scope rather than duplicating status.
+
+Acceptance adds two checkouts, active-analysis removal refusal and successful removal after
+actual settlement. Codex/editor/MCP/direnv exclusions and ordinary host capacity remain intact.
 
 - **E01:** targeted `pse-host` tests and one real worktree creation and removal.
 - **E02:** one real Claude session start.

@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
 ---
 
 # Knowledge and workflow verbs
@@ -103,7 +103,7 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 | `pse changes [--base REF]` | host | Changed paths grouped by owning crate; generated and protected paths with their regeneration verb (from the map below); affected tests as a ready `pse test --changed`; applicable `.claude/rules/*` by path scope; content-hash hunk IDs for `pse commit`. |
 | `pse brief [--paths …] [--libraries …]` | host | A delegation packet: HEAD and dirty state, active plan pointers, applicable rule files with content hashes, exact pins, features and overview paths for the named libraries, the evidence-label vocabulary, and document conventions. |
 | `pse dep <crate>` | host | Exact locked version, enabled features, workspace users, `[workspace.metadata.pse.pins]` reason, locked source path and `docs/libraries` overview. |
-| `pse api <crate> <path>`, `pse api <crate> --search W` | host | Item signature, docs, feature gates and source location, from rustdoc JSON keyed by exact package/version and source identity, resolved features, target/cfg, pinned toolchain and rustdoc format. Cached in `<store>/api/`. Re-exports generate the addressed crate's JSON in that same context. Check `format_version` before decoding; report unsupported format with a remedy. |
+| `pse api <crate> <path>`, `pse api <crate> --search W` | host | Item signature, docs, known availability conditions and source location (unknown ordinary-build applicability remains explicit), from rustdoc JSON keyed by exact package/version and source identity, resolved features, target/cfg, pinned toolchain and rustdoc format. Cached in `<store>/api/`. Re-exports generate the addressed crate's JSON in that same context. Check `format_version` before decoding; report unsupported format with a remedy. |
 | `pse probe new\|run\|rm <name> --deps …` | host | Scratch crate under `<store>/probes/`, copied toolchain pin, seeded workspace lock and explicit selected features. A separate target/build context isolates artifacts; report actual scratch resolution and its source/target/toolchain identity. The workspace lock is unchanged; a copied lock does not freeze every modified scratch manifest. Runs use ordinary placement and disposal refuses live users. |
 | `pse outline <file>`, `pse show <file>::<item>` | host | Server-free syntactic extraction with line numbers: items, impls and tests via `syn` with span locations; headings for Markdown. |
 | `pse owner <path>` | host | Generator plus narrowest regeneration verb for generated paths; section ID plus route for architecture documents; supersession for accepted ADRs; crate and owning plan for code. |
@@ -221,7 +221,9 @@ cannot be used here, for these reasons:
 
 So the proposed `pse api` owns generation itself: pinned-toolchain JSON keyed by exact source,
 package/version, resolved features, target/cfg and rustdoc format into `<store>/api/`,
-multi-version addressing, feature gates and the `format_version` check.
+multi-version addressing, known availability conditions and the `format_version` check.
+Documentation context and `cfg(doc)` do not prove ordinary-build availability; unknown gates
+remain unknown and consequential applicability uses the selected probe/check.
 This trial leaves `.mcp.json` empty; a future optional product adapter is a separate F06 inquiry.
 
 **Acceptance:**
@@ -387,6 +389,24 @@ the existing manual commit route. No claim that Git offers a cross-HEAD/index at
 or that a private index alone resolves concurrency is made by this proposal.
 
 ## Verification and handoff
+
+### API enrichment and investigation packets
+
+H extends **D02** acquisition/cache/probe authority without another generator or rejected MCP
+server. Cache identity includes extraction flags/documentation conditions; API JSON, doctest
+extraction and hosted JSON have distinct schema/provenance. **D01** owns O16 packet composition:
+selected source/contract, consumers/tests, original diagnostics and API evidence with budgets
+and progressive next actions. G09/H06 add producers incrementally; base briefs never wait on
+their consumers. No automatic whole-workspace enrichment or second status/knowledge ledger.
+
+**D03** retains cheap syntactic reading when semantics are unprepared. G01 may justify tolerant
+parsing for incomplete edits; no gratuitous parser migration. **D04** gains H05's explicit scoped
+rustdoc checks alongside Markdown checks. **D06** supplies generated-path ownership to macros
+and semantic proposals. **D07** derives the new command reference from actual parser/discovery.
+
+Acceptance adds a packet following original diagnostics without recompiling, examples with
+setup/mode without automatic execution and explicit source-generation mismatches. MCP/editor/
+Codex configuration exclusions remain; CLI stdio LSP is a distinct selected capability.
 
 Targeted tests run on `pse-host` and xtask (the `documentation` and `codegen` tests). Real runs:
 - `pse docs check` on this series;

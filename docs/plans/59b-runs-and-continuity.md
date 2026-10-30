@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
 ---
 
 # Runs and continuity
@@ -458,6 +458,23 @@ result/wait/cancel journey.
   an uncertain settlement or scientific attempt remains uncertain and is not relaunched.
 
 ## Verification and handoff
+
+### Reusable analysis and original diagnostic integration
+
+**B03** supplies authenticated owned placement and actual child settlement to G02; G owns
+analyzer readiness, synchronization and reuse beyond one query. Canceling one request does
+not tear down the shared session; a revision update may cancel all old snapshots. Teardown
+settles analyzer/proc-macro children through the original owner. Include these actual users
+in prepared-generation protection; no new queue/lease/recovery platform or scientific ledger.
+
+**B02** preserves original compiler primary/secondary spans, children, suggestions/applicability,
+macro context and available source/build identity for G/H/I. Explanations reuse the original
+result without rerunning checks or interpreting rendered prose as typed facts. IDE diagnostics
+remain a separate provider. B05 handoff retains evidence pointers, not durable analyzer IDs.
+
+Acceptance adds two queries with one canceled, old-snapshot invalidation on edits, independent
+session teardown/child drain and source-generation mismatch on original diagnostics. Generic
+B03 does not wait on all G capability packages; G integrates the working ownership slice.
 
 During packages, run compile checks and targeted tests on `pse-host`: the in-crate
 `*_tests.rs` files and `tests/{foreground,correctness}.rs` plus new `tests/runs.rs`. The detached

@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
 ---
 
 # CLI foundation
@@ -522,6 +522,29 @@ available to B01/B03 and C's immutable selections before pruning is enabled.
   redaction retain honest provenance; explain does not build, source shell or prepare fixtures.
 
 ## Verification and handoff
+
+### Code-intelligence foundation extension
+
+The coordinator's confirmed RC01–RC05 extend these existing packages for G–I:
+
+- **A07:** route changed source/result/proposal and reusable-session contracts through their
+  governing owners before dependent code; new crates/services use the scoped decision route.
+- **A03:** provider/context, analysis generation, availability, source coordinates and typed
+  next actions survive projection. Distinguish CLI positions, byte offsets and negotiated LSP
+  encoding with Unicode controls. Hover/debug text stays rendered when no typed field exists.
+  Unknown/no-match/unprepared/stale/canceled/truncated are distinct. Roughly 800–1,200 tokens
+  is a combined-answer presentation aim, not a tokenizer dependency or serialized-byte limit.
+- **A04:** use the existing resolver for analysis/artifacts; derived caches are distinct from
+  authored probes, edit intent and original evidence. G owns analysis reuse; D02 API acquisition.
+- **A05:** actual users include analyzer/proc-macro children and separately prepared compiler
+  tools. Protect their generations; help/status/source-only reads and existing-work control
+  never prepare analysis. Preserve the host dependency ceiling and independent cold startup.
+- **A06:** derive new query discovery/schemas from owning parsers and actual provider support.
+
+Acceptance adds ambiguous crate contexts, Unicode positions, unavailable preparation, budgeted
+responses retaining mandatory facts and active-session generation retention. These extend
+existing package acceptance, not a second output/store framework. G01 design can precede working
+foundations; production consumers require their actual slices.
 
 Per AGENTS.md:
 - **During packages:** compile checks (`just check-package pse-host`) and targeted tests (`just

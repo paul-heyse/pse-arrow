@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, validation]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
 ---
 
 # Tests and fixtures
@@ -396,6 +396,19 @@ does not build binaries, prepare providers or start services. Independent expect
 and duplicate-name binaries challenge normalization rather than deriving the oracle from it.
 
 ## Verification and handoff
+
+### Code-intelligence selection and candidate handoff
+
+**C07** supplies the context slice used by G03/H/I. Analyzer cfg/metadata is not every compiler
+unit: expose differences and ambiguous instances instead of silently selecting all features.
+Actual compiler/probe actions retain correctness admission and force-validation obligations.
+**C05** resolves G06 related-test candidates to actual binaries/features/ignored policy and
+fixture-capable execution; raw analyzer runnables cannot bypass it. **C03** remains conservative
+reverse reach; missing semantic references never establish sufficient reduced verification.
+
+Acceptance adds duplicate-name/cfg-dependent candidates, missing macro preparation and a
+candidate absent from the selected binary. Candidate, listed, selected and executed facts remain
+distinct. Discovery need not wait on fixtures; actual execution requires working C05/C07.
 
 During packages:
 - compile checks and targeted tests on `pse-host`, plus small real adapter runs on non-solver
