@@ -105,6 +105,24 @@ impl<T> TerminalResult<T> {
     }
 }
 impl TerminalResult<ManagedSummary> {
+    pub(crate) fn from_foreground<O: super::streams::ChunkObserver<Error = HostError>>(
+        id: &CliInvocationId,
+        command: &str,
+        report: crate::foreground::CapturedForeground<O>,
+        policy: &RedactionPolicy,
+    ) -> Self {
+        let cancelled = report.cancelled;
+        let mut terminal =
+            Self::from_payload(id, command, PayloadReport::from_foreground(report), policy);
+        terminal.response.summary =
+            "foreground child, capture and native ownership attempts completed".into();
+        terminal.response.observation.scope = "native_foreground_owner".into();
+        terminal.response.observation.limitations.clear();
+        if cancelled {
+            terminal.response.outcome = CommandOutcome::Interrupted;
+        }
+        terminal
+    }
     pub(crate) fn from_payload<O: super::streams::ChunkObserver<Error = HostError>>(
         id: &CliInvocationId,
         command: &str,

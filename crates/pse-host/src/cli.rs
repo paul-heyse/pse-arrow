@@ -1438,11 +1438,16 @@ fn launch_managed(
     let selection =
         crate::admission::Selection::load(&root, &environment, resource_class.as_deref(), None)?;
     let runtime = runtime()?;
-    let parent = runtime.block_on(crate::managed::supervisor::parent(
-        &environment,
-        &selection,
-        Instant::now() + Duration::from_secs(30),
-    ))?;
+    let is_workflow = workflow.is_some();
+    let parent = if detach || is_workflow {
+        runtime.block_on(crate::managed::supervisor::parent(
+            &environment,
+            &selection,
+            Instant::now() + Duration::from_secs(30),
+        ))?
+    } else {
+        None
+    };
     let environment_digest = environment_digest(&environment);
     let state = crate::paths::CheckoutState::resolve(&root, &environment)?;
     let store = crate::invocation::InvocationStore::new(state);
@@ -1464,6 +1469,42 @@ fn launch_managed(
     })?);
     if let Some((_, input)) = workflow {
         directory.publish_evidence(crate::invocation::InvocationEvidence::WorkflowInput, &input)?;
+    }
+    if !detach && !is_workflow {
+        let coordinator = crate::admission::Coordinator::open(&root, &environment)?;
+        let policy = RedactionPolicy::from_inputs(&environment);
+        let report = runtime.block_on(crate::foreground::run_captured(
+            crate::foreground::ForegroundRequest {
+                command,
+                environment,
+                cwd,
+                require_enclosing: false,
+                startup_deadline: Instant::now() + Duration::from_secs(30),
+                drain_timeout: Duration::from_secs(30),
+            },
+            coordinator,
+            selection,
+            directory.path().to_owned(),
+            crate::managed::result::GenericObserver,
+            Duration::from_secs(5),
+        ));
+        let terminal = crate::managed::result::TerminalResult::from_foreground(
+            directory.id(),
+            verb,
+            report,
+            &policy,
+        );
+        directory.publish_evidence(
+            crate::invocation::InvocationEvidence::Settlement,
+            terminal.response(),
+        )?;
+        directory.publish_result(&terminal)?;
+        let response = store
+            .result::<serde::de::IgnoredAny, crate::managed::result::ManagedSummary>(
+                directory.id(),
+            )?
+            .ok_or_else(|| HostError::Ownership("published foreground result is absent".into()))?;
+        return Ok(presentation.emit(response)?);
     }
     let mut arguments = command.into_iter();
     let program = arguments

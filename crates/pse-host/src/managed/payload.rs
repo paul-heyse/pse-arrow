@@ -114,6 +114,32 @@ impl<O: ChunkObserver> std::fmt::Debug for PayloadReport<O> {
     }
 }
 impl<O: ChunkObserver> PayloadReport<O> {
+    /// Consume the foreground owner's completed scope/admission attempts. A raw child exit
+    /// alone cannot construct these facts; the foreground path performed and joined them.
+    pub(crate) fn from_foreground(report: crate::foreground::CapturedForeground<O>) -> Self {
+        let settled = report.operation.is_ok();
+        Self {
+            child: report.child.ok_or_else(|| {
+                HostError::Ownership("foreground original child status unavailable".into())
+            }),
+            capture: report.capture,
+            operation_error: report.operation.err(),
+            closure: Ok(()),
+            workload: Ok(None),
+            operation: Ok(None),
+            kill: Ok(()),
+            permit: Ok(settled),
+            borrowed: report.borrowed,
+            cancelled: report.cancelled,
+            retained: RetainedResources {
+                _workload: None,
+                _operation: None,
+                _permit: None,
+                _subgroup: None,
+            },
+            subgroup: None,
+        }
+    }
     /// Native child status only after actual wait/reap; never inferred from the service manager.
     pub fn child_exit(&self) -> Option<i32> {
         self.child.as_ref().ok().map(|status| {
