@@ -5,10 +5,12 @@ use pse_backend_native::solve::{Event, EventSource, Metric, Progress};
 use pse_diagnostics::observation::{Outcome, Policy};
 use pse_runtime::{
     observation::{Diagnostics, read_checkpoint},
-    tooling::frozen_inspection::FrozenEvidenceSet,
+    tooling::{frozen_inspection::FrozenEvidenceSet, review_pack::PackReader},
 };
+use sha2::{Digest as _, Sha256};
 use std::{
     collections::BTreeMap,
+    io::Read as _,
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
@@ -21,6 +23,64 @@ fn wait(path: &Path) -> Result<()> {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::TimedOut,
                 format!("fixture rendezvous {}", path.display()),
+            )
+            .into());
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    Ok(())
+}
+fn verify_portable(root: &Path) -> Result<()> {
+    // The existing pack reader alone resolves this explicit relocated directory. Neither
+    // original checkpoint/capture paths nor the still-live observation owner are inputs.
+    let reader = PackReader::open(&root.join("portable-pack"), 16 << 20)?;
+    let frozen = reader.read_frozen()?;
+    let analysis = reader.read_analysis()?;
+    let mut raw = Vec::new();
+    reader.open_member("timeline")?.read_to_end(&mut raw)?;
+    let mut original_paths_available = root.join("frozen.json").try_exists()?;
+    for output in frozen.captures.iter().flat_map(|capture| &capture.outputs) {
+        original_paths_available |= output.path.try_exists()?;
+    }
+    for entry in std::fs::read_dir(root.join("checkpoints"))? {
+        let entry = entry?;
+        original_paths_available |= entry
+            .path()
+            .extension()
+            .is_some_and(|extension| extension == "json");
+    }
+    if original_paths_available || raw.is_empty() {
+        return Err(std::io::Error::other("portable fixture requires absent original evidence paths and a nonempty selected raw member").into());
+    }
+    if !frozen
+        .checkpoints
+        .iter()
+        .flat_map(|image| &image.operations)
+        .any(|operation| operation.id == analysis.request.operation)
+    {
+        return Err(std::io::Error::other(
+            "portable analysis lost the original supplied operation identity",
+        )
+        .into());
+    }
+    let digest: String = Sha256::digest(&raw)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    let response = serde_json::json!({"operation":analysis.request.operation,"captures":frozen.captures.len(),"raw_bytes":raw.len(),"raw_sha256":digest,"original_paths_available":original_paths_available});
+    std::fs::write(root.join("portable.ready"), serde_json::to_vec(&response)?)?;
+    Ok(())
+}
+fn wait_for_finish(root: &Path) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(60);
+    while !root.join("finish").exists() {
+        if root.join("verify-portable").exists() && !root.join("portable.ready").exists() {
+            verify_portable(root)?;
+        }
+        if Instant::now() >= deadline {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "fixture finish rendezvous",
             )
             .into());
         }
@@ -83,7 +143,7 @@ fn main() -> Result<()> {
     let evidence = serde_json::json!({"checkpoint":owner.checkpoint_path(),"operation":context.id(),"event":pse_runtime::workflow::ProgressEventDocument::from(progress.current().ok_or_else(|| std::io::Error::other("fixture current source missing"))?),"dropped":progress.snapshot().1});
     std::fs::write(root.join("source.json"), serde_json::to_vec(&evidence)?)?;
     std::fs::write(root.join("active.ready"), [])?;
-    wait(&root.join("finish"))?;
+    wait_for_finish(&root)?;
     operation.finish(Outcome::Failed);
     owner.publish()?;
     std::fs::write(root.join("terminal.ready"), [])?;

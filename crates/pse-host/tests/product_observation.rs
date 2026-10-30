@@ -5,7 +5,9 @@
 use pse_diagnostics::{DrainFailurePolicy, SupervisedChild};
 use pse_host::{environment::Environment, product_reader::ProductReaderSelection};
 use serde_json::{Value, json, value::RawValue};
+use sha2::{Digest as _, Sha256};
 use std::{
+    io::Read as _,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::{Duration, Instant},
@@ -199,11 +201,85 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
             .is_empty()
     );
     assert!(owner.try_wait().unwrap().is_none());
+    let capture_document = captured["payload"]["product"]["result"]["document"].clone();
+    let timeline = capture_document["outputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|output| output["kind"] == "Perfetto" && output["readable"] == true)
+        .unwrap();
+    let prefix = timeline["readable_prefix_bytes"].as_u64().unwrap();
+    assert!(prefix > 0);
+    let mut original_raw = Vec::new();
+    std::fs::File::open(timeline["path"].as_str().unwrap())
+        .unwrap()
+        .take(prefix)
+        .read_to_end(&mut original_raw)
+        .unwrap();
+    assert_eq!(original_raw.len() as u64, prefix);
+    let original_digest: String = Sha256::digest(&original_raw)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    let partial_path = directory.path().join("partial-capture");
+    let mut curtailed = capture.clone();
+    curtailed["request"]["request"]["output"] = json!(partial_path);
+    curtailed["request"]["request"]["budget"] = json!({"memory_bytes":16777216,"output_bytes":32});
+    let curtailed = query(directory.path(), &reader, &curtailed, true);
+    assert_eq!(curtailed["payload"]["category"], "success", "{curtailed}");
+    let partial_document = &curtailed["payload"]["product"]["result"]["document"];
+    assert!(
+        matches!(
+            partial_document["status"].as_str(),
+            Some("Partial" | "Failed")
+        ),
+        "{partial_document}"
+    );
+    assert_eq!(partial_document["loss"]["output_exhausted"], true);
+    assert!(owner.try_wait().unwrap().is_none());
+    assert_eq!(
+        std::fs::read(checkpoint).unwrap(),
+        original,
+        "capture failure/partial output never publishes or completes original work"
+    );
+    let frozen_path = directory.path().join("frozen.json");
+    let mut frozen: Value = serde_json::from_slice(&std::fs::read(&frozen_path).unwrap()).unwrap();
+    frozen["captures"] = json!([capture_document, partial_document]);
+    std::fs::write(&frozen_path, serde_json::to_vec(&frozen).unwrap()).unwrap();
     let pack = directory.path().join("selected-pack");
-    let export = json!({"operation":"investigate","request":{"action":"export","evidence":directory.path().join("frozen.json"),"request":{"version":2,"operation":supplied["operation"],"baseline":null,"numerical_history_policy":null},"memory_bytes":134217728,"destination":pack,"selection":{"version":2,"members":[],"maximum_output_bytes":268435456,"maximum_document_bytes":16777216},"files":[]}});
+    let export = json!({"operation":"investigate","request":{"action":"export","evidence":frozen_path,"request":{"version":2,"operation":supplied["operation"],"baseline":null,"numerical_history_policy":null},"memory_bytes":134217728,"destination":pack,"selection":{"version":2,"members":[{"id":"timeline","role":"capture","required":true,"format":"perfetto","document_version":null,"source":"explicit selected finalized capture prefix","references":[{"member":"frozen","pointer":"/captures/0"}],"result":null,"capture_scope":format!("original status {}; source loss {}",capture_document["status"],capture_document["loss"])}],"maximum_output_bytes":268435456,"maximum_document_bytes":16777216},"files":[{"member":"timeline","path":timeline["path"],"readable_prefix_bytes":prefix}]}});
     let exported = query(directory.path(), &reader, &export, true);
     assert_eq!(exported["payload"]["category"], "success", "{exported}");
     assert!(pack.join("index.json").exists());
+    std::fs::rename(&pack, directory.path().join("portable-pack")).unwrap();
+    std::fs::rename(
+        &capture_path,
+        directory.path().join("capture-original-unavailable"),
+    )
+    .unwrap();
+    std::fs::rename(
+        &partial_path,
+        directory.path().join("partial-original-unavailable"),
+    )
+    .unwrap();
+    std::fs::remove_file(&frozen_path).unwrap();
+    std::fs::rename(
+        checkpoint,
+        directory.path().join("checkpoint-original-unavailable"),
+    )
+    .unwrap();
+    std::fs::write(directory.path().join("verify-portable"), []).unwrap();
+    wait(&directory.path().join("portable.ready"));
+    let portable: Value =
+        serde_json::from_slice(&std::fs::read(directory.path().join("portable.ready")).unwrap())
+            .unwrap();
+    assert_eq!(portable["operation"], supplied["operation"]);
+    assert_eq!(portable["captures"], 2);
+    assert_eq!(portable["raw_bytes"], prefix);
+    assert_eq!(portable["raw_sha256"], original_digest);
+    assert_eq!(portable["original_paths_available"], false);
+    assert!(owner.try_wait().unwrap().is_none());
+    assert!(!Path::new(checkpoint).exists());
     std::fs::write(directory.path().join("finish"), []).unwrap();
     wait(&directory.path().join("terminal.ready"));
     let terminal = query(directory.path(), &reader, &follow, false);

@@ -114,7 +114,7 @@ memory release; no build telemetry or automatic semantic enrichment is introduce
 | [F02](#f02) | in-progress | 59f | Existing catalogue/inspection/source-bound pages retain native facts, units, numerical categories and loss. Actual captured CLI inspection and numerical pages pass; broader native-unit/invocation composition remains |
 | [F03](#f03) | in-progress | 59f | One-sample product continuations, bounded host polling and observer-only cancellation implemented. Reset/gap/resume controls and actual clean NDJSON sample-limit/terminal/expiry journey pass; slow/broken renderer and full cancellation journeys remain |
 | [F04](#f04) | in-progress | 59f | Existing canonical study/attempt history and cursors retain their prior17 focused controls and source-built two-attempt fixture evidence. Captured CLI canonical history remains. Additional-publication inquiry selects existing checkpoints, with no new live snapshot/event bridge; unavailable canonical live numerics remain explicit |
-| [F05](#f05) | in-progress | 59f | Explicit admission separates capture/export from passive reads. Existing collector, supplied frozen interpretation/analysis, maintained query specification and selected review packs are exposed; actual timeline capture/selected export journey passes. External query execution and the remaining failure/portable-read acceptance remain |
+| [F05](#f05) | in-progress | 59f | Explicit admission separates capture/export from passive reads. Actual finalized capture-member→supplied frozen analysis→relocated pack reopen passes with original paths unavailable, plus truthful output-exhaustion capture independent of the producer. Maintained query specifications explicitly remain unexecuted; external execution is conditional. Broader missing-tool/clock, changed-validator and raw tail/window acceptance remains |
 | [F06](#f06) | planned | 59f | Integrated consumer acceptance and conditional backend/interface dispositions |
 
 <a id="f01"></a>
@@ -381,6 +381,32 @@ route. Explicit product `Access` admission and the separate new-work CLI verb no
 combination before effects. Deliberate limits: optional animated human rendering was not adopted;
 maintained SQL remains specification-only; existing source-bound pages and native collectors were
 extended instead of replacing their ownership. Full native-unit composition, captured canonical
-study/attempt retry/history, slow/broken renderer and cancellation journeys, missing-tool/clock and
-portable export failure cases remain with F02–F06. No package is promoted to full completion by
-the focused checks or this single actual consumer journey.
+study/attempt retry/history, slow/broken renderer and cancellation journeys, missing-tool/clock,
+changed-validator and raw tail/window cases remain with F02–F06. External-query execution is
+conditional on a selected execution consumer, not an automatically authorized backlog item. No
+package is promoted to full completion by the focused checks or the selected consumer journeys.
+
+### F05 finalized-member and portable consumer follow-up
+
+**Tested:** `scripts/pse test pse-host:product_observation` completed the extended actual public
+journey in invocation `01a18ec7-c6ed-77c7-bd52-5aa58b541222`: one selected/completed test,
+zero failures against the zero baseline, complete required capture, native child exit zero and
+complete settlement. The runtime-owned fixture and host consumer use existing APIs only; no
+production protocol, mathematical service, database, dependency or pack-composition layer was
+added for this acceptance.
+
+The consumer adds the actual terminal `CaptureDocument` and its explicitly selected finalized
+Perfetto prefix to the supplied frozen evidence and review-pack request. It then relocates the
+pack and makes the original checkpoint, frozen-input file and capture output paths unavailable.
+The existing `PackReader::open`, `read_frozen`, `read_analysis` and `open_member` reopen only
+selected contained members. Original operation identity, two original capture documents and
+the raw member's acknowledged byte count and SHA-256 match after relocation. Original paths
+are not resolution authority; missing input paths do not trigger reconstruction or collection.
+
+A second actual timeline capture deliberately exhausts a 32-byte fixture output allowance.
+Its native `Partial`/`Failed` status and `output_exhausted` loss survive in the frozen set. The
+performing producer remains alive and its published checkpoint bytes remain unchanged through
+capture and portable reopening; only the fixture's later explicit finish request produces the
+original `Failed` operation outcome. This establishes the selected finalized-member,
+portable-read and partial-capture independence cases. It does not qualify remote export, real
+solver execution, all capture backends or the remaining F05 acceptance above.
