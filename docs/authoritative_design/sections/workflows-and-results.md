@@ -1713,6 +1713,18 @@ owns persisted execution transitions and schema/write-admission policy; computat
 joins remain Rust/OS effects. Service launch alone does not establish schema readiness; pure local
 science needs no database.
 
+> Decision: ADR-0234 (proposed Plan59 managed-invocation realization; native qualification pending).
+
+Managed foreground and detached invocations share one native user-service supervisor/finalizer.
+Foreground retains an authenticated origin-lifetime lease; passive reads remain direct. Keep the
+service controller in its service cgroup and distinguish the immutable original workload root,
+actual current membership and owned invocation subtree. Nested payload groups stay below their
+enclosing invocation under core-only delegation, preserving the original aggregate allocation.
+Nested owners borrow admission without releasing or stopping the enclosing owner. Close nested
+launch authority before recursive kill/drain/removal; finalizers explicitly settle external payload
+groups rather than relying on service KillMode. Unknown settlement remains unknown, and core-only
+subgroup accounting is not silently presented as invocation-exclusive memory use.
+
 Optional foreign adapters require a named consumer and remain coarse callers of the same native
 operations, documents and protected data services. They acquire no separate scientific, scheduling,
 settlement or schema authority. Native product APIs require no PyO3 implementation, full CLI,

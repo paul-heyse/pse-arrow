@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 315
-date: 2026-10-29
+revision: 316
+date: 2026-10-30
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 316 | 2026-10-30 | Plan59 managed foreground/detached invocations share the service supervisor and authenticated nested payload-subtree ownership (§21.7). | Proposed ADR-0234 realization within ADR-0233, source-grounded independent advice during authorized execution; `PSE_DESIGN_EDIT=1`. Target only; native permission/crash/nesting qualification and formal ADR status remain pending. |
 | 315 | 2026-10-29 | Plan59 A07: compatible existing-work control, acknowledgement versus terminal pass, product-owned decoding, diagnostic projection and analysis-generation scope (§21.7, §23.2, §24.1). | Operator-confirmed R3/R6 and RC01–RC05; proposed ADR-0233. Authorized design workflow; target publication only, no runtime qualification or formal ADR status change. |
 | 314 | 2026-10-29 | Plan59 R3 narrowings within proposed ADR-0233: `pse-host` exposes one clap command grammar (`pse`, `pse-host`, `cargo-pse-correctness`), an owned-run ledger and supervisor for agent-started runs with ledger stop authority, and automatic stale-host rebuild for top-level effectful verbs (§3.2, §24.1). | Operator-accepted rule change (Plan59 A01); visible `.design-edit`. Proposed; implementation follows in Plan59 59a/59b. |
 | 313 | 2026-10-29 | Reconcile adjacent overview, schema/generation, mathematical producer, solver document, identity/host and support owners with the retired required Python boundary (§0–§6, §14, §17–§18, §20, §22, §25). Preserve historical receipts and scientific contracts. | Authorized Plan58 G publication under proposed ADR-0233; `PSE_DESIGN_EDIT=1`. No hash, numerical-policy, formal ADR status or H qualification change. |
