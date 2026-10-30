@@ -97,6 +97,30 @@ pub(super) fn installed_fixture() -> (tempfile::TempDir, PathBuf) {
     (fixture._directory, tools)
 }
 
+pub(super) fn transfer_fixture() -> (tempfile::TempDir, PathBuf) {
+    let fixture = Fixture::new();
+    let source = fixture.fingerprint();
+    for name in ["generation.source", "generation.target"] {
+        let directory = fixture.tools.join(name);
+        private_directory(&directory, true).unwrap();
+        fs::copy(std::env::current_exe().unwrap(), directory.join("pse-host")).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(
+            directory.join("pse-host"),
+            fs::Permissions::from_mode(0o500),
+        )
+        .unwrap();
+        GenerationManifest::capture(&directory, source.clone(), &source, &["pse-host"])
+            .unwrap()
+            .write(&directory)
+            .unwrap();
+    }
+    fs::create_dir(fixture.root.join("target")).unwrap();
+    let tools = fixture.root.join("target/host-tools");
+    fs::rename(&fixture.tools, &tools).unwrap();
+    (fixture._directory, tools)
+}
+
 #[test]
 fn local_closure_membership_and_content_invalidate_without_unrelated_crate_scan() {
     let fixture = Fixture::new();

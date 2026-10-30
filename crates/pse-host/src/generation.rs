@@ -51,6 +51,8 @@ mod bootstrap;
 pub use bootstrap::{Freshness, HostTool, PreparedGeneration, bootstrap, freshness, prepared};
 mod entry;
 pub use entry::{EntryGuard, EntrySettlement, NewWorkDecision, new_work_decision};
+mod transfer;
+pub use transfer::rebuild_and_reexec;
 
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(format!("host generation: {}", message.into()))
@@ -530,6 +532,10 @@ impl GenerationManifest {
 struct UseRecord {
     version: u32,
     owner: pse_diagnostics::process_facts::ProcessIdentity,
+    #[serde(default)]
+    manifest_digest: String,
+    #[serde(default)]
+    handoff: Option<transfer::UseHandoff>,
 }
 
 /// An unsettled durable claim remains protective even after a controller crash.
@@ -601,6 +607,8 @@ impl GenerationUse {
         file.write_all(&encoded(&UseRecord {
             version: VERSION,
             owner,
+            manifest_digest: manifest.digest()?,
+            handoff: None,
         })?)?;
         file.sync_all()?;
         File::open(&records)?.sync_all()?;

@@ -1,0 +1,351 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! Same-process executable handoff using the original owned use records.
+use super::*;
+use std::{
+    os::unix::process::CommandExt,
+    process::{Command, Stdio},
+};
+
+pub(super) const HANDOFF: &str = "PSE_HOST_GENERATION_HANDOFF";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum Role {
+    Source,
+    Target,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct UseHandoff {
+    id: String,
+    target: PreparedGeneration,
+    role: Role,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Claim {
+    tools: PathBuf,
+    generation: String,
+    record: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Handoff {
+    version: u32,
+    id: String,
+    target: Claim,
+    source: Option<Claim>,
+}
+
+fn identity() -> Result<pse_diagnostics::process_facts::ProcessIdentity, HostError> {
+    match pse_diagnostics::process_facts::ProcessReader::default().process(std::process::id()) {
+        pse_diagnostics::process_facts::ProcessRead::Present(facts) => Ok(facts.identity),
+        _ => Err(invalid(
+            "current process identity is unavailable for executable transfer",
+        )),
+    }
+}
+pub(super) fn was_reexecuted(inputs: &Environment) -> Result<bool, HostError> {
+    let Some(value) = inputs
+        .get(OsStr::new("PSE_HOST_REEXEC"))
+        .filter(|value| value.len() <= 4096)
+    else {
+        return Ok(false);
+    };
+    let Ok(captured) =
+        serde_json::from_slice::<pse_diagnostics::process_facts::ProcessIdentity>(value.as_bytes())
+    else {
+        return Ok(false);
+    };
+    Ok(captured == identity()?)
+}
+fn read_record(path: &Path) -> Result<UseRecord, HostError> {
+    let file = owned_file(path, false)?;
+    if file.metadata()?.len() > 16 * 1024 {
+        return Err(invalid("generation use record exceeds its bound"));
+    }
+    let mut bytes = Vec::new();
+    file.take(16 * 1024 + 1).read_to_end(&mut bytes)?;
+    serde_json::from_slice(&bytes).map_err(|_| invalid("generation use record is invalid"))
+}
+
+impl GenerationUse {
+    fn claim(&self) -> Result<Claim, HostError> {
+        Ok(Claim {
+            tools: self
+                .record
+                .parent()
+                .and_then(Path::parent)
+                .and_then(Path::parent)
+                .ok_or_else(|| invalid("generation use claim has no tool root"))?
+                .to_owned(),
+            generation: self
+                .record
+                .parent()
+                .and_then(Path::file_name)
+                .and_then(OsStr::to_str)
+                .ok_or_else(|| invalid("generation use claim has no component"))?
+                .into(),
+            record: self
+                .record
+                .file_stem()
+                .and_then(OsStr::to_str)
+                .ok_or_else(|| invalid("generation use claim has no record ID"))?
+                .into(),
+        })
+    }
+    fn set_handoff(&self, handoff: Option<UseHandoff>) -> Result<(), HostError> {
+        let mut record = read_record(&self.record)?;
+        if record.version != VERSION
+            || record.owner != identity()?
+            || record.manifest_digest != self.manifest.digest()?
+        {
+            return Err(invalid(
+                "generation claim does not belong to the performing process and manifest",
+            ));
+        }
+        record.handoff = handoff;
+        let parent = self
+            .record
+            .parent()
+            .ok_or_else(|| invalid("generation claim has no parent"))?;
+        let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
+        temporary.write_all(&encoded(&record)?)?;
+        temporary.as_file().sync_all()?;
+        temporary
+            .persist(&self.record)
+            .map_err(|error| error.error)?;
+        File::open(parent)?.sync_all()?;
+        Ok(())
+    }
+}
+
+fn claim_path(root: &Path, claim: &Claim) -> Result<(PathBuf, PathBuf), HostError> {
+    if !component(&claim.generation)
+        || !claim.generation.starts_with("generation.")
+        || uuid::Uuid::parse_str(&claim.record).is_err()
+        || claim.record.len() != 36
+    {
+        return Err(invalid(
+            "executable handoff claim is not a fixed relative reference",
+        ));
+    }
+    let uses = root.join(".uses");
+    private_directory(&uses, false)?;
+    let records = uses.join(&claim.generation);
+    private_directory(&records, false)?;
+    Ok((
+        uses.join(format!("{}.lock", claim.generation)),
+        records.join(format!("{}.json", claim.record)),
+    ))
+}
+
+fn adopt_claim(
+    root: &Path,
+    claim: &Claim,
+    expected: &UseHandoff,
+) -> Result<Option<GenerationUse>, HostError> {
+    if claim.tools != root
+        || root.file_name().is_none_or(|name| name != "host-tools")
+        || root
+            .parent()
+            .and_then(Path::file_name)
+            .is_none_or(|name| name != "target")
+    {
+        return Err(invalid(
+            "executable claim is outside a fixed checkout tool root",
+        ));
+    }
+    private_directory(root, false)?;
+    let update = owned_file(&root.join(".update.lock"), false)?;
+    rustix::fs::flock(&update, rustix::fs::FlockOperation::LockShared)
+        .map_err(std::io::Error::from)?;
+    let (lock, record) = claim_path(root, claim)?;
+    let lock = owned_file(&lock, false)?;
+    rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockShared)
+        .map_err(std::io::Error::from)?;
+    let captured = match read_record(&record) {
+        Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(None);
+        }
+        result => result?,
+    };
+    // Inherited/completed markers are locators, never authority for another process.
+    if captured.owner != identity()? || captured.handoff.is_none() {
+        return Ok(None);
+    }
+    let manifest = GenerationManifest::load(&root.join(&claim.generation))?;
+    if captured.version != VERSION
+        || captured.handoff.as_ref() != Some(expected)
+        || captured.manifest_digest != manifest.digest()?
+    {
+        return Err(invalid(
+            "executable handoff differs from the original owned claim",
+        ));
+    }
+    Ok(Some(GenerationUse {
+        lock,
+        record,
+        manifest,
+    }))
+}
+
+pub(super) fn adopt(
+    root: &Path,
+    generation: &str,
+    value: Option<&OsStr>,
+) -> Result<Option<GenerationUse>, HostError> {
+    let Some(value) = value
+        .and_then(OsStr::to_str)
+        .filter(|value| value.len() <= 4096)
+    else {
+        return Ok(None);
+    };
+    let Ok(handoff) = serde_json::from_str::<Handoff>(value) else {
+        return Ok(None);
+    };
+    if handoff.version != VERSION
+        || uuid::Uuid::parse_str(&handoff.id).is_err()
+        || handoff.target.generation != generation
+        || handoff.target.tools != root
+    {
+        return Ok(None);
+    }
+    let _update = update_lock(root)?;
+    let manifest = GenerationManifest::load(&root.join(generation))?;
+    let target = PreparedGeneration {
+        generation: generation.into(),
+        protocol: manifest.control_protocol(),
+        manifest_digest: manifest.digest()?,
+    };
+    let expected = UseHandoff {
+        id: handoff.id.clone(),
+        target: target.clone(),
+        role: Role::Target,
+    };
+    let Some(usage) = adopt_claim(root, &handoff.target, &expected)? else {
+        return Ok(None);
+    };
+    if let Some(source) = &handoff.source {
+        let expected = UseHandoff {
+            id: handoff.id,
+            target,
+            role: Role::Source,
+        };
+        let source = adopt_claim(&source.tools, source, &expected)?.ok_or_else(|| {
+            invalid("source executable claim cannot establish same-process transfer")
+        })?;
+        // The target's actual bytes, process identity and original target claim are now
+        // authenticated. The source declared no remaining resource obligations before exec.
+        source.settle()?;
+    }
+    usage.set_handoff(None)?;
+    Ok(Some(usage))
+}
+
+fn begin(
+    entry: &EntryGuard,
+    target: &GenerationUse,
+    reference: &PreparedGeneration,
+) -> Result<Handoff, HostError> {
+    let id = uuid::Uuid::new_v4().to_string();
+    target.set_handoff(Some(UseHandoff {
+        id: id.clone(),
+        target: reference.clone(),
+        role: Role::Target,
+    }))?;
+    let source = if let Some(source) = &entry.usage {
+        source.set_handoff(Some(UseHandoff {
+            id: id.clone(),
+            target: reference.clone(),
+            role: Role::Source,
+        }))?;
+        Some(source.claim()?)
+    } else {
+        None
+    };
+    Ok(Handoff {
+        version: VERSION,
+        id,
+        target: target.claim()?,
+        source,
+    })
+}
+
+fn cancel(entry: &EntryGuard, target: GenerationUse) -> Result<(), HostError> {
+    let restore = entry
+        .usage
+        .as_ref()
+        .map_or(Ok(()), |source| source.set_handoff(None));
+    let settled = target.settle();
+    match (restore, settled) {
+        (Ok(()), Ok(())) => Ok(()),
+        (source, target) => Err(invalid(format!(
+            "exec handoff cleanup: source={source:?}; target={target:?}"
+        ))),
+    }
+}
+
+/// Rebuild only after `new_work_decision` returned Rebuild, before the parsed command's
+/// effects. Both old and new claims remain protective until the replacement image proves
+/// same-process transfer. Exec failure retains the source guard and settles the unused target.
+pub fn rebuild_and_reexec(
+    root: &Path,
+    tool: HostTool,
+    arguments: &[OsString],
+    entry: &mut EntryGuard,
+) -> Result<i32, HostError> {
+    let root = root.canonicalize()?;
+    let stderr = rustix::io::dup(std::io::stderr()).map_err(std::io::Error::from)?;
+    let result = Command::new(root.join("scripts/bootstrap-host"))
+        .current_dir(&root)
+        .stdout(Stdio::from(stderr))
+        .status()?;
+    if !result.success() {
+        return Ok(result.code().unwrap_or(125));
+    }
+    let environment = std::env::vars_os().collect();
+    if freshness(&root, &environment)? != Freshness::Current {
+        return Err(invalid(
+            "host inputs changed after construction; retry the top-level command",
+        ));
+    }
+    let reference = prepared(&root)?
+        .ok_or_else(|| invalid("bootstrap did not publish a prepared generation"))?;
+    let executable = reference.executable(&root, tool)?;
+    let target = GenerationUse::acquire(&root.join("target/host-tools"), &reference.generation)?;
+    // Bootstrap returned successfully and all of its synchronous build/probe children were
+    // reaped; the requested new-work command has not dispatched or handed off any paths yet.
+    let handoff = match begin(entry, &target, &reference) {
+        Ok(value) => value,
+        Err(error) => {
+            cancel(entry, target)?;
+            return Err(error);
+        }
+    };
+    let payload =
+        String::from_utf8(encoded(&handoff)?).map_err(|_| invalid("handoff is not UTF-8"))?;
+    if payload.len() > 4096 {
+        cancel(entry, target)?;
+        return Err(invalid("executable handoff locator exceeds its bound"));
+    }
+    let marker = String::from_utf8(encoded(&identity()?)?)
+        .map_err(|_| invalid("process identity is not UTF-8"))?;
+    let error = Command::new(executable)
+        .args(arguments)
+        .env("PSE_HOST_REEXEC", marker)
+        .env(HANDOFF, payload)
+        .exec();
+    // exec returned, so no replacement process exists. Keep the original performing guard.
+    if let Err(cleanup) = cancel(entry, target) {
+        return Err(invalid(format!("exec failed: {error}; {cleanup}")));
+    }
+    Err(error.into())
+}
+
+#[cfg(test)]
+mod tests;

@@ -18,17 +18,27 @@ pub enum EntrySettlement {
 /// Actual executable generation protection, including entries with no invocation ledger row.
 #[derive(Debug)]
 pub struct EntryGuard {
-    usage: Option<GenerationUse>,
-    reference: Option<PreparedGeneration>,
+    pub(super) usage: Option<GenerationUse>,
+    pub(super) reference: Option<PreparedGeneration>,
 }
 impl EntryGuard {
     /// Acquire before ordinary entry dispatch. The foreground trampoline must first claim
     /// its inherited descriptors; cold seed and raw version probes have no published use.
     pub fn acquire_current() -> Result<Self, HostError> {
-        Self::acquire_executable(&std::env::current_exe()?)
+        Self::acquire_executable_with_handoff(
+            &std::env::current_exe()?,
+            std::env::var_os(transfer::HANDOFF).as_deref(),
+        )
     }
 
+    #[cfg(test)]
     fn acquire_executable(executable: &Path) -> Result<Self, HostError> {
+        Self::acquire_executable_with_handoff(executable, None)
+    }
+    fn acquire_executable_with_handoff(
+        executable: &Path,
+        handoff: Option<&OsStr>,
+    ) -> Result<Self, HostError> {
         let empty = || Self {
             usage: None,
             reference: None,
@@ -53,7 +63,10 @@ impl EntryGuard {
             .and_then(OsStr::to_str)
             .filter(|name| component(name) && name.starts_with("generation."))
             .ok_or_else(|| invalid("entry executable is outside a fixed generation"))?;
-        let usage = GenerationUse::acquire(tools, generation)?;
+        let usage = match transfer::adopt(tools, generation, handoff)? {
+            Some(usage) => usage,
+            None => GenerationUse::acquire(tools, generation)?,
+        };
         let reference = PreparedGeneration {
             generation: generation.into(),
             protocol: usage.manifest().control_protocol(),
@@ -114,10 +127,7 @@ pub async fn new_work_decision(
     if nested {
         return Ok(NewWorkDecision::PreserveNested);
     }
-    if inputs
-        .get(OsStr::new("PSE_HOST_REEXEC"))
-        .is_some_and(|value| value == "1")
-    {
+    if transfer::was_reexecuted(inputs)? {
         return Err(invalid(
             "host inputs changed after rebuilding; retry the top-level command",
         ));
