@@ -221,7 +221,9 @@ kind = "lib"
 required-features = ["canonical-tests"]
 ownership = "preparation-only"
 inputs = ["canonical-restart-control"]
-scope.tests = ["canonical_execution::canonical_execution_server_unit::retained_canonical_store_recovers_a_new_generation_after_external_server_restart"]
+scope.tests = [
+  "canonical_execution::canonical_execution_server_unit::retained_canonical_store_recovers_a_new_generation_after_external_server_restart",
+]
 
 [[bin]]
 name = "pse-canonical-test"

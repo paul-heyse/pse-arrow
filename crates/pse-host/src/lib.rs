@@ -11,8 +11,9 @@
 //! parent launch closure against recursive kill, positive drain and original-inode removal.
 //! These APIs report kernel facts, not that lifecycle cutoff, reservation release or managed
 //! terminal settlement. Root limits remain aggregate; borrowing never grants root stop.
-//! Dropping a capability establishes no cleanup. Production recovery from protected ledger
-//! records and the shared service lifecycle remain pending; recovery probes are test-only.
+//! Dropping a capability establishes no cleanup. Managed finalizers recover original native
+//! resource custody from protected records. Missing original reaping or output stays unknown;
+//! finalizer-local claim retirement does not release another performing owner's claims.
 
 pub mod activity;
 pub mod admission;

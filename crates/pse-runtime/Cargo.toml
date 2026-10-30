@@ -174,7 +174,9 @@ kind = "test"
 required-features = ["native-study-tests"]
 ownership = "target-owned"
 inputs = ["server", "study-module", "service-helper"]
-scope.tests = ["canonical::native_canonical_covariance_reopens_exact_fit_and_refuses_tampered_or_missing_reference"]
+scope.tests = [
+  "canonical::native_canonical_covariance_reopens_exact_fit_and_refuses_tampered_or_missing_reference",
+]
 
 [[package.metadata.pse.test-fixtures]]
 id = "native-research-owned"
@@ -196,7 +198,9 @@ target = "native_boundary_acceptance"
 kind = "test"
 ownership = "preparation-only"
 inputs = ["worker"]
-scope.tests = ["public_managed_detail_keeps_external_owners_exact_attempts_and_complete_prefixes"]
+scope.tests = [
+  "public_managed_detail_keeps_external_owners_exact_attempts_and_complete_prefixes",
+]
 
 [[package.metadata.pse.test-fixtures]]
 id = "native-worker-lifecycle-owned"
@@ -390,7 +394,9 @@ target = "pse-project"
 kind = "bin"
 ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
-scope.tests = ["project_runtime::tests::project_cli_runtime_import_fork_compare_and_passive_discovery"]
+scope.tests = [
+  "project_runtime::tests::project_cli_runtime_import_fork_compare_and_passive_discovery",
+]
 
 [[package.metadata.pse.test-fixtures]]
 id = "library-scientific-inputs"
@@ -409,7 +415,9 @@ target = "pse_runtime"
 kind = "lib"
 ownership = "preparation-only"
 inputs = ["producer-fixture-receipt"]
-scope.tests = ["math::portable::canonical_portable_body_tests::canonical_portable_body_reconnect_reuses_ordinary_scalar_solve_with_actual_tool_fixture_receipt"]
+scope.tests = [
+  "math::portable::canonical_portable_body_tests::canonical_portable_body_reconnect_reuses_ordinary_scalar_solve_with_actual_tool_fixture_receipt",
+]
 
 [[package.metadata.pse.test-fixtures]]
 id = "deployment-qualification-inputs"
@@ -417,7 +425,9 @@ target = "pse_runtime"
 kind = "lib"
 ownership = "preparation-only"
 inputs = ["worker-producer-receipt", "deployment-artifact-observations"]
-scope.tests = ["math::portable::canonical_deployment_tests::canonical_deployment_actual_worker_receipt_enforces_selected_role"]
+scope.tests = [
+  "math::portable::canonical_deployment_tests::canonical_deployment_actual_worker_receipt_enforces_selected_role",
+]
 
 [[package.metadata.pse.test-fixtures]]
 id = "covariance-reference-python"
@@ -453,7 +463,9 @@ target = "pse_runtime"
 kind = "lib"
 ownership = "preparation-only"
 inputs = ["native-lane"]
-scope.tests = ["math::native_child::tests::actual_portable_native_root_child_reconstructs_and_parent_screens"]
+scope.tests = [
+  "math::native_child::tests::actual_portable_native_root_child_reconstructs_and_parent_screens",
+]
 
 [[package.metadata.pse.test-fixtures]]
 id = "trace-processor-consumer"
@@ -461,7 +473,9 @@ target = "pse_runtime"
 kind = "lib"
 ownership = "preparation-only"
 inputs = ["trace-processor"]
-scope.tests = ["tooling::capture::tests::capture_standalone_trace_processor_reads_numerical_events_with_clock_alignment"]
+scope.tests = [
+  "tooling::capture::tests::capture_standalone_trace_processor_reads_numerical_events_with_clock_alignment",
+]
 
 [[test]]
 # The worker journeys run authored cases through the pse-worker binary, which needs the

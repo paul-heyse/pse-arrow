@@ -99,6 +99,9 @@ lcov.info
 !/.agents/skills/plan-execution/
 !/.agents/skills/execute-plan/
 
+# Checkout-local diagnostic captures and worktree handoff receipts.
+/.local/
+
 # Local overrides (templates are committed)
 .envrc.local
 .claude/settings.local.json
