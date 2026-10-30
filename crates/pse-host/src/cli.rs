@@ -38,6 +38,8 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    #[command(name = "__host-generation-bootstrap", hide = true)]
+    HostGenerationBootstrap,
     #[command(
         hide = true,
         before_help = "pse-env — native command and environment boundary"
@@ -330,6 +332,7 @@ fn dispatch(cli: Cli) -> Result<i32, HostError> {
         return Ok(0);
     };
     match command {
+        Command::HostGenerationBootstrap => crate::generation::bootstrap(&checkout_root(selected)?),
         Command::Boundary(options) => crate::boundary::execute(options, selected),
         Command::AgentHook { action } => crate::agent_hooks::execute(action),
         Command::Doctor { json } => {

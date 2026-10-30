@@ -3,6 +3,7 @@
 # Copyright (c) 2026 Paul Heyse
 # Construction only: no environment, allocation or scientific policy lives here.
 set -eu
+umask 077
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root"
 if [ -n "${CARGO_TARGET_DIR-}" ] || [ -n "${CARGO_BUILD_TARGET_DIR-}" ] || [ -n "${CARGO_BUILD_TARGET-}" ]; then
@@ -18,25 +19,6 @@ mkdir -p "$selected"
 exec 9>"$selected/.update.lock"
 flock 9
 cargo build --locked --package pse-host --bins 9>&-
-staged=$(mktemp -d "$selected/generation.XXXXXXXX")
-discard_incomplete() {
-    # A signal can arrive after the atomic switch and before traps are cleared.
-    # Never remove a generation that the selector has already published.
-    if [ "$(readlink -- "$selected/current" 2>/dev/null || :)" != "$(basename -- "$staged")" ]; then
-        rm -rf -- "$staged"
-    fi
-}
-trap discard_incomplete EXIT
-trap 'exit 129' HUP
-trap 'exit 130' INT
-trap 'exit 143' TERM
-for tool in pse pse-host cargo-pse-correctness; do
-    cp -- "$root/target/debug/$tool" "$staged/$tool"
-    chmod 700 "$staged/$tool"
-    "$staged/$tool" --version 9>&-
-done
-# One selector publishes the completed tool set. Running commands keep their actual
-# immutable executable path, including nextest's invocation-local Cargo adapter.
-ln -s "$(basename -- "$staged")" "$staged/selection"
-mv -Tf -- "$staged/selection" "$selected/current"
-trap - EXIT HUP INT TERM
+# The freshly built seed establishes source coherence around the authoritative
+# construction and publishes its manifest. It reacquires exclusion itself.
+exec "$root/target/debug/pse-host" __host-generation-bootstrap 9>&-

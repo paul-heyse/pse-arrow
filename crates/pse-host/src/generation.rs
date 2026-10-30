@@ -47,6 +47,9 @@ const BUILD_VARIABLES: &[&str] = &[
     "AR",
 ];
 
+mod bootstrap;
+pub use bootstrap::{Freshness, PreparedGeneration, bootstrap, freshness, prepared};
+
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(format!("host generation: {}", message.into()))
 }
@@ -419,6 +422,7 @@ impl SourceFingerprint {
 #[serde(deny_unknown_fields)]
 pub struct GenerationManifest {
     version: u32,
+    control_protocol: u32,
     source: SourceFingerprint,
     binaries: BTreeMap<String, String>,
 }
@@ -447,6 +451,7 @@ impl GenerationManifest {
         }
         Ok(Self {
             version: VERSION,
+            control_protocol: 1,
             source: before,
             binaries: result,
         })
@@ -479,6 +484,7 @@ impl GenerationManifest {
         let result: Self = serde_json::from_slice(&bytes)
             .map_err(|_| invalid("generation manifest is invalid"))?;
         if result.version != VERSION
+            || result.control_protocol != 1
             || result.source.version != VERSION
             || result.binaries.is_empty()
         {
@@ -499,6 +505,14 @@ impl GenerationManifest {
     /// Source observation for explicit freshness checks; control need not read source.
     pub fn source(&self) -> &SourceFingerprint {
         &self.source
+    }
+    /// Semantic identity binds source, build context, control protocol and binary bytes.
+    pub fn digest(&self) -> Result<String, HostError> {
+        Ok(digest(&encoded(self)?))
+    }
+    /// Existing-work control protocol supported by the authenticated tool set.
+    pub fn control_protocol(&self) -> u32 {
+        self.control_protocol
     }
 }
 
