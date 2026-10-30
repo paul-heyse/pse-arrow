@@ -230,6 +230,20 @@ necessary evidence, using `git worktree remove PATH`.
 
 ## Choosing tests
 
+The Plan59 native commands support `scripts/pse tests PACKAGE -E 'test(name)'`,
+`scripts/pse test PACKAGE -E 'test(name)'` and `scripts/pse check PACKAGE`. Listing explicitly
+builds and captures the actual selected population. Test/check/list can use `--detach` and
+`--session NAME`; `scripts/pse wait ID` reads the original result independently. A zero-match
+test selection is a nonpass. Missing fixture lifecycle readiness remains explicit; the broader
+fixture/rerun migration is still owned by [Plan59c](../plans/59c-tests-and-fixtures.md).
+
+`scripts/pse result ID --tests --limit 20` reads captured whole-test records without rebuilding.
+Pass the returned `payload.next` object as JSON to `--cursor`; changed inventory bytes or a
+different original invocation refuse continuation. `--page-bytes` bounds serialized whole rows;
+an oversized next row reports its required extent without splitting its identity. The reader
+still scans the retained inventory and grants no fixture readiness or executable-reuse authority.
+New command grammar requires an explicitly prepared image containing that grammar.
+
 - `just check-package PACKAGE` compiles all selected package targets without running tests;
   `check-library` and `check-test` narrow that scope.
 - `just unit-package PACKAGE WORD_OR_FILTER` selects library units; a bare word becomes

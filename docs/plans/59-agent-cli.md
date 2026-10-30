@@ -54,8 +54,8 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
 - Amendment basis: the [observability review](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md)
   and [Plan59 improvement review](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md),
   published at `e907d8a1f`, inspecting `890aa07f76fac5739cfc9811a47e823c326be663`.
-- Status: **Execution resumed by the operator for remaining A–I**, with only the necessary
-  J01/J02 shared-contract exception. The latest checkpoint owns actual progress and limits.
+- Status: **Execution paused by the operator after bounded closeout**, with only the necessary
+  J01/J02 shared-contract exception. The latest checkpoint owns progress and limits.
 
 **Reading route.**
 1. This coordinator: target, shared decisions, rule changes, dependencies, completion.
@@ -466,14 +466,66 @@ concurrent Git operations. Local snapshots alone cannot qualify physical or scie
 
 ## Current state and next step
 
-Execution is **active by the operator's subsequent instruction** for remaining A–I. The
-operator selected the minimal J01/J02 prerequisite exception; J03–J05 remain outside this
-execution scope. Historical paused checkpoints and their evidence remain below.
-The series remains incomplete. The first prepared generic managed-run journey works; continue
-existing-work control, product delegation and test/check integration without promoting that
-bounded result to whole-series acceptance.
+Execution is **paused at the operator's request after bounded closeout**.
+No agents or owned validation commands remain running. Remaining A–I is incomplete; the minimal J01/J02
+prerequisite exception remains selected and J03–J05 remain outside this execution scope.
+Resume only on a subsequent operator instruction, using the checkpoint below.
 
-### Native consumer integration checkpoint — 2026-10-30
+### Operator-requested closeout and handoff — 2026-10-30
+
+The integrated scope now includes public managed test/check/list execution, detached workflow
+launches, passive captured-test pages, process-held passive generation guards, durable promotion
+before effects, the native ignored-suite reconciliation correction, canonical retained-history
+readers and exact finalizer-local claim retirement. The finalizer retires only its own current
+context claim after its actual native resource and publication duties. Original launcher,
+supervisor, trampoline and entry claims remain protected; failed required publication retains
+the local claim. Original lost reaping/capture stays unknown. Pruning remains disabled.
+
+**Tested**, zero failure baseline: `just clippy` completed both workspace/all-target default
+and no-default-feature modes with `--keep-going -D warnings`, with zero warnings/errors.
+Explicit runtime all-target Clippy with `canonical-tests,product-reader` also completed with
+zero warnings/errors. The joined host correctness/nextest filter covering generation, managed
+ownership, extraction, workflows, inventory, CLI, dependency, edit routing and proposals passed
+155/155 tests; 365 tests were outside that selection. Actual native normal completion, SIGKILL
+and immutable-publication-collision cases verified local-claim retirement/retention while
+preserving original performing claims. The selected runtime native-fixture reader filter
+passed 18/18 tests (1211 outside the selection), including the real failed-attempt/retry
+history and cursor journey after the fallible helper corrections. This used `just native-test`
+with the selected ABI2 module receipt and `canonical-tests,product-reader`; the prepared
+fixture owner completed its lifecycle.
+
+The final public regression also exposed and corrected the performing reply adapter: it had
+emitted a successful generic result-read envelope around the original test outcome. Performing
+commands now preserve the original command, outcome, child status and coverage at the top level;
+their public schema describes both actual launch acknowledgements and terminal views. The
+CLI/envelope regression filter passed 30/30 tests. Both workspace Clippy modes were rerun after
+this correction and again reported zero warnings/errors. The prepared public `pse test pse-host
+-E 'test(managed::workflow::tests)'` journey then returned exit0, top-level `test/success`, actual
+selected2/completed2, complete required capture and payload settlement, and no finalizer failures.
+Read-only `pse result` remains an explicitly separate observation. End-of-turn formatting and
+retained Python source lint passed; checkout-local captures are excluded from source tooling,
+and all 62 archived finalizer evidence digests were verified unchanged.
+
+The former package-wide public test invocation remains recorded as incomplete: pinned nextest
+emits starts for ignored tests but may aggregate their terminal state at suite completion.
+The corrected interpreter uses the captured suite population and original native counters,
+retaining strict selected-test results and missing-evidence refusal. The focused correction
+passed 11/11 controls, including the actual package-wide selected-test workflow. Native public
+check and detached zero-match→independent wait journeys also completed with complete capture;
+zero match returns a nonpass. Original failed attempts retain their original evidence.
+
+All useful tracked changes from the three older Plan59 worktrees are already integrated or
+superseded in main; no conflicting production delta remains from that comparison. Their sole
+untracked argument-provenance prototype was preserved byte-for-byte in the main checkout's
+`.local/plan59-worktree-audit/`. The directories remain because their durable generation-use
+claims are unresolved; observing no process references is not release authority.
+
+Remaining work stays with the companion package tables, including C03 changed-selection
+execution (not started), C04 actual fixture owner integration, richer discovery/exact reruns,
+original generation retirement, canonical captured-reader CLI integration and the other open
+A–I consumers. No whole-series, scientific, performance or deployment qualification is claimed.
+
+### Earlier native consumer integration checkpoint — 2026-10-30
 
 The current bounded integration includes the fixed managed test/check helper and public
 `tests`, `test` and `check` commands. The helper authenticates its original native payload
