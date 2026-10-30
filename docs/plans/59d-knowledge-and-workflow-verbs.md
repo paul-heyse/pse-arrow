@@ -168,7 +168,7 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 | [D03](#d03) | complete | 59d | Native lossless outline/show, exact source selections and shared lib-outline route integrated; batch CPU execution and source/schema/actual CLI tests cover malformed/Unicode/ambiguous/CommonMark reads |
 | [D04](#d04) | planned | 59d | Federated `pse docs check` with pinned lychee |
 | [D05](#d05) | planned | 59d | Federated `pse ref` and `pse new`; `just plan` bash scaffold retired |
-| [D06](#d06) | planned | 59d | Generated-outputs map; `pse owner`; guard informs for documents; `.design-edit`/`PSE_DESIGN_EDIT` retired |
+| [D06](#d06) | in-progress | 59d | Aggregate-generated actual output map, original contributor routing, `pse owner` generated reads and advisory design/ADR guard integrated; document/source owner federation and adjacent affected/brief consumers remain |
 | [D07](#d07) | planned | 59d | Generated Markdown CLI reference under `docs/generated/` with drift check |
 | [D08](#d08) | planned | 59d | `pse commit` with private index, hunk IDs, whole-file formatting, scoped drift check and trailers |
 | [D09](#d09) | complete | 59d | Native Git transaction strategy selected with 11 passing disposable-repository probes; D08 runtime acceptance remains outstanding |

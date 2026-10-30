@@ -60,6 +60,10 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Inspect declared generated-output ownership and existing source contributors.
+    Owner {
+        path: PathBuf,
+    },
     /// Inspect exact locked dependency identities, features and direct workspace consumers.
     Dep {
         package: String,
@@ -212,6 +216,7 @@ impl Command {
                 GenerationIntent::NewWork
             }
             Self::Boundary(_)
+            | Self::Owner { .. }
             | Self::Dep { .. }
             | Self::Outline { .. }
             | Self::Show { .. }
@@ -590,6 +595,7 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             crate::catalog::description::Page<crate::catalog::description::Candidate>,
         >(command, view),
         "status" => envelope::schema::<crate::status::Report>(command, view),
+        "owner" => envelope::schema::<crate::ownership::OwnerQuery>(command, view),
         "dep" => envelope::schema::<crate::dependency::Report>(command, view),
         "history" => envelope::schema::<crate::invocation_view::HistoryPage>(command, view),
         "result" => envelope::schema::<crate::invocation_view::ResultView>(command, view),
@@ -638,6 +644,38 @@ fn dispatch(
         return Ok(0);
     };
     match command {
+        Command::Owner { path } => {
+            let root = checkout_root(selected)?;
+            let query = crate::ownership::query(&root, &path)?;
+            let mut response = Envelope::response(
+                "owner",
+                "declared generated-output ownership observed",
+                query,
+            );
+            response.observation.scope =
+                "generated_output_routing_and_declared_contributors".into();
+            response.subject_state = if matches!(
+                &response.payload.ownership,
+                crate::ownership::OutputOwnership::Declared { .. }
+            ) {
+                envelope::SubjectState::Available
+            } else {
+                envelope::SubjectState::NoMatch
+            };
+            response.observation.limitations = response.payload.coverage_limits.clone();
+            let policy = RedactionPolicy::from_environment();
+            response.failures.extend(
+                response
+                    .payload
+                    .failures
+                    .iter()
+                    .map(|error| ErrorRecord::from_typed(error, &policy)),
+            );
+            if !response.failures.is_empty() {
+                response.observation.completeness = Completeness::Partial;
+            }
+            Ok(presentation.emit(response)?)
+        }
         Command::Dep { package, metadata } => {
             let snapshot = if let Some(path) = metadata.as_ref() {
                 crate::catalog::MetadataSnapshot::read(&source_path(selected, path.clone())?)?

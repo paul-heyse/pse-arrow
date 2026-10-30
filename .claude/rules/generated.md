@@ -35,8 +35,9 @@ Generated sources are committed deliberately
 regeneration shows up as a reviewable diff — that only works if the committed output is
 exactly what the generator emits.
 
-A `PreToolUse` hook blocks writes here. There is no environment escape for it: unlike the
-blueprint, there is no legitimate reason to hand-edit output.
+A `PreToolUse` hook blocks writes here and names the declared generator route. The aggregate
+map from `just codegen` owns routing; missing or malformed routing retains generated-directory
+and exact-bindings protection. Hand edits cannot replace generator publication.
 
 The Ipopt bindgen arm regenerates from `IPOPT_DIR/include/coin-or` when selected,
 or extracts the C headers from the digest-pinned solver image. Both normal regeneration

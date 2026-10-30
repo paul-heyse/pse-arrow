@@ -269,9 +269,11 @@ Supervising runs that an agent starts is a separate, allowed responsibility
 
 ## Hooks and permissions
 
-`scripts/pse-host agent-hook` owns edit guarding and session activation. Protected paths and the
-visible `.design-edit`/`PSE_DESIGN_EDIT=1` exception remain defined in `AGENTS.md`. Guards are not
-a shell sandbox. Claude's SessionStart activation uses the same native environment owner;
+`scripts/pse-host agent-hook` owns edit guarding and session activation. Generated routing comes
+from the aggregate map emitted by `just codegen`; missing routing preserves generated-directory
+and bindings protection. Architecture and accepted ADR edits receive their revision or
+supersession workflow as context, with no permission-marker mechanism. `AGENTS.md` retains
+their governing policy. Guards are not a shell sandbox. Claude's SessionStart activation uses the same native environment owner;
 Codex uses its per-command bridge. Prepare tools explicitly. `just lint-agents` checks wiring;
 there are no end-of-turn hooks. Remote-mutating recipes retain their explicit invocation and
 confirmation requirements; permissions alone are not instructions to run them.

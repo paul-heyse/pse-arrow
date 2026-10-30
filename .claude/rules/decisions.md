@@ -35,7 +35,8 @@ section is not.
 An accepted ADR changes only in its status fields. A decision that turned out wrong is
 **superseded**, not edited: `just adr-supersede <old> <new>` writes symmetric links and a
 status-history entry. `just adr-lint` checks this against `origin/main`, so an edit in
-place is a red build, and a `PreToolUse` hook blocks it before that. The one exception is
+place is a red build; the edit hook supplies the immutability and supersession workflow as
+context. The one exception is
 reference relocation: a retired cited review or plan moves to the same path at an
 immutable commit (`git:` review or repository permalink), which the lint verifies.
 

@@ -30,6 +30,35 @@ type Physical = PhysicalInventory;
 struct Projection {
     packages: Vec<String>,
 }
+const PROJECTION: &str = "packages/reference/fixture-projection.toml";
+
+fn projection(root: &Path) -> Result<Projection> {
+    toml::from_str(&std::fs::read_to_string(root.join(PROJECTION))?)
+        .context("reading explicit physical fixture package inventory")
+}
+
+/// The actual selected authored package roots, without admitting or executing their contents.
+pub(super) fn source_scopes(
+    root: &Path,
+) -> Result<Vec<pse_codegen::codegen::provenance::protocol::Scope>> {
+    use pse_codegen::codegen::provenance::protocol::{Scope, ScopeKind, normal_relative};
+    let projection = projection(root)?;
+    let mut scopes = vec![Scope {
+        path: PROJECTION.into(),
+        kind: ScopeKind::File,
+    }];
+    for package in projection.packages {
+        ensure!(
+            normal_relative(Path::new(&package)),
+            "physical fixture package input is not repository relative"
+        );
+        scopes.push(Scope {
+            path: package,
+            kind: ScopeKind::Tree,
+        });
+    }
+    Ok(scopes)
+}
 
 pub(super) fn append(root: &Path, registry: &Registry, tree: &mut GeneratedTree) -> Result<()> {
     let physical = load(root, registry)?;
@@ -42,9 +71,7 @@ pub(super) fn append(root: &Path, registry: &Registry, tree: &mut GeneratedTree)
 }
 
 fn load(root: &Path, registry: &Registry) -> Result<Physical> {
-    let configuration = root.join("packages/reference/fixture-projection.toml");
-    let projection: Projection = toml::from_str(&std::fs::read_to_string(&configuration)?)
-        .context("reading explicit physical fixture package inventory")?;
+    let projection = projection(root)?;
     ensure!(
         !projection.packages.is_empty(),
         "physical fixture package selection is empty"

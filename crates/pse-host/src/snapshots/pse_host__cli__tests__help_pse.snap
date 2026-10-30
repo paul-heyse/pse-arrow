@@ -8,6 +8,7 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  owner              Inspect declared generated-output ownership and existing source contributors
   dep                Inspect exact locked dependency identities, features and direct workspace consumers
   artifact           Read an explicit retained file without interpreting its content as a protocol
   outline            Read one Rust file's written declarations or a Markdown document's headings
@@ -43,6 +44,7 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  owner              Inspect declared generated-output ownership and existing source contributors
   dep                Inspect exact locked dependency identities, features and direct workspace consumers
   artifact           Read an explicit retained file without interpreting its content as a protocol
   outline            Read one Rust file's written declarations or a Markdown document's headings

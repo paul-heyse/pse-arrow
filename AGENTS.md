@@ -313,11 +313,14 @@ never in a home directory.
   are immutable; supersede them (`just adr-supersede`) instead.
 - The generated paths in prime directive 2, `external/`, `build/`, `target/`.
 
-A native `PreToolUse` hook (`scripts/pse-host agent-hook guard`) blocks edits to all of these, and
-`.claude/settings.json` denies them again; neither is a shell sandbox, so follow the same
-policy for every other action. When a change to the architecture sections or an accepted ADR
-is genuinely the work, authorize it visibly — create an untracked `.design-edit` file stating
-why (remove it afterwards), or launch with `PSE_DESIGN_EDIT=1` — and say why in the commit.
+A native `PreToolUse` hook (`scripts/pse-host agent-hook guard`) blocks generated output,
+VCS state, build output and reading copies, and names the declared generator route.
+`.claude/settings.json` retains its unconditional deny entries. Architecture and ADR edits
+receive workflow context rather than a permission marker: record architecture revisions in
+`blueprint.md`, and supersede accepted ADRs. Their governing workflows and immutability still
+apply. The generated ownership map comes from `just codegen`; if unavailable, generated
+directories and the exact bindings file remain protected. Neither guard is a shell sandbox,
+so follow the same policy for every action.
 
 ## Personal-project checkout workflow
 

@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Shared native edit protection and nonblocking session environment activation.
-use crate::HostError;
+use crate::{
+    HostError,
+    ownership::{self, OwnershipMap},
+};
 use serde_json::Value;
 use std::{
-    collections::VecDeque,
     ffi::OsStr,
     fs,
     io::{Read, Write},
-    path::{Component, Path, PathBuf},
+    path::{Path, PathBuf},
     process::Command,
 };
 
-/// A visible checkout-local authorization; committed markers never grant authority.
-pub const DESIGN_EDIT_MARKER: &str = ".design-edit";
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(message.into())
 }
@@ -65,65 +65,30 @@ pub fn edit_paths(payload: &Value) -> Result<Vec<String>, HostError> {
     ))
 }
 
-// Resolve existing links even when their final target has not been created yet.
-// Walking path components never traverses directory contents, and a link cycle refuses.
-fn resolve(path: &Path) -> Result<PathBuf, HostError> {
-    let absolute = if path.is_absolute() {
-        path.to_owned()
-    } else {
-        std::env::current_dir()?.join(path)
-    };
-    let mut pending = absolute
-        .components()
-        .map(|component| component.as_os_str().to_owned())
-        .collect::<VecDeque<_>>();
-    let mut resolved = PathBuf::new();
-    let mut links = 0;
-    while let Some(part) = pending.pop_front() {
-        match Path::new(&part).components().next() {
-            Some(Component::CurDir) => {}
-            Some(Component::ParentDir) => {
-                resolved.pop();
-            }
-            Some(Component::RootDir | Component::Prefix(_)) => resolved.push(part),
-            Some(Component::Normal(_)) => {
-                let next = resolved.join(&part);
-                match fs::symlink_metadata(&next) {
-                    Ok(meta) if meta.is_symlink() => {
-                        links += 1;
-                        if links > 40 {
-                            return Err(invalid(
-                                "edit path has a symlink cycle or excessive indirection",
-                            ));
-                        }
-                        let target = fs::read_link(next)?;
-                        if target.is_absolute() {
-                            resolved.clear();
-                        }
-                        for component in target.components().rev() {
-                            pending.push_front(component.as_os_str().to_owned());
-                        }
-                    }
-                    Ok(_) => resolved.push(part),
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                        resolved.push(part)
-                    }
-                    Err(error) => return Err(error.into()),
-                }
-            }
-            None => {}
-        }
-    }
-    Ok(resolved)
+/// An enforced output boundary or advisory source workflow, never edit authorization.
+#[derive(Debug, PartialEq, Eq)]
+pub enum EditRoute {
+    /// Generated/VCS/build output cannot be edited directly.
+    Blocked {
+        /// Actual generator/physical-boundary reason and available next action.
+        reason: String,
+    },
+    /// Ordinary authored edits retain their required design/decision workflow context.
+    Allowed {
+        /// Route context for the original operator, not permission to bypass the workflow.
+        additional_context: Option<String>,
+    },
 }
 
-/// Return the original protection reason, after resolving relative paths and symlinks.
-/// The design exception never authorizes VCS, generated or foreign build output edits.
-pub fn protected(root: &Path, path: &Path, design_edit: bool) -> Result<Option<String>, HostError> {
-    let root = resolve(root)?;
-    let target = resolve(&root.join(path))?;
+/// Evaluate exact path ownership after resolving relative operands and symlinks.
+/// Missing/invalid maps retain generated-path protection without blocking ordinary sources.
+pub fn route(root: &Path, path: &Path) -> Result<EditRoute, HostError> {
+    let root = ownership::resolve(root)?;
+    let target = ownership::resolve(&root.join(path))?;
     let Ok(relative) = target.strip_prefix(&root) else {
-        return Ok(None);
+        return Ok(EditRoute::Allowed {
+            additional_context: None,
+        });
     };
     let parts = relative
         .components()
@@ -135,31 +100,45 @@ pub fn protected(root: &Path, path: &Path, design_edit: bool) -> Result<Option<S
             .iter()
             .any(|name| parts[0] == OsStr::new(name))
     {
-        return Ok(Some(
-            "VCS state, build output and reading copies are protected".into(),
-        ));
+        return Ok(EditRoute::Blocked {
+            reason: "VCS state, build output and reading copies are protected".into(),
+        });
     }
-    let name = relative.to_string_lossy().replace('\\', "/");
-    if [
-        "docs/generated/",
-        "scripts/generated/",
-        "xtask/src/generated/",
-    ]
-    .iter()
-    .any(|prefix| name.starts_with(prefix))
-        || parts[0] == OsStr::new("crates") && parts.contains(&OsStr::new("generated"))
-        || name == "crates/pse-ipopt-sys/src/bindings.rs"
-    {
-        return Ok(Some(
-            "generator output is protected; fix the generator".into(),
-        ));
-    }
-    if !design_edit {
-        if name.starts_with("docs/authoritative_design/") {
-            return Ok(Some(format!(
-                "blueprint edits require the authorized design workflow (PSE_DESIGN_EDIT=1 or an untracked {DESIGN_EDIT_MARKER} file)"
-            )));
+    let map_error = match OwnershipMap::read(&root) {
+        Ok(map) => {
+            if let Some((owner, _)) = map.owner(relative)? {
+                return Ok(EditRoute::Blocked {
+                    reason: format!(
+                        "generated output belongs to {}; change its declared inputs and run {}",
+                        owner.producer,
+                        owner.regenerate.join(" ")
+                    ),
+                });
+            }
+            None
         }
+        Err(error) => Some(error.to_string()),
+    };
+    if parts.contains(&OsStr::new("generated"))
+        || relative == Path::new(ownership::protocol::IPOPT_BINDINGS)
+    {
+        return Ok(EditRoute::Blocked {
+            reason: format!(
+                "generated output owner is unknown{}; run just codegen to refresh the generated ownership map",
+                map_error
+                    .as_ref()
+                    .map_or(String::new(), |error| format!(": {error}"))
+            ),
+        });
+    }
+    let mut context = Vec::new();
+    if let Some(error) = map_error {
+        context.push(format!("Generated ownership map unavailable: {error}. Ordinary authored edits remain available; run just codegen to publish routing."));
+    }
+    if relative.starts_with("docs/authoritative_design") {
+        context.push("Architecture changes require the decision/design workflow and a corresponding blueprint revision row; use docs/README.md and the owning architecture section before editing.".into());
+    }
+    if let Some(name) = relative.to_str() {
         if let Some(filename) = name.strip_prefix("docs/adr/")
             && filename
                 .as_bytes()
@@ -180,32 +159,23 @@ pub fn protected(root: &Path, path: &Path, design_edit: bool) -> Result<Option<S
                 .find_map(|line| line.strip_prefix("status:"))
                 .and_then(|value| value.split_whitespace().next());
             if status != Some("proposed") {
-                return Ok(Some(
-                    "accepted ADRs are immutable; use the ADR supersession workflow".into(),
-                ));
+                context.push("Accepted ADRs remain immutable. Use the ADR supersession workflow and amend the owning architecture with its revision row; this advisory does not authorize changing the accepted record.".into());
+            } else {
+                context.push("Proposed ADR edits retain the ADR authoring/review workflow; acceptance remains a separate decision.".into());
             }
         }
     }
-    Ok(None)
+    Ok(EditRoute::Allowed {
+        additional_context: (!context.is_empty()).then(|| context.join("\n")),
+    })
 }
 
-/// Accept the explicit launch-time selection or a currently untracked visible marker.
-pub fn design_edit_authorized(
-    root: &Path,
-    launch_value: Option<&OsStr>,
-) -> Result<bool, HostError> {
-    if launch_value == Some(OsStr::new("1")) {
-        return Ok(true);
-    }
-    if !root.join(DESIGN_EDIT_MARKER).is_file() {
-        return Ok(false);
-    }
-    let tracked = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["ls-files", "--error-unmatch", DESIGN_EDIT_MARKER])
-        .output()?;
-    Ok(!tracked.status.success())
+/// Enforced protection reason, without conflating advisory design routes with a block.
+pub fn protected(root: &Path, path: &Path) -> Result<Option<String>, HostError> {
+    Ok(match route(root, path)? {
+        EditRoute::Blocked { reason } => Some(reason),
+        EditRoute::Allowed { .. } => None,
+    })
 }
 
 /// Prefer the payload's actual Git checkout for SessionStart, including worktrees.
@@ -286,23 +256,37 @@ pub(crate) fn execute(action: crate::cli::HookAction) -> Result<i32, HostError> 
         }
         return Ok(0);
     }
-    let result: Result<(), HostError> = (|| {
+    let result: Result<Vec<String>, HostError> = (|| {
         read?;
         let payload =
             serde_json::from_str::<Value>(&input).map_err(|error| invalid(error.to_string()))?;
         let paths = edit_paths(&payload)?;
         let root = default_root()?;
-        let design_edit =
-            design_edit_authorized(&root, std::env::var_os("PSE_DESIGN_EDIT").as_deref())?;
+        let mut context = Vec::new();
         for path in paths {
-            if let Some(reason) = protected(&root, Path::new(&path), design_edit)? {
-                return Err(invalid(format!("{path}: {reason}")));
+            match route(&root, Path::new(&path))? {
+                EditRoute::Blocked { reason } => return Err(invalid(format!("{path}: {reason}"))),
+                EditRoute::Allowed {
+                    additional_context: Some(detail),
+                } => context.push(detail),
+                EditRoute::Allowed {
+                    additional_context: None,
+                } => {}
             }
         }
-        Ok(())
+        context.sort();
+        context.dedup();
+        Ok(context)
     })();
     match result {
-        Ok(()) => Ok(0),
+        Ok(context) => {
+            if !context.is_empty() {
+                serde_json::to_writer(std::io::stdout().lock(), &serde_json::json!({"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":context.join("\n")}}))
+                    .map_err(|error| invalid(error.to_string()))?;
+                writeln!(std::io::stdout())?;
+            }
+            Ok(0)
+        }
         Err(error) => {
             writeln!(std::io::stderr(), "BLOCKED: {error}")?;
             Ok(2)

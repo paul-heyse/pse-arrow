@@ -1,0 +1,194 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! Aggregate output routing derived from the generated trees that are actually published.
+use super::{GeneratedTree, provenance};
+use anyhow::{Context, Result};
+use provenance::protocol::{
+    GeneratorOwner, IPOPT_BINDINGS, MAP_PATH, MAP_PRODUCER, OutputMap, Scope, ScopeKind, VERSION,
+};
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
+
+fn scope(path: &Path, kind: ScopeKind) -> Result<Scope> {
+    anyhow::ensure!(
+        provenance::protocol::normal_relative(path),
+        "invalid ownership scope: {}",
+        path.display()
+    );
+    Ok(Scope {
+        path: path
+            .to_str()
+            .context("generated declaration path is not UTF-8")?
+            .into(),
+        kind,
+    })
+}
+fn inputs(root: &Path, producer: &str, tree: &GeneratedTree) -> Result<Vec<Scope>> {
+    let mut paths = BTreeSet::from([
+        scope(Path::new("xtask/src/codegen.rs"), ScopeKind::File)?,
+        scope(Path::new("xtask/src/codegen"), ScopeKind::Tree)?,
+        scope(Path::new("crates/pse-codegen/src"), ScopeKind::Tree)?,
+        scope(Path::new("crates/pse-schema/src"), ScopeKind::Tree)?,
+        scope(Path::new("scripts/generated-outputs.rs"), ScopeKind::File)?,
+    ]);
+    if producer.starts_with("registry-rust") {
+        paths.insert(scope(
+            Path::new("xtask/src/development/catalog"),
+            ScopeKind::Tree,
+        )?);
+        #[cfg(feature = "physical-admission")]
+        for path in super::physical::source_scopes(root)? {
+            paths.insert(path);
+        }
+    }
+    if producer.starts_with("runtime-catalogue") {
+        for path in [
+            "crates/pse-runtime/src",
+            "crates/pse-operations/src",
+            "crates/pse-authoring/src",
+            "xtask/src/development",
+        ] {
+            paths.insert(scope(Path::new(path), ScopeKind::Tree)?);
+        }
+    }
+    for relationship in &tree.relationships {
+        paths.insert(scope(
+            Path::new(&relationship.generator_path),
+            ScopeKind::File,
+        )?);
+        if let Some(path) = &relationship.source_path {
+            paths.insert(scope(Path::new(path), ScopeKind::File)?);
+        }
+    }
+    // `root` is used only by actual physical declaration acquisition when that capability exists.
+    let _ = root;
+    Ok(paths.into_iter().collect())
+}
+fn owner(root: &Path, producer: &str, tree: &GeneratedTree) -> Result<GeneratorOwner> {
+    let outputs = tree
+        .roots
+        .iter()
+        .map(|path| {
+            scope(
+                path,
+                if tree.files.contains_key(path) {
+                    ScopeKind::File
+                } else {
+                    ScopeKind::Tree
+                },
+            )
+        })
+        .collect::<Result<_>>()?;
+    let contributors = if producer.starts_with("registry-") && !producer.ends_with("-provenance")
+        || producer == "runtime-catalogue"
+    {
+        Some(format!(
+            "{}/{producer}/relationships.json",
+            provenance::ROOT
+        ))
+    } else {
+        None
+    };
+    Ok(GeneratorOwner {
+        producer: producer.into(),
+        outputs,
+        regenerate: vec!["just".into(), "codegen".into()],
+        inputs: inputs(root, producer, tree)?,
+        contributors,
+    })
+}
+
+/// Called only for an aggregate population; independent generators preserve the last full map.
+pub(super) fn generate(root: &Path, trees: &[(String, GeneratedTree)]) -> Result<GeneratedTree> {
+    let path = PathBuf::from(MAP_PATH);
+    let mut map_tree = GeneratedTree::empty(vec![path.clone()]);
+    // The real tree declares this exact emitted file before describing its own ownership.
+    map_tree.files.insert(path.clone(), Vec::new());
+    let mut owners = trees
+        .iter()
+        .map(|(producer, tree)| owner(root, producer, tree))
+        .collect::<Result<Vec<_>>>()?;
+    owners.push(GeneratorOwner {
+        producer: "ipopt-native-abi".into(),
+        outputs: vec![scope(Path::new(IPOPT_BINDINGS), ScopeKind::File)?],
+        regenerate: vec!["just".into(), "codegen".into()],
+        inputs: [
+            "Cargo.toml",
+            "xtask/src/codegen/ipopt.rs",
+            "docker/solvers/Dockerfile",
+        ]
+        .into_iter()
+        .map(|path| scope(Path::new(path), ScopeKind::File))
+        .collect::<Result<_>>()?,
+        contributors: None,
+    });
+    let mut map_owner = owner(root, MAP_PRODUCER, &map_tree)?;
+    map_owner.inputs = owners
+        .iter()
+        .flat_map(|owner| owner.inputs.iter().cloned())
+        .chain(map_owner.inputs)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    owners.push(map_owner);
+    owners.sort_by(|a, b| a.producer.cmp(&b.producer));
+    let value = OutputMap {
+        schema_version: VERSION,
+        comment: "@generated by aggregate xtask codegen; do not edit".into(),
+        owners,
+        coverage_limits: vec![
+            "Output scopes come from the actual aggregate generated trees, with the native ABI producer's exact declared file.".into(),
+            "Input scopes are conservative generator and declaration reach; they do not establish exact lineage or complete runtime consumers.".into(),
+            "Contributor sidecars retain their original independent coverage limits and missing authored locations.".into(),
+            "Native ABI headers selected from an external prepared prefix are outside repository-relative input reach.".into(),
+            "This is the last complete aggregate declaration snapshot; dirty generator-source freshness is not asserted. Partial generation preserves this record.".into(),
+        ],
+    };
+    let mut bytes = serde_json::to_vec_pretty(&value)?;
+    bytes.push(b'\n');
+    map_tree.files.insert(path, bytes);
+    Ok(map_tree)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn actual_tree_roots_added_files_and_self_owner_are_retained_without_a_parallel_root_list() {
+        let mut tree = GeneratedTree::empty(vec![
+            "new-owner/output".into(),
+            "new-owner/exact.json".into(),
+        ]);
+        tree.files.insert("new-owner/output/item.rs".into(), vec![]);
+        tree.files.insert("new-owner/exact.json".into(), vec![]);
+        let output = generate(Path::new("."), &[("new-producer".into(), tree)]).unwrap();
+        let map: OutputMap = serde_json::from_slice(&output.files[Path::new(MAP_PATH)]).unwrap();
+        let owner = map
+            .owners
+            .iter()
+            .find(|owner| owner.producer == "new-producer")
+            .unwrap();
+        assert_eq!(
+            owner.outputs,
+            [
+                Scope {
+                    path: "new-owner/output".into(),
+                    kind: ScopeKind::Tree
+                },
+                Scope {
+                    path: "new-owner/exact.json".into(),
+                    kind: ScopeKind::File
+                }
+            ]
+        );
+        assert!(map.owners.iter().any(|owner| {
+            owner
+                .outputs
+                .iter()
+                .any(|scope| scope.path == MAP_PATH && scope.kind == ScopeKind::File)
+        }));
+        assert_eq!(output.roots, [PathBuf::from(MAP_PATH)]);
+    }
+}

@@ -7,6 +7,7 @@
 mod physical;
 
 mod grpc_wire;
+mod ownership;
 mod private_store;
 
 #[cfg(feature = "native-abi")]
@@ -27,7 +28,7 @@ use pse_codegen::codegen::{GeneratedTree, Language, documents, provenance};
 use crate::Target;
 
 #[cfg(feature = "native-abi")]
-const BINDINGS: &str = "crates/pse-ipopt-sys/src/bindings.rs";
+const BINDINGS: &str = provenance::protocol::IPOPT_BINDINGS;
 
 pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
     if only.is_none()
@@ -55,33 +56,38 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     let mut trees = Vec::new();
     for language in languages {
         let tree = language_tree(root, registry, language, only)?;
-        trees.push(provenance::sidecar(
-            &format!("registry-{}", language.as_str()),
-            &tree.relationships,
-        )?);
-        trees.push(tree);
+        let producer = format!("registry-{}", language.as_str());
+        trees.push((
+            format!("{producer}-provenance"),
+            provenance::sidecar(&producer, &tree.relationships)?,
+        ));
+        trees.push((producer, tree));
     }
     if only == Some(Target::Physical) {
         let mut tree =
             GeneratedTree::empty(vec![PathBuf::from("crates/pse-quantity/src/generated")]);
         append_physical(root, registry, &mut tree)?;
         validate_tree(&tree)?;
-        trees.push(tree);
+        trees.push(("physical".into(), tree));
     }
     if matches!(only, None | Some(Target::Schemas)) {
         let tree = document_schemas(registry)?;
         validate_tree(&tree)?;
-        trees.push(provenance::sidecar(
-            "runtime-catalogue",
-            &tree.relationships,
-        )?);
-        trees.push(tree);
+        trees.push((
+            "runtime-catalogue-provenance".into(),
+            provenance::sidecar("runtime-catalogue", &tree.relationships)?,
+        ));
+        trees.push(("runtime-catalogue".into(), tree));
     }
-    for tree in &trees {
+    for (_, tree) in &trees {
         write_tree(root, tree)?;
     }
     if only.is_none() {
         native_abi(root, check)?;
+        let tree = ownership::generate(root, &trees)?;
+        validate_tree(&tree)?;
+        write_tree(root, &tree)?;
+        trees.push(("generated-output-map".into(), tree));
     }
 
     println!(
@@ -147,7 +153,7 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
                     &format!("{label} provenance generation"),
                     provenance::sidecar(&label, &tree.relationships).map_err(anyhow::Error::from),
                 ) {
-                    trees.push((format!("{label} provenance"), sidecar));
+                    trees.push((format!("{label}-provenance"), sidecar));
                 }
                 trees.push((label, tree));
             }
@@ -177,9 +183,9 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
                     provenance::sidecar("runtime-catalogue", &tree.relationships)
                         .map_err(anyhow::Error::from),
                 ) {
-                    trees.push(("document schemas provenance".to_owned(), sidecar));
+                    trees.push(("runtime-catalogue-provenance".to_owned(), sidecar));
                 }
-                trees.push(("document schemas".to_owned(), tree));
+                trees.push(("runtime-catalogue".to_owned(), tree));
             }
         }
     } else {
@@ -195,6 +201,22 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
         if matches!(only, None | Some(Target::Schemas)) {
             failures.push(
                 "document schemas generation: blocked by registry assembly failure".to_owned(),
+            );
+        }
+    }
+    if only.is_none() {
+        if failures.is_empty() {
+            if let Some(tree) = check_result(
+                &mut failures,
+                "generated ownership map generation",
+                ownership::generate(root, &trees),
+            ) {
+                trees.push(("generated-output-map".into(), tree));
+            }
+        } else {
+            failures.push(
+                "generated ownership map: blocked by incomplete aggregate generator population"
+                    .into(),
             );
         }
     }
