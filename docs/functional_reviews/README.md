@@ -24,8 +24,10 @@ A same-day follow-up revision, using the corrected clap overview, adds:
 - a staged recommended-to-required adoption path enforced through both harnesses' shell hooks;
 - a worktree lifecycle and one checkout-scoped results store.
 
-It records rule impacts against Plan58, ADR-0233, ADR-0149 and CLAUDE.md. It changes no plan,
-implementation or qualification status.
+An enablement pass proposes changing the directions that cost agents effort: Plan58's
+optional-CLI stance, ADR-0233 narrowings, protected documents that block instead of inform,
+coordinator-only commits, and manual worktree setup. It changes no plan, implementation or
+qualification status.
 
 The [SurrealDB state, execution and coordination review](surrealdb-state-execution-boundaries-2026-10-29.md)
 compares the two supplied placement proposals with Plan58 and the effective patched database.

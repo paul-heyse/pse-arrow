@@ -21,9 +21,16 @@ doc_topics: [environment, libraries, design, current-work]
 >   [adoption path](#adoption-path) and O22.
 >
 > The follow-up amends O01, O04, O06, O07, O11 and O14 in place, keeps every earlier ID, and
-> updates the order of work, rule impacts and delivery statements. Its companion-crate checks
+> updates the order of work, proposed direction changes and delivery statements. Its companion-crate checks
 > include a scratch probe of rustdoc JSON on the pinned nightly. A fresh design-reviewer assessed
 > the delta; its corrections are integrated.
+>
+> **Enablement pass (same day).** This review serves agent enablement, not compliance. Where a
+> current rule or direction costs agents effort without a clear return, the review now proposes
+> changing the rule. It no longer designs around it. See
+> [Direction changes proposed](#direction-changes): worktrees are allowed without re-review,
+> protected documents inform instead of block, any agent may commit its own paths, and a stale
+> host rebuilds itself.
 
 ## Judgment and evidence boundary
 
@@ -72,8 +79,8 @@ explicitly not recommended ([Not recommended](#not-recommended)).
   Rust CLI.
 - The retired interfaces are an idea source, not a baseline or a replacement list.
 - The target is the best-in-class interface for Codex and Claude. Where current rules conflict,
-  they are recorded as rule impacts needing a decision, not treated as limits on the target
-  ([Rule impacts](#rule-impacts-and-decisions-needed)).
+  the review proposes changing the rule rather than treating it as a limit on the target
+  ([Direction changes](#direction-changes)).
 
 **What was inspected:**
 - Source baseline `6dc84501d`, inspected 2026-10-29 with an uncommitted working tree.
@@ -84,9 +91,9 @@ explicitly not recommended ([Not recommended](#not-recommended)).
   [tracing](../libraries/rust-tracing.md), [thiserror+miette](../libraries/thiserror_and_miette.md),
   [tokio](../libraries/tokio.md), [indicatif](../libraries/indicateif.md) and
   [figment](../libraries/figment.md).
-- [`clap.md`](../libraries/clap.md) is byte-identical to `futures.md` and contains no clap
-  material. clap was researched from Context7, docs.rs and the pinned `clap_builder-4.6.7`
-  source instead.
+- [`clap.md`](../libraries/clap.md) was read end to end in the follow-up. At the first pass it
+  duplicated `futures.md`, so clap was then researched from Context7, docs.rs and the pinned
+  `clap_builder-4.6.7` source.
 - Consequential details were checked against pinned crate sources, local tool help and upstream
   documentation: nextest 0.9.146, figment 0.10.19, indicatif 0.18.6 and tracing-indicatif
   0.3.14.
@@ -653,10 +660,10 @@ Each returns within its budget and names the failing recipe and its first error 
 - **Composite runs.** `run-all`-style bundles (`hygiene`, `turn-end`, `ready`) give each child its
   own run ID, recorded by the parent. The hygiene answer is then "child `clippy-default` failed:
   first error …".
-- **Cancel.** `pse cancel <run>` stops a detached run. Under ADR-0233, stop authority belongs to
-  the exact bus client in `Unit.Refs`, and `RefUnit` is never issued. A later `pse` holds only a
-  borrowed view, so transferring stop authority through the ledger needs an ADR-0233 decision
-  ([Rule impacts](#rule-impacts-and-decisions-needed)).
+- **Cancel.** `pse cancel <run>` stops a detached run that the user's ledger records. ADR-0233
+  currently gives stop authority only to the exact bus client in `Unit.Refs`, so a later `pse`
+  could not cancel. The review proposes that the ledger's record is the authority for detached
+  runs ([Direction changes](#direction-changes)).
 - **Run kinds.** Cargo, nextest and xtask runs have extractors. Generic commands, including
   `codex exec` workers, record exit, duration, log tail and declared output files such as
   `--output-last-message`.
@@ -983,9 +990,9 @@ tell every worker to read `worker.md` and `executor.md` from disk.
 1. **Generate the role contracts into each Codex agent's `developer_instructions`** from
    `.agents/roles/*`, using the existing `xtask agent-config`. `agent-config-check` (run by
    `just lint-agents`) keeps them in sync, and `.agents/roles` stays the single authority.
-   - This needs a decision. CLAUDE.md says native definitions "load shared contracts rather than
-     copying role behavior". A generated embedding is not a hand copy, but the rule's wording
-     should be amended.
+   - CLAUDE.md's "load shared contracts rather than copying role behavior" would block this.
+     Change that wording, since a generated, checked embedding costs agents nothing and saves
+     every worker a startup read ([Direction changes](#direction-changes)).
 2. **Slim `docs/plans/README.md`** into a short current-work pointer. Agents read it as
    orientation; it is currently a 32 KB index.
 3. **Claude's SessionStart hook** (`agent-hook session-env`) can append a compact
@@ -1028,7 +1035,8 @@ without changing anything.
 - For repeated structural Rust changes, use `ast-grep run --pattern … --rewrite … --update-all`.
   It is already installed (`~/.cargo/bin/ast-grep`) and configured (`sgconfig.yml`, used by
   `lint-ast`), and it reports its matches.
-- When a script edit is unavoidable, it must assert the expected match count before writing.
+- Tip for unavoidable script edits: assert the expected match count before writing, so a missed
+  needle fails loudly instead of silently changing nothing.
 - Put this in one line of AGENTS.md's tooling guidance, plus a short example in
   `.claude/rules/tooling.md`.
 
@@ -1044,9 +1052,12 @@ without changing anything.
   its existing `flock`.
 - Each generation records a source fingerprint covering the whole host path-dependency closure,
   plus `Cargo.lock`, `rust-toolchain.toml` and `.cargo/config.toml`.
-- `pse doctor` and `pse status` report a stale host as a typed diagnostic whose `next` is
-  `scripts/bootstrap-host`.
-- Stale tools are never rebuilt implicitly, consistent with ADR-0233.
+- **A stale host rebuilds itself.** Effectful `pse` verbs rebuild a stale host before running:
+  an incremental `scripts/bootstrap-host`, then a re-exec of the new generation. Read-only verbs
+  (help, status, explain) only report it. Today an agent working on the host reruns
+  `bootstrap-host` by hand (62 times in one day) and sometimes tests a stale binary. ADR-0233's
+  "launch never builds" would block this, so the review proposes narrowing that rule to read-only
+  verbs ([Direction changes](#direction-changes)).
 
 <a id="O14"></a>
 ### O14 — Citations and document scaffolds
@@ -1121,15 +1132,14 @@ committing in a shared tree.
   - It gets a `Cargo.lock` seeded from the workspace lock, so nothing is re-resolved, and the
     workspace's feature selections for the named crates.
   - `pse probe run` compiles and runs it through the ordinary placement path.
-  - A probe consuming Arrow types runs through the correctness adapter's force-validation like
-    any other Arrow consumer. A probe is a disposable check, never correctness evidence.
+  - Probes are throwaway: `pse probe rm`, or pruned with session scratch.
 
 **Mechanisms** (*Interface-checked*; the format match is *Measured*):
 - **rustdoc format.** `rustdoc-types` 0.61.0 (`FORMAT_VERSION = 61`) matches nightly-2026-09-29,
   which a scratch probe confirmed by generating JSON for a locked dependency.
   - Readers check `format_version` first.
-  - Add a hold in `[workspace.metadata.pse.pins]` tying `rustdoc-types` to the toolchain date, so
-    the two move together.
+  - Bump `rustdoc-types` with the toolchain date. `pse api` reports a format mismatch as one
+    clear diagnostic naming the fix.
 - **Try first:** `rustdoc-mcp` 0.10.0 (rustdoc-types ^0.61), an existing MCP server for item
   lookup. The trial must confirm that it builds through the checkout's pinned toolchain, not
   `+nightly`. If it works for both harnesses, `pse api` shrinks to producing the locked-version
@@ -1164,12 +1174,17 @@ bypass the edit tools the guard covers, which makes a proper route more importan
   - accepted ADR → `just adr-supersede`;
   - code → its crate and the plan that owns current work there.
 - **Guard messages.** The edit guard's `BLOCKED` message includes the same answer.
-- **`pse design-edit start "<reason>"` / `stop`** manages the untracked `.design-edit` file the
-  guard already honours:
-  - it records the reason;
-  - `pse status` lists it while active;
-  - `stop` removes it;
-  - [O18](#O18) prompts for the reason in the commit message.
+- **Inform, don't block, for documents.** Generated paths stay blocked, because an edit there is
+  simply lost at the next regeneration. Architecture sections and accepted ADRs would no longer be
+  blocked. The guard would add context instead: "this is the authoritative design; add a
+  `blueprint.md` revision row", or "accepted ADR: supersede with `just adr-supersede`".
+  - Today's `.design-edit` file and `PSE_DESIGN_EDIT=1` launch flag exist only to get past a
+    block.
+  - Codex worked around the block with shell writes (23 inline `PSE_DESIGN_EDIT=1` uses in a day,
+    which never reached the guard).
+  - With a nudge in place of the block, `pse design-edit` is unnecessary. The decision routes stay
+    the same; agents simply aren't stopped on the way to following them
+    ([Direction changes](#direction-changes)).
 
 **Mechanisms.**
 - Today the guard's `protected()` is a set of inline prefix predicates, with no mapping to
@@ -1218,17 +1233,16 @@ pushes.
   it refreshes only those entries in the shared index.
 - **Hunk IDs** are content hashes printed by `pse changes`. If a hunk changed since it was listed,
   the commit is refused.
-- **Formatting** is check-only. It reports unformatted named files and does not rewrite them,
-  following the execution rhythm in which only the root formats, at `just turn-end`. `rustfmt`
-  rewrites whole files, including other agents' edits.
+- **Formatting.** It formats the named files when they are committed whole, because the whole file
+  is going into the commit anyway. In hunk mode it only reports, since rewriting the file would
+  touch lines outside the chosen hunks.
 - **Drift check.** It runs `codegen-check` scoped to any generator whose inputs are among the
   paths.
 - **Attribution** comes from the harness. Trailers are passed with `--trailer` and applied with
   `git interpret-trailers`; `pse` never invents model-specific text.
-- **Output.** The envelope reports the staged diffstat and any active `.design-edit` reason
-  ([O16](#O16)).
-- **Who may commit.** Per AGENTS.md, the coordinator or an agent it explicitly delegates commits
-  to ([Rule impacts](#rule-impacts-and-decisions-needed)).
+- **Output.** The envelope reports the staged diffstat.
+- **Who may commit.** Any agent may commit its own paths. The private index removes the race that
+  made "the coordinator owns the shared index" necessary ([Direction changes](#direction-changes)).
 
 <a id="O19"></a>
 ### O19 — Test discovery
@@ -1318,11 +1332,11 @@ later, but not immediately. Both harnesses can enforce this through one mechanis
 <a id="O22"></a>
 ### O22 — Staged adoption hooks
 
-| Stage | Instructions | Hook behaviour | Readiness to advance |
+| Stage | Instructions | Hook behaviour | Covers |
 | --- | --- | --- | --- |
-| **Recommended** (at first delivery) | AGENTS.md "Start here" routes through `pse`. Recipes for covered work delegate to `pse`. Every envelope carries `next` commands in `pse` form. | None. | — |
+| **Recommended** (at first delivery) | AGENTS.md "Start here" routes through `pse`. Recipes for covered work delegate to `pse`. Every envelope carries `next` commands in `pse` form. | None. | Everything `pse` does. |
 | **Strongly recommended** (once O02–O05 cover the episodes in this review) | The same, plus the environment guide marks the raw forms as legacy. | `pse agent-hook shell` adds `additionalContext` naming the `pse` equivalent, but never blocks. | Covered raw forms are handled: bare `cargo test` and direct adapter nextest runs, `tail` and `ps` polling of run logs, hand-set `PSE_NATIVE_FIXTURE_*`/`PSE_WORKER_BINARY`, and `> /tmp/*.log &`-style launches. |
-| **Required** (after coverage is complete and envelopes are stable) | AGENTS.md states that `pse` is the agent interface for covered work; bare tools remain for uncovered work. | The hook denies covered raw forms with the exact `pse` replacement. Uncovered commands always pass. An explicit `PSE_RAW=1` prefix is the escape hatch for diagnosis. | The required stage needs the rule amendments below. |
+| **Required** (after coverage is complete and envelopes are stable) | AGENTS.md states that `pse` is the agent interface for covered work; bare tools remain for uncovered work. | The hook denies covered raw forms with the exact `pse` replacement. Uncovered commands always pass. An explicit `PSE_RAW=1` prefix is the escape hatch for diagnosis. | The same raw forms. |
 
 **Hook behaviour.**
 - **Fails open.** The new handler fails open on its own errors: a crash or timeout allows the
@@ -1332,9 +1346,6 @@ later, but not immediately. Both harnesses can enforce this through one mechanis
   commands (`&&`, `;`, `|`) and the `scripts/pse-env [flags] --` wrapper, and matches the
   resulting command shapes.
 - **Conservative.** A false block costs more than a missed nudge.
-- **Gap signal.** Each `PSE_RAW=1` use is recorded in the run store ([O24](#O24)). Repeated raw
-  use marks work `pse` does not yet cover. Agents judge from that signal; no measurement campaign
-  is involved.
 - **Codex tool names.** Check which tool names Codex `PreToolUse` actually reports. Shell commands
   arrive as `Bash`. Edits arrive as `apply_patch`, which Codex documents `Edit`/`Write` as
   aliases for. Confirm that the existing edit matcher fires.
@@ -1361,11 +1372,10 @@ place where a new worktree ends up half-prepared.
 **Proposed: `pse worktree new <name> [--base REF] [--branch B] [--warm]`.**
 1. Run `git worktree add`.
 2. Copy `.envrc.local` with mode 600.
-3. Run `direnv allow` only if the new checkout's `.envrc` is byte-identical to the source
-   checkout's allowed one. Otherwise it reports the deliberate review step instead.
-4. Prepare host tools with `scripts/bootstrap-host --from <source-checkout>`, which copies a
-   generation when fingerprints match ([O13](#O13)). `bootstrap-host` stays the only publisher
-   of `target/host-tools` (ADR-0233 seed contract).
+3. Run `direnv allow` for the new checkout. It is the same repository; nothing needs
+   re-reviewing.
+4. Prepare host tools with `scripts/bootstrap-host --from <source-checkout>`, which copies the
+   generation when fingerprints match ([O13](#O13)). A copy takes seconds; a rebuild is cold.
 5. Select the already-prepared native provider generations from the shared cache.
 6. Register the checkout in the store ([O24](#O24)).
 7. With `--warm`, start a detached `pse check --workspace` through the shared sccache.
@@ -1376,8 +1386,8 @@ place where a new worktree ends up half-prepared.
 **Listing and removal.**
 - `pse worktree list` shows each worktree's branch, ahead/behind, dirty state, live runs and last
   activity.
-- `pse worktree rm <name>` refuses unless the branch is merged and clean, or `--force` is given
-  with a reason. It keeps the worktree's run history.
+- `pse worktree rm <name>` removes the worktree. It warns, and needs `--force`, only when
+  uncommitted changes or unmerged commits would be lost. It keeps the worktree's run history.
 
 It never shares `target/` (ADR-0122) and never sets `CARGO_TARGET_DIR`.
 
@@ -1481,7 +1491,7 @@ The operator intends to plan and execute all of these. The order follows depende
 3. **[O03](#O03):** the corrected property set, admission for detached runs, `wait`, `result`,
    `log`, `cancel` and `history`, composite runs, and output extraction.
 
-   Take the ADR-0233 stop-authority decision here. [O20](#O20) handoff and its compaction hooks
+   The ledger becomes the stop authority here ([direction change 3](#direction-changes)). [O20](#O20) handoff and its compaction hooks
    follow from the ledger.
 4. **[O04](#O04) and [O19](#O19):**
    - host-resident `affected`;
@@ -1501,7 +1511,7 @@ The operator intends to plan and execute all of these. The order follows depende
    - [O18](#O18) `commit`.
 7. **[O22](#O22) stages:**
    - *strongly recommended* hooks once steps 3–5 cover the episodes in this review;
-   - *required* once step 6 is complete and the rule amendments below are decided.
+   - *required* once step 6 is complete and the [direction changes](#direction-changes) are adopted.
 8. **The `pse-host` → `pse` rename of the hook path**, if still wanted, landing atomically with
    `just setup-test`.
 
@@ -1516,31 +1526,60 @@ The operator intends to plan and execute all of these. The order follows depende
 - O14, O16 and O07 share citation, ownership and rule resolution.
 - O22's hooks reuse the edit-guard entry point (`agent-hook`) and name O02 `next` commands.
 
-## Rule impacts and decisions needed
+<a id="direction-changes"></a>
+## Direction changes proposed
 
-| Current rule | Conflict | Decision route |
-| --- | --- | --- |
-| Plan58 §Purpose: "CLIs are optional conveniences… No broad command framework, universal operation catalogue or agent execution engine is selected." The Plan58 Outcome repeats this ("No second scheduler, universal command catalogue, mandatory CLI/MCP…"). | O01–O08 make a CLI the primary agent interface, with one framework and owned runs. | Operator decision, then a Plan58 coordinator amendment. The catalog is derived (O06); supervision is per-run, not a scheduler (O03). |
-| ADR-0233 (proposed), status history: "no per-test supervisor or second CLI grammar is selected" | O01 is one CLI grammar; O03 adds `__supervise`/`__finalize` per detached run. | Amend ADR-0233 before acceptance, or a short superseding ADR. |
-| ADR-0233 ownership: stop authority is the exact bus client in `Unit.Refs`; `RefUnit` never issued | `pse cancel` from a later process needs authority transferred through the ledger. | The same ADR amendment, with an explicit stop-authority rule for detached runs. |
-| Plan58, 58b and 58h: bespoke build observation and its wait/freshness consumers retire; 58b deviations retire telemetry query/watch wrappers; the environment guide's §Detached watches retires invocation-watch cursors | O03 reintroduces wait and result consumers for owned runs. | Operator decision. 58h's acceptance wording already supports this framing: "native compiler/Cargo/nextest diagnostics replace bespoke build observation". Amend 58b and 58h to separate terminal-outcome supervision of owned runs from build-stage telemetry. |
-| Plan58 I09: universal catalogue declined | O06 publishes a catalog. | Confirm that a parser-derived catalog satisfies I09. |
-| Blueprint §21.7 and §24.1 (ADR-0233 block): no mandatory or full CLI follows | `pse` becomes the documented agent route. Products remain callable without it. | ADR amending §21.7/§24.1 wording with a `blueprint.md` revision row. |
-| Blueprint §24.1 P00 / Plan53: managed commands exit 0 only on a complete reconciled pass | Not a conflict. O04 is its Rust owner after the Python reconciliation was retired. | Record O04 as realizing the accepted target. |
-| CLAUDE.md: native agent definitions "load shared contracts rather than copying role behavior" | O10 generates role contracts into Codex `developer_instructions`. | Amend the wording to allow generated, checked embedding with a single authority. |
-| AGENTS.md: "Recipes are shortcuts, not gates" and "Bare tools are first-class too" | Compatible at the *recommended* and *strongly recommended* stages. The *required* stage ([O22](#O22)) denies covered raw forms. | Amend AGENTS.md and the environment guide when *required* is adopted, keeping uncovered work and the `PSE_RAW=1` escape. |
-| Operator direction, 2026-10-29: the CLI is strongly recommended now and required later | Supersedes Plan58 §Purpose's "CLIs are optional conveniences" for agent-facing development work. Products remain callable without the CLI. | Record it in the Plan58 coordinator amendment above. The *required* stage also needs the §21.7/§24.1 ADR. |
-| ADR-0149 (accepted): agent effects are bounded by role contracts alone; native role files carry no permission restrictions | A repository-wide shell hook that denies covered raw forms is a permission-like restriction outside role contracts. The existing edit guard is the precedent. | Decide with the *required* stage, either amending ADR-0149 or framing the hook as the guard's established mechanism. |
-| ADR-0161 (accepted): no end-of-turn hooks | Not a conflict. [O20](#O20), [O22](#O22) and [O25](#O25) use `PreToolUse`, `PreCompact`, `SessionStart` and Codex `SubagentStart`, not end-of-turn hooks. | None. |
-| Codex hook trust | Project hooks run only after a one-time `/hooks` trust, and a changed hook is skipped until re-trusted. | An operational step in the delivery of O20, O22 and O25, documented in the environment guide. |
-| ADR-0122 and AGENTS.md "one feature set per dependency" | Compatible as designed. clap's `deprecated` feature is not enabled for linting alone, and `env`/`string`/`unstable-ext` unify into every clap consumer. | None; recorded so that a lint-only clap feature is never added later. |
-| AGENTS.md execution rhythm (formatting only at `just turn-end`) and "the coordinator owns the shared index" | [O18](#O18) `pse commit` is check-only for formatting and commits through a private index. Use by a non-coordinator agent needs explicit delegation. | Update AGENTS.md routing when O18 lands: `pse commit` is the coordinator's tool, or a delegated agent's. |
-| Environment guide §Worktrees: supply `.envrc.local` and review/allow direnv deliberately | [O23](#O23) automates the copy and allows only a byte-identical `.envrc`. Any other case still requires the deliberate review. | Amend §Worktrees when O23 lands. |
-| `[workspace.metadata.pse.pins]` | [O15](#O15) ties `rustdoc-types` to the pinned nightly's rustdoc JSON format. | Add a pins hold row with the reason and a revisit trigger ("toolchain date move"). |
+These are the current rules and directions that would cost agents effort under this design. Each
+entry proposes the change, in the form "change it, because…". The operator already decided
+the first one; the rest go through the ordinary plan-amendment or ADR route as one batch, not as
+gates on the work.
 
-New dependencies (tracing-subscriber `json`, clap `env`/`unstable-ext`, schemars `raw_value`,
-optionally `tracing-indicatif`) need no ADR under the dependency policy. Using the existing
-`pse-host` crate avoids the ADR and design review a new crate would need.
+1. **The CLI becomes the agent interface.** Plan58 §Purpose and its Outcome say "CLIs are optional
+   conveniences", with no command framework, universal catalogue or agent execution engine.
+   - Replace that with the operator's 2026-10-29 direction: strongly recommended now, required
+     later.
+   - The catalog is derived from the parser (O06), not authored, so the I09 "universal
+     catalogue" concern does not apply.
+   - Blueprint §21.7/§24.1's "no mandatory CLI" changes at the *required* stage. Products stay
+     callable without it.
+2. **Owned-run supervision is not build observation.** Plan58, 58b and 58h retired bespoke build
+   observation along with its wait and freshness consumers. The environment guide retired watch
+   cursors.
+   - Keep build-stage telemetry retired.
+   - Explicitly allow [O03](#O03)'s terminal-outcome supervision of runs agents start. Polling
+     logs by hand is the measured cost it removes.
+3. **ADR-0233, three narrowings:**
+   - **CLI grammar.** Allow one CLI grammar and a per-run supervisor; the status history says
+     neither was selected.
+   - **Stop authority.** Let the ledger's record be the stop authority for detached runs, so any
+     `pse` in the user's session can cancel them ([O03](#O03)).
+   - **"Launch never builds".** Narrow it to read-only verbs, so effectful verbs rebuild a stale
+     host instead of running it ([O13](#O13)).
+4. **Protected documents inform instead of block.** AGENTS.md "Off-limits" and the edit guard
+   block architecture sections and accepted ADRs unless `.design-edit` or `PSE_DESIGN_EDIT=1` is
+   set.
+   - Keep blocking generated paths, where edits are genuinely lost.
+   - For documents, replace the block with context naming the route. Agents then follow it
+     without workarounds ([O16](#O16)).
+5. **Any agent commits its own paths.** AGENTS.md says the coordinator owns the shared index and
+   formatting happens only at `just turn-end`. [O18](#O18)'s private index and whole-file
+   formatting remove the reasons for both rules for paths being committed.
+6. **Generated role instructions.** Allow generated, checked embedding of `.agents/roles/*` into
+   Codex `developer_instructions` ([O10](#O10)). CLAUDE.md's "load shared contracts rather than
+   copying role behavior" currently forbids it.
+7. **Worktrees are ready on creation.** Replace the environment guide's manual §Worktrees steps
+   (supply `.envrc.local` and review/allow direnv "deliberately") with `pse worktree new`, which
+   does all of it ([O23](#O23)).
+8. **The required stage's hook.**
+   - AGENTS.md "Bare tools are first-class too" yields to `pse` for covered work only; uncovered
+     work and the `PSE_RAW=1` escape stay.
+   - ADR-0149 limits agent effects to role contracts. Extend it to repository hooks that steer
+     covered raw forms, as the edit guard already does ([O22](#O22)).
+
+Nothing else in this review needs a rule change:
+- the new dependencies (tracing-subscriber `json`, clap `env`/`string`/`unstable-ext`, schemars
+  `raw_value`, `clap-cargo`, `rustdoc-types`) are ordinary pin moves;
+- reusing the `pse-host` crate avoids a new crate.
 
 ## What would demonstrate delivery
 
