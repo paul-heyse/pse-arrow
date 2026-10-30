@@ -28,15 +28,6 @@ pub use ancestry::{ManagedParent, parent};
 mod leader;
 pub(crate) use leader::{PayloadLeader, current_payload};
 
-/// The foreground origin remains a live lifetime owner; detachment explicitly omits that lease.
-#[derive(Clone, Copy, Debug)]
-pub enum LaunchMode {
-    /// The exact original launching process remains a required lifetime lease.
-    Foreground,
-    /// The acknowledged service survives the launching process.
-    Detached,
-}
-
 /// Already resolved generic command inputs. Test/compiler workflow owners use their own
 /// reconciliation routes; a successful generic command cannot establish their acceptance.
 pub struct ManagedRequest {
@@ -50,8 +41,6 @@ pub struct ManagedRequest {
     pub selection: Selection,
     /// Explicit caller observation policies.
     pub policy: PayloadPolicy,
-    /// Foreground origin lease or explicit detached lifetime.
-    pub mode: LaunchMode,
     /// Actual checked parent member, captured before publishing child metadata.
     pub parent: Option<ManagedParent>,
 }
@@ -61,7 +50,6 @@ impl std::fmt::Debug for ManagedRequest {
             .field("invocation", self.directory.id())
             .field("command", &self.command)
             .field("policy", &self.policy)
-            .field("mode", &self.mode)
             .finish_non_exhaustive()
     }
 }
@@ -75,7 +63,6 @@ pub(super) struct LaunchRecord {
     pub(super) controller: LaunchIntent,
     control: PreparedGeneration,
     request_digest: String,
-    origin: Option<ProcessIdentity>,
     pub(super) policy: PayloadPolicy,
     #[serde(default)]
     parent: Option<ancestry::ParentRecord>,
@@ -322,7 +309,6 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
         command,
         selection,
         policy,
-        mode,
         parent,
     } = request;
     let root = std::fs::canonicalize(root)?;
@@ -355,10 +341,6 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
             "nested parent differs from original child metadata",
         ));
     }
-    let origin = match mode {
-        LaunchMode::Foreground => Some(current_identity()?),
-        LaunchMode::Detached => None,
-    };
     let base = HostPaths::new(&command.environment).base(UserDirectory::State)?;
     if !base.is_absolute() {
         return Err(invalid("managed state base must be absolute"));
@@ -380,7 +362,6 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
         controller: controller.clone(),
         control,
         request_digest: private.digest()?,
-        origin,
         policy,
         parent: parent.as_ref().map(|parent| parent.record.clone()),
     };
@@ -519,43 +500,6 @@ pub(super) async fn context(
     })
 }
 
-struct OriginLease(tokio::io::unix::AsyncFd<std::os::fd::OwnedFd>);
-impl OriginLease {
-    #[allow(
-        unsafe_code,
-        reason = "Tokio pidfd registration requires exclusive descriptor ownership"
-    )]
-    fn acquire(identity: &ProcessIdentity) -> Result<Self, HostError> {
-        let matches = || {
-            matches!(ProcessReader::default().process(identity.pid),
-            ProcessRead::Present(facts) if facts.identity == *identity)
-        };
-        if !matches() {
-            return Err(invalid("original foreground origin is absent or changed"));
-        }
-        let pid = i32::try_from(identity.pid)
-            .ok()
-            .and_then(rustix::process::Pid::from_raw)
-            .ok_or_else(|| invalid("original foreground origin PID is invalid"))?;
-        let fd = rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty())
-            .map_err(std::io::Error::from)?;
-        if !matches() {
-            return Err(invalid("foreground origin changed during lease attachment"));
-        }
-        // SAFETY: OwnedFd is moved exclusively into AsyncFd. Its raw descriptor is never
-        // exposed, replaced or closed until AsyncFd unregisters and drops that owner.
-        let fd = unsafe {
-            tokio::io::unix::AsyncFd::register_with_interest(fd, tokio::io::Interest::READABLE)
-        }
-        .map_err(std::io::Error::from)?;
-        Ok(Self(fd))
-    }
-    async fn ended(&self) -> Result<(), HostError> {
-        let _ = self.0.readable().await?;
-        Ok(())
-    }
-}
-
 /// Actual hidden service main. Parsing/entry policy belongs to the CLI; this path never builds.
 pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostError> {
     let context = context(&root, &id).await?;
@@ -592,12 +536,6 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
     {
         return Err(invalid("private input policy differs from original launch"));
     }
-    let lease = context
-        .record
-        .origin
-        .as_ref()
-        .map(OriginLease::acquire)
-        .transpose()?;
     let cancellation = CancellationToken::new();
     let finished = CancellationToken::new();
     let signal_cancel = cancellation.clone();
@@ -610,17 +548,6 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
             _ = terminate.recv() => signal_cancel.cancel(),
             () = signal_finished.cancelled() => {},
         }
-    });
-    let origin_cancel = cancellation.clone();
-    let origin_finished = finished.clone();
-    let origin = tokio::spawn(async move {
-        if let Some(lease) = lease {
-            tokio::select! {
-                result = lease.ended() => { origin_cancel.cancel(); result?; },
-                () = origin_finished.cancelled() => {},
-            }
-        }
-        Ok::<_, HostError>(())
     });
     let trampoline = context.record.control.executable(&root, HostTool::Host)?;
     let (send_report, mut receive_report) = tokio::sync::oneshot::channel();
@@ -654,15 +581,10 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
     )
     .await;
     finished.cancel();
-    let (signals, origin) = tokio::join!(signals, origin);
+    let signals = signals.await;
     let mut failures = Vec::new();
     if let Err(error) = signals {
         failures.push(HostError::Task(error));
-    }
-    match origin {
-        Ok(Ok(())) => {}
-        Ok(Err(error)) => failures.push(error),
-        Err(error) => failures.push(HostError::Task(error)),
     }
     if hierarchy.timed_out {
         failures.push(HostError::Deadline(

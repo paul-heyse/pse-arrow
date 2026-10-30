@@ -108,7 +108,6 @@ async fn nested_crash_parent_entry() {
             drain: Duration::from_secs(10),
             write: Duration::from_secs(2),
         },
-        mode: LaunchMode::Detached,
         parent: Some(parent),
     })
     .await
@@ -127,7 +126,9 @@ async fn nested_crash_parent_entry() {
             ProcessRead::Present(facts) => facts.identity,
             facts => panic!("original escaped nested descendant unavailable: {facts:?}"),
         };
-        let escaped_lease = OriginLease::acquire(&escaped)?;
+        let pid = rustix::process::Pid::from_raw(escaped.pid as i32).unwrap();
+        let escaped_fd = rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty()).map_err(std::io::Error::from)?;
+        assert!(matches!(ProcessReader::default().process(escaped.pid), ProcessRead::Present(facts) if facts.identity == escaped));
         let controller: ControllerRecord =
             directory.evidence(InvocationEvidence::Controller)?.unwrap();
         assert_eq!(controller.process.pid, launched.observation.main_pid);
@@ -136,9 +137,12 @@ async fn nested_crash_parent_entry() {
             .unit
             .kill_and_drain(Instant::now() + Duration::from_secs(20))
             .await?;
-        tokio::time::timeout(Duration::from_secs(2), escaped_lease.ended())
-            .await
-            .map_err(|_| HostError::Deadline("original escaped nested descendant exit".into()))??;
+        let exited = tokio::task::spawn_blocking(move || {
+            let mut fds = [rustix::event::PollFd::new(&escaped_fd, rustix::event::PollFlags::IN)];
+            let timeout = rustix::event::Timespec::try_from(Duration::from_secs(2)).unwrap();
+            rustix::event::poll(&mut fds, Some(&timeout))
+        }).await.map_err(HostError::Task)?.map_err(std::io::Error::from)?;
+        assert_eq!(exited, 1, "original escaped descendant did not exit");
         let result = store
             .result::<serde::de::IgnoredAny, ManagedSummary>(&id)?
             .unwrap();

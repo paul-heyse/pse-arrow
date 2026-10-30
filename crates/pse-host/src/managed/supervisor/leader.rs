@@ -12,6 +12,7 @@ pub(crate) struct PayloadLeader {
     root: PathBuf,
     id: CliInvocationId,
     store: InvocationStore,
+    #[cfg(test)]
     directory: Arc<InvocationDirectory>,
     _membership: crate::manager::CurrentMembership,
     _manager: HostManager,
@@ -23,6 +24,7 @@ impl PayloadLeader {
     pub(crate) fn invocation_id(&self) -> &CliInvocationId {
         &self.id
     }
+    #[cfg(test)]
     pub(crate) fn directory(&self) -> &Arc<InvocationDirectory> {
         &self.directory
     }
@@ -119,6 +121,7 @@ pub(crate) async fn current_payload(environment: &Environment) -> Result<Payload
         root,
         id,
         store,
+        #[cfg(test)]
         directory,
         _membership: membership,
         _manager: manager,

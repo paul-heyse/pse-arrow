@@ -3,7 +3,7 @@
 //! Fixed native workflow input and required producer protocol, separate from physical drain.
 use super::{payload::PayloadCommand, supervisor};
 use crate::{
-    HostError,
+    HostError, HostManager,
     envelope::CliInvocationId,
     generation::{HostTool, PreparedGeneration},
     invocation::{InvocationDirectory, InvocationEvidence},
@@ -149,25 +149,69 @@ fn input(
 /// Internal entry: authenticate the actual original payload leader before any compilation.
 pub(crate) async fn run(root: PathBuf, id: CliInvocationId) -> Result<i32, HostError> {
     let environment = std::env::vars_os().collect();
-    let leader: supervisor::PayloadLeader = supervisor::current_payload(&environment).await?;
-    if leader.root() != root.canonicalize()? || leader.invocation_id() != &id {
-        return Err(host(invalid(
-            "workflow entry differs from authenticated native payload",
-        )));
-    }
-    let metadata = leader.metadata::<Metadata>()?;
+    let store = crate::invocation::InvocationStore::new(crate::paths::CheckoutState::resolve(
+        &root,
+        &environment,
+    )?);
+    let directory = Arc::new(store.directory(&id)?);
+    let metadata = if directory
+        .evidence::<serde_json::Value>(InvocationEvidence::Launch)?
+        .is_none()
+    {
+        let custody: crate::foreground::ForegroundCustody = directory
+            .evidence(InvocationEvidence::Custody)?
+            .ok_or_else(|| host(invalid("foreground native custody is absent")))?;
+        let manager = HostManager::connect_user(None).await?;
+        let membership = manager.current_membership().await?;
+        let actual = match pse_diagnostics::process_facts::ProcessReader::default()
+            .process(std::process::id())
+        {
+            pse_diagnostics::process_facts::ProcessRead::Present(facts) => facts.identity,
+            _ => {
+                return Err(host(invalid(
+                    "foreground helper process identity unavailable",
+                )));
+            }
+        };
+        if custody.version != 4
+            || custody.child != actual
+            || custody.manager != manager.identity_key()
+            || custody.unit != membership.root().unit
+            || !membership.matches_root(&custody.root)
+            || !manager.native_workload(membership.root()).await?
+        {
+            return Err(host(invalid(
+                "workflow is not the original native foreground child",
+            )));
+        }
+        let metadata = store.metadata::<Metadata>(&id)?;
+        if std::env::current_exe()?
+            != metadata
+                .selection
+                .control
+                .executable(&root, HostTool::Host)?
+        {
+            return Err(host(invalid(
+                "foreground helper executable differs from captured prepared image",
+            )));
+        }
+        metadata
+    } else {
+        let leader: supervisor::PayloadLeader = supervisor::current_payload(&environment).await?;
+        if leader.root() != root.canonicalize()? || leader.invocation_id() != &id {
+            return Err(host(invalid(
+                "workflow entry differs from authenticated native payload",
+            )));
+        }
+        leader.metadata::<Metadata>()?
+    };
     let binding = metadata
         .selection
         .operation
         .workflow
         .ok_or_else(|| host(invalid("original workflow input binding is absent")))?;
-    let input = input(
-        leader.directory(),
-        &binding,
-        &id,
-        &metadata.selection.command,
-    )?;
-    let destination = leader.directory().path().join("workflow");
+    let input = input(&directory, &binding, &id, &metadata.selection.command)?;
+    let destination = directory.path().join("workflow");
     let report = crate::test_workflow::execute::run(&input, &root, &destination, environment)
         .await
         .map_err(host)?;
@@ -178,11 +222,11 @@ pub(crate) async fn run(root: PathBuf, id: CliInvocationId) -> Result<i32, HostE
     Ok(status)
 }
 
-pub(super) enum Observer {
+pub(crate) enum Observer {
     Raw,
     Workflow(WorkflowObserver),
 }
-pub(super) struct WorkflowObserver {
+pub(crate) struct WorkflowObserver {
     invocation: CliInvocationId,
     action: Action,
     framer: RecordFramer,
@@ -197,16 +241,32 @@ impl Observer {
         root: &Path,
         command: &PayloadCommand,
     ) -> Result<Self, HostError> {
-        let Some(action) = Action::from_command(&context.record.command) else {
+        Self::for_operation(
+            &context.store,
+            &context.directory,
+            root,
+            &command.program,
+            &command.arguments,
+        )
+    }
+    pub(crate) fn for_operation(
+        store: &crate::invocation::InvocationStore,
+        directory: &Arc<InvocationDirectory>,
+        root: &Path,
+        program: &Path,
+        arguments: &[OsString],
+    ) -> Result<Self, HostError> {
+        let metadata = store.metadata::<Metadata>(directory.id())?;
+        let Some(action) = Action::from_command(&metadata.selection.command) else {
             return Ok(Self::Raw);
         };
-        let metadata = context.store.metadata::<Metadata>(context.directory.id())?;
-        if command.program
+        if program
             != metadata
                 .selection
                 .control
                 .executable(root, HostTool::Host)?
-            || command.arguments != arguments(root, context.directory.id())
+                .as_path()
+            || arguments != self::arguments(root, directory.id())
         {
             return Err(host(invalid(
                 "workflow payload is not the original fixed helper",
@@ -218,10 +278,10 @@ impl Observer {
             .workflow
             .ok_or_else(|| host(invalid("workflow operation has no original input binding")))?;
         let input = input(
-            &context.directory,
+            directory,
             &binding,
-            context.directory.id(),
-            &context.record.command,
+            directory.id(),
+            &metadata.selection.command,
         )?;
         Ok(Self::Workflow(WorkflowObserver {
             invocation: input.invocation,
@@ -236,7 +296,7 @@ impl Observer {
             invalid: false,
         }))
     }
-    pub(super) fn finish(self) -> Result<Option<ObservedTerminal>, HostError> {
+    pub(crate) fn finish(self) -> Result<Option<ObservedTerminal>, HostError> {
         let Self::Workflow(mut observer) = self else {
             return Ok(None);
         };
@@ -316,20 +376,56 @@ impl super::streams::ChunkObserver for Observer {
 }
 
 /// Constructed only after original helper transport and durable report bytes are checked.
-pub(super) struct Validated {
+pub(crate) struct Validated {
     terminal: TerminalRecord,
     path: PathBuf,
+    failures: Vec<crate::envelope::ErrorRecord>,
 }
 impl Validated {
-    pub(super) fn into_parts(self) -> (TerminalRecord, PathBuf) {
-        (self.terminal, self.path)
+    pub(super) fn into_parts(self) -> (TerminalRecord, PathBuf, Vec<crate::envelope::ErrorRecord>) {
+        (self.terminal, self.path, self.failures)
     }
 }
+/// Presentation fields from the digest-bound owner report, not a native verdict constructor.
+#[derive(Deserialize)]
+struct ReportFacts {
+    version: u32,
+    invocation: CliInvocationId,
+    action: Action,
+    outcome: crate::test_workflow::execute::Outcome,
+    required_capture_complete: bool,
+    failures: Vec<crate::envelope::ErrorRecord>,
+}
 /// Only the fixed-helper observer can construct this; decoding transport data grants no proof.
-pub(super) struct ObservedTerminal {
+pub(crate) struct ObservedTerminal {
     terminal: TerminalRecord,
 }
-pub(super) async fn validate_report(
+pub(crate) async fn finish_capture(
+    directory: Arc<InvocationDirectory>,
+    capture: &mut Result<
+        super::streams::TeeReport<tokio::fs::File, tokio::fs::File, Observer>,
+        HostError,
+    >,
+    child_exit: Option<i32>,
+    required: bool,
+) -> Result<Option<Validated>, HostError> {
+    match capture {
+        Ok(capture) => match capture
+            .observer
+            .take()
+            .ok_or_else(|| host(invalid("original workflow observer unavailable")))?
+            .finish()?
+        {
+            Some(terminal) => validate_report(directory, terminal, child_exit)
+                .await
+                .map(Some),
+            None => Ok(None),
+        },
+        Err(_) if required => Err(host(invalid("original foreground capture unavailable"))),
+        Err(_) => Ok(None),
+    }
+}
+pub(crate) async fn validate_report(
     directory: Arc<InvocationDirectory>,
     observed: ObservedTerminal,
     child_exit: Option<i32>,
@@ -371,11 +467,12 @@ pub(super) async fn validate_report(
             sha: Sha256::new(),
             bytes: 0,
         };
-        {
+        let facts = {
             let mut json = serde_json::Deserializer::from_reader(io::BufReader::new(&mut input));
-            serde::de::IgnoredAny::deserialize(&mut json).map_err(host)?;
+            let facts = ReportFacts::deserialize(&mut json).map_err(host)?;
             json.end().map_err(host)?;
-        }
+            facts
+        };
         let sha = input
             .sha
             .finalize()
@@ -387,7 +484,21 @@ pub(super) async fn validate_report(
                 "durable workflow report differs from original terminal digest",
             )));
         }
-        Ok(Validated { terminal, path })
+        if facts.version != terminal.version
+            || facts.invocation != terminal.invocation
+            || facts.action != terminal.action
+            || facts.outcome != terminal.outcome
+            || facts.required_capture_complete != terminal.required_capture_complete
+        {
+            return Err(host(invalid(
+                "owner report facts differ from the original terminal",
+            )));
+        }
+        Ok(Validated {
+            terminal,
+            path,
+            failures: facts.failures,
+        })
     })
     .await?
 }
@@ -558,10 +669,10 @@ mod tests {
         let parent = directory.path().join("workflow");
         fs::DirBuilder::new().mode(0o700).create(&parent).unwrap();
         let path = parent.join("report.json");
-        let original = b"{\"status\":\"original\"}";
-        fs::write(&path, original).unwrap();
+        let original = serde_json::to_vec(&serde_json::json!({"version":1,"invocation":id,"action":"test","outcome":"tests_succeeded","required_capture_complete":true,"failures":[]})).unwrap();
+        fs::write(&path, &original).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-        let record = terminal(&id, original);
+        let record = terminal(&id, &original);
         assert!(
             validate_report(directory.clone(), observed(&id, &record), Some(0))
                 .await
@@ -571,6 +682,30 @@ mod tests {
             validate_report(directory.clone(), observed(&id, &record), Some(1))
                 .await
                 .is_err()
+        );
+        let failure = crate::envelope::ErrorRecord::from_typed(
+            &HostError::Ownership("original fixture prerequisite unavailable".into()),
+            &crate::envelope::RedactionPolicy::from_environment(),
+        );
+        let failed = serde_json::to_vec(&serde_json::json!({"version":1,"invocation":id,"action":"test","outcome":"failed","required_capture_complete":true,"failures":[failure]})).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&path, &failed).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        let mut failed_record = terminal(&id, &failed);
+        failed_record.outcome = Outcome::Failed;
+        let validated = validate_report(
+            directory.clone(),
+            observed(&id, &failed_record),
+            Some(failed_record.helper_exit()),
+        )
+        .await
+        .unwrap();
+        let (_, _, failures) = validated.into_parts();
+        assert_eq!(failures.len(), 1);
+        assert!(
+            failures[0]
+                .message
+                .contains("original fixture prerequisite unavailable")
         );
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&path, b"{\"status\":\"tampered\"}").unwrap();

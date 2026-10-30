@@ -1438,8 +1438,7 @@ fn launch_managed(
     let selection =
         crate::admission::Selection::load(&root, &environment, resource_class.as_deref(), None)?;
     let runtime = runtime()?;
-    let is_workflow = workflow.is_some();
-    let parent = if detach || is_workflow {
+    let parent = if detach {
         runtime.block_on(crate::managed::supervisor::parent(
             &environment,
             &selection,
@@ -1470,10 +1469,20 @@ fn launch_managed(
     if let Some((_, input)) = workflow {
         directory.publish_evidence(crate::invocation::InvocationEvidence::WorkflowInput, &input)?;
     }
-    if !detach && !is_workflow {
+    if !detach {
         let coordinator = crate::admission::Coordinator::open(&root, &environment)?;
         let policy = RedactionPolicy::from_inputs(&environment);
-        let report = runtime.block_on(crate::foreground::run_captured(
+        let program = command
+            .first()
+            .ok_or_else(|| HostError::Ownership("empty foreground payload".into()))?;
+        let observer = crate::managed::workflow::Observer::for_operation(
+            &store,
+            &directory,
+            &root,
+            Path::new(program),
+            &command[1..],
+        )?;
+        let mut report = runtime.block_on(crate::foreground::run_captured(
             crate::foreground::ForegroundRequest {
                 command,
                 environment,
@@ -1484,16 +1493,30 @@ fn launch_managed(
             },
             coordinator,
             selection,
-            directory.path().to_owned(),
-            crate::managed::result::GenericObserver,
+            directory.clone(),
+            observer,
             Duration::from_secs(5),
+        ));
+        let child_exit = report.child.as_ref().map(|status| {
+            use std::os::unix::process::ExitStatusExt as _;
+            status
+                .code()
+                .unwrap_or_else(|| 128 + status.signal().unwrap_or(0))
+        });
+        let required = crate::test_workflow::execute::Action::from_command(verb).is_some();
+        let validation = runtime.block_on(crate::managed::workflow::finish_capture(
+            directory.clone(),
+            &mut report.capture,
+            child_exit,
+            required,
         ));
         let terminal = crate::managed::result::TerminalResult::from_foreground(
             directory.id(),
             verb,
             report,
             &policy,
-        );
+        )
+        .with_workflow(validation, &policy);
         directory.publish_evidence(
             crate::invocation::InvocationEvidence::Settlement,
             terminal.response(),
@@ -1504,7 +1527,8 @@ fn launch_managed(
                 directory.id(),
             )?
             .ok_or_else(|| HostError::Ownership("published foreground result is absent".into()))?;
-        return Ok(presentation.emit(response)?);
+        return Ok(presentation
+            .emit(response.map_payload(|payload| ManagedReply::Completed(Box::new(payload))))?);
     }
     let mut arguments = command.into_iter();
     let program = arguments
@@ -1527,29 +1551,21 @@ fn launch_managed(
                 drain: Duration::from_secs(30),
                 write: Duration::from_secs(5),
             },
-            mode: if detach {
-                crate::managed::supervisor::LaunchMode::Detached
-            } else {
-                crate::managed::supervisor::LaunchMode::Foreground
-            },
         },
     ))?;
-    if detach {
-        let mut response = Envelope::response(
-            verb,
-            "original service launch acknowledged; completion remains unobserved",
-            ManagedReply::Launched(Box::new(launched.observation)),
-        );
-        response.subject_state = envelope::SubjectState::Launched;
-        response.settlement = envelope::Settlement::Unknown;
-        // Launch acknowledgement intentionally does not require terminal settlement.
-        response.outcome = CommandOutcome::Success;
-        response.observation.required = false;
-        response.observation.scope = "native_launch_acknowledgement".into();
-        presentation.emit(response)?;
-        return Ok(0);
-    }
-    runtime.block_on(observe_launched(launched, store, presentation))
+    let mut response = Envelope::response(
+        verb,
+        "original service launch acknowledged; completion remains unobserved",
+        ManagedReply::Launched(Box::new(launched.observation)),
+    );
+    response.subject_state = envelope::SubjectState::Launched;
+    response.settlement = envelope::Settlement::Unknown;
+    // Launch acknowledgement intentionally does not require terminal settlement.
+    response.outcome = CommandOutcome::Success;
+    response.observation.required = false;
+    response.observation.scope = "native_launch_acknowledgement".into();
+    presentation.emit(response)?;
+    Ok(0)
 }
 #[derive(serde::Serialize)]
 struct RunSelection {
@@ -1589,46 +1605,6 @@ fn environment_digest(environment: &Environment) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
-}
-async fn observe_launched(
-    mut launched: crate::managed::supervisor::Launched,
-    store: crate::invocation::InvocationStore,
-    presentation: &OutputOptions,
-) -> Result<i32, HostError> {
-    let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
-    let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
-    let cancellation = tokio::select! {
-        result = launched.wait(None) => { result?; None },
-        _ = interrupt.recv() => Some(130),
-        _ = terminate.recv() => Some(143),
-    };
-    if cancellation.is_some() {
-        launched
-            .cancel(Instant::now() + Duration::from_secs(30))
-            .await?;
-    }
-    let result = store.result::<serde::de::IgnoredAny, crate::managed::result::ManagedSummary>(&launched.invocation_id)?
-        .ok_or_else(|| HostError::Ownership("original service stopped without readable owner result; inspect finalization evidence".into()))?;
-    let status = if let Some(interrupted) = cancellation {
-        interrupted
-    } else if crate::test_workflow::execute::Action::from_command(&result.command).is_some() {
-        result.exit_code()
-    } else {
-        run_status(None, &result)
-    };
-    let response = result.map_payload(|payload| ManagedReply::Completed(Box::new(payload)));
-    presentation.emit(response)?;
-    Ok(status)
-}
-fn run_status<T>(interrupted: Option<i32>, result: &Envelope<T>) -> i32 {
-    if let Some(status) = interrupted {
-        return status;
-    }
-    match result.child_exit {
-        Some(status) if status != 0 => status,
-        Some(0) if result.exit_code() == 0 => 0,
-        _ => 125,
-    }
 }
 fn explain_emit(
     presentation: &OutputOptions,
@@ -2290,21 +2266,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn generic_run_preserves_child_status_without_hiding_failed_required_settlement() {
-        let mut result = Envelope::response("run", "owner result", ());
-        result.child_exit = Some(0);
-        result.subject_state = envelope::SubjectState::Succeeded;
-        result.settlement = envelope::Settlement::Complete;
-        assert_eq!(run_status(None, &result), 0);
-        result.settlement = envelope::Settlement::Incomplete;
-        assert_eq!(run_status(None, &result), 125);
-        result.child_exit = Some(3);
-        assert_eq!(run_status(None, &result), 3);
-        assert_eq!(run_status(Some(130), &result), 130);
-        result.child_exit = None;
-        assert_eq!(run_status(None, &result), 125);
-    }
     #[test]
     fn performing_managed_reply_schema_accepts_launch_and_original_terminal_views() {
         let replies = [

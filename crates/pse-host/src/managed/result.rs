@@ -265,7 +265,7 @@ impl TerminalResult<ManagedSummary> {
         self
     }
 
-    pub(super) fn with_workflow(
+    pub(crate) fn with_workflow(
         mut self,
         validation: Result<Option<super::workflow::Validated>, HostError>,
         policy: &RedactionPolicy,
@@ -280,7 +280,8 @@ impl TerminalResult<ManagedSummary> {
                 self
             }
             Ok(Some(validated)) => {
-                let (terminal, path) = validated.into_parts();
+                let (terminal, path, failures) = validated.into_parts();
+                self.response.failures.extend(failures);
                 self.response.summary = match terminal.outcome {
                     Outcome::Listed => "actual selected native test population listed",
                     Outcome::CheckSucceeded => "native compiler check reconciled",

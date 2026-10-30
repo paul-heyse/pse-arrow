@@ -20,6 +20,16 @@ impl CurrentMembership {
     pub fn root(&self) -> &UnitObservation {
         &self.root
     }
+    /// Copied original root identity, not stop, allocation or subgroup authority.
+    pub(crate) fn root_binding(&self) -> UnitBinding {
+        let original = &self.ancestry[0];
+        UnitBinding {
+            invocation: self.root.invocation.clone(),
+            group: self.root.control_group.clone(),
+            device: original.device,
+            inode: original.inode,
+        }
+    }
     pub(super) fn into_root(self) -> UnitObservation {
         self.root
     }

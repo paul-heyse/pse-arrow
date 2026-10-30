@@ -152,7 +152,6 @@ async fn nested_member_probe() {
             drain: Duration::from_secs(10),
             write: Duration::from_secs(2),
         },
-        mode: LaunchMode::Detached,
         parent: Some(parent),
     })
     .await;

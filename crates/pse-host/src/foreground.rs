@@ -262,6 +262,16 @@ pub(crate) struct CapturedForeground<O: ChunkObserver> {
     pub(crate) borrowed: bool,
     pub(crate) cancelled: bool,
 }
+/// Observed before payload effects; used only to authenticate the original fixed helper entry.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ForegroundCustody {
+    pub(crate) version: u32,
+    pub(crate) manager: String,
+    pub(crate) unit: String,
+    pub(crate) root: crate::manager::UnitBinding,
+    pub(crate) child: pse_diagnostics::process_facts::ProcessIdentity,
+}
 impl<O: ChunkObserver> std::fmt::Debug for CapturedForeground<O> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CapturedForeground")
@@ -275,6 +285,7 @@ impl<O: ChunkObserver> std::fmt::Debug for CapturedForeground<O> {
 }
 struct OutputCapture<O: ChunkObserver> {
     directory: PathBuf,
+    custody: Option<std::sync::Arc<crate::invocation::InvocationDirectory>>,
     observer: Option<O>,
     write: Duration,
     tee: Option<TeeHandle<tokio::fs::File, tokio::fs::File, O>>,
@@ -284,6 +295,36 @@ struct OutputCapture<O: ChunkObserver> {
     drain_deadline: Option<Instant>,
 }
 impl<O: ChunkObserver> OutputCapture<O> {
+    fn bind(
+        &self,
+        manager: &HostManager,
+        unit: String,
+        root: crate::manager::UnitBinding,
+        child_pid: u32,
+    ) -> Result<(), HostError> {
+        let Some(directory) = &self.custody else {
+            return Ok(());
+        };
+        let child =
+            match pse_diagnostics::process_facts::ProcessReader::default().process(child_pid) {
+                pse_diagnostics::process_facts::ProcessRead::Present(facts) => facts.identity,
+                _ => {
+                    return Err(HostError::Ownership(
+                        "gated foreground child identity unavailable".into(),
+                    ));
+                }
+            };
+        directory.publish_evidence(
+            crate::invocation::InvocationEvidence::Custody,
+            &ForegroundCustody {
+                version: 4,
+                manager: manager.identity_key(),
+                unit,
+                root,
+                child,
+            },
+        )
+    }
     async fn spawn(&mut self, mut command: Command, startup: Instant) -> Result<Child, HostError> {
         use std::os::unix::fs::OpenOptionsExt as _;
         let sink = |name: &str| {
@@ -327,13 +368,14 @@ pub(crate) async fn run_captured<O: ChunkObserver>(
     request: ForegroundRequest,
     coordinator: Coordinator,
     selection: Selection,
-    directory: PathBuf,
+    directory: std::sync::Arc<crate::invocation::InvocationDirectory>,
     observer: O,
     write: Duration,
 ) -> CapturedForeground<O> {
     let drain = request.drain_timeout;
     let mut state = OutputCapture {
-        directory,
+        directory: directory.path().to_owned(),
+        custody: Some(directory),
         observer: Some(observer),
         write,
         tee: None,
@@ -423,26 +465,57 @@ async fn run_owned<O: ChunkObserver>(
         }
         if let Some(capture) = capture.as_deref_mut() {
             capture.borrowed = true;
-            let mut command = Command::new(&request.command[0]);
+            let (gate_read, mut gate_write) = std::io::pipe()?;
+            let mut command = Command::new("/proc/self/exe");
             command
-                .args(&request.command[1..])
+                .arg("__foreground-exec")
+                .args(&request.command)
                 .env_clear()
                 .envs(request.environment)
                 .current_dir(request.cwd);
+            command
+                .fd_mappings(vec![FdMapping {
+                    parent_fd: gate_read.into(),
+                    child_fd: 3,
+                }])
+                .map_err(|error| HostError::Ownership(error.to_string()))?;
             let mut child = capture.spawn(command, request.startup_deadline).await?;
-            let outcome = tokio::select! {
-                result = child.wait() => result.map(|exit| { capture.child = Some(exit); status(exit) }).map_err(HostError::from),
-                _ = interrupt.recv() => { capture.cancelled = true; Ok(130) },
-                _ = terminate.recv() => { capture.cancelled = true; Ok(143) },
-            };
+            let outcome = async {
+                let membership = tokio::time::timeout_at(request.startup_deadline.into(), manager.current_membership())
+                    .await.map_err(|_| HostError::Deadline("borrowed foreground entry authentication".into()))??;
+                capture.bind(&manager, membership.root().unit.clone(), membership.root_binding(), child.id().ok_or_else(|| HostError::Ownership("foreground child identity unavailable".into()))?)?;
+                gate_write.write_all(&[1])?;
+                tokio::select! {
+                    result = child.wait() => result.map(|exit| { capture.child = Some(exit); status(exit) }).map_err(HostError::from),
+                    _ = interrupt.recv() => { capture.cancelled = true; Ok(130) },
+                    _ = terminate.recv() => { capture.cancelled = true; Ok(143) },
+                }
+            }.await;
+            drop(gate_write);
             let deadline = Instant::now() + request.drain_timeout;
             capture.drain_deadline = Some(deadline);
-            if child.try_wait()?.is_none() {
-                child.start_kill()?;
-            }
-            reap(&mut child, deadline).await?;
-            capture.child = child.try_wait()?;
-            return outcome;
+            let killed = match child.try_wait() {
+                Ok(None) => child.start_kill().map_err(HostError::from),
+                Ok(Some(_)) => Ok(()),
+                Err(error) => Err(error.into()),
+            };
+            let reaped = reap(&mut child, deadline).await;
+            let observed = match child.try_wait() {
+                Ok(exit) => {
+                    capture.child = exit;
+                    Ok(())
+                }
+                Err(error) => Err(HostError::from(error)),
+            };
+            let cleanup = [killed, reaped, observed]
+                .into_iter()
+                .filter_map(Result::err)
+                .reduce(|operation, cleanup| HostError::Settlement {
+                    operation: Box::new(operation),
+                    cleanup: Box::new(cleanup),
+                })
+                .map_or(Ok(()), Err);
+            return settle_result(outcome, cleanup);
         }
         return exec_result(
             Command::new(&request.command[0])
@@ -528,6 +601,7 @@ async fn run_owned<O: ChunkObserver>(
     let operation = async {
         let caller_fd = pidfd(std::process::id())?;
         let workload_fd = pidfd(child_pid)?;
+        {
         let startup = async {
             if let Some(selection) = selection.as_ref().filter(|selection| !selection.profile().ordinary()) {
                 permit = Some(coordinator.admit(&manager, selection, &owner_intent, &workload_intent, child_pid, request.startup_deadline).await?);
@@ -573,8 +647,13 @@ async fn run_owned<O: ChunkObserver>(
             _ = terminate.recv() => { cancellation = Some(143); startup.await.map_err(|_| HostError::Deadline("absolute foreground startup".into()))??; },
             result = &mut startup => result.map_err(|_| HostError::Deadline("absolute foreground startup".into()))??,
         }
+        }
         if let Some(code) = cancellation { return Ok(code); }
         if child.try_wait()?.is_some() { return Err(HostError::Ownership("gated workload exited before release".into())); }
+        if let Some(capture) = capture.as_deref_mut() {
+            let unit = workload.as_ref().ok_or_else(|| HostError::Ownership("foreground workload missing".into()))?;
+            capture.bind(&manager, unit.intent().unit().to_owned(), unit.binding().await?, child_pid)?;
+        }
         gate_write.write_all(&[1])?;
         tokio::select! {
             exit = child.wait() => {
@@ -674,6 +753,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let mut capture = OutputCapture {
             directory: directory.path().to_owned(),
+            custody: None,
             observer: Some(crate::managed::result::GenericObserver),
             write: Duration::from_secs(5),
             tee: None,
