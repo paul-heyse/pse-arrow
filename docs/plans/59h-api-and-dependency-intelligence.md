@@ -117,12 +117,12 @@ the review's source inspection is not an executed pinned-interface probe.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [H01](#h01) | in-progress | 59h | Search, facade/trait provenance and optional original declaration implemented; remaining integrated acceptance below |
-| [H02](#h02) | in-progress | 59h | Authored examples retain hidden setup and distinct expectations; integrated consumer acceptance remains |
-| [H03](#h03) | in-progress | 59h | Exact metadata, inclusion paths, authored inverse feature links and the shared C07 selected-unit consumer implemented; actual combined acceptance remains |
-| [H04](#h04) | in-progress | 59h | Library-owned structural pages with selected-input losslessness checks and separate native compatibility rules implemented; actual combined consumer acceptance remains |
-| [H05](#h05) | in-progress | 59h | Shared compiler workflow extended to native rustdoc; actual refreshed-control acceptance remains |
-| [H06](#h06) | in-progress | 59h | Actual independent API/probe journeys exercised; remaining combined comparison/diagnostic and conditional dispositions below |
+| [H01](#h01) | complete | 59h | Search, facade/trait provenance and optional original declaration delivered; actual selected API reads and focused source/context controls pass |
+| [H02](#h02) | complete | 59h | Authored examples retain hidden setup and distinct expectations; actual API reads expand examples without executing them |
+| [H03](#h03) | complete | 59h | Exact metadata, inclusion paths, authored inverse feature links and shared C07 selected units delivered; actual negative-feature consumer passes without compilation |
+| [H04](#h04) | complete | 59h | Native structural differences with selected-input losslessness checks and separate explicit compatibility execution delivered; actual native trials retain missing-reference and rule-coverage limits |
+| [H05](#h05) | complete | 59h | Native rustdoc uses the original compiler workflow and diagnostics; actual public check and corrected native broken-link/codeblock controls pass |
+| [H06](#h06) | complete | 59h | Original failure → API constraint → explicit corrected probe demonstrated; conditional non-adoptions below retained. Series-end qualification remains with the coordinator |
 
 <a id="h01"></a>
 ### H01 — Discover a capability and a usable public path
@@ -388,3 +388,35 @@ native kind/target and explicit source/path agreement; conditional same-alias re
 misattributed. Unknown joins remain unknown. The six focused correction controls passed;
 the remaining unused foreground-read prerequisite warning belongs to the immediately dependent
 probe-custody consumer and remains a zero-warning scope-end obligation, not a baseline.
+
+### Outcome — selected API and dependency workflows
+
+**Implemented:** the selected H01–H06 surfaces and their original-artifact, explicit-effect and
+shared-selection consumers are integrated. Conditional candidates retain the defaults and
+observable triggers above; no archive corpus, second feature solver, hosted fallback or signature
+query language was added without a demonstrated consumer. Original raw declarations supply
+constraints that the compact renderer cannot faithfully summarize.
+
+**Tested, 2026-10-30:** the actual combined journey used `pse probe new plan59-h06 --deps
+serde_json`, an authored `Rc<str>` decoding attempt and `pse probe run plan59-h06`. Original
+invocation `01a18f30-d533-7032-bfe4-b99c5daae594` returned101 with complete capture and settlement.
+`pse log ID --stderr` retained the actual E0277 and the `Deserialize` constraint. A passive API
+read initially returned unprepared for the changed locked context; it did not generate an artifact.
+After explicit `pse api serde_json --prepare`, `pse api serde_json serde_json::from_str
+--declaration --examples --budget 1` returned the original `T: Deserialize<'a>` predicate,
+authored examples and exact artifact context. The compact signature correctly remained incomplete.
+Changing the explicitly authored probe to `String` and running it explicitly produced invocation
+`01a18f31-e0a2-75cc-9d31-bf3172e4faed`, child0, complete capture and settlement. Reads neither
+reran the failure nor executed examples. These expected failed/successful probes are consumer
+controls, not unresolved test failures. The native structural/compatibility and selected-unit
+journeys above supply the other H consumers; whole-series static qualification is separate.
+
+**Mistakes corrected:** the invalid-codeblock fixture used token-valid text and initially tested
+more grammar checking than rustdoc promises; the corrected lexical failure exercises its actual
+rule. Initial cross-version library concerns were replaced by a per-input losslessness guard,
+allowing native structural comparison without claiming general rustdoc-format compatibility.
+
+**Deliberate limits:** native compatibility rules are neither a complete structural diff nor a
+behavioral compatibility proof; source/context differences and missing native item references
+remain visible. No performance benefit was measured. Probe resources with legacy missing custody
+references remain protected rather than being retroactively attributed to a newer owner.
