@@ -148,6 +148,33 @@ enum Command {
     Activity {
         unit: Option<String>,
     },
+    /// Inspect newest invocation metadata without reading historical result payloads.
+    History {
+        #[arg(long)]
+        session: Option<String>,
+        #[arg(long, default_value_t = 20, value_parser=clap::value_parser!(u64).range(1..))]
+        limit: u64,
+    },
+    /// Read the original immutable result without starting or rebuilding work.
+    Result {
+        invocation: String,
+        #[arg(long)]
+        session: Option<String>,
+    },
+    /// Read a bounded original raw stream with exact byte offsets.
+    Log {
+        invocation: String,
+        #[arg(long)]
+        session: Option<String>,
+        #[arg(long)]
+        stderr: bool,
+        #[arg(long, default_value_t = 0, conflicts_with = "tail")]
+        offset: u64,
+        #[arg(long, default_value = "4096")]
+        length: std::num::NonZeroU64,
+        #[arg(long)]
+        tail: bool,
+    },
     Run {
         #[arg(trailing_var_arg = true, required = true)]
         command: Vec<OsString>,
@@ -190,6 +217,9 @@ impl Command {
             | Self::CargoTools { .. }
             | Self::Env(_)
             | Self::Activity { .. }
+            | Self::History { .. }
+            | Self::Result { .. }
+            | Self::Log { .. }
             | Self::DiagnosticTools {
                 action: ToolAction::Verify { .. },
             }
@@ -552,6 +582,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             crate::catalog::description::Page<crate::catalog::description::Candidate>,
         >(command, view),
         "status" => envelope::schema::<crate::status::Report>(command, view),
+        "history" => envelope::schema::<crate::invocation_view::HistoryPage>(command, view),
+        "result" => envelope::schema::<crate::invocation_view::ResultView>(command, view),
+        "log" => envelope::schema::<crate::invocation_view::LogView>(command, view),
         "status brief" => envelope::schema::<crate::status::Summary>(command, view),
         "doctor" => envelope::schema::<crate::doctor::Report>(command, view),
         "env" | "env explain" => {
@@ -895,6 +928,56 @@ fn dispatch(
             }
             Ok(presentation.emit(response)?)
         }),
+        Command::History { session, limit } => {
+            let store = invocation_store(selected)?;
+            let limit = usize::try_from(limit).map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "history limit exceeds this platform",
+                )
+            })?;
+            Ok(presentation.emit(crate::invocation_view::history(
+                &store,
+                session.as_deref(),
+                limit,
+                &RedactionPolicy::from_environment(),
+            )?)?)
+        }
+        Command::Result {
+            invocation,
+            session,
+        } => {
+            let store = invocation_store(selected)?;
+            Ok(presentation.emit(crate::invocation_view::result(
+                &store,
+                &invocation,
+                session.as_deref(),
+            )?)?)
+        }
+        Command::Log {
+            invocation,
+            session,
+            stderr,
+            offset,
+            length,
+            tail,
+        } => {
+            let store = invocation_store(selected)?;
+            let stream = if stderr {
+                crate::extraction::OutputStream::Stderr
+            } else {
+                crate::extraction::OutputStream::Stdout
+            };
+            Ok(presentation.emit(crate::invocation_view::log(
+                &store,
+                &invocation,
+                session.as_deref(),
+                stream,
+                offset,
+                length,
+                tail,
+            )?)?)
+        }
         Command::Run { command } => runtime()?.block_on(crate::foreground::run(
             crate::foreground::ForegroundRequest {
                 command,
@@ -906,6 +989,14 @@ fn dispatch(
             },
         )),
     }
+}
+fn invocation_store(
+    selected: Option<&Path>,
+) -> Result<crate::invocation::InvocationStore, HostError> {
+    let root = checkout_root(selected)?;
+    Ok(crate::invocation::InvocationStore::new(
+        crate::paths::CheckoutState::resolve(&root, &std::env::vars_os().collect())?,
+    ))
 }
 fn source_path(selected: Option<&Path>, file: PathBuf) -> Result<PathBuf, HostError> {
     match selected {
@@ -1488,6 +1579,29 @@ mod tests {
         ] {
             let cli = Cli::try_parse_from(arguments).unwrap();
             assert_eq!(cli.command.unwrap().generation_intent(), expected);
+        }
+    }
+
+    #[test]
+    fn invocation_observers_select_passive_reads_and_reject_invalid_extents() {
+        for arguments in [
+            vec!["pse", "history", "--session", "session", "--limit", "3"],
+            vec!["pse", "result", "latest"],
+            vec![
+                "pse", "log", "latest", "--stderr", "--tail", "--length", "4",
+            ],
+        ] {
+            let parsed = Cli::try_parse_from(arguments).unwrap();
+            let command = parsed.command.unwrap();
+            assert_eq!(command.generation_intent(), GenerationIntent::Passive);
+            assert!(!command.raw_protocol());
+        }
+        for arguments in [
+            vec!["pse", "history", "--limit", "0"],
+            vec!["pse", "log", "latest", "--length", "0"],
+            vec!["pse", "log", "latest", "--offset", "1", "--tail"],
+        ] {
+            assert!(Cli::try_parse_from(arguments).is_err());
         }
     }
     #[test]

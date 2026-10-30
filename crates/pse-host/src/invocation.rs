@@ -76,6 +76,51 @@ pub struct InvocationDirectory {
     command: String,
 }
 
+/// Fixed immutable resource-owner records; none is a terminal admission or mutation grant.
+#[derive(Clone, Copy, Debug)]
+pub enum InvocationEvidence {
+    /// Original service launch selection and intent.
+    Launch,
+    /// Original initialization and physical resource identities.
+    Custody,
+    /// The actual resource owner's settlement facts, separate from a terminal projection.
+    Settlement,
+}
+impl InvocationEvidence {
+    fn filename(self) -> &'static str {
+        match self {
+            Self::Launch => "launch.json",
+            Self::Custody => "custody.json",
+            Self::Settlement => "settlement.json",
+        }
+    }
+}
+
+/// Held original-parent launch exclusion. Only this owner can publish the cutoff.
+#[derive(Debug)]
+pub struct InvocationLaunchGuard<'a> {
+    directory: &'a InvocationDirectory,
+    _lock: File,
+}
+impl InvocationLaunchGuard<'_> {
+    /// Establish the original explicit cutoff while excluding concurrent child admission.
+    pub fn close(&self) -> Result<(), HostError> {
+        if !self.directory.launch_closed()? {
+            publish(
+                &self.directory.path,
+                "launch.closed",
+                &true,
+                Some(META_LIMIT),
+            )?;
+        }
+        Ok(())
+    }
+    /// Inspect the cutoff while retaining the same exclusion across a launch decision.
+    pub fn is_closed(&self) -> Result<bool, HostError> {
+        self.directory.launch_closed()
+    }
+}
+
 /// One independent unreadable source in a history observation.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("invocation history source {path:?}: {error}")]
@@ -221,6 +266,17 @@ impl InvocationStore {
     /// Bind the inspected checkout. This does not create state or discover a database.
     pub fn new(state: CheckoutState) -> Self {
         Self { state }
+    }
+
+    /// Reopen only the original checkout-bound directory. This grants evidence access,
+    /// never systemd reference, process, permit or finalization authority.
+    pub fn directory(&self, id: &CliInvocationId) -> Result<InvocationDirectory, HostError> {
+        let metadata: InvocationMetadata<serde::de::IgnoredAny> = self.metadata(id)?;
+        Ok(InvocationDirectory {
+            path: self.state.invocations().join(id.as_str()),
+            invocation_id: id.clone(),
+            command: metadata.selection.command,
+        })
     }
 
     fn validate<O>(
@@ -515,6 +571,104 @@ impl InvocationDirectory {
     /// Existing authenticated directory for the original output/observation owners.
     pub fn path(&self) -> &Path {
         &self.path
+    }
+    /// Open an exact original stream through the protected local evidence boundary.
+    /// The descriptor is a live mutable observation, never an atomic snapshot.
+    pub fn stream(&self, stream: crate::extraction::OutputStream) -> Result<File, HostError> {
+        directory(&self.path, false)?;
+        evidence_file(&self.path.join(match stream {
+            crate::extraction::OutputStream::Stdout => "stdout.raw",
+            crate::extraction::OutputStream::Stderr => "stderr.raw",
+        }))
+    }
+    /// Publish original owner evidence exactly once. Facts must be constructed and
+    /// authenticated by the performing owner; serialization conveys no authority.
+    pub fn publish_evidence<T: Serialize>(
+        &self,
+        record: InvocationEvidence,
+        value: &T,
+    ) -> Result<(), HostError> {
+        directory(&self.path, false)?;
+        publish(&self.path, record.filename(), value, Some(META_LIMIT))
+    }
+    /// Read one exact owner record. Missing evidence is absent, never settled success.
+    pub fn evidence<T: DeserializeOwned>(
+        &self,
+        record: InvocationEvidence,
+    ) -> Result<Option<T>, HostError> {
+        self.read_record(record.filename())
+    }
+    fn read_record<T: DeserializeOwned>(&self, name: &str) -> Result<Option<T>, HostError> {
+        directory(&self.path, false)?;
+        let file = match evidence_file(&self.path.join(name)) {
+            Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(None);
+            }
+            result => result?,
+        };
+        if file.metadata()?.len() > META_LIMIT {
+            return Err(invalid("owner record exceeds declared bound"));
+        }
+        let mut bytes = Vec::new();
+        file.take(META_LIMIT + 1).read_to_end(&mut bytes)?;
+        if bytes.len() as u64 > META_LIMIT {
+            return Err(invalid("owner record grew beyond declared bound"));
+        }
+        serde_json::from_slice(&bytes)
+            .map(Some)
+            .map_err(|error| invalid(format!("owner record decode failed: {error}")))
+    }
+    /// Publish ephemeral private service input. Secrets belong only here, never immutable
+    /// metadata, diagnostics or launch records. The supervisor consumes it before readiness.
+    pub fn publish_request<T: Serialize>(&self, request: &T) -> Result<(), HostError> {
+        directory(&self.path, false)?;
+        publish(&self.path, "request.json", request, Some(META_LIMIT))
+    }
+    /// Consume private input once. A decode/removal/sync failure refuses readiness and is
+    /// not permission to replay a possibly submitted launch. No plaintext is retained on success.
+    pub fn take_request<T: DeserializeOwned>(&self) -> Result<T, HostError> {
+        let request = self
+            .read_record("request.json")?
+            .ok_or_else(|| invalid("private service request absent or already consumed"))?;
+        fs::remove_file(self.path.join("request.json"))?;
+        File::open(&self.path)?.sync_all()?;
+        Ok(request)
+    }
+    /// Try the original parent launch exclusion without blocking an async runtime thread.
+    /// The owner holds this descriptor across admission and closure/creation effects.
+    pub fn try_launch_lock(&self) -> Result<InvocationLaunchGuard<'_>, HostError> {
+        directory(&self.path, false)?;
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .mode(0o600)
+            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .open(self.path.join("launch.lock"))?;
+        let metadata = file.metadata()?;
+        if !metadata.is_file()
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+            || metadata.mode() & 0o022 != 0
+        {
+            return Err(invalid(
+                "launch exclusion is not an owned private regular file",
+            ));
+        }
+        rustix::fs::flock(&file, rustix::fs::FlockOperation::NonBlockingLockExclusive)
+            .map_err(std::io::Error::from)?;
+        Ok(InvocationLaunchGuard {
+            directory: self,
+            _lock: file,
+        })
+    }
+    /// This original owner's explicit cutoff, never inferred from process state.
+    pub fn launch_closed(&self) -> Result<bool, HostError> {
+        match self.read_record::<bool>("launch.closed")? {
+            Some(true) => Ok(true),
+            None => Ok(false),
+            Some(false) => Err(invalid("invalid launch closure record")),
+        }
     }
     /// Publish exactly one immutable full response. This does not establish its stated facts.
     pub fn publish_result<T: Serialize>(&self, result: &Envelope<T>) -> Result<(), HostError> {

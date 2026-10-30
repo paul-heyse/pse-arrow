@@ -60,6 +60,54 @@ fn observation_of_absent_state_is_passive() {
 }
 
 #[test]
+fn original_owner_records_requests_and_launch_cutoff_keep_separate_custody() {
+    let (_temporary, store) = store();
+    let directory = store.begin(spec(None)).unwrap();
+    let reopened = store.directory(directory.id()).unwrap();
+    assert!(
+        reopened
+            .evidence::<String>(InvocationEvidence::Custody)
+            .unwrap()
+            .is_none()
+    );
+    reopened
+        .publish_evidence(InvocationEvidence::Launch, &"original intent")
+        .unwrap();
+    assert!(
+        reopened
+            .publish_evidence(InvocationEvidence::Launch, &"replacement")
+            .is_err()
+    );
+    assert_eq!(
+        reopened
+            .evidence::<String>(InvocationEvidence::Launch)
+            .unwrap()
+            .as_deref(),
+        Some("original intent")
+    );
+    reopened.publish_request(&"private request").unwrap();
+    assert_eq!(
+        reopened.take_request::<String>().unwrap(),
+        "private request"
+    );
+    assert!(!reopened.path().join("request.json").exists());
+    assert!(reopened.take_request::<String>().is_err());
+    let lock = directory.try_launch_lock().unwrap();
+    assert!(reopened.try_launch_lock().is_err());
+    assert!(!reopened.launch_closed().unwrap());
+    lock.close().unwrap();
+    assert!(reopened.launch_closed().unwrap());
+    drop(lock);
+    assert!(reopened.try_launch_lock().is_ok());
+    assert!(
+        store
+            .result::<String, String>(directory.id())
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[test]
 fn original_metadata_and_terminal_response_round_trip() {
     let (_temporary, store) = store();
     let directory = store.begin(spec(Some("session"))).expect("begin");

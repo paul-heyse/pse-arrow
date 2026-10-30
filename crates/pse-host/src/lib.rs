@@ -31,6 +31,7 @@ pub mod extraction;
 pub mod foreground;
 pub mod generation;
 pub mod invocation;
+pub mod invocation_view;
 pub mod managed;
 mod manager;
 pub mod native;

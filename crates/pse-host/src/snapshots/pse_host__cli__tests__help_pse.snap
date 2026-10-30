@@ -24,6 +24,9 @@ Commands:
   study-module
   env
   activity
+  history            Inspect newest invocation metadata without reading historical result payloads
+  result             Read the original immutable result without starting or rebuilding work
+  log                Read a bounded original raw stream with exact byte offsets
   run
 
 Options:
@@ -55,6 +58,9 @@ Commands:
   study-module
   env
   activity
+  history            Inspect newest invocation metadata without reading historical result payloads
+  result             Read the original immutable result without starting or rebuilding work
+  log                Read a bounded original raw stream with exact byte offsets
   run
 
 Options:
