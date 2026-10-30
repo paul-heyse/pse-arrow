@@ -435,6 +435,7 @@ clap = { version = "=4.6.7", features = [
   "string",
   "unstable-ext",
 ] }
+clap-cargo = "=0.18.3"
 regex = "=1.13.1"
 ignore = "=0.4.33"
 bindgen = "=0.73.2"
@@ -567,7 +568,7 @@ codegen-units = 1
 [workspace.metadata.pse]
 blueprint = "docs/authoritative_design/blueprint.md"
 unsafe-allowlist = [
-  "pse-host",           # ADR-0233: early inherited-descriptor initialization and owned cgroup-event AsyncFd registration.
+  "pse-host",           # ADR-0233/0234: early inherited-descriptor initialization and exclusively owned native event-descriptor AsyncFd registration.
   "xtask",              # ADR-0164: composition-owned worker deployment qualification.
   "pse-operations",     # ADR-0164: admitted scientific publication and completion writer assertions.
   "pse-compiler",       # ADR-0164: test-only mint for compiler-issued recipe controls.

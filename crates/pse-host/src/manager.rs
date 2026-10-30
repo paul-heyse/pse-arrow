@@ -788,6 +788,67 @@ impl HostManager {
         }
         Ok(observed)
     }
+    /// Authenticate only the manager's actual stop-post command of this original notify unit.
+    /// This observation does not grant readiness or arbitrary original-unit mutation authority.
+    pub(crate) async fn authenticate_service_finalizer(
+        &self,
+        intent: &LaunchIntent,
+    ) -> Result<UnitObservation, HostError> {
+        let membership = self.current_membership().await?;
+        let original = membership.root();
+        if original.unit != intent.unit()
+            || original.active_state != "deactivating"
+            || original.sub_state != "stop-post"
+        {
+            return Err(HostError::Ownership(
+                "current process is not in original stop-post phase".into(),
+            ));
+        }
+        let unit = self.unit(intent.unit()).await?;
+        if !self.notify_controller(&unit).await? {
+            return Err(HostError::Ownership(
+                "stop-post owner is not the original notify service".into(),
+            ));
+        }
+        let service = ServiceProxy::builder(&self.connection)
+            .destination(self.owner.as_str())
+            .path(unit.inner().path().to_owned())
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?;
+        let pid = std::process::id();
+        let commands = service.exec_stop_post_ex().await?;
+        if service.control_pid().await? != pid
+            || !matches!(commands.as_slice(), [(executable, argv, _, _, started, _, ended, control, _, _)]
+                if *control == pid && *started != 0 && *ended == 0
+                    && Path::new(executable) == std::env::current_exe()?.as_path()
+                    && argv.first() == Some(executable))
+        {
+            return Err(HostError::Ownership(
+                "current process is not the original finalizer executable".into(),
+            ));
+        }
+        let incarnation = std::env::var("INVOCATION_ID")
+            .ok()
+            .and_then(|value| uuid::Uuid::parse_str(&value).ok())
+            .ok_or_else(|| {
+                HostError::Ownership("original finalizer invocation environment is absent".into())
+            })?;
+        require_original_identity(
+            intent,
+            &unit.description().await?,
+            incarnation.as_bytes(),
+            &original.invocation,
+        )?;
+        membership.validate(self).await?;
+        if service.control_pid().await? != pid || unit.invocation_id().await? != original.invocation
+        {
+            return Err(HostError::Ownership(
+                "original finalizer changed during authentication".into(),
+            ));
+        }
+        Ok(original.clone())
+    }
     /// Resolve explicit workload-only placement without starting, configuring or
     /// stopping another unit. Existing target limits are intentionally inherited.
     /// Moving out of source ancestors is supported only when their CPU, memory,
@@ -2656,6 +2717,49 @@ impl OwnedUnit {
     /// Observe only while the original unit invocation remains selected.
     pub async fn observe(&self) -> Result<UnitObservation, HostError> {
         self.observe_bound(false).await
+    }
+    /// Observe original unit termination and recursive cgroup emptiness without stopping it.
+    /// Install both native wake sources before resynchronizing; a bounded timeout grants no
+    /// completion claim and retains this performing owner's reference.
+    pub async fn wait(
+        &self,
+        deadline: Option<Instant>,
+    ) -> Result<Option<UnitObservation>, HostError> {
+        let observe = async {
+            let unit = self.manager.unit(&self.intent.unit).await?;
+            let properties = zbus::fdo::PropertiesProxy::builder(&self.manager.connection)
+                .destination(self.manager.owner.as_str())
+                .path(unit.inner().path().to_owned())
+                .cache_properties(CacheProperties::No)
+                .build()
+                .await?;
+            let mut changed = properties.receive_properties_changed().await?;
+            let events = self.group.watch()?;
+            loop {
+                let observed = self.observe_bound(true).await?;
+                if matches!(observed.active_state.as_str(), "inactive" | "failed")
+                    && self.group.empty()?
+                {
+                    return Ok(observed);
+                }
+                tokio::select! {
+                    signal = changed.next() => {
+                        signal.ok_or_else(|| HostError::Ownership("original unit observation stream closed".into()))?.args()?;
+                    }
+                    result = GroupEvents::changed(events.as_ref()) => result?,
+                    () = self.manager.connection.closed() => {
+                        return Err(HostError::Ownership("original manager connection closed during observation".into()));
+                    }
+                }
+            }
+        };
+        match deadline {
+            Some(deadline) => match tokio::time::timeout_at(deadline.into(), observe).await {
+                Ok(result) => result.map(Some),
+                Err(_) => Ok(None),
+            },
+            None => observe.await.map(Some),
+        }
     }
     async fn observe_bound(&self, stopping: bool) -> Result<UnitObservation, HostError> {
         if self.reference_released {

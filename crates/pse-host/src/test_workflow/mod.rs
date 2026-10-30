@@ -197,6 +197,63 @@ pub struct Explanation<'a> {
     /// Explicit later obligations; none is silently prepared by this projection.
     pub pending: Vec<&'static str>,
 }
+
+/// Actual selected root contexts, omitting the reached dependency graph from the default view.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct AdmittedGroup<'a> {
+    /// Literal compiler invocation owned by the correctness adapter.
+    pub arguments: &'a [OsString],
+    /// Actual roots; host/target context and feature policies retain their original meaning.
+    pub roots: Vec<&'a correctness::CompilerUnit>,
+    /// Reached compiler-unit count; omitted units are available through explicit full detail.
+    pub reached_units: usize,
+    /// Actual capability closure derived by the correctness owner.
+    pub native_capabilities: &'a BTreeSet<String>,
+}
+/// Producer-owned useful default explanation. Full dependency units require explicit detail.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct BriefExplanation<'a> {
+    /// Available semantic stage.
+    pub stage: Stage,
+    /// The same normalized intent used by execution.
+    pub selection: &'a Plan,
+    /// Actual root contexts only, or the original unavailable reason.
+    pub admission: Information<Vec<AdmittedGroup<'a>>>,
+    /// Actual population only after native listing.
+    pub selected_tests: Information<usize>,
+    /// Authored requirements for the selected admitted roots.
+    pub fixture_requirements: Information<&'a [Requirement]>,
+    /// Explicit remaining obligations; no preparation was performed by presentation.
+    pub pending: Vec<&'static str>,
+}
+impl<'a> Explanation<'a> {
+    /// Select root-level context before serialization, preserving the full operation value
+    /// for callers that explicitly request the reached dependency graph.
+    pub fn brief(self) -> BriefExplanation<'a> {
+        let admission = match self.admission {
+            Information::Available(groups) => Information::Available(
+                groups
+                    .iter()
+                    .map(|group| AdmittedGroup {
+                        arguments: &group.arguments,
+                        roots: group.units.iter().filter(|unit| unit.root).collect(),
+                        reached_units: group.units.len(),
+                        native_capabilities: &group.native_capabilities,
+                    })
+                    .collect(),
+            ),
+            Information::Unavailable { reason } => Information::Unavailable { reason },
+        };
+        BriefExplanation {
+            stage: self.stage,
+            selection: self.selection,
+            admission,
+            selected_tests: self.selected_tests,
+            fixture_requirements: self.fixture_requirements,
+            pending: self.pending,
+        }
+    }
+}
 fn pending<T>(reason: &str) -> Information<T> {
     Information::Unavailable {
         reason: reason.into(),

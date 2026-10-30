@@ -22,7 +22,9 @@ pub enum Operation {
 }
 
 /// Ignored tests remain part of selection identity, including exact reruns.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema, clap::ValueEnum,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum IgnoredPolicy {
     /// Run ordinary tests only.

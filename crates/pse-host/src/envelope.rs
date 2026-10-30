@@ -412,6 +412,15 @@ impl<T> Envelope<T> {
             CommandOutcome::Success
                 if matches!(
                     self.subject_state,
+                    SubjectState::Launched | SubjectState::Running
+                ) && self.child_exit.is_none()
+                    && !self.observation.required =>
+            {
+                0
+            }
+            CommandOutcome::Success
+                if matches!(
+                    self.subject_state,
                     SubjectState::Failed | SubjectState::TimedOut | SubjectState::Cancelled
                 ) || self.child_exit.is_some_and(|code| code != 0)
                     || matches!(

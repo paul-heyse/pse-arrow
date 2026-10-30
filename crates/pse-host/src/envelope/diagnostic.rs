@@ -15,8 +15,14 @@ pub struct RedactionPolicy {
 impl RedactionPolicy {
     /// Capture secret selections without putting their values in the response.
     pub fn from_environment() -> Self {
+        Self::from_inputs(&std::env::vars_os().collect())
+    }
+    /// Capture classified secrets from the actual payload mapping, independently of the
+    /// supervisor's deliberately smaller control environment.
+    pub fn from_inputs(environment: &crate::environment::Environment) -> Self {
         Self::new(
-            std::env::vars_os()
+            environment
+                .iter()
                 .map(|(name, value)| {
                     (
                         name.to_string_lossy().into_owned(),

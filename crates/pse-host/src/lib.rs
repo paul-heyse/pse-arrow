@@ -22,8 +22,8 @@ pub mod boundary;
 pub mod catalog;
 pub mod cli;
 pub mod correctness;
-pub mod diagnostic_tools;
 pub mod dependency;
+pub mod diagnostic_tools;
 pub mod discovery;
 pub mod doctor;
 pub mod envelope;
@@ -65,6 +65,12 @@ pub enum HostError {
     /// Original asynchronous task termination, preserving panic/cancellation cause.
     #[error("host task: {0}")]
     Task(#[from] tokio::task::JoinError),
+    /// A native lifecycle subsystem's original concrete failure or panic classification.
+    #[error(transparent)]
+    Subsystem(Box<managed::lifecycle::SubsystemFailure>),
+    /// A staged compiler/test operation's original concrete refusal.
+    #[error(transparent)]
+    Workflow(Box<test_workflow::WorkflowError>),
     /// D-Bus transport or manager refused an operation.
     #[error("user manager: {0}")]
     Manager(#[from] zbus::Error),
@@ -123,6 +129,8 @@ pse_diagnostics::impl_diagnostic! {
     code(this) { Some(match this {
         Self::Io(_) => pse_diagnostics::DiagnosticCode::HostIo,
         Self::Task(_) => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
+        Self::Subsystem(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
+        Self::Workflow(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::Manager(_) => pse_diagnostics::DiagnosticCode::HostManager,
         Self::Ownership(_) => pse_diagnostics::DiagnosticCode::HostOwnership,
         Self::IncompleteInvocationHistory {..} => pse_diagnostics::DiagnosticCode::HostOwnership,
@@ -136,7 +144,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Artifact(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::SourceOwnership(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
     }) },
-    forward(this) { match this { Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::Artifact(error) => Some(error), Self::SourceOwnership(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Subsystem(error) => Some(error.as_ref()), Self::Workflow(error) => Some(error.as_ref()), Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::Artifact(error) => Some(error), Self::SourceOwnership(error) => Some(error), _ => None } },
     help(_this) { None },
     related(this) { match this {
         Self::Settlement {operation,cleanup} => { let children:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()]; Some(Box::new(children.into_iter())) },

@@ -106,7 +106,7 @@ fn pidfd(pid: u32) -> Result<std::os::fd::OwnedFd, HostError> {
     )
 }
 
-fn preflight(group: &str, default_tasks_max: u64) -> Result<(), HostError> {
+pub(crate) fn preflight(group: &str, default_tasks_max: u64) -> Result<(), HostError> {
     let relative = group
         .strip_prefix('/')
         .ok_or_else(|| HostError::Ownership("nonabsolute placement".into()))?;

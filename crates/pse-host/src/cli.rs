@@ -15,6 +15,7 @@ use std::{
     process::ExitCode,
     time::{Duration, Instant},
 };
+mod selection;
 
 /// Selects the fixed executable protocol, never inferred from an executable filename.
 #[derive(Clone, Copy, Debug)]
@@ -60,6 +61,21 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    #[command(name = "__supervise", hide = true)]
+    Supervise(ManagedEntryArgs),
+    #[command(name = "__finalize", hide = true)]
+    Finalize(ManagedEntryArgs),
+    /// Resolve test/check intent without building binaries or preparing runtime inputs.
+    Explain {
+        /// Stop at normalized declarations before querying the actual compiler-unit graph.
+        #[arg(long)]
+        intent_only: bool,
+        /// Include every reached compiler unit, rather than the default selected-root view.
+        #[arg(long)]
+        full: bool,
+        #[command(subcommand)]
+        action: ExplainAction,
+    },
     /// Inspect declared generated-output ownership and existing source contributors.
     Owner {
         path: PathBuf,
@@ -187,6 +203,15 @@ enum Command {
         tail: bool,
     },
     Run {
+        /// Keep the owned invocation alive after this launching process returns.
+        #[arg(long)]
+        detach: bool,
+        /// Explicit session association; never used as a filesystem path.
+        #[arg(long)]
+        session: Option<String>,
+        /// Explicit finite workload class; ordinary work keeps the configured host policy.
+        #[arg(long, value_parser = resource_class)]
+        resource_class: Option<String>,
         #[arg(trailing_var_arg = true, required = true)]
         command: Vec<OsString>,
     },
@@ -196,6 +221,8 @@ impl Command {
         match self {
             Self::Boundary(options) => options.print || !options.explain,
             Self::AgentHook { .. }
+            | Self::Supervise(_)
+            | Self::Finalize(_)
             | Self::HostGenerationBootstrap { .. }
             | Self::CargoTools { .. }
             | Self::DiagnosticTools { .. }
@@ -209,13 +236,16 @@ impl Command {
     // from its presentation protocol. Control and internal entries never auto-rebuild.
     fn generation_intent(&self) -> GenerationIntent {
         match self {
-            Self::HostGenerationBootstrap { .. } => GenerationIntent::Internal,
+            Self::HostGenerationBootstrap { .. } | Self::Supervise(_) | Self::Finalize(_) => {
+                GenerationIntent::Internal
+            }
             Self::Boundary(options)
                 if !options.print && !options.explain && !options.command.is_empty() =>
             {
                 GenerationIntent::NewWork
             }
             Self::Boundary(_)
+            | Self::Explain { .. }
             | Self::Owner { .. }
             | Self::Dep { .. }
             | Self::Outline { .. }
@@ -262,6 +292,21 @@ impl Command {
             | Self::TelemetryService { .. } => GenerationIntent::NewWork,
         }
     }
+}
+#[derive(Debug, Args)]
+struct ManagedEntryArgs {
+    #[arg(long)]
+    checkout_bytes: String,
+    #[arg(long, value_parser = parse_invocation_id)]
+    invocation: envelope::CliInvocationId,
+}
+fn parse_invocation_id(value: &str) -> Result<envelope::CliInvocationId, String> {
+    envelope::CliInvocationId::try_from(value.to_owned()).map_err(|error| error.to_string())
+}
+#[derive(Debug, Subcommand)]
+enum ExplainAction {
+    Test(selection::TestArgs),
+    Check(selection::SelectionArgs),
 }
 #[derive(Debug, Args)]
 struct CatalogArgs {
@@ -595,6 +640,12 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             crate::catalog::description::Page<crate::catalog::description::Candidate>,
         >(command, view),
         "status" => envelope::schema::<crate::status::Report>(command, view),
+        "explain test" | "explain check" => {
+            envelope::schema::<crate::test_workflow::BriefExplanation<'static>>(command, view)
+        }
+        "explain test full" | "explain check full" => {
+            envelope::schema::<crate::test_workflow::Explanation<'static>>(command, view)
+        }
         "owner" => envelope::schema::<crate::ownership::OwnerQuery>(command, view),
         "dep" => envelope::schema::<crate::dependency::Report>(command, view),
         "history" => envelope::schema::<crate::invocation_view::HistoryPage>(command, view),
@@ -644,6 +695,63 @@ fn dispatch(
         return Ok(0);
     };
     match command {
+        Command::Supervise(args) => {
+            runtime()?.block_on(crate::managed::supervisor::supervise(
+                crate::managed::decode_checkout(&args.checkout_bytes)?,
+                args.invocation,
+            ))?;
+            Ok(0)
+        }
+        Command::Finalize(args) => {
+            runtime()?.block_on(crate::managed::finalizer::finalize(
+                crate::managed::decode_checkout(&args.checkout_bytes)?,
+                args.invocation,
+            ))?;
+            Ok(0)
+        }
+        Command::Explain {
+            intent_only,
+            full,
+            action,
+        } => {
+            let root = checkout_root(selected)?;
+            let inputs = std::env::vars_os().collect();
+            *settlement = EntrySettlement::Unresolved;
+            let metadata = crate::dependency::capture(&root, &inputs)?.metadata;
+            match action {
+                ExplainAction::Test(args) => {
+                    let intent = crate::test_workflow::Intent::new(
+                        metadata,
+                        args.request()?,
+                        args.profile,
+                        inputs,
+                    )
+                    .map_err(|error| HostError::Workflow(Box::new(error)))?;
+                    if intent_only {
+                        return explain_emit(presentation, "test", full, intent.explain());
+                    }
+                    let admitted = intent
+                        .admit()
+                        .map_err(|error| HostError::Workflow(Box::new(error)))?;
+                    explain_emit(presentation, "test", full, admitted.explain())
+                }
+                ExplainAction::Check(args) => {
+                    let intent = crate::test_workflow::CheckIntent::new(
+                        metadata,
+                        args.request(crate::selection::Operation::Check)?,
+                        inputs,
+                    )
+                    .map_err(|error| HostError::Workflow(Box::new(error)))?;
+                    if intent_only {
+                        return explain_emit(presentation, "check", full, intent.explain());
+                    }
+                    let admitted = intent
+                        .admit()
+                        .map_err(|error| HostError::Workflow(Box::new(error)))?;
+                    explain_emit(presentation, "check", full, admitted.explain())
+                }
+            }
+        }
         Command::Owner { path } => {
             let root = checkout_root(selected)?;
             let query = crate::ownership::query(&root, &path)?;
@@ -680,6 +788,7 @@ fn dispatch(
             let snapshot = if let Some(path) = metadata.as_ref() {
                 crate::catalog::MetadataSnapshot::read(&source_path(selected, path.clone())?)?
             } else {
+                *settlement = EntrySettlement::Unresolved;
                 crate::dependency::capture(
                     &checkout_root(selected)?,
                     &std::env::vars_os().collect(),
@@ -1044,16 +1153,167 @@ fn dispatch(
                 tail,
             )?)?)
         }
-        Command::Run { command } => runtime()?.block_on(crate::foreground::run(
-            crate::foreground::ForegroundRequest {
-                command,
-                environment: std::env::vars_os().collect::<Environment>(),
-                cwd: selected.map_or_else(std::env::current_dir, |path| Ok(path.to_path_buf()))?,
-                require_enclosing: false,
-                startup_deadline: Instant::now() + Duration::from_secs(30),
-                drain_timeout: Duration::from_secs(30),
-            },
-        )),
+        Command::Run {
+            command,
+            detach,
+            session,
+            resource_class,
+        } => {
+            let root = checkout_root(selected)?;
+            let environment: Environment = std::env::vars_os().collect();
+            let cwd = match selected {
+                Some(_) => root.clone(),
+                None => std::env::current_dir()?,
+            };
+            let control = entry.prepared().cloned().ok_or_else(|| HostError::Ownership("managed run requires an explicitly prepared native generation; run scripts/bootstrap-host".into()))?;
+            let selection = crate::admission::Selection::load(
+                &root,
+                &environment,
+                resource_class.as_deref(),
+                None,
+            )?;
+            let environment_digest = environment_digest(&environment);
+            let state = crate::paths::CheckoutState::resolve(&root, &environment)?;
+            let store = crate::invocation::InvocationStore::new(state);
+            let directory =
+                std::sync::Arc::new(store.begin(crate::invocation::InvocationSpec {
+                    invocation_id: presentation.invocation_id.clone(),
+                    command: "run".into(),
+                    session,
+                    parent: None,
+                    operation: RunSelection {
+                        command: command.clone(),
+                        cwd: cwd.as_os_str().to_owned(),
+                        detached: detach,
+                    },
+                    control,
+                    environment_digest,
+                    scientific: Vec::new(),
+                })?);
+            let mut arguments = command.into_iter();
+            let program = arguments
+                .next()
+                .ok_or_else(|| HostError::Ownership("empty managed payload".into()))?;
+            let runtime = runtime()?;
+            let launched = runtime.block_on(crate::managed::supervisor::launch_generic(
+                crate::managed::supervisor::ManagedRequest {
+                    root,
+                    directory,
+                    command: crate::managed::payload::PayloadCommand {
+                        program: program.into(),
+                        arguments: arguments.collect(),
+                        cwd,
+                        environment,
+                    },
+                    selection,
+                    policy: crate::managed::payload::PayloadPolicy {
+                        startup: Duration::from_secs(30),
+                        drain: Duration::from_secs(30),
+                        write: Duration::from_secs(5),
+                    },
+                    mode: if detach {
+                        crate::managed::supervisor::LaunchMode::Detached
+                    } else {
+                        crate::managed::supervisor::LaunchMode::Foreground
+                    },
+                },
+            ))?;
+            if detach {
+                let mut response = Envelope::response(
+                    "run",
+                    "original service launch acknowledged; completion remains unobserved",
+                    launched.observation,
+                );
+                response.subject_state = envelope::SubjectState::Launched;
+                response.settlement = envelope::Settlement::Unknown;
+                // Launch acknowledgement intentionally does not require terminal settlement.
+                response.outcome = CommandOutcome::Success;
+                response.observation.required = false;
+                response.observation.scope = "native_launch_acknowledgement".into();
+                presentation.emit(response)?;
+                return Ok(0);
+            }
+            runtime.block_on(observe_launched(launched, store, presentation))
+        }
+    }
+}
+#[derive(serde::Serialize)]
+struct RunSelection {
+    command: Vec<OsString>,
+    cwd: OsString,
+    detached: bool,
+}
+fn environment_digest(environment: &Environment) -> String {
+    use sha2::{Digest as _, Sha256};
+    let mut digest = Sha256::new();
+    for (name, value) in environment {
+        for bytes in [name.as_encoded_bytes(), value.as_encoded_bytes()] {
+            digest.update((bytes.len() as u64).to_le_bytes());
+            digest.update(bytes);
+        }
+    }
+    digest
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+async fn observe_launched(
+    mut launched: crate::managed::supervisor::Launched,
+    store: crate::invocation::InvocationStore,
+    presentation: &OutputOptions,
+) -> Result<i32, HostError> {
+    let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
+    let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    let cancellation = tokio::select! {
+        result = launched.wait(None) => { result?; None },
+        _ = interrupt.recv() => Some(130),
+        _ = terminate.recv() => Some(143),
+    };
+    if cancellation.is_some() {
+        launched
+            .cancel(Instant::now() + Duration::from_secs(30))
+            .await?;
+    }
+    let result = store.result::<serde::de::IgnoredAny, Box<serde_json::value::RawValue>>(&launched.invocation_id)?
+        .ok_or_else(|| HostError::Ownership("original service stopped without readable owner result; inspect finalization evidence".into()))?;
+    let status = run_status(cancellation, &result);
+    let response = crate::invocation_view::result(&store, launched.invocation_id.as_str(), None)?;
+    presentation.emit(response)?;
+    Ok(status)
+}
+fn run_status<T>(interrupted: Option<i32>, result: &Envelope<T>) -> i32 {
+    if let Some(status) = interrupted {
+        return status;
+    }
+    match result.child_exit {
+        Some(status) if status != 0 => status,
+        Some(0) if result.exit_code() == 0 => 0,
+        _ => 125,
+    }
+}
+fn explain_emit(
+    presentation: &OutputOptions,
+    verb: &str,
+    full: bool,
+    explanation: crate::test_workflow::Explanation<'_>,
+) -> Result<i32, HostError> {
+    let summary = format!(
+        "{verb} {:?} stage; remaining preparation and settlement obligations are explicit",
+        explanation.stage
+    );
+    if full {
+        Ok(presentation.emit(Envelope::response(
+            format!("explain {verb} full"),
+            summary,
+            explanation,
+        ))?)
+    } else {
+        Ok(presentation.emit(Envelope::response(
+            format!("explain {verb}"),
+            summary,
+            explanation.brief(),
+        ))?)
     }
 }
 fn invocation_store(
@@ -1671,6 +1931,22 @@ mod tests {
             assert!(Cli::try_parse_from(arguments).is_err());
         }
     }
+
+    #[test]
+    fn generic_run_preserves_child_status_without_hiding_failed_required_settlement() {
+        let mut result = Envelope::response("run", "owner result", ());
+        result.child_exit = Some(0);
+        result.subject_state = envelope::SubjectState::Succeeded;
+        result.settlement = envelope::Settlement::Complete;
+        assert_eq!(run_status(None, &result), 0);
+        result.settlement = envelope::Settlement::Incomplete;
+        assert_eq!(run_status(None, &result), 125);
+        result.child_exit = Some(3);
+        assert_eq!(run_status(None, &result), 3);
+        assert_eq!(run_status(Some(130), &result), 130);
+        result.child_exit = None;
+        assert_eq!(run_status(None, &result), 125);
+    }
     #[test]
     fn early_format_prefix_comes_from_the_shared_parser_tail_declaration() {
         let args = |values: &[&str]| values.iter().map(OsString::from).collect::<Vec<_>>();
@@ -1987,7 +2263,7 @@ mod tests {
             "json",
         ])
         .unwrap();
-        let Some(Command::Run { command }) = cli.command else {
+        let Some(Command::Run { command, .. }) = cli.command else {
             panic!("run")
         };
         assert_eq!(
@@ -2027,7 +2303,7 @@ mod tests {
         let cli =
             Cli::try_parse_from(["pse-host", "run", "/bin/true", "--help", "--format", "json"])
                 .unwrap();
-        let Some(Command::Run { command }) = cli.command else {
+        let Some(Command::Run { command, .. }) = cli.command else {
             panic!("run")
         };
         assert_eq!(

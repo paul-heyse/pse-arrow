@@ -142,8 +142,9 @@ impl TerminalResult<ManagedSummary> {
         errors.extend(report.operation.err());
         errors.extend(report.kill.err());
         let permit_released = matches!(report.permit, Ok(true));
+        let permit_retained = matches!(report.permit, Ok(false));
         errors.extend(report.permit.err());
-        if !permit_released && errors.is_empty() {
+        if permit_retained {
             errors.push(HostError::Ownership(
                 "finite reservation retained after settlement attempts".into(),
             ));
@@ -201,6 +202,37 @@ impl TerminalResult<ManagedSummary> {
             _streams: streams,
             _failures: errors,
         }
+    }
+
+    pub(crate) fn with_owner_failures(
+        mut self,
+        errors: Vec<HostError>,
+        policy: &RedactionPolicy,
+    ) -> Self {
+        if !errors.is_empty() {
+            self.response.outcome = CommandOutcome::Failure;
+            self.response.observation.completeness = Completeness::Partial;
+            self.response.failures.extend(
+                errors
+                    .iter()
+                    .map(|error| ErrorRecord::from_typed(error, policy)),
+            );
+            self._failures.extend(errors);
+        }
+        self
+    }
+    pub(crate) fn supervisor_unknown(
+        id: &CliInvocationId,
+        command: &str,
+        errors: Vec<HostError>,
+        policy: &RedactionPolicy,
+    ) -> Self {
+        let mut terminal = Self::finalizer_unknown(id, command, String::new(), errors, policy);
+        terminal.response.payload.service_result = None;
+        terminal.response.observation.scope = "managed_supervisor".into();
+        terminal.response.summary =
+            "supervisor owner ended without complete payload evidence".into();
+        terminal
     }
 
     /// An authenticated finalizer reports its actual service outcome and explicit unknowns.

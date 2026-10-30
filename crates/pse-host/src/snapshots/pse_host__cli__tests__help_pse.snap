@@ -8,6 +8,7 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  explain            Resolve test/check intent without building binaries or preparing runtime inputs
   owner              Inspect declared generated-output ownership and existing source contributors
   dep                Inspect exact locked dependency identities, features and direct workspace consumers
   artifact           Read an explicit retained file without interpreting its content as a protocol
@@ -44,6 +45,7 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  explain            Resolve test/check intent without building binaries or preparing runtime inputs
   owner              Inspect declared generated-output ownership and existing source contributors
   dep                Inspect exact locked dependency identities, features and direct workspace consumers
   artifact           Read an explicit retained file without interpreting its content as a protocol

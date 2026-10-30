@@ -250,6 +250,38 @@ fn exit_classes_keep_launch_wait_workload_failure_and_settlement_distinct() {
     response.outcome = CommandOutcome::Interrupted;
     assert_eq!(response.exit_code(), 130);
 }
+
+#[test]
+fn nonterminal_acknowledgement_preserves_unknown_subject_settlement_without_failure_exit() {
+    let mut response = Envelope::response("run", "launch acknowledged", ());
+    response.subject_state = SubjectState::Launched;
+    response.settlement = Settlement::Unknown;
+    response.observation.required = false;
+    assert_eq!(response.exit_code(), 0);
+    response.subject_state = SubjectState::Running;
+    response.observation.timed_out = true;
+    assert_eq!(response.exit_code(), 0);
+    response.observation.required = true;
+    assert_eq!(response.exit_code(), 1);
+    response.observation.required = false;
+    response.child_exit = Some(3);
+    assert_eq!(response.exit_code(), 1);
+}
+
+#[test]
+fn payload_environment_secrets_are_redacted_without_inheriting_them_in_the_controller() {
+    let inputs = [
+        ("PAYLOAD_TOKEN".into(), "payload-only-secret".into()),
+        ("PLAIN".into(), "ordinary".into()),
+    ]
+    .into_iter()
+    .collect();
+    let policy = RedactionPolicy::from_inputs(&inputs);
+    assert_eq!(
+        policy.redact("original payload-only-secret ordinary"),
+        "original <redacted:PAYLOAD_TOKEN> ordinary"
+    );
+}
 #[test]
 fn invocation_identity_roundtrips_and_rejects_unvalidated_strings() {
     let id = CliInvocationId::new();

@@ -32,6 +32,7 @@ workspace = true
 
 [dependencies]
 clap.workspace = true
+clap-cargo.workspace = true
 pulldown-cmark.workspace = true
 ra_ap_syntax.workspace = true
 pse-diagnostics.workspace = true

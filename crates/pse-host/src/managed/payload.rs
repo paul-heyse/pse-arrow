@@ -272,7 +272,7 @@ pub(crate) async fn run<O: ChunkObserver>(
     let mut operation = None;
     let mut permit: Option<Permit> = None;
     let mut cancelled = false;
-    let execution = async {
+    let startup = async {
         let child_pid = child
             .id()
             .ok_or_else(|| HostError::Ownership("gated child already reaped".into()))?;
@@ -370,19 +370,26 @@ pub(crate) async fn run<O: ChunkObserver>(
         }
         if cancellation.is_cancelled() {
             cancelled = true;
-            return Ok(None);
+            return Ok(());
         }
         notifier
             .send_ready("payload custody and capture initialized")
             .await?;
         gate_write.write_all(&[1])?;
         drop(guard);
-        tokio::select! {
+        Ok(())
+    };
+    let execution = match tokio::time::timeout_at(startup_deadline.into(), startup).await {
+        Ok(Ok(())) if cancelled => Ok(None),
+        Ok(Ok(())) => tokio::select! {
             result = child.wait() => result.map(Some).map_err(HostError::from),
             () = cancellation.cancelled() => { cancelled = true; Ok(None) },
-        }
-    }
-    .await;
+        },
+        Ok(Err(error)) => Err(error),
+        Err(_) => Err(HostError::Deadline(
+            "absolute managed payload startup; original intents retained".into(),
+        )),
+    };
     drop(gate_write);
     let drain_deadline = deadline(policy.drain)?;
     let closure = match launch_lock(&directory, drain_deadline).await {

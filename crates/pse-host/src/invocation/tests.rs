@@ -63,6 +63,32 @@ fn observation_of_absent_state_is_passive() {
 }
 
 #[test]
+fn explicit_begin_establishes_private_namespace_without_adopting_child_ledgers_or_links() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let (_temporary, store) = store();
+    let parent = store.state.root.parent().unwrap();
+    fs::create_dir_all(parent).unwrap();
+    fs::set_permissions(parent, fs::Permissions::from_mode(0o775)).unwrap();
+    store.history::<String>().unwrap();
+    assert_eq!(
+        fs::metadata(parent).unwrap().permissions().mode() & 0o777,
+        0o775
+    );
+    store.begin(spec(None)).unwrap();
+    assert_eq!(
+        fs::metadata(parent).unwrap().permissions().mode() & 0o777,
+        0o700
+    );
+    fs::set_permissions(&store.state.root, fs::Permissions::from_mode(0o775)).unwrap();
+    assert!(store.begin(spec(None)).is_err());
+    let destination = parent.with_extension("other");
+    fs::create_dir(&destination).unwrap();
+    let link = parent.with_extension("link");
+    symlink(&destination, &link).unwrap();
+    assert!(initialize_namespace(&link).is_err());
+}
+
+#[test]
 fn original_owner_records_requests_and_launch_cutoff_keep_separate_custody() {
     let (_temporary, store) = store();
     let directory = store.begin(spec(None)).unwrap();
@@ -108,6 +134,26 @@ fn original_owner_records_requests_and_launch_cutoff_keep_separate_custody() {
             .unwrap()
             .is_none()
     );
+}
+
+#[test]
+fn unconsumed_private_input_cleanup_retains_decode_category_without_secret_values() {
+    let (_temporary, store) = store();
+    let directory = store.begin(spec(None)).unwrap();
+    assert!(!directory.discard_request().unwrap());
+    directory
+        .publish_request(&"private-credential-value")
+        .unwrap();
+    let error = directory.take_request::<u64>().unwrap_err().to_string();
+    assert!(error.contains("Data at line"));
+    assert!(!error.contains("private-credential-value"));
+    assert!(directory.discard_request().unwrap());
+    assert!(!directory.discard_request().unwrap());
+    let foreign = directory.path().join("other-private-input");
+    fs::write(&foreign, b"preserve original destination").unwrap();
+    symlink(&foreign, directory.path().join("request.json")).unwrap();
+    assert!(directory.discard_request().is_err());
+    assert!(foreign.exists());
 }
 
 #[test]

@@ -81,8 +81,12 @@ pub struct InvocationDirectory {
 pub enum InvocationEvidence {
     /// Original service launch selection and intent.
     Launch,
+    /// Original service main identity and opened controller hierarchy before payload effects.
+    Controller,
     /// Service-owned native payload creation intents, before effects can become uncertain.
     PayloadIntent,
+    /// Separately attributed post-main service/finalizer observations.
+    Finalization,
     /// Original initialization and physical resource identities.
     Custody,
     /// The actual resource owner's settlement facts, separate from a terminal projection.
@@ -92,7 +96,9 @@ impl InvocationEvidence {
     fn filename(self) -> &'static str {
         match self {
             Self::Launch => "launch.json",
+            Self::Controller => "controller.json",
             Self::PayloadIntent => "payload-intent.json",
+            Self::Finalization => "finalization.json",
             Self::Custody => "custody.json",
             Self::Settlement => "settlement.json",
         }
@@ -196,6 +202,25 @@ fn directory(path: &Path, create: bool) -> Result<(), HostError> {
         ));
     }
     Ok(())
+}
+
+// New-work initialization may establish the permissions of this user-owned namespace.
+// Passive readers never change modes, and checkout/ledger children are not adopted here.
+fn initialize_namespace(path: &Path) -> Result<(), HostError> {
+    fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(path)?;
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags((rustix::fs::OFlags::DIRECTORY | rustix::fs::OFlags::NOFOLLOW).bits() as i32)
+        .open(path)?;
+    let metadata = file.metadata()?;
+    if !metadata.is_dir() || metadata.uid() != rustix::process::geteuid().as_raw() {
+        return Err(invalid("state namespace is not an owned direct directory"));
+    }
+    file.set_permissions(fs::Permissions::from_mode(0o700))?;
+    directory(path, false)
 }
 
 fn evidence_file(path: &Path) -> Result<File, HostError> {
@@ -309,11 +334,7 @@ impl InvocationStore {
             .root
             .parent()
             .ok_or_else(|| invalid("state root has no parent"))?;
-        fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(parent)?;
-        directory(parent, false)?;
+        initialize_namespace(parent)?;
         directory(&self.state.root, true)?;
         let invocations = self.state.invocations();
         directory(&invocations, true)?;
@@ -617,9 +638,20 @@ impl InvocationDirectory {
         if bytes.len() as u64 > META_LIMIT {
             return Err(invalid("owner record grew beyond declared bound"));
         }
-        serde_json::from_slice(&bytes)
-            .map(Some)
-            .map_err(|error| invalid(format!("owner record decode failed: {error}")))
+        serde_json::from_slice(&bytes).map(Some).map_err(|error| {
+            if name == "request.json" {
+                // A private malformed value can itself be a credential. Preserve location
+                // and native category without copying that value into diagnostics.
+                invalid(format!(
+                    "private request decode failed: {:?} at line {}, column {}",
+                    error.classify(),
+                    error.line(),
+                    error.column()
+                ))
+            } else {
+                invalid(format!("owner record decode failed: {error}"))
+            }
+        })
     }
     /// Publish ephemeral private service input. Secrets belong only here, never immutable
     /// metadata, diagnostics or launch records. The supervisor consumes it before readiness.
@@ -636,6 +668,21 @@ impl InvocationDirectory {
         fs::remove_file(self.path.join("request.json"))?;
         File::open(&self.path)?.sync_all()?;
         Ok(request)
+    }
+    /// Remove unconsumed private input after authenticated finalization. Read/check without
+    /// decoding or logging secrets; absence is normal and never implies operation settlement.
+    pub fn discard_request(&self) -> Result<bool, HostError> {
+        directory(&self.path, false)?;
+        let file = match evidence_file(&self.path.join("request.json")) {
+            Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(false);
+            }
+            result => result?,
+        };
+        drop(file);
+        fs::remove_file(self.path.join("request.json"))?;
+        File::open(&self.path)?.sync_all()?;
+        Ok(true)
     }
     /// Try the original parent launch exclusion without blocking an async runtime thread.
     /// The owner holds this descriptor across admission and closure/creation effects.

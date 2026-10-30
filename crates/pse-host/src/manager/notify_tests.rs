@@ -282,6 +282,10 @@ async fn native_notify_case(ready: bool) {
                 || observed.main_pid != original.pid || observed.invocation != original.invocation {
                 return Err(failure("READY did not complete the matching original job/main identity"));
             }
+            if owned.wait(Some(Instant::now() + Duration::from_millis(10))).await?.is_some()
+                || owned.observe().await?.main_pid != original.pid {
+                return Err(failure("bounded native wait stopped or completed the running original service"));
+            }
             std::fs::write(scratch.path().join("exit"), b"main may finish")?;
             // Natural main exit must run stop-post without a later StopUnit trigger.
             tokio::time::timeout(Duration::from_secs(5), async {
@@ -296,6 +300,11 @@ async fn native_notify_case(ready: bool) {
                     tokio::time::sleep(Duration::from_millis(10)).await;
                 }
             }).await.map_err(|_| HostError::Deadline("notify fixture completion".into()))??;
+            let complete = owned.wait(Some(Instant::now() + Duration::from_secs(5))).await?
+                .ok_or_else(|| failure("native wait missed original completed service"))?;
+            if complete.invocation != original.invocation {
+                return Err(failure("native wait reported another service incarnation"));
+            }
         } else {
             match launching.await {
                 Err(HostError::UnknownLaunch { unit, .. }) if unit == intent.unit() => {}
