@@ -25,6 +25,8 @@ const STATE_BASE: &str = "PSE_MANAGED_STATE_BASE_BYTES";
 pub(super) const CHECKOUT: &str = "PSE_MANAGED_CHECKOUT_BYTES";
 mod ancestry;
 pub use ancestry::{ManagedParent, parent};
+mod leader;
+pub(crate) use leader::{PayloadLeader, current_payload};
 
 /// The foreground origin remains a live lifetime owner; detachment explicitly omits that lease.
 #[derive(Clone, Copy, Debug)]

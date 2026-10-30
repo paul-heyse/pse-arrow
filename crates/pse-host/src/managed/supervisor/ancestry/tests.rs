@@ -6,6 +6,20 @@ use futures_util::FutureExt;
 use std::panic::AssertUnwindSafe;
 const PROBE: &str = "managed::supervisor::ancestry::tests::nested_member_probe";
 const FIXTURE: &str = "PSE_NESTED_FIXTURE";
+const DESCENDANT: &str =
+    "managed::supervisor::ancestry::tests::descendant_cannot_adopt_payload_leader";
+
+#[tokio::test]
+async fn descendant_cannot_adopt_payload_leader() {
+    if std::env::var_os(FIXTURE).is_none() {
+        return;
+    }
+    let environment = std::env::vars_os().collect();
+    assert!(
+        current_payload(&environment).await.is_err(),
+        "a descendant acquired original leader authority from inherited hints"
+    );
+}
 
 #[tokio::test]
 async fn managed_hint_never_supplies_actual_native_membership() {
@@ -45,6 +59,30 @@ async fn nested_member_probe() {
     };
     let root = request::decode_path(&std::env::var(CHECKOUT).unwrap()).unwrap();
     let mut environment: Environment = std::env::vars_os().collect();
+    let leader = current_payload(&environment).await.unwrap();
+    assert_eq!(leader.root(), root);
+    assert_eq!(
+        leader.invocation_id().as_str(),
+        std::env::var("PSE_MANAGED_INVOCATION").unwrap()
+    );
+    let metadata = leader
+        .metadata::<Box<serde_json::value::RawValue>>()
+        .unwrap();
+    assert_eq!(&metadata.selection.invocation_id, leader.invocation_id());
+    assert_eq!(leader.directory().id(), leader.invocation_id());
+    let mut descendant = tokio::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", DESCENDANT, "--nocapture"])
+        .kill_on_drop(true)
+        .spawn()
+        .unwrap();
+    let observed = tokio::time::timeout(Duration::from_secs(10), descendant.wait()).await;
+    let killed = descendant.start_kill();
+    let reaped = descendant.wait().await;
+    assert!(
+        matches!(observed, Ok(Ok(status)) if status.success()),
+        "descendant refusal: {observed:?}; cleanup {killed:?}/{reaped:?}"
+    );
+    assert!(reaped.is_ok(), "{reaped:?}");
     let selection = Selection::load(&root, &environment, None, None).unwrap();
     let parent = parent(
         &environment,

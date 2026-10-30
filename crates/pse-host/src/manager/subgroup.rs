@@ -54,6 +54,11 @@ impl CurrentMembership {
             group.path == binding.path() && (group.device, group.inode) == binding.identity()
         })
     }
+    pub(crate) fn matches_root(&self, binding: &UnitBinding) -> bool {
+        self.root.invocation == binding.invocation
+            && self.root.control_group == binding.group
+            && (self.ancestry[0].device, self.ancestry[0].inode) == (binding.device, binding.inode)
+    }
     /// Revalidate this actual process, original unit and every opened member component.
     pub async fn validate(&self, manager: &HostManager) -> Result<(), HostError> {
         manager.validate_view()?;

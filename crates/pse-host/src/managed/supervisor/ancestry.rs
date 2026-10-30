@@ -130,8 +130,15 @@ impl ManagedParent {
     }
 }
 async fn validate_controller(manager: &HostManager, ancestor: &Ancestor) -> Result<(), HostError> {
-    if !matches!(ProcessReader::default().process(ancestor.controller.process.pid), ProcessRead::Present(facts)
-        if facts.identity == ancestor.controller.process && !matches!(facts.stat.state, 'Z' | 'X'))
+    validate_live_controller(manager, &ancestor.launch, &ancestor.controller).await
+}
+pub(super) async fn validate_live_controller(
+    manager: &HostManager,
+    launch: &LaunchRecord,
+    controller: &ControllerRecord,
+) -> Result<(), HostError> {
+    if !matches!(ProcessReader::default().process(controller.process.pid), ProcessRead::Present(facts)
+        if facts.identity == controller.process && !matches!(facts.stat.state, 'Z' | 'X'))
     {
         return Err(invalid(
             "original ancestor controller is absent or changed for launch",
@@ -139,15 +146,15 @@ async fn validate_controller(manager: &HostManager, ancestor: &Ancestor) -> Resu
     }
     let unit = manager
         .recorded_original(
-            &ancestor.launch.controller,
-            &ancestor.controller.manager,
-            &ancestor.controller.binding,
-            Some(&ancestor.controller.process),
+            &launch.controller,
+            &controller.manager,
+            &controller.binding,
+            Some(&controller.process),
         )
         .await?
         .ok_or_else(|| invalid("original ancestor controller is gone for launch"))?;
     let observed = unit.observe().await?;
-    if observed.active_state != "active" || observed.main_pid != ancestor.controller.process.pid {
+    if observed.active_state != "active" || observed.main_pid != controller.process.pid {
         return Err(invalid("original ancestor is no longer live for launch"));
     }
     Ok(())
