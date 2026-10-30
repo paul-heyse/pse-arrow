@@ -1,5 +1,13 @@
 # Functional opportunity reviews
 
+The [Rust code-intelligence CLI review](rust-code-intelligence-cli-2026-10-29.md)
+assesses the full supplied analyzer, compiler, dependency and rustdoc capability surface from
+the agent consumer's perspective. Sixteen opportunities cover semantic understanding and
+annotations, change/test exploration, API and example discovery, completion, semantic edit
+previews, diagnostics, dependency migration and selected compiler investigations. It compares
+LSP, native embedding, snapshots and compiler escalation, with explicit context, reuse and
+evidence limits. Recommendations do not amend Plan59 or change production/configuration.
+
 The [agent CLI and simulation-observability review](agent-cli-and-simulation-observability-2026-10-29.md)
 develops eight capabilities over existing native inspection, invocation, scientific and
 diagnostic owners. End-to-end research of nine library overviews and exact-source follow-up
