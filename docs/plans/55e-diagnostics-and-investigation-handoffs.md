@@ -18,14 +18,14 @@ carry an investigation into a new connection without replay or invented continui
 the [coordinator](55-mcp-development-effectiveness.md) owns their dispositions. Development
 diagnosis is primary, with useful later production incident/query investigation behavior.
 
-**Interface-checked:** [telemetry_metrics.py](../../scripts/telemetry_metrics.py) and generated
+**Interface-checked:** [telemetry_metrics.py](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/telemetry_metrics.py) and generated
 native declarations already publish finite instrument dimensions. Current
-[`QueryRequest`/`backend_request`](../../scripts/telemetry_investigation.py) exposes metric/time/
+[`QueryRequest`/`backend_request`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/telemetry_investigation.py) exposes metric/time/
 service selection but not instrument-specific dimensions; its p95 expression aggregates other
 dimensions with `sum by(le)`. Original product/assessment/workload readers, build observation,
 profile/pressure capture and telemetry health/query already exist.
 
-[`telemetry_selection.Investigation`](../../scripts/telemetry_selection.py) already retains
+[`telemetry_selection.Investigation`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/telemetry_selection.py) already retains
 finite copied answers, schema descriptions and missing context through original native member-
 pack custody. `knowledge_explain`, service/storage health and MX statistics are existing owners.
 These are opportunities to extend useful questions and composition, not a new telemetry rollout,
@@ -94,7 +94,7 @@ Overflow, missing stream and unavailable backend do not masquerade as absence of
 <a id="E02"></a>
 ### E02 — Explain one original invocation
 
-Reuse [workload_queries](../../scripts/capabilities/workload_queries.py), original assessment/
+Reuse [workload_queries](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/workload_queries.py), original assessment/
 run inspection, build observation and selected telemetry/profile readers. Report requested,
 selected, executed and failed counts when their owners supply them, along with current/frozen
 state and remaining physical drain/cleanup obligations. Show a precise next original reader

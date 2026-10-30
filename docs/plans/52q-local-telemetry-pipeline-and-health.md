@@ -52,13 +52,13 @@ The existing foundations are useful because they separate optional observation f
 | Existing owner | Judgment and planned use |
 |---|---|
 | [blueprint §23.1](../authoritative_design/sections/operations-and-validation.md#section-23-1) and [diagnostic guide](../dev/simulation-diagnostics.md) | Preserve process/operation identity, independent clocks, missing coverage, bounded detail and optional observation failure. Standard delivery does not replace required source acknowledgement. |
-| [native service supervisor](../../scripts/surreal_server.py) and [substrate guide](../dev/surreal-substrate.md) | Reuse its ownership patterns: selected state, exact child/generation identity, lifecycle reservation and explicit stop. Do not copy its scientific worker pool or consume its allocation for lifetime telemetry. |
-| [environment guide](../dev/agent-environment.md#placement-and-memory) and [build environment](../../scripts/build_environment.py) | Keep ordinary unbounded build selection and scientific/reference admission intact. Service queue/disk controls are separate from host-wide workload policy. |
-| [finite telemetry capture](../../scripts/surreal_telemetry.py) | Its explicit selected-service restoration and bounded span-identity capture are real consumers. A standard receiver is attractive, but cannot replace these semantics merely by accepting OTLP. |
-| [capability observations](../../scripts/capabilities/observation.py) | Existing safe stderr and request/native references work without a backend. Extend local availability rather than force cheap reads through network telemetry. |
+| [native service supervisor](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/surreal_server.py) and [substrate guide](../dev/surreal-substrate.md) | Reuse its ownership patterns: selected state, exact child/generation identity, lifecycle reservation and explicit stop. Do not copy its scientific worker pool or consume its allocation for lifetime telemetry. |
+| [environment guide](../dev/agent-environment.md#placement-and-memory) and [build environment](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/build_environment.py) | Keep ordinary unbounded build selection and scientific/reference admission intact. Service queue/disk controls are separate from host-wide workload policy. |
+| [finite telemetry capture](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/surreal_telemetry.py) | Its explicit selected-service restoration and bounded span-identity capture are real consumers. A standard receiver is attractive, but cannot replace these semantics merely by accepting OTLP. |
+| [capability observations](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/observation.py) | Existing safe stderr and request/native references work without a backend. Extend local availability rather than force cheap reads through network telemetry. |
 
 The [saved backend inquiry](../functional_reviews/probes/opentelemetry-query-2026-10-24.json)
-and [retained driver](../../scripts/tests/opentelemetry_query_inquiry.py) cover OpenObserve
+and [retained driver](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/tests/opentelemetry_query_inquiry.py) cover OpenObserve
 OSS1.1.2, direct synthetic OTLP JSON ingest and useful SQL/PromQL retrieval. They did not run
 Collector, application exporters, restart/crash recovery or retention. The
 [SDK inquiry](../functional_reviews/probes/opentelemetry-sdk-2026-10-24.json) shows that processed

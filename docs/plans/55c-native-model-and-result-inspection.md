@@ -21,7 +21,7 @@ The [coordinator](55-mcp-development-effectiveness.md) owns opportunity disposit
 **Interface-checked:** at `391c949b5`, native `DeclarationInventory`, `ModelingInspection` and
 project comparison already describe declarations, routes/procedures, topology, instantiated
 members and lineage, including default owners, overrides and presets. The
-[Python facade](../../python/pse/_modeling.py) exposes `declarations`, `project_compare`,
+[Python facade](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/python/pse/_modeling.py) exposes `declarations`, `project_compare`,
 `project_source_detail`, `preparation_discovery` and `inspect`. Inspection performs contextual
 admission/instantiation rather than dispatching a solve. Its current PyO3 method constructs
 preparation settings from limits implicitly; canonical inspection needs that policy explicit.
@@ -35,7 +35,7 @@ decode work. The source review's retained fifteen-field context refusal proves a
 gap, not excessive value acquisition or a newly reproduced failure here.
 
 Use blueprint §21.1/§21.5 and ADR-0224's native directional boundary/protection contract. Concrete
-mechanisms come from the [Serde/Schemars overview](../libraries/Serde_serde_json_and_Schemars.md),
+mechanisms come from the [Serde/Schemars overview](https://github.com/paul-heyse/pse-arrow/blob/24852b36d2552709a8d304faf15e24157e2abdda/docs/libraries/Serde_serde_json_and_Schemars.md),
 native modeling/result owners and existing generation, not another rmcp/server/Python codec.
 
 ## Target contracts and alternatives

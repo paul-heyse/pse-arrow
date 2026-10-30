@@ -173,7 +173,7 @@ plus `StepRetention`; its refusal reason cannot enter that observation/cause con
 Thus native convergence followed by rejected original physical/knowledge checks can leave
 a `Converged` observation and stop without the independent cause. Candidate permission still
 refuses use: this is not evidence of false final publication. The
-[opaque direct boundary](../../../crates/pse-runtime/src/math/opaque_strategy.rs) already
+[opaque direct boundary](https://github.com/paul-heyse/pse-arrow/blob/8f85c201661d57a2459d2137298974ba79cfa2d8/crates/pse-runtime/src/math/opaque_strategy.rs) already
 accepts an `original_failure` callback, showing the seam can carry the distinction.
 
 **Proposed correction:** original assessment returns its semantic conclusion, composed

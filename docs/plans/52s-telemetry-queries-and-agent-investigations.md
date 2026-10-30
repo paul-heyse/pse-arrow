@@ -48,10 +48,10 @@ shape this focused assessment. No broad diagnostic audit or new formal review is
 
 The existing [capability interface](../dev/capability-interface.md) already separates discovery,
 effectful execution, passive readiness, native references and loaded source revision. Its
-[binding composition](../../scripts/capabilities/server.py),
-[typed host reads](../../scripts/capabilities/read_contracts.py),
-[presentation](../../scripts/capabilities/presentation.py) and
-[reference generator](../../scripts/capabilities/reference.py) are the right integration surface.
+[binding composition](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/server.py),
+[typed host reads](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/read_contracts.py),
+[presentation](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/presentation.py) and
+[reference generator](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/reference.py) are the right integration surface.
 Extend those mechanisms rather than create an exposure catalogue or generated backend API mirror.
 Native schemas/readers remain native; Pydantic owns host query and presentation contracts,
 without restating scientific records or gaining scientific authority.
@@ -61,8 +61,8 @@ The [diagnostic guide](../dev/simulation-diagnostics.md#explicit-bounded-capture
 capture, separately owned commands, exact target checks and explicit partiality. A long span is
 elapsed lifetime; native CPU capture and retained source detail answer different questions.
 Reuse these before introducing another profiling stack. Existing
-[evidence detail](../../scripts/evidence_detail.py),
-[evidence sources](../../scripts/evidence_sources.py) and
+[evidence detail](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/evidence_detail.py),
+[evidence sources](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/evidence_sources.py) and
 [offline publication](../../crates/pse-runtime/src/tooling/review_pack.rs) preserve custody and
 frozen interpretation independently of a live telemetry service. A backend result is another
 selected source, not permission for a second evidence ledger.
@@ -75,7 +75,7 @@ control/results. Trace status, watch activation and protocol completion never re
 
 ## Query realization and retained semantic limits
 
-The [retained driver](../../scripts/tests/opentelemetry_query_inquiry.py) and
+The [retained driver](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/tests/opentelemetry_query_inquiry.py) and
 [captured OpenObserve1.1.2 result](../functional_reviews/probes/opentelemetry-query-2026-10-24.json)
 provide a concrete starting point. The driver posts SQL search to
 `/api/{organization}/_search?type={signal}` with `query.sql`, `start_time`, `end_time`,

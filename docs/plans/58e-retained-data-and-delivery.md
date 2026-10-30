@@ -1,6 +1,6 @@
 ---
 title: "Plan 58e: Retained data and delivery"
-status: in-progress
+status: done
 date: 2026-10-28
 adrs: []
 review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md, docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md]
@@ -13,13 +13,14 @@ doc_topics: [storage, design]
 
 ## Purpose and basis
 
-**Proposed:** deliver O08 and the data portion of O09 from the
+**Implemented (selected functional scope):** deliver O08 and the data portion of O09 from the
 [principal functional review](../functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md#O08),
 with O15 retained as a conditional interoperability inquiry. A Rust operator selects exact
 retained results, composes native relations and exports useful data without Python objects,
 mathematical initialization or provider preparation. The
 [coordinator](58-rust-owned-system.md) owns cross-package decisions and assembled acceptance;
-this document owns E01–E04. This draft schedules work and authorizes no production changes.
+this document owns E01–E04. The initial draft scheduled work; the authorized implementation
+and its acceptance limits are recorded in the [Outcome](#outcome-recorded-after-implementation).
 
 The original inspected source baseline was `0659343f123fefa2371ac7d1659e3af7f75f9949`, on 2026-10-28.
 The 2026-10-29 amendment incorporates the [database-boundary review](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md)
@@ -73,10 +74,14 @@ build-specific queries/alerts deliberately retire through B/F.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [E01](#e01) | in progress | Result selection and decode owners | Retained reads construct from actual data capabilities without SourceServices/math. |
-| [E02](#e02) | in progress | Native result and cohort relation owners | Composable protected relations preserve configured state, pool and residual semantics. |
-| [E03](#e03) | planned | Payload allocation and export owners | Native selected delivery/export preserves custody through early close and partial failure. |
-| [E04](#e04) | planned | Data consumer and integration owners | Consumers migrate, conditional transports are dispositioned, and H owns assembled evidence. |
+| [E01](#e01) | done | Result selection and decode owners | Math-free retained reads use independent data capabilities and original protected decode/admission. |
+| [E02](#e02) | done | Native result and cohort relation owners | Native protected relations preserve configured state/pool, residual-before-limit, exact selected universe and partiality. |
+| [E03](#e03) | done | Payload allocation and export owners | Selected native IPC/export and retained-array/Bytes custody reuse existing owners; assembled delivery-failure journeys remain with H. |
+| [E04](#e04) | done | Data consumer and integration owners | Native consumers migrated and Python holders retired; conditional transports remain unselected; H owns assembled evidence. |
+
+> The table and final Outcome record current selected completion. Dated checkpoints below
+> are historical: their open work, removed commands and narrower passing selections retain
+> their original conditions. They do not override the final Outcome or qualify H.
 
 ### Native data prerequisite checkpoint — 2026-10-29
 
@@ -268,7 +273,7 @@ Signed remote URLs require an actual immutable remote-artifact consumer plus aut
 and retention covering the download interval. `object_store::Signer::signed_url` grants no
 execution/read-retention authority. With no trigger, record non-selection and finish the core.
 
-**Proposed verification:** [H](58h-qualification-and-publication.md#h01) receives native
+**Historical draft verification proposal:** [H](58h-qualification-and-publication.md#h01) receives native
 selection→composition→export with Python absent,
 early close/retained-output, concurrent reclaim, partial file attachment and delivery-cancel
 journeys. E packets own targeted compile/unit controls; H owns integrated qualification and
@@ -304,3 +309,44 @@ framework is selected. Bucket/file values, Arrow Flight and signed URLs remain u
 a concrete consumer trigger. Remaining E/G work removes the last Python stream/materialization
 consumers and reconciles their declarations; H still owns assembled delivery-cancel, partial
 attachment and deployment qualification.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented · 2026-10-29:** E01–E04 complete the selected native retained-data scope.
+`RetainedDataServices` constructs independently of preparation/math; protected snapshots,
+cohorts, passive observation, repeated comparison and selected IPC export use the existing
+canonical selection/decode/custody owners. Configured DataFusion state, pool identity,
+residual-before-limit, exact selected universe and unavailable/empty distinctions remain.
+The last Python stored-result/stream/materialization consumers and their declarations retire
+with G in `600d4df30`; no Python holder or replacement transport is required for these readers.
+
+**Tested:** zero-failure baseline. Five protected-result controls pass within the earlier
+ten-case covariance/research/protected-selection run. Four read-only callers construct
+math-free capabilities on private native services; the compiler-pressure control retains its
+real shared pool/compiler leases. Selected/full schema and range checks, empty demand,
+returned arrays surviving reader close/reclamation, output indexes, cancellation and IPC
+export retain their original assertions. Earlier native repeated-analysis/pruning controls
+exercise joins, configured state/pool, false-positive residuals before limit and frozen cohort
+partiality after scientific shutdown. The native-tools run passes 723 tests, zero failures
+(`7152b88a-c932-41f1-84be-83a9b7687485`), including lower-level columnar/Bytes custody controls;
+that aggregate is not 723 independent retained-data journeys. The coordinator's
+[verification matrix](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) records commands,
+modes and the selected scope; no additional tests ran for this documentation closeout.
+
+### Mistake made and corrected
+
+**Implemented:** the first data-only extraction still depended on mathematical startup's
+DataFusion observation setup. Private read fixtures now select the existing Contract
+observation explicitly and assert the original configured session/pool instead of relying on
+that startup side effect. Native read construction and scientific execution remain separate.
+
+### Deliberate deviations and remaining limits
+
+**Implemented:** reuse the admitted inline-IPC/sealed-file hybrid and existing Bytes ownership;
+no payload migration, bucket/file-value authority, Arrow Flight, signed URL service or Parquet
+export framework was selected without a concrete consumer. H retains assembled delivery-cancel,
+partial-attachment, concurrent-reclamation and deployment/recovery campaigns. These selected
+controls establish neither a full scientific/reference/performance campaign nor completion of
+all Plan58; historical receipts and raw data retain their original authority.

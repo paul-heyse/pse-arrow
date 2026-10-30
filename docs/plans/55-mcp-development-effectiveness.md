@@ -64,12 +64,12 @@ This integral foundation assessment initiates neither a broad audit nor a new di
 | Result inspection | Context descriptors can prevent acquisition; nested storage is also unsupported by current scalar cells. Compact context alone may not make nested values readable. Extend the native owner, preserving original full-batch admission/validation. |
 | Telemetry declarations, query adapter and retained investigation packs | Extend their finite dimension/query vocabulary and attributable compositions. A new pipeline, state ledger or metric family is unnecessary where producers already supply the facts. |
 
-Relevant implementation entry points are the [capability catalogue](../../scripts/capabilities/catalogue.py),
-[coherence](../../scripts/capabilities/coherence.py), [native contracts](../../scripts/capabilities/native_contracts.py),
-[workspace domains](../../scripts/workspace_domains.py), [affected selector](../../scripts/affected.py),
-[native knowledge](../../crates/pse-operations/src/knowledge.rs),
+Relevant implementation entry points are the [capability catalogue](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/catalogue.py),
+[coherence](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/coherence.py), [native contracts](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/native_contracts.py),
+[workspace domains](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/workspace_domains.py), [affected selector](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/affected.py),
+[native knowledge](https://github.com/paul-heyse/pse-arrow/blob/1bee18378a20670af31838be0d35e3173917fc58/crates/pse-operations/src/knowledge.rs),
 [result inspector](../../crates/pse-runtime/src/workflow/result_inspection.rs) and
-[telemetry query owner](../../scripts/telemetry_investigation.py). Companion explanations identify
+[telemetry query owner](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/telemetry_investigation.py). Companion explanations identify
 their consumed contracts and narrower source pointers.
 
 ## Shared target decisions

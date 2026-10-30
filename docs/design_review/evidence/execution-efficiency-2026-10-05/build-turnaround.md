@@ -11,7 +11,7 @@ attribution. This document does not own finding disposition.
 
 [`pse-model`](../../../../crates/pse-model/Cargo.toml) describes an otherwise native-execution-free
 semantic boundary, but depends on the generated
-[`pse-workspace-hack`](../../../../crates/pse-workspace-hack/Cargo.toml). That package directly
+[`pse-workspace-hack`](https://github.com/paul-heyse/pse-arrow/blob/2d6bf6ae7d03a8a9f6f109696bfe3d9cc8455466/crates/pse-workspace-hack/Cargo.toml). That package directly
 depends on DataFusion execution/physical planning/optimizer components, Arrow, cloud-enabled
 object_store, PostgreSQL support and host build dependencies. Its empty `build.rs` activates
 the host dependency closure. A cold small semantic build must therefore compile machinery its
@@ -58,21 +58,21 @@ that must invalidate the affected artifact.
 ## Eager native preparation precedes even a narrow build measurement
 
 The `bench-builds` recipe in the [justfile](../../../../justfile) sources both
-[`native-solver-env.sh`](../../../../scripts/native-solver-env.sh) and
-[`native-math-env.sh`](../../../../scripts/native-math-env.sh) before calling the measurement
+[`native-solver-env.sh`](https://github.com/paul-heyse/pse-arrow/blob/a67d235b3f3f1f2ee8e532f778ee900524928ae2/scripts/native-solver-env.sh) and
+[`native-math-env.sh`](https://github.com/paul-heyse/pse-arrow/blob/a67d235b3f3f1f2ee8e532f778ee900524928ae2/scripts/native-math-env.sh) before calling the measurement
 runner. Native math setup prepares KLU and interval/root isolation, then sources
-[`native-pipeline-env.sh`](../../../../scripts/native-pipeline-env.sh), which prepares Uno and
+[`native-pipeline-env.sh`](https://github.com/paul-heyse/pse-arrow/blob/a67d235b3f3f1f2ee8e532f778ee900524928ae2/scripts/native-pipeline-env.sh), which prepares Uno and
 PETSc unless their prefixes were already exported. Default build measurement ultimately
 selects compiler/relations rather than the full native family.
 
-[`native_pipeline_cache.prepare`](../../../../scripts/native_pipeline_cache.py) calls
+[`native_pipeline_cache.prepare`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/native_pipeline_cache.py) calls
 `highs_archive` while constructing the Uno installation identity, before checking whether the
 native installation is already complete. `highs_archive` invokes a memory-capped Cargo build
 of `pse-uno-sys` with `highs-provider` to discover the actual archive. BLAS/HiGHS headers and
 archives, source and patch identities are then read for the installation identity. The work
 is real even when Cargo returns fresh; no elapsed cost is inferred here.
 
-[`native_cache.valid`](../../../../scripts/native_cache.py) rehashes every recorded installed
+[`native_cache.valid`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/native_cache.py) rehashes every recorded installed
 header/library on a cache hit. `prepare` holds the per-identity exclusive lock during that
 verification. Concurrent identical preparations serialize through it. Native build publication
 itself is properly staged and checked; persistent installation identities prevent unnecessary
@@ -102,7 +102,7 @@ its build-time benefit is unmeasured.
 
 ## Measurement scope and historical evidence
 
-[`build_measurements.py`](../../../../scripts/build_measurements.py) already supports source
+[`build_measurements.py`](https://github.com/paul-heyse/pse-arrow/blob/a67d235b3f3f1f2ee8e532f778ee900524928ae2/scripts/build_measurements.py) already supports source
 snapshots, Cargo artifact JSON and timings, freshness/validation checks, wall/user/system time,
 sampled descendant RSS and sccache deltas. It preserves dirty/untracked source and isolates its
 build target. These are suitable foundations; no new measurement framework is needed.

@@ -19,16 +19,16 @@ questions through original source and native indexed owners. Owns O06/O07; the
 remains independently available, and optional tool use does not require importing a knowledge
 population first.
 
-**Interface-checked:** [knowledge.rs](../../crates/pse-operations/src/knowledge.rs) already owns
+**Interface-checked:** [knowledge.rs](https://github.com/paul-heyse/pse-arrow/blob/1bee18378a20670af31838be0d35e3173917fc58/crates/pse-operations/src/knowledge.rs) already owns
 `knowledge_select`, `knowledge_explain`, facet conjunctions, attributed lexical filtering,
 production triples, outgoing graph edges and immutable generation/query-cut cursors.
-[knowledge_store.py](../../scripts/knowledge_store.py) supplies explicit import/query/explain
-and freshness observations. Current MCP [knowledge bindings](../../scripts/capabilities/knowledge_queries.py)
+[knowledge_store.py](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/knowledge_store.py) supplies explicit import/query/explain
+and freshness observations. Current MCP [knowledge bindings](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/knowledge_queries.py)
 expose source corpus and library packets rather than these indexed questions.
 
-[workspace_domains.py](../../scripts/workspace_domains.py),
-[workspace_sources.py](../../scripts/workspace_sources.py) and
-[workspace_tasks.py](../../scripts/workspace_tasks.py) already model concepts, producer triples,
+[workspace_domains.py](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/workspace_domains.py),
+[workspace_sources.py](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/workspace_sources.py) and
+[workspace_tasks.py](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/workspace_tasks.py) already model concepts, producer triples,
 source attribution and task packets. Undeclared governing-contract/evidence links and dynamic
 consumers remain explicitly unknown. A richer query cannot substitute for a missing producer
 assertion. This limits the initial graph population, not the value of exact structured inquiry.

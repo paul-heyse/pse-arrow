@@ -19,19 +19,19 @@ and the O03/O11/O12 inquiries. The [coordinator](55-mcp-development-effectivenes
 dispositions; positive optional delivery is distinct from completing its inquiry.
 
 **Interface-checked:** `workspace_integration_view` currently emits nearest-package seeds and
-suggested routes; [affected.py](../../scripts/affected.py) already owns Cargo reverse closure,
+suggested routes; [affected.py](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/affected.py) already owns Cargo reverse closure,
 workspace configuration widening, scientific-input consumers and composed commands. Assessment
 selection/read/run and Rust test description/run are callable. Do not duplicate those decisions.
 
-[Specialists](../../scripts/capabilities/specialists.py) retains edit previews/reconciliation
+[Specialists](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/specialists.py) retains edit previews/reconciliation
 state in process-local maps and clears retention at close. Native invocation references resolve
 the original execution registry independently. Read-only annotations do not prove that a read is
 stateless: a preview-detail read can require endpoint-owned state.
-[semantic_navigation.py](../../scripts/semantic_navigation.py),
-[structural_migrations.py](../../scripts/structural_migrations.py) and
-[semantic_edits.py](../../scripts/semantic_edits.py) already support complete saved previews,
+[semantic_navigation.py](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/semantic_navigation.py),
+[structural_migrations.py](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/structural_migrations.py) and
+[semantic_edits.py](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/semantic_edits.py) already support complete saved previews,
 source/protection checks, pre-mutation reconciliation destinations and reconciliation.
-[regression_experiments.py](../../scripts/regression_experiments.py) has specific predicate,
+[regression_experiments.py](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/regression_experiments.py) has specific predicate,
 comparison, copied-source and bisect behavior. It is not an arbitrary-command bisector.
 
 ## Selected validation design

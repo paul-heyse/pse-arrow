@@ -1,6 +1,6 @@
 ---
 title: "Plan58b: Bootstrap and host control"
-status: in-progress
+status: done
 date: 2026-10-28
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
@@ -16,6 +16,12 @@ review_sources:
 This companion develops O05 and the host portion of O02/O06. The
 [coordinator](58-rust-owned-system.md) owns selection, rule changes and overall acceptance;
 this document owns the packages below. Creation authorizes planning only. Plan57 is superseded; its failed/interrupted evidence remains historical under its original conditions.
+
+The maintainer-authorized B01–B05 functional scope is complete. The final Outcome below
+supersedes interim package states and pause notes; earlier dated checkpoints retain their
+original evidence limits and retired command examples are historical. Current instructions
+belong to the [environment guide](../dev/agent-environment.md). Full-system, saturation and
+performance qualification remain with H and are not a condition claimed by this closeout.
 
 This revision incorporates [I01/I03–I05/I10–I12](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I01). That authoring amendment used `c3b7f136d` and inspected production source `bd1c4891e`; the subsequent checkpoints record delivered native scope. Recommendation disposition belongs to the coordinator.
 
@@ -158,10 +164,10 @@ original evidence scope.
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [B01](#b01) | done | 58b | Reviewed root and independent seed |
-| [B02](#b02) | in progress | 58b | Typed user-manager and kernel observation |
-| [B03](#b03) | in progress | 58b | Environment/admission/launch callers migrated |
-| [B04](#b04) | in progress | 58b | Service/compiler consumers integrated |
-| [B05](#b05) | in progress | 58b | Cold-start and host journey acceptance |
+| [B02](#b02) | done | 58b | Typed user-manager ownership, authenticated observation and actual original-group drain implemented and exercised. |
+| [B03](#b03) | done | 58b | Native environment/admission/foreground callers migrated; ordinary unbounded and explicit finite/scientific/reference/timing selections retain their contracts. |
+| [B04](#b04) | done | 58b | Service/compiler/provider/module consumers use explicit native preparation and original performing capabilities; replaced Python controllers retired. |
+| [B05](#b05) | done | 58b | Actual private host journeys and tracked-source archive bootstrap without an initial target or venv pass; H breadth remains separate. |
 
 ## Execution dependencies
 
@@ -268,13 +274,14 @@ records/fixtures after all writers move; do not delete retained user data or unr
 
 ## Verification and handoff
 
-**Proposed:** remaining package scope and its broader qualification. During implementation, use the applicable
-`just check-package <host-package>` and `just unit-package <host-package> <filter>` routes;
-pure bootstrap tests must not select unrelated Arrow validation roots. B05 contributes host
-journeys to the coordinator's H scope-end qualification, after all functional scope is ready.
-[H](58h-qualification-and-publication.md) owns integration, hygiene and manual checks; initial plan authoring performed no build, test or
-host mutation. The execution checkpoint below records subsequent implementation. Closure updates the environment/architecture owners through the
-decision route and records supported host/API limits. No speed or reliability gain is measured.
+**Implemented:** B01–B05's selected native construction, environment, placement, performing
+ownership and caller retirement. **Tested:** targeted host/provider/module and actual private
+manager/service journeys, plus the source-only checkout bootstrap described in the final
+Outcome. The [coordinator's shared qualification outcome](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29)
+owns exact final selections, commands and broader check results. Earlier authoring and execution
+checkpoints keep their original scope. Pure bootstrap selects no unrelated Arrow root; consuming
+correctness closures retain explicit actual target/host validation. H owns remaining assembled,
+saturation, release and performance campaigns. No speed or cold-machine acquisition claim follows.
 
 ## Execution checkpoint — 2026-10-28
 
@@ -837,3 +844,63 @@ the live workspace. Native CLI receipts distinguish the new packaging from histo
 receipts. The targeted snapshot/provenance controls and actual qualification constructor pass.
 This establishes construction, not H saturation or scientific campaign acceptance. Existing stores
 and old prepared generations remain untouched.
+
+## Outcome — selected functional closeout, 2026-10-29
+
+### What was built
+
+**Implemented:** B01–B05 deliver the independent prepared native host/tool pair, source-free
+activation and diagnosis, actual user-manager/kernel ownership, foreground and sibling-service
+launch, ordinary unbounded sharing and explicit finite/scientific/reference/timing admission.
+Nested borrowing authenticates physical membership; original kernel drain precedes finite
+release. Provider, source-server and study-module construction are explicit immutable
+publications; launch/read/help never build a missing artifact. Native service/worker callers
+hold performing capabilities and private handoffs. Replaced first-party Python host, receiver,
+cache, provider and fixture controllers have been retired with their consumers.
+
+**Implemented:** optional diagnostics/telemetry use exact declared tool provenance and a narrow
+authenticated persistent-unit capability. Explicit installer/setup/start/stop/reconfiguration
+are separate from passive inspection. Existing unrelated units, credentials, queues and user
+scientific state are not adopted or reset. Current operation and limitations are in the
+[environment guide](../dev/agent-environment.md).
+
+**Tested:** selected provider controls pass 17 cases and module-constructor controls pass 11
+against zero failures. Actual production and alternate long-hold module construction pass,
+with receipts `/tmp/plan58-bg-production-module.json` and `/tmp/plan58-bg-long-hold.json`.
+The final native-tools selection passes 723 tests (run
+`7152b88a-c932-41f1-84be-83a9b7687485`), and final host/corpus controls pass 199 (run
+`c19a62f9-893b-4b91-a939-6f2fa8b87db3`), each against zero failures within its selected scope.
+The [shared qualification outcome](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29)
+owns exact commands, exclusions and the combined matrix; these counts do not qualify unselected
+science or the H campaigns.
+
+**Tested — B05 tracked-source bootstrap:** `git archive` of tracked `6dc84501d` created the
+private checkout `/tmp/pse-plan58-cold.4WqYXP` with neither `target/` nor `.venv`. Under the
+main checkout's native foreground supervision, the archived checkout's `scripts/bootstrap-host`
+completed, its prepared `scripts/pse-host --version` and `--help` succeeded, and the final
+no-`.venv` assertion passed. The original command exited zero (session 6276;
+`/tmp/plan58-bg-cold-host-bootstrap.log`). Existing toolchain, acquired sources and caches were
+allowed. This establishes independent source-checkout construction without a Python environment,
+not cold-machine acquisition, an empty compiler cache or a startup-duration measurement.
+
+### A mistake made and corrected
+
+Actual controls exposed premature release based on manager slice activity, literal service
+argv expansion and dropped signal errors during an outer drain timeout. Release now uses the
+opened original kernel population, typed `ExecStartEx` preserves literal data, and signal/drain
+failures survive independent settlement. Persistent telemetry testing also exposed inactive-unit
+GC between load and observation; temporary authenticated `RefUnit`/`UnrefUnit` now covers explicit
+mutation admission without giving passive readers adoption authority. Installer review corrected
+unreceipted binary trust and unbounded skipped TAR expansion. The revealing refusal/failure and
+real private-unit controls remain with those owners; earlier failures receive no passing credit.
+
+### Deviations from the plan, deliberate
+
+**Implemented:** retain the actual bounded native mechanisms instead of adding a resident
+admission daemon or a universal service owner. Optional login enable/disable and the former
+telemetry query/watch/debugger wrappers were retired explicitly rather than ported as another
+controller. Long-hold construction uses the released CLI with an owned source snapshot and
+alternate declared manifest; it does not rewrite the live workspace or revive the Python packer.
+The tracked-source B05 journey permits existing toolchain/source/cache inputs. Full fresh-machine
+acquisition, upstream-server cold compilation, broad recovery, saturation, release and performance
+qualification remain separately selected H work. No measured speed or capacity benefit is claimed.

@@ -1,6 +1,6 @@
 ---
 title: "Plan 58d: Canonical execution, schema evolution and connectivity"
-status: in-progress
+status: done
 date: 2026-10-28
 adrs: []
 review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md, docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md]
@@ -13,13 +13,18 @@ doc_topics: [storage, design]
 
 ## Purpose and basis
 
-**Proposed:** implement O07 and the control portion of O09 from the
+**Implemented:** O07 and the selected control portion of O09 from the
 [principal functional review](../functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md#O07).
 A Rust operator can browse durable work, submit a complete authorized control intent and
 reconcile its original outcome using connection, authentication and bounds alone. Reading
 headers or requesting stop must not construct mathematical services or prepare a provider.
 The [coordinator](58-rust-owned-system.md) owns shared rule decisions, sequencing and overall
-acceptance; this document owns D01–D05, including the durable-model and migration foundation selected from improvement-review I02/I03. Creating this draft does not authorize implementation.
+acceptance; this document owns D01–D05, including the durable-model and migration foundation selected from improvement-review I02/I03.
+
+The maintainer-authorized D01–D05 functional scope is complete. The final Outcome below
+supersedes interim package states and pause notes; earlier dated checkpoints retain their
+original evidence limits. Current commands belong to the native guides. H's full-system,
+recovery/saturation and performance campaigns remain separate and are not claimed complete.
 
 The original amendment used `c3b7f136d` and the reviewed `bd1c4891e` production basis on
 2026-10-28. The 2026-10-29 amendment consumes the
@@ -44,7 +49,7 @@ record-actor client contract. `deployment.rs::CanonicalConnectionSettings` and
 settlement. The Rust SDK is an alternative to assess, not an existing interchangeable owner.
 
 Retain the supervised source-built SurrealDB 3.3.4 with MX 1.0.0, explicit SSI and synchronous
-AOL/every-append durability. `scripts/surreal_source.py`, `mx-1.0-controls.patch`,
+AOL/every-append durability. `pse_host::server`, `mx-1.0-controls.patch`,
 `canonical-profile.patch` and `api-failure-rollback.patch` in `scripts/surrealdb-source/`
 identify the effective server. Stock release defaults and engine-overview labels do not.
 Compact client control and privileged scientific workers share canonical command policy;
@@ -93,11 +98,11 @@ engine, transport, module privilege or payload changes require their applicable 
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [D01](#d01) | in progress | Rust operations and connection owners | Control construction and direct typed calls require no mathematical Runtime. |
-| [D02](#d02) | in progress | Canonical command policy and ingress owners | Actor-bound commands and original receipt reconciliation agree across selected ingress. |
-| [D03](#d03) | in progress | Canonical study policy and operations owners | Durable model governs bounded progression, preparation handoff, claim and later lineage queries. |
-| [D04](#d04) | in progress | Control consumer and integration owners | Retained native consumers migrate; replaced frontend orchestration is deleted; H has assembled cases. |
-| [D05](#d05) | in progress | Canonical schema and maintenance owners | Native ordered migration, version applicability and write fencing work, including open-handle/in-flight semantics. |
+| [D01](#d01) | done | Rust operations and connection owners | Connection-only native control and exact-release SDK responsibility comparison complete; bounded Tonic custody retained for its actual gaps. |
+| [D02](#d02) | done | Canonical command policy and ingress owners | Actor grants, complete original intents and immutable receipt reconciliation exercised across native/API ingress. |
+| [D03](#d03) | done | Canonical study policy and operations owners | Bounded durable progression, opaque preparation/claim recheck and later lineage integrated and exercised. |
+| [D04](#d04) | done | Control consumer and integration owners | Native operators/inspectors and actual retained callers migrated; Python control orchestration retired; broader H scenarios handed off. |
+| [D05](#d05) | done | Canonical schema and maintenance owners | Ordered native migration, original target applicability, closed admission and in-flight/publication fencing exercised under actual private ownership. |
 
 <a id="d01"></a>
 ## D01 — Connection-only native control
@@ -545,3 +550,56 @@ cannot replace current admission or cumulative predecode bounds. No new SDK conn
 or transport is selected. Delete control-only mathematical construction and redundant frontend
 retry/transition decisions with their actual migrated callers. D01–D05 implementation acceptance
 and quiescent migration/worker boundaries retain their existing owners and conditions.
+
+## Outcome — selected functional closeout, 2026-10-29
+
+### What was built
+
+**Implemented:** D01–D05 deliver connection-only native browse/control/reconciliation without
+mathematical Runtime construction, separate actor grants and privileged provisioning, one
+canonical command policy, bounded progression/preparation handoff and a short current-premise
+claim recheck. Native workers execute outside database transactions and publish through exact
+attempt/generation/schema fences. Lost acknowledgements retain original intent and immutable
+receipt identities; missing readback is unknown, never absence or replay authority. Native
+operators and graph/query inspectors replace retained Python control consumers.
+
+**Implemented:** ordered pre-epoch/v2/v3 migration preserves original requested target, durable
+closed intermediate checkpoint, module/interpretation identity and activation receipt. Live
+old-handle and in-flight publication controls retain stale-epoch refusal, permitted original
+settlement and actual ingress/publisher drain. Application/schema readiness and host process
+ownership remain separate capabilities; ordinary open never initializes or repairs.
+
+**Tested:** the actual native migration/claim/actor checkpoint's 19-case population and the
+additional target-v2, schema-crossing and worker/publication controls above retain their original
+acceptance limits. Final captured native canonical operator controls pass two cases against zero
+failures (run `1275d920-610d-43e5-800a-903ad9846cf9`), using an actually owned fresh canonical
+service and explicit prepared artifacts. The final native-tools matrix passes 723 selected cases
+(run `7152b88a-c932-41f1-84be-83a9b7687485`). Exact commands, selections, exclusions and the shared
+qualification boundary belong to the
+[coordinator's final outcome](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29).
+These results establish selected semantic/ownership behavior, not historical-data migration,
+disaster recovery, performance or full H qualification.
+
+### A mistake made and corrected
+
+The native graph/query inspector connected but omitted `store.open()` before querying. Open now
+runs inside the existing result/disconnect block, preserving independent cleanup even if admission
+fails. Its result decoding now respects the SDK's actual tagged values instead of treating them
+as untagged JSON. A failure assertion used a stale statement index after the probe inserted
+additional statements; it now checks the actual nonnegative failing index. Earlier activation
+review also caught v3 capability probes being applied to an original target-v2 request; target-
+specific attestation now preserves the historical v2 contract while refusing an old module for
+v3 activation. None of these corrections relaxes canonical finality, actor grants or write fences.
+
+### Deviations from the plan, deliberate
+
+**Implemented:** the exact SDK comparison retains bounded Tonic/Hyper custody and the constrained
+actor API. Tagged SDK values and provisional statement/stream completion do not supply the needed
+public physical-drain/cancellation witness; its unused gRPC capacity argument does not replace
+actual admission or cumulative response bounds. An SDK swap, new protocol or universal connection
+wrapper was not a completion requirement. Polling/CAS and the pure read-only policy module remain
+selected where broader feeds/events/module grants removed no useful owner. The two-edge migration
+retains an authenticated closed v2 checkpoint because a combined transaction conflicted on the
+effective engine. Broader backend/topology, production recovery, saturation and performance
+campaigns remain at H or their explicit revisit owner; no missing implementation scope is inferred
+from deliberately retaining the supported native transport.

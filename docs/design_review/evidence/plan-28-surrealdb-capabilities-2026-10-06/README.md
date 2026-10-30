@@ -15,8 +15,8 @@ their original observations rather than current dispositions.
 
 ## Evidence boundary
 
-The selected shared [SurrealDB guide](../../../../.codex/skills/neo4j-surrealdb/surrealdb/GUIDE.md)
-and its capability briefs/probe ledger cover the Rust SDK, core and server image at 3.3.0.
+The originally selected shared SurrealDB guide (`neo4j-surrealdb/surrealdb/GUIDE.md`;
+local skill content was not retained in this repository) and its capability briefs/probe ledger cover the Rust SDK, core and server image at 3.3.0.
 The server source is release commit
 [`238bfeb11f5725bebed370167656748df8067595`](https://github.com/surrealdb/surrealdb/tree/238bfeb11f5725bebed370167656748df8067595);
 the captured official documentation is

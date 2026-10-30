@@ -123,9 +123,9 @@ prior evidence explicitly establishes Tested/Measured behavior.
 It can express supported questions rather than discover that a valid concept has no usable
 argument combination in MCP.
 
-[`operations.py`](../../scripts/capabilities/operations.py) exposes only concept/identity/document
+[`operations.py`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/operations.py) exposes only concept/identity/document
 and pagination for `workspace_concepts_query`. Its owner,
-[`workspace_domains.query`](../../scripts/workspace_domains.py), additionally supports exact
+[`workspace_domains.query`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/workspace_domains.py), additionally supports exact
 topics, role, owner, origin, question, selected reference, publication scope and native status.
 Research questions require origin/question; evidence-related alternatives need explicit supplied
 references. This is a capability-expression gap, not simply missing prose around an enum.
@@ -153,7 +153,7 @@ correct native boundary. AP-04/AP-05 and DP-02/DP-24 are central.
 native refusal and unavailable evidence without reconstructing meanings inside arbitrary JSON.
 
 Most host readers return `ReadResult` with a generic `dict[str, JsonValue]` payload. Its
-[`bounded()`](../../scripts/capabilities/operations.py) walker can omit keys, truncate arrays or
+[`bounded()`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/operations.py) walker can omit keys, truncate arrays or
 substitute null after the owner has computed the result. Explicit omissions are a useful safety
 net, but they cannot make the transformed object conform to an original complete native schema.
 Likewise, attaching richer `outputSchema` alone cannot repair an untyped or altered result.
@@ -176,7 +176,7 @@ not only round trips through the same generator. AP-02/AP-04/AP-05; DP-08/DP-21.
 **Value:** ordinary selections provide the next useful instructions without repeatedly moving
 large unrelated guides into the model context.
 
-[`capabilities_select`](../../scripts/capabilities/server.py) returns guide bodies; its 256 KiB
+[`capabilities_select`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/server.py) returns guide bodies; its 256 KiB
 instruction bound exceeds common useful response sizes. Workflow prompts already use resource
 references, but a preceding selection can still return approximately 79 KB and reveal 24
 operations for `inspect-plan`. Family expansion pulls in tools and instructions beyond the
@@ -202,8 +202,8 @@ new flow actually improves use, including planning-only retrieval. AP-03/AP-06/A
 prepare a dependency or inspect an unsettled native attempt. It does not guess a retry policy.
 
 The earlier hidden-call probe returned a generic invoker error. Host validation in
-[`NativeTool.run`](../../scripts/capabilities/native.py) already exposes bounded locations/codes;
-[`scientific_error`](../../scripts/capabilities/native_worker.py) already preserves native
+[`NativeTool.run`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/native.py) already exposes bounded locations/codes;
+[`scientific_error`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/native_worker.py) already preserves native
 classifications and source spans. The gap is uneven fidelity across layers and loss of richer
 owner-provided interpretation/recovery data, not universal absence of structured errors.
 
@@ -233,7 +233,7 @@ DP-19/DP-21; PS-10 where scientific results are involved.
 **Value:** recipe and operation inspection reliably lead an agent to the declaration it can
 change, and a normal extension does not require unrelated catalogue fixes.
 
-[`inventory._leaf_sources`](../../scripts/capabilities/inventory.py) uses textual extraction
+[`inventory._leaf_sources`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/inventory.py) uses textual extraction
 and maps dotted modules to `.py`. For `python -m scripts.capabilities`, it guesses the missing
 `scripts/capabilities.py`; the real entry is a package with `__main__.py`. Nested module names
 can also exceed that extractor's recognized spelling. The earlier runtime recipe observation
@@ -258,7 +258,7 @@ and owner links follow its single declaration. AP-01/AP-04/AP-06; DP-01/DP-16/DP
 **Value:** a selected failure, gate, source relation or evidence comparison is useful and complete
 without first loading and copying an entire report into MCP.
 
-[`run_inspection.product_result`](../../scripts/run_inspection.py) constructs selected subject
+[`run_inspection.product_result`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/run_inspection.py) constructs selected subject
 views before display pagination; assessment readers have their own broad acquisition patterns.
 The generic MCP bound occurs afterward. A smaller response therefore does not establish less
 examined work. Some global denominator/ambiguity checks remain necessary even for a small answer.
@@ -292,7 +292,7 @@ basis, validity and nonfinite distinctions; JSON normalization is not a substitu
 This is a new scientific-tool usability inquiry, not a claim that the existing IPC contract is
 incorrect. Compare owner-native projection with a schema-only inquiry plus the current reader;
 do not build an unrestricted query service or per-row scientific RPC loop. Inspect
-[`native_worker.read_result`](../../scripts/capabilities/native_worker.py), native result
+[`native_worker.read_result`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/native_worker.py), native result
 selection and the Python inspection stream together. Reuse existing Arrow/DataFusion capabilities
 only where the result contract permits them. Acceptance requires a real wide typed result and
 independent verification of the selected physical answer. PS-01/PS-12; H5/H7/H15/H16.
@@ -327,7 +327,7 @@ explicit selected preparation followed by a real operation. AP-05/AP-06/AP-07; H
 while changed handlers, schemas and actual workers still refuse before effects.
 
 The live and fresh-process refusals demonstrate safe coherence enforcement and a practical
-availability cost during concurrent development. [`local_imports`](../../scripts/capabilities/coherence.py)
+availability cost during concurrent development. [`local_imports`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/coherence.py)
 walks all imports anywhere in a module. An `operations.py` binding inherits sibling lazy-import
 closures: workspace tasks reach affected/coverage/validation owners, so a simple inventory read
 can inherit those dependencies. Native bindings also import the shared result/adapter module.
@@ -351,8 +351,8 @@ revocation of its earlier acceptance. AP-01/AP-06/AP-07; DP-09; H5/H13/H18.
 **Value:** long preparation, execution and drain are distinguishable while the request is still
 open; a returned original handle supports a separate watch/read without restarting work.
 
-[`process.run_worker`](../../scripts/capabilities/process.py) currently exchanges final request/
-response files and waits. [`rust_tests.execute`](../../scripts/capabilities/rust_tests.py) already
+[`process.run_worker`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/process.py) currently exchanges final request/
+response files and waits. [`rust_tests.execute`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/rust_tests.py) already
 writes an authentic invocation reference when the native runner issues one, before terminal
 settlement. A real observation bridge can expose that event and selected native stages while
 retaining the existing action and its admission owner.
@@ -377,7 +377,7 @@ without fabricated native settlement. Plan52g G01/G02 and 52h remain related ass
 **Value:** a long editing session can discard an abandoned or reconciled preview without ending
 the endpoint and losing every other handle.
 
-[`Specialists.retain_preview`](../../scripts/capabilities/specialists.py) deliberately never evicts
+[`Specialists.retain_preview`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/specialists.py) deliberately never evicts
 issued handles and bounds retention at 32 previews/64 MiB. Reset changes presentation; it does
 not reclaim previews. Preserve those strong semantics while adding exact-digest release and a
 compact retention/status inquiry. Release means future resolution is unavailable, not rollback,

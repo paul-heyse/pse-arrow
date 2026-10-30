@@ -147,7 +147,7 @@ All corrections below are **Proposed** and unscheduled.
 
 **S01; AP-07, DP-19/20; G9.**
 
-In [`OwnedDocumentSet::edit`](../../../crates/pse-runtime/src/authoring_driver/document/owned.rs),
+In [`OwnedDocumentSet::edit`](https://github.com/paul-heyse/pse-arrow/blob/2d6bf6ae7d03a8a9f6f109696bfe3d9cc8455466/crates/pse-runtime/src/authoring_driver/document/owned.rs),
 an affected package copies its document inventory, reuses parser owners, and creates a
 `BundleOwner` whose `_parent` retains the previous complete bundle. Each predecessor retains
 its predecessor. Dropping external old-revision handles therefore does not release that
@@ -170,7 +170,7 @@ intentional old revision and check source access and lease lifetime.
 [`FieldCheckedBatch::admit`](../../../crates/pse-relations/src/columnar.rs) evaluates schema,
 Arrow structure and local/native predicates, but retains storage and relation contract
 without the actual validation-context owner.
-[`validate_context`](../../../crates/pse-runtime/src/authoring_driver/document/owned.rs)
+[`validate_context`](https://github.com/paul-heyse/pse-arrow/blob/2d6bf6ae7d03a8a9f6f109696bfe3d9cc8455466/crates/pse-runtime/src/authoring_driver/document/owned.rs)
 consequently re-admits unchanged batches when constructing physical and modeling contexts.
 Predicate preparation is retained; successful evaluation of unchanged values is not.
 
@@ -189,9 +189,9 @@ certificate system.
 
 **S03; AP-07, DP-10/20; G9.**
 
-[`Studies::admit_dispatch`](../../../crates/pse-operations/src/studies.rs) loads every point,
+[`Studies::admit_dispatch`](https://github.com/paul-heyse/pse-arrow/blob/0b4abf7c6b34149cfe3d6bfc77feebd80952cebb/crates/pse-operations/src/studies.rs) loads every point,
 reconstructs policy facts, calls
-[`study_policy::transition`](../../../crates/pse-operations/src/study_policy.rs), and selects
+[`study_policy::transition`](https://github.com/paul-heyse/pse-arrow/blob/a6aedd31c51688e3686723306d7deac14bd4072c/crates/pse-operations/src/study_policy.rs), and selects
 one requested action. Transition re-admits graph structure and derives actions for all
 points. Workers invoke this for individual dispatches.
 

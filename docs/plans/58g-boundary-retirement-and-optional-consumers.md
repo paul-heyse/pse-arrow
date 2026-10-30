@@ -1,6 +1,6 @@
 ---
 title: "Plan58: Boundary retirement and optional consumers"
-status: in-progress
+status: done
 date: 2026-10-28
 adrs: []
 review_sources: [docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md, docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
@@ -13,7 +13,7 @@ doc_topics: [current-work, architecture, design, libraries, validation]
 
 ## Target and foundation
 
-**Proposed:** retire first-party Python operating machinery and the Python MCP stack while preserving supported scientific outcomes through Rust owners. O03/O04 supply the original opportunity; the [improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I01), especially I01/I07–I09/I12/I13, supplies the integrated cutover and requirement reductions. The [coordinator](58-rust-owned-system.md) owns their dispositions. The original authoring baseline was `c3b7f136d`; subsequent checkpoints record delivered retirements. This document amendment itself implements no product replacement.
+**Implemented (selected functional scope):** retire first-party Python operating machinery and the Python MCP stack while preserving supported scientific outcomes through Rust owners. O03/O04 supply the original opportunity; the [improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I01), especially I01/I07–I09/I12/I13, supplies the integrated cutover and requirement reductions. The [coordinator](58-rust-owned-system.md) owns their dispositions. The original authoring baseline was `c3b7f136d`; subsequent checkpoints record delivered retirements. The initial amendment scheduled replacement; the [Outcome](#outcome-recorded-after-implementation) records authorized implementation and its limits.
 
 A cutover includes the retained outcome's native owner, real callers, configuration, generator declarations, tests and old-path deletion. Temporary incomplete development states receive no acceptance credit, but need no compatibility bridge. G contributes to each owning change; it is not a final cleanup wave that permits replaced mechanisms to linger. Independent cuts need not become one repository-wide commit.
 
@@ -31,10 +31,14 @@ replacement capabilities work. This adds no automatic engine migration or blanke
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| G01 | in progress | 58g | Retained/lost behavior and integrated caller/declaration deletion boundaries classified |
-| G02 | done | 58g | Python MCP, global catalogue, frontend sessions and generated clients retired; joined native consumer qualification remains with B/C/D/H |
-| G03 | in progress | 58g | Required Python product projections and operating dependencies retired with their declarations and consumers |
-| G04 | planned | 58g | Future optional binding seam defined; unnecessary ABI/catalogue/frontends explicitly unselected |
+| G01 | done | 58g | Retained/lost outcomes dispositioned and actual integrated caller/declaration deletions completed |
+| G02 | done | 58g | Python MCP, global catalogue, frontend sessions and generated clients retired; optional agent delivery remains unselected |
+| G03 | done | 58g | Required Python product/extension, generators, controllers and environment dependencies retired with native retained consumers |
+| G04 | done | 58g | Coarse future adapter seam defined; implementation conditional on a named consumer, with mandatory ABI/catalogue/frontends unselected |
+
+> The table and final Outcome own current selected completion. Dated checkpoints below
+> are historical, including lists of then-live Python consumers and open G work. Retained
+> measurements and failed/interrupted attempts keep their original evidence scope.
 
 ### Remaining developer cutover dispositions — 2026-10-29
 
@@ -131,13 +135,19 @@ Delete obsolete interpreter wait policies only with their actual consumers; C ow
 <a id="g04"></a>
 ### G04 — Define future adapters; conditional adoption only
 
-Document a coarse optional PyO3 seam over Rust-owned requests/results/operation handles: adaptation belongs to the binding, policy and lifetime to Rust. This design deliverable does not require implementing a Python package, GUI, public native class family or second cdylib. A `cdylib` artifact does not provide an API/ownership contract; current `_native` has CPython assumptions. Ordinary linked Rust APIs remain the immediate target. No mandatory C ABI, plugin system or stable-ABI framework follows without an actual foreign consumer. PyO3 detachment does not establish native destruction or cancellation.
+Document a coarse optional PyO3 seam over Rust-owned requests/results/operation handles: adaptation belongs to the binding, policy and lifetime to Rust. This design deliverable does not require implementing a Python package, GUI, public native class family or second cdylib. A `cdylib` artifact does not provide an API/ownership contract; the retired `_native` had CPython assumptions. Ordinary linked Rust APIs remain the immediate target. No mandatory C ABI, plugin system or stable-ABI framework follows without an actual foreign consumer. PyO3 detachment does not establish native destruction or cancellation.
 
 RMCP remains deferred until a concrete agent workflow earns it beyond direct APIs/tools. If triggered, compare no MCP against a small typed STDIO adapter using `ServerHandler`, `ToolRouter`, `Parameters<T>` and structured results. Reuse domain-owned operations rather than generating three required faces from a catalogue. RMCP3.7 service close can cancel handlers after bounded drain; domain owners settle separately. Actual host support is required before a delivery claim. Source: [tagged RMCP service](https://github.com/modelcontextprotocol/rust-sdk/blob/rmcp-v3.7.0/crates/rmcp/src/service.rs); the source review owns release-specific research. No FastMCP parity or MCP task scheduler is required.
 
 ## Verification and handoff
 
-**Proposed:** G01–G04. No runtime execution or product qualification occurred for this amendment. H receives retained/lost outcomes, final dependency closures and actual integrated caller/declaration deletions. Optional consumers cannot hold native core completion open. Applicable rule/architecture changes precede dependent implementation; this document does not change ADR status or authorize data disposal.
+**Implemented:** G01–G04 are complete for the selected retirement and seam-definition scope;
+G04 does not claim delivery of a foreign adapter. The
+[Outcome](#outcome-recorded-after-implementation) and coordinator
+[verification matrix](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) record targeted
+acceptance. H receives retained/lost outcomes, final dependency closures and integrated
+caller/declaration deletions. Optional consumers cannot hold native core completion open.
+ADR statuses are unchanged; no data disposal or full-series qualification follows.
 
 ## Native repeated-analysis consumer cut — 2026-10-29
 
@@ -384,4 +394,62 @@ their actual owners. Optional debugger/Trace Processor execution wrappers, old a
 ledgers, high-level recovery controllers and obsolete measurement drivers retire under the
 recorded selections. H retains the exact scientific scenarios/inputs/expectations and custody
 conditions already transferred before driver deletion. No existing database, queue, authored
-input, historical result or external service was deleted. Final scope acceptance remains open.
+input, historical result or external service was deleted. Final acceptance was still open at
+that checkpoint; the Outcome below records the current selected closeout.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented · 2026-10-29:** G01–G03 complete the selected boundary retirement. The required
+Python product, PyO3 extension/family, packaging, generated contracts/stubs/facades,
+first-party host/developer/scientific controllers, MCP sessions/bridges/catalogue and their
+mechanism-only tests leave with actual callers, recipes, configuration and environment
+requirements (`600d4df30`). Retained operations have native product/host/developer owners;
+independent reference contracts remain isolated (`32e3fe21d`). Architecture revisions 311–313
+record the native boundary and historical-data distinctions under proposed ADR-0233's scoped
+target review; ADR formal status is unchanged.
+
+**Implemented:** G04's coarse future adapter seam is defined in blueprint §21 and above:
+foreign adaptation may call native requests/results/operations but acquires no scientific,
+scheduling, schema or settlement authority. G04 is complete as a seam-definition deliverable;
+PyO3, RMCP, GUI, mandatory CLI, C ABI and cdylib delivery remain conditional on a concrete
+consumer and are not claimed implemented.
+
+**Tested:** zero-failure baseline. The managed native Ipopt consumer preserves two external
+worker occurrences, authentic external PID, exact run/attempt attribution and acknowledged
+nonempty detail prefixes with incomplete parent coverage. The native SCIP consumer preserves
+the original one-MiB allowance, actual memory-limit failure, absent candidate/feasibility/seed
+permission, nine null candidate values and the complete retained scientific population.
+These fresh-service consumers retain original cleanup on assertion failure and success.
+Actual captured native graph/query operator consumers pass both cases
+(`1275d920-610d-43e5-800a-903ad9846cf9`); runtime lifecycle/context controls pass 22
+(`f3701183-8c34-47b8-b09c-9daa92a6db3a`). The 723-test native-tools selection
+(`7152b88a-c932-41f1-84be-83a9b7687485`) and 26 governance controls cover selected replacement
+owners/declarations, not a full scientific matrix. Exact commands and modes remain in the
+coordinator's [verification matrix](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29).
+No execution ran for this documentation closeout.
+
+### Mistake made and corrected
+
+**Implemented:** the first SCIP comparison assumed incidental row ordering between local and
+relational delivery. Comparing the full scientific population in stable `(step, symbol_id)`
+order corrected that assumption; the targeted SCIP rerun passes. No values, failure meaning,
+null rows or population members were dropped, and no success/candidate assertion was weakened.
+
+### Deliberate deviations and remaining limits
+
+**Implemented:** retire optional obsolete developer/measurement controllers instead of
+recreating their presentation and journals. Exact source/input/threshold/observation/custody
+scenarios were transferred to [H](58h-qualification-and-publication.md) before deletion; raw
+reports, historical receipt decoders, scientific/reference inputs, databases, queues and
+external service data remain. Recovery retains its actual physical helper/primitives;
+end-to-end native archive/recovery orchestration is not delivered by this retirement.
+Historical Python producer/receiver receipts are data custody,
+not a current operating producer or activation capability. Retained reference Python and
+ordinary third-party Python tools are compatible with this cut; there is no blanket language ban.
+
+**Implemented:** this closes selected G functionality, not all Plan58. H scientific/reference/
+performance campaigns, persistent production recovery and global powersets are excluded.
+Selected static acceptance, including final all-features Clippy exit 0, stays at the coordinator;
+no H campaign, numerical equivalence, performance gain or new adapter delivery is implied.

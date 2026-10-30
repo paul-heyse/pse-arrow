@@ -20,14 +20,14 @@ records attempt completion, progress, incumbents and reusable seeds. Durable stu
 persist sources and write point members automatically before their final publication through
 [`workflow/study.rs`](../../../../crates/pse-runtime/src/workflow/study.rs). The target
 generalizes automatic durability to ordinary complete problem/run/result operations.
-[`workflow/publication.rs`](../../../../crates/pse-runtime/src/workflow/publication.rs)
+[`workflow/publication.rs`](https://github.com/paul-heyse/pse-arrow/blob/0b4abf7c6b34149cfe3d6bfc77feebd80952cebb/crates/pse-runtime/src/workflow/publication.rs)
 implements a distinct `Workspace`, `Published`, `PublicationAttempt` and
 `PublicationSettlement`. Its composition registers an operational intent, executes immutable
 Delta member writes and then conditionally commits the catalog. A lost acknowledgement is
 settled through catalog lookup. A publication identifies both a run attempt and a separate
 publication history/head.
 
-[`pse-catalog`](../../../../crates/pse-catalog/Cargo.toml) directly depends on DataFusion and
+[`pse-catalog`](https://github.com/paul-heyse/pse-arrow/blob/0b4abf7c6b34149cfe3d6bfc77feebd80952cebb/crates/pse-catalog/Cargo.toml) directly depends on DataFusion and
 Delta. [`pse-operations`](../../../../crates/pse-operations/Cargo.toml) depends on generated
 operations queries, PostgreSQL client, pool and TLS adapters.
 [`pse-runtime`](../../../../crates/pse-runtime/Cargo.toml) composes both.
@@ -54,7 +54,7 @@ implementation changes. That user-visible behavior belongs in the target and mig
 
 ## Querying becomes an ordinary operation on retained problems and runs
 
-[`pse-catalog::inspection::TableReader`](../../../../crates/pse-catalog/src/inspection.rs)
+[`pse-catalog::inspection::TableReader`](https://github.com/paul-heyse/pse-arrow/blob/0b4abf7c6b34149cfe3d6bfc77feebd80952cebb/crates/pse-catalog/src/inspection.rs)
 currently prepares an exact registered member or SQL query through an `EngineSession`, then
 returns leased Arrow batches. It supports cancellation and explicit close. This is a useful
 streaming boundary, not evidence that all reads materialize everything.
@@ -76,14 +76,14 @@ Arrow from selected records does not require Delta to remain a canonical store. 
 SQL endpoints need a deliberate retained analytical projection or API replacement; graph
 query syntax is not automatic compatibility with arbitrary DataFusion SQL.
 
-The current Python [`Runtime.query`](../../../../python/pse/_workflow.py) binds operational
+The current Python [`Runtime.query`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/python/pse/_workflow.py) binds operational
 tables and optionally supplied in-memory results or an opened publication. It is not the
 proposed direct stored-results-by-run-ID operation. The result-query improvement therefore
 changes the consumer journey as well as its internal driver.
 
 ## Source ownership and compilation can change together
 
-[`OwnedDocumentSet`](../../../../crates/pse-runtime/src/authoring_driver/document/owned.rs)
+[`OwnedDocumentSet`](https://github.com/paul-heyse/pse-arrow/blob/2d6bf6ae7d03a8a9f6f109696bfe3d9cc8455466/crates/pse-runtime/src/authoring_driver/document/owned.rs)
 retains complete package inventories. An affected edit retains a predecessor through
 `BundleOwner::_parent`; contextual admission loops over all retained batches. These are
 physical ownership choices, not obligations of scientific authoring.

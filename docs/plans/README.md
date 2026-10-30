@@ -12,58 +12,28 @@ companions plan:
 The operator accepted rule changes R1–R5. Direnv and Codex configuration are out of scope.
 Execution is not yet authorized.
 
-[Plan58: Rust-owned system](58-rust-owned-system.md) is the new owning series for the
-Rust-first functional review and the [hard-cutover improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md). It entirely supersedes Plan57 rather than inheriting its packages.
-Its eight companions develop independently usable native capabilities, small bootstrap/host
-control, runtime lifecycles, canonical durable execution/schema evolution, retained data, development workflows, boundary
-retirement and qualification. CLIs and MCP are optional; PyO3 implementation is deferred.
-The coordinator owns shared target decisions and O01–O15/I01–I14 dispositions; companions own packages.
-Expanded 58d delivers minimal native migration infrastructure; exhaustive persistent-production
-recovery qualification is a later release obligation before non-regenerable/shared operational data.
-The [SurrealDB boundary amendment](58-rust-owned-system.md#surrealdb-boundary-dispositions)
-integrates the 2026-10-29 review into the existing A–H owners: complete bounded canonical
-progression, native preparation/physical ownership, retained persistent MX, protected IPC and
-explicit connectivity/reactive investigations. The coordinator owns the review-qualified O01–O10
-dispositions; companion packages preserve their current implementation and qualification state.
-Integrated replacements retire Python mechanisms, bespoke build observation and redundant fixture
-guards. Scientific calculation observation and independent reference assurance remain.
-The maintainer has authorized T01/T02 and all remaining 58b/58c/58d scope, including the minimum
-A/E/F/G prerequisite and consumer-retirement slices needed for completion. The
-[full B/C/D selection](58-rust-owned-system.md#full-bcd-execution-selection--2026-10-29)
-records the integrated sequence and migration baseline. Its [execution dependencies](58b-bootstrap-and-host-control.md#execution-dependencies)
-separate native host admission, provider preparation, physical server construction and working
-D01/D05 readiness; package progress remains with 58b and the contributing companions.
-The [coordinator checkpoint](58-rust-owned-system.md#execution-checkpoint--2026-10-28),
-[58b current handoff](58b-bootstrap-and-host-control.md#native-physical-owner-continuation--2026-10-29)
-and [D01/D05 checkpoint](58d-canonical-control-and-connectivity.md#native-progression-migration-and-control-checkpoint--2026-10-29)
-own implementation, tested prerequisites and remaining acceptance. Ordinary/finite native
-containment, provider selection and the isolated canonical service/readiness/migration slice
-have focused passing evidence. The prior assignments concluded in main; expanded B/C/D execution is now paused at the maintainer's closeout request.
-B02–B05 and D01–D05 remain in progress. Frozen-v2/successor migration, native root settlement,
-bounded canonical worker progression and the actual two-worker scientific consumer have focused
-passing evidence. G02's MCP/catalogue retirement is complete; the Python HTTP control client
-also retires with its native replacement. The refreshed development extension and compiled
-declarations agree. Native module preparation now supplies a typed service handoff. Remaining
-host/product/reference cutovers and selected assembled qualification remain open; no full-series
-completion is claimed. The
-[native scientific-worker closeout](58c-runtime-lifecycles.md#native-scientific-worker-closeout--2026-10-29)
-records the latest native primary cut, composed targeted evidence and remaining fixture/assembled
-obligations. The workstation defaults now use the existing 128 GiB pool/140 GiB worker envelope;
-ordinary builds/tests remain uncapped at 32 jobs/16 lanes. No speed benefit is measured.
+[Plan58: Rust-owned system](58-rust-owned-system.md) owns the Rust-first functional,
+hard-cutover and SurrealDB-boundary reviews. The authorized A–G functional implementation
+is complete. The [current shared Outcome](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29)
+records native host/bootstrap, runtime lifetimes, canonical progression/migration/control,
+protected data, developer tools and required Python boundary retirement, with commands and
+acceptance limits. Each companion owns its package completion and Outcome.
 
-The maintainer has now authorized the [complete A01–A07 native workflow execution](58a-native-product-and-scientific-workflows.md#complete-native-workflow-execution-selection--2026-10-29)
-with necessary C/E/F/G prerequisites and retirement. That selected native scope is complete;
-[58a's Outcome](58a-native-product-and-scientific-workflows.md#outcome-recorded-after-implementation)
-owns the integrated callers, receiving tests and repaired scope-end checks, including comprehensive
-workspace Clippy. Remaining F/G consumers and H qualification keep their own owners; unrelated
-paused B/C/D work remains at its closeout checkpoint. The completed A companion remains for
-those live handoff readers.
+[58h qualification and publication](58h-qualification-and-publication.md) remains unexecuted:
+full scientific/reference/performance campaigns, global feature powersets and later persistent
+production recovery qualification are excluded from the completed selection. No full-series
+completion or speed/memory benefit is claimed. Conditional RMCP/PyO3, new storage/reactive
+mechanisms and F06 remain deferred until their actual consumer triggers. CLIs remain optional.
 
-The maintainer has authorized the [remaining B–G execution](58-rust-owned-system.md#remaining-bg-execution-selection--2026-10-29),
-excluding 58h campaigns. That selection resumes the previously paused work while retaining
-completed native prerequisites and companion-owned progress. Conformance and thermodynamic
-campaign capabilities move to Rust; obsolete Python measurement drivers may retire with their
-scientific scenarios/results retained for H.
+The [dependency structure](58-rust-owned-system.md#dependencies-migration-and-completion)
+and [host execution dependencies](58b-bootstrap-and-host-control.md#execution-dependencies)
+retain the integrated ordering; they are not alphabetical implementation lanes. Enduring
+contracts live in the architecture under proposed ADR-0233; its formal status is unchanged.
+Completed A–G companions remain for H and proposed-ADR readers. Independent Python scientific
+reference environments remain isolated; the first-party Python product, MCP, extension and
+controllers have retired. Existing databases/authored inputs and historical results remain.
+The separately owned compiler-cache service remains active. Ordinary local work remains
+uncapped at 32 Cargo jobs and 16 test lanes.
 
 Plan57 and its companions are superseded historical evidence, temporarily retained for existing
 ADR, architecture and review readers. Their old package tables are no longer active lifecycle

@@ -84,14 +84,14 @@ previously. Q01 chooses and tests the best supported configuration/reveal behavi
 question feasibility or block the architecture. Recheck selected versions and consequential source
 contracts when executing; do not substitute older FastMCP documentation for the reviewed APIs.
 
-The review baseline's [session configuration](../../scripts/codex_session.py) separately attached
+The review baseline's [session configuration](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/codex_session.py) separately attached
 Rust, Python and selected-database MCP services. Plan52j replaces those declarations with the
 canonical attachment and internal lazy connections, preserving explicit checkout selection,
 local preparation versus actual attachment, pinned interpreter paths and database selection
-fencing. [Language navigation](../../scripts/semantic_navigation.py) owns pinned
+fencing. [Language navigation](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/semantic_navigation.py) owns pinned
 bridge configuration, readiness and finite-request transport cleanup. Reuse that owner rather
 than recreate LSP position/edit semantics. Native database selection and credential handling
-remain with [the supervisor](../../scripts/surreal_server.py).
+remain with [the supervisor](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/surreal_server.py).
 
 The [environment guide](../dev/agent-environment.md) and environment/admission owners govern
 execution configuration. A long-lived read/control endpoint must not acquire workload

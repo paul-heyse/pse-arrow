@@ -54,7 +54,7 @@ version and behavior mattered. Generic or older FastMCP snippets were not treate
 | [SurrealDB](../libraries/surrealdb.md) | Full document; structured records, attributed graph relationships, exact predicates, lexical filtering, query explanation and explicit lifecycle. |
 | [SurrealKV](../libraries/SurrealKV.md) | Full document; standalone temporal KV, transactions, checkpoints and diagnostics assessed against the existing database authority. No additional store recommended. |
 | [SurrealMX](../libraries/SurrealMX.md) | Full document; transactions, SSI, persistence, reader retention and statistics. Current patched MX 1.0 integration distinguished from upstream 0.27 assumptions. |
-| [Serde, serde_json and Schemars](../libraries/Serde_serde_json_and_Schemars.md) | Full document; generated directional scientific contracts, native path errors, schema examples and typed result inspection. |
+| [Serde, serde_json and Schemars](https://github.com/paul-heyse/pse-arrow/blob/24852b36d2552709a8d304faf15e24157e2abdda/docs/libraries/Serde_serde_json_and_Schemars.md) | Full document; generated directional scientific contracts, native path errors, schema examples and typed result inspection. |
 | [rmcp](../libraries/rmcp.md) | Full document; typed JSON, context/cancellation, protocol and transport composition. Versioned 3.7.0 APIs assessed; rmcp is not a repository dependency. |
 | [OpenTelemetry Rust](../libraries/OpenTelemetry_Rust.md) | Full document; propagation, tracing bridge, metrics, links and observation limits; current Rust 0.33.1 / tracing-opentelemetry 0.34.0 source checked. |
 | [OpenTelemetry Python](../libraries/OpenTelemetry_Python.md) | Full document; SDK 1.45.1, metric views/cardinality, trace links and existing query/retention owners. |
@@ -77,11 +77,11 @@ it does not alone justify another interface.
 | Research implementation | Exact source concepts, `knowledge_source_corpus`, `library_source_packet`; native `just knowledge query/explain` | Expose indexed questions without implicit import, refresh or relevance ranking |
 | Reproduce failures | Existing experiment isolation, Rust archive/inspection/replay and regression experiment owners | Carefully selected comparison/bisect operations, preserving original restrictions |
 
-Relevant sources include [the capability catalogue](../../scripts/capabilities/catalogue.py),
-[inventory and retention dispositions](../../scripts/capabilities/inventory.py),
-[composition](../../scripts/capabilities/server.py), [source coherence](../../scripts/capabilities/coherence.py),
-[workspace task context](../../scripts/workspace_tasks.py) and
-[native bindings](../../scripts/capabilities/native_contracts.py).
+Relevant sources include [the capability catalogue](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/catalogue.py),
+[inventory and retention dispositions](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/inventory.py),
+[composition](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/server.py), [source coherence](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/coherence.py),
+[workspace task context](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/workspace_tasks.py) and
+[native bindings](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/native_contracts.py).
 An inventory classification of a native route is not evidence that it is callable through MCP.
 
 ### Targeted observations
@@ -239,18 +239,18 @@ hot reload would weaken their meaning and complicate retained owners.
 **Delivery demonstration:** representative stale-source, missing attachment, missing executable
 and lost-ACK controls return distinct stages/remedies without duplicate work. Changing a domain
 owner does not require preparing unrelated domains. No additional always-on broker is justified
-for the current single-operator case. Sources: [coherence](../../scripts/capabilities/coherence.py),
-[readiness](../../scripts/capabilities/readiness.py),
+for the current single-operator case. Sources: [coherence](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/coherence.py),
+[readiness](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/readiness.py),
 [environment guide](../dev/agent-environment.md) and FastMCP §8.1/§11.3.
 
 <a id="O03"></a>
 ### O03 — Lifetime-accurate edit workflows and reconnection
 
 CLI recovery must state which references survive the connection. Current
-[`Specialists`](../../scripts/capabilities/specialists.py) retains immutable edit previews in
+[`Specialists`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/specialists.py) retains immutable edit previews in
 an endpoint-owned map; its summaries already say reconnecting creates a new owner, and close
 clears that retention. Native invocation references read through
-[`rust_references.py`](../../scripts/capabilities/rust_references.py) instead resolve original
+[`rust_references.py`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/rust_references.py) instead resolve original
 registry-owned work. A one-process-per-command CLI cannot transparently carry an edit preview
 from preview to apply just by reusing the printed handle.
 
@@ -261,9 +261,9 @@ owner. The former preserves current semantics but needs a useful interaction and
 it is not automatically a detachable daemon. The latter enables cross-command work but changes
 the preview contract and deserves its own design decision.
 
-There is native groundwork: [semantic navigation](../../scripts/semantic_navigation.py) and
-[structural migrations](../../scripts/structural_migrations.py) load saved previews through
-[`semantic_edits.py`](../../scripts/semantic_edits.py), which validates complete content, basis,
+There is native groundwork: [semantic navigation](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/semantic_navigation.py) and
+[structural migrations](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/structural_migrations.py) load saved previews through
+[`semantic_edits.py`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/semantic_edits.py), which validates complete content, basis,
 digests and edits, rechecks source currency and writes reconciliation state before mutation.
 Reuse it if adopting previews. Bind checkout, immutable contents, source basis, protection rules,
 expiry/retention and interruption obligations. A file hash is neither authorization nor proof
@@ -301,15 +301,15 @@ does not prove its runtime requirements are met.
 **Delivery demonstration:** the same request can be explained without preparing anything and
 then run through its ordinary owner; source changes invalidate the explanation's applicability,
 and unexplored admission conditions stay unknown. Sources: capability model/catalogue,
-[readiness](../../scripts/capabilities/readiness.py),
-[native contracts](../../scripts/capabilities/native_contracts.py), FastMCP §14.2 and Pydantic §4/§7.
+[readiness](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/readiness.py),
+[native contracts](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/native_contracts.py), FastMCP §14.2 and Pydantic §4/§7.
 
 <a id="O05"></a>
 ### O05 — Attributed affected-validation selection and cost explanation
 
 For a proposed edit, return a useful validation recommendation with reasons, exclusions and
 unknowns. The current `workspace_integration_view` test projection supplies nearest-package seeds
-and suggested routes. [`scripts/affected.py`](../../scripts/affected.py) already computes richer
+and suggested routes. [`scripts/affected.py`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/affected.py) already computes richer
 Cargo reverse dependency closure, workspace-configuration widening, scientific-input consumers
 and composed commands. Expose/compose that owner instead of implementing a second selector in MCP.
 
@@ -329,8 +329,8 @@ missing comparable evidence instead of starting a benchmark or campaign to fill 
 boundary change produce attributable selections matching the existing owner's meaning; unrelated
 same-directory files do not acquire fabricated test coverage. The agent can choose a targeted
 check from the answer and read its original result. Sources: affected owner,
-[workspace domains](../../scripts/workspace_domains.py),
-[assessment selection](../../scripts/capabilities/qualification.py) and
+[workspace domains](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/workspace_domains.py),
+[assessment selection](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/qualification.py) and
 [qualification guide](../dev/validation-assessment.md).
 
 <a id="O06"></a>
@@ -359,8 +359,8 @@ queries with an exported compact graph and an established Rust algorithm.
 **Delivery demonstration:** one cross-language declaration change returns its specific outputs,
 real consumers, governing source and original relevant evidence, excludes unrelated declarations
 sharing the generator, and preserves unresolved dynamic consumers. Source rereads verify digest
-before editing. Sources: [workspace sources](../../scripts/workspace_sources.py), workspace
-domains/tasks, [native knowledge](../../crates/pse-operations/src/knowledge.rs), and
+before editing. Sources: [workspace sources](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/workspace_sources.py), workspace
+domains/tasks, [native knowledge](https://github.com/paul-heyse/pse-arrow/blob/1bee18378a20670af31838be0d35e3173917fc58/crates/pse-operations/src/knowledge.rs), and
 [3.3.4 graph/recursive parser](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealdb/syn/src/parser/idiom.rs).
 
 <a id="O07"></a>
@@ -386,8 +386,8 @@ better for a known file or unimported material.
 
 **Delivery demonstration:** an actual attachment follows a known production triple under one
 explicit generation; changed cursor predicates, stale source, missing store and unattributed text
-produce distinct outcomes. Sources: [knowledge adapter](../../scripts/capabilities/knowledge_queries.py),
-[knowledge operator](../../scripts/knowledge_store.py), native knowledge owner;
+produce distinct outcomes. Sources: [knowledge adapter](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/knowledge_queries.py),
+[knowledge operator](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/knowledge_store.py), native knowledge owner;
 [3.3.4 index/analyzer definitions](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealdb/syn/src/parser/stmt/define.rs).
 
 <a id="O08"></a>
@@ -416,7 +416,7 @@ units/conventions and unresolved physical context.
 exploration. Canonical adaptation is valuable when Codex can compare two finite authored sources,
 trace a changed binding/default to its declaration, and see an inadmissible case's native reason
 without a solver run. Validate changed physical context and preparation source cuts, not only a
-happy-path diff. Sources: [Python modeling facade](../../python/pse/_modeling.py),
+happy-path diff. Sources: [Python modeling facade](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/python/pse/_modeling.py),
 [native comparison](../../crates/pse-runtime/src/workflow/modeling/project_comparison.rs),
 [native modeling](../../crates/pse-runtime/src/workflow/modeling.rs), native binding catalogue;
 Serde/Schemars overview § directional schema and error-path capabilities.
@@ -489,7 +489,7 @@ Pydantic §3.4/§4/§5.4/§7, Serde/Schemars overview, and
 
 Symbol rename and language actions are already available. Some useful changes cross strings,
 generated declarations or conceptual boundaries that a language server cannot infer. The native
-[`structural_migrations.py`](../../scripts/structural_migrations.py) and codemod owners are a
+[`structural_migrations.py`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/structural_migrations.py) and codemod owners are a
 candidate source of selected additional operations; exposing every script is unnecessary.
 
 Start with a demonstrated recurring migration whose authoritative inputs, affected consumers
@@ -509,7 +509,7 @@ changed-source refusal and interrupted reconciliation before expanding the opera
 
 An agent diagnosing a regression should be able to compare selected source/configuration variants
 or locate a change using an explicit behavioral predicate and original results. Existing
-[`regression_experiments.py`](../../scripts/regression_experiments.py), archive/read/replay and
+[`regression_experiments.py`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/regression_experiments.py), archive/read/replay and
 isolation owners provide candidates not all adapted into MCP. Do not replace them with an
 unrestricted shell tool or another execution ledger.
 
@@ -531,7 +531,7 @@ material clarity or control.
 ### O13 — Instrument-specific metric filters and grouping
 
 Current producers declare useful finite dimensions—stage, status, failure class, suite, mode and
-population—but [`QueryRequest`](../../scripts/telemetry_investigation.py) selects metrics mainly
+population—but [`QueryRequest`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/telemetry_investigation.py) selects metrics mainly
 by metric/time/service incarnation. Its p95 construction aggregates `sum by(le)`, combining
 other dimensions. An agent cannot directly ask several useful questions without overbroad
 selection and manual interpretation.
@@ -552,7 +552,7 @@ references/trace context rather than unbounded metric labels.
 **Delivery demonstration:** a controlled two-mode/stage population stays separate when filtered
 or grouped; unsupported dimensions refuse before querying; retained raw facts support the
 interpretation. This is a high-value extension to both development and eventual operations.
-Sources: [metric declarations](../../scripts/telemetry_metrics.py), telemetry query owner,
+Sources: [metric declarations](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/telemetry_metrics.py), telemetry query owner,
 OTel Python overview metric views and Rust overview metrics, and
 [Python SDK 1.45.1 views](https://github.com/open-telemetry/opentelemetry-python/blob/v1.45.1/opentelemetry-sdk/src/opentelemetry/sdk/metrics/view/__init__.py).
 
@@ -580,14 +580,14 @@ over a new universal aggregate tool when it answers the same question economical
 **Delivery demonstration:** one cold preparation, one long subject and one failed/draining
 invocation yield different truthful explanations with original references; absent telemetry
 leaves execution facts readable. No new Collector, dashboard, task process or background monitor
-is required. Sources: [workload readers](../../scripts/capabilities/workload_queries.py),
-[telemetry queries](../../scripts/capabilities/telemetry_queries.py), FastMCP §11.4 and the OTel overviews.
+is required. Sources: [workload readers](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/workload_queries.py),
+[telemetry queries](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/capabilities/telemetry_queries.py), FastMCP §11.4 and the OTel overviews.
 
 <a id="O15"></a>
 ### O15 — Retained investigation questions and original-owner handoffs
 
 A new Codex session should be able to continue an investigation without replaying the subject
-or treating old telemetry as current. [`telemetry_selection.Investigation`](../../scripts/telemetry_selection.py)
+or treating old telemetry as current. [`telemetry_selection.Investigation`](https://github.com/paul-heyse/pse-arrow/blob/e6368add6bdeecc383b249078fa3a01bdadda15a/scripts/telemetry_selection.py)
 already retains schema descriptions, finite copied selections and missing context in original
 native member-pack custody. Extend that existing document, if useful, with a bounded question,
 typed original-owner references and explicit unexecuted next-reader suggestions.

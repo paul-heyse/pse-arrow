@@ -1,6 +1,6 @@
 ---
 title: Rust runtime lifecycles
-status: in-progress
+status: done
 date: 2026-10-28
 adrs: []
 doc_role: plan
@@ -16,6 +16,11 @@ review](../functional_reviews/rust-first-system-functional-opportunities-2026-10
 new target-oriented scope replacing Plan57's frontend-shaped lifecycle decomposition. The package table and
 checkpoints distinguish implemented local/host slices from remaining work. Planning does not
 authorize implementation, resume interrupted qualification or attribute existing native failures to Python.
+
+The maintainer-authorized C01–C06 functional scope is complete. The final Outcome below owns
+current completion; earlier dated checkpoints preserve their original states and evidence,
+including then-unfinished work and retired command examples. H's assembled/performance campaigns
+remain separately owned and are not claimed complete by this plan.
 
 The [hard-cutover review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I02),
 published at `c3b7f136d`, supplies I01/I02/I04/I10/I11/I12/I14. Its coordinator-owned dispositions
@@ -79,12 +84,12 @@ control plan; selective result and delivery custody belong to the results plan.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [C01](#c01) Settle lifecycle composition | in progress | Runtime integrator | Exact-source root comparison decided and shared contracts accepted |
-| [C02](#c02) Native operation ownership | in progress | Runtime/math owner | Observer/stop/join behavior implemented and targeted tests pass |
-| [C03](#c03) Shared preparation and worker admission | planned | Runtime worker owner | Producer/waiter and nested admission behavior integrated |
-| [C04](#c04) Service-root shutdown and host handoff | in progress | Runtime/host integrators | Admission sealed, failures retained and actual owned work drained |
-| [C05](#c05) Publication and delivery settlement | in progress | Runtime/control/results integrators | Native completion, durable publication and output release remain distinct |
-| [C06](#c06) Consumer cutover and qualification handoff | in progress | Runtime integrator | Replaced wrappers deleted and H scenarios ready |
+| [C01](#c01) Settle lifecycle composition | done | Runtime integrator | Existing scoped futures, tokens, result-bearing joins and native team ownership retained after the bounded comparison. |
+| [C02](#c02) Native operation ownership | done | Runtime/math owner | Performing/observer separation and truthful stop/join behavior implemented and exercised. |
+| [C03](#c03) Shared preparation and worker admission | done | Runtime worker owner | Producer/waiter, last-waiter cancellation, original resource admission and preparation custody integrated. |
+| [C04](#c04) Service-root shutdown and host handoff | done | Runtime/host integrators | Admission sealed and independent failures retained before dependent original-service physical drain. |
+| [C05](#c05) Publication and delivery settlement | done | Runtime/control/results integrators | Native completion, exact attempt publication, protected output and telemetry context lifetimes retain separate meanings. |
+| [C06](#c06) Consumer cutover and qualification handoff | done | Runtime integrator | Retained native callers migrated and Python lifecycle wrappers retired; required broader campaigns handed to H. |
 
 <a id="c01"></a>
 ## C01 — Decide the smallest sufficient composition
@@ -228,14 +233,15 @@ scientific demands and selected timing/reference exclusions; do not introduce a 
 
 ## Verification and current checkpoint
 
-**Proposed:** changed native owners use `just check-package <pkg>` and targeted `just unit-package <pkg> <filter>`; actual Arrow
-correctness closures carry force-validation. Meaningful controls must distinguish early cancellation from real native exit, admission
-closure from tracker emptiness, and native success from publication/delivery success. H owns the assembled concurrent-study
-stop/reconcile, failure during cleanup and retained-output journeys, then scope-end integration/component/solver checks through
-[H](58h-qualification-and-publication.md), `just hygiene` and manual checks. No performance claim follows from fewer wrappers. All
-production implementation, probes, tests and builds are **not_run** in this planning task. Zero remains the execution failure baseline;
-no prior interrupted run supplies new acceptance credit. C completion requires migrated consumers, immediate replacement deletions and
-the coordinator's H evidence, not merely a successful cancellation request.
+**Implemented:** selected C01–C06 native composition and retained consumer cutovers, including
+deletion of replaced Python lifecycle orchestration. **Tested:** focused native lifetime,
+worker/publication and telemetry context controls described below; the final runtime lifetime
+selection passes 22 tests against zero failures. Actual Arrow correctness closures carry
+force-validation. The [shared qualification outcome](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29)
+owns final commands and the combined B–G matrix. A cancellation request, tracker emptiness or
+native result alone does not prove publication, output release or physical drain. H retains
+its separate assembled, saturation and performance obligations; prior interrupted runs receive
+no new acceptance credit and fewer wrappers establish no measured benefit.
 
 ## Selected host handoff checkpoint — 2026-10-28
 
@@ -448,3 +454,54 @@ work drains JoinSet/Futures completions; TaskTracker close alone does not seal a
 Existing shared-flight last-waiter cancellation/join and retained-slot semantics remain.
 C02–C06 still require their remaining actual consumer/integration acceptance; this decision
 neither redoes A's passed callers nor closes those packages. H campaigns remain deferred.
+
+## Outcome — selected functional closeout, 2026-10-29
+
+### What was built
+
+**Implemented:** C01–C06 retain the existing Tokio/tokio-util/Futures/Rayon composition while
+moving all selected performing lifetimes into native Rust owners. Observers cannot become stop
+or release capabilities. Admission closure, stop intent, original result-bearing joins and
+blocking/native team drain remain distinct. Shared preparation retains one producer, independent
+waiters, last-waiter cancellation and original resource custody. The application holds its
+`NativeStudyWorker` through launch/readiness and actual shutdown; callers receive an
+invocation/process-pinned borrow rather than a Python receiver context.
+
+**Implemented:** canonical publication and result delivery retain exact original run/attempt,
+schema fence and protected payload ownership. Native scientific success is independent of
+publication acknowledgement, telemetry export and physical release. Terminal-owner connection
+drain happens after scientific owners join, while ordinary busy-client disconnect still refuses.
+Retained Arrow buffers and readers keep their actual allocation/protection lifetime. Python
+lifecycle/runner/receiver orchestration and its mechanism-specific tests are retired; native
+public callers and actual private process/fixture controls retain the scientific assertions.
+
+**Tested:** final runtime lifetime selection passes 22 cases against zero failures (run
+`f3701183-8c34-47b8-b09c-9daa92a6db3a`). The earlier actual worker/publication checkpoints above
+retain native cancellation, killed-owner uncertainty, lease-expiry/claim rules, later lineage
+and schema-crossing publication evidence under their original selected conditions. The final
+native-tools selection also passes 723 cases (run `7152b88a-c932-41f1-84be-83a9b7687485`).
+Exact selections, commands and exclusions belong to the
+[shared qualification outcome](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29).
+These are bounded functional results, not a complete cross-solver, saturation or H campaign.
+
+### A mistake made and corrected
+
+The final telemetry lifetime control initially retained a captured `ExecutionContext` after
+ending its initiator span, so the test itself prevented the expected ended-span observation.
+Dropping that retained context corrected the premise; production lifecycle behavior did not
+change. W3C extraction correctly marks deserialized parent/link contexts remote while preserving
+exact trace/span IDs, flags and tracestate; the assertion now checks those identities and the
+remote contract instead of requiring equality of a local-only marker. Earlier real worker tests
+also exposed a final transport-busy failure and main-thread stack overflow; their owner-specific
+drain and qualified application-root stack corrections remain recorded above.
+
+### Deviations from the plan, deliberate
+
+**Implemented:** no hierarchical shutdown library was added. Current flat roots gain no removable
+coordination owner from that extra hierarchy, and an async timeout cannot certify foreign
+blocking completion. Existing tokens signal intent; scoped futures and result-bearing joins
+supply their actual completion. Durable readiness/eligibility remains canonical rather than a
+new local scheduler. Killed work with unknown effects is not automatically retried even when an
+authored attempt allowance remains. H owns assembled concurrent-study, saturation, production
+recovery and performance scenarios; this selected functional closeout claims no measured benefit
+or completion of those campaigns.

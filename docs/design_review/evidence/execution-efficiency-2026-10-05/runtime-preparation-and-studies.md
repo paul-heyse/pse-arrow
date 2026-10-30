@@ -7,10 +7,10 @@ are **Interface-checked** candidates for independent judgment, not a second disp
 
 ## Durable dispatch recomputes the whole study policy for one occurrence
 
-[`Studies::admit_dispatch`](../../../../crates/pse-operations/src/studies.rs) calls `points` to
+[`Studies::admit_dispatch`](https://github.com/paul-heyse/pse-arrow/blob/0b4abf7c6b34149cfe3d6bfc77feebd80952cebb/crates/pse-operations/src/studies.rs) calls `points` to
 decode the complete point snapshot in its transaction, reconstructs graph/facts with
 `policy_snapshot`, calls `study_policy::transition`, then searches the returned action list for
-the requested occurrence. [`transition`](../../../../crates/pse-operations/src/study_policy.rs)
+the requested occurrence. [`transition`](https://github.com/paul-heyse/pse-arrow/blob/a6aedd31c51688e3686723306d7deac14bd4072c/crates/pse-operations/src/study_policy.rs)
 admits the graph, reconstructs all-point maps and derives actions for every point. The worker's
 [`run_study_point` path](../../../../crates/pse-runtime/src/workflow/worker.rs) invokes admission
 for individual dispatched points.

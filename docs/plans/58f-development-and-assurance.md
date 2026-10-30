@@ -1,6 +1,6 @@
 ---
 title: "Plan58f: Development and assurance"
-status: in-progress
+status: done
 date: 2026-10-28
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
@@ -14,7 +14,10 @@ review_sources:
 # Plan58f: Development and assurance
 
 This companion develops O02/O11 and developer O03/O09. The [coordinator](58-rust-owned-system.md)
-owns outcomes, rules and qualification; this document owns package state. Plan57 remains superseded historical evidence.
+owns outcomes, rules and qualification; this document owns package state. F01–F05 are complete
+for the selected functional scope; F06 remains deferred, not adopted. The
+[Outcome](#outcome-recorded-after-implementation) records current acceptance. Plan57 remains
+superseded historical evidence.
 
 The [hard-cutover review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md)
 supplied I01/I03–I14 for the authoring amendment at `c3b7f136d`, inspecting production
@@ -141,12 +144,16 @@ ingestion needs an explicit disposition of queue/failure alerts rather than assu
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [F01](#f01) | in progress | 58f | Retained direct development/configuration operations and native settings resolution |
-| [F02](#f02) | in progress | 58f | Native tool delegation, Arrow closure selection and typed fixture composition |
-| [F03](#f03) | in progress | 58f | Rust generators/docs/governance consumers and retired Python emission |
-| [F04](#f04) | in progress | 58f | Proportionate evidence and independent native-candidate scientific assurance |
-| [F05](#f05) | planned | 58f | Integrated bridge retirement and native developer acceptance |
+| [F01](#f01) | done | 58f | Retained direct development/configuration operations and native settings resolution |
+| [F02](#f02) | done | 58f | Cargo/nextest delegation, actual Arrow closure admission and typed private fixture composition; bounded native diagnostic cfg/checkout admission |
+| [F03](#f03) | done | 58f | Native generation/docs/ADR/register/governance owners; Python product emission retired |
+| [F04](#f04) | done | 58f | Native evidence/corpus and selected independent-reference/adoption controls; full scientific/reference campaigns excluded |
+| [F05](#f05) | done | 58f | Retained conformance/campaign capabilities and native developer consumers; obsolete bridges/controllers retired with H scenario handoff |
 | [F06](#f06) | deferred | 58f | Discrete explanation inquiry only when an actual consumer justifies it |
+
+> The table and final Outcome record current selected completion. Earlier implementation
+> checkpoints below are historical, including their pause, stale-extension and open-work
+> statements. Their narrower evidence remains bounded to its original commands and conditions.
 
 ### Native fixture and developer-owner integration — 2026-10-29
 
@@ -344,14 +351,14 @@ add independent satisfiable/contradictory/unknown controls; this branch does not
 
 ## Verification and handoff
 
-**Proposed:** all changes and tests above. Future implementation uses the relevant
-`just check-package <pkg>` and `just unit-package <pkg> <filter>` routes, with explicit
-Arrow force-validation for actual consuming closures. Generation is part of its owning change.
-F05 contributes a developer journey to [H's](58h-qualification-and-publication.md) scope-end integration/hygiene/manual
-qualification after all functional scope; it does not start a campaign per package. H also
-owns numerical/reference evidence and measurements. No build, test or dependency update ran.
-Broader structural dependency removal remains scheduled; the checkpoint below records the selected
-native cutover. Time, memory and reliability gains remain unmeasured.
+**Implemented:** F01–F05 deliver the selected native developer scope; F06 remains deferred.
+The [Outcome](#outcome-recorded-after-implementation) and coordinator
+[verification matrix](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) own the current
+selected results and outstanding checks. Correctness retains explicit Arrow force-validation
+for actual consuming closures; generation remains part of its owning change.
+[H](58h-qualification-and-publication.md) retains assembled scientific/reference, performance
+and persistent deployment/recovery qualification. Time, memory and reliability gains remain
+unmeasured; selected functional completion supplies no such claim.
 
 ## Selected native host and correctness checkpoint — 2026-10-28
 
@@ -613,3 +620,58 @@ its current-root correction is included in that pass. Final canonical operator, 
 manual tooling and comprehensive Clippy acceptance remain in progress. The source-built
 fixture replaces the last operator-evidence Python launcher with the selected native CLI;
 its original graph/query assertions and bounded diagnostics remain.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented · 2026-10-29:** F01–F05 complete the selected developer scope. The independent
+host owns environment, actual OS/service lifetime and Cargo correctness/fixture composition;
+xtask owns richer documentation/ADR/register, generation, governance, configuration,
+audit/affected, corpus/evidence, manifest conformance and paired thermodynamic capabilities.
+Ordinary third-party tools retain native arguments/exits. Source/dependency previews do not
+start databases, prepare science or compile. Cargo/nextest retain discovery and runner policy;
+private native fixtures own construction and settlement without a global test-name ledger.
+Scientific reference/adoption consumers use native candidates and isolated oracle exchanges.
+First-party Python controllers/product emitters retire in `600d4df30`; `32e3fe21d` reconciles
+retained reference contracts. Callable campaign capability is not campaign execution.
+
+**Tested:** baseline zero failures/diagnostics. Native-tools controls pass 723 tests
+(`7152b88a-c932-41f1-84be-83a9b7687485`); host correctness/corpus controls pass 199
+(`c19a62f9-893b-4b91-a939-6f2fa8b87db3`); runtime lifetime/context controls pass 22
+(`f3701183-8c34-47b8-b09c-9daa92a6db3a`). Both captured native graph/query operator consumers
+pass (`1275d920-610d-43e5-800a-903ad9846cf9`) against fresh native fixtures. Actual pinned
+Trace Processor interoperability passes one control (`b566ac36-1ca7-42d1-bd91-1dcd5b6ec3f2`).
+Retained oracle driver controls pass four cases; Ruff and Pyrefly in the selected Python 3.13
+and 3.12 environments report zero diagnostics. These check driver contracts, not the full
+scientific reference population. The coordinator's
+[verification matrix](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) owns exact commands,
+modes and exclusions. No checks ran for this documentation-only closeout.
+
+**Tested:** final selected default/no-default/native and all-features Clippy selections
+report zero diagnostics; the final all-features command exits 0. Governance passes 26 controls;
+generation covers all eight targets, and family, audit-shear and ready checks report zero
+failures. The coordinator records the exact final commands and conditions.
+
+### Mistakes made and corrected
+
+**Implemented:** profile-only `tokio_unstable` reached compilation without Cargo's dependency
+cfg queries and omitted Tokio's backtrace dependency. Diagnostic checks now retain profile
+output isolation while Cargo joins the cfg with native tuple flags; the highest present
+encoded/raw environment flag channel is extended literally, including explicit empty values.
+Original metadata admits only the executable's checkout and actual native Linux target for
+this bounded path. No second config reader, compiler wrapper or global environment mutation
+was introduced. Focused admission/composition tests cover this correction, and the coordinator's final
+all-features Clippy command supplies actual compiler acceptance for its selected closure. Native operator inspection also
+opens the existing schema before querying, and exporter assertions release storage locks
+before possible unwinding; original drain, parent/link and ended-initiator assertions remain.
+
+### Deliberate deviations and remaining limits
+
+**Implemented:** F06 remains deferred and unadopted; no discrete solver/explanation framework
+was added. Obsolete geiger automation, duplicate assessment/run ledgers and optional debugger/
+profiler/measurement presentation controllers retire rather than acquire new Rust frameworks.
+Useful native unsafe governance, scientific observation, raw evidence and exact historical
+scenario handoffs remain. H retains assembled science, full reference/performance campaigns,
+persistent production recovery and global powersets. No speed, memory or reliability gain,
+full H acceptance or whole-Plan58 completion is claimed.

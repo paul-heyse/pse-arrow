@@ -270,7 +270,7 @@ Enduring contracts are published in the capability guide, native catalogue and b
 **Implemented / Tested:** the authorized efficiency follow-up removes unused worker/observer and
 scientific-capsule preparation, stale-extension import, duplicate prepared-artifact hashing,
 overlapping aggregate generation and unrelated historical-resource sweeps at validation closeout.
-The [bounded test-account follow-up](../design_review/test-audit/execution-efficiency.md#bounded-execution-follow-up--2026-10-24)
+The [bounded test-account follow-up](https://github.com/paul-heyse/pse-arrow/blob/cbf45ccc933b66192bd7ed5b2a77176e39d46c2e/docs/design_review/test-audit/execution-efficiency.md#bounded-execution-follow-up--2026-10-24)
 preserves finding lineage, contrary evidence and remaining limits. It does not refresh the entire
 test audit or close all DTA findings/Plan53 obligations. Current resources still receive authentic
 terminal cleanup; no historical database, fixture or evidence was deleted.

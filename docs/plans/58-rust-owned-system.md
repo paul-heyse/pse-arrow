@@ -1,6 +1,6 @@
 ---
 title: "Plan58: Rust-owned system"
-status: draft
+status: in-progress
 date: 2026-10-28
 adrs: []
 review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md, docs/functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md]
@@ -13,7 +13,7 @@ doc_topics: [current-work, architecture, design, libraries, validation]
 
 ## Purpose and authorization
 
-**Proposed:** deliver the supported simulator through complete Rust-owned capabilities, with first-party host/development operation independent of Python. This is a new design and delivery series, not a continuation of Plan57's packages. The operator authorized authoring on 2026-10-28 and explicitly superseded all Plan57 execution scope. Creating this series authorizes no production implementation, dependency change, service restart or qualification campaign.
+**Implemented:** the selected A–G functional scope delivers Rust-owned product, host and development capabilities. [The current Outcome](#remaining-bg-outcome--2026-10-29) records acceptance and exclusions; 58h remains unexecuted. This is a new design and delivery series, not a continuation of Plan57's packages. The operator authorized authoring on 2026-10-28 and explicitly superseded all Plan57 execution scope. That original authoring authorization was followed by the explicit execution selections below; creating a plan alone grants no execution authority.
 
 The [Rust-first functional review](../functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md)
 and the [hard-cutover improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md)
@@ -114,19 +114,19 @@ A01/B01/C01/D01/E01/F01/G01 consume this result as relevant; investigations can 
 
 ## Opportunity dispositions
 
-References O01–O15 mean anchors in the source functional review. Scheduled means selected planned work, never implemented or resolved. Conditional/deferred opportunities have a concrete revisit and do not block core completion.
+References O01–O15 mean anchors in the source functional review. Resolved rows refer to selected functional acceptance in the companion Outcomes and the current shared Outcome; H qualification remains separately scheduled. Conditional/deferred opportunities have a concrete revisit and do not block core completion.
 
 | Opportunity | Disposition | Work owner | Required evidence or trigger |
 | --- | --- | --- | --- |
 | O01 | resolved | [58a Outcome](58a-native-product-and-scientific-workflows.md#outcome-recorded-after-implementation) | Supported native construction/scientific/source/study callers pass; full assembled/reference qualification remains H-owned. |
-| O02 | scheduled | 58f | Retained developer capabilities independent of Python/MCP; CLI facade optional |
-| O03 | scheduled | 58g | Retire Python MCP; reduced RMCP deferred until a useful actual-host consumer |
+| O02 | resolved | 58f | Retained developer capabilities independent of Python/MCP; CLI facade optional |
+| O03 | resolved | 58g | Retire Python MCP; reduced RMCP deferred until a useful actual-host consumer |
 | O04 | deferred | 58g | Define seam now; implement only for a concrete Python consumer |
-| O05 | scheduled | 58b | Cold-start and exact original process/resource settlement |
-| O06 | scheduled | 58c | Native cancellation/destruction/join semantics and concurrent composition |
-| O07 | scheduled | 58d | Connection-only control and original durable command reconciliation |
-| O08 | scheduled | 58e | Protected result access without mathematical construction |
-| O09 | scheduled | 58f | Shared typed Rust contracts/diagnostics with responsibility-owned generation |
+| O05 | resolved | 58b | Cold-start and exact original process/resource settlement |
+| O06 | resolved | 58c | Native cancellation/destruction/join semantics and concurrent composition |
+| O07 | resolved | 58d | Connection-only control and original durable command reconciliation |
+| O08 | resolved | 58e | Protected result access without mathematical construction |
+| O09 | resolved | 58f | Shared typed Rust contracts/diagnostics with responsibility-owned generation |
 | O10 | resolved | [58a Outcome](58a-native-product-and-scientific-workflows.md#outcome-recorded-after-implementation) | Existing library-owned preparation/arithmetic and class-specific limits preserved through native callers; optional new engines/diagnostics remain conditional. |
 | O11 | scheduled | 58h | Owner tests, original consumer journeys and independent oracle isolation |
 | O12 | resolved | [58a Outcome](58a-native-product-and-scientific-workflows.md#outcome-recorded-after-implementation) | Native value/structure/delete/repair and exact-parent source/history callers pass; disk persistence remains conditional on a concrete benefit. |
@@ -139,21 +139,20 @@ References O01–O15 mean anchors in the source functional review. Scheduled mea
 These O01–O10 references belong exclusively to the
 [2026-10-29 database-boundary review](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md),
 not the earlier review's Opportunity dispositions above. This table alone owns their disposition;
-companions own implementation packages. Scheduled means selected planning scope, not implemented
-or qualified. Conditional mechanisms inside a scheduled opportunity are not mandatory adoption.
+companions own implementation packages. Resolved rows record the selected functional implementation and explicit investigation decisions, supported by the B/D/E Outcomes. They do not qualify H campaigns or future production recovery. Conditional mechanisms inside a scheduled opportunity are not mandatory adoption.
 
 | Review opportunity | Disposition | Primary work owner | Evidence or revisit trigger |
 | --- | --- | --- | --- |
-| [O01](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O01) | scheduled | 58d D03 | Complete bounded progression/action/premise handoff; competing workers, sparse continuation, stale preparation and fenced acceptance. |
-| [O02](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O02) | scheduled | 58d D03 | Co-design access paths and summaries using existing references/inline graph mechanisms; decide justified projections/events/views rather than mandate new graph storage. |
-| [O03](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O03) | scheduled | 58d D03 | Canonical catch-up and observer contract; select events/live/feed only for a named consumer with actor, ordering, retry and finality evidence. |
-| [O04](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O04) | scheduled | 58d D01 | Bounded exact-release SDK/API/gRPC comparison: delegated duty, retained gap and removed code; no unconditional client replacement. |
+| [O01](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O01) | resolved | 58d D03 | Complete bounded progression/action/premise handoff; competing workers, sparse continuation, stale preparation and fenced acceptance. |
+| [O02](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O02) | resolved | 58d D03 | Co-design access paths and summaries using existing references/inline graph mechanisms; decide justified projections/events/views rather than mandate new graph storage. |
+| [O03](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O03) | resolved | 58d D03 | Canonical catch-up and observer contract; select events/live/feed only for a named consumer with actor, ordering, retry and finality evidence. |
+| [O04](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O04) | resolved | 58d D01 | Bounded exact-release SDK/API/gRPC comparison: delegated duty, retained gap and removed code; no unconditional client replacement. |
 | [O05](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O05) | resolved | [58a A05 Outcome](58a-native-product-and-scientific-workflows.md#outcome-recorded-after-implementation) | Native repeated analysis preserves original revisions/context/realized points/attempts through replacement and later correction; D03/E02/H retain their broader obligations. |
-| [O06](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O06) | scheduled | 58d D03 | Retain patched persistent MX/SSI; KV/embedded alternatives remain conditional on a concrete history, capacity, encryption or deployment need and complete compatibility/migration evidence. |
-| [O07](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O07) | scheduled | 58d D03 | Retain one stateless shared readiness policy; broader module effects require permission, parent rollback, mutability, complete-output and resource evidence. |
-| [O08](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O08) | scheduled | 58e E01 | Independent protected reads over bounded inline IPC/sealed payloads and canonical manifests; buckets/payload relocation require a concrete lifecycle benefit. |
+| [O06](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O06) | resolved | 58d D03 | Retain patched persistent MX/SSI; KV/embedded alternatives remain conditional on a concrete history, capacity, encryption or deployment need and complete compatibility/migration evidence. |
+| [O07](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O07) | resolved | 58d D03 | Retain one stateless shared readiness policy; broader module effects require permission, parent rollback, mutability, complete-output and resource evidence. |
+| [O08](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O08) | resolved | 58e E01 | Independent protected reads over bounded inline IPC/sealed payloads and canonical manifests; buckets/payload relocation require a concrete lifecycle benefit. |
 | [O09](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O09) | deferred | 58f F05 | Named shared multi-key working collection whose transactional/query contract removes more machinery than it introduces; discovery can identify a valuable future consumer, but no second authority follows automatically. |
-| [O10](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O10) | scheduled | 58d D05 | Native version/fence/migration infrastructure, stale handles and original in-flight settlement; H owns later non-regenerable/shared deployment recovery qualification. |
+| [O10](../functional_reviews/surrealdb-state-execution-boundaries-2026-10-29.md#O10) | resolved | 58d D05 | Native version/fence/migration infrastructure, stale handles and original in-flight settlement; H owns later non-regenerable/shared deployment recovery qualification. |
 
 ### Database-boundary target and integration order
 
@@ -196,24 +195,24 @@ by virtue of this amendment.
 ## Improvement dispositions
 
 I01–I14 link to the [source improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md).
-Rows distinguish scheduled amendments from tested resolved opportunities. Conditional mechanisms
+Resolved rows refer to the functional companion Outcomes. Mixed rows I01/I02/I03/I06/I10 remain scheduled only for their named H acceptance: their native implementation and consumer retirement are delivered. I14 remains H-owned. Conditional mechanisms
 inside them remain conditional; their declined alternatives are not a deferred backlog.
 
 | Finding reference | Scenario reference | Disposition | Decision/work owner | Evidence or revisit trigger |
 | --- | --- | --- | --- | --- |
-| [I01](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I01) | T02 / H01 | scheduled | T02; all companions | Integrated owner/callers/configuration/tests/deletion cutovers; no bridge. |
-| [I02](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I02) | D03 / H02 | scheduled | 58d D03; A05/C03/E01 | Canonical progression, competing claims, preparation recheck, worker replacement and later lineage. |
-| [I03](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I03) | D05 / H03 | scheduled | 58d D05; B/F/H | Minimal native migrations now; adjacent transformation/refusal/interruption; future production release obligations owned. |
-| [I04](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I04) | F02 / H03 | scheduled | 58b/58c/58f | Typed actual fixtures, cleanup on failed assertion, no permission registry or success-gated retention. |
-| [I05](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I05) | B04 / F02 | scheduled | 58b B04; 58f F02/F05 | Native cache hit/miss/compiler failure, independent seed; custom build observation removed. |
-| [I06](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I06) | F02/F04 / H03 | scheduled | 58f; 58h | Native nextest delegation, correct setup reporting and target/host validation closure. |
-| [I07](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I07) | A07 / F04 / G03 | scheduled | 58a/58f/58g | Delete Python projections; native candidate/isolated oracle exchange rejects wrong candidate. |
-| [I08](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I08) | T02 / F03 / G03 | scheduled | 58f/58g | Each Wave0 candidate has verified deletion/replacement including generator/configuration consumers. |
-| [I09](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I09) | A01 / F01 / G04 | scheduled | 58a/58f/58g | Owner-local typed operations; universal catalogue, mandatory faces and interim proxy declined. |
-| [I10](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I10) | B03 / F01 / H02 | scheduled | 58b/58f; A/E/G consumers | Native configuration resolver/scientific observations; build-specific producers and consumers retired. |
-| [I11](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I11) | B01–B05 / C04 | scheduled | 58b/58c/58f | Independent lean root, actual containment, ordinary unbounded mode; no required daemon. |
-| [I12](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I12) | B01 / F03 / E03 | scheduled | 58b/58f/58e | Compatible atomic mechanics reused; executable replacement, immutable payload and scientific commit semantics distinct. |
-| [I13](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I13) | A01 / F03 / G04 | scheduled | 58a/58f/58g | Explicit needed generation; no runtime regeneration, mandatory foreign ABI or replacement Python product. |
+| [I01](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I01) | T02 / H01 | scheduled | 58h H01; delivered T02/A–G | Native owner/caller/configuration/test/deletion cutovers delivered without bridges; H01 joined acceptance remains. |
+| [I02](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I02) | D03 / H02 | scheduled | 58h H02; delivered D03/A05/C03/E01 | Native canonical progression, claims, preparation recheck, replacement and lineage controls delivered; H02 assembled campaign remains. |
+| [I03](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I03) | D05 / H03 | scheduled | 58h H03; delivered D05/B/F | Native migration/version/fence and representative transformation/refusal/interruption delivered; broader persistent-production recovery qualification remains. |
+| [I04](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I04) | F02 / H03 | resolved | 58b/58c/58f | Typed actual fixtures, cleanup on failed assertion, no permission registry or success-gated retention. |
+| [I05](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I05) | B04 / F02 | resolved | 58b B04; 58f F02/F05 | Native cache hit/miss/compiler failure, independent seed; custom build observation removed. |
+| [I06](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I06) | F02/F04 / H03 | scheduled | 58h H03; delivered F02/F04 | Native nextest/setup reporting and target/host force-validation delivered and checked; global feature/runtime qualification remains. |
+| [I07](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I07) | A07 / F04 / G03 | resolved | 58a/58f/58g | Delete Python projections; native candidate/isolated oracle exchange rejects wrong candidate. |
+| [I08](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I08) | T02 / F03 / G03 | resolved | 58f/58g | Each Wave0 candidate has verified deletion/replacement including generator/configuration consumers. |
+| [I09](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I09) | A01 / F01 / G04 | resolved | 58a/58f/58g | Owner-local typed operations; universal catalogue, mandatory faces and interim proxy declined. |
+| [I10](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I10) | B03 / F01 / H02 | scheduled | 58h H02; delivered B03/F01/A/E/G | Native configuration/scientific observation delivered and build-specific producers/consumers retired; H02 assembled observation acceptance remains. |
+| [I11](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I11) | B01–B05 / C04 | resolved | 58b/58c/58f | Independent lean root, actual containment, ordinary unbounded mode; no required daemon. |
+| [I12](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I12) | B01 / F03 / E03 | resolved | 58b/58f/58e | Compatible atomic mechanics reused; executable replacement, immutable payload and scientific commit semantics distinct. |
+| [I13](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I13) | A01 / F03 / G04 | resolved | 58a/58f/58g | Explicit needed generation; no runtime regeneration, mandatory foreign ABI or replacement Python product. |
 | [I14](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I14) | H01–H04 | scheduled | 58h; 58f F04 | Lean target acceptance, independent science and actual uncertainty; no universal evidence reconciler. |
 
 ## Dependencies, migration and completion
@@ -446,6 +445,168 @@ accepts the proposed ADR-0233 amendment; it supplies no implementation or H acce
 
 | Finding reference | Disposition | Work owner | Evidence or completion obligation |
 | --- | --- | --- | --- |
-| Retirement review RC07 | scheduled | T01 / G03 | Before final crate/family/boundary removal, amend D12, workspace and §21 owners; actual consumers must migrate or explicitly retire. |
-| Retirement review RC08 | scheduled | F02/F03/G03 | Move generator, fixture, environment and governance owners before removing their Python mechanisms; preserve real input/admission and scientific identity. |
-| Retirement review RC09 | scheduled | G01/G03; H scenario owner | Transfer specific old-driver scientific cases/inputs/expected outcomes and observation/custody requirements before deletion; keep existing results and H unqualified. |
+| Retirement review RC07 | resolved | T01 / G03 | Required scoped review/proposed ADR preceded removal; revisions311–313 reconcile D12/workspace/§21 and adjacent owners. Native consumers migrated or explicitly retired; formal ADR status unchanged. |
+| Retirement review RC08 | resolved | F02/F03/G03 | Native generation/fixtures/environment/governance integrated and old Python mechanisms deleted (600d4df30); owner tests and zero-target checks below preserve actual admission and scientific identity. |
+| Retirement review RC09 | resolved | G01/G03; H scenario owner | Exact original-source/scenario/input/expectation/custody handoffs are recorded in 58h before driver retirement; historical results retained. This resolves transfer/deletion, not H execution. |
+
+## Remaining B–G Outcome — 2026-10-29
+
+### What was built
+
+**Implemented:** all selected remaining B–G functional packages, integrated with the completed
+A01–A07 callers. The native host constructs providers, modules, supervised work and private
+canonical fixtures without the application or Python bootstrap. Runtime owners distinguish
+observer detachment, cancellation, actual native completion and durable result acceptance.
+Canonical SurrealDB/MX remains authoritative for durable progression, claims, lineage and
+migration/write admission; native workers retain scientific execution and physical release.
+Protected readers and columnar delivery construct without mathematics. Native development,
+generation, configuration, conformance and campaign APIs replace retained first-party Python
+operations. `600d4df30` removes the required product/extension/controller boundary;
+`32e3fe21d` completes independent reference typing/environment contracts and `6dc84501d`
+settles native Cargo cfg resolution and operator ownership. Companion Outcomes own package
+acceptance. F06 and optional adapter implementations remain deferred, not missing core work.
+
+The exact-release SDK investigation retains the existing bounded Tonic/Hyper client because
+the selected physical-drain/cancellation and cumulative-bound contracts are not supplied by
+that SDK interface. Existing Tokio/tokio-util/Futures/Rayon composition remains the runtime
+mechanism. No second scheduler, universal command catalogue, mandatory CLI/MCP, storage engine,
+reactive feed or scientific execution inside database modules was introduced.
+
+### Verification
+
+**Tested:** the following scope-end commands ran on local Linux, pinned toolchain and locked
+resolution, ordinary uncapped 32 Cargo jobs/16 nextest lanes. Every failure/warning target is
+zero. Test selections below overlap; their counts are not a total of unique tests. Excluded
+or ignored tests were not qualified by a passing selection. All Cargo correctness closures
+use the native force-validation adapter; native profiles select prepared immutable providers.
+
+```bash
+scripts/pse-env -- scripts/cargo-bin/cargo-pse-correctness nextest run \
+  --no-fail-fast -p pse-host -p pse-codegen -p pse-columnar -p pse-buildinfo \
+  -p pse-diagnostics -p xtask --lib --bins --tests --no-default-features \
+  --features xtask/package-fixtures --locked
+```
+
+Result: **723 passed, zero failed**, run `7152b88a-c932-41f1-84be-83a9b7687485`.
+One internal subprocess fixture is intentionally excluded from direct discovery and exercised
+by its cancellation caller. This includes actual native host/TTY/finite/unbounded containment,
+original-owner death/drain, declarations, generation, docs/tool controls and columnar custody.
+
+```bash
+scripts/pse-env -- scripts/cargo-bin/cargo-pse-correctness nextest run \
+  --no-fail-fast -p pse-host -p xtask --lib --no-default-features \
+  --features xtask/evidence-tools --locked \
+  -E 'package(pse-host) | test(development::workspace_sources::tests::)'
+```
+
+Result: **199 passed, zero failed, 111 excluded**, run
+`c19a62f9-893b-4b91-a939-6f2fa8b87db3`, after the final cfg-marker/tail and bounded
+workspace-source traversal fixes. This is receiving-host/corpus acceptance, not a full evidence
+corpus refresh or source-completeness claim.
+
+```bash
+scripts/pse-env --native=compiler,solver,klu,isolation,uno,petsc -- \
+  scripts/cargo-bin/cargo-pse-correctness nextest run --no-fail-fast \
+  -p pse-runtime --lib \
+  --features native-study-tests,product-operators,solver-scip,solver-ipopt --locked \
+  -E 'test(execution_lifecycle::tests::native_sessions_) | test(tooling::telemetry::tests::) | test(math::staged::tests::observation_native_session_) | test(math::staged::tests::native_session_close_) | test(math::portable::tests::deployment_startup_) | test(math::portable::tests::async_local_replay_) | test(math::portable::tests::scoped_local_replay_) | test(math::portable::tests::local_replay_admission_) | test(math::portable::tests::deployment_receipt_current_shape_) | test(math::portable::tests::portable_body_relative_) | test(math::portable::tests::portable_envelope_)'
+```
+
+Result: **22 passed, zero failed, 1,272 excluded**, run
+`f3701183-8c34-47b8-b09c-9daa92a6db3a`. This includes actual native-session close/startup,
+producer lifetime/link propagation and replay admission controls, not every solver journey.
+
+Actual canonical operator qualification first built and captured the selected native tool:
+
+```bash
+scripts/pse-env -- scripts/cargo-bin/cargo-pse-correctness build \
+  -p xtask --bin xtask --no-default-features --features canonical-tools --locked
+```
+
+The caller copied that executable into a private immutable selected-tool directory before any
+later Cargo build. With `PSE_CANONICAL_TOOLS` selecting that captured executable and
+`PSE_DIAGNOSTIC_EVIDENCE` selecting its private diagnostic directory, the following command used
+the native-prepared production module receipt (the absolute paths below are run-local inputs):
+
+```bash
+scripts/pse-env -- target/debug/pse-canonical-test \
+  --root "$PWD" --correctness "$PWD/target/host-tools/current/cargo-pse-correctness" \
+  --nextest "$(command -v cargo-nextest)" \
+  --helper "$PWD/target/debug/pse-canonical-service" \
+  --module-receipt "$pse_module_receipt" --state-parent /tmp \
+  --build-arg=-p --build-arg=pse-operations --build-arg=--lib \
+  --build-arg=--features --build-arg=canonical-tests,native-service \
+  --build-arg=--locked -- --run-ignored only \
+  -E 'test(canonical_operator_graph_evidence) | test(canonical_operator_query_evidence)'
+```
+
+Result: **2 passed, zero failed, 497 excluded**, run
+`1275d920-610d-43e5-800a-903ad9846cf9`. The fixture builds/lists the exact source tests before
+starting a fresh private service and settles its original owner afterward. Existing configured
+canonical data was not used. Earlier D/C checkpoint tests retain their original migration,
+competing-claim, lost-ACK, actor, worker replacement and publication scope; the narrow operator
+run does not replace or enlarge those results.
+
+The explicit Trace Processor consumer test
+`capture_standalone_trace_processor_reads_numerical_events_with_clock_alignment` passed
+(one selected ignored test, 1,293 excluded; run `b566ac36-1ca7-42d1-bd91-1dcd5b6ec3f2`)
+with `PSE_TRACE_PROCESSOR` selecting the existing 58.2 executable. It checks actual query-file
+execution, clock alignment and original child settlement; it does not qualify optional-tool
+installation/provenance or a performance campaign. Earlier native covariance/research/protected
+reads and managed-Ipopt/SCIP-limit tests retain their explicit companion scope and failure repairs.
+
+| Command/mode | Result against zero target | Boundary |
+| --- | --- | --- |
+| `scripts/pse-env --native=compiler,solver,klu,isolation,uno,petsc -- just run-all clippy-default clippy-no-default lint-solver-contracts governance audit-shear ready` | Passed; default/no-default/native Clippy zero warnings; governance26 passed; generated8 schema targets, family/dependency checks and required readiness checks passed | Optional unavailable services/tools remain reported, not auto-repaired or falsely ready. |
+| `scripts/pse-env --native=compiler,solver,klu,isolation,uno,petsc -- scripts/cargo-bin/cargo-pse-correctness clippy --keep-going --workspace --all-targets --all-features --locked -- -D warnings` | Passed, zero warnings, diagnostic-taskdump profile after final source fixes | Selected native profile; full Clippy surface, not full feature runtime qualification. |
+| `scripts/pse-env -- just run-all lint-py typecheck lint-typos lint-shell lint-actions lint-ast lint-zizmor` | Passed; Ruff zero; Pyrefly3.13/3.12 zero diagnostics; retained reference-driver controls4 passed separately | No scientific oracle campaign; existing explicit security-lint policy exclusions remain visible. |
+| `scripts/pse-env -- env CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo-bin/cargo-pse-correctness" cargo hack check -p pse-host --no-default-features --locked` | Passed | One actual native cargo-hack delegation; no global powerset claim. |
+
+The initial `just hygiene` aggregate reported failures in `lint-py`, `audit-shear`,
+`clippy-default` and `clippy-no-default`; those actual findings were corrected and all four
+recipes passed in the scope-end commands above. Its other checks, including rustdoc, agent
+wiring, ADR/register and generated-output checks, passed. This is composed qualification,
+not a claim that the original failing aggregate passed.
+
+**Tested:** `scripts/pse-env -- just turn-end` passed (native ADR index, Rust/TOML/Python formatting); `scripts/pse-env -- just docs` published 912 chapters with scoped search; `scripts/pse-env -- target/debug/xtask lifecycle validate` validated 1,578 native scope items with zero errors. Publication includes concurrent library inputs without adopting or committing them. These are documentation/process results, not product or scientific qualification.
+
+**Tested:** the B05 tracked-source archive at `6dc84501d` initially had neither `target/` nor
+`.venv`. Under the original checkout's uncapped `scripts/pse-env`, its own
+`scripts/bootstrap-host`, `scripts/pse-host --version` and `scripts/pse-host --help` passed;
+no `.venv` was created. Existing acquired toolchain/dependency sources/compiler cache were
+available. This establishes application-independent cold-target construction, not cold-machine
+acquisition, other-platform support or a timing benefit.
+
+### A mistake made and corrected
+
+The diagnostic Cargo profile initially supplied `tokio_unstable` only to compilation. Cargo's
+cfg-based dependency resolution therefore omitted Tokio's conditional backtrace dependency.
+The native adapter now supplies the same cfg to dependency discovery and compilation,
+preserves active inherited flag precedence, bounds the supported checkout/platform and keeps
+arguments after `--` literal. Actual all-features compilation exposed and verified this repair;
+a compile-only flag assertion would have missed it.
+
+The first operator rerun also selected mutable `target/debug/xtask`; an intervening smaller
+feature build replaced it. Capturing the explicitly built tool before building the fixture
+fixed the test setup. Real inspector startup now opens its store inside the existing awaited
+disconnect path. Assertions decode the actual tagged SDK values and compare actual statement
+indices rather than stale incidental counts. Telemetry tests now release the captured initiating
+context before asserting span completion and recognize W3C extraction's remote-link bit while
+preserving exact trace/span identity. None of these repairs relax scientific acceptance.
+
+### Deviations from the plan, deliberate
+
+The SDK, shutdown-library and optional interface investigations close with retained working
+mechanisms where substitution would lose guarantees or add machinery. Obsolete measurement,
+recovery-presentation and first-party Python wrappers retire rather than being translated for
+parity. Exact scientific scenarios/inputs/expectations and observation/custody requirements
+transfer to H before driver deletion; historical results remain. Independent third-party Python
+oracles remain isolated. No compatibility product, automatic cache collection or data reset
+was added. The separately owned compiler-cache service remains active.
+
+**Not run:** 58h campaigns, full scientific/reference qualification, global feature powersets,
+new performance campaigns, release/remote/other-platform qualification and exhaustive persistent
+production recovery. Benefits remain **unmeasured**. These are owned H/future-release obligations,
+not implicit passes or blockers to this selected functional delivery. Plan58 remains in progress.
+Completed companions and source reviews remain for their H/proposed-ADR consumers; unrelated
+Plan56/57 historical readers and concurrent library-document edits are preserved.

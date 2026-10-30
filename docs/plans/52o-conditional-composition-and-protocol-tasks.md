@@ -341,7 +341,7 @@ neither F02 trace continuity nor whole-Plan52 qualification.
 ### Verification
 
 The explicit driver is
-[`plan52_conditional_acceptance.py`](../../scripts/tests/plan52_conditional_acceptance.py), alongside
+[`plan52_conditional_acceptance.py`](https://github.com/paul-heyse/pse-arrow/blob/e0a7fe7ea21976f5edef43244e4c04983be2d3e8/scripts/tests/plan52_conditional_acceptance.py), alongside
 the original composition/task inquiry drivers. Commands below describe the captured modes;
 `<fresh-output>` must be new and native cases require their explicitly owned, initialized fixture.
 Failure baseline is zero. A failed integrated task claim remains failed despite separately passing

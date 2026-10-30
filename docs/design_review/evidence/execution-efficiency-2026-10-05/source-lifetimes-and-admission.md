@@ -19,7 +19,7 @@ have legitimate purposes.
 ## A. Editing retains a chain of complete superseded bundles
 
 **Interface-checked.** The private `BundleOwner` in
-[`document/owned.rs`](../../../../crates/pse-runtime/src/authoring_driver/document/owned.rs)
+[`document/owned.rs`](https://github.com/paul-heyse/pse-arrow/blob/2d6bf6ae7d03a8a9f6f109696bfe3d9cc8455466/crates/pse-runtime/src/authoring_driver/document/owned.rs)
 contains both its current `DocumentBundle` and `_parent: Option<OwnedDocumentBundle>`.
 `OwnedDocumentSet::edit` clones unaffected package owners, which is useful. For an affected
 package, however, it:
@@ -103,7 +103,7 @@ changed trust/context and storage-codec validation.
 ## C. Package-level work remains broader than a changed document
 
 **Interface-checked, supporting manifestation rather than a separate verdict.**
-[`load_reusing`](../../../../crates/pse-runtime/src/authoring_driver/document/load.rs) compares
+[`load_reusing`](https://github.com/paul-heyse/pse-arrow/blob/2d6bf6ae7d03a8a9f6f109696bfe3d9cc8455466/crates/pse-runtime/src/authoring_driver/document/load.rs) compares
 original bytes, document declaration and interpretation before reusing a parser. It retains
 the parser `Arc`, but clones syntax values/spans into the current representation, rehydrates
 the package and projects its documents. `OwnedDocumentSet::edit` copies all source bytes in
@@ -117,20 +117,20 @@ Separate source parsing reuse from semantic dependency reuse in subsequent prepa
 
 ## D. Publication has real strengths and an unresolved granularity tradeoff
 
-**Interface-checked.** [`RunResult::prepare_publication`](../../../../crates/pse-runtime/src/workflow/publication.rs)
+**Interface-checked.** [`RunResult::prepare_publication`](https://github.com/paul-heyse/pse-arrow/blob/0b4abf7c6b34149cfe3d6bfc77feebd80952cebb/crates/pse-runtime/src/workflow/publication.rs)
 consumes retained result tables and explicitly does not rerun science. It prepares a publication
 artifact independently of visible commit. The surrounding protocol separates intent, member
 writes and catalog visibility. These are different effects; their coexistence is not itself
 duplicate authority.
 
-[`Publication::open_interpreted`](../../../../crates/pse-catalog/src/delta/publication.rs) binds all
+[`Publication::open_interpreted`](https://github.com/paul-heyse/pse-arrow/blob/0b4abf7c6b34149cfe3d6bfc77feebd80952cebb/crates/pse-catalog/src/delta/publication.rs) binds all
 member descriptors. `bind_interpreted_members` opens providers with bounded concurrency, retains
 their recorded contracts and constructs a catalog. Relation payloads remain lazy. The
-[`DecodedView`](../../../../crates/pse-catalog/src/delta/provider.rs) forwards filters, projections
+[`DecodedView`](https://github.com/paul-heyse/pse-arrow/blob/0b4abf7c6b34149cfe3d6bfc77feebd80952cebb/crates/pse-catalog/src/delta/provider.rs) forwards filters, projections
 and limits to the native view while restoring declared schema metadata. It is incorrect to
 describe this path as eagerly collecting all published rows.
 
-[`admit_output`](../../../../crates/pse-catalog/src/delta/write.rs) keeps pure, single-consumer
+[`admit_output`](https://github.com/paul-heyse/pse-arrow/blob/0b4abf7c6b34149cfe3d6bfc77feebd80952cebb/crates/pse-catalog/src/delta/write.rs) keeps pure, single-consumer
 inputs streaming. It materializes dependency-bearing writes before taking an output permit so
 an orchestrating writer does not hold a slot while waiting for a child writer. Removing that
 materialization without preserving the dependency/deadlock contract would be an invalid economy.
