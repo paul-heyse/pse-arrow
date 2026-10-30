@@ -107,7 +107,7 @@ pub struct Summary {
     pub primary_plan: Information<Option<PlanLink>>,
     /// Passive prepared-host observation.
     pub host_tools: Information<generation::Freshness>,
-    /// Number of authenticated metadata records, never a live workload count.
+    /// Number of successfully observed metadata records; envelope coverage bounds this count.
     pub invocation_records: Information<usize>,
     /// No current process/control observation is inferred from retained metadata.
     pub live_workloads: Information<()>,
@@ -225,11 +225,20 @@ fn capture<T>(
         }
     }
 }
+/// Sources needed by the selected status view, decided before retained responses are read.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InspectionScope {
+    /// Metadata counts and current checkout sources, without retained response reads.
+    Summary,
+    /// Include retained response facts; opaque operation and result payloads are discarded.
+    Full,
+}
 /// Read status without environment activation, workload admission, rebuild or state creation.
 pub fn inspect(
     root: &Path,
     inputs: &Environment,
     all_worktrees: bool,
+    scope: InspectionScope,
     interrupt: Arc<AtomicBool>,
 ) -> Envelope<Report> {
     let policy = RedactionPolicy::from_environment();
@@ -263,13 +272,43 @@ pub fn inspect(
             let checkout_id = Information::Available(state.checkout_id.as_str().to_owned());
             let repository_id = Information::Available(state.repository_id.as_str().to_owned());
             let store = InvocationStore::new(state);
-            let invocations=match store.history::<Box<serde_json::value::RawValue>>() {
-                Ok(records)=>Information::Available(records.into_iter().map(|record| {
-                    let id=&record.selection.invocation_id;
-                    let response=store.result::<Box<serde_json::value::RawValue>,Box<serde_json::value::RawValue>>(id).map(|value|value.map(|response|ResponseFacts{outcome:response.outcome,subject_state:response.subject_state,child_exit:response.child_exit,settlement:response.settlement,observation:response.observation}));
-                    InvocationPresence{recorded_response:capture("retained invocation response",response,&mut failures,&mut limitations,&policy),invocation_id:record.selection.invocation_id,command:record.selection.command,created_unix_ms:record.created_unix_ms,session:record.selection.session,live_state:envelope::SubjectState::Unknown}
-                }).collect()),
-                Err(error)=>capture::<Vec<InvocationPresence>>("invocation metadata",Err(error),&mut failures,&mut limitations,&policy),
+            let invocations = match store.history::<serde::de::IgnoredAny>() {
+                Ok(history) => {
+                    for failure in history.failures {
+                        failures.push(ErrorRecord::from_typed(&failure, &policy));
+                        limitations.push("one invocation metadata source could not be read; retained rows are a partial history".into());
+                    }
+                    Information::Available(history.records.into_iter().map(|record| {
+                        let recorded_response = if scope == InspectionScope::Full {
+                            let response = store.result::<serde::de::IgnoredAny, serde::de::IgnoredAny>(&record.selection.invocation_id)
+                                .map(|value| value.map(|response| ResponseFacts {
+                                    outcome: response.outcome,
+                                    subject_state: response.subject_state,
+                                    child_exit: response.child_exit,
+                                    settlement: response.settlement,
+                                    observation: response.observation,
+                                }));
+                            capture("retained invocation response", response, &mut failures, &mut limitations, &policy)
+                        } else {
+                            unavailable("not selected by the status summary; retained responses were not read")
+                        };
+                        InvocationPresence {
+                            recorded_response,
+                            invocation_id: record.selection.invocation_id,
+                            command: record.selection.command,
+                            created_unix_ms: record.created_unix_ms,
+                            session: record.selection.session,
+                            live_state: envelope::SubjectState::Unknown,
+                        }
+                    }).collect())
+                }
+                Err(error) => capture::<Vec<InvocationPresence>>(
+                    "invocation metadata",
+                    Err(error),
+                    &mut failures,
+                    &mut limitations,
+                    &policy,
+                ),
             };
             (checkout_id, repository_id, invocations)
         }

@@ -76,6 +76,59 @@ pub struct InvocationDirectory {
     command: String,
 }
 
+/// One independent unreadable source in a history observation.
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("invocation history source {path:?}: {error}")]
+pub struct HistoryFailure {
+    /// Original source path, retaining platform bytes.
+    pub path: PathBuf,
+    /// Parsed directory identity, when the source supplied a valid one.
+    pub invocation_id: Option<CliInvocationId>,
+    /// Original typed source failure.
+    #[source]
+    #[diagnostic_source]
+    pub error: HostError,
+}
+impl pse_diagnostics::TypedDiagnostic for HistoryFailure {
+    fn diagnostic_code(&self) -> Option<pse_diagnostics::DiagnosticCode> {
+        self.error.diagnostic_code()
+    }
+    fn diagnostic_facts(&self) -> pse_diagnostics::DiagnosticFacts {
+        use pse_diagnostics::DiagnosticObservation;
+        let mut facts = self.error.diagnostic_facts();
+        facts.observe(
+            "evidence_path_platform_bytes",
+            DiagnosticObservation::Text(
+                self.path
+                    .as_os_str()
+                    .as_encoded_bytes()
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect(),
+            ),
+        );
+        if let Some(id) = &self.invocation_id {
+            facts.observe("invocation_id", DiagnosticObservation::Text(id.to_string()));
+        }
+        facts
+    }
+    fn diagnostic_children(
+        &self,
+    ) -> Option<Box<dyn Iterator<Item = &dyn pse_diagnostics::TypedDiagnostic> + '_>> {
+        let error: &dyn pse_diagnostics::TypedDiagnostic = &self.error;
+        Some(Box::new(std::iter::once(error)))
+    }
+}
+
+/// Successfully authenticated records and every failed source in the same traversal.
+#[derive(Debug)]
+pub struct InvocationHistory<O> {
+    /// Source records sorted by creation time and exact ID.
+    pub records: Vec<InvocationMetadata<O>>,
+    /// Independent failures; a nonempty set prevents a global latest claim.
+    pub failures: Vec<HistoryFailure>,
+}
+
 fn directory(path: &Path, create: bool) -> Result<(), HostError> {
     if create {
         match fs::DirBuilder::new().mode(0o700).create(path) {
@@ -276,7 +329,13 @@ impl InvocationStore {
             ));
         }
         if selector == "latest" {
-            let records = self.history::<Box<serde_json::value::RawValue>>()?;
+            let history = self.history::<serde::de::IgnoredAny>()?;
+            if !history.failures.is_empty() {
+                return Err(HostError::IncompleteInvocationHistory {
+                    failures: history.failures,
+                });
+            }
+            let records = history.records;
             let latest = |session_only: bool| {
                 records
                     .iter()
@@ -331,37 +390,65 @@ impl InvocationStore {
         if let Some(id) = &selected {
             // Establish prefix ambiguity from identities before opening any candidate.
             // Missing or malformed metadata in the chosen directory remains an error.
-            self.metadata::<Box<serde_json::value::RawValue>>(id)?;
+            self.metadata::<serde::de::IgnoredAny>(id)?;
         }
         Ok(selected)
     }
 
     /// Full source records, sorted by creation time and exact ID; callers own presentation pages.
-    pub fn history<O: DeserializeOwned>(&self) -> Result<Vec<InvocationMetadata<O>>, HostError> {
+    pub fn history<O: DeserializeOwned>(&self) -> Result<InvocationHistory<O>, HostError> {
         match fs::symlink_metadata(self.state.invocations()) {
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(InvocationHistory {
+                    records: Vec::new(),
+                    failures: Vec::new(),
+                });
+            }
             Err(error) => return Err(error.into()),
             Ok(_) => {}
         }
         directory(&self.state.root, false)?;
         directory(&self.state.invocations(), false)?;
         let mut records = Vec::new();
+        let mut failures = Vec::new();
         for entry in fs::read_dir(self.state.invocations())? {
-            let entry = entry?;
-            let name = entry
-                .file_name()
-                .into_string()
-                .map_err(|_| invalid("invalid invocation directory name"))?;
-            if name.starts_with(".prepare-") {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(error) => {
+                    failures.push(HistoryFailure {
+                        path: self.state.invocations(),
+                        invocation_id: None,
+                        error: error.into(),
+                    });
+                    continue;
+                }
+            };
+            let name = entry.file_name();
+            if name.as_encoded_bytes().starts_with(b".prepare-") {
                 continue;
             }
-            let id = CliInvocationId::try_from(name)
-                .map_err(|_| invalid("invalid invocation directory identity"))?;
             let path = entry.path();
-            directory(&path, false)?;
-            let metadata = read_metadata(&path)?;
-            self.validate(&id, &metadata)?;
-            records.push(metadata);
+            let id = name
+                .into_string()
+                .ok()
+                .and_then(|name| CliInvocationId::try_from(name).ok());
+            let record = (|| {
+                let id = id
+                    .as_ref()
+                    .ok_or_else(|| invalid("invalid invocation directory identity"))?;
+                directory(&path, false)?;
+                let metadata = read_metadata(&path)?;
+                self.validate(id, &metadata)?;
+                Ok(metadata)
+            })();
+            match record {
+                Ok(record) => records.push(record),
+                Err(error) => failures.push(HistoryFailure {
+                    path,
+                    invocation_id: id,
+                    error,
+                }),
+            }
         }
         records.sort_by(|left, right| {
             (left.created_unix_ms, left.selection.invocation_id.as_str()).cmp(&(
@@ -369,7 +456,8 @@ impl InvocationStore {
                 right.selection.invocation_id.as_str(),
             ))
         });
-        Ok(records)
+        failures.sort_by(|left, right| left.path.cmp(&right.path));
+        Ok(InvocationHistory { records, failures })
     }
 
     /// Absence means no terminal record was observed, never completed success.

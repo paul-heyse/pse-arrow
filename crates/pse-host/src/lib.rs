@@ -39,6 +39,7 @@ pub mod repository;
 pub mod selection;
 pub mod server;
 pub mod source_command;
+pub mod source_proposal;
 pub mod source_read;
 pub mod status;
 pub mod stream_records;
@@ -62,6 +63,12 @@ pub enum HostError {
     /// A requested capability has invalid premises.
     #[error("host ownership: {0}")]
     Ownership(String),
+    /// History could not establish a global selection; every original row failure survives.
+    #[error("invocation history is incomplete; global latest cannot be established")]
+    IncompleteInvocationHistory {
+        /// Independent unreadable source records from the actual traversal.
+        failures: Vec<invocation::HistoryFailure>,
+    },
     /// Deadline expired without proving the named fact.
     #[error("host deadline: {0}")]
     Deadline(String),
@@ -106,6 +113,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Io(_) => pse_diagnostics::DiagnosticCode::HostIo,
         Self::Manager(_) => pse_diagnostics::DiagnosticCode::HostManager,
         Self::Ownership(_) => pse_diagnostics::DiagnosticCode::HostOwnership,
+        Self::IncompleteInvocationHistory {..} => pse_diagnostics::DiagnosticCode::HostOwnership,
         Self::Deadline(_) => pse_diagnostics::DiagnosticCode::HostDeadline,
         Self::UnknownLaunch {..} => pse_diagnostics::DiagnosticCode::HostUnknownLaunch,
         Self::Settlement {..} => pse_diagnostics::DiagnosticCode::HostSettlement,
@@ -117,7 +125,11 @@ pse_diagnostics::impl_diagnostic! {
     }) },
     forward(this) { match this { Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::Artifact(error) => Some(error), _ => None } },
     help(_this) { None },
-    related(this) { match this { Self::Settlement {operation,cleanup} => { let children:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()]; Some(Box::new(children.into_iter())) }, _ => None } },
+    related(this) { match this {
+        Self::Settlement {operation,cleanup} => { let children:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()]; Some(Box::new(children.into_iter())) },
+        Self::IncompleteInvocationHistory {failures} => Some(Box::new(failures.iter().map(|failure| -> &dyn pse_diagnostics::TypedDiagnostic { failure }))),
+        _ => None
+    } },
     source(_this) { None }
 }
 

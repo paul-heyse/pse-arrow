@@ -208,24 +208,27 @@ fn providers_are_lazy_and_prefix_pages_retain_source_coverage_and_continuation()
         |name| {
             calls.fetch_add(1, Ordering::SeqCst);
             assert_eq!(name, "selected-domain");
-            Ok::<_, ()>(suggestions(
-                Source {
-                    owner: name.into(),
-                    generation: Some("snapshot-1".into()),
-                    freshness: Freshness::RetainedSnapshot,
-                },
-                Exhaustiveness::Open,
-                ["prefix-b", "other", "prefix-a"]
-                    .into_iter()
-                    .map(|value| Candidate {
-                        value: value.into(),
-                        aliases: Vec::new(),
-                        help: None,
-                        hidden: false,
-                    })
-                    .collect(),
-                vec!["open domain".into()],
-            ))
+            Ok::<_, ()>(
+                suggestions(
+                    Source {
+                        owner: name.into(),
+                        generation: Some("snapshot-1".into()),
+                        freshness: Freshness::RetainedSnapshot,
+                    },
+                    Exhaustiveness::Open,
+                    ["prefix-b", "other", "prefix-a"]
+                        .into_iter()
+                        .map(|value| Candidate {
+                            value: value.into(),
+                            aliases: Vec::new(),
+                            help: None,
+                            hidden: false,
+                        })
+                        .collect(),
+                    vec!["open domain".into()],
+                )
+                .candidates,
+            )
         },
     )
     .unwrap();
@@ -249,7 +252,7 @@ fn retained_metadata_yields_real_target_intentions_without_invoking_cargo() {
         metadata_freshness: Some(Freshness::RetainedSnapshot),
         ..Context::default()
     };
-    let targets = context.provide(Domain::Targets.name()).unwrap();
+    let targets = context.provide(Domain::Targets.name()).unwrap().candidates;
     assert_eq!(
         targets
             .values
@@ -267,7 +270,10 @@ fn retained_metadata_yields_real_target_intentions_without_invoking_cargo() {
             .unwrap()
             .contains("required_features=native")
     );
-    let absent = Context::default().provide(Domain::Targets.name()).unwrap();
+    let absent = Context::default()
+        .provide(Domain::Targets.name())
+        .unwrap()
+        .candidates;
     assert_eq!(absent.availability, Availability::Unavailable);
     assert_eq!(absent.exhaustiveness, Exhaustiveness::Unknown);
 }
@@ -280,6 +286,8 @@ fn native_atom_candidates_come_from_validation_owner_and_do_not_claim_all_combin
         &Context::default(),
     )
     .unwrap();
+    assert!(page.failures.is_empty());
+    let page = page.page;
     assert_eq!(page.availability, Availability::Available);
     assert_eq!(page.exhaustiveness, Exhaustiveness::Open);
     assert_eq!(page.records.len(), crate::native::capability_names().len());
@@ -299,11 +307,57 @@ fn bound_absent_invocation_directory_is_known_empty_and_reads_create_nothing() {
         invocations: Some(&store),
         ..Context::default()
     };
-    let set = context.provide(Domain::Invocations.name()).unwrap();
+    let result = context.provide(Domain::Invocations.name()).unwrap();
+    assert!(result.failures.is_empty());
+    let set = result.candidates;
     assert_eq!(set.availability, Availability::Available);
     assert_eq!(set.exhaustiveness, Exhaustiveness::Exhaustive);
     assert!(set.values.is_empty());
     assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 0);
+}
+#[test]
+fn invocation_candidates_preserve_healthy_rows_and_original_history_diagnostics() {
+    let root = tempfile::tempdir().unwrap();
+    let env = [("XDG_STATE_HOME".into(), root.path().as_os_str().to_owned())].into();
+    let state =
+        crate::paths::CheckoutState::from_paths(root.path(), &root.path().join("common"), &env)
+            .unwrap();
+    let store = InvocationStore::new(state);
+    let begin = || {
+        store
+            .begin(crate::invocation::InvocationSpec {
+                invocation_id: crate::envelope::CliInvocationId::new(),
+                command: "run".into(),
+                session: None,
+                parent: None,
+                operation: (),
+                control: crate::generation::PreparedGeneration {
+                    generation: "fixture".into(),
+                    protocol: 1,
+                    manifest_digest: "a".repeat(64),
+                },
+                environment_digest: "b".repeat(64),
+                scientific: Vec::new(),
+            })
+            .unwrap()
+    };
+    let healthy = begin();
+    let corrupt = begin();
+    std::fs::write(corrupt.path().join("meta.json"), b"invalid JSON").unwrap();
+    let context = Context {
+        invocations: Some(&store),
+        ..Context::default()
+    };
+    let result = context.provide(Domain::Invocations.name()).unwrap();
+    assert_eq!(result.candidates.availability, Availability::Available);
+    assert_eq!(result.candidates.exhaustiveness, Exhaustiveness::Unknown);
+    assert_eq!(result.candidates.values.len(), 1);
+    assert_eq!(result.candidates.values[0].value, healthy.id().to_string());
+    assert_eq!(result.failures.len(), 1);
+    assert_eq!(
+        result.failures[0].invocation_id.as_ref(),
+        Some(corrupt.id())
+    );
 }
 #[test]
 fn description_pages_have_serialization_contract_schemas() {

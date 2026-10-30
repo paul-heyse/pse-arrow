@@ -3,7 +3,11 @@
 //! Side-effect-free parser discovery over explicitly supplied metadata/evidence owners.
 #[path = "../../../scripts/cli-catalog.rs"]
 pub mod description;
-use crate::{HostError, invocation::InvocationStore, selection};
+use crate::{
+    HostError,
+    invocation::{HistoryFailure, InvocationStore},
+    selection,
+};
 use clap::{Command, CommandFactory as _};
 use description::{
     Availability, Candidate, CandidateProvider, CandidateSet, Exhaustiveness, Freshness, Page,
@@ -82,12 +86,36 @@ pub struct Context<'a> {
     /// Bound checkout evidence owner; discovery does not create directories.
     pub invocations: Option<&'a InvocationStore>,
 }
+/// Provider values retain independent source failures without erasing healthy candidates.
+#[derive(Debug)]
+pub struct ProviderResult {
+    /// Generic parser/provider presentation facts.
+    pub candidates: CandidateSet,
+    /// Original typed invocation-source failures, when that domain was selected.
+    pub failures: Vec<HistoryFailure>,
+}
+impl From<CandidateSet> for ProviderResult {
+    fn from(candidates: CandidateSet) -> Self {
+        Self {
+            candidates,
+            failures: Vec::new(),
+        }
+    }
+}
+/// Candidate page and its original host-source diagnostics.
+#[derive(Debug)]
+pub struct CandidatePage {
+    /// Requested page; generic parser contract stays unchanged.
+    pub page: Page<Candidate>,
+    /// Independent source failures to publish with the enclosing observation.
+    pub failures: Vec<HistoryFailure>,
+}
 fn suggestions(
     source: Source,
     exhaustiveness: Exhaustiveness,
     values: Vec<Candidate>,
     limitations: Vec<String>,
-) -> CandidateSet {
+) -> ProviderResult {
     CandidateSet {
         source,
         availability: Availability::Available,
@@ -95,15 +123,17 @@ fn suggestions(
         values,
         limitations,
     }
+    .into()
 }
 impl Context<'_> {
     /// Evaluate only this selected domain; unavailable input never becomes empty success.
-    pub fn provide(&self, name: &str) -> Result<CandidateSet, HostError> {
+    pub fn provide(&self, name: &str) -> Result<ProviderResult, HostError> {
         let Some(domain) = Domain::parse(name) else {
             return Ok(CandidateSet::unavailable(
                 name,
                 "no domain provider is associated with this parser owner",
-            ));
+            )
+            .into());
         };
         match domain {
             Domain::Packages | Domain::Targets => {
@@ -111,7 +141,7 @@ impl Context<'_> {
                     return Ok(CandidateSet::unavailable(
                         domain.name(),
                         "cached Cargo metadata is unavailable; discovery does not run Cargo or build inventories",
-                    ));
+                    ).into());
                 };
                 let source = Source {
                     owner: "captured Cargo workspace metadata".into(),
@@ -135,11 +165,32 @@ impl Context<'_> {
                     return Ok(CandidateSet::unavailable(
                         domain.name(),
                         "checkout invocation store is not bound",
-                    ));
+                    )
+                    .into());
                 };
-                let records = store.history::<Box<serde_json::value::RawValue>>()?;
-                let values=records.into_iter().map(|record|Candidate{value:record.selection.invocation_id.to_string(),aliases:Vec::new(),help:Some(format!("{}; created_unix_ms={}; metadata does not prove running or settled state",record.selection.command,record.created_unix_ms)),hidden:false}).collect();
-                Ok(suggestions(Source{owner:"authenticated checkout invocation metadata".into(),generation:None,freshness:Freshness::Unknown},Exhaustiveness::Exhaustive,values,vec!["directory observations are not an atomic snapshot, workload status or control authority".into()]))
+                let history = store.history::<serde::de::IgnoredAny>()?;
+                let exhaustiveness = if history.failures.is_empty() {
+                    Exhaustiveness::Exhaustive
+                } else {
+                    Exhaustiveness::Unknown
+                };
+                let values = history.records.into_iter().map(|record| Candidate {
+                    value: record.selection.invocation_id.to_string(),
+                    aliases: Vec::new(),
+                    help: Some(format!("{}; created_unix_ms={}; metadata does not prove running or settled state", record.selection.command, record.created_unix_ms)),
+                    hidden: false,
+                }).collect();
+                let mut result = suggestions(
+                    Source { owner: "authenticated checkout invocation metadata".into(), generation: None, freshness: Freshness::Unknown },
+                    exhaustiveness,
+                    values,
+                    vec!["directory observations are not an atomic snapshot, workload status or control authority".into()],
+                );
+                if !history.failures.is_empty() {
+                    result.candidates.limitations.push("some invocation sources could not be authenticated; candidates cover only readable metadata".into());
+                }
+                result.failures = history.failures;
+                Ok(result)
             }
             Domain::NativeCapabilities => Ok(suggestions(
                 Source {
@@ -230,10 +281,14 @@ pub fn candidates(
     argument: &str,
     window: &Window,
     context: &Context<'_>,
-) -> Result<Page<Candidate>, HostError> {
-    description::candidates(command_tree(), path, argument, window, |name| {
-        context.provide(name)
-    })
+) -> Result<CandidatePage, HostError> {
+    let mut failures = Vec::new();
+    let page = description::candidates(command_tree(), path, argument, window, |name| {
+        let result = context.provide(name)?;
+        failures.extend(result.failures);
+        Ok::<_, HostError>(result.candidates)
+    })?;
+    Ok(CandidatePage { page, failures })
 }
 
 #[cfg(test)]

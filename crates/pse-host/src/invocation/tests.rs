@@ -47,7 +47,9 @@ fn response(directory: &InvocationDirectory) -> Envelope<String> {
 #[test]
 fn observation_of_absent_state_is_passive() {
     let (_temporary, store) = store();
-    assert!(store.history::<String>().expect("empty history").is_empty());
+    let history = store.history::<String>().expect("empty history");
+    assert!(history.records.is_empty());
+    assert!(history.failures.is_empty());
     assert!(
         store
             .resolve("latest", Some("session"))
@@ -190,10 +192,80 @@ fn exact_and_unique_prefix_ignore_unrelated_corrupt_history() {
         store.resolve("01800000", None).expect("unique prefix"),
         Some(healthy.id().clone())
     );
-    assert!(store.history::<String>().is_err());
-    assert!(store.resolve("latest", None).is_err());
+    let history = store.history::<String>().expect("partial history");
+    assert_eq!(history.records.len(), 1);
+    assert_eq!(history.records[0].selection.invocation_id, *healthy.id());
+    assert_eq!(history.failures.len(), 1);
+    assert_eq!(
+        history.failures[0].invocation_id.as_ref(),
+        Some(corrupt.id())
+    );
+    assert_eq!(history.failures[0].path, corrupt.path());
+    let latest_error = store.resolve("latest", None).unwrap_err();
+    let latest_record = crate::envelope::ErrorRecord::from_typed(
+        &latest_error,
+        &crate::envelope::RedactionPolicy::default(),
+    );
+    assert_eq!(latest_record.children.len(), 1);
+    assert!(
+        latest_record.children[0]
+            .facts
+            .observations
+            .contains_key("invocation_id")
+    );
     assert!(store.resolve("latest", Some("healthy-session")).is_err());
     assert!(store.resolve("latest", Some("absent-session")).is_err());
+}
+
+#[test]
+fn history_keeps_all_healthy_rows_and_structured_independent_source_failures() {
+    let (_temporary, store) = store();
+    let first = store.begin(spec(None)).unwrap();
+    let second = store.begin(spec(None)).unwrap();
+    let corrupt = store.begin(spec(None)).unwrap();
+    fs::write(corrupt.path().join("meta.json"), b"{\"version\":").unwrap();
+    let invalid_name = store.state.invocations().join("invalid-identity");
+    fs::create_dir(&invalid_name).unwrap();
+    let history = store.history::<serde::de::IgnoredAny>().unwrap();
+    assert_eq!(history.records.len(), 2);
+    let ids = history
+        .records
+        .iter()
+        .map(|record| &record.selection.invocation_id)
+        .collect::<Vec<_>>();
+    assert!(ids.contains(&first.id()));
+    assert!(ids.contains(&second.id()));
+    assert_eq!(history.failures.len(), 2);
+    let error = history
+        .failures
+        .iter()
+        .find(|failure| failure.invocation_id.as_ref() == Some(corrupt.id()))
+        .unwrap();
+    let record = crate::envelope::ErrorRecord::from_typed(
+        error,
+        &crate::envelope::RedactionPolicy::default(),
+    );
+    assert_eq!(record.code.as_deref(), Some("host.ownership"));
+    assert!(
+        record
+            .facts
+            .observations
+            .contains_key("evidence_path_platform_bytes")
+    );
+    assert!(record.facts.observations.contains_key("invocation_id"));
+    assert!(!record.children.is_empty());
+    assert!(
+        history
+            .failures
+            .iter()
+            .any(|failure| failure.path == invalid_name && failure.invocation_id.is_none())
+    );
+    let latest_error = store.resolve("latest", None).unwrap_err();
+    let latest_record = crate::envelope::ErrorRecord::from_typed(
+        &latest_error,
+        &crate::envelope::RedactionPolicy::default(),
+    );
+    assert_eq!(latest_record.children.len(), 2);
 }
 
 #[test]
@@ -273,7 +345,9 @@ fn wrong_checkout_or_version_is_reported_instead_of_empty_history() {
         serde_json::from_slice(&fs::read(&path).expect("bytes")).expect("JSON");
     value["checkout_id"] = "another-checkout".into();
     fs::write(&path, serde_json::to_vec(&value).expect("encode")).expect("tamper fixture");
-    assert!(store.history::<String>().is_err());
+    let history = store.history::<String>().expect("partial history");
+    assert!(history.records.is_empty());
+    assert_eq!(history.failures.len(), 1);
     assert!(store.resolve(directory.id().as_str(), None).is_err());
     value["checkout_id"] = store.state.checkout_id.as_str().into();
     value["version"] = 9000.into();
@@ -349,14 +423,22 @@ fn private_unpublished_creation_is_not_an_invocation_and_duplicate_ids_refuse() 
     fs::create_dir(store.state.invocations().join(".prepare-unpublished"))
         .expect("private preparation fixture");
     assert_eq!(
-        store.history::<String>().expect("committed history").len(),
+        store
+            .history::<String>()
+            .expect("committed history")
+            .records
+            .len(),
         1
     );
     let mut duplicate = spec(None);
     duplicate.invocation_id = id;
     assert!(store.begin(duplicate).is_err());
     assert_eq!(
-        store.history::<String>().expect("unchanged history").len(),
+        store
+            .history::<String>()
+            .expect("unchanged history")
+            .records
+            .len(),
         1
     );
 }

@@ -720,6 +720,11 @@ fn dispatch(
                 &checkout_root(selected)?,
                 &std::env::vars_os().collect(),
                 all,
+                if brief || line {
+                    crate::status::InspectionScope::Summary
+                } else {
+                    crate::status::InspectionScope::Full
+                },
                 std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             );
             if line && presentation.format == OutputFormat::Human {
@@ -1017,6 +1022,7 @@ fn catalog_dispatch(
         presentation.format = OutputFormat::Json;
     }
     if let Some(argument) = &args.argument {
+        let mut provider_failures = Vec::new();
         let page = description::candidates(
             catalog::command_tree(),
             &args.path,
@@ -1041,7 +1047,11 @@ fn catalog_dispatch(
                             metadata_freshness: Some(description::Freshness::RetainedSnapshot),
                             ..catalog::Context::default()
                         }
-                        .provide(name);
+                        .provide(name)
+                        .map(|result| {
+                            provider_failures.extend(result.failures);
+                            result.candidates
+                        });
                     }
                 } else if name == catalog::Domain::Invocations.name() {
                     let state = crate::paths::CheckoutState::resolve(
@@ -1053,16 +1063,33 @@ fn catalog_dispatch(
                         invocations: Some(&store),
                         ..catalog::Context::default()
                     }
-                    .provide(name);
+                    .provide(name)
+                    .map(|result| {
+                        provider_failures.extend(result.failures);
+                        result.candidates
+                    });
                 }
-                catalog::Context::default().provide(name)
+                catalog::Context::default().provide(name).map(|result| {
+                    provider_failures.extend(result.failures);
+                    result.candidates
+                })
             },
         )?;
-        Ok(presentation.emit(catalog_envelope(
+        let mut response = catalog_envelope(
             page,
             &format!("{command} candidates"),
             format!("{} argument {argument}", args.path.join(" ")),
-        ))?)
+        );
+        if !provider_failures.is_empty() {
+            let policy = RedactionPolicy::from_environment();
+            response.failures.extend(
+                provider_failures
+                    .iter()
+                    .map(|failure| ErrorRecord::from_typed(failure, &policy)),
+            );
+            response.observation.completeness = Completeness::Partial;
+        }
+        Ok(presentation.emit(response)?)
     } else {
         let page = catalog::commands(&args.path, recursive, &window);
         Ok(presentation.emit(catalog_envelope(page, command, args.path.join(" ")))?)

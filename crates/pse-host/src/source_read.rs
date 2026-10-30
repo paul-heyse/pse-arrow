@@ -8,7 +8,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::ops::Range;
 
-fn source_digest(source: &str) -> String {
+pub(crate) fn source_digest(source: &str) -> String {
     Sha256::digest(source.as_bytes())
         .iter()
         .map(|byte| format!("{byte:02x}"))
