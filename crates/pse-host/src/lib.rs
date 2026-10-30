@@ -18,6 +18,7 @@ pub mod invocation;
 mod manager;
 pub mod native;
 pub mod paths;
+pub mod repository;
 pub mod selection;
 pub mod server;
 pub mod study_module;
@@ -62,6 +63,9 @@ pub enum HostError {
     /// Environment construction failed.
     #[error(transparent)]
     Environment(#[from] environment::EnvironmentError),
+    /// Native Git observation failed, retaining the original source chain.
+    #[error(transparent)]
+    Repository(#[from] repository::RepositoryError),
 }
 
 pse_diagnostics::impl_diagnostic! {
@@ -74,8 +78,9 @@ pse_diagnostics::impl_diagnostic! {
         Self::UnknownLaunch {..} => pse_diagnostics::DiagnosticCode::HostUnknownLaunch,
         Self::Settlement {..} => pse_diagnostics::DiagnosticCode::HostSettlement,
         Self::Environment(_) => pse_diagnostics::DiagnosticCode::HostEnvironment,
+        Self::Repository(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
     }) },
-    forward(this) { match this { Self::Environment(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), _ => None } },
     help(_this) { None },
     related(this) { match this { Self::Settlement {operation,cleanup} => { let children:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()]; Some(Box::new(children.into_iter())) }, _ => None } },
     source(_this) { None }

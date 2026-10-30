@@ -8,7 +8,6 @@ use std::{
     ffi::{OsStr, OsString},
     os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 /// XDG directory selection with its declared home-relative default.
@@ -194,27 +193,15 @@ impl CheckoutState {
     pub fn resolve(root: &Path, environment: &Environment) -> Result<Self, EnvironmentError> {
         let root = std::fs::canonicalize(root)
             .map_err(|_| EnvironmentError("checkout path cannot be resolved".into()))?;
-        let output = Command::new("git")
-            .env_clear()
-            .envs(environment)
-            .env_remove("GIT_DIR")
-            .env_remove("GIT_WORK_TREE")
-            .env_remove("GIT_COMMON_DIR")
-            .arg("-C")
-            .arg(&root)
-            .args(["rev-parse", "--path-format=absolute", "--git-common-dir"])
-            .output()
-            .map_err(|_| EnvironmentError("Git common directory cannot be inspected".into()))?;
-        if !output.status.success() {
-            return Err(EnvironmentError(
-                "checkout has no Git common directory".into(),
-            ));
-        }
-        let mut bytes = output.stdout;
-        if bytes.last() == Some(&b'\n') {
-            bytes.pop();
-        }
-        let common = PathBuf::from(OsStr::from_bytes(&bytes));
+        // Identity belongs to the explicit checkout, independent of ambient Git overrides
+        // or executable configuration. Gitoxide resolves linked-worktree administration.
+        let repository =
+            gix::open_opts(&root, gix::open::Options::isolated()).map_err(|error| {
+                EnvironmentError(format!("Git common directory cannot be inspected: {error}"))
+            })?;
+        let common = std::fs::canonicalize(repository.common_dir()).map_err(|error| {
+            EnvironmentError(format!("Git common directory cannot be resolved: {error}"))
+        })?;
         Self::from_paths(&root, &common, environment)
     }
     /// Bind already inspected absolute paths, useful when one operation shares discovery.
@@ -312,6 +299,7 @@ impl RetentionClass {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::process::Command;
     fn env() -> Environment {
         Environment::from([("HOME".into(), "/home/test".into())])
     }
@@ -491,6 +479,52 @@ mod tests {
         assert_eq!(main_state.repository_id, work_state.repository_id);
         assert!(!main_state.root.exists());
         assert!(!work_state.root.exists());
+        let mut no_git_executable = environment.clone();
+        no_git_executable.insert("PATH".into(), "/does-not-contain-git".into());
+        no_git_executable.insert("GIT_DIR".into(), "/unrelated-repository".into());
+        assert_eq!(
+            CheckoutState::resolve(&work, &no_git_executable)
+                .unwrap()
+                .checkout_id,
+            work_state.checkout_id
+        );
+    }
+    #[test]
+    fn native_repository_lookup_preserves_the_existing_git_identity_spelling() {
+        let fixture = tempfile::tempdir().unwrap();
+        let root = fixture.path().join("checkout");
+        assert!(
+            Command::new("git")
+                .args(["init", "--quiet"])
+                .arg(&root)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let actual_admin = fixture.path().join("administration");
+        std::fs::rename(root.join(".git"), &actual_admin).unwrap();
+        std::os::unix::fs::symlink(&actual_admin, root.join(".git")).unwrap();
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(["rev-parse", "--path-format=absolute", "--git-common-dir"])
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        let bytes = output.stdout.strip_suffix(b"\n").unwrap_or(&output.stdout);
+        let environment = Environment::from([(
+            "XDG_STATE_HOME".into(),
+            fixture.path().join("state").into_os_string(),
+        )]);
+        let previous = CheckoutState::from_paths(
+            &root.canonicalize().unwrap(),
+            Path::new(OsStr::from_bytes(bytes)),
+            &environment,
+        )
+        .unwrap();
+        let native = CheckoutState::resolve(&root, &environment).unwrap();
+        assert_eq!(native.checkout_id, previous.checkout_id);
+        assert_eq!(native.repository_id, previous.repository_id);
     }
     #[test]
     fn retention_requires_positive_terminal_settlement_and_owner_release() {
