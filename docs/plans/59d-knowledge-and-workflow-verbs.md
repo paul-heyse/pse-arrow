@@ -355,7 +355,8 @@ adoption of the commit path; it does not gate unrelated D verbs.
 - **Concurrent HEAD.** A HEAD that moved during the commit is refused by the compare-and-swap.
 - **Hunk mode.** A hunk whose content changed after listing is refused.
 - **Formatting.** An unformatted whole file is formatted before commit, unless the file changed
-  after it was read.
+  after it was read. Format the privately captured commit snapshot; never overwrite a shared
+  working file merely to match the formatted commit. Report remaining worktree differences.
 - **Drift hint.** A touched generator input yields the scoped `codegen-check` hint in `next`.
 - **Trailers.** Trailers appear exactly as passed.
 - **Publication then failure.** If HEAD advanced and shared-index reconciliation fails, report
@@ -387,6 +388,71 @@ recovery contract and supporting focused test results here, then amend D08 to co
 If no sound strategy is established, leave D08 planned/blocked on that decision and preserve
 the existing manual commit route. No claim that Git offers a cross-HEAD/index atomic operation
 or that a private index alone resolves concurrency is made by this proposal.
+
+#### D09 decision — private preparation, native staged-intent merge and checked publication
+
+**Interface-checked:** Git's `update-ref <ref> <new> <old>` supplies expected-old ref
+publication, and `merge-tree --write-tree` supplies native content/rename merge without
+reading or writing the worktree/index. **Tested:** the retained research source
+`docs/functional_reviews/probes/plan59-git-publication-2026-10-30.py` ran on Git 2.43.0 through
+`scripts/pse-env -- uv run --no-sync python` with eleven disposable-repository cases,
+zero failures against baseline zero. This establishes the investigated algorithm over those
+cases, not an implemented `pse commit`, crash durability qualification or universal Git-format
+support. D08 remains implementation work.
+
+Select this concrete D08 strategy:
+
+1. Capture the selected attached branch, expected HEAD, selected source/hunk identities and
+   working bytes. Build the proposed tree from that HEAD in a private index, applying only
+   selected snapshots. Run pinned formatters on private whole-file snapshots; hunk mode only
+   reports formatting. A formatter failure publishes neither ref nor index. Shared working
+   files are never rewritten by this path; later/concurrent edits remain ordinary dirty work.
+2. Snapshot the actual shared index into another private index and obtain its staged tree.
+   Create a private synthetic commit with the captured HEAD as parent, then merge that staged
+   intent with the proposed commit using native `merge-tree --write-tree`. This transplants
+   staged changes onto the new baseline, including clean same-path nonoverlapping hunks and
+   rename/delete intent. Unrelated staged content stays intact. A conflict or unavailable
+   native merge refuses before publication, preserving exact shared-index and working bytes;
+   no bespoke content merge or automatic conflict resolution is introduced.
+3. Prepare the reconciled index privately. Acquire the actual per-worktree `index.lock`
+   exclusively only for publication, verify that the shared index still equals the observed
+   snapshot, and reject observed changes to the selected branch/source/hunk premises. An
+   index changed during private preparation is a retryable refusal, not permission to replace
+   the newer staging. Reject unmerged or unqualified index forms before effects.
+4. Persist the operation's protected intent/artifact references before publication: branch,
+   expected old HEAD, proposed commit, captured index identity and reconciled tree. Publish
+   the captured branch with expected-old `update-ref`, not an unqualified `update-ref HEAD`
+   that could target a newly checked-out branch. A failed compare-and-swap leaves shared index
+   and worktree untouched. Index-lock ownership protects against ordinary Git index writers;
+   it is not a lock obeyed by arbitrary working-file editors.
+5. After ref publication, install the prepared index through the owned lockfile's atomic
+   replacement, retaining original failures and the actual commit identity. If installation,
+   recording or ownership checks fail after publication, report
+   `committed-with-unreconciled-index`; preserve the current index and private recovery
+   artifacts and never retry the commit. Process death can leave uncertain phase/lock evidence:
+   reconcile original ownership and actual ref/index state explicitly, not by deleting an
+   arbitrary lock or assuming a missing terminal record means no commit.
+
+For recovery, only an authenticated operation with the expected branch/commit and unchanged
+captured index may install its recorded reconciled tree under a new owned index lock. Changed
+HEAD/index or unknown ownership requires inspection/manual recovery; never reset staging to
+the commit tree or run a second publication automatically. Concurrent raw ref manipulation,
+writers ignoring Git's index-lock protocol and an atomic multi-file filesystem snapshot are
+outside the guarantee. Source rechecks detect observed races; a subsequent edit is preserved
+because publication never writes working files.
+
+The probe covers unrelated staging, clean same-path staged hunk transplantation, conflicting
+same-path refusal, a staging race during preparation, HEAD movement while holding the index
+lock, a branch switch, concurrent dirty edits, rename/delete staging, formatter failure/private
+formatting, ordinary Git lock refusal and injected failure after ref publication. It inspects
+resulting commit trees, staged bytes, working bytes and distinct outcomes. D08 must implement
+this in Rust and qualify its actual durable intent/recovery, path/mode/symlink handling,
+unsupported index forms, hunk selection and selected formatter integration. The research
+probe is not a Python production controller or a compatibility path.
+
+Native contracts: [update-ref](https://git-scm.com/docs/git-update-ref),
+[merge-tree](https://git-scm.com/docs/git-merge-tree),
+[Git lockfile protocol](https://github.com/git/git/blob/master/lockfile.h).
 
 ## Verification and handoff
 
