@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Independent stdout/stderr drainage, required attributed bytes and optional presentation.
+//! Independent exact stdout/stderr custody, required interpretation and optional presentation.
 use crate::{HostError, extraction::OutputStream};
-use base64::{Engine as _, engine::general_purpose::STANDARD};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     future::Future,
@@ -13,7 +10,7 @@ use std::{
         Arc,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
@@ -22,67 +19,19 @@ use tokio::{
 };
 
 const CHUNK_BYTES: usize = 64 * 1024;
-/// Maximum complete NDJSON record produced by this codec, independent of workload limits.
-pub const MAX_LOG_RECORD_BYTES: usize = CHUNK_BYTES * 2;
 
-/// Versioned exact-byte raw evidence, independent of any human/protocol interpretation.
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct LogChunk {
-    /// Host-owned raw log representation version.
-    pub version: u32,
-    /// Observed log order, not an assertion about writes across independent pipes.
-    pub sequence: u64,
+/// Optional live bytes, never the retained raw representation or a cross-pipe producer order.
+#[derive(Clone, Debug)]
+pub struct PresentationChunk {
     /// Original child pipe.
     pub stream: OutputStream,
-    /// Starting byte offset in this pipe.
+    /// Starting byte offset in this pipe, independent of retention or view loss.
     pub byte_offset: u64,
-    /// Original byte extent.
-    pub byte_length: u64,
     /// Exact bytes, including non-UTF-8 and partial lines.
-    pub bytes_base64: String,
-}
-impl LogChunk {
-    /// Decode a complete raw record for a viewer or evidence reader.
-    pub fn decode(&self) -> Result<Vec<u8>, LogDecodeError> {
-        if self.version != 1 {
-            return Err(LogDecodeError::Version(self.version));
-        }
-        if self.byte_length > CHUNK_BYTES as u64
-            || self.bytes_base64.len() > CHUNK_BYTES.div_ceil(3) * 4
-        {
-            return Err(LogDecodeError::Limit);
-        }
-        let bytes = STANDARD.decode(&self.bytes_base64)?;
-        if bytes.len() as u64 != self.byte_length {
-            return Err(LogDecodeError::Length);
-        }
-        Ok(bytes)
-    }
-}
-/// A malformed raw-log record is not empty child output.
-#[derive(Debug, thiserror::Error)]
-pub enum LogDecodeError {
-    /// Unknown host-owned log codec.
-    #[error("unsupported raw log version {0}")]
-    Version(u32),
-    /// Original encoding failure.
-    #[error(transparent)]
-    Base64(#[from] base64::DecodeError),
-    /// Attribution does not match the decoded bytes.
-    #[error("raw log byte length differs from decoded payload")]
-    Length,
-    /// The record exceeds the supported exact-byte chunk codec.
-    #[error("raw log chunk exceeds its decoding policy")]
-    Limit,
-}
-pse_diagnostics::impl_diagnostic! {
-    LogDecodeError,
-    code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+    pub bytes: Vec<u8>,
 }
 
-/// Required log custody, including explicit synchronization before declaring a complete log.
+/// Required raw custody, including explicit synchronization before declaring complete storage.
 pub trait LogSink: AsyncWrite + Unpin + Send + 'static {
     /// Complete the sink's durability operation; flush alone is not durable storage.
     fn synchronize(&mut self) -> impl Future<Output = io::Result<()>> + Send;
@@ -122,19 +71,10 @@ struct Progress {
     bytes: AtomicU64,
     eof: AtomicBool,
 }
-struct State<W: LogSink, O: ChunkObserver> {
-    sink: W,
-    observer: Option<O>,
-    sequence: u64,
-    committed: u64,
-    log_error: Option<io::Error>,
-    observer_errors: [Option<O::Error>; 2],
-    observer_error_counts: [u64; 2],
-    presentation: Option<mpsc::Sender<LogChunk>>,
-    presented: u64,
-    lost_chunks: u64,
-    lost_bytes: u64,
-    presentation_closed: bool,
+struct ObserverState<O: ChunkObserver> {
+    observer: O,
+    errors: [Option<O::Error>; 2],
+    error_counts: [u64; 2],
 }
 fn index(stream: OutputStream) -> usize {
     match stream {
@@ -142,57 +82,109 @@ fn index(stream: OutputStream) -> usize {
         OutputStream::Stderr => 1,
     }
 }
-impl<W: LogSink, O: ChunkObserver> State<W, O> {
-    async fn accept(&mut self, stream: OutputStream, offset: u64, bytes: &[u8]) {
-        let sequence = self.sequence;
-        self.sequence = self.sequence.saturating_add(1);
-        let permit = match self.presentation.as_ref().map(mpsc::Sender::try_reserve) {
-            Some(Ok(permit)) => Some(permit),
-            Some(Err(error)) => {
-                self.lost_chunks = self.lost_chunks.saturating_add(1);
-                self.lost_bytes = self.lost_bytes.saturating_add(bytes.len() as u64);
-                if matches!(error, mpsc::error::TrySendError::Closed(_)) {
-                    self.presentation_closed = true;
-                }
-                None
-            }
-            None => None,
+
+/// Optional presentation delivery facts for one pipe; queue acceptance is not consumption.
+#[derive(Debug, Default)]
+pub struct PresentationReport {
+    /// Chunks accepted by the optional queue.
+    pub queued: u64,
+    /// Chunks not enqueued because the view was full/closed.
+    pub lost_chunks: u64,
+    /// Original bytes represented by those optional losses.
+    pub lost_bytes: u64,
+    /// The optional receiver was observed closed.
+    pub closed: bool,
+}
+
+struct StreamState<W: LogSink> {
+    sink: W,
+    bytes_retained: u64,
+    write_error: Option<io::Error>,
+    io_unresolved: bool,
+    presentation: PresentationReport,
+}
+impl<W: LogSink> StreamState<W> {
+    fn new(sink: W) -> Self {
+        Self {
+            sink,
+            bytes_retained: 0,
+            write_error: None,
+            io_unresolved: false,
+            presentation: PresentationReport::default(),
+        }
+    }
+
+    async fn retain(&mut self, bytes: &[u8], write_timeout: Duration) {
+        if self.write_error.is_some() {
+            return;
+        }
+        let Some(deadline) = Instant::now().checked_add(write_timeout) else {
+            self.write_error = Some(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "raw stream write timeout exceeds the supported observation horizon",
+            ));
+            return;
         };
-        // Avoid encoding/copying discarded optional data once required storage has failed.
-        let record = (self.log_error.is_none() || permit.is_some()).then(|| LogChunk {
-            version: 1,
-            sequence,
-            stream,
-            byte_offset: offset,
-            byte_length: bytes.len() as u64,
-            bytes_base64: STANDARD.encode(bytes),
-        });
-        if self.log_error.is_none()
-            && let Some(record) = &record
-        {
-            match serde_json::to_vec(record).map_err(io::Error::other) {
-                Ok(mut encoded) => {
-                    encoded.push(b'\n');
-                    match self.sink.write_all(&encoded).await {
-                        Ok(()) => self.committed = self.committed.saturating_add(1),
-                        Err(error) => self.log_error = Some(error),
-                    }
+        let mut written = 0;
+        while written < bytes.len() {
+            match tokio::time::timeout_at(deadline.into(), self.sink.write(&bytes[written..])).await
+            {
+                Ok(Ok(0)) => {
+                    self.write_error = Some(io::Error::new(
+                        io::ErrorKind::WriteZero,
+                        "raw stream sink accepted no bytes",
+                    ));
+                    return;
                 }
-                Err(error) => self.log_error = Some(error),
+                Ok(Ok(count)) => {
+                    written += count;
+                    self.bytes_retained = self.bytes_retained.saturating_add(count as u64);
+                }
+                Ok(Err(error)) => {
+                    self.write_error = Some(error);
+                    return;
+                }
+                Err(_) => {
+                    // A cancelled write may still have backing I/O in flight. Only completed
+                    // write() advances count toward the confirmed prefix; its suffix is unknown.
+                    self.io_unresolved = true;
+                    self.write_error = Some(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        "raw stream write observation expired",
+                    ));
+                    return;
+                }
             }
         }
-        if let Some(observer) = &mut self.observer
-            && let Err(error) = observer.observe(stream, offset, bytes)
-        {
-            let slot = index(stream);
-            self.observer_error_counts[slot] = self.observer_error_counts[slot].saturating_add(1);
-            if self.observer_errors[slot].is_none() {
-                self.observer_errors[slot] = Some(error);
+    }
+
+    fn present(
+        &mut self,
+        sender: Option<&mpsc::Sender<PresentationChunk>>,
+        stream: OutputStream,
+        byte_offset: u64,
+        bytes: &[u8],
+    ) {
+        let Some(sender) = sender else { return };
+        match sender.try_reserve() {
+            Ok(permit) => {
+                permit.send(PresentationChunk {
+                    stream,
+                    byte_offset,
+                    bytes: bytes.to_vec(),
+                });
+                self.presentation.queued = self.presentation.queued.saturating_add(1);
             }
-        }
-        if let (Some(permit), Some(record)) = (permit, record) {
-            permit.send(record);
-            self.presented = self.presented.saturating_add(1);
+            Err(error) => {
+                self.presentation.lost_chunks = self.presentation.lost_chunks.saturating_add(1);
+                self.presentation.lost_bytes = self
+                    .presentation
+                    .lost_bytes
+                    .saturating_add(bytes.len() as u64);
+                if matches!(error, mpsc::error::TrySendError::Closed(_)) {
+                    self.presentation.closed = true;
+                }
+            }
         }
     }
 }
@@ -220,75 +212,88 @@ impl PipeReport {
     }
 }
 
-/// Captured output and its original live interpretation/sink custody.
-pub struct TeeReport<W: LogSink, O: ChunkObserver> {
-    /// Actual stdout observation.
-    pub stdout: PipeReport,
-    /// Actual stderr observation.
-    pub stderr: PipeReport,
-    /// Number of fully accepted NDJSON raw records before any storage failure.
-    pub committed_records: u64,
-    /// Original required write/encoding failure; further writes were discarded.
-    pub log_error: Option<io::Error>,
+/// One independently retained raw stream, with its original sink and failures.
+#[derive(Debug)]
+pub struct StreamReport<W: LogSink> {
+    /// Actual reader observation after its task was joined.
+    pub pipe: PipeReport,
+    /// Confirmed contiguous prefix accepted by completed writes. Unresolved I/O may add bytes.
+    /// Synchronization outcomes separately establish whether this prefix is durable.
+    pub bytes_retained: u64,
+    /// Original required write failure; later chunks were drained without further writes.
+    pub write_error: Option<io::Error>,
     /// Original flush failure, independent of write failures.
     pub flush_error: Option<io::Error>,
     /// Original synchronization failure, independent of write/flush failures.
     pub synchronization_error: Option<io::Error>,
-    /// First concrete observer failure in each stream; later chunks still reached the observer.
-    pub observer_errors: [Option<O::Error>; 2],
-    /// Every observer failure count, bounded in representation.
-    pub observer_error_counts: [u64; 2],
-    /// Optional chunks accepted by a queue, not proof of terminal display/consumption.
-    pub presentation_queued: u64,
-    /// Optional chunks not enqueued because the view was full/closed.
-    pub presentation_lost_chunks: u64,
-    /// Original bytes represented by those optional losses.
-    pub presentation_lost_bytes: u64,
-    /// The optional receiver was observed closed.
-    pub presentation_closed: bool,
-    /// Output finalization expired. Tokio file work may outlive an aborted future.
+    /// Cancellation/expiry left underlying I/O custody unresolved.
     pub io_unresolved: bool,
-    /// The original interpreter, for its owner to reconcile semantic completeness.
-    pub observer: Option<O>,
-    /// The original writer remains owned for pending-I/O recovery or explicit disposal.
+    /// Optional presentation losses, independent of raw custody and interpretation.
+    pub presentation: PresentationReport,
+    /// Original writer retained for pending-I/O recovery or explicit disposal.
     pub sink: W,
 }
-impl<W: LogSink, O: ChunkObserver> fmt::Debug for TeeReport<W, O> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TeeReport")
-            .field("stdout", &self.stdout)
-            .field("stderr", &self.stderr)
-            .field("committed_records", &self.committed_records)
-            .field("io_unresolved", &self.io_unresolved)
-            .finish_non_exhaustive()
-    }
-}
-impl<W: LogSink, O: ChunkObserver> TeeReport<W, O> {
-    /// Complete required raw log coverage, independent of decoding and optional presentation.
+impl<W: LogSink> StreamReport<W> {
+    /// This stream reached actual EOF, retained every byte and synchronized without failure.
     pub fn log_complete(&self) -> bool {
-        self.stdout.complete()
-            && self.stderr.complete()
-            && self.log_error.is_none()
+        self.pipe.complete()
+            && self.bytes_retained == self.pipe.bytes_read
+            && self.write_error.is_none()
             && self.flush_error.is_none()
             && self.synchronization_error.is_none()
             && !self.io_unresolved
     }
-    /// Byte delivery to the interpreter completed; the interpreter owns semantic reconciliation.
+}
+
+/// Captured output and its original interpretation and independently owned raw sinks.
+pub struct TeeReport<W1: LogSink, W2: LogSink, O: ChunkObserver> {
+    /// Exact stdout retention and reader facts.
+    pub stdout: StreamReport<W1>,
+    /// Exact stderr retention and reader facts.
+    pub stderr: StreamReport<W2>,
+    /// First concrete observer failure in each stream; later chunks still reached the observer.
+    pub observer_errors: [Option<O::Error>; 2],
+    /// Every observer failure count, bounded in representation.
+    pub observer_error_counts: [u64; 2],
+    /// Original interpreter for its owner to reconcile semantic completeness.
+    pub observer: Option<O>,
+}
+impl<W1: LogSink, W2: LogSink, O: ChunkObserver> fmt::Debug for TeeReport<W1, W2, O> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TeeReport")
+            .field("stdout", &self.stdout.pipe)
+            .field("stderr", &self.stderr.pipe)
+            .field("io_unresolved", &self.io_unresolved())
+            .finish_non_exhaustive()
+    }
+}
+impl<W1: LogSink, W2: LogSink, O: ChunkObserver> TeeReport<W1, W2, O> {
+    /// Complete required raw coverage, independent of interpretation and optional presentation.
+    pub fn log_complete(&self) -> bool {
+        self.stdout.log_complete() && self.stderr.log_complete()
+    }
+    /// Byte delivery completed; the interpreter still owns semantic reconciliation.
     pub fn observer_complete(&self) -> bool {
-        self.stdout.complete()
-            && self.stderr.complete()
+        self.stdout.pipe.complete()
+            && self.stderr.pipe.complete()
             && self.observer_errors.iter().all(Option::is_none)
+    }
+    /// Either stream has unresolved output I/O; this is not a workload settlement claim.
+    pub fn io_unresolved(&self) -> bool {
+        self.stdout.io_unresolved || self.stderr.io_unresolved
     }
 }
 
-/// Original reader task custody. Dropping does not establish any physical/resource settlement.
-pub struct TeeHandle<W: LogSink, O: ChunkObserver> {
+/// Original reader task custody. Dropping does not establish physical/resource settlement.
+pub struct TeeHandle<W1: LogSink, W2: LogSink, O: ChunkObserver> {
     stdout: JoinHandle<io::Result<()>>,
     stderr: JoinHandle<io::Result<()>>,
     progress: [Arc<Progress>; 2],
-    state: Option<Arc<Mutex<State<W, O>>>>,
+    stdout_state: Option<Arc<Mutex<StreamState<W1>>>>,
+    stderr_state: Option<Arc<Mutex<StreamState<W2>>>>,
+    observer_state: Option<Arc<Mutex<ObserverState<O>>>>,
 }
-impl<W: LogSink, O: ChunkObserver> fmt::Debug for TeeHandle<W, O> {
+impl<W1: LogSink, W2: LogSink, O: ChunkObserver> fmt::Debug for TeeHandle<W1, W2, O> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TeeHandle").finish_non_exhaustive()
     }
@@ -297,7 +302,10 @@ async fn read_pipe<R: AsyncRead + Unpin, W: LogSink, O: ChunkObserver>(
     mut reader: R,
     stream: OutputStream,
     progress: Arc<Progress>,
-    state: Arc<Mutex<State<W, O>>>,
+    state: Arc<Mutex<StreamState<W>>>,
+    observer_state: Arc<Mutex<ObserverState<O>>>,
+    presentation: Option<mpsc::Sender<PresentationChunk>>,
+    write_timeout: Duration,
 ) -> io::Result<()> {
     let mut buffer = vec![0_u8; CHUNK_BYTES];
     loop {
@@ -307,60 +315,79 @@ async fn read_pipe<R: AsyncRead + Unpin, W: LogSink, O: ChunkObserver>(
             return Ok(());
         }
         let offset = progress.bytes.fetch_add(count as u64, Ordering::AcqRel);
+        {
+            let mut state = state.lock().await;
+            state.retain(&buffer[..count], write_timeout).await;
+        }
+        {
+            // Only synchronous bounded interpretation is shared, never sink I/O or backpressure.
+            let mut state = observer_state.lock().await;
+            if let Err(error) = state.observer.observe(stream, offset, &buffer[..count]) {
+                let slot = index(stream);
+                state.error_counts[slot] = state.error_counts[slot].saturating_add(1);
+                if state.errors[slot].is_none() {
+                    state.errors[slot] = Some(error);
+                }
+            }
+        }
         state
             .lock()
             .await
-            .accept(stream, offset, &buffer[..count])
-            .await;
+            .present(presentation.as_ref(), stream, offset, &buffer[..count]);
     }
 }
 
-/// Start independent readers. The caller publishes its selection and owns process placement.
-pub fn start<R1, R2, W, O>(
+/// Start independent readers into distinct raw sinks (normally stdout.raw and stderr.raw).
+/// The write timeout is explicit caller policy per chunk, not a workload/resource limit. On expiry
+/// that sink becomes incomplete and subsequent pipe bytes are still drained and interpreted.
+pub fn start<R1, R2, W1, W2, O>(
     stdout: R1,
     stderr: R2,
-    sink: W,
+    sinks: (W1, W2),
     observer: O,
-    presentation: Option<mpsc::Sender<LogChunk>>,
-) -> TeeHandle<W, O>
+    presentation: Option<mpsc::Sender<PresentationChunk>>,
+    write_timeout: Duration,
+) -> TeeHandle<W1, W2, O>
 where
     R1: AsyncRead + Unpin + Send + 'static,
     R2: AsyncRead + Unpin + Send + 'static,
-    W: LogSink,
+    W1: LogSink,
+    W2: LogSink,
     O: ChunkObserver,
 {
     let progress = [Arc::new(Progress::default()), Arc::new(Progress::default())];
-    let state = Arc::new(Mutex::new(State {
-        sink,
-        observer: Some(observer),
-        sequence: 0,
-        committed: 0,
-        log_error: None,
-        observer_errors: [None, None],
-        observer_error_counts: [0, 0],
-        presentation,
-        presented: 0,
-        lost_chunks: 0,
-        lost_bytes: 0,
-        presentation_closed: false,
+    let stdout_state = Arc::new(Mutex::new(StreamState::new(sinks.0)));
+    let stderr_state = Arc::new(Mutex::new(StreamState::new(sinks.1)));
+    let observer_state = Arc::new(Mutex::new(ObserverState {
+        observer,
+        errors: [None, None],
+        error_counts: [0, 0],
     }));
     let stdout = tokio::spawn(read_pipe(
         stdout,
         OutputStream::Stdout,
         progress[0].clone(),
-        state.clone(),
+        stdout_state.clone(),
+        observer_state.clone(),
+        presentation.clone(),
+        write_timeout,
     ));
     let stderr = tokio::spawn(read_pipe(
         stderr,
         OutputStream::Stderr,
         progress[1].clone(),
-        state.clone(),
+        stderr_state.clone(),
+        observer_state.clone(),
+        presentation,
+        write_timeout,
     ));
     TeeHandle {
         stdout,
         stderr,
         progress,
-        state: Some(state),
+        stdout_state: Some(stdout_state),
+        stderr_state: Some(stderr_state),
+        observer_state: Some(observer_state),
     }
 }
 
@@ -391,10 +418,61 @@ async fn finish_pipe(
         observation_expired: expired,
     }
 }
-impl<W: LogSink, O: ChunkObserver> TeeHandle<W, O> {
-    /// Wait for output under its own absolute observation deadline, without stopping a workload.
-    /// Expiry cancels readers and keeps I/O custody unresolved; no child/cgroup claim is inferred.
-    pub async fn finish(mut self, deadline: Instant) -> Result<TeeReport<W, O>, HostError> {
+
+fn recover<T>(state: Option<Arc<Mutex<T>>>) -> Result<T, HostError> {
+    let state =
+        state.ok_or_else(|| HostError::Ownership("raw output state custody is missing".into()))?;
+    Ok(Arc::try_unwrap(state)
+        .map_err(|_| {
+            HostError::Ownership("raw output readers retain state custody after join".into())
+        })?
+        .into_inner())
+}
+
+async fn finalize<W: LogSink>(
+    mut state: StreamState<W>,
+    pipe: PipeReport,
+    deadline: Instant,
+) -> StreamReport<W> {
+    state.io_unresolved |= pipe.observation_expired || pipe.task_error.is_some();
+    let flush_error = match tokio::time::timeout_at(deadline.into(), state.sink.flush()).await {
+        Ok(result) => result.err(),
+        Err(_) => {
+            state.io_unresolved = true;
+            Some(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "raw stream flush observation expired",
+            ))
+        }
+    };
+    let synchronization_error =
+        match tokio::time::timeout_at(deadline.into(), state.sink.synchronize()).await {
+            Ok(result) => result.err(),
+            Err(_) => {
+                state.io_unresolved = true;
+                Some(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "raw stream synchronization observation expired",
+                ))
+            }
+        };
+    StreamReport {
+        pipe,
+        bytes_retained: state.bytes_retained,
+        write_error: state.write_error,
+        flush_error,
+        synchronization_error,
+        io_unresolved: state.io_unresolved,
+        presentation: state.presentation,
+        sink: state.sink,
+    }
+}
+
+impl<W1: LogSink, W2: LogSink, O: ChunkObserver> TeeHandle<W1, W2, O> {
+    /// Wait under an absolute output-observation deadline, without stopping a workload.
+    /// Active capture must remain alive while the payload drains. Expiry joins cancelled readers
+    /// and retains unresolved I/O custody; it establishes no child/cgroup settlement claim.
+    pub async fn finish(mut self, deadline: Instant) -> Result<TeeReport<W1, W2, O>, HostError> {
         let (stdout, stderr) = tokio::join!(
             finish_pipe(
                 &mut self.stdout,
@@ -409,76 +487,24 @@ impl<W: LogSink, O: ChunkObserver> TeeHandle<W, O> {
                 deadline
             )
         );
-        let state = self
-            .state
-            .take()
-            .ok_or_else(|| HostError::Ownership("raw output state custody is missing".into()))?;
-        let state = Arc::try_unwrap(state)
-            .map_err(|_| {
-                HostError::Ownership(
-                    "raw output readers retain shared state custody after join".into(),
-                )
-            })?
-            .into_inner();
-        let State {
-            mut sink,
-            observer,
-            committed,
-            log_error,
-            observer_errors,
-            observer_error_counts,
-            presented,
-            lost_chunks,
-            lost_bytes,
-            presentation_closed,
-            ..
-        } = state;
-        let mut unresolved = stdout.observation_expired
-            || stderr.observation_expired
-            || stdout.task_error.is_some()
-            || stderr.task_error.is_some();
-        let flush_error = match tokio::time::timeout_at(deadline.into(), sink.flush()).await {
-            Ok(result) => result.err(),
-            Err(_) => {
-                unresolved = true;
-                Some(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "raw log flush observation expired",
-                ))
-            }
-        };
-        let synchronization_error =
-            match tokio::time::timeout_at(deadline.into(), sink.synchronize()).await {
-                Ok(result) => result.err(),
-                Err(_) => {
-                    unresolved = true;
-                    Some(io::Error::new(
-                        io::ErrorKind::TimedOut,
-                        "raw log synchronization observation expired",
-                    ))
-                }
-            };
+        let stdout_state = recover(self.stdout_state.take())?;
+        let stderr_state = recover(self.stderr_state.take())?;
+        let observer_state = recover(self.observer_state.take())?;
+        let (stdout, stderr) = tokio::join!(
+            finalize(stdout_state, stdout, deadline),
+            finalize(stderr_state, stderr, deadline)
+        );
         Ok(TeeReport {
             stdout,
             stderr,
-            committed_records: committed,
-            log_error,
-            flush_error,
-            synchronization_error,
-            observer_errors,
-            observer_error_counts,
-            presentation_queued: presented,
-            presentation_lost_chunks: lost_chunks,
-            presentation_lost_bytes: lost_bytes,
-            presentation_closed,
-            io_unresolved: unresolved,
-            observer,
-            sink,
+            observer_errors: observer_state.errors,
+            observer_error_counts: observer_state.error_counts,
+            observer: Some(observer_state.observer),
         })
     }
 }
 
-impl<W: LogSink, O: ChunkObserver> Drop for TeeHandle<W, O> {
+impl<W1: LogSink, W2: LogSink, O: ChunkObserver> Drop for TeeHandle<W1, W2, O> {
     fn drop(&mut self) {
         self.stdout.abort();
         self.stderr.abort();
