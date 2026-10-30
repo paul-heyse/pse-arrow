@@ -708,7 +708,7 @@ impl HostManager {
     }
     /// Authenticate the current process membership against the same native manager.
     pub async fn current_unit(&self) -> Result<UnitObservation, HostError> {
-        Ok(self.current_membership().await?.root)
+        Ok(self.current_membership().await?.into_root())
     }
     /// Observe the immutable unit root separately from the actual current member.
     pub(crate) async fn current_membership(
@@ -741,7 +741,7 @@ impl HostManager {
             ));
         }
         let membership = self.current_membership().await?;
-        let root = &membership.root;
+        let root = membership.root();
         if root.unit != intent.unit || root.main_pid != std::process::id() {
             return Err(HostError::Ownership(
                 "current process is not the original service main controller".into(),

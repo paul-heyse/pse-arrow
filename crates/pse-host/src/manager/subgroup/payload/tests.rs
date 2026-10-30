@@ -12,6 +12,9 @@ struct Fixture {
     keeper: tokio::process::Child,
 }
 async fn fixture() -> Fixture {
+    fixture_bound(true).await
+}
+async fn fixture_bound(native_parent: bool) -> Fixture {
     let manager = HostManager::connect_user(None).await.unwrap();
     let current = manager.current_unit().await.unwrap();
     let (slice, _, _) = manager.foreground_placement(&current).await.unwrap();
@@ -27,7 +30,7 @@ async fn fixture() -> Fixture {
         .start_scope_delegated(
             &intent,
             fd,
-            &current.unit,
+            if native_parent { &current.unit } else { &slice },
             &slice,
             Instant::now() + Duration::from_secs(15),
             Duration::from_secs(5),
@@ -177,6 +180,14 @@ async fn member_probe() {
             .unwrap()
             .is_none()
     );
+    let lent = membership.borrow_payload_parent(&manager).await.unwrap();
+    assert_eq!(lent.ancestry.last().unwrap().path, expected);
+    let separate_controller = HostManager::connect_user(None).await.unwrap();
+    let lent = separate_controller
+        .recover_payload_parent(lent.binding())
+        .await
+        .unwrap();
+    assert_eq!(lent.ancestry.last().unwrap().path, expected);
     let binding: PayloadParentBinding = serde_json::from_str(&encoded).unwrap();
     let original = manager.recover_payload_parent(&binding).await.unwrap();
     let parent = original.at_current_member(&membership).await.unwrap();
@@ -213,6 +224,56 @@ async fn member_probe() {
     until_file(&marker, Instant::now() + Duration::from_secs(10)).await;
     std::fs::write(std::env::var_os("PSE_SUBGROUP_READY").unwrap(), b"ready").unwrap();
     std::future::pending::<()>().await;
+}
+
+#[tokio::test]
+async fn unrelated_delegated_scope_cannot_lend_current_member_authority() {
+    let mut fixture = fixture_bound(false).await;
+    let mut groups = Vec::new();
+    let mut children = Vec::new();
+    let body = std::panic::AssertUnwindSafe(async {
+        let parent = fixture.root.payload_parent().await.unwrap();
+        groups.push(create(&parent, "unrelated-member").await);
+        let command = vec![
+            std::env::current_exe().unwrap().into_os_string(),
+            "--exact".into(),
+            "manager::subgroup::payload::tests::unrelated_member_probe".into(),
+            "--nocapture".into(),
+        ];
+        let (child, mut gate) = gated(&command, &[("PSE_UNRELATED_MEMBER".into(), "probe".into())]);
+        children.push(child);
+        let attached = groups[0].attach(&mut children[0]).await.unwrap();
+        groups[0]
+            .validate_attachment(&attached, &children[0])
+            .await
+            .unwrap();
+        gate.write_all(b"1\n").await.unwrap();
+        drop(gate);
+        let status = tokio::time::timeout(Duration::from_secs(10), children[0].wait())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(status.success(), "unrelated member refusal probe: {status}");
+    })
+    .catch_unwind()
+    .await;
+    let failures = cleanup(&mut fixture, &mut groups, &mut children).await;
+    if let Err(panic) = body {
+        eprintln!("owned cleanup failures: {failures:?}");
+        std::panic::resume_unwind(panic);
+    }
+    assert!(failures.is_empty(), "{failures:#?}");
+}
+
+#[tokio::test]
+async fn unrelated_member_probe() {
+    if std::env::var_os("PSE_UNRELATED_MEMBER").is_none() {
+        return;
+    }
+    let manager = HostManager::connect_user(None).await.unwrap();
+    let membership = manager.current_membership().await.unwrap();
+    assert!(!manager.native_workload(&membership.root).await.unwrap());
+    assert!(membership.borrow_payload_parent(&manager).await.is_err());
 }
 
 #[tokio::test]

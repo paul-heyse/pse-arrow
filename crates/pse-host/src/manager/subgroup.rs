@@ -9,13 +9,19 @@ pub(crate) mod payload;
 /// Observation-only current placement. A descendant never replaces the manager's unit root.
 #[derive(Debug)]
 pub(crate) struct CurrentMembership {
-    pub(crate) root: UnitObservation,
+    root: UnitObservation,
     manager: String,
     process: ProcessIdentity,
     /// Every component is opened from its original parent, including the original root.
     ancestry: Vec<Group>,
 }
 impl CurrentMembership {
+    pub(crate) fn root(&self) -> &UnitObservation {
+        &self.root
+    }
+    pub(super) fn into_root(self) -> UnitObservation {
+        self.root
+    }
     pub(super) async fn authenticate(
         manager: &HostManager,
         root: UnitObservation,

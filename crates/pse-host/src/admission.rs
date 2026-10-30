@@ -1424,7 +1424,7 @@ impl Coordinator {
         let membership = tokio::time::timeout_at(deadline.into(), manager.current_membership())
             .await
             .map_err(|_| HostError::Deadline("inherited finite identity".into()))??;
-        let actual = &membership.root;
+        let actual = membership.root();
         if actual.unit != current.unit
             || actual.invocation != current.invocation
             || actual.control_group != current.control_group
@@ -1785,6 +1785,7 @@ fn caller_present(identity: &ProcessIdentity) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    mod subgroup_inheritance;
     fn policy() -> Policy {
         toml::from_str(include_str!("../../../.config/agent-capacity.toml")).unwrap()
     }

@@ -45,6 +45,67 @@ pub(crate) struct PayloadParent {
     ancestry: Vec<Group>,
 }
 
+impl CurrentMembership {
+    /// Lend only this actual member of an authenticated live native workload role.
+    /// No pathname, environment marker or caller-supplied launch intent grants it.
+    pub(crate) async fn borrow_payload_parent(
+        &self,
+        manager: &HostManager,
+    ) -> Result<PayloadParent, HostError> {
+        self.validate(manager).await?;
+        if self.root.active_state != "active" || !manager.native_workload(&self.root).await? {
+            return Err(HostError::Ownership(
+                "actual current member is not a live native workload role".into(),
+            ));
+        }
+        let unit = manager.unit(&self.root.unit).await?;
+        let intent = LaunchIntent {
+            unit: self.root.unit.clone(),
+            description: unit.description().await?,
+        };
+        require_original_identity(
+            &intent,
+            &unit.description().await?,
+            &self.root.invocation,
+            &unit.invocation_id().await?,
+        )?;
+        let original = &self.ancestry[0];
+        let root = UnitBinding {
+            invocation: self.root.invocation.clone(),
+            group: self.root.control_group.clone(),
+            device: original.device,
+            inode: original.inode,
+        };
+        let ancestry = self
+            .ancestry
+            .iter()
+            .map(copy_group)
+            .collect::<Result<Vec<_>, _>>()?;
+        let binding = PayloadParentBinding {
+            manager: manager.identity_key(),
+            intent,
+            root,
+            ancestry: ancestry.iter().map(DirectoryBinding::from_group).collect(),
+        };
+        let value = PayloadParent {
+            manager: manager.clone(),
+            binding,
+            ancestry,
+        };
+        value.require_launchable().await?;
+        self.validate(manager).await?;
+        if !manager
+            .native_workload(&manager.observe(&self.root.unit).await?)
+            .await?
+        {
+            return Err(HostError::Ownership(
+                "native workload dependency role changed while lending its member".into(),
+            ));
+        }
+        Ok(value)
+    }
+}
+
 impl OwnedUnit {
     /// Lend subgroup authority without transferring the original unit/reference/reservation.
     pub(crate) async fn payload_parent(&self) -> Result<PayloadParent, HostError> {
@@ -201,6 +262,21 @@ impl PayloadParent {
         let root = self.manager.observe(self.binding.intent.unit()).await?;
         require_core(&self.manager, &root, &self.ancestry).await
     }
+    async fn require_launchable(&self) -> Result<(), HostError> {
+        self.validate().await?;
+        if self
+            .manager
+            .observe(self.binding.intent.unit())
+            .await?
+            .active_state
+            != "active"
+        {
+            return Err(HostError::Ownership(
+                "original payload root is no longer active for launch".into(),
+            ));
+        }
+        Ok(())
+    }
     pub(crate) fn creation_intent(&self, name: &str) -> Result<SubgroupCreationIntent, HostError> {
         if name.is_empty()
             || name.len() > 128
@@ -263,7 +339,7 @@ impl PayloadParent {
         {
             return CreationOutcome::NoEffect(cause);
         }
-        if let Err(cause) = self.validate().await {
+        if let Err(cause) = self.require_launchable().await {
             return CreationOutcome::NoEffect(cause);
         }
         let parent = &self.ancestry[self.ancestry.len() - 1];
@@ -405,6 +481,7 @@ impl OwnedSubgroup {
         child: &mut tokio::process::Child,
     ) -> Result<AttachedChild, HostError> {
         self.validate().await?;
+        self.parent.require_launchable().await?;
         let pid = child
             .id()
             .ok_or_else(|| HostError::Ownership("subgroup child was already reaped".into()))?;
@@ -436,6 +513,7 @@ impl OwnedSubgroup {
         child: &tokio::process::Child,
     ) -> Result<(), HostError> {
         self.validate().await?;
+        self.parent.require_launchable().await?;
         require_live(&attachment.pidfd)?;
         if child.id() != Some(attachment.process.pid)
             || child_identity(attachment.process.pid, &self.parent.manager)? != attachment.process
