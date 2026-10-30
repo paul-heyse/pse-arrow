@@ -215,7 +215,7 @@ no configuration or data deletion. Focused result/source links remain independen
 | --- | --- | --- | --- |
 | [B01](#b01) | in-progress | 59b | Native synchronous capture, original typed workflow errors and actual owner settlement are implemented; every synchronous selected consumer moved, and foreground service/origin watching was deleted. Current scope-end qualification remains |
 | [B02](#b02) | in-progress | 59b | Original Cargo diagnostics, native Nextest completed reports, frozen failure-text pages and exact fresh-source failed reruns pass focused/public controls; native exit, raw custody and physical settlement remain distinct. Final integrated checks remain |
-| [B03](#b03) | in-progress | 59b | One service now contains wrapper/payload/descendants; finite capacity is reserved before wrapper birth and reconciled only after original native drain. Six ordinary/finite exit/cancel/main-crash cases and public raw-byte transport passed; obsolete external/subtree recovery is deleted. Post-retirement assembled qualification remains |
+| [B03](#b03) | in-progress | 59b | One service now contains wrapper/payload/descendants; finite capacity is reserved before wrapper birth and reconciled only after original native drain. Six ordinary/finite exit/cancel/main-crash cases passed again on the fresh post-retirement image; public raw-byte transport passed and obsolete external/subtree recovery is deleted. Integrated/static qualification remains |
 | [B04](#b04) | in-progress | 59b | Native synchronous `run-all` retains original per-child results and parent associations. Public failed-then-successful recipe control passed with one physical native unit; recipe migration and scope-end checks remain |
 | [B05](#b05) | in-progress | 59b | Shared explicit/environment/harness precedence, exact session-local latest, checkout-wide history override and independent exact-ID selection are implemented. Three focused controls and actual passive/harness associations pass; current integrated execution qualification remains with the wave |
 
@@ -305,7 +305,12 @@ same native service root. Explicit startup/stop timeouts and `KillMode=mixed` ac
 whole-population cooperative TERM, actual child reap and independent stream joins. Finite
 reservation/ancestor configuration precede service dispatch, so the wrapper is constrained from
 birth. The authenticated main binds that reservation before payload release; neither main nor
-stop-post retires a still-live service charge. Recorded wait/cancel and later admission reconcile
+stop-post retires a still-live service charge. Post-reservation preparation, immutable input
+publication and dispatch share independent unit/allocation/request cleanup. An actual finite
+publication-collision control corrected a leaked charge: an explicitly released service launcher
+fence cannot stand in for a still-live gated scope child, and `release(false)` remains an error.
+The original real gated-child reservation control also passed after this distinction changed.
+Recorded wait/cancel and later admission reconcile
 only the original inactive, empty native lifetime, including stop-post and its allocation.
 
 An immutable operation report records child/capture facts while `native_lifetime_pending=true`
@@ -318,8 +323,9 @@ main death leaves missing original evidence unknown.
 Six independent ordinary/finite controls exercised launcher exit, bounded nonterminal wait,
 cooperative cancellation of escaped-session pipe holders, and authenticated original-main
 SIGKILL with native descendant drain. A public detached journey preserved exact non-UTF-8
-argv/cwd and private environment bytes. These passes preceded legacy deletion; current
-post-retirement assembled/static qualification stays with the coordinator. External payload
+argv/cwd and private environment bytes. The six native cases also passed against a fresh prepared image after legacy deletion; the
+public raw-byte journey retains its original conditions. Scope-end integrated/static qualification
+stays with the coordinator. External payload
 relocation, recursive CLI subgroup/ancestry reconstruction, external-resource finalizer recovery,
 launch-closure protocol, ceremonial async hierarchy and their unconsumed APIs/tests are deleted.
 Detachment from an already native-owned workload explicitly refuses; ordinary nested calls

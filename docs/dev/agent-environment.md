@@ -280,8 +280,10 @@ Same-package integration helpers consume runtime `CARGO_BIN_EXE_<name>`. Cargo s
 variable for direct integration tests; native Nextest supplies it from its non-test-binary
 metadata, which the CLI maps to the exact same-build captured executable. Embedding a
 compile-time `env!("CARGO_BIN_EXE_...")` path would bypass that mapping. Cross-package helper
-inputs remain with their declared fixture owner. Linked libraries and scientific inputs retain
-their independent runtime admission contracts.
+inputs remain with their declared fixture owner. Each captured Cargo executable keeps its
+original basename inside a unique private artifact directory, preserving native program-name
+checks. Linked libraries and scientific inputs retain their independent
+runtime admission contracts.
 
 ## Selected reproducible experiments
 

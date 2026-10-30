@@ -251,7 +251,7 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 | [C01](#c01) | complete | 59c | Declaration and actual reached-unit capability derivation integrated; targeted real no-build Cargo graphs cover every mapped feature and pure/full runtime; no provider preparation or solver build |
 | [C02](#c02) | in-progress | 59c | Native completed-report reconciliation, synchronous public execution, exact fresh-source failed reruns and original failure-text pages pass focused/public controls. Replaced generic recipes are retired; final integrated qualification remains |
 | [C03](#c03) | in-progress | 59c | `--changed` uses the common Gitoxide/declaration source-resolution stage for test/list/check intent. Controlled Git→native-target normalization and public changed-source explain pass; broad affected scientific execution is not claimed |
-| [C04](#c04) | in-progress | 59c | Fixture prepare/show, cached module selection, selected helper capture and both canonical owner modes work. Same-package worker paths and recorded-state inputs are preserved; worker-lifecycle/native-study selected public journeys pass without caller fixture variables. Fixture/generic recipe retirement is implemented; remaining declared-target and series qualification stay open |
+| [C04](#c04) | complete | 59c | Fixture prepare/show/cache selection, both canonical owner modes, selected source captures and runtime native binary mapping are delivered. Missing/pure/support and original owner controls pass; selected public worker/native-study/native-service journeys pass without caller fixture variables. Original binary basenames and immutable bytes survive relocation/later output replacement. Broader scientific qualification remains with series scope and Plan58 H |
 | [C05](#c05) | in-progress | 59c | Public source-built inventory and whole-record test/failure pages retain actual target/features, compiler-group capabilities, original fixture declarations and exact failure identities. Actual failed→fresh-source rerun and cursor/foreign-byte refusal pass; list-native-contracts is retired and final integrated qualification remains |
 | [C06](#c06) | complete | 59c | Selective source helper construction retained; pure-selection controls and actual borrowed/target-owned canonical consumers pass. No artifact dependency adopted or timing benefit claimed |
 | [C07](#c07) | in-progress | 59c | Native --lib/--all-targets/--test/--bin selection preserves declared targets/features and absence controls. Native policy queries own group membership; only split contexts sharing a named exclusion sequence, with unrelated contexts concurrent. Focused controls pass; wave-end qualification remains |
@@ -414,10 +414,15 @@ caller fixture/worker variables unset, the prepared public CLI also passed
 `native_recorded_study_cancelled_before_claim_never_enters_native_and_reopens_its_summary`,
 each selected/completed 1/1 with complete required capture and native settlement. Public
 module preparation, cached repeat preparation and pointer-only show passed. Earlier source
-integration and ENOSPC attempts receive no execution credit. Remaining declared runtime
-fixture targets and series-wide scientific qualification stay open. Immutable helper evidence
-covers host-captured tools; these selected journeys do not establish external Cargo-mutation
-immunity for compile-time `CARGO_BIN_EXE_*` paths.
+integration and ENOSPC attempts receive no execution credit. The post-mapping native-service
+and scientific-worker controls each passed 1/1 using runtime Cargo binary variables. The
+worker control launches and joins the immutable `artifact-N/pse-worker` after canonical
+transport stops. Source-capture controls (15/15) include original basename preservation,
+later original-output replacement, invalid provenance and fixture input behavior. A flat
+captured filename initially failed the worker's existing program-name contract; per-artifact
+private directories now preserve the original Cargo basename without duplicate bytes or a
+relaxed product guard. These controls settle the CLI integration package; broader declared
+scientific campaigns remain with series qualification and Plan58 H.
 
 **Acceptance:**
 - `pse test pse-operations:native_service` and `pse test pse-runtime:native_study` run with no
@@ -467,6 +472,10 @@ Worker helpers are captured per compiler group with that group's feature context
 unioning incompatible contexts. Same-package integration tests receive the runtime Cargo binary
 selection; native Nextest's `non-test-binaries` metadata pins it to the same-build captured bytes.
 The package/name/kind/original-path association and captured bytes are checked before mapping.
+Private per-artifact directories preserve Cargo's original executable basename and native
+program-name checks. The named immutable worker capture passed its actual public native
+launch/join control; the metadata replacement/refusal and basename controls pass as part of
+the 15 focused source-capture/fixture cases.
 This keeps pure selections outside helper construction and avoids a package-wide artifact dev
 dependency. No `bindeps` edge, harness crate or latency benefit is claimed. Revisit artifact
 composition only when a concrete repeated helper-build/context cost warrants it and exact
@@ -478,7 +487,8 @@ module receipt. The borrowed owner separately published native exit 0 and fixtur
 The initial borrowed attempt exposed a missing private capture directory; `3acf14dcf` corrected
 that delegation prerequisite before the successful retry. Host fixture controls (12/12) include
 pure selection without helpers and preservation of original scientific/recorded-state inputs.
-These bounded consumers settle this construction choice, not full C04 or scientific qualification.
+These bounded consumers settle this construction choice; C04 owns fixture integration evidence,
+and broader scientific qualification remains separate.
 
 For artifact dependencies, examine `-Z bindeps`, `artifact = "bin:pse-canonical-service"` and
 `lib = true` only if library use is needed. Cross-package access is

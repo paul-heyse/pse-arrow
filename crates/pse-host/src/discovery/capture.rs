@@ -10,7 +10,7 @@ use std::{
     fmt::Display,
     fs::{self, File, OpenOptions},
     io::{self, Read, Write},
-    os::unix::fs::{MetadataExt, OpenOptionsExt},
+    os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
@@ -236,10 +236,17 @@ fn record(
     match serde_json::from_value::<Message>(value) {
         Ok(Message::CompilerArtifact(artifact)) => {
             if let Some(path) = &artifact.executable {
-                match executable(
-                    path.as_std_path(),
-                    &directory.join(format!("artifact-{}", artifacts.len())),
-                ) {
+                // Preserve Cargo's basename/argv[0] contract inside a distinct private
+                // directory; native owners may legitimately require their program name.
+                let captured = (|| {
+                    let name = path
+                        .file_name()
+                        .ok_or_else(|| invalid("Cargo executable has no basename"))?;
+                    let directory = directory.join(format!("artifact-{}", artifacts.len()));
+                    fs::DirBuilder::new().mode(0o700).create(&directory)?;
+                    executable(path.as_std_path(), &directory.join(name))
+                })();
+                match captured {
                     Ok(executable) => artifacts.push(BuiltArtifact {
                         cargo: artifact,
                         executable,

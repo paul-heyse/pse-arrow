@@ -66,22 +66,19 @@ pub fn trampoline(arguments: &[OsString]) -> Result<i32, HostError> {
     let mut gate = std::fs::File::from(descriptor);
     // Descriptor initialization/ownership above must precede every generation file open.
     let _entry = crate::generation::EntryGuard::acquire_current()?;
-    let operation = (|| {
-        let mut release = [0_u8; 1];
-        match gate.read_exact(&mut release) {
-            Ok(()) if release == [1] => {}
-            Ok(()) => {
-                return Err(HostError::Ownership(
-                    "invalid foreground gate release".into(),
-                ));
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(125),
-            Err(error) => return Err(error.into()),
+    let mut release = [0_u8; 1];
+    match gate.read_exact(&mut release) {
+        Ok(()) if release == [1] => {}
+        Ok(()) => {
+            return Err(HostError::Ownership(
+                "invalid foreground gate release".into(),
+            ));
         }
-        drop(gate);
-        exec_result(Command::new(&arguments[0]).args(&arguments[1..]).exec())
-    })();
-    operation
+        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(125),
+        Err(error) => return Err(error.into()),
+    }
+    drop(gate);
+    exec_result(Command::new(&arguments[0]).args(&arguments[1..]).exec())
 }
 
 fn exec_result(error: std::io::Error) -> Result<i32, HostError> {
@@ -696,10 +693,10 @@ async fn run_owned<O: ChunkObserver>(
         Err(error) => Err(error.into()),
     };
     let reaped = reap(&mut child, drain_deadline).await;
-    if let Some(capture) = capture.as_deref_mut() {
-        if capture.child.is_none() {
-            capture.child = child.try_wait().ok().flatten();
-        }
+    if let Some(capture) = capture
+        && capture.child.is_none()
+    {
+        capture.child = child.try_wait().ok().flatten();
     }
     let finite_release = if let Some(permit) = &mut permit {
         match permit.release(&manager, drain_deadline).await {

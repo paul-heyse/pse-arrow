@@ -198,7 +198,7 @@ pub struct ServiceSpec {
 pub struct ServiceFinalizer {
     /// Absolute finalizer executable path, passed directly without a shell.
     pub executable: PathBuf,
-    /// UTF-8 control arguments excluding argv[0]; payload arguments stay with their own owner.
+    /// UTF-8 control arguments excluding `argv[0]`; payload arguments stay with their own owner.
     pub arguments: Vec<String>,
 }
 

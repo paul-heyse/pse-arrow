@@ -233,15 +233,26 @@ fn native_non_test_binary_mapping_survives_original_cargo_output_replacement() {
 
 #[test]
 fn native_non_test_mapping_refuses_missing_foreign_or_ambiguous_cargo_artifacts() {
-    for mode in ["missing", "foreign", "ambiguous"] {
+    #[derive(Clone, Copy, Debug)]
+    enum InvalidCapture {
+        Missing,
+        Foreign,
+        Ambiguous,
+    }
+    for mode in [
+        InvalidCapture::Missing,
+        InvalidCapture::Foreign,
+        InvalidCapture::Ambiguous,
+    ] {
         let (_directory, mut declared, mut captured) = non_test_capture();
         match mode {
-            "missing" => captured.artifacts.clear(),
-            "foreign" => captured.artifacts[0].cargo.package_id.repr = "other-package".into(),
-            "ambiguous" => captured.artifacts.push(captured.artifacts[0].clone()),
-            _ => unreachable!(),
+            InvalidCapture::Missing => captured.artifacts.clear(),
+            InvalidCapture::Foreign => {
+                captured.artifacts[0].cargo.package_id.repr = "other-package".into()
+            }
+            InvalidCapture::Ambiguous => captured.artifacts.push(captured.artifacts[0].clone()),
         }
-        assert!(pin_binaries(&mut declared, &captured).is_err(), "{mode}");
+        assert!(pin_binaries(&mut declared, &captured).is_err(), "{mode:?}");
     }
 }
 
@@ -308,27 +319,6 @@ async fn explicit_real_host_listing_captures_actual_inventory_without_setup_or_p
         inventory.physical_scope,
         PhysicalScopeObservation::NotEstablishedByDiscovery
     );
-    #[derive(serde::Deserialize)]
-    struct Claim {
-        owner: pse_diagnostics::process_facts::ProcessIdentity,
-    }
-    let claims = checkout
-        .join("target/host-tools/.uses")
-        .join(&inventory.host_generation.generation);
-    for claim in fs::read_dir(claims).unwrap() {
-        let path = claim.unwrap().path();
-        let bytes = match fs::read(path) {
-            Ok(bytes) => bytes,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
-            Err(error) => panic!("{error}"),
-        };
-        let claim: Claim = serde_json::from_slice(&bytes).unwrap();
-        assert_ne!(
-            claim.owner.pid,
-            std::process::id(),
-            "this listing released its original generation before children; other agents retain their independent claims"
-        );
-    }
     assert!(inventory.all_suites_listed());
     assert_eq!(inventory.selected_tests().len(), 1);
     assert!(

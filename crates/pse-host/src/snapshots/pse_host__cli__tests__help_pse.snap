@@ -8,9 +8,11 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  run-all            Attempt every independent Just recipe under one native foreground owner
   tests              Explicitly build/list the actual selected native test population
   test               Build, execute and reconcile the actual selected native tests
   check              Check the selected source through the correctness and compiler observation owners
+  fixture            Prepare or inspect inputs through the existing native fixture owner
   tools              Explicit captured development-tool preparation, discovery and managed native forwarding
   affected           Preview conservative changed-source reach through Gitoxide and captured Cargo declarations
   wait               Observe one original managed invocation; an observation timeout leaves it running
@@ -53,9 +55,11 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  run-all            Attempt every independent Just recipe under one native foreground owner
   tests              Explicitly build/list the actual selected native test population
   test               Build, execute and reconcile the actual selected native tests
   check              Check the selected source through the correctness and compiler observation owners
+  fixture            Prepare or inspect inputs through the existing native fixture owner
   tools              Explicit captured development-tool preparation, discovery and managed native forwarding
   affected           Preview conservative changed-source reach through Gitoxide and captured Cargo declarations
   wait               Observe one original managed invocation; an observation timeout leaves it running

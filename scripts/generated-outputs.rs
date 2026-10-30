@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Authored generator-routing protocol, shared by producers and the independent host via #[path].
+//! Authored generator-routing protocol, shared by producers and the independent host via `#[path]`.
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::{Component, Path};

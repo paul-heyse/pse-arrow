@@ -13,15 +13,22 @@ Arguments:
 
 Options:
   -C <checkout>
-  -p, --package <SPEC>             Package to process (see `cargo help pkgid`)
+      --rerun-failed <INVOCATION>  Rebuild current source for exact failed identities and original compiler policy
+      --changed                    Conservatively select changed source owners and reverse dependencies
       --format <FORMAT>            Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
-      --workspace                  Process all packages in the workspace
+      --base <BASE>                Git base for --changed, including observed index/worktree/untracked changes [default: HEAD]
       --fields <FIELDS>            Select comma-separated payload fields while retaining identity, state and coverage
       --budget <BUDGET>            Limit payload array records; retain complete evidence as an artifact
+  -p, --package <SPEC>             Package to process (see `cargo help pkgid`)
+      --workspace                  Process all packages in the workspace
       --exclude <SPEC>             Exclude packages from being processed
       --all-features               Activate all available features
       --no-default-features        Do not activate the `default` feature
   -F, --features <FEATURES>        Space-separated list of features to activate
+      --lib                        Select actual library declarations, without guessing their names
+      --all-targets                Preserve native Cargo all-targets selection without enabling all features
+      --test <TEST_TARGET>         Select one integration-test target
+      --bin <BIN_TARGET>           Select one binary target
       --without-feature <ABSENT>   Features that the actual selected compiler roots must keep absent
       --target <PLATFORM>          Explicit Cargo target platform; host dependency contexts remain independent
       --target-kind <TARGET_KIND>  Disambiguate duplicate target names by their Cargo kind, for example test or bin
@@ -29,6 +36,7 @@ Options:
   -E, --filterset <EXPRESSIONS>    Native nextest filtersets; nextest owns their grammar
       --ignored <IGNORED>          [default: default] [possible values: default, only, all]
       --profile <PROFILE>          Selected nextest policy profile, without running its setup during explain [default: default]
+      --timings                    Ask native Cargo for timing diagnostics (shared mutable output, not retained evidence)
       --detach                     Return the original managed launch identity and leave its owner running
       --session <SESSION>          Correlate this operation with an agent session without granting control authority
   -h, --help                       Print help (see more with '--help')
@@ -48,8 +56,11 @@ Options:
   -C <checkout>
 
 
-  -p, --package <SPEC>
-          Package to process (see `cargo help pkgid`)
+      --rerun-failed <INVOCATION>
+          Rebuild current source for exact failed identities and original compiler policy
+
+      --changed
+          Conservatively select changed source owners and reverse dependencies
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -63,14 +74,22 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --workspace
-          Process all packages in the workspace
+      --base <BASE>
+          Git base for --changed, including observed index/worktree/untracked changes
+
+          [default: HEAD]
 
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
           Limit payload array records; retain complete evidence as an artifact
+
+  -p, --package <SPEC>
+          Package to process (see `cargo help pkgid`)
+
+      --workspace
+          Process all packages in the workspace
 
       --exclude <SPEC>
           Exclude packages from being processed
@@ -83,6 +102,18 @@ Options:
 
   -F, --features <FEATURES>
           Space-separated list of features to activate
+
+      --lib
+          Select actual library declarations, without guessing their names
+
+      --all-targets
+          Preserve native Cargo all-targets selection without enabling all features
+
+      --test <TEST_TARGET>
+          Select one integration-test target
+
+      --bin <BIN_TARGET>
+          Select one binary target
 
       --without-feature <ABSENT>
           Features that the actual selected compiler roots must keep absent
@@ -111,6 +142,9 @@ Options:
           Selected nextest policy profile, without running its setup during explain
 
           [default: default]
+
+      --timings
+          Ask native Cargo for timing diagnostics (shared mutable output, not retained evidence)
 
       --detach
           Return the original managed launch identity and leave its owner running

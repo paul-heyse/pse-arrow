@@ -1988,49 +1988,45 @@ pub fn main(kind: BinKind) -> ExitCode {
                 raw_protocol = cli.command.as_ref().is_some_and(Command::raw_protocol);
                 (|| {
                     let entry = EntryGuard::acquire_current()?;
-                    let result = (|| {
-                        let intent = cli
-                            .command
-                            .as_ref()
-                            .map(Command::generation_intent)
-                            .unwrap_or(GenerationIntent::Passive);
-                        if intent == GenerationIntent::NewWork && entry.prepared().is_some() {
-                            let root = checkout_root(cli.root.as_deref())?;
-                            let environment = std::env::vars_os().collect();
-                            match runtime()?.block_on(crate::generation::new_work_decision(
-                                &root,
-                                &environment,
-                            ))? {
-                                NewWorkDecision::Current | NewWorkDecision::PreserveNested => {}
-                                NewWorkDecision::Rebuild => {
-                                    let tool = match kind {
-                                        BinKind::Pse => HostTool::Pse,
-                                        BinKind::Host => HostTool::Host,
-                                        BinKind::Correctness => HostTool::Correctness,
-                                    };
-                                    return crate::generation::rebuild_and_reexec(
-                                        &root, tool, &arguments,
-                                    );
-                                }
+                    let intent = cli
+                        .command
+                        .as_ref()
+                        .map(Command::generation_intent)
+                        .unwrap_or(GenerationIntent::Passive);
+                    if intent == GenerationIntent::NewWork && entry.prepared().is_some() {
+                        let root = checkout_root(cli.root.as_deref())?;
+                        let environment = std::env::vars_os().collect();
+                        match runtime()?
+                            .block_on(crate::generation::new_work_decision(&root, &environment))?
+                        {
+                            NewWorkDecision::Current | NewWorkDecision::PreserveNested => {}
+                            NewWorkDecision::Rebuild => {
+                                let tool = match kind {
+                                    BinKind::Pse => HostTool::Pse,
+                                    BinKind::Host => HostTool::Host,
+                                    BinKind::Correctness => HostTool::Correctness,
+                                };
+                                return crate::generation::rebuild_and_reexec(
+                                    &root, tool, &arguments,
+                                );
                             }
                         }
-                        if !raw_protocol
-                            && !matches!(cli.command.as_ref(), Some(Command::Schema { .. }))
-                            && (cli.fields.is_some() || cli.budget.is_some())
-                        {
-                            let root = checkout_root(cli.root.as_deref())?;
-                            presentation.artifact_directory = Some(
-                                crate::paths::CheckoutState::resolve(
-                                    &root,
-                                    &std::env::vars_os().collect(),
-                                )?
-                                .root
-                                .join("artifacts"),
-                            );
-                        }
-                        dispatch(cli, &presentation, &entry)
-                    })();
-                    result
+                    }
+                    if !raw_protocol
+                        && !matches!(cli.command.as_ref(), Some(Command::Schema { .. }))
+                        && (cli.fields.is_some() || cli.budget.is_some())
+                    {
+                        let root = checkout_root(cli.root.as_deref())?;
+                        presentation.artifact_directory = Some(
+                            crate::paths::CheckoutState::resolve(
+                                &root,
+                                &std::env::vars_os().collect(),
+                            )?
+                            .root
+                            .join("artifacts"),
+                        );
+                    }
+                    dispatch(cli, &presentation, &entry)
                 })()
             }
             Err(error) => {

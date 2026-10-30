@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
 //! Selected test inputs delegate preparation and process lifetime to their original owners.
 use super::*;
 use crate::{
@@ -122,13 +124,12 @@ impl PreparedExecution {
             .flat_map(|requirement| requirement.inputs().iter().copied())
             .collect();
         for &input in &demand {
-            if let Some(variable) = original_input_variable(input) {
-                if environment
+            if let Some(variable) = original_input_variable(input)
+                && environment
                     .get(OsStr::new(variable))
                     .is_none_or(|value| value.is_empty())
-                {
-                    return Err(FixtureError::Unprepared(input));
-                }
+            {
+                return Err(FixtureError::Unprepared(input));
             }
         }
         if demand.contains(&Input::ServiceHelper) || demand.contains(&Input::Worker) {

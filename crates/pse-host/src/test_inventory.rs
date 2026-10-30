@@ -86,7 +86,7 @@ pub enum FailureRow {
     /// Original typed infrastructure, compiler, setup or runner diagnostic.
     Diagnostic {
         /// Original typed diagnostic with source/help records.
-        diagnostic: crate::envelope::ErrorRecord,
+        diagnostic: Box<crate::envelope::ErrorRecord>,
     },
     /// Exact failed test in its native completed artifact. XML text is not raw process output.
     Test {
@@ -174,7 +174,9 @@ fn failure_rows(report: &[u8]) -> Result<Vec<FailureRow>, HostError> {
     let mut rows: Vec<_> = source
         .failures
         .into_iter()
-        .map(|diagnostic| FailureRow::Diagnostic { diagnostic })
+        .map(|diagnostic| FailureRow::Diagnostic {
+            diagnostic: Box::new(diagnostic),
+        })
         .collect();
     for group in source.observations {
         let FailureGroup::Test { group, observation } = group else {

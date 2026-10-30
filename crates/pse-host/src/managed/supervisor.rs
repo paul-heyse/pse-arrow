@@ -562,7 +562,7 @@ async fn supervise_owned(
         return Err(invalid("private input differs from captured launch"));
     }
     let (command, selection, policy) = private.into_parts()?;
-    let observer = super::workflow::Observer::for_payload(&context, &root, &command)?;
+    let observer = super::workflow::Observer::for_payload(context, &root, &command)?;
     let redaction = RedactionPolicy::from_inputs(&command.environment);
     if policy.startup != context.record.policy.startup
         || policy.drain != context.record.policy.drain
@@ -630,13 +630,13 @@ async fn supervise_owned(
                 }
                 Err(_) => Ok(None),
             };
-            TerminalResult::from_payload(&id, &context.record.command, report, &policy)
+            TerminalResult::from_payload(id, &context.record.command, report, &policy)
                 .with_workflow(validation, &policy)
                 .with_owner_failures(failures, &policy)
         }
         Err(error) => {
             failures.push(error);
-            TerminalResult::supervisor_unknown(&id, &context.record.command, failures, &policy)
+            TerminalResult::supervisor_unknown(id, &context.record.command, failures, &policy)
         }
     }
     .with_bundle(&context.directory, &policy);

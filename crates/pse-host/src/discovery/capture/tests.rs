@@ -88,6 +88,11 @@ fn executable_is_captured_before_its_cargo_record_is_forwarded_and_child_exit_is
         serde_json::from_slice(&fs::read(captured.join("build.json")).unwrap()).unwrap();
     assert_eq!(build.cargo_exit, 7);
     assert_eq!(build.artifacts.len(), 1);
+    assert_eq!(
+        build.artifacts[0].executable.captured.file_name(),
+        build.artifacts[0].executable.original.file_name(),
+        "native owners retain the original Cargo executable basename"
+    );
     assert_eq!(build.artifacts[0].cargo.features, ["feature-a"]);
     assert_eq!(
         fs::read(&build.artifacts[0].executable.captured).unwrap(),

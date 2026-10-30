@@ -110,6 +110,12 @@ fn host() -> Command {
             .expect("Cargo/nextest supplies the selected runtime host executable"),
     )
 }
+fn checkout() -> &'static Path {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .unwrap()
+}
 fn record_fresh_group(child: &mut Guard, group: &str) {
     let current = fs::read_to_string("/proc/self/cgroup").unwrap();
     assert_ne!(
@@ -156,7 +162,7 @@ fn foreground_preserves_raw_payload_pipes_cwd_and_status() {
     let temp = tempfile::tempdir().unwrap();
     let cwd = temp.path().join(OsString::from_vec(b"cwd-\xff".to_vec()));
     fs::create_dir(&cwd).unwrap();
-    let mut child = host().args(["boundary", "--", "/bin/sh", "-c", "printf '%s' \"$1\"; printf '%s' \"$RAW\" >&2; cat; test \"$PWD\" = \"$EXPECTED\" || exit 91; exit 7", "fixture"])
+    let mut child = host().arg("-C").arg(checkout()).args(["boundary", "--", "/bin/sh", "-c", "printf '%s' \"$1\"; printf '%s' \"$RAW\" >&2; cat; test \"$PWD\" = \"$EXPECTED\" || exit 91; exit 7", "fixture"])
         .arg(OsString::from_vec(b"arg-\xfe".to_vec())).env("RAW", OsString::from_vec(b"env-\xfd".to_vec()))
         .env("EXPECTED", &cwd).current_dir(&cwd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
     child
@@ -851,10 +857,34 @@ fn foreground_gate_eof_never_executes_and_release_is_explicit() {
 
 #[test]
 fn foreground_witnessed_gate_survives_controller_sigkill_without_exec() {
+    use std::os::unix::fs::OpenOptionsExt as _;
     let temp = tempfile::tempdir().unwrap();
     let marker = temp.path().join("executed");
+    let environment = std::env::vars_os().collect();
+    let _coordinator = pse_host::admission::Coordinator::open(checkout(), &environment).unwrap();
+    let admission = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .mode(0o600)
+        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        .open(
+            pse_host::paths::HostPaths::new(&environment)
+                .runtime()
+                .unwrap()
+                .join("pse-host-admission/admission.lock"),
+        )
+        .unwrap();
+    // A real competing admission holds the existing pre-exec protocol closed. This avoids
+    // racing the controller's successful gate write or mistaking a setup child for payload.
+    rustix::fs::flock(&admission, rustix::fs::FlockOperation::LockExclusive).unwrap();
     let mut controller = Guard::top_level(
         host()
+            .env("PSE_BUILD_MODE", "unbounded")
+            .env("PSE_RESOURCE_CLASS", "build")
+            .env_remove("PSE_MEMORY_MAX")
+            .env_remove("PSE_HOST_ALLOCATION")
             .args([
                 "boundary",
                 "--",
@@ -867,22 +897,36 @@ fn foreground_witnessed_gate_survives_controller_sigkill_without_exec() {
     );
     let pid = rustix::process::Pid::from_raw(controller.id() as i32).unwrap();
     let deadline = Instant::now() + Duration::from_secs(10);
-    let gate_pid = loop {
+    let (gate_pid, gate_group) = loop {
         let children = fs::read_to_string(format!("/proc/{0}/task/{0}/children", controller.id()))
             .unwrap_or_default();
-        if let Some(child) = children
+        let gated = children
             .split_whitespace()
-            .next()
-            .and_then(|value| value.parse::<u32>().ok())
-        {
-            break child;
+            .filter_map(|value| value.parse::<u32>().ok())
+            .find_map(|child| {
+                let command = fs::read(format!("/proc/{child}/cmdline")).ok()?;
+                if !command
+                    .split(|byte| *byte == 0)
+                    .any(|part| part == b"__foreground-exec")
+                {
+                    return None;
+                }
+                let group = fs::read_to_string(format!("/proc/{child}/cgroup")).ok()?;
+                let group = group.trim().strip_prefix("0::")?;
+                let unit = Path::new(group).file_name()?.to_str()?;
+                (unit.starts_with("pse-host-") && unit.ends_with(".scope"))
+                    .then(|| (child, group.to_owned()))
+            });
+        if let Some(gated) = gated {
+            break gated;
         }
         assert!(
             Instant::now() < deadline,
-            "controller never spawned its gated child"
+            "controller never bound its actual gated child to the native workload"
         );
         thread::yield_now();
     };
+    record_fresh_group(&mut controller, &gate_group);
     rustix::process::kill_process(pid, rustix::process::Signal::STOP).unwrap();
     loop {
         let command = fs::read(format!("/proc/{gate_pid}/cmdline")).unwrap();
@@ -900,6 +944,7 @@ fn foreground_witnessed_gate_survives_controller_sigkill_without_exec() {
     }
     assert!(!marker.exists());
     controller.kill().unwrap();
+    drop(admission);
     controller.wait().unwrap();
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {

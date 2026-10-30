@@ -17,6 +17,7 @@ current_work = [
   "plans/59*.md",
 ]
 assets = [
+  "functional_reviews/probes/rust-agent-cli-log-miner-2026-10-29.py",
   "functional_reviews/probes/opentelemetry-sdk-2026-10-24.json",
   "functional_reviews/probes/opentelemetry-query-2026-10-24.json",
   "functional_reviews/probes/rust-build-reuse-unit-census-2026-10-24.py",

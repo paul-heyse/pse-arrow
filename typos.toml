@@ -51,6 +51,8 @@ extend-ignore-identifiers-re = [
 ]
 
 [default.extend-words]
+THIR = "THIR"       # Rust compiler typed high-level intermediate representation.
+Oppen = "Oppen"     # Derek C. Oppen, whose pretty-printing algorithm is documented upstream.
 importd = "importd" # Exact systemd image-import daemon name.
 localed = "localed" # Exact systemd locale daemon name.
 FND = "FND"         # Plan52 foundation package prefix.

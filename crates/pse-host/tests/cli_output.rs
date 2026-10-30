@@ -4,23 +4,37 @@
 #![cfg(test)]
 use assert_cmd::assert::Assert;
 use std::{
+    ffi::OsStr,
     path::Path,
     process::{Command, Output},
 };
 fn pse() -> Command {
-    let mut command = Command::new(
+    configured_pse(
         std::env::var_os("CARGO_BIN_EXE_pse")
             .expect("Cargo/nextest supplies the selected runtime CLI executable"),
-    );
-    command
-        .current_dir(
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .parent()
-                .unwrap()
-                .parent()
-                .unwrap(),
-        )
-        .env("PSE_FORMAT", "json");
+    )
+}
+fn checkout() -> &'static Path {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+}
+fn prepared_pse() -> Command {
+    let root = checkout();
+    let generation = pse_host::generation::prepared(root)
+        .unwrap()
+        .expect("explicit host preparation is required for effectful CLI qualification");
+    configured_pse(
+        generation
+            .executable(root, pse_host::generation::HostTool::Pse)
+            .unwrap(),
+    )
+}
+fn configured_pse(program: impl AsRef<OsStr>) -> Command {
+    let mut command = Command::new(program);
+    command.current_dir(checkout()).env("PSE_FORMAT", "json");
     command
 }
 fn json(output: &Output) -> serde_json::Value {
@@ -178,7 +192,7 @@ fn protocol_outputs_ignore_format_and_never_gain_an_envelope() {
 #[test]
 fn foreground_managed_failure_retains_literal_child_arguments_and_original_exit() {
     let state = tempfile::tempdir().unwrap();
-    let output = pse()
+    let output = prepared_pse()
         .env("XDG_STATE_HOME", state.path())
         .args([
             "run",
@@ -193,12 +207,16 @@ fn foreground_managed_failure_retains_literal_child_arguments_and_original_exit(
         ])
         .output()
         .unwrap();
-    let assertion = Assert::new(output).failure().code(1).stderr(b"".as_slice());
+    let assertion = Assert::new(output).failure().code(1);
     let value = json(assertion.get_output());
     assert_eq!(value["outcome"], "failure");
     assert_eq!(value["child_exit"], 7);
     assert_eq!(value["settlement"], "complete");
     assert_eq!(value["observation"]["completeness"], "complete");
+    assert_eq!(
+        value["payload"]["stderr"]["bytes_retained"], 0,
+        "bootstrap diagnostics do not enter the original child stream"
+    );
     let id = value["invocation_id"].as_str().unwrap();
     let log = pse()
         .env("XDG_STATE_HOME", state.path())
@@ -232,7 +250,7 @@ fn native_bundle_keeps_successful_siblings_and_original_failure_in_one_owner() {
         "failed:\n    @exit 3\n\npassed:\n    @printf sibling-completed\n",
     )
     .unwrap();
-    let output = pse()
+    let output = prepared_pse()
         .env("XDG_STATE_HOME", fixture.path().join("state"))
         .env("PSE_SESSION", "bundle-test")
         .arg("run-all")
@@ -241,7 +259,7 @@ fn native_bundle_keeps_successful_siblings_and_original_failure_in_one_owner() {
         .args(["failed", "passed"])
         .output()
         .unwrap();
-    let assertion = Assert::new(output).failure().code(1).stderr(b"".as_slice());
+    let assertion = Assert::new(output).failure().code(1);
     let value = json(assertion.get_output());
     assert_eq!(value["settlement"], "complete");
     assert_eq!(value["observation"]["completeness"], "complete");
