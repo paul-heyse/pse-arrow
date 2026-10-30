@@ -5,7 +5,6 @@ use super::{HostError, OutputOptions, checkout_root, source_path};
 use crate::{
     catalog::MetadataSnapshot,
     envelope::{Completeness, Envelope, ErrorRecord, RedactionPolicy},
-    generation::EntrySettlement,
 };
 use clap::Args;
 use std::{
@@ -26,23 +25,19 @@ pub(super) fn dispatch(
     args: Selection,
     selected: Option<&Path>,
     output: &OutputOptions,
-    settlement: &mut EntrySettlement,
 ) -> Result<i32, HostError> {
     let root = checkout_root(selected)?;
     let changes = crate::affected::observe(&root, &args.base, Arc::new(AtomicBool::new(false)))?;
     let mut metadata_failure = None;
     let metadata = match args.metadata {
         Some(path) => Some(MetadataSnapshot::read(&source_path(selected, path)?)?),
-        None => {
-            *settlement = EntrySettlement::Unresolved;
-            match crate::dependency::capture(&root, &std::env::vars_os().collect()) {
-                Ok(metadata) => Some(metadata),
-                Err(error) => {
-                    metadata_failure = Some(error);
-                    None
-                }
+        None => match crate::dependency::capture(&root, &std::env::vars_os().collect()) {
+            Ok(metadata) => Some(metadata),
+            Err(error) => {
+                metadata_failure = Some(error);
+                None
             }
-        }
+        },
     };
     let preview = crate::affected::preview(
         &root,

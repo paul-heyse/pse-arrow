@@ -5,7 +5,10 @@
 use base64::Engine as _;
 use std::{path::Path, process::Command};
 fn pse(root: &Path) -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_pse"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_pse")
+            .expect("Cargo/nextest supplies the selected runtime CLI executable"),
+    );
     command
         .current_dir(root)
         .env("PSE_FORMAT", "json")

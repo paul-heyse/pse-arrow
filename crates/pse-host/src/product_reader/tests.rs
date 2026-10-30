@@ -306,16 +306,14 @@ fn actual_captured_adapter_build_retains_original_product_artifact() {
         .create(&build_directory)
         .unwrap();
     let generation = crate::generation::prepared(root).unwrap().unwrap();
-    let tools = root.join("target/host-tools");
-    let usage = crate::generation::GenerationUse::acquire(&tools, &generation.generation).unwrap();
+    let source_control = generation
+        .executable(root, crate::generation::HostTool::Correctness)
+        .unwrap();
     let control = crate::discovery::capture::executable(
-        &tools
-            .join(&generation.generation)
-            .join("cargo-pse-correctness"),
+        &source_control,
         &scratch.path().join("cargo-pse-correctness"),
     )
     .unwrap();
-    usage.settle().unwrap();
     environment.insert(
         "PSE_CORRECTNESS_BUILD_CAPTURE".into(),
         build_directory.clone().into_os_string(),

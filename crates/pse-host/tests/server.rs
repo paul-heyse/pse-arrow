@@ -42,12 +42,15 @@ fn server_cli_rejects_implicit_build_and_service_arguments_before_effects() {
         "prepare --force",
     ] {
         assert!(
-            !std::process::Command::new(env!("CARGO_BIN_EXE_pse-host"))
-                .args(["server", command])
-                .output()
-                .unwrap()
-                .status
-                .success()
+            !std::process::Command::new(
+                std::env::var_os("CARGO_BIN_EXE_pse-host")
+                    .expect("Cargo/nextest supplies the selected runtime host executable")
+            )
+            .args(["server", command])
+            .output()
+            .unwrap()
+            .status
+            .success()
         );
     }
     for arguments in [
@@ -56,13 +59,16 @@ fn server_cli_rejects_implicit_build_and_service_arguments_before_effects() {
         vec!["prepare", "--from-release", "/unused", "--force"],
     ] {
         assert!(
-            !std::process::Command::new(env!("CARGO_BIN_EXE_pse-host"))
-                .arg("server")
-                .args(arguments)
-                .output()
-                .unwrap()
-                .status
-                .success()
+            !std::process::Command::new(
+                std::env::var_os("CARGO_BIN_EXE_pse-host")
+                    .expect("Cargo/nextest supplies the selected runtime host executable")
+            )
+            .arg("server")
+            .args(arguments)
+            .output()
+            .unwrap()
+            .status
+            .success()
         );
     }
 }

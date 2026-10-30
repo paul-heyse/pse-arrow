@@ -89,7 +89,10 @@ async fn native_scientific_worker_ready_then_drains_without_canonical_connectivi
         worker = Some(
             NativeStudyWorker::new(NativeStudyWorkerSpec {
                 ready: service.ready().unwrap(),
-                executable: PathBuf::from(env!("CARGO_BIN_EXE_pse-worker")),
+                executable: PathBuf::from(
+                    std::env::var_os("CARGO_BIN_EXE_pse-worker")
+                        .expect("Cargo/nextest supplies the selected runtime worker executable"),
+                ),
                 environment,
                 allocation,
                 settings: WorkerSettings::default(),

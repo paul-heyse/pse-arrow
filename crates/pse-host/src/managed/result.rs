@@ -27,6 +27,99 @@ impl super::streams::ChunkObserver for GenericObserver {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn cancellation_keeps_original_exit_and_unknown_evidence_through_bundle_and_workflow_augmentation()
+     {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let mut environment: crate::environment::Environment = std::env::vars_os().collect();
+        environment.insert(
+            "XDG_STATE_HOME".into(),
+            scratch.path().as_os_str().to_owned(),
+        );
+        let store = crate::invocation::InvocationStore::new(
+            crate::paths::CheckoutState::resolve(root, &environment).unwrap(),
+        );
+        let id = CliInvocationId::new();
+        let directory = store
+            .begin(crate::invocation::InvocationSpec {
+                invocation_id: id.clone(),
+                command: "run-all".into(),
+                session: None,
+                parent: None,
+                operation: (),
+                control: crate::generation::prepared(root).unwrap().unwrap(),
+                environment_digest: "test".into(),
+                scientific: Vec::new(),
+            })
+            .unwrap();
+        let policy = RedactionPolicy::from_inputs(&environment);
+        let mut terminal =
+            TerminalResult::finalizer_unknown(&id, "run-all", String::new(), Vec::new(), &policy);
+        terminal.response.outcome = CommandOutcome::Interrupted;
+        terminal.response.subject_state = SubjectState::Cancelled;
+        let terminal = terminal.with_bundle(&directory, &policy);
+        assert_eq!(terminal.response.exit_code(), 130);
+        assert_eq!(terminal.response.subject_state, SubjectState::Cancelled);
+        assert_eq!(
+            terminal.response.observation.completeness,
+            Completeness::Partial
+        );
+        assert_eq!(terminal.response.settlement, Settlement::Unknown);
+        assert!(terminal.response.payload.bundle.is_none());
+        assert_eq!(terminal.response.failures.len(), 1);
+        let terminal = terminal.with_workflow(
+            Err(HostError::Ownership(
+                "cancelled helper did not publish a terminal".into(),
+            )),
+            &policy,
+        );
+        assert_eq!(terminal.response.exit_code(), 130);
+        assert_eq!(terminal.response.subject_state, SubjectState::Cancelled);
+        assert_eq!(terminal.response.failures.len(), 2);
+    }
+    #[test]
+    fn wrapper_raw_exit_is_operation_status_while_native_lifetime_stays_pending() {
+        let mut terminal = TerminalResult::finalizer_unknown(
+            &CliInvocationId::new(),
+            "run",
+            String::new(),
+            Vec::new(),
+            &RedactionPolicy::from_environment(),
+        );
+        terminal.response.outcome = CommandOutcome::Success;
+        terminal.response.subject_state = SubjectState::Succeeded;
+        terminal.response.child_exit = Some(0);
+        terminal.response.observation.completeness = Completeness::Complete;
+        assert_eq!(
+            terminal.response.exit_code(),
+            1,
+            "whole native lifetime is still pending"
+        );
+        assert_eq!(
+            terminal.service_exit_code(),
+            0,
+            "successful wrapper must not fail its native service"
+        );
+        terminal.response.child_exit = Some(4);
+        terminal.response.outcome = CommandOutcome::Failure;
+        assert_eq!(terminal.service_exit_code(), 4);
+        terminal.response.observation.completeness = Completeness::Partial;
+        assert_eq!(
+            terminal.service_exit_code(),
+            125,
+            "raw child status cannot conceal missing capture"
+        );
+    }
+}
+
 /// One raw stream's retained coverage. Native errors remain attributed in the terminal failures.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct StreamSummary {
@@ -56,6 +149,12 @@ impl<W: super::streams::LogSink> From<&StreamReport<W>> for StreamSummary {
 /// Generic managed process/capture result; no scientific acceptance or test population is inferred.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ManagedSummary {
+    /// Original fixed bundle composition, absent for other operations or incomplete helpers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bundle: Option<crate::cli::bundle::Summary>,
+    /// Child/capture evidence may be complete while its reporting service is still alive.
+    #[serde(default)]
+    pub native_lifetime_pending: bool,
     /// Authenticated fixed workflow transport, absent for generic commands or unknown recovery.
     pub workflow: Option<WorkflowSummary>,
     /// Original payload child status only after an actual wait.
@@ -82,7 +181,6 @@ pub struct WorkflowSummary {
 #[derive(Debug)]
 pub struct TerminalResult<T> {
     response: Envelope<T>,
-    _resources: Option<super::payload::RetainedResources>,
     _streams: Vec<tokio::fs::File>,
     _failures: Vec<HostError>,
 }
@@ -105,6 +203,67 @@ impl<T> TerminalResult<T> {
     }
 }
 impl TerminalResult<ManagedSummary> {
+    pub(crate) fn with_bundle(
+        mut self,
+        directory: &crate::invocation::InvocationDirectory,
+        policy: &RedactionPolicy,
+    ) -> Self {
+        if self.response.command != "run-all" {
+            return self;
+        }
+        let summary = directory
+            .evidence::<crate::cli::bundle::Summary>(crate::invocation::InvocationEvidence::Bundle)
+            .and_then(|summary| {
+                summary
+                    .filter(|summary| &summary.invocation == directory.id())
+                    .ok_or_else(|| {
+                        HostError::Ownership(
+                            "original bundle child results are absent or mismatched".into(),
+                        )
+                    })
+            });
+        match summary {
+            Ok(summary) => {
+                if !summary.complete() {
+                    self.response.observation.completeness = Completeness::Partial;
+                }
+                if !summary.succeeded() && self.response.outcome == CommandOutcome::Success {
+                    self.response.outcome = CommandOutcome::Failure;
+                    self.response.subject_state = SubjectState::Failed;
+                }
+                for child in &summary.children {
+                    self.response
+                        .failures
+                        .extend(child.dispatch_failure.iter().cloned());
+                    if let Some(result) = &child.result {
+                        self.response
+                            .failures
+                            .extend(result.failures.iter().cloned());
+                    }
+                }
+                self.response.payload.bundle = Some(summary);
+                self
+            }
+            Err(error) => self.with_owner_failures(vec![error], policy),
+        }
+    }
+    /// The wrapper's raw OS exit describes its operation and required capture. It cannot
+    /// describe its own future native drain, which remains pending in the immutable report.
+    pub(crate) fn service_exit_code(&self) -> i32 {
+        if self.response.subject_state == SubjectState::Cancelled {
+            return 130;
+        }
+        if self.response.observation.completeness != Completeness::Complete
+            || self.response.outcome == CommandOutcome::BoundaryFailure
+        {
+            return 125;
+        }
+        match self.response.child_exit {
+            Some(0) if self.response.outcome == CommandOutcome::Success => 0,
+            Some(code) if code != 0 => code,
+            _ => 125,
+        }
+    }
     pub(crate) fn from_foreground<O: super::streams::ChunkObserver<Error = HostError>>(
         id: &CliInvocationId,
         command: &str,
@@ -130,6 +289,12 @@ impl TerminalResult<ManagedSummary> {
         policy: &RedactionPolicy,
     ) -> Self {
         let resources_settled = report.resources_settled();
+        let native_pending = report.native_pending;
+        let operation_settled = if native_pending {
+            report.child.is_ok() && report.kill.is_ok() && report.operation_error.is_none()
+        } else {
+            resources_settled
+        };
         let capture_complete = report
             .capture
             .as_ref()
@@ -140,6 +305,8 @@ impl TerminalResult<ManagedSummary> {
             .map_or(true, |capture| capture.io_unresolved());
         let child_exit = report.child_exit();
         let summary = ManagedSummary {
+            native_lifetime_pending: native_pending,
+            bundle: None,
             workflow: None,
             child_exit,
             stdout: report
@@ -158,12 +325,17 @@ impl TerminalResult<ManagedSummary> {
         let mut response = Envelope::response(command, "managed payload completed", summary);
         response.invocation_id = id.clone();
         response.child_exit = child_exit;
-        response.settlement = if resources_settled && !io_unresolved {
+        response.settlement = if native_pending {
+            Settlement::Unknown
+        } else if resources_settled && !io_unresolved {
             Settlement::Complete
         } else {
             Settlement::Incomplete
         };
         response.observation.scope = "managed_payload_owner".into();
+        if native_pending {
+            response.observation.scope = "detached_child_and_capture_owner".into();
+        }
         response.observation.limitations.push(
             "Service termination, finalizer completion and generation-use release have separate owners and remain unobserved here.".into());
         response.observation.required = true;
@@ -175,21 +347,7 @@ impl TerminalResult<ManagedSummary> {
         let mut errors = Vec::new();
         errors.extend(report.operation_error);
         errors.extend(report.child.err());
-        errors.extend(report.closure.err());
-        errors.extend(report.workload.err());
-        errors.extend(report.operation.err());
         errors.extend(report.kill.err());
-        if let Some(subgroup) = report.subgroup {
-            errors.extend(subgroup.into_failures());
-        }
-        let permit_released = matches!(report.permit, Ok(true));
-        let permit_retained = matches!(report.permit, Ok(false));
-        errors.extend(report.permit.err());
-        if permit_retained {
-            errors.push(HostError::Ownership(
-                "finite reservation retained after settlement attempts".into(),
-            ));
-        }
         let mut streams = Vec::new();
         match report.capture {
             Ok(capture) => {
@@ -220,11 +378,10 @@ impl TerminalResult<ManagedSummary> {
                 .map(|error| ErrorRecord::from_typed(error, policy)),
         );
         let succeeded = child_exit == Some(0)
-            && resources_settled
+            && operation_settled
             && capture_complete
             && !report.cancelled
-            && response.failures.is_empty()
-            && permit_released;
+            && response.failures.is_empty();
         response.outcome = if succeeded {
             CommandOutcome::Success
         } else {
@@ -239,7 +396,6 @@ impl TerminalResult<ManagedSummary> {
         };
         Self {
             response,
-            _resources: Some(report.retained),
             _streams: streams,
             _failures: errors,
         }
@@ -251,7 +407,10 @@ impl TerminalResult<ManagedSummary> {
         policy: &RedactionPolicy,
     ) -> Self {
         if !errors.is_empty() {
-            if self.response.outcome != CommandOutcome::BoundaryFailure {
+            if !matches!(
+                self.response.outcome,
+                CommandOutcome::BoundaryFailure | CommandOutcome::Interrupted
+            ) {
                 self.response.outcome = CommandOutcome::Failure;
             }
             self.response.observation.completeness = Completeness::Partial;
@@ -275,8 +434,10 @@ impl TerminalResult<ManagedSummary> {
             Ok(None) => self,
             Err(error) => {
                 self = self.with_owner_failures(vec![error], policy);
-                self.response.outcome = CommandOutcome::BoundaryFailure;
-                self.response.subject_state = SubjectState::Unknown;
+                if self.response.outcome != CommandOutcome::Interrupted {
+                    self.response.outcome = CommandOutcome::BoundaryFailure;
+                    self.response.subject_state = SubjectState::Unknown;
+                }
                 self
             }
             Ok(Some(validated)) => {
@@ -306,7 +467,9 @@ impl TerminalResult<ManagedSummary> {
                             digest: Some(terminal.report.sha256.clone()),
                         });
                 }
-                if !terminal.outcome.successful(terminal.action) {
+                if !terminal.outcome.successful(terminal.action)
+                    && self.response.outcome != CommandOutcome::Interrupted
+                {
                     (self.response.outcome, self.response.subject_state) = match terminal.outcome {
                         Outcome::Pending => {
                             (CommandOutcome::BoundaryFailure, SubjectState::Unprepared)
@@ -358,6 +521,8 @@ impl TerminalResult<ManagedSummary> {
             command,
             "supervisor ended without complete owner settlement evidence",
             ManagedSummary {
+                native_lifetime_pending: true,
+                bundle: None,
                 workflow: None,
                 child_exit: None,
                 stdout: None,
@@ -380,7 +545,6 @@ impl TerminalResult<ManagedSummary> {
         );
         Self {
             response,
-            _resources: None,
             _streams: Vec::new(),
             _failures: errors,
         }

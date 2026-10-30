@@ -71,6 +71,9 @@ pub struct Input {
     pub request: selection::Request,
     /// Original nextest policy profile.
     pub profile: String,
+    /// Request native Cargo timing diagnostics; emitted paths remain mutable Cargo outputs.
+    #[serde(default)]
+    pub timings: bool,
     /// Existing raw write/drain observation policy, not a workload allocation.
     pub policy: PayloadPolicy,
     /// Existing parser/view bounds.
@@ -144,6 +147,8 @@ pub enum PhaseKind {
 /// Independent raw-custody and original child facts for a phase.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct Phase {
+    /// Exact original native discovery subphase, such as version/build/list, when applicable.
+    pub native_stage: Option<String>,
     /// Inclusive wall time from phase entry through child wait and required stream drain.
     /// Absent when the original producer did not capture a duration; never CPU time.
     pub elapsed_seconds: Option<f64>,
@@ -206,6 +211,8 @@ pub struct Report {
     pub inventory: Option<String>,
     /// Count of actual matching captured tests.
     pub selected_tests: Option<usize>,
+    /// Original declarations under admitted compiler contexts; passive, never readiness.
+    pub fixture_requirements: Vec<crate::fixtures::Requirement>,
     /// Required prerequisite refusals.
     pub pending: Vec<Pending>,
     /// Original child/raw phase facts.
@@ -232,6 +239,7 @@ impl Report {
             admission: Vec::new(),
             inventory: None,
             selected_tests: None,
+            fixture_requirements: Vec::new(),
             pending: Vec::new(),
             phases: Vec::new(),
             observations: Vec::new(),

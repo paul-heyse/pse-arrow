@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Immutable tool provenance and explicit generation-use evidence.
+//! Immutable tool provenance, manifest integrity and source freshness.
 //!
 //! This module does not publish selectors, rebuild tools or prune data. Construction and
 //! original workload owners integrate its primitives at those actual effect boundaries.
@@ -54,13 +54,9 @@ pub use bootstrap::{
     bootstrap_from, bootstrap_mode, freshness, prepared,
 };
 mod entry;
-pub use entry::{
-    EntryGuard, EntrySettlement, GenerationReadGuard, NewWorkDecision, new_work_decision,
-};
-mod transfer;
-pub use transfer::rebuild_and_reexec;
-mod finalizer;
-pub(crate) use finalizer::{BoundFinalizerUse, FinalizerClaimLocator, FinalizerUseScope};
+pub use entry::{EntryGuard, NewWorkDecision, new_work_decision};
+mod reexec;
+pub use reexec::rebuild_and_reexec;
 
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(format!("host generation: {}", message.into()))
@@ -621,163 +617,6 @@ impl GenerationManifest {
     /// Existing-work control protocol supported by the authenticated tool set.
     pub fn control_protocol(&self) -> u32 {
         self.control_protocol
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct UseRecord {
-    version: u32,
-    owner: pse_diagnostics::process_facts::ProcessIdentity,
-    #[serde(default)]
-    manifest_digest: String,
-    #[serde(default)]
-    handoff: Option<transfer::UseHandoff>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    finalizer: Option<FinalizerUseScope>,
-}
-
-/// An unsettled durable claim remains protective even after a controller crash.
-#[derive(Debug)]
-pub struct GenerationUse {
-    lock: File,
-    record: PathBuf,
-    manifest: GenerationManifest,
-}
-
-/// Exact scoped inspection, never an instruction to remove a generation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum GenerationUseState {
-    /// At least one kernel lock currently protects a user.
-    Active,
-    /// Durable claims remain; process death/ledger absence does not prove child settlement.
-    Unsettled,
-    /// No scoped lock or durable claim was observed under the update exclusion.
-    Available,
-}
-
-fn use_paths(root: &Path, generation: &str) -> Result<(PathBuf, PathBuf), HostError> {
-    if !component(generation) {
-        return Err(invalid("generation name is not a path component"));
-    }
-    private_directory(root, false)?;
-    let uses = root.join(".uses");
-    private_directory(&uses, true)?;
-    let records = uses.join(generation);
-    private_directory(&records, true)?;
-    Ok((uses.join(format!("{generation}.lock")), records))
-}
-fn update_lock(root: &Path) -> Result<File, HostError> {
-    private_directory(root, false)?;
-    let file = owned_file(&root.join(".update.lock"), true)?;
-    rustix::fs::flock(&file, rustix::fs::FlockOperation::LockShared)
-        .map_err(std::io::Error::from)?;
-    Ok(file)
-}
-impl GenerationUse {
-    /// Acquire before handing a prepared generation to a child or another owner.
-    /// The caller retains this owner until its actual child/fixture/finalizer obligations settle.
-    pub fn acquire(root: &Path, generation: &str) -> Result<Self, HostError> {
-        if !component(generation) {
-            return Err(invalid("generation name is not a path component"));
-        }
-        let _update = update_lock(root)?;
-        let manifest = GenerationManifest::load(&root.join(generation))?;
-        let (lock, records) = use_paths(root, generation)?;
-        let lock = owned_file(&lock, true)?;
-        rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockShared)
-            .map_err(std::io::Error::from)?;
-        let owner = match pse_diagnostics::process_facts::ProcessReader::default()
-            .process(std::process::id())
-        {
-            pse_diagnostics::process_facts::ProcessRead::Present(facts) => facts.identity,
-            _ => {
-                return Err(invalid(
-                    "current process identity cannot establish generation ownership",
-                ));
-            }
-        };
-        let record = records.join(format!("{}.json", uuid::Uuid::new_v4()));
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&record)?;
-        file.write_all(&encoded(&UseRecord {
-            version: VERSION,
-            owner,
-            manifest_digest: manifest.digest()?,
-            handoff: None,
-            finalizer: None,
-        })?)?;
-        file.sync_all()?;
-        File::open(&records)?.sync_all()?;
-        Ok(Self {
-            lock,
-            record,
-            manifest,
-        })
-    }
-    /// Authenticated bytes protected by this actual-use owner.
-    pub fn manifest(&self) -> &GenerationManifest {
-        &self.manifest
-    }
-    /// Release only after the actual owner has established settlement, never on observation timeout.
-    /// Dropping without this call intentionally leaves protective unsettled evidence.
-    pub fn settle(self) -> Result<(), HostError> {
-        fs::remove_file(&self.record)?;
-        File::open(
-            self.record
-                .parent()
-                .ok_or_else(|| invalid("claim has no parent"))?,
-        )?
-        .sync_all()?;
-        drop(self.lock);
-        Ok(())
-    }
-    /// Inspect only this generation's kernel lock and claim directory while excluding publication.
-    pub fn inspect(root: &Path, generation: &str) -> Result<GenerationUseState, HostError> {
-        if !component(generation) {
-            return Err(invalid("generation name is not a path component"));
-        }
-        private_directory(root, false)?;
-        private_directory(&root.join(generation), false)?;
-        let update = root.join(".update.lock");
-        let update = owned_file(&update, false)?;
-        rustix::fs::flock(&update, rustix::fs::FlockOperation::LockShared)
-            .map_err(std::io::Error::from)?;
-        let uses = root.join(".uses");
-        match fs::symlink_metadata(&uses) {
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                return Ok(GenerationUseState::Available);
-            }
-            Err(error) => return Err(error.into()),
-            Ok(_) => {}
-        }
-        private_directory(&uses, false)?;
-        let records = uses.join(generation);
-        let lock = match owned_file(&uses.join(format!("{generation}.lock")), false) {
-            Ok(file) => file,
-            Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
-                return Ok(if fs::symlink_metadata(&records).is_ok() {
-                    GenerationUseState::Unsettled
-                } else {
-                    GenerationUseState::Available
-                });
-            }
-            Err(error) => return Err(error),
-        };
-        match rustix::fs::flock(&lock, rustix::fs::FlockOperation::NonBlockingLockExclusive) {
-            Err(rustix::io::Errno::WOULDBLOCK) => return Ok(GenerationUseState::Active),
-            Err(error) => return Err(std::io::Error::from(error).into()),
-            Ok(()) => {}
-        }
-        private_directory(&records, false)?;
-        if fs::read_dir(records)?.next().is_some() {
-            Ok(GenerationUseState::Unsettled)
-        } else {
-            Ok(GenerationUseState::Available)
-        }
     }
 }
 

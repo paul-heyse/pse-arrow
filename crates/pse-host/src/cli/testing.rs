@@ -27,6 +27,9 @@ pub(super) struct Check {
 
 #[derive(Debug, clap::Args)]
 pub(super) struct RunOptions {
+    /// Ask native Cargo for timing diagnostics (shared mutable output, not retained evidence).
+    #[arg(long)]
+    timings: bool,
     /// Return the original managed launch identity and leave its owner running.
     #[arg(long)]
     detach: bool,
@@ -56,6 +59,7 @@ pub(super) fn start(
         action,
         request,
         profile,
+        timings: run.timings,
         policy: PayloadPolicy {
             startup: Duration::from_secs(30),
             drain: Duration::from_secs(30),
@@ -79,6 +83,7 @@ pub(super) fn start(
         .collect();
     super::launch_managed(
         ManagedCommand {
+            parent: None,
             root,
             cwd: command.cwd,
             environment: command.environment,

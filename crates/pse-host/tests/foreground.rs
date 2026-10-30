@@ -105,7 +105,10 @@ impl Drop for Guard {
 }
 
 fn host() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_pse-host"))
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_pse-host")
+            .expect("Cargo/nextest supplies the selected runtime host executable"),
+    )
 }
 fn record_fresh_group(child: &mut Guard, group: &str) {
     let current = fs::read_to_string("/proc/self/cgroup").unwrap();
@@ -153,7 +156,7 @@ fn foreground_preserves_raw_payload_pipes_cwd_and_status() {
     let temp = tempfile::tempdir().unwrap();
     let cwd = temp.path().join(OsString::from_vec(b"cwd-\xff".to_vec()));
     fs::create_dir(&cwd).unwrap();
-    let mut child = host().args(["run", "/bin/sh", "-c", "printf '%s' \"$1\"; printf '%s' \"$RAW\" >&2; cat; test \"$PWD\" = \"$EXPECTED\" || exit 91; exit 7", "fixture"])
+    let mut child = host().args(["boundary", "--", "/bin/sh", "-c", "printf '%s' \"$1\"; printf '%s' \"$RAW\" >&2; cat; test \"$PWD\" = \"$EXPECTED\" || exit 91; exit 7", "fixture"])
         .arg(OsString::from_vec(b"arg-\xfe".to_vec())).env("RAW", OsString::from_vec(b"env-\xfd".to_vec()))
         .env("EXPECTED", &cwd).current_dir(&cwd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
     child
@@ -176,13 +179,17 @@ fn foreground_preserves_raw_payload_pipes_cwd_and_status() {
 fn foreground_nested_execution_preserves_enclosing_membership() {
     let result = host()
         .args([
-            "run",
+            "boundary",
+            "--",
             "/bin/sh",
             "-c",
-            "cat /proc/self/cgroup; exec \"$1\" run /bin/cat /proc/self/cgroup",
+            "cat /proc/self/cgroup; exec \"$1\" boundary -- /bin/cat /proc/self/cgroup",
             "fixture",
-            env!("CARGO_BIN_EXE_pse-host"),
         ])
+        .arg(
+            std::env::var_os("CARGO_BIN_EXE_pse-host")
+                .expect("Cargo/nextest supplies the selected runtime host executable"),
+        )
         .output()
         .unwrap();
     assert!(
@@ -200,7 +207,7 @@ fn foreground_nested_execution_preserves_enclosing_membership() {
 fn foreground_controller_sigkill_drains_escaped_descendants() {
     let temp = tempfile::tempdir().unwrap();
     let ready = temp.path().join("ready");
-    let mut child = Guard::top_level(host().args(["run", "/bin/sh", "-c", "setsid /bin/sh -c 'trap \"\" TERM; cat /proc/self/cgroup > \"$1\"; while :; do sleep 1; done' fixture \"$1\" & wait", "fixture"])
+    let mut child = Guard::top_level(host().args(["boundary", "--", "/bin/sh", "-c", "setsid /bin/sh -c 'trap \"\" TERM; cat /proc/self/cgroup > \"$1\"; while :; do sleep 1; done' fixture \"$1\" & wait", "fixture"])
         .arg(&ready));
     wait_file(&ready);
     let group = fs::read_to_string(&ready)
@@ -366,7 +373,7 @@ fn foreground_bound_service_preserves_literal_arguments_environment_and_executab
     command
         .env("PSE_FOREST_FIXTURE_DIRECTORY", temp.path())
         .env("PSE_FOREST_FIXTURE_LITERAL", "1")
-        .args(["run"])
+        .args(["boundary", "--"])
         .arg(std::env::current_exe().unwrap())
         .args(["--exact", "ordinary_bound_service_fixture", "--nocapture"]);
     let mut child = Guard::top_level(&mut command);
@@ -386,7 +393,7 @@ fn bound_service_forest(signal: Option<rustix::process::Signal>) {
     let mut command = host();
     command
         .env("PSE_FOREST_FIXTURE_DIRECTORY", temp.path())
-        .args(["run"])
+        .args(["boundary", "--"])
         .arg(std::env::current_exe().unwrap())
         .args(["--exact", "ordinary_bound_service_fixture", "--nocapture"]);
     let mut child = Guard::top_level(&mut command);
@@ -476,7 +483,7 @@ fn foreground_startup_caller_death_cannot_release_command() {
     let temp = tempfile::tempdir().unwrap();
     let ran = temp.path().join("must-not-run");
     let mut child = host()
-        .args(["run", "/usr/bin/touch"])
+        .args(["boundary", "--", "/usr/bin/touch"])
         .arg(&ran)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -494,7 +501,8 @@ fn foreground_sigterm_settles_and_reports_signal_status() {
     let mut child = Guard::top_level(
         host()
             .args([
-                "run",
+                "boundary",
+                "--",
                 "/bin/sh",
                 "-c",
                 "cat /proc/self/cgroup > \"$1\"; exec sleep 100",
@@ -542,7 +550,7 @@ cat "/sys/fs/cgroup$group/memory.max" >> "$1"
 printf '%s\n' "$PSE_HOST_ALLOCATION" >> "$1"
 "$2" boundary --resource-class light -- /bin/sh -ec 'cat /proc/self/cgroup; printf "%s\n" "$PSE_HOST_ALLOCATION"' >> "$1"
 exit 7
-"#, "fixture"]).arg(&observation).arg(env!("CARGO_BIN_EXE_pse-host"));
+"#, "fixture"]).arg(&observation).arg(std::env::var_os("CARGO_BIN_EXE_pse-host").expect("Cargo/nextest supplies the selected runtime host executable"));
     let mut child = Guard::top_level(&mut command);
     let status = child.wait().unwrap();
     let mut errors = String::new();
@@ -630,7 +638,10 @@ cat "/sys/fs/cgroup$group/memory.max" >> "$1"
                 "fixture",
             ])
             .arg(&observation)
-            .arg(env!("CARGO_BIN_EXE_pse-host"))
+            .arg(
+                std::env::var_os("CARGO_BIN_EXE_pse-host")
+                    .expect("Cargo/nextest supplies the selected runtime host executable"),
+            )
             .arg(&escaped);
         let mut child = Guard::top_level(&mut command);
         let status = child.wait().unwrap();
@@ -767,7 +778,7 @@ fn foreground_finite_controller_death_drains_original_work_and_reclaims_only_aft
 #[test]
 fn foreground_exec_failures_retain_shell_statuses() {
     let missing = host()
-        .args(["run", "/definitely/missing/pse-command"])
+        .args(["boundary", "--", "/definitely/missing/pse-command"])
         .status()
         .unwrap();
     assert_eq!(missing.code(), Some(127));
@@ -775,24 +786,29 @@ fn foreground_exec_failures_retain_shell_statuses() {
     let executable = temp.path().join("not-executable");
     fs::write(&executable, b"test").unwrap();
     assert_eq!(
-        host().arg("run").arg(executable).status().unwrap().code(),
+        host()
+            .args(["boundary", "--"])
+            .arg(executable)
+            .status()
+            .unwrap()
+            .code(),
         Some(126)
     );
     let nested = host()
-        .args([
-            "run",
-            env!("CARGO_BIN_EXE_pse-host"),
-            "run",
-            "/definitely/missing/pse-command",
-        ])
+        .args(["boundary", "--"])
+        .arg(
+            std::env::var_os("CARGO_BIN_EXE_pse-host")
+                .expect("Cargo/nextest supplies the selected runtime host executable"),
+        )
+        .args(["boundary", "--", "/definitely/missing/pse-command"])
         .status()
         .unwrap();
     assert_eq!(nested.code(), Some(127));
 }
 #[test]
 fn foreground_preserves_controlling_terminal_without_a_proxy() {
-    let result = Command::new("/usr/bin/script").args(["-qec", "exec \"$PSE_HOST_TEST_BINARY\" run /bin/sh -c 'test -t 0 && test -t 1 && test -t 2 && stty -a >/dev/null'", "/dev/null"])
-        .env("PSE_HOST_TEST_BINARY", env!("CARGO_BIN_EXE_pse-host")).output().unwrap();
+    let result = Command::new("/usr/bin/script").args(["-qec", "exec \"$PSE_HOST_TEST_BINARY\" boundary -- /bin/sh -c 'test -t 0 && test -t 1 && test -t 2 && stty -a >/dev/null'", "/dev/null"])
+        .env("PSE_HOST_TEST_BINARY", std::env::var_os("CARGO_BIN_EXE_pse-host").expect("Cargo/nextest supplies the selected runtime host executable")).output().unwrap();
     assert!(
         result.status.success(),
         "{}",
@@ -840,7 +856,8 @@ fn foreground_witnessed_gate_survives_controller_sigkill_without_exec() {
     let mut controller = Guard::top_level(
         host()
             .args([
-                "run",
+                "boundary",
+                "--",
                 "/bin/sh",
                 "-c",
                 "printf executed > \"$1\"; exec sleep 100",
@@ -929,7 +946,8 @@ fn foreground_prior_application_lifetime_stops_both_native_scopes() {
         "pse-foreground-parent-{}-{nonce:x}.scope",
         std::process::id()
     ));
-    let mut wrapper = Command::new("/usr/bin/systemd-run").args(["--user", "--scope", "--quiet", "--unit", &prior.0, "--", "/bin/sh", "-c", "sleep 100 & printf '%s\\n' $$ > \"$3\"; exec \"$1\" run /bin/sh -c 'cat /proc/self/cgroup > \"$1\"; exec sleep 100' fixture \"$2\"", "fixture", env!("CARGO_BIN_EXE_pse-host")])
+    let mut wrapper = Command::new("/usr/bin/systemd-run").args(["--user", "--scope", "--quiet", "--unit", &prior.0, "--", "/bin/sh", "-c", "sleep 100 & printf '%s\\n' $$ > \"$3\"; exec \"$1\" boundary -- /bin/sh -c 'cat /proc/self/cgroup > \"$1\"; exec sleep 100' fixture \"$2\"", "fixture"])
+        .arg(std::env::var_os("CARGO_BIN_EXE_pse-host").expect("Cargo/nextest supplies the selected runtime host executable"))
         .arg(&ready).arg(&controller_pid).stdout(Stdio::null()).stderr(Stdio::piped()).spawn().unwrap();
     wait_file(&ready);
     wait_file(&controller_pid);

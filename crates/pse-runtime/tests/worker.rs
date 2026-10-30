@@ -160,7 +160,10 @@ impl ManagedWorkerCase {
         (shared, local)
     }
     async fn spawn(&mut self) -> usize {
-        let executable = PathBuf::from(env!("CARGO_BIN_EXE_pse-worker"));
+        let executable = PathBuf::from(
+            std::env::var_os("CARGO_BIN_EXE_pse-worker")
+                .expect("Cargo/nextest supplies the selected runtime worker executable"),
+        );
         assert!(executable.is_absolute() && executable.is_file());
         let index = self.workers.len();
         self.workers.push(

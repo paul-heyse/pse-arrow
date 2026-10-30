@@ -4,6 +4,7 @@
 mod check;
 pub mod execute;
 mod observation;
+mod source;
 use crate::{
     catalog::description::Information,
     correctness::{self, CorrectnessError},
@@ -325,7 +326,7 @@ fn pending<T>(reason: &str) -> Information<T> {
         reason: reason.into(),
     }
 }
-fn matches_requirement(
+pub(crate) fn matches_requirement(
     requirement: &Requirement,
     identity: &TestIdentity,
     artifact: &cargo_metadata::Artifact,
@@ -361,7 +362,7 @@ impl Intent {
         if profile.is_empty() {
             return Err(WorkflowError::Invalid("runner profile is empty".into()));
         }
-        let plan = selection::plan(&metadata, request)?;
+        let (plan, profile) = source::resolve(&metadata, request, profile, &environment)?;
         if plan.operation() != selection::Operation::Test {
             return Err(WorkflowError::Invalid(
                 "test workflow requires test intent".into(),
@@ -431,7 +432,7 @@ impl Admitted {
         self,
         nextest: &Path,
         destination: &Path,
-        policy: crate::managed::payload::PayloadPolicy,
+        options: discovery::DiscoveryOptions,
     ) -> Result<Listed, WorkflowError> {
         self.context.verify()?;
         let inventory = discovery::list(
@@ -441,7 +442,7 @@ impl Admitted {
             destination,
             &self.context.profile,
             &self.context.environment,
-            policy,
+            options,
         )
         .await?;
         self.context.verify()?;
@@ -652,7 +653,7 @@ impl Listed {
             .arg(binaries)
             .arg("--cargo-metadata")
             .arg(directory.join("cargo-metadata.json"));
-        discovery::add_filters(&mut command, &self.inventory.selection);
+        discovery::add_group_filters(&mut command, &self.inventory.selection, group);
         let mut environment = self.context.environment.clone();
         environment.remove(std::ffi::OsStr::new("NEXTEST_EXPERIMENTAL_LIBTEST_JSON"));
         environment.remove(std::ffi::OsStr::new("NEXTEST_TEST_PHASE"));

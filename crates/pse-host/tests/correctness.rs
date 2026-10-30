@@ -9,7 +9,10 @@ fn executable(path: &Path, contents: &str) {
     fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
 }
 fn adapter(root: &Path) -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-pse-correctness"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_cargo-pse-correctness")
+            .expect("Cargo/nextest supplies the selected runtime correctness executable"),
+    );
     command
         .current_dir(root)
         .env(
@@ -186,7 +189,11 @@ fn native_correctness_setup_restores_real_cargo_once() {
 fn native_correctness_missing_real_cargo_refuses_recursion() {
     let root = tempfile::tempdir().unwrap();
     let result = adapter(root.path())
-        .env("CARGO", env!("CARGO_BIN_EXE_cargo-pse-correctness"))
+        .env(
+            "CARGO",
+            std::env::var_os("CARGO_BIN_EXE_cargo-pse-correctness")
+                .expect("Cargo/nextest supplies the selected runtime correctness executable"),
+        )
         .arg("check")
         .output()
         .unwrap();

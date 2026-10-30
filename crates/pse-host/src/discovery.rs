@@ -34,7 +34,7 @@ pub enum DiscoveryError {
     /// Correctness admission or artifact capture refused.
     #[error(transparent)]
     Correctness(#[from] CorrectnessError),
-    /// Prepared host generation ownership could not be established or settled.
+    /// Prepared host image authentication failed.
     #[error(transparent)]
     Host(#[from] HostError),
     /// A listed fact contradicts the admitted source build.
@@ -49,14 +49,6 @@ pub enum DiscoveryError {
         exit: i32,
         /// Private retained phase directory.
         evidence: PathBuf,
-    },
-    /// Original discovery failure and independent generation settlement failure.
-    #[error("test discovery failed: {operation}; generation settlement also failed: {settlement}")]
-    Settlement {
-        /// Original failure.
-        operation: Box<DiscoveryError>,
-        /// Independent failure to release the original host generation use.
-        settlement: HostError,
     },
     /// Original phase child/required raw-capture failures, without dropping independent causes.
     #[error("test discovery {stage} has incomplete raw capture at {evidence}")]
@@ -107,6 +99,9 @@ pub struct ListedGroup {
 pub struct PhaseCapture {
     /// Fixed performing phase: version, build or list.
     pub stage: String,
+    /// Inclusive original phase wait/drain wall time; absent for older uncaptured evidence.
+    #[serde(default)]
+    pub elapsed_seconds: Option<f64>,
     /// Original compiler context, absent for the version probe.
     pub group: Option<usize>,
     /// Original waited exit.
@@ -350,6 +345,7 @@ async fn output(
     }
     phases.push(PhaseCapture {
         stage: stage.into(),
+        elapsed_seconds: Some(capture.elapsed_seconds),
         group,
         child_exit: capture
             .child_exit
@@ -367,6 +363,15 @@ async fn output(
 /// Explicitly build and list selected tests, retaining immutable executable copies.
 /// The destination must be a new absolute directory under the caller's retained owner.
 /// No native provider preparation or fixture/service creation occurs here.
+#[derive(Clone, Copy, Debug)]
+pub struct DiscoveryOptions {
+    /// Existing capture/startup/drain policy, independent of resource allocation.
+    pub policy: crate::managed::payload::PayloadPolicy,
+    /// Request native Cargo timing output at its original mutable destination.
+    pub timings: bool,
+}
+
+/// Build and list selected tests with explicit observation options.
 pub async fn list(
     resolved: &selection::Resolved,
     checkout: &Path,
@@ -374,8 +379,9 @@ pub async fn list(
     destination: &Path,
     runner_profile: &str,
     environment: &crate::environment::Environment,
-    policy: crate::managed::payload::PayloadPolicy,
+    options: DiscoveryOptions,
 ) -> Result<Inventory, DiscoveryError> {
+    let policy = options.policy;
     if resolved.plan().operation() != Operation::Test {
         return Err(invalid("only test selections have a nextest inventory"));
     }
@@ -385,32 +391,12 @@ pub async fn list(
     let checkout = checkout.canonicalize()?;
     let prepared = generation::prepared(&checkout)?
         .ok_or_else(|| invalid("native host is unprepared; run scripts/bootstrap-host"))?;
-    let tools = checkout.join("target/host-tools");
-    let generation_use = generation::GenerationUse::acquire(&tools, &prepared.generation)?;
-    let copies = (|| {
-        directory(destination)?;
-        let nextest = capture::executable(nextest, &destination.join("cargo-nextest"))?;
-        let correctness = capture::executable(
-            &tools
-                .join(&prepared.generation)
-                .join("cargo-pse-correctness"),
-            &destination.join("cargo-pse-correctness"),
-        )?;
-        Ok((nextest, correctness))
-    })();
-    let (nextest, captured_correctness) = match (copies, generation_use.settle()) {
-        (Ok(value), Ok(())) => value,
-        (Err(error), Ok(())) => return Err(error),
-        (Ok(_), Err(error)) => return Err(error.into()),
-        (Err(operation), Err(settlement)) => {
-            return Err(DiscoveryError::Settlement {
-                operation: Box::new(operation),
-                settlement,
-            });
-        }
-    };
-    // Every child uses captured controls. The original host generation is provenance only
-    // and can be retired independently after its copy has been authenticated and settled.
+    let control = prepared.executable(&checkout, generation::HostTool::Correctness)?;
+    directory(destination)?;
+    let nextest = capture::executable(nextest, &destination.join("cargo-nextest"))?;
+    let captured_correctness =
+        capture::executable(&control, &destination.join("cargo-pse-correctness"))?;
+    // Every child uses independently hashed captured controls; the prepared image remains provenance.
     async {
         let mut phases=Vec::new();
         let mut version = Command::new(&nextest.captured);
@@ -469,6 +455,7 @@ pub async fn list(
                 .env("PSE_CORRECTNESS_BUILD_CAPTURE", &build_directory)
                 .env("PSE_CORRECTNESS_EXECUTABLE", &captured_correctness.captured)
                 .env_remove("NEXTEST_TEST_PHASE");
+            if options.timings { build.arg("--timings"); }
             if resolved.plan().filters().ignore_default_filter {build.arg("--ignore-default-filter");}
             let binary_output = output(
                 build,
@@ -520,7 +507,7 @@ pub async fn list(
                 .arg(&configuration)
                 .env_remove("NEXTEST_TEST_PHASE");
             enumerate.args(["--profile", runner_profile]);
-            add_filters(&mut enumerate, resolved.plan());
+            add_group_filters(&mut enumerate, resolved.plan(), index);
             let listing_output = output(enumerate, &group_directory, "list",policy,Some(index),&mut phases).await?;
             let listing: TestListSummary = serde_json::from_slice(&listing_output.stdout)?;
             validate_listing(&binaries, &listing, resolved.plan().ignored())?;
@@ -551,8 +538,10 @@ pub async fn list(
     }.await
 }
 
-pub(crate) fn add_filters(command: &mut Command, plan: &selection::Plan) {
-    if plan.filters().ignore_default_filter {
+/// Preserve native filters within the actual admitted compiler group.
+pub(crate) fn add_group_filters(command: &mut Command, plan: &selection::Plan, group: usize) {
+    let filters = plan.filters_for_group(group);
+    if filters.ignore_default_filter {
         command.arg("--ignore-default-filter");
     }
     command.args([
@@ -563,10 +552,12 @@ pub(crate) fn add_filters(command: &mut Command, plan: &selection::Plan) {
             IgnoredPolicy::All => "all",
         },
     ]);
-    for expression in &plan.filters().expressions {
-        command.arg("-E").arg(expression);
+    for expression in filters.expressions {
+        command.args(["-E", &expression]);
     }
-    command.arg("--").args(&plan.filters().words);
+    if !filters.words.is_empty() {
+        command.arg("--").args(filters.words);
+    }
 }
 
 fn pin_binaries(
@@ -606,6 +597,55 @@ fn pin_binaries(
             .to_str()
             .ok_or_else(|| invalid("captured binary path is not UTF-8"))?
             .into();
+    }
+    // Nextest supplies runtime CARGO_BIN_EXE_*/NEXTEST_BIN_EXE_* from this native map.
+    // Keep package, kind and original path tied to the same compiler-artifact capture,
+    // just as for test harnesses; a later Cargo build must not replace a selected helper.
+    let target_directory = &binaries.rust_build_meta.target_directory;
+    if !target_directory.is_absolute() {
+        return Err(invalid("nextest target directory is not absolute"));
+    }
+    for (package, files) in &mut binaries.rust_build_meta.non_test_binaries {
+        *files = files
+            .iter()
+            .cloned()
+            .map(|mut binary| {
+                if binary.kind != nextest_metadata::RustNonTestBinaryKind::BIN_EXE {
+                    return Ok(binary);
+                }
+                let original = target_directory.join(&binary.path);
+                let mut artifacts = captured.artifacts.iter().filter(|artifact| {
+                    !artifact.cargo.profile.test
+                        && artifact.cargo.package_id.repr == *package
+                        && artifact.cargo.target.name == binary.name
+                        && artifact
+                            .cargo
+                            .target
+                            .kind
+                            .contains(&cargo_metadata::TargetKind::Bin)
+                        && artifact.executable.original == original.as_std_path()
+                });
+                let selected = artifacts.next().ok_or_else(|| {
+                    invalid("non-test binary has no same-build captured Cargo artifact")
+                })?;
+                if artifacts.next().is_some() {
+                    return Err(invalid(
+                        "non-test binary has ambiguous captured Cargo artifacts",
+                    ));
+                }
+                selected.executable.verify()?;
+                let relative = pathdiff::diff_paths(
+                    &selected.executable.captured,
+                    target_directory.as_std_path(),
+                )
+                .ok_or_else(|| invalid("captured non-test binary cannot be made relative"))?;
+                binary.path = relative
+                    .to_str()
+                    .ok_or_else(|| invalid("captured non-test binary path is not UTF-8"))?
+                    .into();
+                Ok(binary)
+            })
+            .collect::<Result<_, DiscoveryError>>()?;
     }
     Ok(())
 }

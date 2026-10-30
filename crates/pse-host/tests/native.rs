@@ -14,12 +14,15 @@ use std::{
 fn native_cli_rejects_unsupported_profiles_without_effects() {
     for profile in [",", "ipopt", "compiler,ipopt", "compiler,klu,ipopt"] {
         assert!(
-            !Command::new(env!("CARGO_BIN_EXE_pse-host"))
-                .args(["native", "prepare", "--capabilities", profile])
-                .output()
-                .unwrap()
-                .status
-                .success()
+            !Command::new(
+                std::env::var_os("CARGO_BIN_EXE_pse-host")
+                    .expect("Cargo/nextest supplies the selected runtime host executable")
+            )
+            .args(["native", "prepare", "--capabilities", profile])
+            .output()
+            .unwrap()
+            .status
+            .success()
         );
     }
 }

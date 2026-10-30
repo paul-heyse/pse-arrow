@@ -333,41 +333,6 @@ pub(super) fn installed_fixture() -> (tempfile::TempDir, PathBuf) {
     (fixture._directory, tools)
 }
 
-pub(super) fn transfer_fixture() -> (tempfile::TempDir, PathBuf) {
-    transfer_fixture_with_input(false)
-}
-
-pub(super) fn transfer_fixture_with_input(future: bool) -> (tempfile::TempDir, PathBuf) {
-    let fixture = Fixture::new();
-    let source = fixture.fingerprint();
-    for name in ["generation.source", "generation.target"] {
-        let mut source = source.clone();
-        if future && name == "generation.target" {
-            source.context.environment.insert(
-                "future_build_input".into(),
-                Some(digest(b"new-policy-input")),
-            );
-        }
-        let directory = fixture.tools.join(name);
-        private_directory(&directory, true).unwrap();
-        fs::copy(std::env::current_exe().unwrap(), directory.join("pse-host")).unwrap();
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(
-            directory.join("pse-host"),
-            fs::Permissions::from_mode(0o500),
-        )
-        .unwrap();
-        GenerationManifest::capture(&directory, source.clone(), &source, &["pse-host"])
-            .unwrap()
-            .write(&directory)
-            .unwrap();
-    }
-    fs::create_dir(fixture.root.join("target")).unwrap();
-    let tools = fixture.root.join("target/host-tools");
-    fs::rename(&fixture.tools, &tools).unwrap();
-    (fixture._directory, tools)
-}
-
 #[test]
 fn selected_product_source_uses_the_same_closure_owner_without_widening_host_membership() {
     let fixture = Fixture::new();
@@ -478,8 +443,6 @@ fn completed_read_only_generations_can_be_authenticated() {
     .unwrap();
     fs::set_permissions(&generation, fs::Permissions::from_mode(0o500)).unwrap();
     assert!(GenerationManifest::load(&generation).is_ok());
-    let owner = GenerationUse::acquire(&fixture.tools, "generation.fixture").unwrap();
-    owner.settle().unwrap();
     // Restore access for this test fixture's ordinary TempDir cleanup.
     fs::set_permissions(&generation, fs::Permissions::from_mode(0o700)).unwrap();
 }
@@ -567,18 +530,6 @@ fn additional_actual_builder_inputs_are_digest_only_and_invalidate_reuse() {
 }
 
 #[test]
-fn inspection_does_not_create_use_state() {
-    let fixture = Fixture::new();
-    fixture.generation();
-    drop(update_lock(&fixture.tools).unwrap());
-    assert_eq!(
-        GenerationUse::inspect(&fixture.tools, "generation.fixture").unwrap(),
-        GenerationUseState::Available
-    );
-    assert!(!fixture.tools.join(".uses").exists());
-}
-
-#[test]
 fn declared_compile_time_inputs_outside_package_roots_are_rechecked() {
     let fixture = Fixture::new();
     let path = PathBuf::from("embedded.toml");
@@ -616,73 +567,4 @@ fn supplemental_inputs_cannot_traverse_a_symlink_directory() {
             .with_additional_files(&fixture.root, [PathBuf::from("alias/src/lib.rs")])
             .is_err()
     );
-    fixture.generation();
-    drop(update_lock(&fixture.tools).unwrap());
-    std::os::unix::fs::symlink("missing", fixture.tools.join(".uses")).unwrap();
-    assert!(GenerationUse::inspect(&fixture.tools, "generation.fixture").is_err());
-}
-
-#[test]
-fn kernel_users_and_abandoned_claims_have_distinct_protection() {
-    let fixture = Fixture::new();
-    fixture.generation();
-    let first = GenerationUse::acquire(&fixture.tools, "generation.fixture").unwrap();
-    let second = GenerationUse::acquire(&fixture.tools, "generation.fixture").unwrap();
-    assert_eq!(
-        GenerationUse::inspect(&fixture.tools, "generation.fixture").unwrap(),
-        GenerationUseState::Active
-    );
-    first.settle().unwrap();
-    assert_eq!(
-        GenerationUse::inspect(&fixture.tools, "generation.fixture").unwrap(),
-        GenerationUseState::Active
-    );
-    second.settle().unwrap();
-    assert_eq!(
-        GenerationUse::inspect(&fixture.tools, "generation.fixture").unwrap(),
-        GenerationUseState::Available
-    );
-    let abandoned = GenerationUse::acquire(&fixture.tools, "generation.fixture").unwrap();
-    drop(abandoned);
-    assert_eq!(
-        GenerationUse::inspect(&fixture.tools, "generation.fixture").unwrap(),
-        GenerationUseState::Unsettled
-    );
-    // Absent controller locks do not clear the durable claim or delete the generation.
-    assert!(fixture.tools.join("generation.fixture/pse-host").exists());
-}
-
-#[test]
-fn concurrent_first_users_share_private_directories_without_creation_races() {
-    let fixture = Fixture::new();
-    fixture.generation();
-    let barrier = std::sync::Barrier::new(16);
-    std::thread::scope(|scope| {
-        let users: Vec<_> = (0..16)
-            .map(|_| {
-                scope.spawn(|| {
-                    barrier.wait();
-                    GenerationUse::acquire(&fixture.tools, "generation.fixture").unwrap()
-                })
-            })
-            .collect();
-        for user in users {
-            user.join().unwrap().settle().unwrap();
-        }
-    });
-    assert_eq!(
-        GenerationUse::inspect(&fixture.tools, "generation.fixture").unwrap(),
-        GenerationUseState::Available
-    );
-}
-
-#[test]
-fn traversal_aliases_and_unprepared_generations_cannot_mint_use_claims() {
-    let fixture = Fixture::new();
-    let generation = fixture.generation();
-    assert!(GenerationUse::acquire(&fixture.tools, "../generation.fixture").is_err());
-    let alias = fixture.tools.join("alias");
-    std::os::unix::fs::symlink(&generation, &alias).unwrap();
-    assert!(GenerationUse::acquire(&fixture.tools, "alias").is_err());
-    assert!(GenerationUse::acquire(&fixture.tools, "missing").is_err());
 }

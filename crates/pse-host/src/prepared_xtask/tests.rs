@@ -445,16 +445,11 @@ fn actual_captured_adapter_build_records_the_same_xtask_artifact() {
     let build_dir = directory.join("build");
     private_directory(&build_dir, true).unwrap();
     let generation = crate::generation::prepared(owner).unwrap().unwrap();
-    let tools = owner.join("target/host-tools");
-    let usage = GenerationUse::acquire(&tools, &generation.generation).unwrap();
-    let control = capture::executable(
-        &tools
-            .join(&generation.generation)
-            .join("cargo-pse-correctness"),
-        &directory.join("cargo-pse-correctness"),
-    )
-    .unwrap();
-    usage.settle().unwrap();
+    let source_control = generation
+        .executable(owner, crate::generation::HostTool::Correctness)
+        .unwrap();
+    let control =
+        capture::executable(&source_control, &directory.join("cargo-pse-correctness")).unwrap();
     environment.insert(
         "PSE_CORRECTNESS_BUILD_CAPTURE".into(),
         build_dir.clone().into_os_string(),

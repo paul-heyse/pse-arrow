@@ -5,7 +5,6 @@ use super::{GenerationIntent, HostError, OutputOptions, checkout_root};
 use crate::{
     envelope::{self, Envelope},
     environment::Environment,
-    generation::EntrySettlement,
     product_reader::{self, Contract, ProductReaderSelection},
 };
 use clap::{Subcommand, ValueEnum};
@@ -100,12 +99,10 @@ pub(super) fn dispatch(
     action: Action,
     selected: Option<&Path>,
     output: &OutputOptions,
-    settlement: &mut EntrySettlement,
 ) -> Result<i32, HostError> {
     let root = checkout_root(selected)?;
     let environment: Environment = std::env::vars_os().collect();
     if matches!(&action, Action::Prepare) {
-        *settlement = EntrySettlement::Unresolved;
         let reader = product_reader::prepare(&root, &environment).map_err(product_error)?;
         return Ok(output.emit(Envelope::response(
             "observe prepare",
@@ -157,7 +154,6 @@ pub(super) fn dispatch(
             ("observe discover", captured.payload, "success")
         }
         Some(request) => {
-            *settlement = EntrySettlement::Unresolved;
             let reply = reader
                 .read(&request, output.invocation_id.as_str(), &environment)
                 .map_err(product_error)?;

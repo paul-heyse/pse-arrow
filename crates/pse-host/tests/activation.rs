@@ -36,7 +36,10 @@ fn checkout() -> tempfile::TempDir {
     root
 }
 fn native(root: &Path) -> Command {
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_pse-host"));
+    let mut cmd = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_pse-host")
+            .expect("Cargo/nextest supplies the selected runtime host executable"),
+    );
     cmd.current_dir(root)
         .env_clear()
         .env("HOME", root)
@@ -46,7 +49,10 @@ fn native(root: &Path) -> Command {
 fn shell(root: &Path, body: &str) -> Command {
     let mut cmd = Command::new("/bin/bash");
     cmd.args(["--noprofile", "--norc", "-c", body, "pse-activation-test"])
-        .arg(env!("CARGO_BIN_EXE_pse-host"))
+        .arg(
+            std::env::var_os("CARGO_BIN_EXE_pse-host")
+                .expect("Cargo/nextest supplies the selected runtime host executable"),
+        )
         .current_dir(root)
         .env_clear()
         .env("HOME", root)

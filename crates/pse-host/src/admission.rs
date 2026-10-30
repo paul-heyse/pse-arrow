@@ -12,13 +12,10 @@ use pse_diagnostics::process_facts::{ProcessIdentity, ProcessRead, ProcessReader
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    ffi::{OsStr, OsString},
+    ffi::OsStr,
     fs::{self, File, OpenOptions},
     io::{self, Write},
-    os::unix::{
-        ffi::{OsStrExt, OsStringExt},
-        fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
-    },
+    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Component, Path, PathBuf},
     time::{Duration, Instant},
 };
@@ -857,6 +854,9 @@ struct Reservation {
     profile: Profile,
     units: Vec<RegisteredUnit>,
     released: bool,
+    /// Service birth, wrapper and payload share this one native lifetime.
+    #[serde(default)]
+    service_owned: bool,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct Journal {
@@ -900,7 +900,8 @@ impl Journal {
                 || !row.units.iter().any(|unit| {
                     unit.intent.unit() == nonce
                         && !unit.controller
-                        && unit.intent.unit().ends_with(".scope")
+                        && (unit.intent.unit().ends_with(".scope")
+                            || row.service_owned && unit.intent.unit().ends_with(".service"))
                 })
                 || row.units.iter().any(|unit| {
                     !unit.intent.unit().ends_with(".scope")
@@ -1205,7 +1206,7 @@ impl Coordinator {
             if row.manager != manager.identity_key() {
                 continue;
             }
-            if !row.released && caller_present(&row.caller) {
+            if !row.released && !row.service_owned && caller_present(&row.caller) {
                 continue;
             }
             let unbound = row
@@ -1213,7 +1214,7 @@ impl Coordinator {
                 .iter()
                 .find(|unit| unit.intent.unit() == nonce)
                 .is_none_or(|unit| unit.binding.is_none());
-            if unbound && caller_present(&row.gated_child) {
+            if unbound && !(row.service_owned && row.released) && caller_present(&row.gated_child) {
                 continue;
             }
             let mut drained = true;
@@ -1248,6 +1249,115 @@ impl Coordinator {
         child_pid: u32,
         deadline: Instant,
     ) -> Result<Permit, HostError> {
+        self.admit_lifetime(
+            manager,
+            selection,
+            owner,
+            workload,
+            Some(child_pid),
+            deadline,
+        )
+        .await
+    }
+    /// Reserve the whole detached service before systemd starts its wrapper. Its binding is
+    /// committed by the authenticated main before any payload gate is opened.
+    pub(crate) async fn admit_service(
+        &self,
+        manager: &HostManager,
+        selection: &Selection,
+        service: &LaunchIntent,
+        deadline: Instant,
+    ) -> Result<Permit, HostError> {
+        self.admit_lifetime(manager, selection, service, service, None, deadline)
+            .await
+    }
+    /// The original service main binds its previously reserved row before releasing any child.
+    pub(crate) async fn bind_service(
+        &self,
+        manager: &HostManager,
+        selection: &Selection,
+        service: &LaunchIntent,
+        deadline: Instant,
+    ) -> Result<(), HostError> {
+        let binding = manager.service_controller_binding(service).await?;
+        let _guard = self.lock("admission.lock", deadline).await?;
+        let mut state = self.read_existing()?;
+        let row = state
+            .finite
+            .get_mut(service.unit())
+            .ok_or_else(|| invalid("predispatch service reservation absent"))?;
+        if !row.service_owned
+            || row.released
+            || row.manager != manager.identity_key()
+            || row.boot != manager.boot_id()
+            || row.profile != *selection.profile()
+        {
+            return Err(invalid(
+                "predispatch service reservation differs from actual main",
+            ));
+        }
+        let original = row
+            .units
+            .iter_mut()
+            .find(|unit| unit.intent == *service && !unit.controller)
+            .ok_or_else(|| invalid("predispatch original service absent"))?;
+        if original
+            .binding
+            .as_ref()
+            .is_some_and(|prior| prior != &binding)
+        {
+            return Err(invalid("predispatch service binding changed"));
+        }
+        original.binding = Some(binding);
+        state.advance()?;
+        self.write(&state)
+    }
+    /// Reconcile a detached service charge only after its authenticated whole native lifetime
+    /// (including stop-post) and allocation population are physically drained.
+    pub(crate) async fn settle_service(
+        &self,
+        manager: &HostManager,
+        service: &LaunchIntent,
+        original: &UnitBinding,
+        deadline: Instant,
+    ) -> Result<bool, HostError> {
+        loop {
+            let state = self.snapshot(deadline).await?;
+            let Some(row) = state.finite.get(service.unit()) else {
+                return Ok(true);
+            };
+            if !row.service_owned
+                || row.manager != manager.identity_key()
+                || !row
+                    .units
+                    .iter()
+                    .any(|unit| unit.intent == *service && unit.binding.as_ref() == Some(original))
+            {
+                return Err(invalid(
+                    "detached charge differs from authenticated service binding",
+                ));
+            }
+            let removed = self.reclaimed(manager, &state, deadline).await?;
+            if !removed.contains(service.unit()) {
+                return Ok(false);
+            }
+            if self
+                .commit(state.revision, &removed, None, false, deadline)
+                .await?
+            {
+                return Ok(true);
+            }
+        }
+    }
+    async fn admit_lifetime(
+        &self,
+        manager: &HostManager,
+        selection: &Selection,
+        owner: &LaunchIntent,
+        workload: &LaunchIntent,
+        child_pid: Option<u32>,
+        deadline: Instant,
+    ) -> Result<Permit, HostError> {
         if selection.profile.ordinary() {
             return Err(invalid(
                 "ordinary admission requires an observed gated workload",
@@ -1255,22 +1365,29 @@ impl Coordinator {
         }
         let slice = LaunchIntent::fresh_allocation(&selection.slice)?;
         let caller = caller_identity()?;
-        let gated_child = process_identity(child_pid)?;
+        let service_owned = child_pid.is_none();
+        let gated_child = child_pid
+            .map(process_identity)
+            .transpose()?
+            .unwrap_or_else(|| caller.clone());
         if gated_child.boot_id != manager.boot_id()
             || gated_child.pid_namespace != caller.pid_namespace
-            || gated_child.pid == caller.pid
+            || !service_owned && gated_child.pid == caller.pid
         {
             return Err(invalid(
                 "gated child does not have a distinct authenticated original process identity",
             ));
         }
         let nonce = workload.unit().to_owned();
-        let units = vec![
-            RegisteredUnit {
-                intent: owner.clone(),
-                binding: None,
-                controller: true,
-            },
+        let mut units = vec![RegisteredUnit {
+            intent: owner.clone(),
+            binding: None,
+            controller: true,
+        }];
+        if service_owned {
+            units.clear();
+        }
+        units.extend([
             RegisteredUnit {
                 intent: workload.clone(),
                 binding: None,
@@ -1281,7 +1398,7 @@ impl Coordinator {
                 binding: None,
                 controller: false,
             },
-        ];
+        ]);
         let proposed = Reservation {
             boot: manager.boot_id().to_owned(),
             manager: manager.identity_key(),
@@ -1290,6 +1407,7 @@ impl Coordinator {
             profile: selection.profile.clone(),
             units,
             released: false,
+            service_owned,
         };
         let deadline = deadline.min(Instant::now() + selection.admission_timeout());
         let mut reason = "capacity".to_owned();
@@ -1543,252 +1661,7 @@ pub struct Permit {
     slice_owner: Option<OwnedUnit>,
     borrowed: bool,
 }
-/// Protected original reservation coordinates, minted by the performing permit after binding.
-/// Decoding this snapshot is not capacity admission or proof of release.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct PermitRecovery {
-    version: u32,
-    directory: Vec<u8>,
-    nonce: String,
-    profile: Profile,
-    allocation: LaunchIntent,
-    binding: UnitBinding,
-    minimum_revision: u64,
-}
-/// A borrowed original allocation; this handoff never carries retirement authority.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct PermitBorrow {
-    directory: Vec<u8>,
-    nonce: String,
-    profile: Profile,
-    root: UnitBinding,
-    minimum_revision: u64,
-}
-#[derive(Debug)]
-pub(crate) struct RecoveredPermit {
-    permit: Permit,
-    allocation: Option<crate::manager::RecordedUnit>,
-}
-impl RecoveredPermit {
-    pub(crate) async fn release(
-        &mut self,
-        manager: &HostManager,
-        deadline: Instant,
-    ) -> Result<bool, HostError> {
-        if let Some(allocation) = &mut self.allocation {
-            allocation.stop_and_drain(deadline).await?;
-            self.allocation = None;
-        }
-        self.permit.retire_charge(manager, deadline).await
-    }
-}
 impl Permit {
-    pub(crate) fn borrow_record(&self, root: &UnitBinding) -> Result<PermitBorrow, HostError> {
-        if !self.borrowed {
-            return Err(invalid("only an actual inherited permit can lend custody"));
-        }
-        let nonce = self
-            .nonce
-            .as_ref()
-            .ok_or_else(|| invalid("borrowed reservation identity absent"))?;
-        let state = self.coordinator.read_existing()?;
-        let row = state
-            .finite
-            .get(nonce)
-            .ok_or_else(|| invalid("borrowed original reservation absent"))?;
-        if row.released
-            || row.profile != self.profile
-            || !row
-                .units
-                .iter()
-                .any(|unit| !unit.controller && unit.binding.as_ref() == Some(root))
-        {
-            return Err(invalid("borrowed original root changed before handoff"));
-        }
-        Ok(PermitBorrow {
-            directory: self.coordinator.directory.as_os_str().as_bytes().to_vec(),
-            nonce: nonce.clone(),
-            profile: self.profile.clone(),
-            root: root.clone(),
-            minimum_revision: state.revision,
-        })
-    }
-    pub(crate) async fn from_borrow_record(
-        record: &PermitBorrow,
-        manager: &HostManager,
-        root: &UnitBinding,
-        selection: &Selection,
-    ) -> Result<Self, HostError> {
-        let directory = PathBuf::from(OsString::from_vec(record.directory.clone()));
-        if directory.file_name() != Some(OsStr::new("pse-host-admission")) || record.root != *root {
-            return Err(invalid("borrowed reservation routing/root differs"));
-        }
-        private_directory(&directory, false)?;
-        let coordinator = Coordinator {
-            directory,
-            declared_parent: PathBuf::new(),
-            legacy_state: None,
-        };
-        let state = coordinator.read_existing()?;
-        let row = state
-            .finite
-            .get(&record.nonce)
-            .ok_or_else(|| invalid("borrowed original reservation absent"))?;
-        let registered = row
-            .units
-            .iter()
-            .find(|unit| !unit.controller && unit.binding.as_ref() == Some(root))
-            .ok_or_else(|| invalid("borrowed original workload binding differs"))?;
-        if state.revision < record.minimum_revision
-            || row.released
-            || row.manager != manager.identity_key()
-            || row.boot != manager.boot_id()
-            || row.profile != record.profile
-            || !selection.profile.ordinary()
-                && (selection.profile.memory > row.profile.memory
-                    || selection.profile.exclusive && !row.profile.exclusive
-                    || !selection
-                        .profile
-                        .cores
-                        .iter()
-                        .all(|core| row.profile.cores.contains(core)))
-        {
-            return Err(invalid(
-                "borrowed original reservation changed or demand exceeds it",
-            ));
-        }
-        manager.validate_binding(&registered.intent, root).await?;
-        let slice = row
-            .units
-            .iter()
-            .find(|unit| unit.intent.unit().ends_with(".slice"))
-            .ok_or_else(|| invalid("borrowed original allocation absent"))?;
-        manager
-            .validate_binding(
-                &slice.intent,
-                slice
-                    .binding
-                    .as_ref()
-                    .ok_or_else(|| invalid("borrowed allocation binding absent"))?,
-            )
-            .await?;
-        Ok(Self {
-            coordinator,
-            selection: Some(selection.clone()),
-            profile: record.profile.clone(),
-            nonce: Some(record.nonce.clone()),
-            slice: Some(slice.intent.clone()),
-            slice_owner: None,
-            borrowed: true,
-        })
-    }
-    pub(crate) async fn recovery(&self) -> Result<Option<PermitRecovery>, HostError> {
-        if self.borrowed {
-            return Err(invalid("borrowed reservation cannot mint release custody"));
-        }
-        let Some(nonce) = &self.nonce else {
-            return Ok(None);
-        };
-        let allocation = self
-            .slice
-            .as_ref()
-            .ok_or_else(|| invalid("original allocation intent missing"))?;
-        let binding = self
-            .slice_owner
-            .as_ref()
-            .ok_or_else(|| invalid("original allocation custody missing"))?
-            .binding()
-            .await?;
-        let state = self.coordinator.read_existing()?;
-        if !state.finite.contains_key(nonce) {
-            return Err(invalid("original bound reservation absent before handoff"));
-        }
-        Ok(Some(PermitRecovery {
-            version: 1,
-            directory: self.coordinator.directory.as_os_str().as_bytes().to_vec(),
-            nonce: nonce.clone(),
-            profile: self.profile.clone(),
-            allocation: allocation.clone(),
-            binding,
-            minimum_revision: state.revision,
-        }))
-    }
-    pub(crate) async fn recover(
-        record: &PermitRecovery,
-        manager: &HostManager,
-        controller: &LaunchIntent,
-        controller_binding: &UnitBinding,
-        controller_process: &ProcessIdentity,
-        workload: &LaunchIntent,
-        workload_binding: &UnitBinding,
-    ) -> Result<RecoveredPermit, HostError> {
-        let directory = PathBuf::from(OsString::from_vec(record.directory.clone()));
-        if record.version != 1
-            || directory.file_name() != Some(OsStr::new("pse-host-admission"))
-            || record.nonce != workload.unit()
-        {
-            return Err(invalid(
-                "unsupported original reservation recovery identity",
-            ));
-        }
-        private_directory(&directory, false)?;
-        let coordinator = Coordinator {
-            directory,
-            declared_parent: PathBuf::new(),
-            legacy_state: None,
-        };
-        let state = coordinator.read_existing()?;
-        if state.revision < record.minimum_revision {
-            return Err(invalid(
-                "original reservation journal revision moved backwards",
-            ));
-        }
-        let original = state.finite.get(&record.nonce);
-        if let Some(row) = original
-            && (row.manager != manager.identity_key()
-                || row.boot != manager.boot_id()
-                || row.caller != *controller_process
-                || row.profile != record.profile
-                || !row.units.iter().any(|unit| {
-                    unit.controller
-                        && unit.intent == *controller
-                        && unit.binding.as_ref() == Some(controller_binding)
-                })
-                || !row.units.iter().any(|unit| {
-                    !unit.controller
-                        && unit.intent == *workload
-                        && unit.binding.as_ref() == Some(workload_binding)
-                })
-                || !row.units.iter().any(|unit| {
-                    unit.intent == record.allocation
-                        && unit.binding.as_ref() == Some(&record.binding)
-                }))
-        {
-            return Err(invalid("original reservation journal binding changed"));
-        }
-        let allocation = manager
-            .recorded_original(
-                &record.allocation,
-                &manager.identity_key(),
-                &record.binding,
-                None,
-            )
-            .await?;
-        Ok(RecoveredPermit {
-            permit: Permit {
-                coordinator,
-                selection: None,
-                profile: record.profile.clone(),
-                nonce: original.map(|_| record.nonce.clone()),
-                slice: Some(record.allocation.clone()),
-                slice_owner: None,
-                borrowed: false,
-            },
-            allocation,
-        })
-    }
     /// Whether this request reused an existing physically authenticated allocation.
     pub fn borrowed(&self) -> bool {
         self.borrowed
@@ -1905,28 +1778,6 @@ impl Permit {
             .await
             .map_err(|_| HostError::Deadline("original finite binding".into()))??;
         self.bind_original(unit.intent(), binding, deadline).await
-    }
-    /// Register only this actual original service main as its already-admitted controller.
-    /// The service cannot borrow its launcher's bus reference or adopt another live main.
-    pub(crate) async fn bind_service_controller(
-        &self,
-        manager: &HostManager,
-        intent: &LaunchIntent,
-        deadline: Instant,
-    ) -> Result<(), HostError> {
-        if self.borrowed {
-            return Err(invalid(
-                "borrowed finite capability cannot register a service controller",
-            ));
-        }
-        if self.nonce.is_none() {
-            return Ok(());
-        }
-        let binding =
-            tokio::time::timeout_at(deadline.into(), manager.service_controller_binding(intent))
-                .await
-                .map_err(|_| HostError::Deadline("finite service-controller binding".into()))??;
-        self.bind_original(intent, binding, deadline).await
     }
     async fn bind_original(
         &self,
@@ -2084,7 +1935,7 @@ fn caller_present(identity: &ProcessIdentity) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    mod subgroup_inheritance;
+
     fn policy() -> Policy {
         toml::from_str(include_str!("../../../.config/agent-capacity.toml")).unwrap()
     }
@@ -2130,47 +1981,6 @@ mod tests {
             selected(Some("light"), None, "unbounded").requested_ordinary_target(),
             None
         );
-    }
-    #[tokio::test]
-    async fn managed_recovery_refuses_missing_or_recreated_reservation_journal() {
-        let (_runtime, _environment, coordinator) = fixture();
-        let manager = HostManager::connect_user(None).await.unwrap();
-        let controller = LaunchIntent::fresh().unwrap();
-        let workload = LaunchIntent::fresh_scope().unwrap();
-        let process = caller_identity().unwrap();
-        let binding = UnitBinding {
-            invocation: vec![1; 16],
-            group: "/original/unopened-recovery-fixture".into(),
-            device: 1,
-            inode: 1,
-        };
-        let record = PermitRecovery {
-            version: 1,
-            directory: coordinator.directory.as_os_str().as_bytes().to_vec(),
-            nonce: workload.unit().to_owned(),
-            profile: selected(Some("light"), None, "bounded").profile,
-            allocation: LaunchIntent::fresh_allocation("pse.slice").unwrap(),
-            binding: binding.clone(),
-            minimum_revision: 5,
-        };
-        assert!(
-            matches!(Permit::recover(&record, &manager, &controller, &binding,
-            &process, &workload, &binding).await, Err(HostError::Io(error))
-            if error.kind() == io::ErrorKind::NotFound)
-        );
-        coordinator.write(&Journal::default()).unwrap();
-        let error = Permit::recover(
-            &record,
-            &manager,
-            &controller,
-            &binding,
-            &process,
-            &workload,
-            &binding,
-        )
-        .await
-        .unwrap_err();
-        assert!(error.to_string().contains("revision moved backwards"));
     }
     #[test]
     fn borrowed_resident_requires_original_metadata_identity_and_actual_resource_bounds() {
@@ -2573,6 +2383,7 @@ mod tests {
                 controller: false,
             }],
             released: true,
+            service_owned: false,
         };
         let deadline = Instant::now() + Duration::from_secs(1);
         assert!(
@@ -2752,6 +2563,7 @@ mod tests {
                 controller: false,
             }],
             released: true,
+            service_owned: false,
         };
         let mut snapshot = Journal::default();
         snapshot.finite.insert(nonce, row);
@@ -2780,6 +2592,7 @@ mod tests {
                 controller: false,
             }],
             released: true,
+            service_owned: false,
         };
         let mut snapshot = Journal::default();
         snapshot.finite.insert("unknown-manager".into(), row);

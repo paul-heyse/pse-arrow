@@ -2,18 +2,11 @@
 // Copyright (c) 2026 Paul Heyse
 //! Independent native host capabilities. A manager reply is not physical release.
 //!
-//! [`HostManager::current_membership`] keeps the immutable unit root separate from the
-//! authenticated actual member. Only a live [`OwnedUnit`] or that actual native workload
-//! membership can construct a [`PayloadParent`]. Fresh child creation yields an opaque
-//! [`OwnedSubgroup`]; inert identity snapshots cannot adopt existing directories.
-//!
-//! Callers keep children unreaped and gated while attaching/revalidating. They also serialize
-//! parent launch closure against recursive kill, positive drain and original-inode removal.
-//! These APIs report kernel facts, not that lifecycle cutoff, reservation release or managed
-//! terminal settlement. Root limits remain aggregate; borrowing never grants root stop.
-//! Dropping a capability establishes no cleanup. Managed finalizers recover original native
-//! resource custody from protected records. Missing original reaping or output stays unknown;
-//! finalizer-local claim retirement does not release another performing owner's claims.
+//! [`HostManager::current_membership`] authenticates the manager root and actual process
+//! membership without granting mutation. Original [`OwnedUnit`] handles retain native stop
+//! and drain responsibility. Foreground calls inherit authenticated enclosing containment;
+//! detached wrappers and their payloads share one native service. Child/capture evidence and
+//! later native drain/capacity reconciliation remain distinct owners.
 
 pub mod activity;
 pub mod admission;
@@ -55,10 +48,8 @@ pub mod study_module;
 pub mod test_inventory;
 pub mod test_workflow;
 pub use manager::{
-    AttachedChild, BorrowedService, BorrowedUnit, CreationOutcome, CurrentMembership,
-    DirectoryBinding, HostManager, LaunchIntent, OpenedSubgroupCustody, OrdinaryPlacement,
-    OwnedSubgroup, OwnedUnit, PayloadParent, PayloadParentBinding, RemovalReceipt,
-    ResourceControls, ServiceFinalizer, ServiceSpec, SubgroupCreationIntent, UnitObservation,
+    BorrowedService, BorrowedUnit, CurrentMembership, HostManager, LaunchIntent, OrdinaryPlacement,
+    OwnedUnit, ResourceControls, ServiceFinalizer, ServiceSpec, UnitObservation,
 };
 
 /// A host boundary failure, never a scientific outcome.
@@ -73,9 +64,6 @@ pub enum HostError {
     /// Original asynchronous task termination, preserving panic/cancellation cause.
     #[error("host task: {0}")]
     Task(#[from] tokio::task::JoinError),
-    /// A native lifecycle subsystem's original concrete failure or panic classification.
-    #[error(transparent)]
-    Subsystem(Box<managed::lifecycle::SubsystemFailure>),
     /// A staged compiler/test operation's original concrete refusal.
     #[error(transparent)]
     Workflow(Box<test_workflow::WorkflowError>),
@@ -150,7 +138,6 @@ pse_diagnostics::impl_diagnostic! {
         Self::Io(_) => pse_diagnostics::DiagnosticCode::HostIo,
         Self::InvocationIdentity(_) => pse_diagnostics::DiagnosticCode::HostOwnership,
         Self::Task(_) => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
-        Self::Subsystem(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::Workflow(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::WorkflowOwner(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::ProductReader(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
@@ -169,7 +156,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Artifact(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::SourceOwnership(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
     }) },
-    forward(this) { match this { Self::Subsystem(error) => Some(error.as_ref()), Self::Workflow(error) => Some(error.as_ref()), Self::WorkflowOwner(error) => Some(error.as_ref()), Self::ProductReader(error) => Some(error.as_ref()), Self::PreparedXtask(error) => Some(error.as_ref()), Self::Affected(error) => Some(error), Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::Artifact(error) => Some(error), Self::SourceOwnership(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Workflow(error) => Some(error.as_ref()), Self::WorkflowOwner(error) => Some(error.as_ref()), Self::ProductReader(error) => Some(error.as_ref()), Self::PreparedXtask(error) => Some(error.as_ref()), Self::Affected(error) => Some(error), Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::Artifact(error) => Some(error), Self::SourceOwnership(error) => Some(error), _ => None } },
     help(_this) { None },
     related(this) { match this {
         Self::Settlement {operation,cleanup} => { let children:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()]; Some(Box::new(children.into_iter())) },

@@ -187,7 +187,6 @@ mod command {
         cargo: PathBuf,
         arguments: Vec<OsString>,
         directory: PathBuf,
-        _built: Option<tempfile::TempDir>,
     }
     /// Disposal is initially safe before spawn. Once a child exists, only its
     /// observed ordinary exit can establish the positive disposal premise.
@@ -286,125 +285,6 @@ mod command {
         Err(settle_child(&mut child, final_end, state, vec![failure]).await)
     }
     impl NativeTestCommand {
-        /// Compile/list through the source correctness adapter before creating a service.
-        /// The same invocation captures nextest's actual Cargo metadata into owned bytes.
-        /// # Errors
-        /// Invalid prepared tools, build/capture failure or unsupported run selectors.
-        pub fn prepare(
-            correctness: PathBuf,
-            program: PathBuf,
-            build_arguments: Vec<OsString>,
-            arguments: Vec<OsString>,
-            directory: PathBuf,
-        ) -> Result<Self, NativeServiceError> {
-            for path in [&correctness, &program] {
-                if !path.is_absolute() || !path.is_file() {
-                    return Err(NativeServiceError::Refused(
-                        "explicit prepared correctness adapter and nextest executable required",
-                    ));
-                }
-            }
-            if !directory.is_absolute() || !directory.is_dir() {
-                return Err(NativeServiceError::Refused(
-                    "explicit nextest working directory required",
-                ));
-            }
-            if correctness.canonicalize()?
-                != directory
-                    .join("target/host-tools/current/cargo-pse-correctness")
-                    .canonicalize()?
-            {
-                return Err(NativeServiceError::Refused(
-                    "fixture source build requires this checkout's prepared correctness adapter",
-                ));
-            }
-            for argument in &arguments {
-                let value = argument.to_string_lossy();
-                if [
-                    "--binaries-metadata",
-                    "--cargo-metadata",
-                    "--archive-file",
-                    "--manifest-path",
-                    "--package",
-                    "--workspace",
-                    "--all",
-                    "--lib",
-                    "--bins",
-                    "--tests",
-                    "--all-targets",
-                    "--features",
-                    "--all-features",
-                    "--no-default-features",
-                    "--no-run",
-                ]
-                .iter()
-                .any(|flag| value == *flag || value.starts_with(&format!("{flag}=")))
-                    || value == "-p"
-                {
-                    return Err(NativeServiceError::Refused(
-                        "native fixture accepts run filters over its source-built binaries, not new build or metadata selectors",
-                    ));
-                }
-            }
-            for argument in &build_arguments {
-                let value = argument.to_string_lossy();
-                if ["--list-type", "--message-format"]
-                    .iter()
-                    .any(|flag| value == *flag || value.starts_with(&format!("{flag}=")))
-                {
-                    return Err(NativeServiceError::Refused(
-                        "fixture constructor owns nextest metadata output modes",
-                    ));
-                }
-            }
-            let built = tempfile::Builder::new()
-                .prefix("pse-native-built-tests-")
-                .tempdir()?;
-            let cargo = built.path().join("cargo-metadata.json");
-            let binaries = built.path().join("binaries-metadata.json");
-            let output = std::process::Command::new(correctness)
-                .current_dir(&directory)
-                .args([
-                    "nextest",
-                    "list",
-                    "--list-type",
-                    "binaries-only",
-                    "--message-format",
-                    "json",
-                ])
-                .args(&build_arguments)
-                .env("PSE_FIXTURE_CARGO_METADATA_CAPTURE", &cargo)
-                .stderr(std::process::Stdio::inherit())
-                .output()?;
-            if !output.status.success() {
-                return Err(NativeServiceError::Command {
-                    stage: "source build/list",
-                    status: output.status,
-                });
-            }
-            let _: serde_json::Value = serde_json::from_slice(&output.stdout).map_err(|_| {
-                NativeServiceError::Refused("source nextest list did not produce binary metadata")
-            })?;
-            let _: serde_json::Value =
-                serde_json::from_slice(&fs::read(&cargo)?).map_err(|_| {
-                    NativeServiceError::Refused("same-invocation Cargo metadata capture invalid")
-                })?;
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .mode(0o600)
-                .open(&binaries)?;
-            file.write_all(&output.stdout)?;
-            file.sync_all()?;
-            Ok(Self {
-                program,
-                binaries,
-                cargo,
-                arguments,
-                directory,
-                _built: Some(built),
-            })
-        }
         /// Adopt the host's same-invocation build/list capture without compiling again.
         /// The host owns source admission and immutable capture; this owner supplies only
         /// the fresh service, child execution and physical settlement.
@@ -503,7 +383,6 @@ mod command {
                 cargo,
                 arguments,
                 directory,
-                _built: None,
             })
         }
         /// Create a fresh physical owner only after reuse inputs have been admitted.

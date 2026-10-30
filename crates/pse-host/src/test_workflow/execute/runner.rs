@@ -13,7 +13,7 @@ use crate::{
     test_workflow::{self, CompilerObserver, CompletedObserver, GroupCommand, WorkflowError},
 };
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     ffi::OsStr,
     fs,
     num::NonZeroUsize,
@@ -63,6 +63,7 @@ fn record_phase<O: ChunkObserver>(
 ) {
     report.required_capture_complete &= capture.capture_complete;
     report.phases.push(Phase {
+        native_stage: None,
         elapsed_seconds: Some(capture.elapsed_seconds),
         kind,
         group,
@@ -212,6 +213,9 @@ async fn perform(
             let capture = destination.join(format!("check-build-{group}"));
             directory(&capture)?;
             let mut request = prepared.command(group)?;
+            if input.timings {
+                request.arguments.push("--timings".into());
+            }
             request.environment.insert(
                 "PSE_CORRECTNESS_BUILD_CAPTURE".into(),
                 capture.into_os_string(),
@@ -258,9 +262,17 @@ async fn perform(
         }
         let nextest = nextest(&admitted.context.environment)?;
         let listed = admitted
-            .list(&nextest, &destination.join("inventory"), input.policy)
+            .list(
+                &nextest,
+                &destination.join("inventory"),
+                crate::discovery::DiscoveryOptions {
+                    policy: input.policy,
+                    timings: input.timings,
+                },
+            )
             .await?;
         report.inventory = Some("inventory/inventory.json".into());
+        report.fixture_requirements = listed.requirements.clone();
         report.selected_tests = Some(listed.inventory.selected_tests_iter().count());
         report.required_capture_complete &= listed.inventory.required_capture_complete;
         discovery_phases(report, &listed.inventory);
@@ -373,7 +385,8 @@ fn discovery_phases(report: &mut Report, inventory: &crate::discovery::Inventory
             None => format!("inventory/{}", captured.stage),
         };
         report.phases.push(Phase {
-            elapsed_seconds: None,
+            native_stage: Some(captured.stage.clone()),
+            elapsed_seconds: captured.elapsed_seconds,
             kind: PhaseKind::Discovery,
             group: captured.group,
             stdout: format!("{prefix}.stdout"),
@@ -391,11 +404,21 @@ async fn group_policy(
     destination: &Path,
     listed: &test_workflow::Listed,
     report: &mut Report,
-) -> Result<BTreeSet<usize>, WorkflowError> {
+) -> Result<BTreeMap<usize, BTreeSet<String>>, WorkflowError> {
     if listed.inventory.groups.len() < 2 {
-        return Ok(BTreeSet::new());
+        return Ok(BTreeMap::new());
     }
-    let mut named = Vec::new();
+    // Read declaration names only. Nextest remains the policy/filter membership authority.
+    let configuration: toml::Value = toml::from_str(&fs::read_to_string(
+        listed.capture_root.join("nextest.toml"),
+    )?)
+    .map_err(|error| WorkflowError::Invalid(error.to_string()))?;
+    let names: Vec<_> = configuration
+        .get("test-groups")
+        .and_then(toml::Value::as_table)
+        .map(|groups| groups.keys().cloned().collect())
+        .unwrap_or_default();
+    let mut named: BTreeMap<usize, BTreeSet<String>> = BTreeMap::new();
     for group in 0..listed.inventory.groups.len() {
         if !listed
             .inventory
@@ -404,87 +427,93 @@ async fn group_policy(
         {
             continue;
         }
-        let directory = listed.capture_root.join(format!("group-{group}"));
-        let mut command = Command::new(&listed.inventory.nextest.captured);
-        command
-            .args([
-                "nextest",
-                "list",
-                "--message-format=json",
-                "--profile",
-                &listed.inventory.runner_profile,
-            ])
-            .arg("--config-file")
-            .arg(listed.capture_root.join("nextest.toml"))
-            .arg("--binaries-metadata")
-            .arg(directory.join("binaries.json"))
-            .arg("--cargo-metadata")
-            .arg(directory.join("cargo-metadata.json"))
-            .args(["--run-ignored", "all", "-E", "not group(@global)"])
-            .current_dir(&listed.context.checkout)
-            .env_clear()
-            .envs(&listed.context.environment);
-        if listed.inventory.selection.filters().ignore_default_filter {
-            command.arg("--ignore-default-filter");
-        }
-        let prefix = format!("group-policy-{group}");
-        let mut capture = phase::run(
-            command,
-            &destination.join(format!("{prefix}.stdout")),
-            &destination.join(format!("{prefix}.stderr")),
-            GenericObserver,
-            input.policy,
-        )
-        .await?;
-        record_phase(
-            report,
-            PhaseKind::GroupPolicy,
-            Some(group),
-            &prefix,
-            &mut capture,
-        );
-        if let Some(exit) = capture.child_exit.filter(|exit| *exit != 0) {
-            report.failure(WorkflowError::PhaseExit {
-                phase: "nextest-group-policy",
-                exit,
-            });
-        }
-        if !capture.capture_complete || !report.causes.is_empty() || capture.child_exit != Some(0) {
-            report.outcome = if capture.capture_complete && capture.child_exit.is_some() {
-                Outcome::Failed
-            } else {
-                Outcome::Incomplete
-            };
-            return Err(WorkflowError::Invalid(
-                "native group-policy listing failed".into(),
-            ));
-        }
-        let membership: nextest_metadata::TestListSummary =
-            serde_json::from_slice(&fs::read(destination.join(format!("{prefix}.stdout")))?)
-                .map_err(crate::discovery::DiscoveryError::from)?;
-        // Multiple -E arguments are a union in native nextest. Query membership alone,
-        // then intersect exact native binary/test identities with the original population.
-        if listed
-            .inventory
-            .selected_tests_iter()
-            .filter(|identity| identity.group == group)
-            .any(|identity| {
-                membership
-                    .rust_suites
-                    .get(&nextest_metadata::RustBinaryId::new(&identity.binary_id))
-                    .filter(|suite| suite.binary.package_id == identity.package_id)
-                    .and_then(|suite| {
-                        suite
-                            .test_cases
-                            .get(&nextest_metadata::TestCaseName::new(&identity.test_name))
-                    })
-                    .is_some_and(|case| case.filter_match.is_match())
-            })
-        {
-            named.push(group);
+        for (ordinal, name) in names.iter().enumerate() {
+            let directory = listed.capture_root.join(format!("group-{group}"));
+            let mut command = Command::new(&listed.inventory.nextest.captured);
+            command
+                .args([
+                    "nextest",
+                    "list",
+                    "--message-format=json",
+                    "--profile",
+                    &listed.inventory.runner_profile,
+                ])
+                .arg("--config-file")
+                .arg(listed.capture_root.join("nextest.toml"))
+                .arg("--binaries-metadata")
+                .arg(directory.join("binaries.json"))
+                .arg("--cargo-metadata")
+                .arg(directory.join("cargo-metadata.json"))
+                .args(["--run-ignored", "all", "-E"])
+                .arg(format!("group(={})", selection::equality(name)))
+                .current_dir(&listed.context.checkout)
+                .env_clear()
+                .envs(&listed.context.environment);
+            if listed.inventory.selection.filters().ignore_default_filter {
+                command.arg("--ignore-default-filter");
+            }
+            let prefix = format!("group-policy-{group}-{ordinal}");
+            let mut capture = phase::run(
+                command,
+                &destination.join(format!("{prefix}.stdout")),
+                &destination.join(format!("{prefix}.stderr")),
+                GenericObserver,
+                input.policy,
+            )
+            .await?;
+            record_phase(
+                report,
+                PhaseKind::GroupPolicy,
+                Some(group),
+                &prefix,
+                &mut capture,
+            );
+            if let Some(exit) = capture.child_exit.filter(|exit| *exit != 0) {
+                report.failure(WorkflowError::PhaseExit {
+                    phase: "nextest-group-policy",
+                    exit,
+                });
+            }
+            if !capture.capture_complete
+                || !report.causes.is_empty()
+                || capture.child_exit != Some(0)
+            {
+                report.outcome = if capture.capture_complete && capture.child_exit.is_some() {
+                    Outcome::Failed
+                } else {
+                    Outcome::Incomplete
+                };
+                return Err(WorkflowError::Invalid(
+                    "native group-policy listing failed".into(),
+                ));
+            }
+            let membership: nextest_metadata::TestListSummary =
+                serde_json::from_slice(&fs::read(destination.join(format!("{prefix}.stdout")))?)
+                    .map_err(crate::discovery::DiscoveryError::from)?;
+            // Multiple -E arguments are a union in native nextest. Query membership alone,
+            // then intersect exact native binary/test identities with the original population.
+            if listed
+                .inventory
+                .selected_tests_iter()
+                .filter(|identity| identity.group == group)
+                .any(|identity| {
+                    membership
+                        .rust_suites
+                        .get(&nextest_metadata::RustBinaryId::new(&identity.binary_id))
+                        .filter(|suite| suite.binary.package_id == identity.package_id)
+                        .and_then(|suite| {
+                            suite
+                                .test_cases
+                                .get(&nextest_metadata::TestCaseName::new(&identity.test_name))
+                        })
+                        .is_some_and(|case| case.filter_match.is_match())
+                })
+            {
+                named.entry(group).or_default().insert(name.clone());
+            }
         }
     }
-    Ok(named.into_iter().collect())
+    Ok(named)
 }
 
 enum GroupObserver {
@@ -562,14 +591,14 @@ async fn execute_groups(
     groups: Vec<(GroupCommand, GroupObserver)>,
     report: &mut Report,
 ) -> Result<(), WorkflowError> {
-    execute_groups_with_policy(input, destination, groups, report, &BTreeSet::new()).await
+    execute_groups_with_policy(input, destination, groups, report, &BTreeMap::new()).await
 }
 async fn execute_groups_with_policy(
     input: &Input,
     destination: &Path,
     groups: Vec<(GroupCommand, GroupObserver)>,
     report: &mut Report,
-    serialized: &BTreeSet<usize>,
+    serialized: &BTreeMap<usize, BTreeSet<String>>,
 ) -> Result<(), WorkflowError> {
     if groups.is_empty() {
         report.outcome = Outcome::Incomplete;
@@ -581,23 +610,26 @@ async fn execute_groups_with_policy(
         PhaseKind::Test
     };
     let mut tasks = tokio::task::JoinSet::new();
-    let mut predecessor = None;
+    let mut predecessors = BTreeMap::new();
     for (request, observer) in groups {
         let group = request.group;
         let prefix = format!("run-{group}");
         let stdout = destination.join(format!("{prefix}.stdout"));
         let stderr = destination.join(format!("{prefix}.stderr"));
         let policy = input.policy;
-        // Only split contexts with named exclusions form a sequential chain. Native Nextest
-        // still schedules their tests; independent compiler groups remain concurrent.
-        let (wait, done) = if serialized.contains(&group) {
-            let (done, next) = tokio::sync::oneshot::channel::<()>();
-            (predecessor.replace(next), Some(done))
-        } else {
-            (None, None)
-        };
+        // Only contexts sharing a native named exclusion sequence. Each native runner still
+        // schedules its own tests; unrelated names and global contexts retain concurrency.
+        let mut wait = Vec::new();
+        let mut done = Vec::new();
+        for name in serialized.get(&group).into_iter().flatten() {
+            let (sender, next) = tokio::sync::oneshot::channel::<()>();
+            if let Some(previous) = predecessors.insert(name.clone(), next) {
+                wait.push(previous);
+            }
+            done.push(sender);
+        }
         tasks.spawn(async move {
-            if let Some(previous) = wait {
+            for previous in wait {
                 let _ = previous.await;
             }
             let result = phase::run(command(request), &stdout, &stderr, observer, policy).await;
@@ -618,6 +650,7 @@ async fn execute_groups_with_policy(
             }
             Ok((group, prefix, Err(error))) => {
                 report.phases.push(Phase {
+                    native_stage: None,
                     elapsed_seconds: None,
                     kind,
                     group: Some(group),

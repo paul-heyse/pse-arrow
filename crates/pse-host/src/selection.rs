@@ -91,9 +91,40 @@ pub struct PackageIntent {
     pub features: Features,
 }
 
+/// Native target selectors, independent of package-name spelling.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum CargoTargets {
+    /// The package's actual library target.
+    Library,
+    /// Cargo's all-targets mode, without an all-features union.
+    AllTargets,
+    /// One declared integration-test target.
+    Test(String),
+    /// One declared binary target.
+    Bin(String),
+}
 /// Package scope before normalization.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum Scope {
+    /// Native Cargo target selection over an otherwise ordinary package/source scope.
+    Targets {
+        /// Package or explicit source intent.
+        scope: Box<Scope>,
+        /// Cargo selector, resolved against actual declarations.
+        selector: CargoTargets,
+    },
+    /// Conservatively resolve source reach before ordinary declaration normalization.
+    Changed {
+        /// Git base compared with observed HEAD/index/worktree/untracked inputs.
+        base: String,
+        /// Caller feature policy, retained by every selected root.
+        features: Features,
+    },
+    /// Rebuild current source for exact failed identities from an original native report.
+    RerunFailed {
+        /// Exact invocation selector; stored records supply hints, never a new pass.
+        invocation: String,
+    },
     /// Explicit package/target intentions, each preserving its feature context.
     Packages(Vec<PackageIntent>),
     /// Workspace members except the named or ID-qualified exclusions.
@@ -141,6 +172,8 @@ pub struct DeclaredTarget {
 /// One intended root, retaining its independent target and feature policy inside a group.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Root {
+    #[serde(default)]
+    all_targets: bool,
     package_id: String,
     package_name: String,
     target: Option<DeclaredTarget>,
@@ -164,6 +197,9 @@ impl Root {
         &self.features
     }
     fn selector(&self) -> Result<Vec<String>, CorrectnessError> {
+        if self.all_targets {
+            return Ok(vec!["--all-targets".into()]);
+        }
         let Some(target) = &self.target else {
             return Ok(Vec::new());
         };
@@ -354,15 +390,112 @@ impl Group {
     }
 }
 
+/// Original source-selection provenance; fresh execution still requires actual build/list.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SourceBasis {
+    /// Conservative Git/source reach, never exhaustive behavior coverage.
+    Changed {
+        /// Requested base.
+        base: String,
+        /// Actual resolved base commit.
+        base_commit: String,
+    },
+    /// Fresh source rebuild using original exact failed identities.
+    RerunFailed {
+        /// Original invocation association.
+        invocation: crate::envelope::CliInvocationId,
+    },
+}
+/// One original failed identity's exact compiler/root intent and native filter.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct RerunCase {
+    /// Original compiled package name, resolved again against current declarations.
+    pub package: String,
+    /// Original actual target, not inferred from a test name.
+    pub target: TargetIntent,
+    /// Original compiled feature context and absence policy.
+    pub features: Features,
+    /// Original native binary ID.
+    pub binary_id: String,
+    /// Original exact native test name.
+    pub test_name: String,
+}
+/// Escape native equality matcher literals, not shell text or regular expressions.
+pub(crate) fn equality(value: &str) -> String {
+    let mut escaped = String::new();
+    for character in value.chars() {
+        match character {
+            '\\' => escaped.push_str("\\\\"),
+            ')' => escaped.push_str("\\)"),
+            ',' => escaped.push_str("\\,"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            _ => escaped.push(character),
+        }
+    }
+    escaped
+}
 /// Pure normalized intent. Explain can render this without building or listing.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Plan {
+    #[serde(default)]
+    source: Option<SourceBasis>,
+    #[serde(default)]
+    rerun: Vec<RerunCase>,
     operation: Operation,
     groups: Vec<Group>,
     filters: Filters,
     ignored: IgnoredPolicy,
 }
 impl Plan {
+    pub(crate) fn source(mut self, basis: SourceBasis, cases: Vec<RerunCase>) -> Self {
+        self.source = Some(basis);
+        self.rerun = cases;
+        self
+    }
+    /// Exact original failures requested for a fresh-source rebuild.
+    pub fn rerun_cases(&self) -> &[RerunCase] {
+        &self.rerun
+    }
+    /// Native filters projected for this actual compiler group; different feature contexts
+    /// cannot gain each other's failed test names through a global OR expression.
+    pub fn filters_for_group(&self, group: usize) -> Filters {
+        let mut filters = self.filters.clone();
+        if !self.rerun.is_empty() {
+            let expressions: Vec<_> = self
+                .rerun
+                .iter()
+                .filter(|case| {
+                    self.groups.get(group).is_some_and(|group| {
+                        group.roots.iter().any(|root| {
+                            root.package_name == case.package
+                                && root.features == case.features
+                                && root
+                                    .target
+                                    .as_ref()
+                                    .is_some_and(|target| target.name == case.target.name)
+                        })
+                    })
+                })
+                .map(|case| {
+                    format!(
+                        "(binary_id(={}) & test(={}))",
+                        equality(&case.binary_id),
+                        equality(&case.test_name)
+                    )
+                })
+                .collect();
+            filters.words.clear();
+            filters.expressions = vec![if expressions.is_empty() {
+                "none()".into()
+            } else {
+                expressions.join(" | ")
+            }];
+        }
+        filters
+    }
     /// Candidate compiler groups; actual admission can split feature-incompatible sets.
     pub fn groups(&self) -> &[Group] {
         &self.groups
@@ -496,6 +629,17 @@ fn target_flag(kinds: &[String]) -> Result<&'static str, CorrectnessError> {
     Err(invalid("target kind has no supported compiler selection"))
 }
 
+pub(crate) fn empty(request: &Request) -> Plan {
+    Plan {
+        source: None,
+        rerun: Vec::new(),
+        operation: request.operation,
+        groups: Vec::new(),
+        filters: request.filters.clone(),
+        ignored: request.ignored,
+    }
+}
+
 /// Normalize against Cargo declarations only. This performs no I/O or preparation.
 pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessError> {
     if request.operation == Operation::Check
@@ -505,7 +649,16 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
             "check does not accept test filters or ignored-test policy",
         ));
     }
-    let intents = match request.scope {
+    let (scope, target_selector) = match request.scope.clone() {
+        Scope::Targets { scope, selector } => (*scope, Some(selector)),
+        scope => (scope, None),
+    };
+    let mut intents = match scope {
+        Scope::Targets { .. } | Scope::Changed { .. } | Scope::RerunFailed { .. } => {
+            return Err(invalid(
+                "source intent requires the common workflow source-resolution stage",
+            ));
+        }
         Scope::Packages(intents) => intents,
         Scope::Workspace { exclude, features } => {
             let excluded: BTreeSet<_> = exclude
@@ -538,8 +691,68 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
                 .collect()
         }
     };
+    if let Some(selector) = &target_selector {
+        let mut selected = Vec::new();
+        for mut intent in intents {
+            let declaration = package(metadata, &intent.package)?;
+            match selector {
+                CargoTargets::AllTargets => {
+                    // Explicit source-generated targets must not force their requirements into
+                    // the ordinary native all-targets/default-feature selection.
+                    if intent.target.is_some() {
+                        continue;
+                    }
+                }
+                CargoTargets::Library => {
+                    if intent.target.as_ref().is_some_and(|target| {
+                        !declaration.targets.iter().any(|candidate| {
+                            candidate.name.as_str() == target.name
+                                && candidate.kind.iter().any(|kind| {
+                                    matches!(kind.to_string().as_str(), "lib" | "proc-macro")
+                                })
+                        })
+                    }) {
+                        continue;
+                    }
+                    let Some(target) = declaration.targets.iter().find(|target| {
+                        target
+                            .kind
+                            .iter()
+                            .any(|kind| matches!(kind.to_string().as_str(), "lib" | "proc-macro"))
+                    }) else {
+                        continue;
+                    };
+                    intent.target = Some(TargetIntent {
+                        name: target.name.to_string(),
+                        kind: target.kind.first().map(ToString::to_string),
+                    });
+                }
+                CargoTargets::Test(name) | CargoTargets::Bin(name) => {
+                    let kind = if matches!(selector, CargoTargets::Test(_)) {
+                        "test"
+                    } else {
+                        "bin"
+                    };
+                    if !declaration.targets.iter().any(|target| {
+                        target.name.as_str() == name
+                            && target.kind.iter().any(|actual| actual.to_string() == kind)
+                    }) {
+                        continue;
+                    }
+                    intent.target = Some(TargetIntent {
+                        name: name.clone(),
+                        kind: Some(kind.into()),
+                    });
+                }
+            }
+            if !selected.contains(&intent) {
+                selected.push(intent);
+            }
+        }
+        intents = selected;
+    }
     if intents.is_empty() {
-        return Err(invalid("package selection is empty"));
+        return Err(invalid("package/target selection is empty"));
     }
     let mut roots = Vec::new();
     for intent in intents {
@@ -597,6 +810,7 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
             }
         }
         let root = Root {
+            all_targets: matches!(target_selector, Some(CargoTargets::AllTargets)),
             package_id: package.id.repr.clone(),
             package_name: package.name.to_string(),
             target,
@@ -628,6 +842,8 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
         }
     }
     Ok(Plan {
+        source: None,
+        rerun: Vec::new(),
         operation: request.operation,
         groups,
         filters: request.filters,

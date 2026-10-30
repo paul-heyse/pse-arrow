@@ -31,6 +31,10 @@ pub struct NativeFailure {
     pub identity: TestIdentity,
     /// Original invocation/group report; XML text is not raw process output.
     pub report: PathBuf,
+    /// Native XML failure message, independent of raw stream bytes.
+    pub message: Option<String>,
+    /// Native XML assertion description, independent of raw stream bytes.
+    pub description: Option<String>,
 }
 /// Captured population and invocation-private report location.
 #[derive(Debug)]
@@ -122,6 +126,7 @@ impl CompletedReport {
         let mut completed = BTreeSet::new();
         let mut seen = BTreeSet::new();
         let mut failed = Vec::new();
+        let mut failures = Vec::new();
         let mut retries = Vec::new();
         let mut setup_failed = false;
         let mut error = None;
@@ -202,8 +207,19 @@ impl CompletedReport {
                                     flaky: true,
                                 })
                             }
-                            TestCaseStatus::NonSuccess { reruns, .. } => {
+                            TestCaseStatus::NonSuccess {
+                                reruns,
+                                message,
+                                description,
+                                ..
+                            } => {
                                 failed.push(identity.clone());
+                                failures.push(NativeFailure {
+                                    identity: identity.clone(),
+                                    report: self.path.clone(),
+                                    message: message.map(|value| value.as_str().to_owned()),
+                                    description: description.map(|value| value.as_str().to_owned()),
+                                });
                                 if !reruns.runs.is_empty() {
                                     retries.push(RetrySummary {
                                         identity: identity.clone(),
@@ -267,13 +283,6 @@ impl CompletedReport {
         } else {
             NextestSetup::Unknown
         };
-        let failures = failed
-            .iter()
-            .map(|identity| NativeFailure {
-                identity: identity.clone(),
-                report: self.path.clone(),
-            })
-            .collect();
         (
             NextestSummary {
                 child_exit,

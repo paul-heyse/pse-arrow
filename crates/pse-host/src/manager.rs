@@ -27,10 +27,6 @@ const DESTINATION: &str = "org.freedesktop.systemd1";
 
 pub(crate) mod subgroup;
 pub use subgroup::CurrentMembership;
-pub use subgroup::payload::{
-    AttachedChild, CreationOutcome, DirectoryBinding, OpenedSubgroupCustody, OwnedSubgroup,
-    PayloadParent, PayloadParentBinding, RemovalReceipt, SubgroupCreationIntent,
-};
 
 /// Original intent, generated before the effect and retained for uncertain replies.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -208,7 +204,14 @@ pub struct ServiceFinalizer {
 
 enum ServiceLaunch<'a> {
     Exec,
-    Notify(&'a ServiceFinalizer),
+    Notify(&'a ServiceFinalizer, &'a ManagedServicePolicy),
+}
+/// Native detached lifetime policy; placement applies to the wrapper from service birth.
+pub(crate) struct ManagedServicePolicy {
+    pub(crate) slice: String,
+    pub(crate) controls: ResourceControls,
+    pub(crate) startup: Duration,
+    pub(crate) stop: Duration,
 }
 
 /// Observation only. Unknown properties are errors, never empty-success facts.
@@ -995,36 +998,24 @@ impl HostManager {
             inode: group.inode,
         })
     }
-    pub(crate) async fn require_nested_service(
+    /// Cooperatively terminate the original service population while its authenticated main
+    /// remains responsible for child reap, capture and its immutable operation report. The
+    /// main's registered Tokio signal owner handles its own TERM; systemd owns forced stop.
+    pub(crate) async fn terminate_service_population(
         &self,
-        controller: &LaunchIntent,
-        parent: &PayloadParentBinding,
+        intent: &LaunchIntent,
+        deadline: Instant,
     ) -> Result<(), HostError> {
-        let (current, slice, _) = self.managed_service_placement(controller).await?;
-        self.validate_binding(parent.intent(), parent.root())
-            .await?;
-        let root = self.observe(parent.intent().unit()).await?;
-        let unit = self.unit(controller.unit()).await?;
-        if !self.native_workload(&root).await?
-            || root.active_state != "active"
-            || !unit
-                .binds_to()
+        tokio::time::timeout_at(deadline.into(), async {
+            self.authenticate_service_controller(intent).await?;
+            self.unit(intent.unit())
                 .await?
-                .iter()
-                .any(|name| name == parent.intent().unit())
-            || !unit
-                .after()
-                .await?
-                .iter()
-                .any(|name| name == parent.intent().unit())
-            || self.foreground_placement(&root).await?.0 != slice
-            || current.main_pid != std::process::id()
-        {
-            return Err(HostError::Ownership(
-                "nested notify service is not bound to its original native allocation/root".into(),
-            ));
-        }
-        Ok(())
+                .kill("all".into(), 15)
+                .await?;
+            Ok(())
+        })
+        .await
+        .map_err(|_| HostError::Deadline("original service population termination".into()))?
     }
     async fn entry_slice(
         &self,
@@ -1089,6 +1080,17 @@ impl HostManager {
     /// Authenticate the native workload role using manager dependency facts;
     /// an environment marker alone never establishes enclosing containment.
     pub async fn native_workload(&self, observed: &UnitObservation) -> Result<bool, HostError> {
+        if let Some(nonce) = observed
+            .unit
+            .strip_prefix("pse-host-")
+            .and_then(|value| value.strip_suffix(".service"))
+        {
+            let unit = self.unit(&observed.unit).await?;
+            return Ok(
+                unit.description().await? == format!("pse-host original {nonce}")
+                    && self.notify_controller(&unit).await?,
+            );
+        }
         let Some(nonce) = observed
             .unit
             .strip_prefix("pse-host-")
@@ -1405,34 +1407,6 @@ impl HostManager {
             detail: "absolute launch deadline".into(),
         })?
     }
-    /// Start one original notify service with main-process-only readiness and an explicit
-    /// stop-post finalizer. Only a matching done job acknowledges readiness, not payload settlement.
-    /// Failed jobs also retain original performing custody; inspect launch_job_result separately.
-    /// No automatic restart or resubmission occurs; uncertain replies retain the original intent.
-    pub async fn start_notify_service(
-        &self,
-        spec: &ServiceSpec,
-        finalizer: &ServiceFinalizer,
-        deadline: Instant,
-    ) -> Result<OwnedUnit, HostError> {
-        if Instant::now() >= deadline {
-            return Err(HostError::Deadline(
-                "notify service launch already expired; not submitted".into(),
-            ));
-        }
-        tokio::time::timeout_at(
-            deadline.into(),
-            self.start_service_inner(
-                spec,
-                ServiceLaunch::Notify(finalizer),
-                None,
-                deadline,
-                || {},
-            ),
-        )
-        .await
-        .map_err(|_| unknown_launch(&spec.intent, "absolute notify service startup deadline"))?
-    }
     /// Start one original service bound to this process's authenticated native
     /// workload scope. The parent is borrowed: no stop/reference authority is
     /// granted over it. Systemd enforces BindsTo/After; application readiness and
@@ -1459,36 +1433,31 @@ impl HostManager {
         .await
         .map_err(|_| unknown_launch(&spec.intent, "absolute bound service startup deadline"))?
     }
-    pub(crate) async fn start_notify_service_bound(
+    /// Start one detached wrapper and its payload in the same admitted service cgroup.
+    pub(crate) async fn start_managed_service(
         &self,
         spec: &ServiceSpec,
         finalizer: &ServiceFinalizer,
-        controls: &ResourceControls,
+        policy: &ManagedServicePolicy,
         deadline: Instant,
-        submitted: impl FnOnce(),
     ) -> Result<OwnedUnit, HostError> {
         if Instant::now() >= deadline {
             return Err(HostError::Deadline(
-                "nested notify launch not submitted".into(),
+                "managed service launch not submitted".into(),
             ));
         }
-        tokio::time::timeout_at(deadline.into(), async {
-            let current = self.current_unit().await?;
-            let enclosing = self.borrow(current.unit);
-            let binding = self
-                .bound_service_context(&enclosing, controls, deadline)
-                .await?;
+        tokio::time::timeout_at(
+            deadline.into(),
             self.start_service_inner(
                 spec,
-                ServiceLaunch::Notify(finalizer),
-                Some(&binding),
+                ServiceLaunch::Notify(finalizer, policy),
+                None,
                 deadline,
-                submitted,
-            )
-            .await
-        })
+                || {},
+            ),
+        )
         .await
-        .map_err(|_| unknown_launch(&spec.intent, "absolute nested notify startup deadline"))?
+        .map_err(|_| unknown_launch(&spec.intent, "absolute managed service startup deadline"))?
     }
     async fn bound_service_context(
         &self,
@@ -1680,7 +1649,7 @@ impl HostManager {
         let command = service_command(&spec.executable, &spec.arguments)?;
         let finalizer = match &launch {
             ServiceLaunch::Exec => None,
-            ServiceLaunch::Notify(finalizer) => Some(service_command(
+            ServiceLaunch::Notify(finalizer, _) => Some(service_command(
                 &finalizer.executable,
                 &finalizer.arguments,
             )?),
@@ -1712,6 +1681,31 @@ impl HostManager {
         if let Some(finalizer) = finalizer {
             properties.push(property("NotifyAccess", "main".to_owned())?);
             properties.push(property("ExecStopPostEx", vec![finalizer])?);
+        }
+        if let ServiceLaunch::Notify(_, policy) = launch {
+            if policy.startup.is_zero()
+                || policy.stop.is_zero()
+                || !policy.slice.ends_with(".slice")
+            {
+                return Err(HostError::Ownership(
+                    "managed service requires explicit stage deadlines and slice".into(),
+                ));
+            }
+            properties.retain(|(name, _)| name != "KillMode");
+            properties.push(property("KillMode", "mixed".to_owned())?);
+            properties.push(property(
+                "TimeoutStartUSec",
+                u64::try_from(policy.startup.as_micros()).map_err(|_| {
+                    HostError::Ownership("managed startup deadline overflow".into())
+                })?,
+            )?);
+            properties.push(property(
+                "TimeoutStopUSec",
+                u64::try_from(policy.stop.as_micros())
+                    .map_err(|_| HostError::Ownership("managed stop deadline overflow".into()))?,
+            )?);
+            properties.push(property("Slice", policy.slice.clone())?);
+            properties.extend(policy.controls.properties()?);
         }
         if let Some(binding) = binding {
             self.validate_bound_service(binding, deadline).await?;
@@ -1802,29 +1796,6 @@ impl HostManager {
             intent,
             &ResourceControls::default(),
             Some(owner.intent().unit()),
-            deadline,
-        )
-        .await
-    }
-    /// Establish the same ordinary hierarchy from this authenticated service controller,
-    /// retaining it in its original service root instead of moving it into a scope.
-    pub(crate) async fn start_service_operation_slice(
-        &self,
-        intent: &LaunchIntent,
-        controller: &LaunchIntent,
-        deadline: Instant,
-    ) -> Result<OwnedUnit, HostError> {
-        self.managed_service_placement(controller).await?;
-        let (parent, nonce) = operation_coordinates(intent.unit())?;
-        if intent.description != operation_description(&parent, nonce, controller.unit()) {
-            return Err(HostError::Ownership(
-                "ordinary service operation controller differs".into(),
-            ));
-        }
-        self.start_slice_inner(
-            intent,
-            &ResourceControls::default(),
-            Some(controller.unit()),
             deadline,
         )
         .await

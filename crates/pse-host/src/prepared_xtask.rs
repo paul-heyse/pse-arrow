@@ -7,7 +7,7 @@ use crate::{
     correctness,
     discovery::{BuildCapture, Executable, capture},
     environment::Environment,
-    generation::{BuildContext, GenerationUse, SourceFingerprint},
+    generation::{BuildContext, SourceFingerprint},
     managed::payload::PayloadCommand,
     ownership::document::DocumentOwnership,
     paths::CheckoutState,
@@ -98,16 +98,6 @@ pub enum PreparedXtaskError {
         /// Original read/decoding cause.
         source: Box<PreparedXtaskError>,
     },
-    /// Original capture operation and independent generation-use settlement failure.
-    #[error(
-        "prepared xtask control capture failed: {operation}; generation settlement failed: {settlement}"
-    )]
-    Settlement {
-        /// Original operation.
-        operation: Box<PreparedXtaskError>,
-        /// Independent custody failure.
-        settlement: crate::HostError,
-    },
     /// Missing, stale or inconsistent evidence refuses use without repair.
     #[error("prepared xtask: {0}")]
     Invalid(String),
@@ -116,7 +106,7 @@ pse_diagnostics::impl_diagnostic! {
     PreparedXtaskError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::HostOwnership) },
     forward(this) { match this { Self::Host(error) => Some(error), Self::Environment(error) => Some(error), Self::Correctness(error) => Some(error), Self::Supervision(error) => Some(error), Self::BuildEvidence { source, .. } => Some(source.as_ref()), _ => None } },
-    help(_this) { None }, related(this) { match this { Self::Execution { failures, .. } => Some(Box::new(failures.iter().map(|error| { let error: &dyn pse_diagnostics::TypedDiagnostic = error; error }))), Self::Settlement { operation, settlement } => { let errors: [&dyn pse_diagnostics::TypedDiagnostic;2] = [operation.as_ref(), settlement]; Some(Box::new(errors.into_iter())) }, _ => None } }, source(_this) { None }
+    help(_this) { None }, related(this) { match this { Self::Execution { failures, .. } => Some(Box::new(failures.iter().map(|error| { let error: &dyn pse_diagnostics::TypedDiagnostic = error; error }))), _ => None } }, source(_this) { None }
 }
 fn invalid(message: impl Into<String>) -> PreparedXtaskError {
     PreparedXtaskError::Invalid(message.into())
@@ -632,25 +622,10 @@ pub fn prepare(
     let prepared = crate::generation::prepared(&checkout)?.ok_or_else(|| {
         invalid("correctness control is unprepared; run scripts/bootstrap-host explicitly")
     })?;
-    let tools = checkout.join("target/host-tools");
-    let usage = GenerationUse::acquire(&tools, &prepared.generation)?;
-    let captured = capture::executable(
-        &tools
-            .join(&prepared.generation)
-            .join("cargo-pse-correctness"),
-        &selected_dir.join("cargo-pse-correctness"),
-    )
-    .map_err(PreparedXtaskError::from);
-    let control = match (captured, usage.settle()) {
-        (value, Ok(())) => value?,
-        (Ok(_), Err(error)) => return Err(error.into()),
-        (Err(operation), Err(settlement)) => {
-            return Err(PreparedXtaskError::Settlement {
-                operation: Box::new(operation),
-                settlement,
-            });
-        }
-    };
+    let source_control =
+        prepared.executable(&checkout, crate::generation::HostTool::Correctness)?;
+    let control =
+        capture::executable(&source_control, &selected_dir.join("cargo-pse-correctness"))?;
     let mut environment = correctness::standalone_adapter_environment(environment)?;
     let (before, context, admission) = source(&checkout, &environment)?;
     environment.insert(

@@ -4,7 +4,7 @@ use super::*;
 use serde_json::json;
 
 fn listing() -> nextest_metadata::TestListSummary {
-    let suite = |id: &str| json!({"binary-id":id,"binary-name":id,"package-id":"case-id","kind":"test","binary-path":"/fixture/bin","build-platform":"target","package-name":"case","cwd":"/fixture","status":"listed","testcases":{"same":{"kind":"test","ignored":false,"filter-match":{"status":"matches"}},"ignored":{"kind":"test","ignored":true,"filter-match":{"status":"mismatch","reason":"ignored"}}}});
+    let suite = |id: &str| json!({"binary-id":id,"binary-name":"shared-name","package-id":"case-id","kind":"test","binary-path":"/fixture/bin","build-platform":"target","package-name":"case","cwd":"/fixture","status":"listed","testcases":{"same":{"kind":"test","ignored":false,"filter-match":{"status":"matches"}},"ignored":{"kind":"test","ignored":true,"filter-match":{"status":"mismatch","reason":"ignored"}}}});
     serde_json::from_value(json!({"rust-build-meta":{"target-directory":"/fixture/target","base-output-directories":["debug"],"non-test-binaries":{},"linked-paths":[]},"test-count":4,"rust-suites":{"first":suite("first"),"second":suite("second")}})).unwrap()
 }
 fn reconcile(
@@ -81,6 +81,10 @@ fn native_setup_failure_and_known_test_failure_survive_incomplete_coverage() {
     assert!(!summary.complete());
     assert_eq!(failures[0].identity.binary_id, "first");
     assert_eq!(failures[0].identity.group, 3);
+    assert_eq!(
+        failures[0].description.as_deref(),
+        Some("original assertion")
+    );
 }
 
 #[test]

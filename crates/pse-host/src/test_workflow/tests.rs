@@ -179,6 +179,7 @@ fn listed(intent: Intent) -> Listed {
                     io_unresolved: false,
                 };
                 discovery::PhaseCapture {
+                    elapsed_seconds: None,
                     stage: stage.into(),
                     group,
                     child_exit: 0,

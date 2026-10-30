@@ -83,6 +83,40 @@ impl RecordFramer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+    proptest! {
+        #[test]
+        fn arbitrary_bytes_chunks_bounds_and_eof_preserve_independent_record_expectations(
+            input in proptest::collection::vec(prop_oneof![3 => Just(b'\n'), 7 => any::<u8>()], 0..512),
+            widths in proptest::collection::vec(1usize..64, 1..20),
+            limit in 1usize..64,
+        ) {
+            let expected: Vec<Vec<u8>> = input.split_inclusive(|byte| *byte == b'\n')
+                .filter(|record| record.last() == Some(&b'\n') && record.len() <= limit)
+                .map(<[u8]>::to_vec).collect();
+            let mut framer = RecordFramer::new(NonZeroUsize::new(limit).unwrap());
+            let mut reconstructed = Vec::new();
+            let mut completed = Vec::new();
+            let mut truncated = 0;
+            let mut collect = |frame: Frame<'_>| match frame {
+                Frame::Complete(bytes) => { reconstructed.extend_from_slice(bytes); completed.push(bytes.to_vec()); },
+                Frame::Oversized {bytes,..} => reconstructed.extend_from_slice(bytes),
+                Frame::Truncated(bytes) => { reconstructed.extend_from_slice(bytes); truncated += 1; },
+            };
+            let mut offset = 0;
+            for width in widths.iter().cycle() {
+                if offset == input.len() { break; }
+                let end = (offset + width).min(input.len());
+                framer.push(&input[offset..end], &mut collect);
+                prop_assert!(framer.pending.len() <= limit);
+                offset = end;
+            }
+            framer.finish(&mut collect);
+            prop_assert_eq!(&reconstructed, &input);
+            prop_assert_eq!(completed, expected);
+            prop_assert_eq!(truncated, usize::from(!input.is_empty() && input.last() != Some(&b'\n')));
+        }
+    }
     #[test]
     fn chunk_splits_preserve_exact_record_bytes_and_do_not_promote_truncated_tail() {
         let mut framer = RecordFramer::new(NonZeroUsize::new(8).unwrap());

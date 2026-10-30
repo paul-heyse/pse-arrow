@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     envelope::Envelope,
-    generation::{EntryGuard, EntrySettlement},
+    generation::EntryGuard,
     prepared_xtask::{self, PreparedXtask},
 };
 use clap::{Subcommand, ValueEnum};
@@ -79,13 +79,11 @@ pub(super) fn dispatch(
     selected: Option<&Path>,
     output: &OutputOptions,
     entry: &EntryGuard,
-    settlement: &mut EntrySettlement,
 ) -> Result<i32, HostError> {
     let root = checkout_root(selected)?;
     let environment = std::env::vars_os().collect();
     match action {
         Action::Prepare { tool: Tool::Xtask } => {
-            *settlement = EntrySettlement::Unresolved;
             let tool = prepared_xtask::prepare(&root, &environment).map_err(tool_error)?;
             Ok(output.emit(Envelope::response(
                 "tools prepare",
@@ -136,6 +134,7 @@ pub(super) fn dispatch(
                 .collect();
             super::launch_managed(
                 ManagedCommand {
+                    parent: None,
                     root,
                     cwd: payload.cwd,
                     environment: payload.environment,

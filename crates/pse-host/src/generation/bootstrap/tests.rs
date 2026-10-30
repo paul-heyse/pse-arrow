@@ -2,29 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 
-#[test]
-fn host_construction_exclusion_does_not_block_passive_generation_protection() {
-    let root = tempfile::tempdir().unwrap();
-    let lock = owned_file(&root.path().join(".construction.lock"), true).unwrap();
-    rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockExclusive).unwrap();
-    let passive = owned_file(&root.path().join(".update.lock"), true).unwrap();
-    rustix::fs::flock(&passive, rustix::fs::FlockOperation::NonBlockingLockShared).unwrap();
-    let publishing = owned_file(&root.path().join(".update.lock"), true).unwrap();
-    assert_eq!(
-        rustix::fs::flock(
-            &publishing,
-            rustix::fs::FlockOperation::NonBlockingLockExclusive
-        ),
-        Err(rustix::io::Errno::WOULDBLOCK)
-    );
-    drop(passive);
-    rustix::fs::flock(
-        &publishing,
-        rustix::fs::FlockOperation::NonBlockingLockExclusive,
-    )
-    .unwrap();
-}
-
 fn checkout() -> tempfile::TempDir {
     let root = tempfile::tempdir().unwrap();
     for directory in [
@@ -96,7 +73,6 @@ fn native_construction_publishes_authenticated_bytes_and_passive_staleness() {
     )
     .unwrap();
     assert_eq!(built.exit_code, 0);
-    assert_eq!(built.settlement, EntrySettlement::Unresolved);
     let prepared = prepared(fixture.path()).unwrap().unwrap();
     assert_eq!(prepared.protocol, 1);
     assert_eq!(prepared.manifest_digest.len(), 64);
@@ -290,7 +266,7 @@ fn lock_fixture(root: &Path, environment: &Environment) {
 }
 
 #[test]
-fn matching_copy_has_exact_bytes_without_destination_build_and_releases_source_use() {
+fn matching_copy_has_exact_bytes_without_destination_build() {
     let source = checkout();
     let destination = checkout();
     let environment = environment();
@@ -317,7 +293,6 @@ fn matching_copy_has_exact_bytes_without_destination_build_and_releases_source_u
     )
     .unwrap();
     assert_eq!(outcome.exit_code, 0);
-    assert_eq!(outcome.settlement, EntrySettlement::ResourcesSettled);
     assert!(
         !destination.path().join("target/debug").exists(),
         "matching copy must not invoke the compiler"
@@ -344,14 +319,7 @@ fn matching_copy_has_exact_bytes_without_destination_build_and_releases_source_u
             .unwrap()
         );
     }
-    assert_eq!(
-        GenerationUse::inspect(
-            &source.path().join("target/host-tools"),
-            &source_reference.generation
-        )
-        .unwrap(),
-        GenerationUseState::Available
-    );
+
     assert_eq!(
         freshness(destination.path(), &environment).unwrap(),
         Freshness::Current
@@ -389,7 +357,6 @@ fn mismatch_builds_destination_and_build_failure_preserves_its_previous_selector
     )
     .unwrap();
     assert_eq!(outcome.exit_code, 0);
-    assert_eq!(outcome.settlement, EntrySettlement::Unresolved);
     assert!(destination.path().join("target/debug/pse").is_file());
     let prior = prepared(destination.path()).unwrap().unwrap();
     let original = prepared(source.path()).unwrap().unwrap();
@@ -414,18 +381,10 @@ fn mismatch_builds_destination_and_build_failure_preserves_its_previous_selector
         0
     );
     assert_eq!(prepared(destination.path()).unwrap().unwrap(), prior);
-    assert_eq!(
-        GenerationUse::inspect(
-            &source.path().join("target/host-tools"),
-            &original.generation
-        )
-        .unwrap(),
-        GenerationUseState::Available
-    );
 }
 
 #[test]
-fn copy_owner_keeps_source_pinned_and_rejects_changed_bytes_before_probe_or_publication() {
+fn copy_rejects_changed_source_bytes_before_probe_or_publication() {
     let source = checkout();
     let destination = checkout();
     let environment = environment();
@@ -455,17 +414,6 @@ fn copy_owner_keeps_source_pinned_and_rejects_changed_bytes_before_probe_or_publ
     );
     let prior = prepared(destination.path()).unwrap().unwrap();
     let copy = CopySource::acquire(source.path()).unwrap();
-    let generation = copy
-        .directory
-        .file_name()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_owned();
-    assert_eq!(
-        GenerationUse::inspect(&source.path().join("target/host-tools"), &generation).unwrap(),
-        GenerationUseState::Active
-    );
     use std::os::unix::fs::PermissionsExt;
     let artifact = copy.directory.join("pse");
     fs::set_permissions(&artifact, fs::Permissions::from_mode(0o700)).unwrap();
@@ -488,15 +436,8 @@ fn copy_owner_keeps_source_pinned_and_rejects_changed_bytes_before_probe_or_publ
         "corruption must fail before attempting execution: {error}"
     );
     assert_eq!(prepared(destination.path()).unwrap().unwrap(), prior);
-    assert_eq!(
-        GenerationUse::inspect(&source.path().join("target/host-tools"), &generation).unwrap(),
-        GenerationUseState::Active
-    );
+
     drop(copy);
-    assert_eq!(
-        GenerationUse::inspect(&source.path().join("target/host-tools"), &generation).unwrap(),
-        GenerationUseState::Available
-    );
 }
 
 #[test]
@@ -530,34 +471,23 @@ fn source_helper_mismatch_requests_fresh_local_seed_without_compiling_destinatio
     )
     .unwrap();
     assert_eq!(outcome.exit_code, LOCAL_SEED_REQUIRED);
-    assert_eq!(outcome.settlement, EntrySettlement::ResourcesSettled);
     assert!(!destination.path().join("target/debug").exists());
     assert!(prepared(destination.path()).unwrap().is_none());
-    let reference = prepared(source.path()).unwrap().unwrap();
-    assert_eq!(
-        GenerationUse::inspect(
-            &source.path().join("target/host-tools"),
-            &reference.generation
-        )
-        .unwrap(),
-        GenerationUseState::Available
-    );
 }
 
 #[test]
 fn source_helper_assertion_requires_actual_prepared_checkout_identity() {
     let (_fixture, tools) = crate::generation::tests::installed_fixture();
     let root = tools.parent().unwrap().parent().unwrap();
-    let usage = GenerationUse::acquire(&tools, "generation.fixture").unwrap();
+    let manifest = GenerationManifest::load(&tools.join("generation.fixture")).unwrap();
     let reference = PreparedGeneration {
         generation: "generation.fixture".into(),
-        protocol: usage.manifest().control_protocol(),
-        manifest_digest: usage.manifest().digest().unwrap(),
+        protocol: manifest.control_protocol(),
+        manifest_digest: manifest.digest().unwrap(),
     };
     let entry = EntryGuard {
-        passive: None,
-        usage: Some(usage),
         reference: Some(reference),
+        checkout: Some(root.to_owned()),
     };
     assert_eq!(
         source_mode(&entry, Some(root), Some(root.as_os_str())).unwrap(),
@@ -570,14 +500,12 @@ fn source_helper_assertion_requires_actual_prepared_checkout_identity() {
     assert!(source_mode(&entry, None, Some(root.as_os_str())).is_err());
     assert!(source_mode(&entry, Some(root), Some(tools.as_os_str())).is_err());
     let seed = EntryGuard {
-        passive: None,
-        usage: None,
         reference: None,
+        checkout: None,
     };
     assert!(source_mode(&seed, Some(root), Some(root.as_os_str())).is_err());
     assert_eq!(
         source_mode(&seed, Some(root), None).unwrap(),
         BootstrapMode::CopyOrBuild
     );
-    entry.complete(EntrySettlement::NoEffects).unwrap();
 }

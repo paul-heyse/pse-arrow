@@ -10,8 +10,8 @@
 #
 # Finding a recipe: `just --list --group <tier>`, `just --usage <recipe>` (parameters),
 # `just --show <recipe>` (body), `just --dump --dump-format json` (everything, structured).
-# Selection: `just unit-package <pkg> <word|filterset> [-p other] [nextest args]`,
-# `scripts/pse affected` (conservative source reach), PSE_NEXTEST_ACTION=list to preview tests.
+# Selection: `scripts/pse test <pkg> --lib -E FILTER`; use `scripts/pse tests` to list
+# the selected source-built population, or `scripts/pse affected` for conservative source reach.
 #
 # Recipes are grouped by execution-cost tier:
 #   env         create or inspect the working environment
@@ -158,28 +158,6 @@ surreal-test:
     scripts/cargo-bin/cargo-pse-correctness nextest run --no-fail-fast -p pse-host --lib --locked -E 'test(server::) | test(study_module::)'
 
 [group('local')]
-[doc('Source-built codec and revision controls in a fresh native-owned canonical fixture')]
-[positional-arguments]
-[script]
-canonical-test module_receipt *args:
-    module_receipt="$1"
-    shift
-    scripts/cargo-bin/cargo-pse-correctness build -p pse-operations --features native-service --bin pse-canonical-service --bin pse-canonical-test --locked
-    exec target/debug/pse-canonical-test --root "$PWD" --correctness "$PWD/target/host-tools/current/cargo-pse-correctness" --nextest "$(command -v cargo-nextest)" --helper "$PWD/target/debug/pse-canonical-service" --module-receipt "$module_receipt" --state-parent "${TMPDIR:-/tmp}" --build-arg=-p --build-arg=pse-operations --build-arg=--lib --build-arg=--features --build-arg=canonical-tests,native-service --build-arg=--locked -- -E 'test(canonical_server_unit) | test(canonical_codec_unit)' "$@"
-
-[group('local')]
-[doc('Persisted reconstruction controls in a fresh explicitly selected native fixture')]
-[script("bash", "scripts/pse-env", "--native=compiler,solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
-[positional-arguments]
-canonical-portable-test module_receipt *args:
-    module_receipt="$1"
-    shift
-    fixture_receipt="$PWD/target/producer-qualified-fixture.json"
-    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- producer-identity-fixture --output "$fixture_receipt"
-    export PSE_PRODUCER_FIXTURE_RECEIPT="$fixture_receipt"
-    exec just native-test "$module_receipt" --build-arg=-p --build-arg=pse-runtime --build-arg=--lib --build-arg=--features --build-arg=canonical-tests,native-solvers --build-arg=--locked -- -E 'test(canonical_portable_body)' "$@"
-
-[group('local')]
 [doc('Actual finite production capture prerequisite for persisted replay controls')]
 producer-fixture output:
     scripts/pse-env --native -- cargo run -p xtask --bin xtask --no-default-features --locked -- producer-identity-fixture --output {{ quote(output) }}
@@ -216,18 +194,6 @@ worker-cli-unit-test *args:
 [doc('Miri controls for the pure qualified scientific reconstruction authority')]
 scientific-replay-miri:
     scripts/cargo-bin/cargo-pse-correctness miri test -p pse-ids --lib --locked scientific_replay::tests
-
-[group('local')]
-[doc('Run native scientific worker journeys using explicitly built worker/control helpers and a prepared module receipt')]
-[script("bash", "scripts/pse-env", "--native=compiler,solver,klu", "--", "bash", "-euo", "pipefail")]
-[positional-arguments]
-worker-test *args:
-    : "${PSE_NATIVE_FIXTURE_SERVICE_HELPER:?select the already-built native canonical-service helper}"
-    : "${PSE_WORKER_BINARY:?select the already-built scientific pse-worker}"
-    export PSE_NATIVE_STUDY_WORKER="$PSE_WORKER_BINARY"
-    exec scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p pse-runtime --test worker --locked --features native-study-tests,product-operators,solver-ipopt,solver-scip "$@"
-
-# ---------------------------------------------------------------- discovery --
 
 [group('discovery')]
 [doc('Native tool and host observations as structured output; never repairs prerequisites')]
@@ -393,20 +359,6 @@ check *args:
     scripts/cargo-bin/cargo-pse-correctness check --keep-going --workspace --all-targets --locked "$@"
 
 [group('local')]
-[doc('Compile one library during a bounded architectural replacement; no tests or dev dependencies')]
-[positional-arguments]
-[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
-check-library pkg *args:
-    scripts/cargo-bin/cargo-pse-correctness check --keep-going -p "$1" --lib --locked "${@:2}"
-
-[group('local')]
-[doc('Compile one package and its test sources without executing tests')]
-[positional-arguments]
-[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
-check-package pkg *args:
-    scripts/cargo-bin/cargo-pse-correctness check --keep-going -p "$1" --all-targets --locked "${@:2}"
-
-[group('local')]
 [doc('Compile a named Rust test target without executing tests during the architectural pivot')]
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
@@ -433,56 +385,22 @@ check-native-package pkg features capabilities="solver,klu,isolation,uno,petsc":
 functional-test-target pkg target filter *args:
     scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p "$1" --test "$2" --locked -E "$3" "${@:4}"
 
-# Just stops after the first failed recipe; this thin aggregate retains every status.
-[private]
-[positional-arguments]
-[script("bash", "scripts/pse-env", "--", "bash", "-euo", "pipefail")]
-run-all +recipes:
-    failed=()
-    for recipe in "$@"; do
-        if just "$recipe"; then :; else failed+=("$recipe"); fi
-    done
-    if (( ${#failed[@]} )); then
-        printf 'Failed recipes: %s\n' "${failed[*]}" >&2
-        exit 1
-    fi
-
 [group('local')]
 [doc('clippy with -D warnings, workspace, all targets (default and --no-default-features)')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 clippy:
-    just run-all clippy-default clippy-no-default
+    scripts/pse run-all clippy-default clippy-no-default
 
 [group('local')]
 [doc('rustfmt and taplo in check mode')]
 fmt-check:
-    just run-all fmt-rust-check lint-toml
+    scripts/pse run-all fmt-rust-check lint-toml
 
 [group('local')]
 [doc('Rust tests via nextest with Arrow force_validate on')]
 [positional-arguments]
 test *args:
     scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} --workspace --locked "$@"
-
-[group('local')]
-[doc('Rust tests for one package')]
-[positional-arguments]
-test-package pkg *args:
-    scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p "$1" --locked "${@:2}"
-
-[group('local')]
-[doc('Library units of one package: a bare word means test(word); extra -p widens; native Nextest owns selection')]
-[script("bash", "scripts/pse-env", "--", "bash", "-euo", "pipefail")]
-[positional-arguments]
-unit-package pkg filter *args:
-    package="$1"
-    filter="$2"
-    shift 2
-    if [[ "$filter" =~ ^[A-Za-z0-9_]+(::[A-Za-z0-9_]+)*(::)?$ ]]; then filter="test($filter)"; fi
-    command=(scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p "$package" --lib --locked -E "$filter" "$@")
-    printf '%q ' "${command[@]}"
-    printf '\n'
-    exec "${command[@]}"
 
 [group('local')]
 [doc('Explicit library units in one workspace feature graph; native Nextest owns selection')]
@@ -618,7 +536,7 @@ docs-rust *args:
 [group('local')]
 [doc('Regenerate schema targets and pinned Ipopt bindings in scratch space and compare both ways')]
 codegen-check:
-    just run-all codegen-all-check
+    scripts/pse run-all codegen-all-check
 
 [group('local')]
 [doc('Compare every Rust-owned generated target in one full-codegen invocation; report independent failures')]
@@ -636,12 +554,12 @@ family-check:
 [doc('Governance tests + codegen-check + family-check')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 governance:
-    just run-all governance-tests codegen-check family-check
+    scripts/pse run-all governance-tests codegen-check family-check
 
 [group('local')]
 [doc('Optional aggregate: fmt-check check clippy test doctest')]
 ci-fast:
-    just run-all fmt-check check clippy test doctest
+    scripts/pse run-all fmt-check check clippy test doctest
 
 [group('local')]
 [doc('ruff format in check mode')]
@@ -680,7 +598,7 @@ seed-conformance:
 [group('local')]
 [doc('Repository-config lint: taplo, typos, reuse, actionlint, zizmor, shellcheck, ast-grep')]
 lint-repo:
-    just run-all lint-toml lint-typos lint-license lint-actions lint-zizmor lint-shell lint-ast
+    scripts/pse run-all lint-toml lint-typos lint-license lint-actions lint-zizmor lint-shell lint-ast
 
 # Native just aggregates stream ordinary tool output, continue after independent failures,
 # and report the failed recipes. Their command lists have one owner here.
@@ -689,20 +607,20 @@ lint-repo:
 [doc('End of a turn that changed files (root agent): regenerate the ADR index and format')]
 [positional-arguments]
 turn-end:
-    just run-all adr-index fmt
+    scripts/pse run-all adr-index fmt
 
 [group('env')]
 [doc('After a dependency, toolchain or skill-selection change, or an environment-shaped failure: sync library skills and run doctor')]
 [positional-arguments]
 ready:
-    just run-all skills-sync doctor
+    scripts/pse run-all skills-sync doctor
 
 [group('manual')]
 [doc('Scope end: every non-functional check; keeps going and lists failures; fix them and re-run one with just <id>')]
 [positional-arguments]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 hygiene:
-    just run-all lint-agents adr-frontmatter-check adr-index-check register-lint lint-typos lint-license lint-actions lint-shell lint-ast lint-py typecheck engine-boundary-check solver-pin-check family-check audit-shear codegen-check clippy-default clippy-no-default docs-rust
+    scripts/pse run-all lint-agents adr-frontmatter-check adr-index-check register-lint lint-typos lint-license lint-actions lint-shell lint-ast lint-py typecheck engine-boundary-check solver-pin-check family-check audit-shear codegen-check clippy-default clippy-no-default docs-rust
 
 [group('local')]
 [doc('Agent configuration: symlinks resolve, every referenced doc path exists')]
@@ -713,19 +631,19 @@ lint-agents:
 [doc('Python and repository quality gate')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 quality:
-    just run-all fmt-py-check lint-py typecheck lint-repo lint-agents solver-pin-check
+    scripts/pse run-all fmt-py-check lint-py typecheck lint-repo lint-agents solver-pin-check
 
 # ------------------------------------------------------------------- manual --
 
 [group('local')]
 [doc('Dependency and licence REPORT: findings are advisory and never fail it; a tool that cannot run does')]
 deps-report:
-    just run-all audit-dependencies audit-advisories audit-shear
+    scripts/pse run-all audit-dependencies audit-advisories audit-shear
 
 [group('manual')]
 [doc('Opt-in strict audit: cargo deny (advisories, bans, licenses, sources) + cargo audit. Not in ci-pr')]
 policy:
-    just run-all audit-dependencies audit-advisories
+    scripts/pse run-all audit-dependencies audit-advisories
 
 [group('manual')]
 [doc('Every benchmark runs once (no timing gate)')]
@@ -746,7 +664,7 @@ doc-lint:
 [doc('ADR lint, index check, and register lint')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
 adr-lint:
-    just run-all adr-frontmatter-check adr-index-check register-lint
+    scripts/pse run-all adr-frontmatter-check adr-index-check register-lint
 
 [group('manual')]
 [doc('Build documentation HTML and scoped search (no product environment)')]
@@ -782,7 +700,7 @@ parity *args:
 [group('manual')]
 [doc('Optional aggregate of native Rust, repository quality and documentation checks; references are separate')]
 ci-pr:
-    just run-all ci-fast governance docs-rust bench-smoke quality adr-lint docs
+    scripts/pse run-all ci-fast governance docs-rust bench-smoke quality adr-lint docs
 
 # ------------------------------------------------------------ deeper manual --
 
@@ -790,7 +708,7 @@ ci-pr:
 [doc('cargo hack feature powerset (depth 2) and --no-default-features')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 features-powerset:
-    just run-all features-combinations features-no-default
+    scripts/pse run-all features-combinations features-no-default
 
 [group('manual')]
 [doc('Tests under the release profile (catches optimisation-dependent paths)')]
@@ -999,7 +917,7 @@ bench-consolidation:
 [group('local')]
 [doc('Compare generated contracts without physical package fixtures or integration')]
 codegen-contracts-check:
-    just run-all codegen-rust-contracts-check codegen-docs-check codegen-surreal-check
+    scripts/pse run-all codegen-rust-contracts-check codegen-docs-check codegen-surreal-check
 
 [group('local')]
 [doc('Compile N07-N08 consumers and tests without executing integration journeys')]
@@ -1007,13 +925,6 @@ codegen-contracts-check:
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 check-native-contracts *args:
     scripts/cargo-bin/cargo-pse-correctness check --keep-going --workspace --all-targets --locked "$@"
-
-[group('discovery')]
-[doc('Compile and enumerate exact workspace test identities without executing them')]
-[positional-arguments]
-[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
-list-native-contracts *args:
-    scripts/cargo-bin/cargo-pse-correctness nextest list --workspace --locked --message-format json "$@"
 
 [group('local')]
 [doc('Lint the N07-N08 implementation and consumer test sources without execution')]
@@ -1101,64 +1012,16 @@ worktree +args:
     exec git worktree add "$@"
 
 [group('local')]
-[doc('Selected native library tests; database cases use native-test with an explicit module receipt')]
-[script("bash", "scripts/pse-env", "--native=compiler,solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
-[positional-arguments]
-unit-native-selected filter *args:
-    filter="$1"
-    shift
-    if [[ "$filter" =~ ^[A-Za-z0-9_]+(::[A-Za-z0-9_]+)*(::)?$ ]]; then filter="test($filter)"; fi
-    exec scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} --workspace --lib --locked --features pse-runtime/native-solvers -E "$filter" "$@"
-
-[group('local')]
 [doc('Compile the native process measurement target with pinned native environment and force validation')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 check-native-process-bench:
     scripts/pse-env --native -- scripts/cargo-bin/cargo-pse-correctness check -p pse-benches --bench native_process --locked --features pse-benches/native-process
 
 [group('local')]
-[doc('Native package library tests without implicit store setup; nextest owns selection')]
-[script("bash", "scripts/pse-env", "--native=compiler,solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
-[positional-arguments]
-unit-native-package pkg features filter *args:
-    package="$1"
-    features="$2"
-    filter="$3"
-    shift 3
-    if [[ "$filter" =~ ^[A-Za-z0-9_]+(::[A-Za-z0-9_]+)*(::)?$ ]]; then filter="test($filter)"; fi
-    exec scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p "$package" --lib --locked --features "$features" -E "$filter" "$@"
-
-[group('local')]
-[doc('Native-local library units using explicitly prepared compiler/provider capabilities')]
-[script("bash", "scripts/pse-env", "--", "bash", "-euo", "pipefail")]
-[positional-arguments]
-unit-native-capability-package pkg features capabilities filter *args:
-    package="$1"
-    features="$2"
-    capabilities="$3"
-    filter="$4"
-    shift 4
-    if [[ "$filter" =~ ^[A-Za-z0-9_]+(::[A-Za-z0-9_]+)*(::)?$ ]]; then filter="test($filter)"; fi
-    command=(scripts/pse-env "--native=$capabilities" -- scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p "$package" --lib --locked --features "$features" -E "$filter" "$@")
-    printf '%q ' "${command[@]}"
-    printf '\n'
-    exec "${command[@]}"
-
-[group('local')]
 [doc('Focused default-feature refusal controls; keeps the real serial QDLDL absence branch')]
 [positional-arguments]
 feature-absence *args:
     scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} --locked "$@"
-
-[group('local')]
-[doc('Run source-built tests in a fresh native canonical fixture; repeat --build-arg for Cargo selectors and place run filters after --')]
-[positional-arguments]
-[script("bash", "scripts/pse-env", "--native", "--", "bash", "-euo", "pipefail")]
-native-test module_receipt *args:
-    module_receipt="$1"
-    shift
-    scripts/cargo-bin/cargo-pse-correctness build -p pse-operations --features native-service --bin pse-canonical-service --bin pse-canonical-test --locked
-    exec target/debug/pse-canonical-test --root "$PWD" --correctness "$PWD/target/host-tools/current/cargo-pse-correctness" --nextest "$(command -v cargo-nextest)" --helper "$PWD/target/debug/pse-canonical-service" --module-receipt "$module_receipt" --state-parent "${TMPDIR:-/tmp}" "$@"
 
 [group('manual')]
 [doc('Install one pinned tool: trace-processor (default), mcpls, rr or sccache; no capture')]

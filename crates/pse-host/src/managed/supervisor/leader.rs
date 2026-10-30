@@ -12,8 +12,6 @@ pub(crate) struct PayloadLeader {
     root: PathBuf,
     id: CliInvocationId,
     store: InvocationStore,
-    #[cfg(test)]
-    directory: Arc<InvocationDirectory>,
     _membership: crate::manager::CurrentMembership,
     _manager: HostManager,
 }
@@ -23,10 +21,6 @@ impl PayloadLeader {
     }
     pub(crate) fn invocation_id(&self) -> &CliInvocationId {
         &self.id
-    }
-    #[cfg(test)]
-    pub(crate) fn directory(&self) -> &Arc<InvocationDirectory> {
-        &self.directory
     }
     /// Reopen only this original store/id, checking its ordinary metadata and filesystem bindings.
     pub(crate) fn metadata<O: DeserializeOwned>(&self) -> Result<InvocationMetadata<O>, HostError> {
@@ -66,63 +60,30 @@ pub(crate) async fn current_payload(environment: &Environment) -> Result<Payload
             "current payload original controller generation differs",
         ));
     }
-    let custody: payload::PayloadCustody = directory
+    let custody: super::super::service_payload::ServiceCustody = directory
         .evidence(InvocationEvidence::Custody)?
-        .ok_or_else(|| invalid("current payload original custody absent"))?;
-    let intent: payload::PayloadIntent = directory
-        .evidence(InvocationEvidence::PayloadIntent)?
-        .ok_or_else(|| invalid("current payload original creation intent absent"))?;
+        .ok_or_else(|| invalid("same-service original child custody absent"))?;
     let manager = HostManager::connect_user(None).await?;
     let membership = manager.current_membership().await?;
-    if current_identity()? != custody.child
+    if custody.version != 5
+        || custody.service != controller.binding
         || custody.manager != manager.identity_key()
-        || intent.controller != launch.controller
-        || !membership.matches_root(&custody.workload)
-        || membership.root().unit != intent.workload.unit()
+        || current_identity()? != custody.child
+        || !membership.matches_root(&custody.service)
+        || membership.root().unit != launch.controller.unit()
         || !manager.native_workload(membership.root()).await?
     {
         return Err(invalid(
-            "current process is not the original managed payload leader",
+            "current process is not the original same-service payload child",
         ));
     }
-    match (
-        intent.version,
-        custody.version,
-        &custody.subgroup,
-        &custody.creation,
-    ) {
-        (1, 2, None, None)
-            if intent.subgroup.is_none()
-                && membership.member()
-                    == Path::new("/sys/fs/cgroup")
-                        .join(custody.workload.group.trim_start_matches('/')) => {}
-        (2, 3, Some(group), Some(creation))
-            if membership.member() == group.path()
-                && membership.contains_original(group)
-                && intent.subgroup.as_ref() == Some(creation)
-                && creation.parent_binding().root() == &custody.workload => {}
-        _ => {
-            return Err(invalid(
-                "current payload original subgroup/root custody differs",
-            ));
-        }
-    }
-    ancestry::validate_live_controller(&manager, &launch, &controller).await?;
     manager
-        .validate_binding(&intent.workload, &custody.workload)
+        .validate_binding(&launch.controller, &custody.service)
         .await?;
-    membership.validate(&manager).await?;
-    if current_identity()? != custody.child {
-        return Err(invalid(
-            "current payload leader changed during authentication",
-        ));
-    }
     Ok(PayloadLeader {
         root,
         id,
         store,
-        #[cfg(test)]
-        directory,
         _membership: membership,
         _manager: manager,
     })

@@ -4,7 +4,6 @@
 use super::{HostError, OutputOptions, checkout_root, runtime};
 use crate::{
     envelope::{self, CliInvocationId, Envelope},
-    generation::EntrySettlement,
     managed::supervisor::{self, RecordedObservation},
 };
 use clap::Args;
@@ -42,20 +41,20 @@ pub(super) fn dispatch(
     cancel: bool,
     selected: Option<&Path>,
     output: &OutputOptions,
-    settlement: &mut EntrySettlement,
 ) -> Result<i32, HostError> {
     let root = checkout_root(selected)?;
     let store = super::invocation_store(selected)?;
+    let environment = std::env::vars_os().collect();
+    let session = crate::invocation::select_session(args.session, &environment)?;
     let id = store
-        .resolve(&args.invocation, args.session.as_deref())?
+        .resolve(&args.invocation, session.as_deref())?
         .ok_or_else(|| HostError::Ownership("no matching original invocation".into()))?;
     let deadline = Instant::now()
         .checked_add(Duration::from_secs(args.timeout))
         .ok_or_else(|| {
             HostError::Ownership("control deadline exceeds supported monotonic horizon".into())
         })?;
-    *settlement = EntrySettlement::Unresolved;
-    let environment = std::env::vars_os().collect();
+
     let (observed, interrupted) = runtime()?.block_on(async {
         let mut original = supervisor::recorded(&root, &id, &environment).await?;
         if cancel {
@@ -76,7 +75,7 @@ pub(super) fn dispatch(
     })?;
     // This observer executed no protected image and delegated no descendants. The original
     // performing invocation retains its own independent resources and generation claims.
-    *settlement = EntrySettlement::ResourcesSettled;
+
     let (service, service_gone) = match observed.as_ref() {
         Some(RecordedObservation::Observed { service }) => (Some(service.clone()), false),
         Some(RecordedObservation::Gone) => (None, true),
@@ -101,7 +100,7 @@ pub(super) fn dispatch(
         },
     );
     response.observation.scope = "original_native_service_and_retained_owner_result".into();
-    response.observation.limitations.push("Native service drain does not establish payload, reservation or generation settlement; the original owner result retains those facts.".into());
+    response.observation.limitations.push("Original child and capture evidence remains immutable; this view separately reconciles authenticated native service drain and capacity.".into());
     if interrupted {
         response.outcome = envelope::CommandOutcome::Interrupted;
         response.subject_state = envelope::SubjectState::Unknown;
@@ -126,6 +125,27 @@ fn project_terminal_owner(response: &mut Envelope<ControlView>, cancel: bool) {
         // A native stop acknowledgement cannot promote missing original reconciliation.
         response.settlement = original.settlement;
         response.observation.completeness = original.observation.completeness;
+        response.failures.extend(original.failures.iter().cloned());
+        // This call follows successful recorded wait/cancel, including actual whole-unit
+        // drain and finite-capacity reconciliation. It composes those facts with original
+        // complete operation evidence without rewriting that earlier immutable report.
+        let native_pending =
+            serde_json::from_str::<crate::managed::result::ManagedSummary>(original.payload.get())
+                .is_ok_and(|summary| {
+                    summary.native_lifetime_pending
+                        && summary.child_exit.is_some()
+                        && summary
+                            .stdout
+                            .as_ref()
+                            .is_some_and(|stream| stream.complete && !stream.io_unresolved)
+                        && summary
+                            .stderr
+                            .as_ref()
+                            .is_some_and(|stream| stream.complete && !stream.io_unresolved)
+                });
+        if native_pending && original.observation.completeness == envelope::Completeness::Complete {
+            response.settlement = envelope::Settlement::Complete;
+        }
         if !cancel {
             // Finished wait returns the original managed verdict, rather than success merely
             // because the observing command read a valid response. Exact evidence stays nested.
@@ -138,6 +158,71 @@ fn project_terminal_owner(response: &mut Envelope<ControlView>, cancel: bool) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn complete_native_wait_composes_pending_child_capture_without_rewriting_original() {
+        use super::*;
+        use crate::managed::result::{ManagedSummary, StreamSummary};
+        let stream = StreamSummary {
+            bytes_read: 3,
+            bytes_retained: 3,
+            eof: true,
+            complete: true,
+            io_unresolved: false,
+        };
+        let summary = ManagedSummary {
+            bundle: None,
+            native_lifetime_pending: true,
+            workflow: None,
+            child_exit: Some(0),
+            stdout: Some(stream.clone()),
+            stderr: Some(stream),
+            borrowed_reservation: false,
+            service_result: None,
+        };
+        let mut original = Envelope::response(
+            "run",
+            "original child and capture",
+            serde_json::value::to_raw_value(&summary).unwrap(),
+        );
+        original.child_exit = Some(0);
+        original.subject_state = envelope::SubjectState::Succeeded;
+        original.settlement = envelope::Settlement::Unknown;
+        assert_eq!(
+            original.exit_code(),
+            1,
+            "live wrapper cannot report whole-lifetime success"
+        );
+        let mut response = Envelope::response(
+            "wait",
+            "actual original native drain observed",
+            ControlView {
+                original_invocation: original.invocation_id.clone(),
+                service: None,
+                service_gone: true,
+                result: Some(original),
+            },
+        );
+        project_terminal_owner(&mut response, false);
+        assert_eq!(response.exit_code(), 0);
+        assert_eq!(response.settlement, envelope::Settlement::Complete);
+        assert_eq!(
+            response.payload.result.as_ref().unwrap().settlement,
+            envelope::Settlement::Unknown
+        );
+        response
+            .payload
+            .result
+            .as_mut()
+            .unwrap()
+            .observation
+            .completeness = envelope::Completeness::Partial;
+        project_terminal_owner(&mut response, false);
+        assert_eq!(
+            response.exit_code(),
+            1,
+            "native drain cannot replace missing required capture"
+        );
+    }
     #[test]
     fn finished_wait_preserves_managed_failure_while_cancel_requires_reconciliation() {
         use super::*;

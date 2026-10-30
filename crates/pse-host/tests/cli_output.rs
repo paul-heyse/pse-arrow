@@ -2,12 +2,16 @@
 // Copyright (c) 2026 Paul Heyse
 //! Actual CLI framing, schema selection and raw-protocol boundaries.
 #![cfg(test)]
+use assert_cmd::assert::Assert;
 use std::{
     path::Path,
     process::{Command, Output},
 };
 fn pse() -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_pse"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_pse")
+            .expect("Cargo/nextest supplies the selected runtime CLI executable"),
+    );
     command
         .current_dir(
             Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -24,12 +28,14 @@ fn json(output: &Output) -> serde_json::Value {
 }
 #[test]
 fn usage_errors_have_structured_context_in_the_requested_format() {
+    let state = tempfile::tempdir().unwrap();
     let output = pse()
+        .env("XDG_STATE_HOME", state.path())
         .args(["--format", "json", "--unknown-option"])
         .output()
         .unwrap();
-    assert_eq!(output.status.code(), Some(2));
-    assert!(output.stdout.is_empty());
+    let assertion = Assert::new(output).failure().code(2).stdout(b"".as_slice());
+    let output = assertion.get_output();
     let value: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
     assert_eq!(value["outcome"], "usage");
     assert_eq!(value["failures"][0]["code"], "cli.usage");
@@ -49,6 +55,11 @@ fn usage_errors_have_structured_context_in_the_requested_format() {
         .unwrap();
     assert_eq!(early.status.code(), Some(2));
     let _: serde_json::Value = serde_json::from_slice(&early.stderr).unwrap();
+    assert_eq!(
+        std::fs::read_dir(state.path()).unwrap().count(),
+        0,
+        "invalid arguments must acquire no runtime or retained-state effects"
+    );
 }
 #[test]
 fn env_projection_retains_full_evidence_and_matches_its_projected_schema() {
@@ -165,8 +176,10 @@ fn protocol_outputs_ignore_format_and_never_gain_an_envelope() {
     assert!(String::from_utf8_lossy(&print.stdout).contains("activation-data"));
 }
 #[test]
-fn foreground_child_options_and_exit_status_stay_literal() {
+fn foreground_managed_failure_retains_literal_child_arguments_and_original_exit() {
+    let state = tempfile::tempdir().unwrap();
     let output = pse()
+        .env("XDG_STATE_HOME", state.path())
         .args([
             "run",
             "--",
@@ -180,8 +193,87 @@ fn foreground_child_options_and_exit_status_stay_literal() {
         ])
         .output()
         .unwrap();
-    assert_eq!(output.status.code(), Some(7), "{output:?}");
-    assert_eq!(output.stdout, b"--format\njson\n-h\n");
+    let assertion = Assert::new(output).failure().code(1).stderr(b"".as_slice());
+    let value = json(assertion.get_output());
+    assert_eq!(value["outcome"], "failure");
+    assert_eq!(value["child_exit"], 7);
+    assert_eq!(value["settlement"], "complete");
+    assert_eq!(value["observation"]["completeness"], "complete");
+    let id = value["invocation_id"].as_str().unwrap();
+    let log = pse()
+        .env("XDG_STATE_HOME", state.path())
+        .args(["log", id])
+        .output()
+        .unwrap();
+    let assertion = Assert::new(log).success().stderr(b"".as_slice());
+    let log = json(assertion.get_output());
+    assert_eq!(
+        log["payload"]["content"],
+        serde_json::json!({"encoding":"utf8","data":"--format\njson\n-h\n"})
+    );
+    let original = pse()
+        .env("XDG_STATE_HOME", state.path())
+        .args(["result", id])
+        .output()
+        .unwrap();
+    // A successful passive read preserves the performing operation's failed state.
+    let assertion = Assert::new(original).success();
+    let original = json(assertion.get_output());
+    assert_eq!(original["payload"]["response"]["child_exit"], 7);
+    assert_eq!(original["payload"]["response"]["outcome"], "failure");
+}
+
+#[test]
+fn native_bundle_keeps_successful_siblings_and_original_failure_in_one_owner() {
+    let fixture = tempfile::tempdir().unwrap();
+    let justfile = fixture.path().join("bundle.just");
+    std::fs::write(
+        &justfile,
+        "failed:\n    @exit 3\n\npassed:\n    @printf sibling-completed\n",
+    )
+    .unwrap();
+    let output = pse()
+        .env("XDG_STATE_HOME", fixture.path().join("state"))
+        .env("PSE_SESSION", "bundle-test")
+        .arg("run-all")
+        .arg("--justfile")
+        .arg(justfile)
+        .args(["failed", "passed"])
+        .output()
+        .unwrap();
+    let assertion = Assert::new(output).failure().code(1).stderr(b"".as_slice());
+    let value = json(assertion.get_output());
+    assert_eq!(value["settlement"], "complete");
+    assert_eq!(value["observation"]["completeness"], "complete");
+    let children = value["payload"]["bundle"]["children"].as_array().unwrap();
+    assert_eq!(children.len(), 2);
+    assert_eq!(children[0]["result"]["outcome"], "failure");
+    assert_eq!(children[0]["result"]["child_exit"], 3);
+    assert_eq!(children[1]["result"]["outcome"], "success");
+    let mut units = Vec::new();
+    for child in children {
+        let directory = Path::new(child["result"]["path"].as_str().unwrap())
+            .parent()
+            .unwrap();
+        let metadata: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(directory.join("meta.json")).unwrap()).unwrap();
+        assert_eq!(metadata["selection"]["parent"], value["invocation_id"]);
+        assert_eq!(metadata["selection"]["session"], "bundle-test");
+        let custody: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(directory.join("custody.json")).unwrap())
+                .unwrap();
+        units.push(custody["unit"].clone());
+        if child["recipe"] == "passed" {
+            assert_eq!(
+                std::fs::read(directory.join("stdout.raw")).unwrap(),
+                b"sibling-completed"
+            );
+        }
+    }
+    assert_eq!(
+        units[0], units[1],
+        "children borrow the same original native unit"
+    );
 }
 #[test]
 fn native_explanation_json_selection_uses_the_same_envelope_renderer() {

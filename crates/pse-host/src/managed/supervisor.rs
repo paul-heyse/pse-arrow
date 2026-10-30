@@ -12,7 +12,7 @@ use crate::{
     admission::Selection,
     envelope::{CliInvocationId, RedactionPolicy},
     environment::Environment,
-    generation::{GenerationUse, HostTool, PreparedGeneration},
+    generation::{HostTool, PreparedGeneration},
     invocation::{InvocationDirectory, InvocationEvidence, InvocationStore},
     paths::{CheckoutState, HostPaths, UserDirectory},
 };
@@ -23,8 +23,6 @@ use tokio_util::sync::CancellationToken;
 
 const STATE_BASE: &str = "PSE_MANAGED_STATE_BASE_BYTES";
 pub(super) const CHECKOUT: &str = "PSE_MANAGED_CHECKOUT_BYTES";
-mod ancestry;
-pub use ancestry::{ManagedParent, parent};
 mod leader;
 pub(crate) use leader::{PayloadLeader, current_payload};
 
@@ -41,8 +39,6 @@ pub struct ManagedRequest {
     pub selection: Selection,
     /// Explicit caller observation policies.
     pub policy: PayloadPolicy,
-    /// Actual checked parent member, captured before publishing child metadata.
-    pub parent: Option<ManagedParent>,
 }
 impl std::fmt::Debug for ManagedRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -57,46 +53,29 @@ impl std::fmt::Debug for ManagedRequest {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct LaunchRecord {
-    version: u32,
+    pub(super) version: u32,
     invocation: CliInvocationId,
     pub(super) command: String,
     pub(super) controller: LaunchIntent,
     control: PreparedGeneration,
     request_digest: String,
     pub(super) policy: PayloadPolicy,
-    #[serde(default)]
-    parent: Option<ancestry::ParentRecord>,
 }
 impl LaunchRecord {
     fn verified_executable(&self, root: &std::path::Path) -> Result<PathBuf, HostError> {
-        let generation =
-            GenerationUse::acquire(&root.join("target/host-tools"), &self.control.generation)?;
-        let verified = self.control.executable(root, HostTool::Host);
-        let released = generation.settle();
-        match (verified, released) {
-            (Ok(path), Ok(())) => Ok(path),
-            (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
-            (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
-                operation: Box::new(operation),
-                cleanup: Box::new(cleanup),
-            }),
-        }
+        self.control.executable(root, HostTool::Host)
     }
     fn validate(
         &self,
         id: &CliInvocationId,
         metadata: &crate::invocation::InvocationMetadata<Box<serde_json::value::RawValue>>,
     ) -> Result<(), HostError> {
-        if !matches!(
-            (self.version, self.parent.is_some()),
-            (1, false) | (2, true)
-        ) || self.invocation != *id
+        if self.version != 3
+            || self.invocation != *id
             || self.command != metadata.selection.command
             || self.control.generation != metadata.selection.control.generation
             || self.control.manifest_digest != metadata.selection.control.manifest_digest
             || self.control.protocol != metadata.selection.control.protocol
-            || self.parent.as_ref().map(|parent| &parent.link.invocation)
-                != metadata.selection.parent.as_ref()
         {
             return Err(invalid("recorded launch differs from original metadata"));
         }
@@ -123,7 +102,6 @@ pub struct Launched {
     /// Actual original native service observation.
     pub observation: UnitObservation,
     unit: OwnedUnit,
-    _generation: GenerationUse,
 }
 impl Launched {
     /// Wait for the exact original service and recursive cgroup to finish. A bounded timeout
@@ -157,6 +135,7 @@ pub enum RecordedObservation {
 /// prepared generation. It carries no launch-client reference or arbitrary-unit adoption API.
 #[derive(Debug)]
 pub struct RecordedInvocation {
+    coordinator: crate::admission::Coordinator,
     manager: HostManager,
     controller: LaunchIntent,
     original: ControllerRecord,
@@ -178,6 +157,36 @@ impl RecordedInvocation {
     }
     /// Wait on original unit/cgroup events. None means only this observation deadline expired.
     pub async fn wait(
+        &mut self,
+        deadline: Option<Instant>,
+    ) -> Result<Option<RecordedObservation>, HostError> {
+        let observed = self.wait_native(deadline).await?;
+        if observed.is_some() {
+            self.settle_capacity(
+                deadline.unwrap_or_else(|| Instant::now() + std::time::Duration::from_secs(30)),
+            )
+            .await?;
+        }
+        Ok(observed)
+    }
+    async fn settle_capacity(&self, deadline: Instant) -> Result<(), HostError> {
+        if !self
+            .coordinator
+            .settle_service(
+                &self.manager,
+                &self.controller,
+                &self.original.binding,
+                deadline,
+            )
+            .await?
+        {
+            return Err(invalid(
+                "original native service drained but finite charge remains unreconciled",
+            ));
+        }
+        Ok(())
+    }
+    async fn wait_native(
         &mut self,
         deadline: Option<Instant>,
     ) -> Result<Option<RecordedObservation>, HostError> {
@@ -212,6 +221,11 @@ impl RecordedInvocation {
     /// Stop only the exact original service and prove its root empty; payload settlement
     /// remains with the original owner/finalizer evidence and is never inferred here.
     pub async fn cancel(&mut self, deadline: Instant) -> Result<RecordedObservation, HostError> {
+        let observed = self.cancel_native(deadline).await?;
+        self.settle_capacity(deadline).await?;
+        Ok(observed)
+    }
+    async fn cancel_native(&mut self, deadline: Instant) -> Result<RecordedObservation, HostError> {
         if let Some(completion) = &self.completion {
             return Ok(completion.clone());
         }
@@ -282,6 +296,7 @@ pub async fn recorded(
         unit.observe().await?;
     }
     Ok(RecordedInvocation {
+        coordinator: crate::admission::Coordinator::open(&root, environment)?,
         manager,
         controller: launch.controller,
         original,
@@ -300,8 +315,7 @@ fn current_identity() -> Result<ProcessIdentity, HostError> {
     }
 }
 
-/// Launch a generic invocation using top-level placement or checked original-member handoff.
-/// A nested payload remains below its original parent and borrows its reservation.
+/// Launch one top-level detached native lifetime. Nested commands inherit foreground ownership.
 pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostError> {
     let ManagedRequest {
         root,
@@ -309,7 +323,6 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
         command,
         selection,
         policy,
-        parent,
     } = request;
     let root = std::fs::canonicalize(root)?;
     let state = CheckoutState::resolve(&root, &command.environment)?;
@@ -327,46 +340,45 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
         .ok_or_else(|| invalid("startup horizon exceeds clock range"))?;
     let manager = HostManager::connect_user(None).await?;
     let membership = manager.current_membership().await?;
-    if manager.native_workload(membership.root()).await? != parent.is_some() {
+    if manager.native_workload(membership.root()).await? {
         return Err(invalid(
-            "nested managed entry requires protected original-member handoff",
+            "independent detachment from an enclosing native workload is unsupported; use inherited foreground ownership",
         ));
     }
-    if parent.is_none() {
-        let (_, _, tasks) = manager.foreground_placement(membership.root()).await?;
-        crate::foreground::preflight_service(&membership.root().control_group, tasks)?;
-    }
-    if metadata.selection.parent.as_ref() != parent.as_ref().map(ManagedParent::invocation_id) {
-        return Err(invalid(
-            "nested parent differs from original child metadata",
-        ));
-    }
+    let (source_slice, _, tasks) = manager.foreground_placement(membership.root()).await?;
+    crate::foreground::preflight_service(&membership.root().control_group, tasks)?;
+    let placement = match selection.requested_ordinary_target() {
+        Some(target) => Some(
+            manager
+                .ordinary_placement(membership.root(), target, startup)
+                .await?,
+        ),
+        None => None,
+    };
     let base = HostPaths::new(&command.environment).base(UserDirectory::State)?;
     if !base.is_absolute() {
         return Err(invalid("managed state base must be absolute"));
     }
-    let private = PrivateRequest::new(command, selection, policy)?;
-    let generation = GenerationUse::acquire(&root.join("target/host-tools"), &control.generation)?;
-    let executable = match control.executable(&root, HostTool::Host) {
-        Ok(path) => path,
-        Err(error) => {
-            generation.settle()?;
-            return Err(error);
-        }
-    };
     let controller = LaunchIntent::fresh()?;
+    let mut command = command;
+    selection.apply_pending_environment(&mut command.environment, &controller);
+    let coordinator = crate::admission::Coordinator::open(&root, &command.environment)?;
+    let controls = selection.profile().controls()?;
+    let stop = policy
+        .drain
+        .checked_add(std::time::Duration::from_secs(5))
+        .ok_or_else(|| invalid("managed stop horizon overflow"))?;
+    let private = PrivateRequest::new(command, selection.clone(), policy)?;
+    let executable = control.executable(&root, HostTool::Host)?;
     let record = LaunchRecord {
-        version: if parent.is_some() { 2 } else { 1 },
+        version: 3,
         invocation: directory.id().clone(),
         command: metadata.selection.command,
         controller: controller.clone(),
         control,
         request_digest: private.digest()?,
         policy,
-        parent: parent.as_ref().map(|parent| parent.record.clone()),
     };
-    directory.publish_evidence(InvocationEvidence::Launch, &record)?;
-    directory.publish_request(&private)?;
     let checkout = request::encode_path(&root);
     let common = vec![
         "--checkout-bytes".into(),
@@ -392,16 +404,27 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
         executable,
         arguments: finalizer_arguments,
     };
+    let mut permit = if selection.profile().ordinary() {
+        None
+    } else {
+        Some(
+            coordinator
+                .admit_service(&manager, &selection, &spec.intent, startup)
+                .await?,
+        )
+    };
     let mut unit = None;
     let launched = async {
-        unit = Some(match &parent {
-            Some(parent) => {
-                let mut guards = Some(parent.locks(&manager, startup).await?);
-                manager.start_notify_service_bound(&spec, &finalizer, &crate::ResourceControls::default(), startup,
-                    || drop(guards.take())).await?
-            }
-            None => manager.start_notify_service(&spec, &finalizer, startup).await?,
-        });
+        if let Some(permit) = &mut permit { permit.prepare(&manager, startup).await?; }
+        let service_policy = crate::manager::ManagedServicePolicy {
+            slice: permit.as_ref().and_then(crate::admission::Permit::allocation_slice)
+                .map(str::to_owned).unwrap_or_else(|| placement.as_ref().map_or(source_slice.as_str(), |p| p.slice()).to_owned()),
+            controls, startup: policy.startup, stop,
+        };
+        directory.publish_evidence(InvocationEvidence::Launch, &record)?;
+        directory.publish_request(&private)?;
+        if let Some(placement) = &placement { placement.validate(&manager, startup).await?; }
+        unit = Some(manager.start_managed_service(&spec, &finalizer, &service_policy, startup).await?);
         let unit = unit.as_ref().ok_or_else(|| invalid("original service custody is missing"))?;
         if unit.launch_job_result() != Some("done") {
             return Err(invalid("original notify job did not acknowledge readiness; inspect retained invocation evidence"));
@@ -414,7 +437,6 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
             observation,
             unit: unit
                 .ok_or_else(|| invalid("original acknowledged service custody is missing"))?,
-            _generation: generation,
         }),
         Err(operation) => {
             let deadline = Instant::now()
@@ -430,9 +452,13 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
                 Ok::<_, HostError>(())
             }
             .await;
+            let allocation = match &mut permit {
+                Some(permit) => permit.release(&manager, deadline).await.and_then(|released| if released { Ok(()) } else { Err(invalid("finite service startup charge retained after original cleanup attempts")) }),
+                None => Ok(()),
+            };
             let request = directory.discard_request().map(|_| ());
             let mut failure = operation;
-            for cleanup in [resources, request] {
+            for cleanup in [resources, allocation, request] {
                 if let Err(cleanup) = cleanup {
                     failure = HostError::Settlement {
                         operation: Box::new(failure),
@@ -440,8 +466,6 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
                     };
                 }
             }
-            // The original generation claim remains protective: even successful unit cleanup
-            // cannot retroactively prove every possibly started payload/finalizer obligation.
             Err(failure)
         }
     }
@@ -452,18 +476,6 @@ pub(super) struct Context {
     pub(super) record: LaunchRecord,
     pub(super) manager: HostManager,
     pub(super) store: InvocationStore,
-    _generation: Option<GenerationUse>,
-}
-impl Context {
-    /// Move only this current stop-post process's existing claim; original users remain owned elsewhere.
-    pub(super) async fn take_finalizer_use(&mut self) -> Result<GenerationUse, HostError> {
-        self.manager
-            .authenticate_service_finalizer(&self.record.controller)
-            .await?;
-        self._generation
-            .take()
-            .ok_or_else(|| invalid("current finalizer generation use was already transferred"))
-    }
 }
 pub(super) async fn context(
     root: &std::path::Path,
@@ -489,19 +501,16 @@ pub(super) async fn context(
             "internal entry is not the recorded prepared control executable",
         ));
     }
-    let generation =
-        GenerationUse::acquire(&root.join("target/host-tools"), &record.control.generation)?;
     Ok(Context {
         directory,
         record,
         store,
         manager: HostManager::connect_user(None).await?,
-        _generation: Some(generation),
     })
 }
 
 /// Actual hidden service main. Parsing/entry policy belongs to the CLI; this path never builds.
-pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostError> {
+pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<i32, HostError> {
     let context = context(&root, &id).await?;
     context
         .manager
@@ -519,16 +528,41 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
     context
         .directory
         .publish_evidence(InvocationEvidence::Controller, &controller)?;
+    let terminal = match supervise_owned(&context, root, &id).await {
+        Ok(terminal) => terminal,
+        Err(error) => {
+            // This is the authenticated original main, so preserve its actual initialization
+            // failure before native exit. Stop-post cannot reconstruct the original cause.
+            TerminalResult::supervisor_unknown(
+                &id,
+                &context.record.command,
+                vec![error],
+                &RedactionPolicy::from_environment(),
+            )
+        }
+    };
+    if let Err(error) = context
+        .directory
+        .publish_evidence(InvocationEvidence::Settlement, terminal.response())
+    {
+        return Err(terminal.publication_failed(error));
+    }
+    if let Err(error) = context.directory.publish_result(&terminal) {
+        return Err(terminal.publication_failed(error));
+    }
+    Ok(terminal.service_exit_code())
+}
+async fn supervise_owned(
+    context: &Context,
+    root: PathBuf,
+    id: &CliInvocationId,
+) -> Result<TerminalResult<ManagedSummary>, HostError> {
     let private: PrivateRequest = context.directory.take_request()?;
     if private.digest()? != context.record.request_digest {
         return Err(invalid("private input differs from captured launch"));
     }
     let (command, selection, policy) = private.into_parts()?;
     let observer = super::workflow::Observer::for_payload(&context, &root, &command)?;
-    let parent = match context.record.parent.clone() {
-        Some(parent) => Some(ManagedParent::reopen(parent, &context.manager, &selection).await?),
-        None => None,
-    };
     let redaction = RedactionPolicy::from_inputs(&command.environment);
     if policy.startup != context.record.policy.startup
         || policy.drain != context.record.policy.drain
@@ -550,56 +584,26 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
         }
     });
     let trampoline = context.record.control.executable(&root, HostTool::Host)?;
-    let (send_report, mut receive_report) = tokio::sync::oneshot::channel();
-    let owner_directory = context.directory.clone();
-    let controller = context.record.controller;
-    let owner_cancel = cancellation.clone();
-    let shutdown_timeout = policy
-        .startup
-        .checked_add(policy.drain)
-        .ok_or_else(|| invalid("owner shutdown horizon overflow"))?;
-    let hierarchy = super::lifecycle::supervise(
+    let report = super::service_payload::run(payload::PayloadRequest {
+        directory: context.directory.clone(),
+        controller: context.record.controller.clone(),
+        root,
+        command,
+        selection,
+        trampoline,
+        policy,
         cancellation,
-        shutdown_timeout,
-        async move |_owner: &mut tokio_graceful_shutdown::SubsystemHandle<HostError>| {
-            let report = payload::run(payload::PayloadRequest {
-                directory: owner_directory,
-                controller,
-                root,
-                command,
-                selection,
-                trampoline,
-                policy,
-                cancellation: owner_cancel,
-                observer,
-                parent,
-            })
-            .await;
-            let _ = send_report.send(report);
-            Ok(())
-        },
-    )
+        observer,
+    })
     .await;
     finished.cancel();
-    let signals = signals.await;
     let mut failures = Vec::new();
-    if let Err(error) = signals {
+    if let Err(error) = signals.await {
         failures.push(HostError::Task(error));
     }
-    if hierarchy.timed_out {
-        failures.push(HostError::Deadline(
-            "managed cooperative owner shutdown".into(),
-        ));
-    }
-    failures.extend(
-        hierarchy
-            .failures
-            .into_iter()
-            .map(|error| HostError::Subsystem(Box::new(error))),
-    );
     let policy = redaction;
-    let terminal: TerminalResult<ManagedSummary> = match receive_report.try_recv() {
-        Ok(Ok(mut report)) => {
+    let terminal: TerminalResult<ManagedSummary> = match report {
+        Ok(mut report) => {
             let child_exit = report.child_exit();
             let validation = match &mut report.capture {
                 Ok(capture) => match capture.observer.take() {
@@ -630,22 +634,13 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
                 .with_workflow(validation, &policy)
                 .with_owner_failures(failures, &policy)
         }
-        report => {
-            match report {
-                Ok(Err(error)) => failures.push(error),
-                Err(_) => failures.push(invalid(
-                    "cooperative owner ended without original payload report",
-                )),
-                Ok(Ok(_)) => {}
-            }
+        Err(error) => {
+            failures.push(error);
             TerminalResult::supervisor_unknown(&id, &context.record.command, failures, &policy)
         }
-    };
-    context
-        .directory
-        .publish_evidence(InvocationEvidence::Settlement, terminal.response())?;
-    context.directory.publish_result(&terminal)?;
-    Ok(())
+    }
+    .with_bundle(&context.directory, &policy);
+    Ok(terminal)
 }
 
 #[cfg(test)]

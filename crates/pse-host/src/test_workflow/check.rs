@@ -10,7 +10,7 @@ use crate::{
         CargoExtractor, CargoRecord, CargoSummary, CompilerSpan, ExtractionError, OutputStream,
         RecordOrigin,
     },
-    generation::{GenerationUse, PreparedGeneration},
+    generation::PreparedGeneration,
     managed::streams::ChunkObserver,
     selection::{self, Plan, Request, Resolved},
     stream_records::{Frame, RecordFramer},
@@ -30,7 +30,7 @@ impl CheckIntent {
         request: Request,
         environment: crate::environment::Environment,
     ) -> Result<Self, WorkflowError> {
-        let plan = selection::plan(&metadata, request)?;
+        let (plan, _) = super::source::resolve(&metadata, request, String::new(), &environment)?;
         if plan.operation() != selection::Operation::Check {
             return Err(WorkflowError::Invalid(
                 "check workflow requires check intent".into(),
@@ -105,32 +105,20 @@ impl AdmittedCheck {
         let prepared = crate::generation::prepared(&self.context.checkout)?.ok_or_else(|| {
             WorkflowError::Invalid("native host is unprepared; run scripts/bootstrap-host".into())
         })?;
-        let tools = self.context.checkout.join("target/host-tools");
-        let usage = GenerationUse::acquire(&tools, &prepared.generation)?;
-        let result = (|| {
-            fs::DirBuilder::new().mode(0o700).create(destination)?;
-            let control = discovery::capture::executable(
-                &tools
-                    .join(&prepared.generation)
-                    .join("cargo-pse-correctness"),
-                &destination.join("cargo-pse-correctness"),
-            )?;
-            self.context.verify()?;
-            Ok(PreparedCheck {
-                context: self.context,
-                resolved: self.resolved,
-                control,
-                generation: prepared,
-            })
-        })();
-        match (result, usage.settle()) {
-            (result, Ok(())) => result,
-            (Ok(_), Err(error)) => Err(error.into()),
-            (Err(operation), Err(settlement)) => Err(WorkflowError::Settlement {
-                operation: Box::new(operation),
-                settlement,
-            }),
-        }
+        let source = prepared.executable(
+            &self.context.checkout,
+            crate::generation::HostTool::Correctness,
+        )?;
+        fs::DirBuilder::new().mode(0o700).create(destination)?;
+        let control =
+            discovery::capture::executable(&source, &destination.join("cargo-pse-correctness"))?;
+        self.context.verify()?;
+        Ok(PreparedCheck {
+            context: self.context,
+            resolved: self.resolved,
+            control,
+            generation: prepared,
+        })
     }
 }
 /// Captured original correctness control, independent of the original generation's lifetime.
@@ -172,6 +160,7 @@ impl PreparedCheck {
             self.control.captured.as_os_str().to_owned(),
         );
         let mut arguments = admitted.arguments.clone();
+        arguments.push("--keep-going".into());
         arguments.push("--message-format=json".into());
         Ok(GroupCommand {
             program: self.control.captured.clone(),

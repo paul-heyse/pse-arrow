@@ -4,8 +4,6 @@
 use super::*;
 use std::ffi::OsStr;
 
-pub(crate) mod payload;
-
 /// Observation-only current placement. A descendant never replaces the manager's unit root.
 #[derive(Debug)]
 pub struct CurrentMembership {
@@ -58,11 +56,6 @@ impl CurrentMembership {
     /// Exact actual member coordinates, separate from `root.control_group`.
     pub fn member(&self) -> &Path {
         &self.ancestry[self.ancestry.len() - 1].path
-    }
-    pub(crate) fn contains_original(&self, binding: &DirectoryBinding) -> bool {
-        self.ancestry.iter().any(|group| {
-            group.path == binding.path() && (group.device, group.inode) == binding.identity()
-        })
     }
     pub(crate) fn matches_root(&self, binding: &UnitBinding) -> bool {
         self.root.invocation == binding.invocation

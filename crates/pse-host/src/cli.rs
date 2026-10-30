@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! One command grammar and native dispatch for the host entry points.
 use crate::envelope::{
-    self, CommandOutcome, Completeness, Envelope, ErrorRecord, OutputFormat, OutputOptions,
-    Presentation, RedactionPolicy,
+    self, CliInvocationId, CommandOutcome, Completeness, Envelope, ErrorRecord, OutputFormat,
+    OutputOptions, Presentation, RedactionPolicy,
 };
-use crate::generation::{EntryGuard, EntrySettlement, HostTool, NewWorkDecision};
+use crate::generation::{EntryGuard, HostTool, NewWorkDecision};
 use crate::{HostError, environment::Environment};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::{
@@ -16,6 +16,7 @@ use std::{
     time::{Duration, Instant},
 };
 mod affected;
+pub mod bundle;
 mod control;
 mod product;
 mod selection;
@@ -66,6 +67,10 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Attempt every independent Just recipe under one native foreground owner.
+    RunAll(bundle::Options),
+    #[command(name = "__bundle", hide = true)]
+    Bundle(bundle::Entry),
     /// Explicitly build/list the actual selected native test population.
     Tests(testing::Tests),
     /// Build, execute and reconcile the actual selected native tests.
@@ -77,6 +82,8 @@ enum Command {
         #[command(subcommand)]
         action: FixtureAction,
     },
+    #[command(name = "__fixture-prepare", hide = true)]
+    FixturePrepare,
     #[command(name = "__workflow", hide = true)]
     Workflow(ManagedEntryArgs),
     /// Explicit captured development-tool preparation, discovery and managed native forwarding.
@@ -217,12 +224,16 @@ enum Command {
     },
     /// Inspect newest invocation metadata without reading historical result payloads.
     History {
-        #[arg(long)]
+        #[arg(long, conflicts_with = "all_sessions")]
         session: Option<String>,
+        /// Read checkout-wide history instead of selecting the current agent session.
+        #[arg(long)]
+        all_sessions: bool,
         #[arg(long, default_value_t = 20, value_parser=clap::value_parser!(u64).range(1..))]
         limit: u64,
     },
     /// Read the original immutable result without starting or rebuilding work.
+    #[command(group(clap::ArgGroup::new("result_page").args(["tests", "failures"]).multiple(false)))]
     Result {
         invocation: String,
         #[arg(long)]
@@ -230,13 +241,18 @@ enum Command {
         /// Read whole selected-test records from this original workflow's retained inventory.
         #[arg(long)]
         tests: bool,
+        /// Read original failed cases and owner diagnostics without running work.
+        #[arg(long)]
+        failures: bool,
+        #[arg(long, requires = "failures", value_parser = failure_cursor)]
+        failure_cursor: Option<crate::test_inventory::FailureCursor>,
         /// Continue a test page using its original JSON cursor, refusing changed inventory bytes.
         #[arg(long, requires = "tests", value_parser = test_cursor)]
         cursor: Option<crate::test_inventory::Cursor>,
-        #[arg(long, requires = "tests", default_value = "20")]
+        #[arg(long, requires = "result_page", default_value = "20")]
         limit: std::num::NonZeroUsize,
         /// Bound serialized whole test rows; source scanning remains explicit.
-        #[arg(long, requires = "tests", default_value = "16384")]
+        #[arg(long, requires = "result_page", default_value = "16384")]
         page_bytes: std::num::NonZeroUsize,
     },
     /// Read a bounded original raw stream with exact byte offsets.
@@ -274,6 +290,7 @@ impl Command {
             Self::Boundary(options) => options.print || !options.explain,
             Self::AgentHook { .. }
             | Self::Workflow(_)
+            | Self::Bundle(_)
             | Self::Supervise(_)
             | Self::Finalize(_)
             | Self::HostGenerationBootstrap { .. }
@@ -295,7 +312,9 @@ impl Command {
             Self::HostGenerationBootstrap { .. }
             | Self::Supervise(_)
             | Self::Finalize(_)
-            | Self::Workflow(_) => GenerationIntent::Internal,
+            | Self::Workflow(_)
+            | Self::Bundle(_)
+            | Self::FixturePrepare => GenerationIntent::Internal,
             Self::Boundary(options)
                 if !options.print && !options.explain && !options.command.is_empty() =>
             {
@@ -340,6 +359,7 @@ impl Command {
                 action: TelemetryAction::Stop(_) | TelemetryAction::RecoverConfiguration(_),
             } => GenerationIntent::ExistingControl,
             Self::Run { .. }
+            | Self::RunAll(_)
             | Self::Tests(_)
             | Self::Test(_)
             | Self::Check(_)
@@ -365,10 +385,10 @@ struct ManagedEntryArgs {
     #[arg(long)]
     checkout_bytes: String,
     #[arg(long, value_parser = parse_invocation_id)]
-    invocation: envelope::CliInvocationId,
+    invocation: CliInvocationId,
 }
-fn parse_invocation_id(value: &str) -> Result<envelope::CliInvocationId, String> {
-    envelope::CliInvocationId::try_from(value.to_owned()).map_err(|error| error.to_string())
+fn parse_invocation_id(value: &str) -> Result<CliInvocationId, String> {
+    CliInvocationId::try_from(value.to_owned()).map_err(|error| error.to_string())
 }
 #[derive(Debug, Subcommand)]
 enum ExplainAction {
@@ -430,25 +450,6 @@ enum GenerationIntent {
     Internal,
 }
 
-fn settle_entry(
-    result: Result<i32, HostError>,
-    entry: EntryGuard,
-    settlement: EntrySettlement,
-) -> Result<i32, HostError> {
-    match (result, entry.complete(settlement)) {
-        (result, Ok(())) => result,
-        (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
-            operation: Box::new(operation),
-            cleanup: Box::new(cleanup),
-        }),
-        (Ok(code), Err(cleanup)) => Err(HostError::Settlement {
-            operation: Box::new(HostError::Ownership(format!(
-                "command returned {code}; generation settlement failed"
-            ))),
-            cleanup: Box::new(cleanup),
-        }),
-    }
-}
 #[derive(Debug, Subcommand)]
 pub(crate) enum HookAction {
     Guard,
@@ -617,6 +618,9 @@ fn resource_class(value: &str) -> Result<String, String> {
     crate::admission::validate_class(value).map_err(|error| error.to_string())?;
     Ok(value.into())
 }
+fn failure_cursor(value: &str) -> Result<crate::test_inventory::FailureCursor, serde_json::Error> {
+    serde_json::from_str(value)
+}
 fn test_cursor(value: &str) -> Result<crate::test_inventory::Cursor, serde_json::Error> {
     serde_json::from_str(value)
 }
@@ -710,7 +714,7 @@ struct ServerSelection {
 }
 pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
     match command {
-        "run" | "tools run" | "test" | "tests" | "check" => {
+        "run" | "run-all" | "tools run" | "test" | "tests" | "check" => {
             envelope::schema::<ManagedReply>(command, view)
         }
         "tools prepare" => envelope::schema::<tools::PreparedTool>(command, view),
@@ -745,6 +749,7 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "history" => envelope::schema::<crate::invocation_view::HistoryPage>(command, view),
         "result" => envelope::schema::<crate::invocation_view::ResultView>(command, view),
         "result tests" => envelope::schema::<crate::test_inventory::TestPage>(command, view),
+        "result failures" => envelope::schema::<crate::test_inventory::FailurePage>(command, view),
         "log" => envelope::schema::<crate::invocation_view::LogView>(command, view),
         "status brief" => envelope::schema::<crate::status::Summary>(command, view),
         "doctor" => envelope::schema::<crate::doctor::Report>(command, view),
@@ -755,11 +760,8 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             envelope::schema::<crate::boundary::NativeExplanation>(command, view)
         }
         "activity" => envelope::schema::<crate::activity::ActivityObservation>(command, view),
-        "fixture prepare"
-        | "fixture show"
-        | "study-module"
-        | "study-module prepare"
-        | "study-module select" => {
+        "fixture prepare" => envelope::schema::<ManagedReply>(command, view),
+        "fixture show" | "study-module" | "study-module prepare" | "study-module select" => {
             envelope::schema::<crate::study_module::StudyModuleReceipt>(command, view)
         }
         "telemetry-service"
@@ -783,38 +785,80 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         )),
     }
 }
-fn dispatch(
-    cli: Cli,
-    presentation: &OutputOptions,
-    entry: &EntryGuard,
-    settlement: &mut EntrySettlement,
-) -> Result<i32, HostError> {
+fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Result<i32, HostError> {
     let selected = cli.root.as_deref();
     let Some(command) = cli.command else {
         return Ok(0);
     };
     match command {
-        Command::Fixture { action } => {
+        Command::Fixture {
+            action: FixtureAction::Prepare { fixture },
+        } => {
             let root = checkout_root(selected)?;
-            let environment = std::env::vars_os().collect();
-            let (name, receipt) = match action {
-                FixtureAction::Prepare { fixture: _fixture } => (
-                    "fixture prepare",
-                    runtime()?.block_on(crate::fixtures::prepare_module(&root, &environment)),
-                ),
-                FixtureAction::Show { fixture: _fixture } => (
-                    "fixture show",
-                    crate::fixtures::selected_module(&root, &environment),
-                ),
-            };
-            let receipt = receipt.map_err(|error| {
+            let control = entry.prepared().ok_or_else(|| {
+                HostError::Ownership(
+                    "fixture preparation requires explicitly prepared native tools".into(),
+                )
+            })?;
+            let command = vec![
+                control.executable(&root, HostTool::Host)?.into_os_string(),
+                "-C".into(),
+                root.as_os_str().to_owned(),
+                "--format".into(),
+                "json".into(),
+                "__fixture-prepare".into(),
+            ];
+            debug_assert_eq!(fixture, "study-module");
+            launch_managed(
+                ManagedCommand {
+                    parent: None,
+                    cwd: root.clone(),
+                    root,
+                    environment: std::env::vars_os().collect(),
+                    command,
+                    detach: false,
+                    session: None,
+                    resource_class: None,
+                    verb: "fixture prepare",
+                    tool: None,
+                    workflow: None,
+                },
+                entry,
+                presentation,
+            )
+        }
+        Command::Fixture {
+            action: FixtureAction::Show { fixture: _fixture },
+        } => {
+            let root = checkout_root(selected)?;
+            let receipt = crate::fixtures::selected_module(&root, &std::env::vars_os().collect())
+                .map_err(|error| {
                 HostError::Workflow(Box::new(crate::test_workflow::WorkflowError::Fixture(
                     error,
                 )))
             })?;
             Ok(presentation.emit(Envelope::response(
-                name,
-                "native fixture preparation input; service lifecycle remains with its owner",
+                "fixture show",
+                "native fixture preparation input",
+                receipt,
+            ))?)
+        }
+        Command::RunAll(options) => bundle::start(options, selected, entry, presentation),
+        Command::Bundle(args) => bundle::run(args, selected, entry),
+        Command::FixturePrepare => {
+            let receipt = runtime()?
+                .block_on(crate::fixtures::prepare_module(
+                    &checkout_root(selected)?,
+                    &std::env::vars_os().collect(),
+                ))
+                .map_err(|error| {
+                    HostError::Workflow(Box::new(crate::test_workflow::WorkflowError::Fixture(
+                        error,
+                    )))
+                })?;
+            Ok(presentation.emit(Envelope::response(
+                "fixture prepare input",
+                "native owner prepared the fixture module",
                 receipt,
             ))?)
         }
@@ -849,22 +893,15 @@ fn dispatch(
             entry,
             presentation,
         ),
-        Command::Tools { action } => {
-            tools::dispatch(action, selected, presentation, entry, settlement)
-        }
-        Command::Affected(args) => affected::dispatch(args, selected, presentation, settlement),
-        Command::Wait(args) => control::dispatch(args, false, selected, presentation, settlement),
-        Command::Cancel(args) => control::dispatch(args, true, selected, presentation, settlement),
-        Command::Observe { action } => {
-            product::dispatch(action, selected, presentation, settlement)
-        }
-        Command::Supervise(args) => {
-            runtime()?.block_on(crate::managed::supervisor::supervise(
-                crate::managed::decode_checkout(&args.checkout_bytes)?,
-                args.invocation,
-            ))?;
-            Ok(0)
-        }
+        Command::Tools { action } => tools::dispatch(action, selected, presentation, entry),
+        Command::Affected(args) => affected::dispatch(args, selected, presentation),
+        Command::Wait(args) => control::dispatch(args, false, selected, presentation),
+        Command::Cancel(args) => control::dispatch(args, true, selected, presentation),
+        Command::Observe { action } => product::dispatch(action, selected, presentation),
+        Command::Supervise(args) => runtime()?.block_on(crate::managed::supervisor::supervise(
+            crate::managed::decode_checkout(&args.checkout_bytes)?,
+            args.invocation,
+        )),
         Command::Finalize(args) => {
             runtime()?.block_on(crate::managed::finalizer::finalize(
                 crate::managed::decode_checkout(&args.checkout_bytes)?,
@@ -879,7 +916,7 @@ fn dispatch(
         } => {
             let root = checkout_root(selected)?;
             let inputs = std::env::vars_os().collect();
-            *settlement = EntrySettlement::Unresolved;
+
             let metadata = crate::dependency::capture(&root, &inputs)?.metadata;
             match action {
                 ExplainAction::Test(args) => {
@@ -933,7 +970,7 @@ fn dispatch(
             let mut document_failure = None;
             let document = match xtask_selection {
                 Some(id) => {
-                    *settlement = EntrySettlement::Unresolved;
+
                     let inputs = std::env::vars_os().collect();
                     match crate::prepared_xtask::PreparedXtask::open(&root, &inputs, &id).and_then(|tool| tool.document_owner(&path, &inputs)) {
                         Ok(document) => crate::catalog::description::Information::Available(document),
@@ -984,7 +1021,6 @@ fn dispatch(
             let snapshot = if let Some(path) = metadata.as_ref() {
                 crate::catalog::MetadataSnapshot::read(&source_path(selected, path.clone())?)?
             } else {
-                *settlement = EntrySettlement::Unresolved;
                 crate::dependency::capture(
                     &checkout_root(selected)?,
                     &std::env::vars_os().collect(),
@@ -1147,12 +1183,12 @@ fn dispatch(
         }
         Command::HostGenerationBootstrap { from } => {
             // These synchronous ownership/path checks do not start construction.
-            *settlement = EntrySettlement::NoEffects;
+
             let mode = crate::generation::bootstrap_mode(entry, from.as_deref())?;
             let root = checkout_root(selected)?;
-            *settlement = EntrySettlement::Unresolved;
+
             let outcome = crate::generation::bootstrap_from(&root, from.as_deref(), mode)?;
-            *settlement = outcome.settlement;
+
             Ok(outcome.exit_code)
         }
         Command::Schema { verb } => {
@@ -1299,8 +1335,17 @@ fn dispatch(
             }
             Ok(presentation.emit(response)?)
         }),
-        Command::History { session, limit } => {
+        Command::History {
+            session,
+            all_sessions,
+            limit,
+        } => {
             let store = invocation_store(selected)?;
+            let session = if all_sessions {
+                None
+            } else {
+                crate::invocation::select_session(session, &std::env::vars_os().collect())?
+            };
             let limit = usize::try_from(limit).map_err(|_| {
                 io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -1318,11 +1363,25 @@ fn dispatch(
             invocation,
             session,
             tests,
+            failures,
+            failure_cursor,
             cursor,
             limit,
             page_bytes,
         } => {
             let store = invocation_store(selected)?;
+            let session =
+                crate::invocation::select_session(session, &std::env::vars_os().collect())?;
+            if failures {
+                return Ok(presentation.emit(crate::test_inventory::failures(
+                    &store,
+                    &invocation,
+                    session.as_deref(),
+                    failure_cursor.as_ref(),
+                    limit,
+                    page_bytes,
+                )?)?);
+            }
             if tests {
                 return Ok(presentation.emit(crate::test_inventory::read(
                     &store,
@@ -1348,6 +1407,8 @@ fn dispatch(
             tail,
         } => {
             let store = invocation_store(selected)?;
+            let session =
+                crate::invocation::select_session(session, &std::env::vars_os().collect())?;
             let stream = if stderr {
                 crate::extraction::OutputStream::Stderr
             } else {
@@ -1378,6 +1439,7 @@ fn dispatch(
             };
             launch_managed(
                 ManagedCommand {
+                    parent: None,
                     root,
                     cwd,
                     environment,
@@ -1396,6 +1458,7 @@ fn dispatch(
     }
 }
 struct ManagedCommand {
+    parent: Option<CliInvocationId>,
     root: PathBuf,
     cwd: PathBuf,
     environment: Environment,
@@ -1423,6 +1486,7 @@ fn launch_managed(
     presentation: &OutputOptions,
 ) -> Result<i32, HostError> {
     let ManagedCommand {
+        parent,
         root,
         cwd,
         environment,
@@ -1434,19 +1498,11 @@ fn launch_managed(
         tool,
         workflow,
     } = request;
+    let session = crate::invocation::select_session(session, &environment)?;
     let control = entry.prepared().cloned().ok_or_else(|| HostError::Ownership("managed run requires an explicitly prepared native generation; run scripts/bootstrap-host".into()))?;
     let selection =
         crate::admission::Selection::load(&root, &environment, resource_class.as_deref(), None)?;
     let runtime = runtime()?;
-    let parent = if detach {
-        runtime.block_on(crate::managed::supervisor::parent(
-            &environment,
-            &selection,
-            Instant::now() + Duration::from_secs(30),
-        ))?
-    } else {
-        None
-    };
     let environment_digest = environment_digest(&environment);
     let state = crate::paths::CheckoutState::resolve(&root, &environment)?;
     let store = crate::invocation::InvocationStore::new(state);
@@ -1454,7 +1510,7 @@ fn launch_managed(
         invocation_id: presentation.invocation_id.clone(),
         command: verb.into(),
         session,
-        parent: parent.as_ref().map(|parent| parent.invocation_id().clone()),
+        parent,
         operation: RunSelection {
             command: command.clone(),
             cwd: cwd.as_os_str().to_owned(),
@@ -1516,7 +1572,8 @@ fn launch_managed(
             report,
             &policy,
         )
-        .with_workflow(validation, &policy);
+        .with_workflow(validation, &policy)
+        .with_bundle(&directory, &policy);
         directory.publish_evidence(
             crate::invocation::InvocationEvidence::Settlement,
             terminal.response(),
@@ -1536,7 +1593,6 @@ fn launch_managed(
         .ok_or_else(|| HostError::Ownership("empty managed payload".into()))?;
     let launched = runtime.block_on(crate::managed::supervisor::launch_generic(
         crate::managed::supervisor::ManagedRequest {
-            parent,
             root,
             directory,
             command: crate::managed::payload::PayloadCommand {
@@ -1832,37 +1888,18 @@ fn catalog_dispatch(
 pub fn main(kind: BinKind) -> ExitCode {
     let arguments: Vec<OsString> = std::env::args_os().skip(1).collect();
     if matches!(kind, BinKind::Correctness) {
-        let entry = if arguments.as_slice() == [OsString::from("--version")] {
-            None // Bootstrap's raw probe precedes manifest publication.
+        let _entry = if arguments.as_slice() == [OsString::from("--version")] {
+            None
         } else {
             match EntryGuard::acquire_current() {
-                Ok(mut entry) => {
-                    if let Err(error) = entry.promote() {
-                        let _ = writeln!(io::stderr(), "arrow-validation: {error}");
-                        return ExitCode::from(2);
-                    }
-                    Some(entry)
-                }
+                Ok(entry) => Some(entry),
                 Err(error) => {
                     let _ = writeln!(io::stderr(), "arrow-validation: {error}");
                     return ExitCode::from(2);
                 }
             }
         };
-        let mut settlement = EntrySettlement::NoEffects;
-        let result = crate::correctness::run(arguments, &mut settlement);
-        if let Some(entry) = entry {
-            // The raw Cargo owner has not yet supplied original descendant-settlement
-            // evidence. Preserve the claim independently of its command exit status.
-            if let Err(error) = entry.complete(settlement) {
-                let _ = writeln!(io::stderr(), "arrow-validation: {error}");
-                if let Err(original) = result {
-                    let _ = writeln!(io::stderr(), "arrow-validation: {original}");
-                }
-                return ExitCode::from(2);
-            }
-        }
-        return match result {
+        return match crate::correctness::run(arguments) {
             Ok(code) => ExitCode::from(u8::try_from(code).unwrap_or(125)),
             Err(error) => {
                 let _ = writeln!(io::stderr(), "arrow-validation: {error}");
@@ -1905,7 +1942,7 @@ pub fn main(kind: BinKind) -> ExitCode {
             io::stdout().is_terminal(),
         ),
         presentation: Presentation::default(),
-        invocation_id: envelope::CliInvocationId::new(),
+        invocation_id: CliInvocationId::new(),
         artifact_directory: None,
     };
     let mut raw_protocol = arguments.first().is_some_and(|arg| {
@@ -1950,8 +1987,7 @@ pub fn main(kind: BinKind) -> ExitCode {
                 };
                 raw_protocol = cli.command.as_ref().is_some_and(Command::raw_protocol);
                 (|| {
-                    let mut entry = EntryGuard::acquire_current()?;
-                    let mut settlement = EntrySettlement::NoEffects;
+                    let entry = EntryGuard::acquire_current()?;
                     let result = (|| {
                         let intent = cli
                             .command
@@ -1967,14 +2003,13 @@ pub fn main(kind: BinKind) -> ExitCode {
                             ))? {
                                 NewWorkDecision::Current | NewWorkDecision::PreserveNested => {}
                                 NewWorkDecision::Rebuild => {
-                                    settlement = EntrySettlement::Unresolved;
                                     let tool = match kind {
                                         BinKind::Pse => HostTool::Pse,
                                         BinKind::Host => HostTool::Host,
                                         BinKind::Correctness => HostTool::Correctness,
                                     };
                                     return crate::generation::rebuild_and_reexec(
-                                        &root, tool, &arguments, &mut entry,
+                                        &root, tool, &arguments,
                                     );
                                 }
                             }
@@ -1993,13 +2028,9 @@ pub fn main(kind: BinKind) -> ExitCode {
                                 .join("artifacts"),
                             );
                         }
-                        if intent != GenerationIntent::Passive {
-                            entry.promote()?;
-                            settlement = EntrySettlement::Unresolved;
-                        }
-                        dispatch(cli, &presentation, &entry, &mut settlement)
+                        dispatch(cli, &presentation, &entry)
                     })();
-                    settle_entry(result, entry, settlement)
+                    result
                 })()
             }
             Err(error) => {
@@ -2172,6 +2203,34 @@ mod tests {
         }
         assert!(Cli::try_parse_from(["pse", "fixture", "show", "unknown"]).is_err());
     }
+    #[test]
+    fn failure_pages_are_passive_and_exclusive() {
+        let cli = Cli::try_parse_from([
+            "pse",
+            "result",
+            "latest",
+            "--failures",
+            "--limit",
+            "2",
+            "--page-bytes",
+            "2048",
+        ])
+        .unwrap();
+        assert_eq!(
+            cli.command.unwrap().generation_intent(),
+            GenerationIntent::Passive
+        );
+        assert!(response_schema("result failures", &Default::default()).is_ok());
+        assert!(Cli::try_parse_from(["pse", "result", "latest", "--tests", "--failures"]).is_err());
+        assert!(
+            Cli::try_parse_from(["pse", "result", "latest", "--failure-cursor", "{}"]).is_err()
+        );
+        let helper = Cli::try_parse_from(["pse", "__fixture-prepare"]).unwrap();
+        assert_eq!(
+            helper.command.unwrap().generation_intent(),
+            GenerationIntent::Internal
+        );
+    }
     use super::*;
     #[test]
     fn bootstrap_precondition_refusal_reports_no_construction_effects() {
@@ -2187,12 +2246,10 @@ mod tests {
         let presentation = OutputOptions {
             format: OutputFormat::Json,
             presentation: Presentation::default(),
-            invocation_id: envelope::CliInvocationId::new(),
+            invocation_id: CliInvocationId::new(),
             artifact_directory: None,
         };
-        let mut settlement = EntrySettlement::Unresolved;
-        assert!(dispatch(cli, &presentation, &entry, &mut settlement).is_err());
-        assert_eq!(settlement, EntrySettlement::NoEffects);
+        assert!(dispatch(cli, &presentation, &entry).is_err());
         assert_eq!(std::fs::read_dir(absent.path()).unwrap().count(), 0);
     }
     use clap::CommandFactory as _;
@@ -2280,6 +2337,8 @@ mod tests {
                 control_group: "/fixture".into(),
             })),
             ManagedReply::Completed(Box::new(crate::managed::result::ManagedSummary {
+                bundle: None,
+                native_lifetime_pending: false,
                 workflow: None,
                 child_exit: Some(125),
                 stdout: None,
@@ -2389,10 +2448,9 @@ mod tests {
                     "fixture intentionally leaves requested source observations unavailable".into(),
                 );
             }
-            response.invocation_id = envelope::CliInvocationId::try_from(
-                "019a0000-0000-7000-8000-000000000001".to_owned(),
-            )
-            .unwrap();
+            response.invocation_id =
+                CliInvocationId::try_from("019a0000-0000-7000-8000-000000000001".to_owned())
+                    .unwrap();
             let value = serde_json::to_value(&response).unwrap();
             let schema = response_schema(command, &Presentation::default()).unwrap();
             let validator = jsonschema::validator_for(schema.as_value()).unwrap();

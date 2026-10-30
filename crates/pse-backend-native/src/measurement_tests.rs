@@ -12,7 +12,12 @@
 //! linearized problem (no cubic term) runs on Clarabel with QDLDL and with MKL Pardiso on
 //! several thread counts.
 //!
-//! Run on demand: `just native-test -E 'test(/measure_/)' --run-ignored only --no-capture`.
+//! Run on demand through the native correctness adapter:
+//! ```text
+//! scripts/pse-env --native=solver -- scripts/cargo-bin/cargo-pse-correctness nextest run \
+//!   -p pse-backend-native --lib --features ipopt,pounce,clarabel-pardiso --locked \
+//!   -E 'test(/measure_/)' --run-ignored only --no-capture
+//! ```
 use crate::{
     CoefficientProblem, NlpOracle, OracleContract, ProblemError, Variable,
     conic::Direct,

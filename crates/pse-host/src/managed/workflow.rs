@@ -256,7 +256,7 @@ impl Observer {
         program: &Path,
         arguments: &[OsString],
     ) -> Result<Self, HostError> {
-        let metadata = store.metadata::<Metadata>(directory.id())?;
+        let metadata = store.metadata::<Box<RawValue>>(directory.id())?;
         let Some(action) = Action::from_command(&metadata.selection.command) else {
             return Ok(Self::Raw);
         };
@@ -272,9 +272,9 @@ impl Observer {
                 "workflow payload is not the original fixed helper",
             )));
         }
-        let binding = metadata
-            .selection
-            .operation
+        let operation: Metadata =
+            serde_json::from_str(metadata.selection.operation.get()).map_err(host)?;
+        let binding = operation
             .workflow
             .ok_or_else(|| host(invalid("workflow operation has no original input binding")))?;
         let input = input(
@@ -534,6 +534,55 @@ mod tests {
             terminal: None,
             invalid: false,
         })
+    }
+    #[test]
+    fn generic_observer_accepts_verb_owned_metadata_without_workflow_decoding() {
+        let scratch = tempfile::tempdir().unwrap();
+        let environment = crate::environment::Environment::from([(
+            "XDG_STATE_HOME".into(),
+            scratch.path().join("state").into_os_string(),
+        )]);
+        let state = crate::paths::CheckoutState::from_paths(
+            &scratch.path().join("checkout"),
+            &scratch.path().join("common.git"),
+            &environment,
+        )
+        .unwrap();
+        let store = crate::invocation::InvocationStore::new(state);
+        for operation in [
+            serde_json::json!("generic operation"),
+            serde_json::json!([1, 2, 3]),
+        ] {
+            let directory = Arc::new(
+                store
+                    .begin(crate::invocation::InvocationSpec {
+                        invocation_id: CliInvocationId::new(),
+                        command: "run".into(),
+                        session: None,
+                        parent: None,
+                        operation,
+                        control: PreparedGeneration {
+                            generation: "generation.fixture".into(),
+                            protocol: 1,
+                            manifest_digest: "a".repeat(64),
+                        },
+                        environment_digest: "b".repeat(64),
+                        scientific: Vec::new(),
+                    })
+                    .unwrap(),
+            );
+            assert!(matches!(
+                Observer::for_operation(
+                    &store,
+                    &directory,
+                    scratch.path(),
+                    Path::new("/bin/true"),
+                    &[]
+                )
+                .unwrap(),
+                Observer::Raw
+            ));
+        }
     }
     fn terminal(id: &CliInvocationId, bytes: &[u8]) -> TerminalRecord {
         TerminalRecord {

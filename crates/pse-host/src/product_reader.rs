@@ -81,22 +81,12 @@ pub enum ProductReaderError {
     /// Invalid immutable selection or unsupported caller transport context.
     #[error("product reader selection: {0}")]
     Invalid(String),
-    /// Preserve original operation and independent generation-custody settlement failure.
-    #[error(
-        "product reader preparation failed: {operation}; custody settlement failed: {settlement}"
-    )]
-    Settlement {
-        /// Original operation error.
-        operation: Box<ProductReaderError>,
-        /// Independent original custody error.
-        settlement: crate::HostError,
-    },
 }
 pse_diagnostics::impl_diagnostic! {
     ProductReaderError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
     forward(this) { match this { Self::BuildEvidence{source,..}=>Some(source.as_ref()), Self::Correctness(error)=>Some(error), Self::Host(error)=>Some(error), Self::Environment(error)=>Some(error), Self::Supervision(error)=>Some(error), _=>None } },
-    help(_this) { None }, related(this) { match this { Self::Execution {failures,..}=>Some(Box::new(failures.iter().map(|error| {let error:&dyn pse_diagnostics::TypedDiagnostic=error;error}))), Self::Settlement {operation,settlement}=>{ let errors:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),settlement];Some(Box::new(errors.into_iter())) }, _=>None } }, source(_this) { None }
+    help(_this) { None }, related(this) { match this { Self::Execution {failures,..}=>Some(Box::new(failures.iter().map(|error| {let error:&dyn pse_diagnostics::TypedDiagnostic=error;error}))), _=>None } }, source(_this) { None }
 }
 fn invalid(message: impl Into<String>) -> ProductReaderError {
     ProductReaderError::Invalid(message.into())
@@ -826,27 +816,13 @@ pub fn prepare(
     let prepared = crate::generation::prepared(&checkout)?.ok_or_else(|| {
         invalid("native correctness control is unprepared; run scripts/bootstrap-host")
     })?;
-    let tools = checkout.join("target/host-tools");
-    let usage = crate::generation::GenerationUse::acquire(&tools, &prepared.generation)?;
-    let captured = crate::discovery::capture::executable(
-        &tools
-            .join(&prepared.generation)
-            .join("cargo-pse-correctness"),
+    let source_control =
+        prepared.executable(&checkout, crate::generation::HostTool::Correctness)?;
+    let correctness = crate::discovery::capture::executable(
+        &source_control,
         &directory.join("cargo-pse-correctness"),
-    )
-    .map_err(ProductReaderError::from);
-    let correctness = match (captured, usage.settle()) {
-        (result, Ok(())) => result?,
-        (Ok(_), Err(error)) => return Err(error.into()),
-        (Err(operation), Err(settlement)) => {
-            return Err(ProductReaderError::Settlement {
-                operation: Box::new(operation),
-                settlement,
-            });
-        }
-    };
-    // No original-generation path is lent to a child after this explicit release.
-    // The captured control and product do not establish whole source-build settlement.
+    )?;
+    // Children use independently authenticated copies; source-build process settlement remains separate.
     (|| {
         let mut environment = correctness::standalone_adapter_environment(environment)?;
         let before = source(&checkout, &environment)?;

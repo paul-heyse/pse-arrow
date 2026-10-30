@@ -20,6 +20,9 @@ use std::{
 const VERSION: u32 = 1;
 const META_LIMIT: u64 = 4 * 1024 * 1024;
 
+mod session;
+pub use session::select_session;
+
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(format!("invocation evidence: {}", message.into()))
 }
@@ -79,14 +82,14 @@ pub struct InvocationDirectory {
 /// Fixed immutable resource-owner records; none is a terminal admission or mutation grant.
 #[derive(Clone, Copy, Debug)]
 pub enum InvocationEvidence {
+    /// Original fixed bundle helper's independently attributed child results.
+    Bundle,
     /// Fixed native workflow input, bound by the original operation's byte digest.
     WorkflowInput,
     /// Original service launch selection and intent.
     Launch,
     /// Original service main identity and opened controller hierarchy before payload effects.
     Controller,
-    /// Service-owned native payload creation intents, before effects can become uncertain.
-    PayloadIntent,
     /// Separately attributed post-main service/finalizer observations.
     Finalization,
     /// Original initialization and physical resource identities.
@@ -97,39 +100,14 @@ pub enum InvocationEvidence {
 impl InvocationEvidence {
     fn filename(self) -> &'static str {
         match self {
+            Self::Bundle => "bundle.json",
             Self::WorkflowInput => "workflow-input.json",
             Self::Launch => "launch.json",
             Self::Controller => "controller.json",
-            Self::PayloadIntent => "payload-intent.json",
             Self::Finalization => "finalization.json",
             Self::Custody => "custody.json",
             Self::Settlement => "settlement.json",
         }
-    }
-}
-
-/// Held original-parent launch exclusion. Only this owner can publish the cutoff.
-#[derive(Debug)]
-pub struct InvocationLaunchGuard<'a> {
-    directory: &'a InvocationDirectory,
-    _lock: File,
-}
-impl InvocationLaunchGuard<'_> {
-    /// Establish the original explicit cutoff while excluding concurrent child admission.
-    pub fn close(&self) -> Result<(), HostError> {
-        if !self.directory.launch_closed()? {
-            publish(
-                &self.directory.path,
-                "launch.closed",
-                &true,
-                Some(META_LIMIT),
-            )?;
-        }
-        Ok(())
-    }
-    /// Inspect the cutoff while retaining the same exclusion across a launch decision.
-    pub fn is_closed(&self) -> Result<bool, HostError> {
-        self.directory.launch_closed()
     }
 }
 
@@ -393,7 +371,9 @@ impl InvocationStore {
         Ok(metadata)
     }
 
-    /// Select an exact ID, a unique prefix or latest within session, falling back to checkout.
+    /// Select an exact ID, a unique prefix or latest within the selected session.
+    /// Missing session identity selects checkout history; a present session never crosses
+    /// to another session merely because its own history is empty.
     /// Exact/prefix access validates only the chosen record; latest requires valid full history.
     /// Missing state is an empty observation. Malformed chosen evidence remains an error.
     pub fn resolve(
@@ -433,7 +413,7 @@ impl InvocationStore {
                     })
                     .map(|record| record.selection.invocation_id.clone())
             };
-            return Ok(session.and_then(|_| latest(true)).or_else(|| latest(false)));
+            return Ok(latest(session.is_some()));
         }
         match fs::symlink_metadata(self.state.invocations()) {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -686,42 +666,6 @@ impl InvocationDirectory {
         fs::remove_file(self.path.join("request.json"))?;
         File::open(&self.path)?.sync_all()?;
         Ok(true)
-    }
-    /// Try the original parent launch exclusion without blocking an async runtime thread.
-    /// The owner holds this descriptor across admission and closure/creation effects.
-    pub fn try_launch_lock(&self) -> Result<InvocationLaunchGuard<'_>, HostError> {
-        directory(&self.path, false)?;
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .mode(0o600)
-            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
-            .open(self.path.join("launch.lock"))?;
-        let metadata = file.metadata()?;
-        if !metadata.is_file()
-            || metadata.uid() != rustix::process::geteuid().as_raw()
-            || metadata.mode() & 0o022 != 0
-        {
-            return Err(invalid(
-                "launch exclusion is not an owned private regular file",
-            ));
-        }
-        rustix::fs::flock(&file, rustix::fs::FlockOperation::NonBlockingLockExclusive)
-            .map_err(std::io::Error::from)?;
-        Ok(InvocationLaunchGuard {
-            directory: self,
-            _lock: file,
-        })
-    }
-    /// This original owner's explicit cutoff, never inferred from process state.
-    pub fn launch_closed(&self) -> Result<bool, HostError> {
-        match self.read_record::<bool>("launch.closed")? {
-            Some(true) => Ok(true),
-            None => Ok(false),
-            Some(false) => Err(invalid("invalid launch closure record")),
-        }
     }
     /// Publish exactly one immutable full result constructed by its original performing owner.
     /// Generic envelopes, acknowledgements and presentation views cannot grant terminal admission.

@@ -136,7 +136,7 @@ pub struct Declaration {
 }
 
 /// Checked declaration applied to one admitted test root, before actual binary listing.
-#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Requirement {
     group: usize,
     unit: CompilerUnit,

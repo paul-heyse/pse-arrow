@@ -601,7 +601,10 @@ async fn acceptance(managed: bool) {
                             cpu_threads: 16, case_lanes: 16, math_jobs: 32, compiler_cores: 1,
                             admission_wait_ms: 30_000, process_headroom_bytes: 2 << 30, observer_memory_bytes: 512 << 20 })).unwrap();
                     worker = Some(NativeStudyWorker::new(NativeStudyWorkerSpec { ready: service.ready()?,
-                        executable: PathBuf::from(env!("CARGO_BIN_EXE_pse-worker")),
+                        executable: PathBuf::from(
+                            std::env::var_os("CARGO_BIN_EXE_pse-worker")
+                                .expect("Cargo/nextest supplies the selected runtime worker executable"),
+                        ),
                         environment: native_worker_environment::selected(), allocation,
                         settings: WorkerSettings { maximum_in_flight: Some(2), ..Default::default() },
                     }).unwrap());

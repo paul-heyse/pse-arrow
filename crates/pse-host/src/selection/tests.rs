@@ -49,6 +49,101 @@ fn request(intents: Vec<PackageIntent>) -> Request {
 }
 
 #[test]
+fn exact_rerun_filters_do_not_cross_compiler_contexts_or_interpret_names_as_patterns() {
+    let mut first = intent(Some(("alpha", Some("lib"))));
+    first.features.defaults = false;
+    let mut second = first.clone();
+    second.features.enabled.insert("native".into());
+    let mut plan = plan(&metadata(), request(vec![first.clone(), second.clone()])).unwrap();
+    assert_eq!(plan.groups().len(), 2);
+    plan.rerun = vec![
+        RerunCase {
+            package: "alpha".into(),
+            target: first.target.unwrap(),
+            features: first.features,
+            binary_id: "alpha".into(),
+            test_name: "case(a,b)\\x".into(),
+        },
+        RerunCase {
+            package: "alpha".into(),
+            target: second.target.unwrap(),
+            features: second.features,
+            binary_id: "alpha".into(),
+            test_name: "other".into(),
+        },
+    ];
+    assert_eq!(
+        plan.filters_for_group(0).expressions,
+        ["(binary_id(=alpha) & test(=case(a\\,b\\)\\\\x))"]
+    );
+    assert_eq!(
+        plan.filters_for_group(1).expressions,
+        ["(binary_id(=alpha) & test(=other))"]
+    );
+}
+
+#[test]
+fn native_target_selectors_preserve_declared_library_and_required_feature_policy() {
+    let mut data = metadata();
+    data.packages[0].targets[0].name = "actual_library".into();
+    let choose = |selector| {
+        let mut input = request(vec![intent(None)]);
+        input.scope = Scope::Targets {
+            scope: Box::new(input.scope),
+            selector,
+        };
+        plan(&data, input).unwrap()
+    };
+    let library = choose(CargoTargets::Library);
+    assert_eq!(
+        library.groups()[0].roots()[0].target().unwrap().name,
+        "actual_library"
+    );
+    assert!(
+        library.groups()[0]
+            .arguments()
+            .contains(&"--lib".to_owned())
+    );
+    assert!(library.groups()[0].roots()[0].features().enabled.is_empty());
+    let all = choose(CargoTargets::AllTargets);
+    assert!(
+        all.groups()[0]
+            .arguments()
+            .contains(&"--all-targets".to_owned())
+    );
+    assert!(all.groups()[0].roots()[0].features().enabled.is_empty());
+    let test = choose(CargoTargets::Test("same".into()));
+    assert_eq!(
+        test.groups()[0].roots()[0].features().enabled,
+        BTreeSet::from(["native".into()])
+    );
+    let bin = choose(CargoTargets::Bin("same".into()));
+    assert_eq!(
+        bin.groups()[0].roots()[0].features().enabled,
+        BTreeSet::from(["canonical".into()])
+    );
+    // Cargo applies native target filters across the selected package set, not separately
+    // requiring every package to contain a library or an identically named target.
+    data.packages[1].targets[0].kind = vec![cargo_metadata::TargetKind::Bin];
+    let mut workspace = request(vec![]);
+    workspace.scope = Scope::Targets {
+        scope: Box::new(Scope::Workspace {
+            exclude: Vec::new(),
+            features: Features::default(),
+        }),
+        selector: CargoTargets::Library,
+    };
+    let selected = plan(&data, workspace).unwrap();
+    assert!(
+        !selected
+            .groups()
+            .iter()
+            .flat_map(|group| group.roots())
+            .any(|root| root.package_name() == "beta")
+    );
+}
+
+#[test]
 fn workspace_exclusions_and_default_members_keep_exact_package_ids() {
     let data = metadata();
     let mut input = request(vec![]);

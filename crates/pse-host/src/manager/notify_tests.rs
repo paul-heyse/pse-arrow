@@ -236,7 +236,14 @@ async fn native_notify_case(ready: bool) {
     // Catch panics as well as errors so every submitted original intent reaches owned cleanup.
     let checked = AssertUnwindSafe(async {
         let deadline = Instant::now() + Duration::from_secs(if ready { 10 } else { 2 });
-        let launching = manager.start_notify_service(&spec, &finalizer, deadline);
+        let policy = ManagedServicePolicy {
+            slice: manager.entry_slice(&manager.current_unit().await?).await?.0,
+            // The short client observation expires while the native startup lifetime is
+            // still valid. Equal clocks would test native startup death instead of lost ack.
+            controls: ResourceControls::default(), startup: Duration::from_secs(10),
+            stop: Duration::from_secs(5),
+        };
+        let launching = manager.start_managed_service(&spec, &finalizer, &policy, deadline);
         tokio::pin!(launching);
         let original: MainReceipt = loop {
             tokio::select! {

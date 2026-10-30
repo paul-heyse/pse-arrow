@@ -1,51 +1,25 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Entry protection and authenticated new-work classification, separate from parsing.
+//! Authenticate the executing image independently from source freshness and native lifetimes.
 use super::*;
 use std::time::{Duration, Instant};
-mod read;
-pub use read::GenerationReadGuard;
 
-/// An explicit report by the performing owner; never inferred from an exit code.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum EntrySettlement {
-    /// No retained executable paths, children or effectful resource obligations were created.
-    NoEffects,
-    /// The performing owner positively settled every protected child/resource/finalizer.
-    ResourcesSettled,
-    /// Actual settlement is unavailable; keep the durable protective claim.
-    Unresolved,
-}
-
-/// Actual executable generation protection, including entries with no invocation ledger row.
+/// Immutable executing-image identity. It creates no GC claims or resource-settlement duties.
 #[derive(Debug)]
 pub struct EntryGuard {
-    pub(super) passive: Option<GenerationReadGuard>,
-    pub(super) usage: Option<GenerationUse>,
     pub(super) reference: Option<PreparedGeneration>,
+    pub(super) checkout: Option<PathBuf>,
 }
 impl EntryGuard {
-    /// Acquire before ordinary entry dispatch. The foreground trampoline must first claim
-    /// its inherited descriptors; cold seed and raw version probes have no published use.
+    /// Verify a fixed prepared executable before dispatch. Mutable bootstrap seeds have no
+    /// published image identity; their narrow construction route retains its existing policy.
     pub fn acquire_current() -> Result<Self, HostError> {
-        Self::acquire_executable_with_handoff(
-            &std::env::current_exe()?,
-            std::env::var_os(transfer::HANDOFF).as_deref(),
-        )
+        Self::acquire_executable(&std::env::current_exe()?)
     }
-
-    #[cfg(test)]
     fn acquire_executable(executable: &Path) -> Result<Self, HostError> {
-        Self::acquire_executable_with_handoff(executable, None)
-    }
-    fn acquire_executable_with_handoff(
-        executable: &Path,
-        handoff: Option<&OsStr>,
-    ) -> Result<Self, HostError> {
         let empty = || Self {
-            passive: None,
-            usage: None,
             reference: None,
+            checkout: None,
         };
         let Some(directory) = executable.parent() else {
             return Ok(empty());
@@ -67,70 +41,40 @@ impl EntryGuard {
             .and_then(OsStr::to_str)
             .filter(|name| component(name) && name.starts_with("generation."))
             .ok_or_else(|| invalid("entry executable is outside a fixed generation"))?;
-        let (passive, usage) = match transfer::adopt(tools, generation, handoff)? {
-            Some(usage) => (None, Some(usage)),
-            None => (Some(GenerationReadGuard::acquire(tools, generation)?), None),
-        };
-        let manifest = usage
-            .as_ref()
-            .map(GenerationUse::manifest)
-            .or_else(|| passive.as_ref().map(GenerationReadGuard::manifest))
-            .ok_or_else(|| invalid("entry has no generation guard"))?;
+        let manifest = GenerationManifest::load(directory)?;
+        let name = executable
+            .file_name()
+            .and_then(OsStr::to_str)
+            .ok_or_else(|| invalid("entry executable name is not UTF-8"))?;
+        if !manifest.binaries.contains_key(name) {
+            return Err(invalid(
+                "entry executable is absent from its authenticated manifest",
+            ));
+        }
         let reference = PreparedGeneration {
             generation: generation.into(),
             protocol: manifest.control_protocol(),
             manifest_digest: manifest.digest()?,
         };
+        let checkout = tools
+            .parent()
+            .filter(|path| path.file_name().is_some_and(|name| name == "target"))
+            .and_then(Path::parent)
+            .map(Path::to_owned);
         Ok(Self {
-            passive,
-            usage,
             reference: Some(reference),
+            checkout,
         })
     }
-
-    /// Original generation identity, independent of a subsequently advanced current selector.
+    /// Original image identity, independent of a subsequently advanced current selector.
     pub fn prepared(&self) -> Option<&PreparedGeneration> {
         self.reference.as_ref()
     }
-    /// Promote before creating a child, retaining/exporting an executable path or handing
-    /// off finalization. Already promoted and mutable seed entries need no extra claim.
-    /// A failed promotion keeps passive protection and authorizes no effect.
-    pub fn promote(&mut self) -> Result<(), HostError> {
-        if self.usage.is_none()
-            && let Some(passive) = &self.passive
-        {
-            self.usage = Some(passive.promote()?);
-            self.passive = None;
-        }
-        Ok(())
-    }
-    /// Physical checkout owning this authenticated entry, independent of `-C` selection.
-    /// Mutable source-built images have no prepared checkout identity.
+    /// Authenticated prepared checkout; mutable source-built seeds have none.
     pub fn checkout(&self) -> Option<PathBuf> {
-        let tools = match &self.passive {
-            Some(passive) => passive.tools.as_path(),
-            None => self.usage.as_ref()?.record.parent()?.parent()?.parent()?,
-        };
-        let target = tools
-            .parent()
-            .filter(|path| path.file_name().is_some_and(|name| name == "target"))?;
-        Some(target.parent()?.to_owned())
-    }
-
-    /// Release only an explicit performing-owner settlement report. Drop, process loss,
-    /// timeout, success/failure status and missing ledger rows establish no such report.
-    /// Passive entries have no retained obligations and only close their process-held lock;
-    /// an unresolved report never substitutes for promotion before effects.
-    pub fn complete(self, settlement: EntrySettlement) -> Result<(), HostError> {
-        if settlement != EntrySettlement::Unresolved
-            && let Some(usage) = self.usage
-        {
-            usage.settle()?;
-        }
-        Ok(())
+        self.checkout.clone()
     }
 }
-
 /// Freshness disposition for a parsed new-work verb. Passive/internal/control/adapter
 /// paths do not call this function and therefore cannot trigger its rebuild decision.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -163,7 +107,7 @@ pub async fn new_work_decision(
     if nested {
         return Ok(NewWorkDecision::PreserveNested);
     }
-    if transfer::was_reexecuted(inputs)? {
+    if reexec::was_reexecuted(inputs)? {
         return Err(invalid(
             "host inputs changed after rebuilding; retry the top-level command",
         ));
@@ -175,44 +119,18 @@ pub async fn new_work_decision(
 mod tests {
     use super::*;
     #[test]
-    fn installed_entries_pin_their_original_generation_and_require_explicit_settlement() {
+    fn installed_image_authentication_leaves_unknown_gc_claims_untouched() {
         let (_fixture, tools) = crate::generation::tests::installed_fixture();
-        let executable = tools.join("generation.fixture/pse-host");
-        let entry = EntryGuard::acquire_executable(&executable).unwrap();
-        let identity = entry.prepared().unwrap().clone();
-        assert_eq!(identity.generation, "generation.fixture");
-        assert_eq!(identity.protocol, 1);
-        assert_eq!(
-            GenerationUse::inspect(&tools, &identity.generation).unwrap(),
-            GenerationUseState::Active
-        );
-        entry.complete(EntrySettlement::NoEffects).unwrap();
-        assert_eq!(
-            GenerationUse::inspect(&tools, &identity.generation).unwrap(),
-            GenerationUseState::Available
-        );
-        EntryGuard::acquire_executable(&executable)
-            .unwrap()
-            .complete(EntrySettlement::ResourcesSettled)
-            .unwrap();
-        assert_eq!(
-            GenerationUse::inspect(&tools, &identity.generation).unwrap(),
-            GenerationUseState::Available
-        );
-        let mut effectful = EntryGuard::acquire_executable(&executable).unwrap();
-        effectful.promote().unwrap();
-        effectful.promote().unwrap();
-        assert_eq!(
-            fs::read_dir(tools.join(".uses/generation.fixture"))
-                .unwrap()
-                .count(),
-            1
-        );
-        effectful.complete(EntrySettlement::Unresolved).unwrap();
-        assert_eq!(
-            GenerationUse::inspect(&tools, &identity.generation).unwrap(),
-            GenerationUseState::Unsettled
-        );
+        let unknown = tools.join(".uses/unknown-legacy");
+        fs::create_dir_all(unknown.parent().unwrap()).unwrap();
+        fs::write(&unknown, b"unknown claim").unwrap();
+        let entry =
+            EntryGuard::acquire_executable(&tools.join("generation.fixture/pse-host")).unwrap();
+        assert_eq!(entry.prepared().unwrap().generation, "generation.fixture");
+        assert_eq!(entry.prepared().unwrap().protocol, 1);
+        drop(entry);
+        assert_eq!(fs::read(unknown).unwrap(), b"unknown claim");
+        assert_eq!(fs::read_dir(tools.join(".uses")).unwrap().count(), 1);
     }
     #[test]
     fn mutable_seed_paths_do_not_impersonate_installed_generations() {
@@ -228,5 +146,11 @@ mod tests {
             EntryGuard::acquire_executable(&tools.join("generation.fixture/arbitrary")).is_err()
         );
         assert!(EntryGuard::acquire_executable(&tools.join("current/pse-host")).is_err());
+        fs::write(
+            tools.join("generation.fixture/pse"),
+            b"unlisted executable bytes",
+        )
+        .unwrap();
+        assert!(EntryGuard::acquire_executable(&tools.join("generation.fixture/pse")).is_err());
     }
 }

@@ -147,6 +147,104 @@ fn metadata_cannot_invent_a_built_artifact_or_change_the_embedded_binary_id() {
     );
 }
 
+fn non_test_capture() -> (tempfile::TempDir, BinaryListSummary, BuildCapture) {
+    use std::os::unix::fs::PermissionsExt as _;
+    let directory = tempfile::tempdir().unwrap();
+    let target = directory.path().join("target");
+    let original = target.join("debug/pse-worker");
+    fs::create_dir_all(original.parent().unwrap()).unwrap();
+    fs::write(&original, b"original same-build worker").unwrap();
+    fs::set_permissions(&original, fs::Permissions::from_mode(0o700)).unwrap();
+    let executable =
+        capture::executable(&original, &directory.path().join("captured-worker")).unwrap();
+    let package = "path+file:///workspace/alpha#0.1.0";
+    let cargo = serde_json::from_value(json!({
+        "package_id":package,
+        "manifest_path":"/workspace/alpha/Cargo.toml",
+        "target":{"kind":["bin"],"crate_types":["bin"],"name":"pse-worker",
+            "src_path":"/workspace/alpha/src/bin/pse-worker.rs","edition":"2024",
+            "doctest":false,"test":false,"doc":false},
+        "profile":{"opt_level":"0","debuginfo":0,"debug_assertions":false,
+            "overflow_checks":false,"test":false},
+        "features":[],"filenames":[original],"executable":original,"fresh":false
+    }))
+    .unwrap();
+    let mut metadata = meta();
+    metadata["target-directory"] = json!(target);
+    metadata["non-test-binaries"] = json!({package:[
+        {"name":"pse-worker","kind":"bin-exe","path":"debug/pse-worker"},
+        {"name":"linked","kind":"dylib","path":"debug/liblinked.so"}
+    ]});
+    let binaries = serde_json::from_value(json!({
+        "rust-build-meta":metadata,"rust-binaries":{}
+    }))
+    .unwrap();
+    let captured = BuildCapture {
+        version: 1,
+        resolution: crate::correctness::Resolution {
+            arguments: vec![],
+            packages: vec![],
+            units: vec![],
+            native_capabilities: BTreeSet::new(),
+        },
+        artifacts: vec![BuiltArtifact { cargo, executable }],
+        cargo_exit: 0,
+        incomplete: Default::default(),
+    };
+    (directory, binaries, captured)
+}
+
+#[test]
+fn native_non_test_binary_mapping_survives_original_cargo_output_replacement() {
+    let (_directory, mut declared, captured) = non_test_capture();
+    pin_binaries(&mut declared, &captured).unwrap();
+    let metadata = &declared.rust_build_meta;
+    let files = metadata.non_test_binaries.values().next().unwrap();
+    let binary = files.iter().find(|file| file.name == "pse-worker").unwrap();
+    assert!(
+        binary.path.is_relative(),
+        "retain nextest's relative-path contract"
+    );
+    let mapped = metadata.target_directory.join(&binary.path);
+    assert_eq!(
+        mapped.canonicalize().unwrap(),
+        captured.artifacts[0]
+            .executable
+            .captured
+            .canonicalize()
+            .unwrap()
+    );
+    fs::write(
+        &captured.artifacts[0].executable.original,
+        b"later different-feature worker",
+    )
+    .unwrap();
+    assert_eq!(fs::read(mapped).unwrap(), b"original same-build worker");
+    captured.artifacts[0].executable.verify().unwrap();
+    assert_eq!(
+        files
+            .iter()
+            .find(|file| file.name == "linked")
+            .unwrap()
+            .path,
+        "debug/liblinked.so"
+    );
+}
+
+#[test]
+fn native_non_test_mapping_refuses_missing_foreign_or_ambiguous_cargo_artifacts() {
+    for mode in ["missing", "foreign", "ambiguous"] {
+        let (_directory, mut declared, mut captured) = non_test_capture();
+        match mode {
+            "missing" => captured.artifacts.clear(),
+            "foreign" => captured.artifacts[0].cargo.package_id.repr = "other-package".into(),
+            "ambiguous" => captured.artifacts.push(captured.artifacts[0].clone()),
+            _ => unreachable!(),
+        }
+        assert!(pin_binaries(&mut declared, &captured).is_err(), "{mode}");
+    }
+}
+
 #[tokio::test]
 async fn explicit_real_host_listing_captures_actual_inventory_without_setup_or_providers() {
     let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -193,10 +291,13 @@ async fn explicit_real_host_listing_captures_actual_inventory_without_setup_or_p
         &root.path().join("inventory"),
         "local",
         &std::env::vars_os().collect(),
-        crate::managed::payload::PayloadPolicy {
-            startup: std::time::Duration::from_secs(30),
-            drain: std::time::Duration::from_secs(30),
-            write: std::time::Duration::from_secs(30),
+        DiscoveryOptions {
+            timings: false,
+            policy: crate::managed::payload::PayloadPolicy {
+                startup: std::time::Duration::from_secs(30),
+                drain: std::time::Duration::from_secs(30),
+                write: std::time::Duration::from_secs(30),
+            },
         },
     )
     .await

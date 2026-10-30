@@ -27,6 +27,7 @@ fn input(action: Action) -> Input {
             ignored: selection::IgnoredPolicy::Default,
         },
         profile: "local".into(),
+        timings: false,
         policy: PayloadPolicy {
             startup: Duration::from_secs(30),
             write: Duration::from_secs(30),
@@ -58,6 +59,87 @@ fn observer() -> GroupObserver {
         10,
         RedactionPolicy::default(),
     ))
+}
+
+#[test]
+fn rerun_controlled_failure_probe() {
+    assert!(
+        std::env::var_os("PSE_TEST_RERUN_FAILURE_PROBE").is_none(),
+        "explicit native rerun qualification failure"
+    );
+}
+
+#[tokio::test]
+async fn simultaneous_native_producers_publish_distinct_private_completed_reports() {
+    let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let evidence = tempfile::tempdir().unwrap();
+    let mut first = input(Action::Test);
+    first.profile = "default".into();
+    first.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
+        package: "pse-host".into(),
+        target: Some(selection::TargetIntent {
+            name: "pse_host".into(),
+            kind: Some("lib".into()),
+        }),
+        features: selection::Features::default(),
+    }]);
+    first.request.filters.expressions = vec!["test(cli::testing::tests::managed_run_options_preserve_selection_and_do_not_leak_into_explain)".into()];
+    first.request.filters.ignore_default_filter = true;
+    let mut second = first.clone();
+    second.invocation = CliInvocationId::new();
+    let a = evidence.path().join("first");
+    let b = evidence.path().join("second");
+    let (left, right) = tokio::join!(
+        run(&first, checkout, &a, std::env::vars_os().collect()),
+        run(&second, checkout, &b, std::env::vars_os().collect()),
+    );
+    let left = left.unwrap();
+    let right = right.unwrap();
+    for report in [&left, &right] {
+        assert_eq!(
+            report.outcome,
+            Outcome::TestsSucceeded,
+            "{:?}",
+            report.failures
+        );
+        assert_eq!(report.selected_tests, Some(1));
+        assert!(report.required_capture_complete);
+        assert!(report.phases.iter().all(|phase| {
+            phase
+                .elapsed_seconds
+                .is_some_and(|elapsed| elapsed.is_finite() && elapsed >= 0.0)
+        }));
+        let stages: Vec<_> = report
+            .phases
+            .iter()
+            .filter_map(|phase| phase.native_stage.as_deref())
+            .collect();
+        assert_eq!(stages, ["version", "build", "list"]);
+    }
+    let native = |report: &Report| {
+        let GroupObservation::Test { observation, .. } = &report.observations[0] else {
+            panic!("native observation")
+        };
+        assert_eq!(observation.summary.completed(), 1);
+        assert!(observation.summary.complete());
+        (
+            observation.report.clone(),
+            quick_junit::Report::deserialize(std::io::BufReader::new(
+                fs::File::open(&observation.report).unwrap(),
+            ))
+            .unwrap(),
+        )
+    };
+    let (left_path, left_native) = native(&left);
+    let (right_path, right_native) = native(&right);
+    assert_ne!(left_path, right_path);
+    assert!(left_path.starts_with(&a));
+    assert!(right_path.starts_with(&b));
+    assert!(left_native.uuid.is_some());
+    assert_ne!(left_native.uuid, right_native.uuid);
 }
 
 #[test]
@@ -152,6 +234,48 @@ async fn independent_compiler_groups_run_concurrently_and_reconcile_native_recor
         );
     }
 }
+#[tokio::test]
+async fn native_named_exclusions_sequence_shared_contexts_without_serializing_other_names() {
+    let root = tempfile::tempdir().unwrap();
+    let input = input(Action::Check);
+    let mut report = Report::new(&input);
+    let a = root.path().join("a");
+    let b = root.path().join("b");
+    let settled = root.path().join("settled");
+    let first = "touch \"$1\"; n=0; while [ ! -e \"$2\" ]; do n=$((n+1)); [ \"$n\" -lt 100 ] || exit 75; sleep 0.01; done; touch \"$3\"; printf '%s\\n' '{\"reason\":\"build-finished\",\"success\":true}'";
+    let second = "[ -e \"$1\" ] || exit 76; printf '%s\\n' '{\"reason\":\"build-finished\",\"success\":true}'";
+    execute_groups_with_policy(
+        &input,
+        root.path(),
+        vec![
+            (
+                shell(0, root.path(), first, &[&a, &b, &settled]),
+                observer(),
+            ),
+            (shell(1, root.path(), second, &[&settled]), observer()),
+            (
+                shell(2, root.path(), first, &[&b, &a, &settled]),
+                observer(),
+            ),
+        ],
+        &mut report,
+        &BTreeMap::from([
+            (0, BTreeSet::from(["scientific".into()])),
+            (1, BTreeSet::from(["scientific".into()])),
+            (2, BTreeSet::from(["store".into()])),
+        ]),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        report.outcome,
+        Outcome::CheckSucceeded,
+        "{:?}",
+        report.failures
+    );
+    assert_eq!(report.observations.len(), 3);
+}
+
 #[tokio::test]
 async fn malformed_required_records_never_promote_child_zero_and_raw_tail_is_retained() {
     let root = tempfile::tempdir().unwrap();
@@ -291,7 +415,7 @@ async fn actual_package_workflow_reconciles_selected_tests_beside_an_ignored_onl
             ..selection::Features::default()
         },
     }]);
-    input.request.filters.expressions = vec!["test(managed::workflow::tests::)".into()];
+    input.request.filters.expressions = vec!["test(=managed::workflow::tests::required_terminal_is_single_complete_correlated_and_never_generic_authority) | test(=managed::workflow::tests::original_report_requires_private_complete_unchanged_bytes_and_waited_status)".into()];
     input.request.filters.ignore_default_filter = true;
     let destination = evidence.path().join("workflow");
     let report = run(&input, root, &destination, std::env::vars_os().collect())

@@ -481,9 +481,6 @@ fn source_mode(
 pub struct BootstrapOutcome {
     /// Original construction status; nonzero never publishes a failed build's selector.
     pub exit_code: i32,
-    /// A copy's read/probe/file obligations were closed; a build's descendant scope remains
-    /// unresolved until its original physical owner supplies actual settlement evidence.
-    pub settlement: EntrySettlement,
 }
 
 /// Explicit preparation with an optional matching immutable source checkout. Only a
@@ -503,18 +500,18 @@ pub fn bootstrap_from(
 
 struct CopySource {
     directory: PathBuf,
-    guard: GenerationReadGuard,
+    manifest: GenerationManifest,
 }
 impl CopySource {
     fn acquire(root: &Path) -> Result<Self, HostError> {
         let root = root.canonicalize()?;
         let reference = prepared(&root)?
             .ok_or_else(|| invalid("source checkout has no prepared generation"))?;
-        let guard =
-            GenerationReadGuard::acquire(&root.join("target/host-tools"), &reference.generation)?;
-        let verified = guard.manifest().digest().and_then(|digest| {
+        let manifest =
+            GenerationManifest::load(&root.join("target/host-tools").join(&reference.generation))?;
+        let verified = manifest.digest().and_then(|digest| {
             if digest == reference.manifest_digest
-                && guard.manifest().control_protocol() == reference.protocol
+                && manifest.control_protocol() == reference.protocol
             {
                 Ok(())
             } else {
@@ -526,7 +523,7 @@ impl CopySource {
         verified?;
         Ok(Self {
             directory: root.join("target/host-tools").join(reference.generation),
-            guard,
+            manifest,
         })
     }
 }
@@ -537,8 +534,7 @@ fn construct(
     from: Option<&Path>,
     mode: BootstrapMode,
 ) -> Result<BootstrapOutcome, HostError> {
-    // Acquire source use before destination exclusion. A<--B and B<--A concurrent
-    // preparations therefore never hold opposite exclusive update locks.
+    // Authenticate immutable source bytes before taking the destination publication exclusion.
     let source = match from.map(CopySource::acquire).transpose() {
         Ok(source) => source,
         Err(error) => {
@@ -553,8 +549,7 @@ fn construct(
         }
     };
     let operation = construct_selected(root, environment, source.as_ref(), mode);
-    // This owner only retained source file paths; every copy descriptor is now closed.
-    // A probe, if any, executed the destination's private copy, never the source path.
+    // A probe executes the destination private copy, never a source executable path.
     drop(source);
     operation
 }
@@ -581,8 +576,7 @@ fn construct_selected(
     }
     let tools = root.join("target/host-tools");
     prepare_root(&tools)?;
-    // Serialize mutable build outputs separately. Passive entry protection takes the
-    // publication lock and must remain usable throughout a cold host compilation.
+    // Serialize mutable build outputs separately from atomic selector publication.
     let lock = owned_file(&tools.join(".construction.lock"), true)?;
     rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockExclusive)
         .map_err(std::io::Error::from)?;
@@ -599,21 +593,18 @@ fn construct_selected(
         )
     };
     let before = observe()?;
-    if let Some(source) = source.filter(|source| source.guard.manifest().source() == &before) {
+    if let Some(source) = source.filter(|source| source.manifest.source() == &before) {
         let after = observe()?;
         let _publication = publication_lock(&tools)?;
         publish(
             &root,
             &source.directory,
-            Some(&source.guard.manifest().binaries),
+            Some(&source.manifest.binaries),
             before,
             &after,
             observe,
         )?;
-        return Ok(BootstrapOutcome {
-            exit_code: 0,
-            settlement: EntrySettlement::ResourcesSettled,
-        });
+        return Ok(BootstrapOutcome { exit_code: 0 });
     }
     if mode == BootstrapMode::CopyOnly {
         writeln!(
@@ -622,7 +613,6 @@ fn construct_selected(
         )?;
         return Ok(BootstrapOutcome {
             exit_code: LOCAL_SEED_REQUIRED,
-            settlement: EntrySettlement::ResourcesSettled,
         });
     }
     if source.is_some() {
@@ -640,7 +630,6 @@ fn construct_selected(
     if !result.success() {
         return Ok(BootstrapOutcome {
             exit_code: result.code().unwrap_or(125),
-            settlement: EntrySettlement::Unresolved,
         });
     }
     let after = observe()?;
@@ -653,10 +642,7 @@ fn construct_selected(
         &after,
         observe,
     )?;
-    Ok(BootstrapOutcome {
-        exit_code: 0,
-        settlement: EntrySettlement::Unresolved,
-    })
+    Ok(BootstrapOutcome { exit_code: 0 })
 }
 
 fn publication_lock(tools: &Path) -> Result<File, HostError> {

@@ -36,7 +36,10 @@ fn fixture_spec() -> Result<NativeServiceSpec, NativeServiceError> {
     };
     Ok(NativeServiceSpec {
         server,
-        helper: PathBuf::from(env!("CARGO_BIN_EXE_pse-canonical-service")),
+        helper: PathBuf::from(
+            std::env::var_os("CARGO_BIN_EXE_pse-canonical-service")
+                .expect("Cargo/nextest supplies the selected runtime service executable"),
+        ),
         module_source,
         state_parent: std::env::temp_dir(),
     })

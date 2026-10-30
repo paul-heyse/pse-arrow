@@ -49,7 +49,10 @@ impl Operator<'_> {
         )?;
         let spill = self.scratch.join(format!("{name}.spill"));
         std::fs::create_dir(&spill)?;
-        let mut command = Command::new(env!("CARGO_BIN_EXE_pse-project"));
+        let mut command = Command::new(
+            std::env::var_os("CARGO_BIN_EXE_pse-project")
+                .expect("Cargo/nextest supplies the selected runtime project executable"),
+        );
         command
             .arg("project")
             .arg("--state")

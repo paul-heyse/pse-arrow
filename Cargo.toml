@@ -144,6 +144,7 @@ datafusion-optimizer = "=55.1.0"
 
 url = { version = "=2.5.8", features = ["serde"] }
 percent-encoding = "=2.3.2"
+pathdiff = "=0.2.3"
 globset = "=0.4.20"
 tar = { version = "=0.4.46", default-features = false }
 flate2 = { version = "=1.1.10", default-features = false, features = [
@@ -184,7 +185,6 @@ tokio = { version = "=1.53.3", default-features = false, features = [
 tokio-util = { version = "=0.7.19", default-features = false, features = [
   "rt",
 ] }
-tokio-graceful-shutdown = "=0.20.0"
 tokio-rayon = "=2.1.0"
 sd-notify = "=0.5.0"
 tokio-metrics = { version = "=0.5.2", default-features = false, features = [
@@ -400,6 +400,7 @@ uuid = { version = "=1.27.0", features = ["v7"] }
 proptest = "=1.11.0"
 libfuzzer-sys = "=0.4.13"
 insta = "=1.49.0"
+assert_cmd = "=2.2.2"
 criterion = { version = "=0.8.2", default-features = false, features = [
   "csv_output",
 ] }

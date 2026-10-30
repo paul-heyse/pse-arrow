@@ -42,7 +42,8 @@ fn fixture() -> tempfile::TempDir {
         symlink(source.join(name), root.join(name)).unwrap();
     }
     symlink(
-        env!("CARGO_BIN_EXE_pse-host"),
+        std::env::var_os("CARGO_BIN_EXE_pse-host")
+            .expect("Cargo/nextest supplies the selected runtime host executable"),
         root.join("target/host-tools/current/pse-host"),
     )
     .unwrap();

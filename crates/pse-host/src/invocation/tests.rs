@@ -121,13 +121,6 @@ fn original_owner_records_requests_and_launch_cutoff_keep_separate_custody() {
     );
     assert!(!reopened.path().join("request.json").exists());
     assert!(reopened.take_request::<String>().is_err());
-    let lock = directory.try_launch_lock().unwrap();
-    assert!(reopened.try_launch_lock().is_err());
-    assert!(!reopened.launch_closed().unwrap());
-    lock.close().unwrap();
-    assert!(reopened.launch_closed().unwrap());
-    drop(lock);
-    assert!(reopened.try_launch_lock().is_ok());
     assert!(
         store
             .result::<String, ManagedSummary>(directory.id())
@@ -246,7 +239,7 @@ fn competing_terminal_writers_publish_exactly_one_complete_record() {
 }
 
 #[test]
-fn latest_prefers_session_and_prefixes_refuse_ambiguity() {
+fn latest_is_session_exact_with_checkout_fallback_only_when_identity_is_absent() {
     let (_temporary, store) = store();
     let mut first = spec(Some("a"));
     first.invocation_id =
@@ -263,8 +256,17 @@ fn latest_prefers_session_and_prefixes_refuse_ambiguity() {
     assert_eq!(
         store
             .resolve("latest", Some("absent"))
-            .expect("checkout fallback"),
+            .expect("absent selected session"),
+        None
+    );
+    assert_eq!(
+        store.resolve("latest", None).unwrap(),
         Some(second.id().clone())
+    );
+    assert_eq!(
+        store.resolve(second.id().as_str(), Some("a")).unwrap(),
+        Some(second.id().clone()),
+        "session correlation grants no exact-ID control authority"
     );
     assert_eq!(
         store.resolve(second.id().as_str(), None).expect("exact"),
