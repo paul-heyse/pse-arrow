@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Authored test-fixture requirements and passive observation of their original input owners.
-//! Nothing here builds, starts a service, creates state or grants fixture disposal authority.
+//! Authored test-fixture requirements, passive readiness and explicit selected preparation.
+//! The execution adapter builds demanded helper inputs; original product owners alone create
+//! and settle canonical services. Requirement/readiness queries remain passive.
 
 use crate::{
     HostError, correctness::CompilerUnit, discovery::Executable, selection, server, study_module,
@@ -13,6 +14,21 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
 };
+
+mod execution;
+pub use execution::{PreparedExecution, prepare_module, selected_module};
+
+/// Original runner and fixture facts, published by the existing canonical fixture owner.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CanonicalRunReport {
+    /// Report contract version.
+    pub version: u32,
+    /// Original normally reaped Nextest status, independently of wrapper failure.
+    pub runner_exit: Option<i32>,
+    /// Original service shutdown/disposal succeeded with a positive child-exit premise.
+    pub fixture_settled: bool,
+}
 
 /// Service ownership stays distinct from preparation-only source inputs.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -440,6 +456,11 @@ pub fn readiness(
 /// Native causes survive declaration and owner-admission refusal.
 #[derive(Debug, thiserror::Error)]
 pub enum FixtureError {
+    /// This prerequisite still requires its actual source/evidence owner to admit it.
+    #[error(
+        "fixture input {0:?} is unprepared; select its original preparation owner before execution"
+    )]
+    Unprepared(Input),
     /// Authoritative metadata does not define a coherent target requirement.
     #[error("fixture declaration: {0}")]
     Declaration(String),
@@ -455,7 +476,7 @@ pub enum FixtureError {
 }
 pse_diagnostics::impl_diagnostic! {
     FixtureError,
-    code(this) { match this { Self::Owner(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error), Self::Capture(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error), _ => Some(pse_diagnostics::DiagnosticCode::ConfigInvalid) } },
+    code(this) { match this { Self::Unprepared(_) => Some(pse_diagnostics::DiagnosticCode::FixtureUnprepared), Self::Owner(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error), Self::Capture(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error), _ => Some(pse_diagnostics::DiagnosticCode::ConfigInvalid) } },
     forward(this) { match this { Self::Owner(error) => Some(error), Self::Capture(error) => Some(error), _ => None } },
     help(_this) { None }, related(_this) { None }, source(_this) { None }
 }

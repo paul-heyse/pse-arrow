@@ -9,7 +9,7 @@ use crate::{
     correctness::{self, CorrectnessError},
     discovery::{self, DiscoveryError, Inventory, TestIdentity},
     environment::Environment,
-    extraction::{ExtractionError, NextestExtractor},
+    extraction::{CompletedReport, ExtractionError},
     fixtures::{self, FixtureError, Requirement},
     selection::{self, Plan, Request, Resolved},
 };
@@ -17,7 +17,7 @@ pub use check::{
     AdmittedCheck, CheckIntent, CompilerFailureReference, CompilerObservation,
     CompilerObservationError, CompilerObserver, PreparedCheck,
 };
-pub use observation::{FailureReference, NextestObserver, Observation, ObservationError};
+pub use observation::{CompletedObserver, FailureReference, Observation, ObservationError};
 use schemars::JsonSchema;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -625,18 +625,6 @@ impl Listed {
                 listed.build.resolution.native_capabilities.clone(),
             ));
         }
-        for identity in self
-            .inventory
-            .selected_tests_iter()
-            .filter(|identity| identity.group == group)
-        {
-            let captured = self.inventory.test(&identity)?;
-            if self.requirements.iter().any(|requirement| {
-                matches_requirement(requirement, &identity, &captured.artifact.cargo)
-            }) {
-                return Err(WorkflowError::FixturePending(group));
-            }
-        }
         let configuration = self.capture_root.join("nextest.toml");
         if fs::read(&configuration)? != self.inventory.nextest_configuration {
             return Err(WorkflowError::Changed(configuration));
@@ -655,22 +643,18 @@ impl Listed {
             .args([
                 "nextest",
                 "run",
-                "--message-format",
-                "libtest-json-plus",
-                "--message-format-version",
-                "0.1",
                 "--profile",
                 &self.inventory.runner_profile,
             ])
             .arg("--config-file")
-            .arg(configuration)
+            .arg(self.run_configuration(group)?)
             .arg("--binaries-metadata")
             .arg(binaries)
             .arg("--cargo-metadata")
             .arg(directory.join("cargo-metadata.json"));
         discovery::add_filters(&mut command, &self.inventory.selection);
         let mut environment = self.context.environment.clone();
-        environment.insert("NEXTEST_EXPERIMENTAL_LIBTEST_JSON".into(), "1".into());
+        environment.remove(std::ffi::OsStr::new("NEXTEST_EXPERIMENTAL_LIBTEST_JSON"));
         environment.remove(std::ffi::OsStr::new("NEXTEST_TEST_PHASE"));
         Ok(GroupCommand {
             program: self.inventory.nextest.captured.clone(),
@@ -681,18 +665,57 @@ impl Listed {
             runtime_inputs: self.inventory.runtime_inputs,
         })
     }
-    /// Required semantic observer for this exact ordinary native group.
-    pub fn observer(
-        &self,
-        group: usize,
-        limit: std::num::NonZeroUsize,
-        policy: crate::envelope::RedactionPolicy,
-    ) -> Result<NextestObserver, WorkflowError> {
-        Ok(NextestObserver::new(
-            NextestExtractor::new(&self.inventory, group)?,
-            limit,
-            policy,
-        ))
+    fn report_path(&self, group: usize) -> PathBuf {
+        self.capture_root.join(format!("group-{group}/junit.xml"))
+    }
+    fn run_configuration(&self, group: usize) -> Result<PathBuf, WorkflowError> {
+        let mut configuration: toml::Value = toml::from_str(
+            std::str::from_utf8(&self.inventory.nextest_configuration).map_err(|error| {
+                WorkflowError::Invalid(format!(
+                    "captured native configuration is not UTF-8: {error}"
+                ))
+            })?,
+        )
+        .map_err(|error| {
+            WorkflowError::Invalid(format!("captured nextest configuration: {error}"))
+        })?;
+        let profile = configuration
+            .get_mut("profile")
+            .and_then(|profiles| profiles.get_mut(&self.inventory.runner_profile))
+            .and_then(toml::Value::as_table_mut)
+            .ok_or_else(|| {
+                WorkflowError::Invalid(
+                    "selected native profile is absent from captured configuration".into(),
+                )
+            })?;
+        let report = self.report_path(group);
+        let report = report.to_str().ok_or_else(|| {
+            WorkflowError::Invalid("native JUnit report path is not UTF-8".into())
+        })?;
+        let junit = profile
+            .entry("junit".to_owned())
+            .or_insert_with(|| toml::Value::Table(Default::default()))
+            .as_table_mut()
+            .ok_or_else(|| {
+                WorkflowError::Invalid("captured JUnit configuration is not a table".into())
+            })?;
+        junit.insert("path".into(), toml::Value::String(report.to_owned()));
+        let derived = toml::to_string(&configuration).map_err(|error| {
+            WorkflowError::Invalid(format!("derived nextest configuration: {error}"))
+        })?;
+        let path = self
+            .capture_root
+            .join(format!("group-{group}/nextest-run.toml"));
+        fs::write(&path, derived)?;
+        Ok(path)
+    }
+    /// Bind the native completed report; raw output has no lifecycle interpreter.
+    pub fn observer(&self, group: usize) -> Result<CompletedObserver, WorkflowError> {
+        Ok(CompletedObserver::new(CompletedReport::new(
+            &self.inventory,
+            group,
+            self.report_path(group),
+        )?))
     }
 }
 

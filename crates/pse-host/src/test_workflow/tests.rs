@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
-use crate::{
-    envelope::RedactionPolicy,
-    extraction::{NextestOutcome, OutputStream},
-    managed::streams::ChunkObserver,
-};
 use serde_json::json;
-use std::{num::NonZeroUsize, os::unix::fs::PermissionsExt};
+use std::os::unix::fs::PermissionsExt;
 
 fn intent() -> (tempfile::TempDir, Intent) {
     let root = tempfile::tempdir().unwrap();
@@ -79,15 +74,7 @@ fn inventory_ready_requires_each_original_phase_and_refuses_unsupported_or_missi
     assert!(serde_json::from_value::<Inventory>(missing).is_err());
     listed.inventory.capture[1].stdout.complete = false;
     assert!(!listed.inventory.capture_complete());
-    assert!(
-        listed
-            .observer(
-                0,
-                NonZeroUsize::new(4096).unwrap(),
-                RedactionPolicy::default()
-            )
-            .is_err()
-    );
+    assert!(listed.observer(0).is_err());
     listed.inventory.capture[1].stdout.complete = true;
     listed.inventory.capture.pop();
     assert!(!listed.inventory.capture_complete());
@@ -238,22 +225,6 @@ fn listed(intent: Intent) -> Listed {
         controls,
     }
 }
-fn wire() -> Vec<u8> {
-    let records = [
-        json!({"type":"suite","event":"started","test_count":1,"nextest":{"crate":"case","test_binary":"case","kind":"lib"}}),
-        json!({"type":"test","event":"started","name":"case::case$same_name"}),
-        json!({"type":"test","event":"ok","name":"case::case$same_name","exec_time":0.1}),
-        json!({"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":0,"exec_time":0.1,"nextest":{"crate":"case","test_binary":"case","kind":"lib"}}),
-    ];
-    records
-        .iter()
-        .flat_map(|record| {
-            let mut bytes = serde_json::to_vec(record).unwrap();
-            bytes.push(b'\n');
-            bytes
-        })
-        .collect()
-}
 #[test]
 fn explain_is_stage_specific_and_changed_declarations_refuse_before_effects() {
     let (root, intent) = intent();
@@ -394,10 +365,12 @@ fn listed_commands_preserve_context_profile_policy_and_refuse_changed_capture() 
         "reused native metadata owns exact build scope"
     );
     assert_eq!(command.cwd, listed.context.checkout);
-    assert_eq!(
-        command.environment[std::ffi::OsStr::new("NEXTEST_EXPERIMENTAL_LIBTEST_JSON")],
-        "1"
+    assert!(
+        !command
+            .environment
+            .contains_key(std::ffi::OsStr::new("NEXTEST_EXPERIMENTAL_LIBTEST_JSON"))
     );
+    assert!(!args.contains(&"--message-format"));
     let debug = format!("{command:?}");
     assert!(!debug.contains("same_name"));
     assert!(!debug.contains("selected-profile"));
@@ -427,104 +400,37 @@ fn listed_commands_preserve_context_profile_policy_and_refuse_changed_capture() 
     .unwrap();
     assert!(matches!(listed.command(0), Err(WorkflowError::Changed(_))));
 }
+
 #[test]
-fn required_observer_handles_chunk_boundaries_and_never_promotes_lost_or_truncated_evidence() {
+fn run_configuration_is_private_and_preserves_original_profile_policy() {
     let (_root, intent) = intent();
-    let listed = listed(intent);
-    let bytes = wire();
-    let mut observer = listed
-        .observer(
-            0,
-            NonZeroUsize::new(4096).unwrap(),
-            RedactionPolicy::default(),
-        )
-        .unwrap();
-    let mut offset = 0;
-    for chunk in bytes.chunks(7) {
-        observer
-            .observe(OutputStream::Stdout, offset, chunk)
-            .unwrap();
-        offset += chunk.len() as u64;
-    }
-    observer
-        .observe(OutputStream::Stderr, 0, b"\xff arbitrary diagnostics")
-        .unwrap();
-    let (observed, error) = observer.finish(0, true);
-    assert!(error.is_none());
-    assert_eq!(observed.summary.outcome(), NextestOutcome::Succeeded);
-    for (data, retained) in [(&bytes[..bytes.len() - 1], true), (bytes.as_slice(), false)] {
-        let mut observer = listed
-            .observer(
-                0,
-                NonZeroUsize::new(4096).unwrap(),
-                RedactionPolicy::default(),
-            )
-            .unwrap();
-        observer.observe(OutputStream::Stdout, 0, data).unwrap();
-        let (observed, _) = observer.finish(0, retained);
-        assert_eq!(observed.summary.outcome(), NextestOutcome::Incomplete);
-    }
-}
-#[test]
-fn oversized_or_malformed_records_do_not_stop_later_required_observation() {
-    let (_root, intent) = intent();
-    let listed = listed(intent);
-    let mut observer = listed
-        .observer(
-            0,
-            NonZeroUsize::new(300).unwrap(),
-            RedactionPolicy::default(),
-        )
-        .unwrap();
-    let mut bytes = vec![b'x'; 500];
-    bytes.push(b'\n');
-    bytes.extend(wire());
-    assert!(observer.observe(OutputStream::Stdout, 0, &bytes).is_err());
-    let (observed, _) = observer.finish(0, true);
-    assert_eq!(observed.summary.completed(), 1);
-    assert_eq!(observed.summary.outcome(), NextestOutcome::Incomplete);
-}
-#[test]
-fn failure_addresses_retain_exact_raw_offsets_after_an_independent_protocol_failure() {
-    let (_root, intent) = intent();
-    let listed = listed(intent);
-    let mut bytes = b"not JSON\n".to_vec();
-    for line in wire().split_inclusive(|byte| *byte == b'\n') {
-        let mut record: serde_json::Value = serde_json::from_slice(line).unwrap();
-        if record["event"] == "ok" {
-            record["event"] = json!("failed");
-            if record["type"] == "test" {
-                record["stdout"] = json!("panic at src/lib.rs:7:9\noriginal detail");
-            } else {
-                record["passed"] = json!(0);
-                record["failed"] = json!(1);
-            }
-        }
-        bytes.extend(serde_json::to_vec(&record).unwrap());
-        bytes.push(b'\n');
-    }
-    let mut observer = listed
-        .observer(
-            0,
-            NonZeroUsize::new(4096).unwrap(),
-            RedactionPolicy::default(),
-        )
-        .unwrap();
-    let failure = observer
-        .observe(OutputStream::Stdout, 0, &bytes)
-        .unwrap_err();
-    assert_eq!(failure.origin.byte_offset, 0);
-    assert!(matches!(failure.error, ExtractionError::Json(_)));
-    let (observed, _) = observer.finish(100, true);
-    assert_eq!(observed.summary.outcome(), NextestOutcome::TestFailed);
-    assert!(!observed.summary.complete());
-    assert_eq!(observed.failures.len(), 1);
-    let original = &observed.failures[0];
-    assert_eq!(original.identity.test_name, "same_name");
-    assert_eq!(original.origin.ordinal, 3);
-    let start = original.origin.byte_offset as usize;
-    let end = start + original.origin.byte_length as usize;
-    let raw: serde_json::Value = serde_json::from_slice(&bytes[start..end]).unwrap();
-    assert_eq!(raw["event"], "failed");
-    assert!(raw["stdout"].as_str().unwrap().contains("src/lib.rs:7:9"));
+    let mut listed = listed(intent);
+    let original = b"[profile.default]\nfail-fast = false\n[profile.selected-profile]\ninherits = 'default'\nretries = 2\n[profile.selected-profile.junit]\npath = 'shared.xml'\nstore-failure-output = true\n";
+    listed.inventory.nextest_configuration = original.to_vec();
+    // Configuration derivation is a pure semantic projection of already captured bytes;
+    // original native profile validation/listing belongs to the discovery owner.
+    let first = listed.run_configuration(0).unwrap();
+    let mut actual: toml::Value = toml::from_str(&fs::read_to_string(&first).unwrap()).unwrap();
+    let expected: toml::Value = toml::from_str(std::str::from_utf8(original).unwrap()).unwrap();
+    assert_eq!(
+        actual["profile"]["selected-profile"]["junit"]["path"].as_str(),
+        listed.report_path(0).to_str()
+    );
+    actual["profile"]["selected-profile"]["junit"]["path"] =
+        expected["profile"]["selected-profile"]["junit"]["path"].clone();
+    assert_eq!(actual, expected);
+    assert_eq!(listed.inventory.nextest_configuration, original);
+    fs::create_dir(listed.capture_root.join("group-1")).unwrap();
+    let second = listed.run_configuration(1).unwrap();
+    assert_ne!(first, second);
+    let second: toml::Value = toml::from_str(&fs::read_to_string(second).unwrap()).unwrap();
+    assert_ne!(
+        second["profile"]["selected-profile"]["junit"]["path"],
+        toml::Value::String(listed.report_path(0).to_str().unwrap().into())
+    );
+    listed.inventory.runner_profile = "missing".into();
+    assert!(
+        listed.run_configuration(0).is_err(),
+        "projection cannot create an otherwise absent native profile"
+    );
 }

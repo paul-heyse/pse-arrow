@@ -117,11 +117,6 @@ pub enum Pending {
     },
     /// Exact selected fixture still requires its original lifecycle owner.
     Fixture(Box<FixturePending>),
-    /// Independent nextest instances cannot prove shared named-group exclusion.
-    CrossRunnerGroups {
-        /// Captured contexts selecting native named-group members.
-        groups: Vec<usize>,
-    },
 }
 /// Original fixture declaration and its passive readiness form one pending-owner account.
 #[derive(Debug, Serialize, JsonSchema)]

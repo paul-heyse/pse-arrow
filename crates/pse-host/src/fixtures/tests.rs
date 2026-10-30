@@ -79,6 +79,62 @@ fn requirement() -> Requirement {
 }
 
 #[test]
+fn pure_selection_neither_prepares_tools_nor_requires_a_database() {
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("must-not-be-created");
+    let prepared = PreparedExecution::prepare(
+        &directory.path().join("not-a-checkout"),
+        &BTreeMap::new(),
+        &destination,
+        &[],
+    );
+    assert!(prepared.is_ok());
+    assert!(!destination.exists());
+}
+
+#[test]
+fn unsupported_evidence_input_refuses_before_preparation_or_service_effects() {
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("must-not-be-created");
+    let mut requirement = requirement();
+    requirement
+        .declaration
+        .inputs
+        .insert(Input::ScientificInputs);
+    let error = PreparedExecution::prepare(
+        directory.path(),
+        &BTreeMap::new(),
+        &destination,
+        &[requirement],
+    )
+    .unwrap_err();
+    assert!(matches!(
+        error,
+        FixtureError::Unprepared(Input::ScientificInputs)
+    ));
+    assert!(!destination.exists());
+}
+
+#[test]
+fn explicit_scientific_input_remains_with_its_original_owner_without_helper_builds() {
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("must-not-be-created");
+    let mut requirement = requirement();
+    requirement.declaration.ownership = Ownership::PreparationOnly;
+    requirement.declaration.inputs = BTreeSet::from([Input::ScientificInputs]);
+    let environment = BTreeMap::from([(
+        "PSE_SCIENTIFIC_INPUTS".into(),
+        "/original/capsule.json".into(),
+    )]);
+    PreparedExecution::prepare(directory.path(), &environment, &destination, &[requirement])
+        .unwrap();
+    assert!(
+        !destination.exists(),
+        "the test owner, not the host, interprets the selected capsule"
+    );
+}
+
+#[test]
 fn actual_admitted_root_selects_authored_ownership_and_inputs_without_preparation() {
     let data = metadata(json!([owned()]));
     let selected = requirements(&data, &resolved(&data, &[], Operation::Test)).unwrap();
@@ -321,11 +377,12 @@ fn real_scopes_distinguish_local_covariance_and_memory_controls_from_owned_servi
     assert!(memory.contains(&Input::StudyModule));
     assert!(!memory.contains(&Input::Worker));
     assert!(
-        inputs(
+        !inputs(
             "native_boundary_acceptance",
             "public_managed_detail_keeps_external_owners_exact_attempts_and_complete_prefixes"
         )
-        .contains(&Input::Worker)
+        .contains(&Input::Worker),
+        "same-package integration targets receive the worker from Cargo"
     );
     assert!(
         !inputs(

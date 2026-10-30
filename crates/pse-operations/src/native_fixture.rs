@@ -187,7 +187,7 @@ mod command {
         cargo: PathBuf,
         arguments: Vec<OsString>,
         directory: PathBuf,
-        _built: tempfile::TempDir,
+        _built: Option<tempfile::TempDir>,
     }
     /// Disposal is initially safe before spawn. Once a child exists, only its
     /// observed ordinary exit can establish the positive disposal premise.
@@ -402,7 +402,108 @@ mod command {
                 cargo,
                 arguments,
                 directory,
-                _built: built,
+                _built: Some(built),
+            })
+        }
+        /// Adopt the host's same-invocation build/list capture without compiling again.
+        /// The host owns source admission and immutable capture; this owner supplies only
+        /// the fresh service, child execution and physical settlement.
+        /// # Errors
+        /// Missing/incomplete capture, changed binaries or run-only argument violations.
+        pub fn from_source_capture(
+            inventory_path: &Path,
+            group: usize,
+            arguments: Vec<OsString>,
+            directory: PathBuf,
+        ) -> Result<Self, NativeServiceError> {
+            let mut file = OpenOptions::new()
+                .read(true)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+                .open(inventory_path)?;
+            let metadata = file.metadata()?;
+            if !metadata.is_file()
+                || metadata.uid() != rustix::process::geteuid().as_raw()
+                || metadata.mode() & 0o077 != 0
+                || metadata.len() > 64 * 1024 * 1024
+            {
+                return Err(NativeServiceError::Refused(
+                    "source inventory requires bounded private owned bytes",
+                ));
+            }
+            let mut bytes = Vec::new();
+            file.read_to_end(&mut bytes)?;
+            let inventory: pse_host::discovery::Inventory = serde_json::from_slice(&bytes)
+                .map_err(|_| NativeServiceError::Refused("source inventory is invalid"))?;
+            inventory.verify_executables().map_err(|_| {
+                NativeServiceError::Refused("source inventory capture is incomplete or changed")
+            })?;
+            let selected = inventory
+                .groups
+                .get(group)
+                .ok_or(NativeServiceError::Refused(
+                    "source inventory group is absent",
+                ))?;
+            let parent = inventory_path.parent().ok_or(NativeServiceError::Refused(
+                "source inventory has no capture directory",
+            ))?;
+            let capture = parent.join(format!("group-{group}"));
+            let binaries = capture.join("binaries.json");
+            let cargo = capture.join("cargo-metadata.json");
+            let native: serde_json::Value = serde_json::from_slice(&fs::read(&binaries)?)
+                .map_err(|_| NativeServiceError::Refused("captured binary metadata is invalid"))?;
+            let expected = serde_json::to_value(&selected.binaries)
+                .map_err(|_| NativeServiceError::Refused("source binary inventory is invalid"))?;
+            if native != expected || !directory.is_absolute() || !directory.is_dir() {
+                return Err(NativeServiceError::Refused(
+                    "captured binary metadata or working directory differs",
+                ));
+            }
+            let metadata: serde_json::Value = serde_json::from_slice(&fs::read(&cargo)?)
+                .map_err(|_| NativeServiceError::Refused("captured Cargo metadata is invalid"))?;
+            if metadata
+                .get("workspace_root")
+                .and_then(serde_json::Value::as_str)
+                != directory.to_str()
+            {
+                return Err(NativeServiceError::Refused(
+                    "captured Cargo workspace differs from selected checkout",
+                ));
+            }
+            for argument in &arguments {
+                let value = argument.to_string_lossy();
+                if [
+                    "--binaries-metadata",
+                    "--cargo-metadata",
+                    "--archive-file",
+                    "--manifest-path",
+                    "--package",
+                    "--workspace",
+                    "--all",
+                    "--lib",
+                    "--bins",
+                    "--tests",
+                    "--all-targets",
+                    "--features",
+                    "--all-features",
+                    "--no-default-features",
+                    "--no-run",
+                ]
+                .iter()
+                .any(|flag| value == *flag || value.starts_with(&format!("{flag}=")))
+                    || value == "-p"
+                {
+                    return Err(NativeServiceError::Refused(
+                        "captured fixture accepts run policy, not new build selectors",
+                    ));
+                }
+            }
+            Ok(Self {
+                program: inventory.nextest.captured,
+                binaries,
+                cargo,
+                arguments,
+                directory,
+                _built: None,
             })
         }
         /// Create a fresh physical owner only after reuse inputs have been admitted.
@@ -414,6 +515,7 @@ mod command {
             spec: NativeServiceSpec,
             execution: Duration,
             settlement: Duration,
+            report_path: Option<PathBuf>,
         ) -> Result<ExitStatus, NativeServiceError> {
             if execution.is_zero() || settlement.is_zero() {
                 return Err(NativeServiceError::Refused(
@@ -435,6 +537,8 @@ mod command {
             let mut service = NativeCanonicalService::new(spec)?;
             let premise = ChildExitPremise::default();
             let child_premise = premise.clone();
+            let runner_exit = std::sync::Arc::new(std::sync::atomic::AtomicI32::new(i32::MIN));
+            let observed_exit = runner_exit.clone();
             let outcome = service
                 .run(final_end, |service| {
                     Box::pin(async move {
@@ -457,27 +561,44 @@ mod command {
                             .env_remove("PSE_TEST_EXECUTION_PROFILE")
                             .env_remove("PSE_FIXTURE_CARGO_METADATA_CAPTURE")
                             .kill_on_drop(true);
-                        child_status(
+                        let status = child_status(
                             command,
                             execution_end,
                             final_end,
                             service.state(),
                             child_premise,
                         )
-                        .await
+                        .await?;
+                        if let Some(exit) = status.code() {
+                            observed_exit.store(exit, std::sync::atomic::Ordering::Release);
+                        }
+                        Ok(status)
                     })
                 })
                 .await;
             if !premise.permits_disposal() {
+                let mut failures = vec![outcome.err().unwrap_or(NativeServiceError::Refused(
+                    "cancelled test process cannot prove native joins",
+                ))];
+                if let Err(error) = publish_run_report(
+                    report_path.as_deref(),
+                    runner_exit.load(std::sync::atomic::Ordering::Acquire),
+                    false,
+                ) {
+                    failures.push(error);
+                }
                 return Err(NativeServiceError::Settlement {
                     state: service.state().to_owned(),
-                    failures: vec![outcome.err().unwrap_or(NativeServiceError::Refused(
-                        "cancelled test process cannot prove native joins",
-                    ))],
+                    failures,
                 });
             }
             let disposal = service.dispose();
-            match (outcome, disposal) {
+            let publication = publish_run_report(
+                report_path.as_deref(),
+                runner_exit.load(std::sync::atomic::Ordering::Acquire),
+                outcome.is_ok() && disposal.is_ok(),
+            );
+            let result = match (outcome, disposal) {
                 (Ok(status), Ok(())) => Ok(status),
                 (Err(error), Ok(())) => Err(error),
                 (Ok(_), Err(error)) => Err(error),
@@ -485,8 +606,42 @@ mod command {
                     state: service.state().to_owned(),
                     failures: vec![error, cleanup],
                 }),
+            };
+            match (result, publication) {
+                (Ok(status), Ok(())) => Ok(status),
+                (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
+                (Err(error), Err(publication)) => Err(NativeServiceError::Settlement {
+                    state: service.state().to_owned(),
+                    failures: vec![error, publication],
+                }),
             }
         }
+    }
+    fn publish_run_report(
+        path: Option<&Path>,
+        exit: i32,
+        fixture_settled: bool,
+    ) -> Result<(), NativeServiceError> {
+        let Some(path) = path else {
+            return Ok(());
+        };
+        let report = pse_host::fixtures::CanonicalRunReport {
+            version: 1,
+            runner_exit: (exit != i32::MIN).then_some(exit),
+            fixture_settled,
+        };
+        let mut output = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(path)?;
+        serde_json::to_writer(&mut output, &report)
+            .map_err(|_| NativeServiceError::Refused("fixture outcome encoding failed"))?;
+        output.sync_all()?;
+        if let Some(parent) = path.parent() {
+            fs::File::open(parent)?.sync_all()?;
+        }
+        Ok(())
     }
     #[cfg(test)]
     mod tests {
@@ -496,6 +651,44 @@ mod command {
             reason = "native child settlement controls require exact terminal status"
         )]
         use super::*;
+        #[test]
+        fn fixture_report_keeps_native_success_distinct_from_owner_failure() {
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join("outcome.json");
+            publish_run_report(Some(&path), 0, false).unwrap();
+            let report: pse_host::fixtures::CanonicalRunReport =
+                serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            assert_eq!(report.runner_exit, Some(0));
+            assert!(!report.fixture_settled);
+            assert!(
+                publish_run_report(Some(&path), 0, true).is_err(),
+                "original outcome cannot be overwritten"
+            );
+        }
+        #[test]
+        fn captured_inventory_refuses_before_service_creation() {
+            let directory = tempfile::tempdir().unwrap();
+            let inventory = directory.path().join("inventory.json");
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&inventory)
+                .unwrap();
+            file.write_all(b"{}").unwrap();
+            let error = NativeTestCommand::from_source_capture(
+                &inventory,
+                0,
+                Vec::new(),
+                directory.path().to_owned(),
+            )
+            .unwrap_err();
+            assert!(matches!(
+                error,
+                NativeServiceError::Refused("source inventory is invalid")
+            ));
+            assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
+        }
         #[tokio::test]
         async fn unsuccessful_test_status_is_retained_after_actual_child_exit() {
             let mut command = tokio::process::Command::new("/bin/sh");

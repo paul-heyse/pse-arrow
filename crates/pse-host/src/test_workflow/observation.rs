@@ -1,195 +1,86 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Required framing over the supervisor's independently retained original pipes.
+//! Completed native evidence, independent of raw output and physical settlement.
 use crate::{
-    envelope::RedactionPolicy,
-    extraction::{
-        ExtractionError, NextestExtractor, NextestRecord, NextestSummary, NextestTestEvent,
-        OutputStream, RecordOrigin,
-    },
+    extraction::{CompletedReport, ExtractionError, NextestSummary, OutputStream},
     managed::streams::ChunkObserver,
-    stream_records::{Frame, RecordFramer},
 };
-use std::{collections::BTreeMap, num::NonZeroUsize};
-
-/// One required protocol failure, retaining its exact source attribution and concrete cause.
+use std::path::PathBuf;
+/// Failure to consume the required original completed report.
 #[derive(Debug, thiserror::Error)]
-#[error("nextest observation at {origin:?}: {error}")]
+#[error("native completed report: {error}")]
 pub struct ObservationError {
-    /// Original raw stdout location, independently of normalized presentation.
-    pub origin: RecordOrigin,
-    /// Original decode or framing failure.
+    /// Original decode, identity or availability failure.
     #[source]
     pub error: ExtractionError,
 }
 pse_diagnostics::impl_diagnostic! {
     ObservationError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(this) { Some(&this.error) }, help(_this) { None }, related(_this) { None }, source(_this) { None },
-    facts(this) {
-        let mut facts = pse_diagnostics::DiagnosticFacts::default();
-        facts.observe("stdout_byte_offset", pse_diagnostics::DiagnosticObservation::Text(this.origin.byte_offset.to_string()));
-        facts.observe("stdout_byte_length", pse_diagnostics::DiagnosticObservation::Text(this.origin.byte_length.to_string()));
-        facts
-    }
+    forward(this) { Some(&this.error) }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
-/// Selected failure address, suitable for a later bounded original-record read.
+/// Exact failed test's address in a native completed artifact, not a stream event offset.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct FailureReference {
-    /// Exact captured identity; same-named tests in other binaries remain distinct.
+    /// Original selected identity.
     pub identity: crate::discovery::TestIdentity,
-    /// Exact byte range in the independently retained stdout stream.
-    pub origin: RecordOrigin,
+    /// Native report path containing the binary/test entry.
+    pub report: PathBuf,
 }
-/// Reconciled workload facts, independent of the supervisor's physical settlement.
+/// Owner-constructed native completed facts.
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct Observation {
-    /// Owner-constructed workload interpretation.
+    /// Original completed native artifact; never substituted with XML-safe text for raw bytes.
+    pub report: PathBuf,
+    /// Native exit plus exact population and report reconciliation.
     pub summary: NextestSummary,
-    /// Original records for exact selected failures; inline output is not accumulated in RAM.
+    /// Native failure artifact addresses.
     pub failures: Vec<FailureReference>,
 }
-/// A required interpreter, with bounded framing and state proportional to captured population.
+/// Required completed-report consumer. Raw stdout/stderr are retained without interpretation.
 #[derive(Debug)]
-pub struct NextestObserver {
-    framer: RecordFramer,
-    extractor: NextestExtractor,
-    policy: RedactionPolicy,
-    next_offset: u64,
-    frame_offset: u64,
-    ordinal: u64,
-    failures: BTreeMap<crate::discovery::TestIdentity, RecordOrigin>,
-}
-impl NextestObserver {
-    /// The frame bound limits protocol decoding only; raw byte retention has its own owner.
-    pub fn new(extractor: NextestExtractor, limit: NonZeroUsize, policy: RedactionPolicy) -> Self {
-        Self {
-            framer: RecordFramer::new(limit),
-            extractor,
-            policy,
-            next_offset: 0,
-            frame_offset: 0,
-            ordinal: 0,
-            failures: BTreeMap::new(),
-        }
+pub struct CompletedObserver(CompletedReport);
+impl CompletedObserver {
+    /// Bind one private report and captured population.
+    pub fn new(report: CompletedReport) -> Self {
+        Self(report)
     }
-    /// Consume every complete frame after any previous failure; return this chunk's first cause.
-    fn frames(&mut self, bytes: &[u8], eof: bool) -> Option<ObservationError> {
-        let Self {
-            framer,
-            extractor,
-            policy,
-            frame_offset,
-            ordinal,
-            failures,
-            ..
-        } = self;
-        let mut first_error = None;
-        let mut consume = |frame: Frame<'_>| {
-            let (length, terminal) = match frame {
-                Frame::Complete(bytes) | Frame::Truncated(bytes) => (bytes.len() as u64, true),
-                Frame::Oversized { bytes, last, .. } => (bytes.len() as u64, last),
-            };
-            let origin = RecordOrigin {
-                stream: OutputStream::Stdout,
-                byte_offset: *frame_offset,
-                byte_length: length,
-                ordinal: *ordinal,
-            };
-            let result = match frame {
-                Frame::Complete(bytes) => {
-                    extractor
-                        .consume(bytes, origin.clone(), policy)
-                        .map(|record| {
-                            if let NextestRecord::Test {
-                                identity,
-                                event: NextestTestEvent::Failed,
-                                origin,
-                                ..
-                            } = record
-                            {
-                                failures.insert(identity, origin);
-                            }
-                        })
-                }
-                Frame::Oversized { first, .. } => {
-                    if first {
-                        extractor.mark_incomplete();
-                    }
-                    Err(ExtractionError::Nextest("required record exceeds the selected decoding bound; original bytes remain in raw custody".into()))
-                }
-                Frame::Truncated(_) => {
-                    extractor.mark_incomplete();
-                    Err(ExtractionError::Nextest(
-                        "stdout ended before a required record delimiter".into(),
-                    ))
-                }
-            };
-            if let Err(error) = result
-                && first_error.is_none()
-            {
-                first_error = Some(ObservationError { origin, error });
-            }
-            *frame_offset = frame_offset.saturating_add(length);
-            if terminal {
-                *ordinal = ordinal.saturating_add(1);
-            }
-        };
-        if eof {
-            framer.finish(&mut consume);
-        } else {
-            framer.push(bytes, &mut consume);
-        }
-        first_error
+    /// Require the exact source fixture owner's settled result for a borrowed service.
+    pub fn with_fixture_outcome(self, path: PathBuf) -> Self {
+        Self(self.0.with_fixture_outcome(path))
     }
-    /// Finish only after capture has delivered every available byte. A false required-capture
-    /// flag preserves loss even if the child and every decoded tail record reported success.
+    /// Called after original wait and required raw output drainage.
     pub fn finish(
-        mut self,
+        self,
         child_exit: i32,
-        required_capture_complete: bool,
+        capture_complete: bool,
     ) -> (Observation, Option<ObservationError>) {
-        let error = self.frames(&[], true);
-        if !required_capture_complete {
-            self.extractor.mark_incomplete();
-        }
-        let observation = Observation {
-            summary: self.extractor.finish(child_exit),
-            failures: self
-                .failures
-                .into_iter()
-                .map(|(identity, origin)| FailureReference { identity, origin })
-                .collect(),
-        };
-        (observation, error)
+        let report = self.0.path().to_owned();
+        let (summary, failures, error) = self.0.finish(child_exit, capture_complete);
+        (
+            Observation {
+                report,
+                summary,
+                failures: failures
+                    .into_iter()
+                    .map(|failure| FailureReference {
+                        identity: failure.identity,
+                        report: failure.report,
+                    })
+                    .collect(),
+            },
+            error.map(|error| ObservationError { error }),
+        )
     }
 }
-impl ChunkObserver for NextestObserver {
+impl ChunkObserver for CompletedObserver {
     type Error = ObservationError;
     fn observe(
         &mut self,
-        stream: OutputStream,
-        byte_offset: u64,
-        bytes: &[u8],
+        _stream: OutputStream,
+        _offset: u64,
+        _bytes: &[u8],
     ) -> Result<(), Self::Error> {
-        if stream == OutputStream::Stderr {
-            return Ok(());
-        }
-        if byte_offset != self.next_offset {
-            self.extractor.mark_incomplete();
-            return Err(ObservationError {
-                origin: RecordOrigin {
-                    stream,
-                    byte_offset,
-                    byte_length: bytes.len() as u64,
-                    ordinal: self.ordinal,
-                },
-                error: ExtractionError::Nextest(
-                    "required stdout byte delivery is discontinuous".into(),
-                ),
-            });
-        }
-        self.next_offset = self.next_offset.saturating_add(bytes.len() as u64);
-        self.frames(bytes, false).map_or(Ok(()), Err)
+        Ok(())
     }
 }

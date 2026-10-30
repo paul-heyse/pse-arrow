@@ -193,28 +193,18 @@ ownership = "target-owned"
 inputs = ["server", "study-module", "service-helper"]
 
 [[package.metadata.pse.test-fixtures]]
-id = "native-boundary-worker"
-target = "native_boundary_acceptance"
-kind = "test"
-ownership = "preparation-only"
-inputs = ["worker"]
-scope.tests = [
-  "public_managed_detail_keeps_external_owners_exact_attempts_and_complete_prefixes",
-]
-
-[[package.metadata.pse.test-fixtures]]
 id = "native-worker-lifecycle-owned"
 target = "native_worker_lifecycle"
 kind = "test"
 ownership = "target-owned"
-inputs = ["server", "study-module", "service-helper", "worker"]
+inputs = ["server", "study-module", "service-helper"]
 
 [[package.metadata.pse.test-fixtures]]
 id = "worker-owned"
 target = "worker"
 kind = "test"
 ownership = "target-owned"
-inputs = ["server", "study-module", "service-helper", "worker"]
+inputs = ["server", "study-module", "service-helper"]
 
 [[package.metadata.pse.test-fixtures]]
 id = "managed-study-worker"
@@ -505,6 +495,10 @@ required-features = ["product-reader"]
 [[test]]
 name = "local_operation"
 required-features = ["solver-kinsol"]
+
+[[test]]
+name = "product_reader"
+required-features = ["product-reader"]
 
 [[test]]
 name = "native_study"

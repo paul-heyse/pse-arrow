@@ -72,6 +72,11 @@ enum Command {
     Test(testing::Tests),
     /// Check the selected source through the correctness and compiler observation owners.
     Check(testing::Check),
+    /// Prepare or inspect inputs through the existing native fixture owner.
+    Fixture {
+        #[command(subcommand)]
+        action: FixtureAction,
+    },
     #[command(name = "__workflow", hide = true)]
     Workflow(ManagedEntryArgs),
     /// Explicit captured development-tool preparation, discovery and managed native forwarding.
@@ -307,6 +312,9 @@ impl Command {
             | Self::Commands(_)
             | Self::Help(_)
             | Self::Status { .. }
+            | Self::Fixture {
+                action: FixtureAction::Show { .. },
+            }
             | Self::Schema { .. }
             | Self::AgentHook { .. }
             | Self::Doctor { .. }
@@ -335,6 +343,9 @@ impl Command {
             | Self::Tests(_)
             | Self::Test(_)
             | Self::Check(_)
+            | Self::Fixture {
+                action: FixtureAction::Prepare { .. },
+            }
             | Self::Native { .. }
             | Self::DiagnosticTools {
                 action: ToolAction::Install { .. },
@@ -442,6 +453,17 @@ fn settle_entry(
 pub(crate) enum HookAction {
     Guard,
     SessionEnv,
+}
+#[derive(Debug, Subcommand)]
+enum FixtureAction {
+    Prepare {
+        #[arg(value_parser = ["study-module"])]
+        fixture: String,
+    },
+    Show {
+        #[arg(value_parser = ["study-module"])]
+        fixture: String,
+    },
 }
 #[derive(Debug, Subcommand)]
 enum ToolAction {
@@ -733,7 +755,11 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             envelope::schema::<crate::boundary::NativeExplanation>(command, view)
         }
         "activity" => envelope::schema::<crate::activity::ActivityObservation>(command, view),
-        "study-module" | "study-module prepare" | "study-module select" => {
+        "fixture prepare"
+        | "fixture show"
+        | "study-module"
+        | "study-module prepare"
+        | "study-module select" => {
             envelope::schema::<crate::study_module::StudyModuleReceipt>(command, view)
         }
         "telemetry-service"
@@ -768,6 +794,30 @@ fn dispatch(
         return Ok(0);
     };
     match command {
+        Command::Fixture { action } => {
+            let root = checkout_root(selected)?;
+            let environment = std::env::vars_os().collect();
+            let (name, receipt) = match action {
+                FixtureAction::Prepare { fixture: _fixture } => (
+                    "fixture prepare",
+                    runtime()?.block_on(crate::fixtures::prepare_module(&root, &environment)),
+                ),
+                FixtureAction::Show { fixture: _fixture } => (
+                    "fixture show",
+                    crate::fixtures::selected_module(&root, &environment),
+                ),
+            };
+            let receipt = receipt.map_err(|error| {
+                HostError::Workflow(Box::new(crate::test_workflow::WorkflowError::Fixture(
+                    error,
+                )))
+            })?;
+            Ok(presentation.emit(Envelope::response(
+                name,
+                "native fixture preparation input; service lifecycle remains with its owner",
+                receipt,
+            ))?)
+        }
         Command::Workflow(args) => runtime()?.block_on(crate::managed::workflow::run(
             crate::managed::decode_checkout(&args.checkout_bytes)?,
             args.invocation,
@@ -2092,6 +2142,19 @@ fn failure(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn fixture_routes_preserve_effect_intent_and_schema() {
+        use clap::Parser as _;
+        for (action, expected) in [
+            ("prepare", GenerationIntent::NewWork),
+            ("show", GenerationIntent::Passive),
+        ] {
+            let parsed = Cli::try_parse_from(["pse", "fixture", action, "study-module"]).unwrap();
+            assert_eq!(parsed.command.unwrap().generation_intent(), expected);
+            assert!(response_schema(&format!("fixture {action}"), &Default::default()).is_ok());
+        }
+        assert!(Cli::try_parse_from(["pse", "fixture", "show", "unknown"]).is_err());
+    }
     use super::*;
     #[test]
     fn bootstrap_precondition_refusal_reports_no_construction_effects() {

@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! The fixed helper's native operations; placement and descendant settlement remain outside.
 use super::{
-    Action, FixturePending, Input, Outcome, Pending, Phase, PhaseKind, Report, phase,
-    report::GroupObservation,
+    Action, Input, Outcome, Pending, Phase, PhaseKind, Report, phase, report::GroupObservation,
 };
 use crate::{
     envelope::RedactionPolicy,
@@ -11,7 +10,7 @@ use crate::{
     extraction::{CompilerOutcome, NextestOutcome, OutputStream},
     managed::{result::GenericObserver, streams::ChunkObserver},
     selection,
-    test_workflow::{self, CompilerObserver, GroupCommand, NextestObserver, WorkflowError},
+    test_workflow::{self, CompilerObserver, CompletedObserver, GroupCommand, WorkflowError},
 };
 use std::{
     collections::BTreeSet,
@@ -276,8 +275,8 @@ async fn perform(
             report.outcome = Outcome::Listed;
             return Ok(());
         }
+        let mut requirements = Vec::new();
         for requirement in &listed.requirements {
-            let mut applies = false;
             for identity in listed.inventory.selected_tests_iter() {
                 let captured = listed.inventory.test(&identity)?;
                 if test_workflow::matches_requirement(
@@ -285,29 +284,18 @@ async fn perform(
                     &identity,
                     &captured.artifact.cargo,
                 ) {
-                    applies = true;
+                    requirements.push(requirement.clone());
                     break;
                 }
             }
-            if applies {
-                report
-                    .pending
-                    .push(Pending::Fixture(Box::new(FixturePending {
-                        requirement: requirement.clone(),
-                        readiness: crate::fixtures::readiness(
-                            requirement,
-                            &crate::fixtures::Sources::default(),
-                        )?,
-                    })));
-            }
         }
-        if !report.pending.is_empty() {
-            report.outcome = Outcome::Pending;
-            return Ok(());
-        }
-        if !group_policy(input, destination, &listed, report).await? {
-            return Ok(());
-        }
+        let fixtures = crate::fixtures::PreparedExecution::prepare(
+            &checkout,
+            &listed.context.environment,
+            &destination.join("fixtures"),
+            &requirements,
+        )?;
+        let serialized = group_policy(input, destination, &listed, report).await?;
         let mut groups = Vec::new();
         for group in 0..listed.inventory.groups.len() {
             // Empty individual contexts have no runnable work; the aggregate population above
@@ -319,16 +307,26 @@ async fn perform(
             {
                 continue;
             }
+            let mut observer = listed.observer(group)?;
+            if requirements.iter().any(|requirement| {
+                requirement.group() == group
+                    && requirement.ownership() == crate::fixtures::Ownership::RunnerBorrowed
+            }) {
+                observer = observer.with_fixture_outcome(
+                    destination.join(format!("fixture-outcome-{group}.json")),
+                );
+            }
             groups.push((
-                listed.command(group)?,
-                GroupObserver::Test(listed.observer(
-                    group,
-                    record,
-                    RedactionPolicy::from_environment(),
-                )?),
+                fixtures.command(
+                    listed.command(group)?,
+                    &requirements,
+                    &destination.join("inventory/inventory.json"),
+                    destination,
+                )?,
+                GroupObserver::Test(observer),
             ));
         }
-        execute_groups(input, destination, groups, report).await?;
+        execute_groups_with_policy(input, destination, groups, report, &serialized).await?;
     }
     Ok(())
 }
@@ -390,9 +388,9 @@ async fn group_policy(
     destination: &Path,
     listed: &test_workflow::Listed,
     report: &mut Report,
-) -> Result<bool, WorkflowError> {
+) -> Result<BTreeSet<usize>, WorkflowError> {
     if listed.inventory.groups.len() < 2 {
-        return Ok(true);
+        return Ok(BTreeSet::new());
     }
     let mut named = Vec::new();
     for group in 0..listed.inventory.groups.len() {
@@ -454,7 +452,9 @@ async fn group_policy(
             } else {
                 Outcome::Incomplete
             };
-            return Ok(false);
+            return Err(WorkflowError::Invalid(
+                "native group-policy listing failed".into(),
+            ));
         }
         let membership: nextest_metadata::TestListSummary =
             serde_json::from_slice(&fs::read(destination.join(format!("{prefix}.stdout")))?)
@@ -481,18 +481,12 @@ async fn group_policy(
             named.push(group);
         }
     }
-    if named.len() > 1 {
-        report
-            .pending
-            .push(Pending::CrossRunnerGroups { groups: named });
-        report.outcome = Outcome::Pending;
-        return Ok(false);
-    }
-    Ok(true)
+    Ok(named.into_iter().collect())
 }
+
 enum GroupObserver {
     Check(CompilerObserver),
-    Test(NextestObserver),
+    Test(CompletedObserver),
 }
 impl ChunkObserver for GroupObserver {
     type Error = WorkflowError;
@@ -565,6 +559,15 @@ async fn execute_groups(
     groups: Vec<(GroupCommand, GroupObserver)>,
     report: &mut Report,
 ) -> Result<(), WorkflowError> {
+    execute_groups_with_policy(input, destination, groups, report, &BTreeSet::new()).await
+}
+async fn execute_groups_with_policy(
+    input: &Input,
+    destination: &Path,
+    groups: Vec<(GroupCommand, GroupObserver)>,
+    report: &mut Report,
+    serialized: &BTreeSet<usize>,
+) -> Result<(), WorkflowError> {
     if groups.is_empty() {
         report.outcome = Outcome::Incomplete;
         return Ok(());
@@ -575,18 +578,28 @@ async fn execute_groups(
         PhaseKind::Test
     };
     let mut tasks = tokio::task::JoinSet::new();
+    let mut predecessor = None;
     for (request, observer) in groups {
         let group = request.group;
         let prefix = format!("run-{group}");
         let stdout = destination.join(format!("{prefix}.stdout"));
         let stderr = destination.join(format!("{prefix}.stderr"));
         let policy = input.policy;
+        // Only split contexts with named exclusions form a sequential chain. Native Nextest
+        // still schedules their tests; independent compiler groups remain concurrent.
+        let (wait, done) = if serialized.contains(&group) {
+            let (done, next) = tokio::sync::oneshot::channel::<()>();
+            (predecessor.replace(next), Some(done))
+        } else {
+            (None, None)
+        };
         tasks.spawn(async move {
-            (
-                group,
-                prefix,
-                phase::run(command(request), &stdout, &stderr, observer, policy).await,
-            )
+            if let Some(previous) = wait {
+                let _ = previous.await;
+            }
+            let result = phase::run(command(request), &stdout, &stderr, observer, policy).await;
+            drop(done);
+            (group, prefix, result)
         });
     }
     let mut success = true;

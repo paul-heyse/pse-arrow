@@ -20,11 +20,28 @@ struct Cli {
     #[arg(long)]
     root: PathBuf,
     /// Already prepared native correctness adapter in this checkout.
-    #[arg(long)]
-    correctness: PathBuf,
+    #[arg(
+        long,
+        required_unless_present = "captured_inventory",
+        conflicts_with = "captured_inventory"
+    )]
+    correctness: Option<PathBuf>,
     /// Already installed native cargo-nextest executable.
+    #[arg(
+        long,
+        required_unless_present = "captured_inventory",
+        conflicts_with = "captured_inventory"
+    )]
+    nextest: Option<PathBuf>,
+    /// Host-owned same-invocation build/list inventory; execution does not build again.
+    #[arg(long, requires = "group", conflicts_with = "build_arg")]
+    captured_inventory: Option<PathBuf>,
+    /// Exact compiler context within the captured inventory.
+    #[arg(long, requires = "captured_inventory")]
+    group: Option<usize>,
+    /// Private create-once outcome path, retaining native exit across fixture cleanup failure.
     #[arg(long)]
-    nextest: PathBuf,
+    outcome: Option<PathBuf>,
     /// Already built canonical service helper executable.
     #[arg(long)]
     helper: PathBuf,
@@ -48,13 +65,28 @@ struct Cli {
     run_args: Vec<OsString>,
 }
 fn run(cli: Cli) -> Result<std::process::ExitStatus, NativeServiceError> {
-    let tests = NativeTestCommand::prepare(
-        cli.correctness,
-        cli.nextest,
-        cli.build_arg,
-        cli.run_args,
-        cli.root,
-    )?;
+    let tests = if let Some(inventory) = cli.captured_inventory {
+        NativeTestCommand::from_source_capture(
+            &inventory,
+            cli.group.ok_or(NativeServiceError::Refused(
+                "captured fixture group required",
+            ))?,
+            cli.run_args,
+            cli.root,
+        )?
+    } else {
+        NativeTestCommand::prepare(
+            cli.correctness.ok_or(NativeServiceError::Refused(
+                "prepared correctness adapter required",
+            ))?,
+            cli.nextest.ok_or(NativeServiceError::Refused(
+                "prepared nextest executable required",
+            ))?,
+            cli.build_arg,
+            cli.run_args,
+            cli.root,
+        )?
+    };
     let server = pse_host::server::select(&std::env::vars_os().collect())?;
     let module = pse_host::study_module::select(
         &cli.module_receipt,
@@ -71,6 +103,7 @@ fn run(cli: Cli) -> Result<std::process::ExitStatus, NativeServiceError> {
         spec,
         Duration::from_secs(cli.timeout_seconds),
         Duration::from_secs(cli.settlement_seconds),
+        cli.outcome,
     ))
 }
 fn main() -> std::process::ExitCode {
