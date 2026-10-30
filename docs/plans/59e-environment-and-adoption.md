@@ -159,7 +159,7 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 | --- | --- | --- | --- |
 | [E01](#e01) | planned | 59e | `pse worktree new\|list\|rm`; `just worktree` retired; environment guide §Worktrees updated (direnv wording unchanged) |
 | [E02](#e02) | superseded | 59e | Generic session brief/status-line target removed by review O01; existing passive status remains |
-| [E03](#e03) | planned | 59e (continuing) | AGENTS.md task-to-verb entries pointing to `pse commands`, guide routes, roles/skills mentions and retired-recipe routes, updated as each verb ships |
+| [E03](#e03) | in-progress | 59e (continuing) | Testing/runtime guidance, roles and active recipe consumers migrated with this wave; replaced generic/fixture recipes are deleted. Adoption of remaining feature verbs continues as they ship |
 | [E04](#e04) | complete | 59e | Current-work pointer links native status owners; lifecycle validate passed with zero errors |
 | [E05](#e05) | complete | 59e | Edit guidance in AGENTS.md and `.claude/rules/tooling.md` |
 

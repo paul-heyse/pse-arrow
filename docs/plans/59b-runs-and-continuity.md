@@ -213,11 +213,11 @@ no configuration or data deletion. Focused result/source links remain independen
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [B01](#b01) | in-progress | 59b | Native synchronous capture, original typed workflow errors and actual owner settlement are implemented; every synchronous selected consumer moved, and foreground service/origin watching was deleted. Current scope-end qualification remains |
-| [B02](#b02) | in-progress | 59b | Original Cargo diagnostics, native Nextest completed reports, frozen failure-text pages and exact fresh-source failed reruns pass focused/public controls; native exit, raw custody and physical settlement remain distinct. Final integrated checks remain |
-| [B03](#b03) | in-progress | 59b | One service now contains wrapper/payload/descendants; finite capacity is reserved before wrapper birth and reconciled only after original native drain. Six ordinary/finite exit/cancel/main-crash cases passed again on the fresh post-retirement image; public raw-byte transport passed and obsolete external/subtree recovery is deleted. Integrated/static qualification remains |
-| [B04](#b04) | in-progress | 59b | Native synchronous `run-all` retains original per-child results and parent associations. Public failed-then-successful recipe control passed with one physical native unit; recipe migration and scope-end checks remain |
-| [B05](#b05) | in-progress | 59b | Shared explicit/environment/harness precedence, exact session-local latest, checkout-wide history override and independent exact-ID selection are implemented. Three focused controls and actual passive/harness associations pass; current integrated execution qualification remains with the wave |
+| [B01](#b01) | complete | 59b | Native synchronous capture, typed original outcomes and actual settlement are qualified by the full 579-test host run. Synchronous callers migrated; foreground service/origin watching is deleted. Raw adapters preserve bytes, cwd, TTY and native exits |
+| [B02](#b02) | complete | 59b | Cargo diagnostics, native completed reports, original failure pages and exact fresh-source reruns are integrated and tested. Native exit, required capture and physical settlement stay independent; event-state reconciliation is deleted |
+| [B03](#b03) | complete | 59b | One original service contains wrapper/payload/descendants, with finite reservation before birth. Real ordinary/finite exit/cancel/main-crash, allocation-fault/live-gate, byte and detached-test→wait journeys pass; old generic subtree/recovery protocols are deleted |
+| [B04](#b04) | complete | 59b | Synchronous `run-all` preserves original per-child outcomes and parent/session identity in one native unit. Native `--justfile` supports explicit recipe files. Failed/incomplete/successful sibling controls pass; aggregate callers migrated and private recipe deleted |
+| [B05](#b05) | complete | 59b | Explicit/environment/harness precedence, session-local latest, checkout-wide history override and independent exact IDs pass focused, public and integrated controls. Correlation grants no native stop authority; no packet hooks added |
 
 <a id="b01"></a>
 ### B01 — Foreground operations and retained results

@@ -169,7 +169,7 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 | [D03](#d03) | complete | 59d | Native lossless outline/show, exact source selections and shared lib-outline route integrated; batch CPU execution and source/schema/actual CLI tests cover malformed/Unicode/ambiguous/CommonMark reads |
 | [D04](#d04) | planned | 59d | Federated `pse docs check` with pinned lychee |
 | [D05](#d05) | deferred | 59d | Citation/scaffold wrappers deferred pending demonstrated workflow need; existing native routes remain |
-| [D06](#d06) | in-progress | 59d | Aggregate-generated actual output map, original contributor routing, `pse owner` generated reads and advisory design/ADR guard integrated; document/source owner federation and adjacent affected consumers remain |
+| [D06](#d06) | in-progress | 59d | Testing-wave generated contributor/affected consumers and publication routing are delivered and qualified. Aggregate output map, original contributor reads and advisory guard remain integrated; broader document/source owner federation stays open |
 | [D07](#d07) | planned | 59d | Generated Markdown CLI reference under `docs/generated/` with drift check |
 | [D08](#d08) | deferred | 59d | Operator-confirmed deferral; D09 investigation retained, no commit CLI implementation required |
 | [D09](#d09) | complete | 59d | Native Git transaction strategy selected with 11 passing disposable-repository probes; D08 runtime acceptance remains outstanding |
