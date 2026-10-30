@@ -139,6 +139,8 @@ pub enum CommandOutcome {
 #[derive(Clone, Copy, Debug, Serialize, serde::Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SubjectState {
+    /// A queried source/provider is available; this is not a workload-success assertion.
+    Available,
     /// This command makes no workload-state claim.
     NotApplicable,
     /// The subject's state is unknown.

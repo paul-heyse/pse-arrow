@@ -9,6 +9,27 @@ use description::{
     Availability, Candidate, CandidateProvider, CandidateSet, Exhaustiveness, Freshness, Page,
     Source, Window,
 };
+use sha2::Digest as _;
+/// An explicitly selected retained metadata snapshot, never produced by passive discovery.
+#[derive(Debug)]
+pub struct MetadataSnapshot {
+    /// Cargo's actual decoded source record.
+    pub metadata: cargo_metadata::Metadata,
+    /// Exact bytes read, independent of caller-supplied filenames.
+    pub digest: String,
+}
+impl MetadataSnapshot {
+    /// Read a selected snapshot without starting Cargo or interpreting it as built evidence.
+    pub fn read(path: &std::path::Path) -> Result<Self, crate::correctness::CorrectnessError> {
+        let bytes = std::fs::read(path)?;
+        let metadata = serde_json::from_slice(&bytes)?;
+        let digest = sha2::Sha256::digest(bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        Ok(Self { metadata, digest })
+    }
+}
 
 /// Native provider IDs attach to actual arguments, independently of parser validation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -149,13 +170,50 @@ impl Context<'_> {
 }
 /// Shared parser with descriptive associations only; argument validation is unchanged.
 pub fn command_tree() -> Command {
-    crate::cli::Cli::command().mut_subcommand("native", |command| {
+    let tree = crate::cli::Cli::command().mut_subcommand("native", |command| {
         command.mut_subcommand("prepare", |command| {
             command.mut_arg("capabilities", |arg| {
                 arg.add(Domain::NativeCapabilities.association())
             })
         })
-    })
+    });
+    fn attach(mut command: Command, path: Vec<String>) -> Command {
+        let name = path.join(" ");
+        let mut schemas = Vec::new();
+        for name in [
+            name.clone(),
+            format!("{name} candidates"),
+            format!("{name} brief"),
+        ] {
+            if let Ok(schema) =
+                crate::cli::response_schema(&name, &crate::envelope::Presentation::default())
+                && let Some(identity) = schema.get("$id").and_then(serde_json::Value::as_str)
+            {
+                schemas.push(identity.to_owned());
+            }
+        }
+        let mut example = path.clone();
+        example.push("--help".into());
+        let mut route = vec!["pse".into()];
+        route.extend(path.clone());
+        command = command.add(description::CommandMetadata {
+            examples: vec![example],
+            output_schemas: schemas,
+            invocation_route: route,
+            features: Vec::new(),
+        });
+        let names = command
+            .get_subcommands()
+            .map(|child| child.get_name().to_owned())
+            .collect::<Vec<_>>();
+        for name in names {
+            let mut child_path = path.clone();
+            child_path.push(name.clone());
+            command = command.mut_subcommand(name, |child| attach(child, child_path));
+        }
+        command
+    }
+    attach(tree, Vec::new())
 }
 /// Actual command descriptions, without evaluating dynamic providers.
 pub fn commands(

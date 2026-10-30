@@ -7,7 +7,6 @@ Usage: pse native [OPTIONS] <COMMAND>
 
 Commands:
   prepare
-  help     Print this message or the help of the given subcommand(s)
 
 Options:
   -C <checkout>
@@ -20,7 +19,6 @@ Usage: pse native [OPTIONS] <COMMAND>
 
 Commands:
   prepare
-  help     Print this message or the help of the given subcommand(s)
 
 Options:
   -C <checkout>

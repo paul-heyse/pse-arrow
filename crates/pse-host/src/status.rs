@@ -90,6 +90,67 @@ pub struct Report {
     /// Neither directory traversal nor Git status is an atomic multi-source snapshot.
     pub atomic_snapshot: bool,
 }
+/// Requested concise status view, derived from the same frozen source observations.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct Summary {
+    /// Inspected checkout identity.
+    pub checkout_id: Information<String>,
+    /// Shared repository identity.
+    pub repository_id: Information<String>,
+    /// Actual HEAD after status traversal, with original byte-name semantics.
+    pub head: Information<repository::HeadState>,
+    /// Distinct changed paths, not a count of textual status records.
+    pub dirty_path_count: Information<usize>,
+    /// Whether the independently observed HEAD values differed.
+    pub head_changed_during_observation: Information<bool>,
+    /// First current-index pointer; not authorization or implementation state.
+    pub primary_plan: Information<Option<PlanLink>>,
+    /// Passive prepared-host observation.
+    pub host_tools: Information<generation::Freshness>,
+    /// Number of authenticated metadata records, never a live workload count.
+    pub invocation_records: Information<usize>,
+    /// No current process/control observation is inferred from retained metadata.
+    pub live_workloads: Information<()>,
+    /// Independent source reads do not constitute an atomic snapshot.
+    pub atomic_snapshot: bool,
+}
+impl Report {
+    /// Select concise facts from this response without re-reading or creating any state.
+    pub fn summary(&self) -> Summary {
+        let (head, dirty_path_count, head_changed_during_observation) = match &self.repository {
+            Information::Available(repository) => (
+                Information::Available(repository.head_after.clone()),
+                Information::Available(repository.dirty_path_count),
+                Information::Available(repository.head_before != repository.head_after),
+            ),
+            Information::Unavailable { reason } => (
+                unavailable(reason.clone()),
+                unavailable(reason.clone()),
+                unavailable(reason.clone()),
+            ),
+        };
+        Summary {
+            checkout_id: self.checkout_id.clone(),
+            repository_id: self.repository_id.clone(),
+            head,
+            dirty_path_count,
+            head_changed_during_observation,
+            primary_plan: match &self.plans {
+                Information::Available(plans) => Information::Available(plans.primary.clone()),
+                Information::Unavailable { reason } => unavailable(reason.clone()),
+            },
+            host_tools: self.host_tools.clone(),
+            invocation_records: match &self.invocations {
+                Information::Available(records) => Information::Available(records.len()),
+                Information::Unavailable { reason } => unavailable(reason.clone()),
+            },
+            live_workloads: unavailable(
+                "metadata count is not a current live-workload observation",
+            ),
+            atomic_snapshot: self.atomic_snapshot,
+        }
+    }
+}
 /// Extract actual CommonMark links, including reference links and table link labels.
 pub fn plan_links(source: &str) -> PlanNavigation {
     use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
@@ -275,6 +336,30 @@ pub fn inspect(
         response.observation.completeness = Completeness::Partial;
     }
     response
+}
+/// One human status line from the same actual observation, retaining partial coverage.
+pub fn line(response: &Envelope<Report>) -> String {
+    let repository = match &response.payload.repository {
+        Information::Available(facts) => {
+            let head = match &facts.head_after {
+                repository::HeadState::Attached { reference, commit } => {
+                    format!("{:?}@{}", reference, commit)
+                }
+                repository::HeadState::Detached { commit } => format!("detached@{commit}"),
+                repository::HeadState::Unborn { reference } => format!("unborn {:?}", reference),
+            };
+            format!("{head}; dirty_paths={}", facts.dirty_path_count)
+        }
+        Information::Unavailable { .. } => "repository unavailable".into(),
+    };
+    format!(
+        "{repository}; coverage={:?}; invocation={}; subject={:?}; settlement={:?}; failures={}",
+        response.observation.completeness,
+        response.invocation_id,
+        response.subject_state,
+        response.settlement,
+        response.failures.len()
+    )
 }
 #[cfg(test)]
 mod tests;

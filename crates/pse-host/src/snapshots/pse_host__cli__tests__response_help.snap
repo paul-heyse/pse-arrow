@@ -1,0 +1,382 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "serde_json::to_string_pretty(&response).unwrap()"
+---
+{
+  "summary": "fixture response; no scientific outcome asserted",
+  "record": "response",
+  "version": 1,
+  "schema": "urn:pse:cli:v1:help:full:budget:unbounded",
+  "invocation_id": "019a0000-0000-7000-8000-000000000001",
+  "command": "help",
+  "outcome": "success",
+  "subject_state": "not_applicable",
+  "child_exit": null,
+  "settlement": "not_required",
+  "observation": {
+    "reference": null,
+    "scope": "command_response",
+    "completeness": "complete",
+    "required": true,
+    "timed_out": false,
+    "limitations": []
+  },
+  "scientific": [],
+  "providers": [],
+  "failures": [],
+  "artifacts": [],
+  "next": [],
+  "view": {
+    "fields": null,
+    "omitted_fields": [],
+    "budget": null,
+    "omitted_records": 0,
+    "truncated": false
+  },
+  "payload": {
+    "source": {
+      "owner": "clap parser",
+      "generation": null,
+      "freshness": "current_generation"
+    },
+    "availability": "available",
+    "exhaustiveness": "exhaustive",
+    "records": [
+      {
+        "path": [
+          "native",
+          "prepare"
+        ],
+        "name": "prepare",
+        "about": null,
+        "short_help": "Usage: prepare [OPTIONS] --capabilities <CAPABILITIES>\n\nOptions:\n  -C <checkout>                      \n      --capabilities <CAPABILITIES>  \n      --format <FORMAT>              Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]\n      --fields <FIELDS>              Select comma-separated payload fields while retaining identity, state and coverage\n      --budget <BUDGET>              Limit payload array records; retain complete evidence as an artifact\n  -h, --help                         Print help (see more with '--help')\n",
+        "long_help": "Usage: prepare [OPTIONS] --capabilities <CAPABILITIES>\n\nOptions:\n  -C <checkout>\n          \n\n      --capabilities <CAPABILITIES>\n          \n\n      --format <FORMAT>\n          Human output on terminals, JSON on pipes, or compact NDJSON observations\n\n          Possible values:\n          - auto:   Human for a terminal, JSON for pipes\n          - human:  Concise summary and pretty structured detail\n          - json:   One JSON envelope\n          - ndjson: Compact normalized records followed by an observation summary\n          \n          [env: PSE_FORMAT]\n          [default: auto]\n\n      --fields <FIELDS>\n          Select comma-separated payload fields while retaining identity, state and coverage\n\n      --budget <BUDGET>\n          Limit payload array records; retain complete evidence as an artifact\n\n  -h, --help\n          Print help (see a summary with '-h')\n",
+        "arguments": [
+          {
+            "id": "capabilities",
+            "long": "capabilities",
+            "short": null,
+            "index": null,
+            "action": "Set",
+            "help": null,
+            "long_help": null,
+            "minimum_values": 1,
+            "maximum_values": 1,
+            "required": true,
+            "exclusive": false,
+            "global": false,
+            "trailing_var_arg": false,
+            "last": false,
+            "environment": null,
+            "defaults": {
+              "availability": "available",
+              "value": []
+            },
+            "possible_values": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "typed parser does not expose a finite possible-values domain"
+              }
+            },
+            "candidate_provider": "native-capability-atoms",
+            "conflicts": [],
+            "requires": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "clap 4.6.7 public introspection does not expose requires/conditional requirements"
+              }
+            },
+            "conditional_rules": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "opaque typed validation, overrides and conditional defaults remain owned by the parser"
+              }
+            }
+          },
+          {
+            "id": "checkout",
+            "long": null,
+            "short": "C",
+            "index": null,
+            "action": "Set",
+            "help": null,
+            "long_help": null,
+            "minimum_values": 1,
+            "maximum_values": 1,
+            "required": false,
+            "exclusive": false,
+            "global": true,
+            "trailing_var_arg": false,
+            "last": false,
+            "environment": null,
+            "defaults": {
+              "availability": "available",
+              "value": []
+            },
+            "possible_values": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "typed parser does not expose a finite possible-values domain"
+              }
+            },
+            "candidate_provider": null,
+            "conflicts": [],
+            "requires": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "clap 4.6.7 public introspection does not expose requires/conditional requirements"
+              }
+            },
+            "conditional_rules": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "opaque typed validation, overrides and conditional defaults remain owned by the parser"
+              }
+            }
+          },
+          {
+            "id": "format",
+            "long": "format",
+            "short": null,
+            "index": null,
+            "action": "Set",
+            "help": "Human output on terminals, JSON on pipes, or compact NDJSON observations",
+            "long_help": null,
+            "minimum_values": 1,
+            "maximum_values": 1,
+            "required": false,
+            "exclusive": false,
+            "global": true,
+            "trailing_var_arg": false,
+            "last": false,
+            "environment": {
+              "encoding": "utf8",
+              "value": "PSE_FORMAT"
+            },
+            "defaults": {
+              "availability": "available",
+              "value": [
+                {
+                  "encoding": "utf8",
+                  "value": "auto"
+                }
+              ]
+            },
+            "possible_values": {
+              "availability": "available",
+              "value": [
+                {
+                  "value": "auto",
+                  "aliases": [],
+                  "help": "Human for a terminal, JSON for pipes",
+                  "hidden": false
+                },
+                {
+                  "value": "human",
+                  "aliases": [],
+                  "help": "Concise summary and pretty structured detail",
+                  "hidden": false
+                },
+                {
+                  "value": "json",
+                  "aliases": [],
+                  "help": "One JSON envelope",
+                  "hidden": false
+                },
+                {
+                  "value": "ndjson",
+                  "aliases": [],
+                  "help": "Compact normalized records followed by an observation summary",
+                  "hidden": false
+                }
+              ]
+            },
+            "candidate_provider": null,
+            "conflicts": [],
+            "requires": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "clap 4.6.7 public introspection does not expose requires/conditional requirements"
+              }
+            },
+            "conditional_rules": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "opaque typed validation, overrides and conditional defaults remain owned by the parser"
+              }
+            }
+          },
+          {
+            "id": "fields",
+            "long": "fields",
+            "short": null,
+            "index": null,
+            "action": "Append",
+            "help": "Select comma-separated payload fields while retaining identity, state and coverage",
+            "long_help": null,
+            "minimum_values": 1,
+            "maximum_values": 1,
+            "required": false,
+            "exclusive": false,
+            "global": true,
+            "trailing_var_arg": false,
+            "last": false,
+            "environment": null,
+            "defaults": {
+              "availability": "available",
+              "value": []
+            },
+            "possible_values": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "typed parser does not expose a finite possible-values domain"
+              }
+            },
+            "candidate_provider": null,
+            "conflicts": [],
+            "requires": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "clap 4.6.7 public introspection does not expose requires/conditional requirements"
+              }
+            },
+            "conditional_rules": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "opaque typed validation, overrides and conditional defaults remain owned by the parser"
+              }
+            }
+          },
+          {
+            "id": "budget",
+            "long": "budget",
+            "short": null,
+            "index": null,
+            "action": "Set",
+            "help": "Limit payload array records; retain complete evidence as an artifact",
+            "long_help": null,
+            "minimum_values": 1,
+            "maximum_values": 1,
+            "required": false,
+            "exclusive": false,
+            "global": true,
+            "trailing_var_arg": false,
+            "last": false,
+            "environment": null,
+            "defaults": {
+              "availability": "available",
+              "value": []
+            },
+            "possible_values": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "typed parser does not expose a finite possible-values domain"
+              }
+            },
+            "candidate_provider": null,
+            "conflicts": [],
+            "requires": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "clap 4.6.7 public introspection does not expose requires/conditional requirements"
+              }
+            },
+            "conditional_rules": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "opaque typed validation, overrides and conditional defaults remain owned by the parser"
+              }
+            }
+          },
+          {
+            "id": "help",
+            "long": "help",
+            "short": "h",
+            "index": null,
+            "action": "Help",
+            "help": "Print help (see more with '--help')",
+            "long_help": "Print help (see a summary with '-h')",
+            "minimum_values": 0,
+            "maximum_values": 0,
+            "required": false,
+            "exclusive": false,
+            "global": false,
+            "trailing_var_arg": false,
+            "last": false,
+            "environment": null,
+            "defaults": {
+              "availability": "available",
+              "value": []
+            },
+            "possible_values": {
+              "availability": "available",
+              "value": []
+            },
+            "candidate_provider": null,
+            "conflicts": [],
+            "requires": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "clap 4.6.7 public introspection does not expose requires/conditional requirements"
+              }
+            },
+            "conditional_rules": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "opaque typed validation, overrides and conditional defaults remain owned by the parser"
+              }
+            }
+          }
+        ],
+        "groups": [
+          {
+            "id": "Prepare",
+            "members": [
+              "capabilities"
+            ],
+            "required": false,
+            "multiple": true,
+            "relationships": {
+              "availability": "unavailable",
+              "value": {
+                "reason": "group requires/conflicts have no public introspection getter in clap 4.6.7"
+              }
+            }
+          }
+        ],
+        "subcommands": [],
+        "examples": [
+          [
+            "native",
+            "prepare",
+            "--help"
+          ]
+        ],
+        "output_schemas": {
+          "availability": "available",
+          "value": [
+            "urn:pse:cli:v1:native/prepare:full:budget:unbounded"
+          ]
+        },
+        "invocation_route": {
+          "availability": "available",
+          "value": [
+            "pse",
+            "native",
+            "prepare"
+          ]
+        },
+        "features": [],
+        "limitations": [
+          "public descriptions do not reconstruct opaque typed parsers or private conditional validation"
+        ]
+      }
+    ],
+    "prefix": "",
+    "offset": 0,
+    "limit": null,
+    "continuation": null,
+    "known_matches": 1,
+    "limitations": []
+  }
+}

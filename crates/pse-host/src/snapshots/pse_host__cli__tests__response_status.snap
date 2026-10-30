@@ -1,0 +1,89 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "serde_json::to_string_pretty(&response).unwrap()"
+---
+{
+  "summary": "fixture response; no scientific outcome asserted",
+  "record": "response",
+  "version": 1,
+  "schema": "urn:pse:cli:v1:status:full:budget:unbounded",
+  "invocation_id": "019a0000-0000-7000-8000-000000000001",
+  "command": "status",
+  "outcome": "success",
+  "subject_state": "not_applicable",
+  "child_exit": null,
+  "settlement": "not_required",
+  "observation": {
+    "reference": null,
+    "scope": "command_response",
+    "completeness": "partial",
+    "required": true,
+    "timed_out": false,
+    "limitations": [
+      "fixture intentionally leaves requested source observations unavailable"
+    ]
+  },
+  "scientific": [],
+  "providers": [],
+  "failures": [],
+  "artifacts": [],
+  "next": [],
+  "view": {
+    "fields": null,
+    "omitted_fields": [],
+    "budget": null,
+    "omitted_records": 0,
+    "truncated": false
+  },
+  "payload": {
+    "checkout_id": {
+      "availability": "unavailable",
+      "value": {
+        "reason": "fixture source unavailable"
+      }
+    },
+    "repository_id": {
+      "availability": "unavailable",
+      "value": {
+        "reason": "fixture source unavailable"
+      }
+    },
+    "repository": {
+      "availability": "unavailable",
+      "value": {
+        "reason": "fixture source unavailable"
+      }
+    },
+    "plans": {
+      "availability": "unavailable",
+      "value": {
+        "reason": "fixture source unavailable"
+      }
+    },
+    "invocations": {
+      "availability": "unavailable",
+      "value": {
+        "reason": "fixture source unavailable"
+      }
+    },
+    "host_tools": {
+      "availability": "unavailable",
+      "value": {
+        "reason": "fixture source unavailable"
+      }
+    },
+    "worktrees": {
+      "availability": "unavailable",
+      "value": {
+        "reason": "fixture source unavailable"
+      }
+    },
+    "product_observation": {
+      "availability": "unavailable",
+      "value": {
+        "reason": "fixture source unavailable"
+      }
+    },
+    "atomic_snapshot": false
+  }
+}

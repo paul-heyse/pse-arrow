@@ -31,7 +31,8 @@ pub enum BinKind {
 #[command(
     name = "pse",
     about = "Native host capabilities; explicit preparation: scripts/bootstrap-host",
-    disable_version_flag = true
+    disable_version_flag = true,
+    disable_help_subcommand = true
 )]
 pub(crate) struct Cli {
     #[arg(short = 'C', global = true, id = "checkout")]
@@ -59,6 +60,19 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Discover actual command declarations or lazily query one argument's candidates.
+    Commands(CatalogArgs),
+    /// Inspect one command's native help and public parser metadata.
+    Help(CatalogArgs),
+    /// Read independent native checkout, invocation and prepared-tool observations.
+    Status {
+        #[arg(long, conflicts_with = "line")]
+        brief: bool,
+        #[arg(long)]
+        line: bool,
+        #[arg(long,conflicts_with_all=["brief","line"])]
+        all: bool,
+    },
     #[command(name = "__host-generation-bootstrap", hide = true)]
     HostGenerationBootstrap,
     /// Print the serialization schema of a command's actual detail view.
@@ -137,6 +151,9 @@ impl Command {
                 GenerationIntent::NewWork
             }
             Self::Boundary(_)
+            | Self::Commands(_)
+            | Self::Help(_)
+            | Self::Status { .. }
             | Self::Schema { .. }
             | Self::AgentHook { .. }
             | Self::Doctor { .. }
@@ -172,6 +189,25 @@ impl Command {
             | Self::TelemetryService { .. } => GenerationIntent::NewWork,
         }
     }
+}
+#[derive(Debug, Args)]
+struct CatalogArgs {
+    /// Select a command path below pse; absence selects the root.
+    path: Vec<String>,
+    #[arg(long)]
+    json: bool,
+    /// Query candidates for this argument ID or long option, rather than command descriptions.
+    #[arg(long)]
+    argument: Option<String>,
+    #[arg(long, default_value = "")]
+    prefix: String,
+    #[arg(long, default_value_t = 0)]
+    offset: usize,
+    #[arg(long,value_parser=clap::value_parser!(u64).range(1..))]
+    limit: Option<u64>,
+    /// Explicit retained Cargo metadata; only a selected metadata provider reads it.
+    #[arg(long)]
+    metadata: Option<PathBuf>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -446,8 +482,16 @@ struct ServerSelection {
     executable: PathBuf,
     recipe: String,
 }
-fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
+pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
     match command {
+        "commands" | "help" => envelope::schema::<
+            crate::catalog::description::Page<crate::catalog::description::Description>,
+        >(command, view),
+        "commands candidates" | "help candidates" => envelope::schema::<
+            crate::catalog::description::Page<crate::catalog::description::Candidate>,
+        >(command, view),
+        "status" => envelope::schema::<crate::status::Report>(command, view),
+        "status brief" => envelope::schema::<crate::status::Summary>(command, view),
         "doctor" => envelope::schema::<crate::doctor::Report>(command, view),
         "env" | "env explain" => {
             envelope::schema::<crate::environment::EnvironmentExplanation>("env explain", view)
@@ -486,6 +530,29 @@ fn dispatch(cli: Cli, presentation: &OutputOptions) -> Result<i32, HostError> {
         return Ok(0);
     };
     match command {
+        Command::Commands(args) => catalog_dispatch(args, true, "commands", selected, presentation),
+        Command::Help(args) => catalog_dispatch(args, false, "help", selected, presentation),
+        Command::Status { brief, line, all } => {
+            let response = crate::status::inspect(
+                &checkout_root(selected)?,
+                &std::env::vars_os().collect(),
+                all,
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            );
+            if line && presentation.format == OutputFormat::Human {
+                let code = response.exit_code();
+                writeln!(io::stdout(), "{}", crate::status::line(&response))?;
+                return Ok(code);
+            }
+            if brief {
+                let summary = response.payload.summary();
+                let mut response = response.with_payload(summary);
+                response.command = "status brief".into();
+                response.observation.scope = "requested_native_status_summary".into();
+                return Ok(presentation.emit(response)?);
+            }
+            Ok(presentation.emit(response)?)
+        }
         Command::HostGenerationBootstrap => crate::generation::bootstrap(&checkout_root(selected)?),
         Command::Schema { verb } => {
             let schema = response_schema(&verb.join(" "), &presentation.presentation)?;
@@ -641,6 +708,121 @@ fn dispatch(cli: Cli, presentation: &OutputOptions) -> Result<i32, HostError> {
                 drain_timeout: Duration::from_secs(30),
             },
         )),
+    }
+}
+fn catalog_envelope<T: serde::Serialize + schemars::JsonSchema>(
+    page: crate::catalog::description::Page<T>,
+    command: &str,
+    context: String,
+) -> Envelope<crate::catalog::description::Page<T>> {
+    use crate::catalog::description::{Availability, Exhaustiveness, Freshness};
+    let mut response = Envelope::response(
+        command,
+        format!(
+            "{} catalog records; source availability {:?}",
+            page.records.len(),
+            page.availability
+        ),
+        page,
+    );
+    response.observation.scope = "requested_catalog_page".into();
+    response.observation.limitations = response.payload.limitations.clone();
+    if response.payload.availability != Availability::Available
+        || response.payload.exhaustiveness != Exhaustiveness::Exhaustive
+    {
+        response.observation.completeness = Completeness::Partial;
+        response.observation.required = false;
+    }
+    let availability = if response.payload.source.freshness == Freshness::Stale {
+        envelope::SubjectState::Stale
+    } else {
+        match response.payload.availability {
+            Availability::Available => envelope::SubjectState::Available,
+            Availability::Unavailable => envelope::SubjectState::Unavailable,
+            Availability::Unknown => envelope::SubjectState::Unknown,
+        }
+    };
+    response.providers.push(envelope::ProviderContext {
+        provider: response.payload.source.owner.clone(),
+        context: Some(context),
+        analysis_generation: response.payload.source.generation.clone(),
+        availability,
+        coordinates: Vec::new(),
+    });
+    response
+}
+fn catalog_dispatch(
+    args: CatalogArgs,
+    recursive: bool,
+    command: &str,
+    selected: Option<&Path>,
+    presentation: &OutputOptions,
+) -> Result<i32, HostError> {
+    use crate::catalog::{
+        self,
+        description::{self, Window},
+    };
+    let window = Window {
+        prefix: args.prefix.clone(),
+        offset: args.offset,
+        limit: args
+            .limit
+            .map(|limit| usize::try_from(limit).unwrap_or(usize::MAX)),
+    };
+    let mut presentation = presentation.clone();
+    if args.json {
+        presentation.format = OutputFormat::Json;
+    }
+    if let Some(argument) = &args.argument {
+        let page = description::candidates(
+            catalog::command_tree(),
+            &args.path,
+            argument,
+            &window,
+            |name| {
+                if name == catalog::Domain::Packages.name()
+                    || name == catalog::Domain::Targets.name()
+                {
+                    if let Some(path) = &args.metadata {
+                        let path = if path.is_relative() {
+                            selected
+                                .map(|root| root.join(path))
+                                .unwrap_or_else(|| path.clone())
+                        } else {
+                            path.clone()
+                        };
+                        let snapshot = catalog::MetadataSnapshot::read(&path)?;
+                        return catalog::Context {
+                            metadata: Some(&snapshot.metadata),
+                            metadata_generation: Some(&snapshot.digest),
+                            metadata_freshness: Some(description::Freshness::RetainedSnapshot),
+                            ..catalog::Context::default()
+                        }
+                        .provide(name);
+                    }
+                } else if name == catalog::Domain::Invocations.name() {
+                    let state = crate::paths::CheckoutState::resolve(
+                        &checkout_root(selected)?,
+                        &std::env::vars_os().collect(),
+                    )?;
+                    let store = crate::invocation::InvocationStore::new(state);
+                    return catalog::Context {
+                        invocations: Some(&store),
+                        ..catalog::Context::default()
+                    }
+                    .provide(name);
+                }
+                catalog::Context::default().provide(name)
+            },
+        )?;
+        Ok(presentation.emit(catalog_envelope(
+            page,
+            &format!("{command} candidates"),
+            format!("{} argument {argument}", args.path.join(" ")),
+        ))?)
+    } else {
+        let page = catalog::commands(&args.path, recursive, &window);
+        Ok(presentation.emit(catalog_envelope(page, command, args.path.join(" ")))?)
     }
 }
 
@@ -1066,10 +1248,7 @@ mod tests {
                 format!("help_{}", path.replace([' ', '-'], "_")),
                 format!("-h\n{short}\n--help\n{long}")
             );
-            for child in command
-                .get_subcommands()
-                .filter(|child| child.get_name() != "help")
-            {
+            for child in command.get_subcommands() {
                 visit(child.clone(), format!("{path} {}", child.get_name()));
             }
         }
@@ -1091,6 +1270,12 @@ mod tests {
                     .observation
                     .limitations
                     .push("fixture intentionally lacks manager and kernel facts".into());
+            }
+            if command.starts_with("status") {
+                response.observation.completeness = Completeness::Partial;
+                response.observation.limitations.push(
+                    "fixture intentionally leaves requested source observations unavailable".into(),
+                );
             }
             response.invocation_id = envelope::CliInvocationId::try_from(
                 "019a0000-0000-7000-8000-000000000001".to_owned(),
@@ -1125,6 +1310,41 @@ mod tests {
                 }],
             },
         );
+        snapshot(
+            "commands",
+            crate::catalog::commands(
+                &["native".into()],
+                false,
+                &crate::catalog::description::Window::default(),
+            ),
+        );
+        snapshot(
+            "help",
+            crate::catalog::commands(
+                &["native".into(), "prepare".into()],
+                false,
+                &crate::catalog::description::Window::default(),
+            ),
+        );
+        fn absent<T>() -> crate::catalog::description::Information<T> {
+            crate::catalog::description::Information::Unavailable {
+                reason: "fixture source unavailable".into(),
+            }
+        }
+        let status = crate::status::Report {
+            checkout_id: absent(),
+            repository_id: absent(),
+            repository: absent(),
+            plans: absent(),
+            invocations: absent(),
+            host_tools: absent(),
+            worktrees: absent(),
+            product_observation: absent(),
+            atomic_snapshot: false,
+        };
+        let summary = status.summary();
+        snapshot("status", status);
+        snapshot("status brief", summary);
         snapshot(
             "env explain",
             crate::environment::EnvironmentExplanation {

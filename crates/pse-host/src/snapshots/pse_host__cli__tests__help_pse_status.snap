@@ -1,0 +1,56 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
+---
+-h
+Read independent native checkout, invocation and prepared-tool observations
+
+Usage: pse status [OPTIONS]
+
+Options:
+      --brief
+  -C <checkout>
+      --format <FORMAT>  Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --line
+      --all
+      --fields <FIELDS>  Select comma-separated payload fields while retaining identity, state and coverage
+      --budget <BUDGET>  Limit payload array records; retain complete evidence as an artifact
+  -h, --help             Print help (see more with '--help')
+--help
+Read independent native checkout, invocation and prepared-tool observations
+
+Usage: pse status [OPTIONS]
+
+Options:
+      --brief
+
+
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --line
+
+
+      --all
+
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit payload array records; retain complete evidence as an artifact
+
+  -h, --help
+          Print help (see a summary with '-h')

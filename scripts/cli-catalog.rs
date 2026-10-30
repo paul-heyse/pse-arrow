@@ -329,6 +329,14 @@ fn unavailable<T>(reason: &str) -> Information<T> {
     }
 }
 fn possible(arg: &Arg) -> Option<Vec<Candidate>> {
+    // SetTrue/Count parsers carry internal typed defaults, but a zero-value flag
+    // does not accept those values as literal argv tokens.
+    if arg
+        .get_num_args()
+        .is_some_and(|range| !range.takes_values())
+    {
+        return Some(Vec::new());
+    }
     arg.get_value_parser().possible_values().map(|values| {
         values
             .map(|value| Candidate {
@@ -408,15 +416,16 @@ fn describe(mut command: Command, path: Vec<String>) -> Description {
         .get::<CommandMetadata>()
         .cloned()
         .unwrap_or_default();
-    Description{path,name:command.get_name().into(),about:command.get_about().map(ToString::to_string),short_help,long_help,arguments:command.get_arguments().filter(|arg|!arg.is_hide_set()).map(|arg|describe_argument(&command,arg)).collect(),groups:command.get_groups().map(|group|Group{id:group.get_id().to_string(),members:group.get_args().map(ToString::to_string).collect(),required:group.is_required_set(),multiple:group.clone().is_multiple(),relationships:unavailable("group requires/conflicts have no public introspection getter in clap 4.6.7")}).collect(),subcommands:command.get_subcommands().filter(|child|!child.is_hide_set() && child.get_name()!="help").map(|child|child.get_name().into()).collect(),examples:metadata.examples,output_schemas:if metadata.output_schemas.is_empty(){unavailable("response owner did not declare a serialization-schema association")}else{Information::Available(metadata.output_schemas)},invocation_route:if metadata.invocation_route.is_empty(){unavailable("prepared owner invocation route is not attached to this parser")}else{Information::Available(metadata.invocation_route)},features:metadata.features,limitations:vec!["public descriptions do not reconstruct opaque typed parsers or private conditional validation".into()]}
+    Description{path,name:command.get_name().into(),about:command.get_about().map(ToString::to_string),short_help,long_help,arguments:command.get_arguments().filter(|arg|!arg.is_hide_set()).map(|arg|describe_argument(&command,arg)).collect(),groups:command.get_groups().map(|group|Group{id:group.get_id().to_string(),members:group.get_args().map(ToString::to_string).collect(),required:group.is_required_set(),multiple:group.clone().is_multiple(),relationships:unavailable("group requires/conflicts have no public introspection getter in clap 4.6.7")}).collect(),subcommands:command.get_subcommands().filter(|child|!child.is_hide_set()).map(|child|child.get_name().into()).collect(),examples:metadata.examples,output_schemas:if metadata.output_schemas.is_empty(){unavailable("response owner did not declare a serialization-schema association")}else{Information::Available(metadata.output_schemas)},invocation_route:if metadata.invocation_route.is_empty(){unavailable("prepared owner invocation route is not attached to this parser")}else{Information::Available(metadata.invocation_route)},features:metadata.features,limitations:vec!["public descriptions do not reconstruct opaque typed parsers or private conditional validation".into()]}
 }
 fn scoped(mut root: Command, path: &[String]) -> Option<(Command, Vec<String>)> {
     let mut canonical = Vec::new();
+    root = root.disable_help_subcommand(true);
     for name in path {
         // render_help builds only this node, unlike build()'s intentional full recursion.
         let _ = root.render_help();
         let child = root.find_subcommand(name)?.clone();
-        if child.is_hide_set() || child.get_name() == "help" {
+        if child.is_hide_set() {
             return None;
         }
         canonical.push(child.get_name().to_owned());
@@ -457,7 +466,7 @@ pub fn commands(
         let children = if recursive {
             command
                 .get_subcommands()
-                .filter(|child| !child.is_hide_set() && child.get_name() != "help")
+                .filter(|child| !child.is_hide_set())
                 .cloned()
                 .collect()
         } else {

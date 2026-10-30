@@ -357,3 +357,48 @@ fn non_unicode_declared_defaults_keep_their_original_platform_bytes() {
         matches!(&arg.defaults,Information::Available(values) if values==&vec![OsValue::PlatformBytes(vec![b'a',0xff,b'b'])])
     );
 }
+#[test]
+fn explicit_metadata_snapshot_identity_is_over_exact_source_bytes() {
+    use sha2::Digest as _;
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("snapshot.json");
+    let original = serde_json::to_vec_pretty(&metadata()).unwrap();
+    std::fs::write(&path, &original).unwrap();
+    let snapshot = MetadataSnapshot::read(&path).unwrap();
+    assert_eq!(
+        snapshot.digest,
+        sha2::Sha256::digest(&original)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    );
+    assert_eq!(
+        snapshot.metadata.workspace_packages()[0].name.as_str(),
+        "alpha"
+    );
+    std::fs::write(&path, b"not JSON").unwrap();
+    assert!(matches!(
+        MetadataSnapshot::read(&path),
+        Err(crate::correctness::CorrectnessError::Json(_))
+    ));
+}
+#[test]
+fn flags_do_not_advertise_internal_boolean_defaults_as_accepted_value_tokens() {
+    let tree = Command::new("fixture").arg(
+        Arg::new("enabled")
+            .long("enabled")
+            .action(ArgAction::SetTrue),
+    );
+    assert!(
+        tree.clone()
+            .try_get_matches_from(["fixture", "--enabled", "false"])
+            .is_err()
+    );
+    let page = description::candidates(tree, &[], "enabled", &Window::default(), |_| {
+        Ok::<_, ()>(CandidateSet::unavailable("unused", "unused"))
+    })
+    .unwrap();
+    assert_eq!(page.availability, Availability::Available);
+    assert_eq!(page.exhaustiveness, Exhaustiveness::Exhaustive);
+    assert!(page.records.is_empty());
+}

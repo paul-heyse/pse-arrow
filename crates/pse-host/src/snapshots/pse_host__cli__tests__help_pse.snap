@@ -8,6 +8,9 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  commands           Discover actual command declarations or lazily query one argument's candidates
+  help               Inspect one command's native help and public parser metadata
+  status             Read independent native checkout, invocation and prepared-tool observations
   schema             Print the serialization schema of a command's actual detail view
   doctor
   cargo-tools
@@ -19,7 +22,6 @@ Commands:
   env
   activity
   run
-  help               Print this message or the help of the given subcommand(s)
 
 Options:
   -C <checkout>
@@ -34,6 +36,9 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  commands           Discover actual command declarations or lazily query one argument's candidates
+  help               Inspect one command's native help and public parser metadata
+  status             Read independent native checkout, invocation and prepared-tool observations
   schema             Print the serialization schema of a command's actual detail view
   doctor
   cargo-tools
@@ -45,7 +50,6 @@ Commands:
   env
   activity
   run
-  help               Print this message or the help of the given subcommand(s)
 
 Options:
   -C <checkout>
