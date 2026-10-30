@@ -62,7 +62,8 @@ pub(crate) struct Cli {
 enum Command {
     /// Read one Rust file's written declarations or a Markdown document's headings.
     Outline {
-        file: PathBuf,
+        #[arg(required=true,num_args=1..)]
+        files: Vec<PathBuf>,
         #[command(flatten)]
         parsing: SourceParsing,
     },
@@ -514,6 +515,7 @@ struct ServerSelection {
 pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
     match command {
         "outline" => envelope::schema::<crate::source_command::FileOutline>(command, view),
+        "outline batch" => envelope::schema::<crate::source_command::batch::Report>(command, view),
         "show" => envelope::schema::<crate::source_command::FileSelection>(command, view),
         "commands" | "help" => envelope::schema::<
             crate::catalog::description::Page<crate::catalog::description::Description>,
@@ -561,8 +563,37 @@ fn dispatch(cli: Cli, presentation: &OutputOptions) -> Result<i32, HostError> {
         return Ok(0);
     };
     match command {
-        Command::Outline { file, parsing } => {
-            let file = source_path(selected, file)?;
+        Command::Outline { files, parsing } => {
+            let mut files = files
+                .into_iter()
+                .map(|file| source_path(selected, file))
+                .collect::<Result<Vec<_>, _>>()?;
+            if files.len() > 1 {
+                let response = runtime()?.block_on(async {
+                    let mut task = crate::source_command::batch::start(
+                        files,
+                        parsing.language,
+                        parsing.edition,
+                        tokio_util::sync::CancellationToken::new(),
+                    );
+                    tokio::select! {
+                        response=task.settle()=>response.map_err(HostError::from),
+                        signal=tokio::signal::ctrl_c()=>{
+                            task.cancel();
+                            let response=task.settle().await?;
+                            signal?;
+                            Ok(response)
+                        },
+                    }
+                })?;
+                return source_emit(presentation, response, crate::source_command::batch::text);
+            }
+            let file = files.pop().ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "select at least one source file",
+                )
+            })?;
             let response =
                 crate::source_command::outline(&file, parsing.language, parsing.edition)?;
             source_emit(presentation, response, crate::source_command::outline_text)
@@ -787,12 +818,14 @@ fn source_emit<T: serde::Serialize + schemars::JsonSchema>(
         let _ = envelope::schema::<T>(&response.command, &presentation.presentation)?;
         let text = render(&response.payload);
         let frame = format!(
-            "{}; invocation={}; coverage={:?}; subject={:?}; settlement={:?}\n{text}",
+            "{}; invocation={}; outcome={:?}; coverage={:?}; subject={:?}; settlement={:?}; failures={}\n{text}",
             response.summary,
             response.invocation_id,
+            response.outcome,
             response.observation.completeness,
             response.subject_state,
-            response.settlement
+            response.settlement,
+            response.failures.len()
         );
         io::stdout().lock().write_all(frame.as_bytes())?;
         Ok(response.exit_code())
@@ -1454,6 +1487,22 @@ mod tests {
                 rust_edition: outline.rust_edition,
                 parse_issues: outline.parse_issues,
                 selection,
+            },
+        );
+        snapshot(
+            "outline batch",
+            crate::source_command::batch::Report {
+                records: vec![crate::source_command::batch::Record::Read {
+                    reading: crate::source_command::FileOutline {
+                        file: "fixture.rs".into(),
+                        outline: crate::source_read::rust(
+                            source,
+                            crate::source_read::RustEdition::E2024,
+                        ),
+                    },
+                }],
+                cancellation_requested: false,
+                cpu_work_completed: true,
             },
         );
         snapshot(

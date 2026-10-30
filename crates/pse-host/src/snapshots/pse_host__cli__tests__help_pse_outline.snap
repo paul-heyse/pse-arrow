@@ -5,10 +5,10 @@ expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 -h
 Read one Rust file's written declarations or a Markdown document's headings
 
-Usage: pse outline [OPTIONS] <FILE>
+Usage: pse outline [OPTIONS] <FILES>...
 
 Arguments:
-  <FILE>
+  <FILES>...
 
 Options:
   -C <checkout>
@@ -21,10 +21,10 @@ Options:
 --help
 Read one Rust file's written declarations or a Markdown document's headings
 
-Usage: pse outline [OPTIONS] <FILE>
+Usage: pse outline [OPTIONS] <FILES>...
 
 Arguments:
-  <FILE>
+  <FILES>...
 
 
 Options:

@@ -1,0 +1,82 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "serde_json::to_string_pretty(&response).unwrap()"
+---
+{
+  "summary": "fixture response; no scientific outcome asserted",
+  "record": "response",
+  "version": 1,
+  "schema": "urn:pse:cli:v1:outline/batch:full:budget:unbounded",
+  "invocation_id": "019a0000-0000-7000-8000-000000000001",
+  "command": "outline batch",
+  "outcome": "success",
+  "subject_state": "not_applicable",
+  "child_exit": null,
+  "settlement": "not_required",
+  "observation": {
+    "reference": null,
+    "scope": "command_response",
+    "completeness": "complete",
+    "required": true,
+    "timed_out": false,
+    "limitations": []
+  },
+  "scientific": [],
+  "providers": [],
+  "failures": [],
+  "artifacts": [],
+  "next": [],
+  "view": {
+    "fields": null,
+    "omitted_fields": [],
+    "budget": null,
+    "omitted_records": 0,
+    "truncated": false
+  },
+  "payload": {
+    "records": [
+      {
+        "status": "read",
+        "reading": {
+          "file": {
+            "Unix": [
+              102,
+              105,
+              120,
+              116,
+              117,
+              114,
+              101,
+              46,
+              114,
+              115
+            ]
+          },
+          "outline": {
+            "source_sha256": "a21b6b760599d5c6108093484b90d1826ba939123626359495f4f535bb29bd2b",
+            "rust_edition": "E2024",
+            "backend": "ra_ap_syntax/0.0.360",
+            "entries": [
+              {
+                "path": [
+                  "observed"
+                ],
+                "kind": "FN",
+                "range": {
+                  "byte_start": 0,
+                  "byte_end": 28,
+                  "line_start": 1,
+                  "line_end": 2
+                },
+                "signature": "/// fixture\nfn observed()"
+              }
+            ],
+            "parse_issues": []
+          }
+        }
+      }
+    ],
+    "cancellation_requested": false,
+    "cpu_work_completed": true
+  }
+}

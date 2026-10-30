@@ -189,3 +189,33 @@ fn native_filename_bytes_and_explicit_edition_survive_source_reads() {
         "title"
     );
 }
+
+#[test]
+fn multiple_files_use_the_shared_cpu_batch_and_keep_partial_read_results() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("first.rs"), "fn first() {}\n").unwrap();
+    std::fs::write(root.path().join("last.md"), "# Last\n").unwrap();
+    let output = pse(root.path())
+        .args(["outline", "first.rs", "missing.rs", "last.md"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let response: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    validate(root.path(), "outline batch", &response);
+    assert_eq!(response["command"], "outline batch");
+    assert_eq!(response["payload"]["cpu_work_completed"], true);
+    let records = response["payload"]["records"].as_array().unwrap();
+    assert_eq!(records.len(), 3);
+    assert_eq!(records[0]["status"], "read");
+    assert_eq!(
+        records[0]["reading"]["outline"]["entries"][0]["path"][0],
+        "first"
+    );
+    assert_eq!(records[1]["status"], "failed");
+    assert_eq!(
+        records[2]["reading"]["outline"]["entries"][0]["path"][0],
+        "Last"
+    );
+    assert_eq!(response["failures"].as_array().unwrap().len(), 1);
+    assert!(!root.path().join("target").exists());
+}

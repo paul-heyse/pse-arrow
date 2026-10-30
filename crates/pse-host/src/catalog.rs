@@ -184,6 +184,7 @@ pub fn command_tree() -> Command {
             name.clone(),
             format!("{name} candidates"),
             format!("{name} brief"),
+            format!("{name} batch"),
         ] {
             if let Ok(schema) =
                 crate::cli::response_schema(&name, &crate::envelope::Presentation::default())
