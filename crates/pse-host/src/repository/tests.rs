@@ -36,6 +36,65 @@ fn fixture() -> tempfile::TempDir {
 fn observed(root: &Path) -> RepositoryObservation {
     observe(root, Arc::new(AtomicBool::new(false))).expect("status")
 }
+#[test]
+fn worktree_inventory_includes_main_and_linked_byte_paths_without_mutation() {
+    use std::os::unix::ffi::OsStrExt as _;
+    let root = fixture();
+    fs::write(root.path().join("file"), "initial").unwrap();
+    words(root.path(), &["add", "file"]);
+    words(root.path(), &["commit", "--quiet", "-m", "initial"]);
+    let linked = root.path().join(OsStr::from_bytes(b"linked-\xff"));
+    git(
+        root.path(),
+        &[
+            OsStr::new("worktree"),
+            OsStr::new("add"),
+            OsStr::new("--quiet"),
+            OsStr::new("--detach"),
+            linked.as_os_str(),
+        ],
+    );
+    let before = fs::read(root.path().join(".git/index")).unwrap();
+    let inventory = observe_worktrees(root.path()).unwrap();
+    assert!(inventory.failures.is_empty(), "{:?}", inventory.failures);
+    assert_eq!(inventory.entries.len(), 2);
+    assert_eq!(
+        inventory.entries.iter().filter(|entry| entry.main).count(),
+        1
+    );
+    assert!(inventory.entries.iter().any(|entry| {
+        entry
+            .worktree
+            .as_ref()
+            .is_some_and(|path| path.as_bytes() == linked.as_os_str().as_bytes())
+    }));
+    assert_eq!(fs::read(root.path().join(".git/index")).unwrap(), before);
+}
+#[test]
+fn unreadable_linked_head_keeps_main_entry_and_original_failure_without_repair() {
+    let root = fixture();
+    fs::write(root.path().join("file"), "initial").unwrap();
+    words(root.path(), &["add", "file"]);
+    words(root.path(), &["commit", "--quiet", "-m", "initial"]);
+    let linked = root.path().join("linked");
+    git(
+        root.path(),
+        &[
+            OsStr::new("worktree"),
+            OsStr::new("add"),
+            OsStr::new("--quiet"),
+            OsStr::new("--detach"),
+            linked.as_os_str(),
+        ],
+    );
+    let admin = fs::read_to_string(linked.join(".git")).unwrap();
+    let head = Path::new(admin.trim().strip_prefix("gitdir: ").unwrap()).join("HEAD");
+    fs::write(&head, b"invalid-ref\n").unwrap();
+    let inventory = observe_worktrees(root.path()).unwrap();
+    assert!(inventory.entries.iter().any(|entry| entry.main));
+    assert!(!inventory.failures.is_empty());
+    assert_eq!(fs::read(head).unwrap(), b"invalid-ref\n");
+}
 
 #[test]
 fn native_status_preserves_staged_unstaged_untracked_and_original_index() {

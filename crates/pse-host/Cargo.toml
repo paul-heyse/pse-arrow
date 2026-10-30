@@ -32,6 +32,7 @@ workspace = true
 
 [dependencies]
 clap.workspace = true
+pulldown-cmark.workspace = true
 pse-diagnostics.workspace = true
 pse-buildinfo.workspace = true
 thiserror.workspace = true

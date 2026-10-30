@@ -24,6 +24,7 @@ pub mod paths;
 pub mod repository;
 pub mod selection;
 pub mod server;
+pub mod status;
 pub mod study_module;
 pub mod stream_records;
 pub use manager::{

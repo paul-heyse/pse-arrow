@@ -286,5 +286,77 @@ pub fn observe(
     })
 }
 
+/// Read-only identity and HEAD for one main/linked worktree; no dirty or live-process claim.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct WorktreeObservation {
+    /// Original per-worktree administration path bytes.
+    pub git_dir: GitName,
+    /// Native configured worktree path, absent for bare repositories.
+    pub worktree: Option<GitName>,
+    /// Whether this is the main repository rather than a linked worktree.
+    pub main: bool,
+    /// Native bare-repository configuration.
+    pub bare: bool,
+    /// Original HEAD observation; absence is accompanied by an independent failure.
+    pub head: Option<HeadState>,
+}
+/// One independent enumeration/HEAD failure with location when upstream supplies it.
+#[derive(Debug)]
+pub struct WorktreeFailure {
+    /// Administration directory known before the failed HEAD read, if available.
+    pub git_dir: Option<GitName>,
+    /// Original typed source chain.
+    pub error: RepositoryError,
+}
+/// Every independently readable entry survives another worktree's failure.
+#[derive(Debug)]
+pub struct WorktreeInventory {
+    /// Actual observed entries, sorted by original administration-path bytes.
+    pub entries: Vec<WorktreeObservation>,
+    /// Original failures in observation order, without guessed replacement entries.
+    pub failures: Vec<WorktreeFailure>,
+}
+/// Enumerate main and linked worktrees through Gitoxide without shelling out or mutations.
+/// Missing/inaccessible linked directories remain representable by the native iterator.
+pub fn observe_worktrees(root: &Path) -> Result<WorktreeInventory, RepositoryError> {
+    let root = root.canonicalize()?;
+    let mut repository = gix::open(&root)?;
+    repository.make_paths_absolute()?;
+    let mut entries = Vec::new();
+    let mut failures = Vec::new();
+    for entry in repository.worktrees_including_main()? {
+        match entry {
+            Err(error) => failures.push(WorktreeFailure {
+                git_dir: None,
+                error: error.into(),
+            }),
+            Ok(repository) => {
+                let git_dir = GitName::new(repository.git_dir().as_os_str().as_bytes());
+                let head = match head(&repository) {
+                    Ok(head) => Some(head),
+                    Err(error) => {
+                        failures.push(WorktreeFailure {
+                            git_dir: Some(git_dir.clone()),
+                            error,
+                        });
+                        None
+                    }
+                };
+                entries.push(WorktreeObservation {
+                    git_dir,
+                    worktree: repository
+                        .workdir()
+                        .map(|path| GitName::new(path.as_os_str().as_bytes())),
+                    main: !matches!(repository.kind(), gix::repository::Kind::LinkedWorkTree),
+                    bare: repository.is_bare(),
+                    head,
+                });
+            }
+        }
+    }
+    entries.sort_by(|left, right| left.git_dir.as_bytes().cmp(right.git_dir.as_bytes()));
+    Ok(WorktreeInventory { entries, failures })
+}
+
 #[cfg(test)]
 mod tests;
