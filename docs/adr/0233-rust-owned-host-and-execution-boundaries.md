@@ -13,8 +13,9 @@ supersedes: []
 superseded-by: null
 revisit: A named retained workload cannot preserve original physical ownership or canonical admission through the selected native interfaces.
 verification: Plan58 B01–B05 targeted cold-bootstrap, actual systemd255 user-manager ownership/drain, environment and native compiler controls; D05 separately establishes transactional migration fencing.
+plan59_verification: A07 scoped contract review accepts Proposed design only; A03 verifies typed outcomes/diagnostics, A05/B03 verify authenticated recorded-generation control and actual drain, G verifies analysis context and session lifetime.
 standard: {core: "3.4", process-simulator: "1.5"}
-scenarios: [docs/plans/58b-bootstrap-and-host-control.md, docs/plans/58d-canonical-control-and-connectivity.md]
+scenarios: [docs/plans/58b-bootstrap-and-host-control.md, docs/plans/58d-canonical-control-and-connectivity.md, docs/plans/59a-cli-foundation.md, docs/plans/59b-runs-and-continuity.md, docs/plans/59g-rust-semantic-intelligence.md]
 ---
 
 # ADR-0233: Own native host control and execution boundaries in Rust
@@ -168,6 +169,11 @@ Rust type cannot prove an independent process alive. Server readiness/migration 
 separate capability rather than inflate the bootstrap closure.
 
 ## More information
+
+[Plan59](../plans/59-agent-cli.md) owns the subsequent A07/A03/A05/B03/G implementation and
+acceptance. Its [scoped contract review](../design_review/reviews/design_review_plan59-host-control-contracts_2026-10-29.md)
+accepts the A07 semantic amendment at Proposed evidence; this does not accept future runtime
+mechanisms or change this ADR's formal status.
 
 [Plan58](../plans/58-rust-owned-system.md), [58b](../plans/58b-bootstrap-and-host-control.md),
 and [hard-cutover recommendations I01–I14](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md)

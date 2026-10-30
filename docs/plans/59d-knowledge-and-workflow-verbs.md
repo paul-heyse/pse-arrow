@@ -171,7 +171,7 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 | [D06](#d06) | planned | 59d | Generated-outputs map; `pse owner`; guard informs for documents; `.design-edit`/`PSE_DESIGN_EDIT` retired |
 | [D07](#d07) | planned | 59d | Generated Markdown CLI reference under `docs/generated/` with drift check |
 | [D08](#d08) | planned | 59d | `pse commit` with private index, hunk IDs, whole-file formatting, scoped drift check and trailers |
-| [D09](#d09) | planned | 59d | Bounded Git transaction investigation and exit decision required before D08 implementation/adoption |
+| [D09](#d09) | complete | 59d | Native Git transaction strategy selected with 11 passing disposable-repository probes; D08 runtime acceptance remains outstanding |
 
 <a id="d01"></a>
 ### D01 — Orientation and delegation briefs

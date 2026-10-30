@@ -1,7 +1,7 @@
 ---
 title: "Plan59 native host contract audit refresh"
 date: 2026-10-29
-doc_role: audit
+doc_role: review
 doc_owner: docs/design_review/audit/README.md
 doc_topics: [design, environment, diagnostics]
 ---
