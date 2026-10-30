@@ -25,7 +25,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, anyhow, bail, ensure};
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use regex::Regex;
 use serde::Deserialize;
 
@@ -65,6 +65,17 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
+    /// Describe this compiled owner's actual command grammar without preparing any tools.
+    Commands {
+        /// Emit structured parser descriptions.
+        #[arg(long)]
+        json: bool,
+        /// Include visible descendants of the selected command.
+        #[arg(long)]
+        recursive: bool,
+        /// Canonical command path within this owner.
+        path: Vec<String>,
+    },
     /// Validate or inspect the authored deferred-decision register.
     Register {
         #[command(subcommand)]
@@ -466,8 +477,79 @@ fn conformance_command(
     Ok(())
 }
 
+fn command_catalog(
+    path: &[String],
+    recursive: bool,
+) -> xtask::cli_catalog::Page<xtask::cli_catalog::Description> {
+    let mut page = xtask::cli_catalog::commands(
+        Cli::command(),
+        path,
+        recursive,
+        &xtask::cli_catalog::Window::default(),
+    );
+    page.source.owner = "compiled xtask command parser".into();
+    page
+}
+
+#[cfg(test)]
+mod command_catalog_tests {
+    use super::*;
+
+    #[test]
+    fn discovery_reads_the_actual_owner_parser_and_scopes_without_effects() {
+        assert!(matches!(
+            Cli::try_parse_from(["xtask", "commands", "--json"])
+                .unwrap()
+                .command,
+            Cmd::Commands { json: true, .. }
+        ));
+        let root = command_catalog(&[], false);
+        assert_eq!(
+            root.availability,
+            xtask::cli_catalog::Availability::Available
+        );
+        let commands = &root.records[0].subcommands;
+        for name in ["commands", "register", "solver-images"] {
+            assert!(commands.iter().any(|command| command == name));
+        }
+        let selected = command_catalog(&["register".into()], false);
+        assert_eq!(selected.records[0].path, ["register"]);
+        assert!(selected.records[0].long_help.contains("register"));
+        let missing = command_catalog(&["not-an-owner-command".into()], true);
+        assert_eq!(
+            missing.availability,
+            xtask::cli_catalog::Availability::Unavailable
+        );
+        assert!(missing.records.is_empty());
+    }
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    if let Cmd::Commands {
+        json,
+        recursive,
+        path,
+    } = &cli.command
+    {
+        let page = command_catalog(path, *recursive);
+        let stdout = std::io::stdout();
+        let mut output = stdout.lock();
+        if *json {
+            serde_json::to_writer_pretty(&mut output, &page)?;
+            use std::io::Write as _;
+            writeln!(output)?;
+        } else {
+            use std::io::Write as _;
+            for record in &page.records {
+                writeln!(output, "{}", record.long_help)?;
+            }
+            for limitation in &page.limitations {
+                writeln!(output, "{limitation}")?;
+            }
+        }
+        return Ok(());
+    }
     // This pure tooling route also runs in namespaces without a checkout or store.
     #[cfg(feature = "surrealql-tools")]
     if let Cmd::SurrealqlValidate { inputs } = &cli.command {
@@ -475,6 +557,7 @@ fn main() -> Result<()> {
     }
     let root = workspace_root()?;
     match cli.command {
+        Cmd::Commands { .. } => bail!("command discovery was not handled before checkout lookup"),
         Cmd::Register { command } => {
             std::process::exit(xtask::documentation::register::execute(&root, command)?);
         }

@@ -7,6 +7,9 @@
     clippy::disallowed_types,
     reason = "xtask's developer-only library preserves heterogeneous external tool errors, matching its command boundary"
 )]
+/// Parser-owned discovery shared with the independent host, without a host dependency.
+#[path = "../../scripts/cli-catalog.rs"]
+pub mod cli_catalog;
 pub mod development;
 /// Native Markdown and authored document metadata readers.
 pub mod documentation;
