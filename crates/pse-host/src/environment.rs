@@ -23,10 +23,14 @@ pub enum CacheMode {
 }
 
 /// An invalid declaration or unsupported external environment selection.
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[derive(Debug, thiserror::Error)]
 #[error("host environment: {0}")]
-#[diagnostic(code(pse::host::environment))]
 pub struct EnvironmentError(pub String);
+pse_diagnostics::impl_diagnostic! {
+    EnvironmentError,
+    code(_this) { Some(pse_diagnostics::DiagnosticCode::HostEnvironment) },
+    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+}
 
 /// Immutable filesystem selections established before pure composition.
 #[derive(Debug, Clone)]

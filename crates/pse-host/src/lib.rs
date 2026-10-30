@@ -10,6 +10,7 @@ pub mod cli;
 pub mod correctness;
 pub mod diagnostic_tools;
 pub mod doctor;
+pub mod envelope;
 pub mod environment;
 pub mod foreground;
 pub mod generation;
@@ -63,8 +64,19 @@ pub enum HostError {
 
 pse_diagnostics::impl_diagnostic! {
     HostError,
-    code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+    code(this) { Some(match this {
+        Self::Io(_) => pse_diagnostics::DiagnosticCode::HostIo,
+        Self::Manager(_) => pse_diagnostics::DiagnosticCode::HostManager,
+        Self::Ownership(_) => pse_diagnostics::DiagnosticCode::HostOwnership,
+        Self::Deadline(_) => pse_diagnostics::DiagnosticCode::HostDeadline,
+        Self::UnknownLaunch {..} => pse_diagnostics::DiagnosticCode::HostUnknownLaunch,
+        Self::Settlement {..} => pse_diagnostics::DiagnosticCode::HostSettlement,
+        Self::Environment(_) => pse_diagnostics::DiagnosticCode::HostEnvironment,
+    }) },
+    forward(this) { match this { Self::Environment(error) => Some(error), _ => None } },
+    help(_this) { None },
+    related(this) { match this { Self::Settlement {operation,cleanup} => { let children:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()]; Some(Box::new(children.into_iter())) }, _ => None } },
+    source(_this) { None }
 }
 
 /// Passive native process telemetry selection.

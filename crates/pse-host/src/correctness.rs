@@ -37,7 +37,7 @@ pub enum CorrectnessError {
 }
 pse_diagnostics::impl_diagnostic! {
     CorrectnessError,
-    code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
+    code(this) { Some(match this {Self::Json(_) => pse_diagnostics::DiagnosticCode::CorrectnessGraph, Self::Invalid(_) => pse_diagnostics::DiagnosticCode::CorrectnessAdmission, Self::Io(_) => pse_diagnostics::DiagnosticCode::CorrectnessIo}) },
     forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 fn invalid(message: impl Into<String>) -> CorrectnessError {

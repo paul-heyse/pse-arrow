@@ -114,6 +114,18 @@ macro_rules! codes {
 }
 
 codes! {
+    HostIo => ("host.io", RuntimeInfrastructure, "Native host input/output failed."),
+    HostManager => ("host.manager", RuntimeInfrastructure, "The selected user manager operation failed."),
+    HostOwnership => ("host.ownership", ConfigInvalid, "Required host ownership or admission premises failed."),
+    HostDeadline => ("host.deadline", RuntimeTimeout, "A host observation deadline expired."),
+    HostUnknownLaunch => ("host.unknown_launch", RuntimeInfrastructure, "Launch may have committed without acknowledgement."),
+    HostSettlement => ("host.settlement", RuntimeInfrastructure, "Operation and cleanup both failed."),
+    HostEnvironment => ("host.environment", ConfigInvalid, "Native environment construction failed."),
+    HostStaleTools => ("host.stale_tools", ConfigInvalid, "The selected prepared tool generation is stale."),
+    FixtureUnprepared => ("fixture.unprepared", ConfigInvalid, "Required explicit fixture preparation is absent."),
+    CorrectnessGraph => ("correctness.graph", ConfigInvalid, "External Cargo graph JSON could not be interpreted."),
+    CorrectnessAdmission => ("correctness.admission", ConfigInvalid, "The selected correctness closure could not be established."),
+    CorrectnessIo => ("correctness.io", RuntimeInfrastructure, "Correctness tool input/output failed."),
     AuthoringParse => ("authoring.parse", AuthoringParse, "A syntax error or an unknown key."),
     AuthoringParseAmbiguousUnaryPower => ("authoring.parse.ambiguous_unary_power", AuthoringParse, "authoring parse ambiguous unary power."),
     AuthoringParseBudget => ("authoring.parse.budget", AuthoringParse, "authoring parse budget."),
