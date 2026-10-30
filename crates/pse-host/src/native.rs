@@ -14,6 +14,7 @@ use std::{
     process::Command,
 };
 
+pub mod capabilities;
 mod providers;
 pub use providers::{prepare_capabilities, select_capabilities, validate_capabilities};
 

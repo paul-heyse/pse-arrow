@@ -141,6 +141,9 @@ pub struct Resolution {
     pub arguments: Vec<OsString>,
     /// Selected root package names, not a test inventory.
     pub packages: Vec<String>,
+    /// Features every reached package activates across the validated graph's target and
+    /// host units, keyed by package name (versions of one name share an entry).
+    pub activated: BTreeMap<String, BTreeSet<String>>,
 }
 fn mode_position(arguments: &[OsString]) -> Result<usize, CorrectnessError> {
     let mut index = 0;
@@ -626,9 +629,14 @@ where
         }
         graph
     };
+    let mut activated: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for index in validated.reached(&packages, &validated.roots)? {
         let unit = &validated.units[index];
         let package = &packages[&unit.pkg_id];
+        activated
+            .entry(package.name.clone())
+            .or_default()
+            .extend(unit.features.iter().cloned());
         if arrow(package)
             && package.features.contains_key("force_validate")
             && !unit
@@ -645,7 +653,13 @@ where
     Ok(Resolution {
         arguments: selected,
         packages: names.into_iter().collect(),
+        activated,
     })
+}
+/// Resolve a Cargo compiler selection against real Cargo without compiling it.
+pub fn resolve(arguments: &[OsString]) -> Result<Resolution, CorrectnessError> {
+    let cargo = real_cargo()?;
+    resolve_with(arguments, |args| capture(&cargo, args))
 }
 fn native_command(cargo: &OsStr, arguments: &[OsString]) -> Command {
     native_command_with_rustflags(
@@ -702,7 +716,7 @@ fn exit_status(status: ExitStatus) -> i32 {
         .code()
         .unwrap_or_else(|| 128 + status.signal().unwrap_or(1))
 }
-fn real_cargo() -> Result<OsString, CorrectnessError> {
+pub(crate) fn real_cargo() -> Result<OsString, CorrectnessError> {
     let cargo = std::env::var_os(REAL_CARGO)
         .filter(|value| !value.is_empty())
         .or_else(|| std::env::var_os("CARGO").filter(|value| !value.is_empty()))
