@@ -189,7 +189,7 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [C01](#c01) | planned | 59c | Capability declaration read by `pse` and `build.rs`; unit-graph capability derivation |
+| [C01](#c01) | complete | 59c | Capability declaration on `pse-backend-native` (build.rs unchanged); unit-graph capability derivation in `native::capabilities` (`e2877e515`) |
 | [C02](#c02) | planned | 59c | `pse test` and `pse check` with selection, features, capabilities, force-validation, reconciled verdict, explain and rerun; replaced recipes retired |
 | [C03](#c03) | planned | 59c | `affected` in `pse-host`; `pse test --changed`; xtask `affected` and its recipe retired |
 | [C04](#c04) | planned | 59c | Fixture declarations, `pse fixture`, receipt pointer, `CARGO_BIN_EXE_pse-worker`; database targets through `pse-canonical-test`; `worker-test`/`native-test`/`canonical-test` retired |
@@ -212,8 +212,10 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
   these combinations:
   - `pse-runtime` with `native-solvers` derives the full set;
   - `pse-runtime` without solver features derives none.
-- **Real build.** One real build of `pse-runtime` with `solver-kinsol` succeeds with only the
-  derived capabilities (`compiler,klu`) prepared.
+- No solver build or provider preparation is part of this package's acceptance. The derivation
+  tests establish the mapping, and Plan59 does not change the solver build. A real build run
+  during execution had to prepare providers from a worktree, which repointed the shared provider
+  cache away from main; it was removed from acceptance.
 
 <a id="c02"></a>
 ### C02 — `pse test` and `pse check`
@@ -335,9 +337,11 @@ targets run without the fixture variable.
 ## Verification and handoff
 
 During packages:
-- compile checks and targeted tests on `pse-host`, plus small real adapter runs;
-- the integration targets named in C04, run once each through `pse test` to show fixture
-  resolution.
+- compile checks and targeted tests on `pse-host`, plus small real adapter runs on non-solver
+  targets;
+- the integration targets named in C04, run once each through `pse test` in main against the
+  providers already prepared there, to show fixture resolution. Nothing in this series prepares
+  native providers or re-verifies the solver build.
 
 The broader scientific and integration journeys belong to series scope end, as AGENTS.md
 describes.

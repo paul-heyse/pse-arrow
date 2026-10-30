@@ -148,7 +148,7 @@ current.
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [D01](#d01) | planned | 59d | `pse changes` and `pse brief` |
-| [D02](#d02) | planned | 59d | `rustdoc-mcp` trial for Claude first; `pse dep`, `pse probe`, and `pse api` with rustdoc JSON cache to the extent the trial leaves needed |
+| [D02](#d02) | in progress | 59d | Trial done (server unusable under the pin; see D02); `pse dep`, `pse probe`, and the full `pse api` with rustdoc JSON cache remain |
 | [D03](#d03) | planned | 59d | `pse outline` and `pse show` |
 | [D04](#d04) | planned | 59d | Federated `pse docs check` with pinned lychee |
 | [D05](#d05) | planned | 59d | Federated `pse ref` and `pse new`; `just plan` bash scaffold retired |
@@ -183,6 +183,23 @@ Until the map exists, use the guard's current prefixes.
    reads. Otherwise it is the full lookup described above.
 4. **A pins reason.** A `[workspace.metadata.pse.pins]` reason on `rustdoc-types` tying it to the
    toolchain date.
+
+**Trial outcome (2026-10-29): the server serves only partly; `pse api` is built in full.**
+`rustdoc-mcp` 0.10.0 over stdio JSON-RPC resolved `tokio::process::Command::kill_on_drop` at
+1.53.3 and the `clap::Command::arg` re-export at `clap_builder` 4.6.7, from format-61 JSON. It
+cannot be used here, for these reasons:
+- **Floating nightly.** It rebuilds missing JSON with a hard-coded `rustup run nightly cargo doc`,
+  which ignores `rust-toolchain.toml`. Pre-generated pinned JSON does not survive: the first
+  dependency the server builds itself makes Cargo wipe `target/doc`.
+- **Shared target.** It writes into the shared `target/doc`.
+- **One version per name.** It keys crates by name only, and 62 crate names in the lock have
+  more than one version.
+- **No feature gates.** Its output carries no feature-gate information.
+- **Network fallback.** It can fall back to docs.rs.
+
+So `pse api` owns generation itself: pinned-toolchain JSON per (crate, version, features) into
+`<store>/api/`, multi-version addressing, feature gates and the `format_version` check.
+`.mcp.json` stays empty.
 
 **Acceptance:**
 - `pse api tokio process::Command::kill_on_drop` prints the 1.53.3 signature and docs.
