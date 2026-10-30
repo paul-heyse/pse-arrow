@@ -1,0 +1,50 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "serde_json::to_string_pretty(&response).unwrap()"
+---
+{
+  "summary": "fixture response; no scientific outcome asserted",
+  "record": "response",
+  "version": 1,
+  "schema": "urn:pse:cli:v1:activity:full:budget:unbounded",
+  "invocation_id": "019a0000-0000-7000-8000-000000000001",
+  "command": "activity",
+  "outcome": "success",
+  "subject_state": "not_applicable",
+  "child_exit": null,
+  "settlement": "not_required",
+  "observation": {
+    "reference": null,
+    "scope": "command_response",
+    "completeness": "partial",
+    "required": true,
+    "timed_out": false,
+    "limitations": [
+      "fixture intentionally lacks manager and kernel facts"
+    ]
+  },
+  "scientific": [],
+  "providers": [],
+  "failures": [],
+  "artifacts": [],
+  "next": [],
+  "view": {
+    "fields": null,
+    "omitted_fields": [],
+    "budget": null,
+    "omitted_records": 0,
+    "truncated": false
+  },
+  "payload": {
+    "requested_unit": "fixture.service",
+    "manager": null,
+    "manager_unavailable": "fixture bus unavailable",
+    "observer": {
+      "identity": null,
+      "control_group": null,
+      "unavailable": [
+        "fixture kernel unavailable"
+      ]
+    }
+  }
+}

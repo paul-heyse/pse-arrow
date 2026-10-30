@@ -46,9 +46,6 @@ impl OutputFormat {
             if arg == "--" {
                 break;
             }
-            if arg == "run" || arg == "boundary" {
-                break;
-            }
             if arg == "--format" {
                 if let Some(value) = args.next().and_then(|value| value.to_str()).and_then(parse) {
                     selected = value;
@@ -75,7 +72,7 @@ pub struct Presentation {
 fn invalid(detail: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, detail.into())
 }
-fn identity(command: &str, view: &Presentation) -> String {
+pub(super) fn identity(command: &str, view: &Presentation) -> String {
     let command = command.replace(' ', "/");
     let fields = view.fields.as_ref().map_or("full".into(), |fields| {
         format!("fields:{}", fields.join(","))
@@ -95,6 +92,23 @@ fn dereference(value: &Value, root: &Value) -> Value {
         .unwrap_or(value)
         .clone()
 }
+fn limit_array(schema: &mut Value, budget: usize) {
+    let maximum = schema
+        .get("maxItems")
+        .and_then(Value::as_u64)
+        .map_or(budget, |value| {
+            budget.min(usize::try_from(value).unwrap_or(usize::MAX))
+        });
+    schema["maxItems"] = maximum.into();
+    // A prefix view is a different contract from a complete fixed-size array.
+    // Other fields may already have consumed the shared record allowance.
+    if let Some(object) = schema.as_object_mut() {
+        object.remove("minItems");
+    }
+    if let Some(prefix) = schema.get_mut("prefixItems").and_then(Value::as_array_mut) {
+        prefix.truncate(maximum);
+    }
+}
 /// Serialization-direction schema for the exact full/projected view.
 pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<Schema> {
     let mut schema = SchemaSettings::draft2020_12()
@@ -107,6 +121,13 @@ pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<S
         .ok_or_else(|| invalid("envelope payload schema missing"))?;
     let mut payload = dereference(payload, &root);
     if let Some(fields) = &view.fields {
+        if payload.get("properties").is_none() {
+            let field_type = payload
+                .get("additionalProperties")
+                .cloned()
+                .unwrap_or(Value::Bool(true));
+            payload = serde_json::json!({"type":"object","properties":fields.iter().map(|name|(name.clone(),field_type.clone())).collect::<serde_json::Map<_,_>>(),"required":fields,"additionalProperties":false});
+        }
         let properties = payload
             .get_mut("properties")
             .and_then(Value::as_object_mut)
@@ -129,13 +150,13 @@ pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<S
     }
     if let Some(budget) = view.budget {
         if payload.get("type").and_then(Value::as_str) == Some("array") {
-            payload["maxItems"] = budget.into();
+            limit_array(&mut payload, budget);
         }
         if let Some(properties) = payload.get_mut("properties").and_then(Value::as_object_mut) {
             for value in properties.values_mut() {
                 let mut resolved = dereference(value, &root);
                 if resolved.get("type").and_then(Value::as_str) == Some("array") {
-                    resolved["maxItems"] = budget.into();
+                    limit_array(&mut resolved, budget);
                     *value = resolved;
                 }
             }
@@ -150,9 +171,36 @@ pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<S
 #[derive(Serialize)]
 #[serde(untagged)]
 enum Presented<'a> {
-    Object(BTreeMap<&'a str, Presented<'a>>),
+    Object(BTreeMap<String, Presented<'a>>),
     Array(Vec<&'a RawValue>),
     Raw(&'a RawValue),
+}
+struct UniqueFields<'a>(BTreeMap<String, &'a RawValue>);
+impl<'de> serde::Deserialize<'de> for UniqueFields<'de> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visitor;
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = UniqueFields<'de>;
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("an object with unambiguous field names for projection")
+            }
+            fn visit_map<M: serde::de::MapAccess<'de>>(
+                self,
+                mut access: M,
+            ) -> Result<Self::Value, M::Error> {
+                let mut fields = BTreeMap::new();
+                while let Some((name, value)) = access.next_entry::<String, &RawValue>()? {
+                    if fields.insert(name.clone(), value).is_some() {
+                        return Err(serde::de::Error::custom(format!(
+                            "duplicate payload field {name}; a projected view would be ambiguous"
+                        )));
+                    }
+                }
+                Ok(UniqueFields(fields))
+            }
+        }
+        deserializer.deserialize_map(Visitor)
+    }
 }
 fn records<'a>(
     raw: &'a RawValue,
@@ -179,11 +227,14 @@ fn present<'a>(raw: &'a RawValue, view: &Presentation) -> io::Result<(Presented<
         ..DetailView::default()
     };
     let mut remaining = view.budget;
+    if view.fields.is_none() && view.budget.is_none() {
+        return Ok((Presented::Raw(raw), detail));
+    }
     let value = if raw.get().starts_with('{') {
-        let fields: BTreeMap<&str, &RawValue> = serde_json::from_str(raw.get())?;
+        let UniqueFields(fields) = serde_json::from_str(raw.get())?;
         if let Some(requested) = &view.fields {
             for field in requested {
-                if !fields.contains_key(field.as_str()) {
+                if !fields.contains_key(field) {
                     return Err(invalid(format!("unknown payload field {field}")));
                 }
             }
@@ -193,14 +244,14 @@ fn present<'a>(raw: &'a RawValue, view: &Presentation) -> io::Result<(Presented<
             if view
                 .fields
                 .as_ref()
-                .is_none_or(|fields| fields.iter().any(|field| field == name))
+                .is_none_or(|fields| fields.iter().any(|field| field == &name))
             {
                 presented.insert(
                     name,
                     records(value, &mut remaining, &mut detail.omitted_records)?,
                 );
             } else {
-                detail.omitted_fields.push(name.into());
+                detail.omitted_fields.push(name);
             }
         }
         Presented::Object(presented)
@@ -244,11 +295,6 @@ impl serde_json::ser::Formatter for LineFormatter {
         Ok(())
     }
 }
-#[derive(Serialize)]
-struct StreamSummary<'a, T> {
-    record: &'static str,
-    observation: &'a Envelope<T>,
-}
 /// Write complete JSON records. Failure never publishes a truncated JSON string as a result.
 pub fn write<T: Serialize + JsonSchema>(
     mut writer: impl Write,
@@ -274,12 +320,9 @@ pub fn write<T: Serialize + JsonSchema>(
             writeln!(frame)?;
         }
         OutputFormat::Ndjson => {
+            envelope.record = super::RecordKind::ObservationSummary;
             let mut serializer = serde_json::Serializer::with_formatter(&mut frame, LineFormatter);
-            StreamSummary {
-                record: "observation_summary",
-                observation: &envelope,
-            }
-            .serialize(&mut serializer)?;
+            envelope.serialize(&mut serializer)?;
             writeln!(frame)?;
         }
         OutputFormat::Auto | OutputFormat::Json => {

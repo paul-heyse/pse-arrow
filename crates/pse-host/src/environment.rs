@@ -802,14 +802,23 @@ fi
 "#;
 
 /// Fixed environment command: explanation and script generation never evaluate personal code.
+/// Source-free resolved selections; an unread personal file stays explicitly unresolved.
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct EnvironmentExplanation {
+    /// Personal settings were intentionally not evaluated.
+    pub local_unresolved: bool,
+    /// Selected public values; absence is distinct from an explicit empty selection.
+    pub selections: BTreeMap<String, Option<String>>,
+}
 pub(crate) fn execute(
     options: crate::cli::EnvironmentArgs,
     selected: Option<&Path>,
+    presentation: &crate::envelope::OutputOptions,
 ) -> Result<i32, EnvironmentError> {
     let crate::cli::EnvironmentArgs {
         print,
         explain: _,
-        json: _,
+        json,
         activation_data: transfer,
         docs,
         root: selected_root,
@@ -853,14 +862,29 @@ pub(crate) fn execute(
         ];
         let values: BTreeMap<_, _> = selected
             .into_iter()
-            .map(|name| (name, get(&plan.values, name).and_then(OsStr::to_str)))
+            .map(|name| {
+                (
+                    name.to_owned(),
+                    get(&plan.values, name)
+                        .and_then(OsStr::to_str)
+                        .map(str::to_owned),
+                )
+            })
             .collect();
-        (serde_json::to_string_pretty(
-            &serde_json::json!({"local_unresolved":plan.local_unresolved,"selections":values}),
-        )
-        .map_err(|error| failure(error.to_string()))?
-            + "\n")
-            .into_bytes()
+        let mut presentation = presentation.clone();
+        if json {
+            presentation.format = crate::envelope::OutputFormat::Json;
+        }
+        return presentation
+            .emit(crate::envelope::Envelope::response(
+                "env explain",
+                "resolved public environment selections",
+                EnvironmentExplanation {
+                    local_unresolved: plan.local_unresolved,
+                    selections: values,
+                },
+            ))
+            .map_err(|error| failure(error.to_string()));
     };
     use std::io::Write as _;
     std::io::stdout()

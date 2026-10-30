@@ -19,8 +19,10 @@ fn unavailable_bus_preserves_partial_diagnosis_without_activation() {
         .env("PSE_RESOURCE_CLASS", "invalid-admission")
         .output()
         .unwrap();
-    assert_eq!(output.status.code(), Some(125), "{output:?}");
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["observation"]["completeness"], "partial");
+    let report = &report["payload"];
     assert_eq!(report["requested_unit"], "selected.service");
     assert!(report["manager"].is_null());
     assert!(

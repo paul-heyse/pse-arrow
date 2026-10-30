@@ -15,20 +15,29 @@ pub struct RedactionPolicy {
 impl RedactionPolicy {
     /// Capture secret selections without putting their values in the response.
     pub fn from_environment() -> Self {
-        Self::new(std::env::vars().filter(|(name, value)| {
-            let name = name.to_ascii_uppercase();
-            !value.is_empty()
-                && [
-                    "TOKEN",
-                    "PASSWORD",
-                    "SECRET",
-                    "AUTHORIZATION",
-                    "PRIVATE_KEY",
-                    "LICENSE",
-                ]
-                .iter()
-                .any(|word| name.contains(word))
-        }))
+        Self::new(
+            std::env::vars_os()
+                .map(|(name, value)| {
+                    (
+                        name.to_string_lossy().into_owned(),
+                        value.to_string_lossy().into_owned(),
+                    )
+                })
+                .filter(|(name, value)| {
+                    let name = name.to_ascii_uppercase();
+                    !value.is_empty()
+                        && [
+                            "TOKEN",
+                            "PASSWORD",
+                            "SECRET",
+                            "AUTHORIZATION",
+                            "PRIVATE_KEY",
+                            "LICENSE",
+                        ]
+                        .iter()
+                        .any(|word| name.contains(word))
+                }),
+        )
     }
     /// Supply explicitly classified secrets, useful for non-environment sources.
     pub fn new(values: impl IntoIterator<Item = (String, String)>) -> Self {
@@ -101,7 +110,7 @@ pub enum ObservationValue {
     /// Finite numerical value.
     Number(f64),
     /// Explicit IEEE nonfinite classification.
-    NonFinite(String),
+    NonFinite(pse_diagnostics::NonFinite),
     /// Exact count.
     Integer(i64),
     /// Checked predicate.
@@ -154,16 +163,15 @@ impl FactsRecord {
                             DiagnosticObservation::Number(value) if value.is_finite() => {
                                 ObservationValue::Number(value)
                             }
-                            DiagnosticObservation::Number(value) => ObservationValue::NonFinite(
-                                if value.is_nan() {
-                                    "nan"
+                            DiagnosticObservation::Number(value) => {
+                                ObservationValue::NonFinite(if value.is_nan() {
+                                    pse_diagnostics::NonFinite::Nan
                                 } else if value.is_sign_negative() {
-                                    "negative_infinity"
+                                    pse_diagnostics::NonFinite::NegativeInfinity
                                 } else {
-                                    "positive_infinity"
-                                }
-                                .into(),
-                            ),
+                                    pse_diagnostics::NonFinite::PositiveInfinity
+                                })
+                            }
                             DiagnosticObservation::Integer(value) => {
                                 ObservationValue::Integer(value)
                             }

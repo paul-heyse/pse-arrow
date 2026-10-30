@@ -31,6 +31,26 @@ fn full_and_projected_serialization_validate_against_their_actual_schemas() {
     ] {
         let mut response = Envelope::response("fixture inspect", "observed fixture", payload());
         response.subject_state = SubjectState::Running;
+        response.providers.push(ProviderContext {
+            provider: "rust-analyzer".into(),
+            context: Some("workspace::crate_a".into()),
+            analysis_generation: Some("snapshot-7".into()),
+            availability: SubjectState::Unprepared,
+            coordinates: vec![
+                SourceCoordinates::Utf8Bytes {
+                    source: "模型.rs".into(),
+                    revision: Some("revision-1".into()),
+                    start: 4,
+                    end: 5,
+                },
+                SourceCoordinates::Lsp {
+                    uri: "file:///model.rs".into(),
+                    position_encoding: "utf-16".into(),
+                    line: 0,
+                    character: 2,
+                },
+            ],
+        });
         response.settlement = Settlement::Unknown;
         response.observation.completeness = Completeness::Partial;
         response
@@ -56,6 +76,16 @@ fn full_and_projected_serialization_validate_against_their_actual_schemas() {
                 .join("; ")
         );
         assert_eq!(value["settlement"], "unknown");
+        assert_eq!(value["providers"][0]["availability"], "unprepared");
+        assert_eq!(value["providers"][0]["analysis_generation"], "snapshot-7");
+        assert_eq!(
+            value["providers"][0]["coordinates"][0]["encoding"],
+            "utf8_bytes"
+        );
+        assert_eq!(
+            value["providers"][0]["coordinates"][1]["position_encoding"],
+            "utf-16"
+        );
         assert_eq!(value["observation"]["completeness"], "partial");
         assert_eq!(
             value["observation"]["limitations"][0],
@@ -90,7 +120,7 @@ fn raw_pretty_payload_cannot_break_ndjson_or_change_number_lexemes() {
     assert!(text.contains("\"repeat\":1,\"repeat\":2"));
     let value: serde_json::Value = serde_json::from_str(&text).unwrap();
     assert_eq!(value["record"], "observation_summary");
-    assert_eq!(value["observation"]["subject_state"], "not_applicable");
+    assert_eq!(value["subject_state"], "not_applicable");
 }
 #[test]
 fn exit_classes_keep_launch_wait_workload_failure_and_settlement_distinct() {
@@ -105,6 +135,9 @@ fn exit_classes_keep_launch_wait_workload_failure_and_settlement_distinct() {
     response.subject_state = SubjectState::Failed;
     response.child_exit = Some(7);
     assert_eq!(response.exit_code(), 1);
+    response.subject_state = SubjectState::NotApplicable;
+    assert_eq!(response.exit_code(), 1);
+    response.child_exit = Some(0);
     response.subject_state = SubjectState::Succeeded;
     response.settlement = Settlement::Unknown;
     assert_eq!(response.exit_code(), 1);
@@ -192,6 +225,38 @@ fn related_labels_inherit_source_identity_and_keep_byte_coordinates_and_quoted_u
         Some("https://example.test/\"quoted\"")
     );
 }
+#[derive(Debug, thiserror::Error)]
+#[error("diagnostic and ordinary causes have independent owners")]
+struct Forwarded {
+    #[source]
+    ordinary: std::io::Error,
+    delegated: Leaf,
+    src: miette::NamedSource<String>,
+}
+impl miette::Diagnostic for Forwarded {
+    fn diagnostic_source(&self) -> Option<&dyn miette::Diagnostic> {
+        Some(&self.delegated)
+    }
+    fn source_code(&self) -> Option<&dyn miette::SourceCode> {
+        Some(&self.src)
+    }
+}
+#[test]
+fn ordinary_causes_and_diagnostic_delegation_survive_as_independent_relationships() {
+    let error = Forwarded {
+        ordinary: std::io::Error::other("original I/O failure"),
+        delegated: Leaf {
+            span: (4, 1).into(),
+        },
+        src: miette::NamedSource::new("delegated.rs", "αβx".to_owned()),
+    };
+    let record = ErrorRecord::from_diagnostic(&error, None, &RedactionPolicy::default());
+    assert_eq!(record.causes, vec!["original I/O failure"]);
+    let delegated = record.diagnostic_source.unwrap();
+    assert_eq!(delegated.code.as_deref(), Some("test::leaf"));
+    assert_eq!(delegated.labels[0].source.as_deref(), Some("delegated.rs"));
+    assert_eq!(delegated.labels[0].byte_offset, 4);
+}
 #[test]
 fn early_format_selection_does_not_interpret_child_options() {
     let args = |values: &[&str]| {
@@ -210,10 +275,153 @@ fn early_format_selection_does_not_interpret_child_options() {
     );
     assert_eq!(
         OutputFormat::early(
-            &args(&["run", "child", "--format", "json"]),
+            &args(&["--", "child", "--format", "json"]),
             Some("human"),
             false
         ),
         OutputFormat::Human
     );
+}
+#[test]
+fn fixed_arrays_and_tuples_have_valid_prefix_view_schemas() {
+    #[derive(Serialize, JsonSchema)]
+    struct Fixed {
+        array: [u32; 4],
+        tuple: (String, u32, bool),
+    }
+    let view = Presentation {
+        fields: None,
+        budget: Some(1),
+    };
+    let mut bytes = Vec::new();
+    write(
+        &mut bytes,
+        Envelope::response(
+            "fixed",
+            "prefix view",
+            Fixed {
+                array: [1, 2, 3, 4],
+                tuple: ("first".into(), 2, true),
+            },
+        ),
+        OutputFormat::Json,
+        &view,
+    )
+    .unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(value["payload"]["array"], serde_json::json!([1]));
+    assert_eq!(value["payload"]["tuple"], serde_json::json!([]));
+    let validator =
+        jsonschema::validator_for(schema::<Fixed>("fixed", &view).unwrap().as_value()).unwrap();
+    assert!(
+        validator.is_valid(&value),
+        "{:?}",
+        validator
+            .iter_errors(&value)
+            .map(|error| error.to_string())
+            .collect::<Vec<_>>()
+    );
+}
+#[test]
+fn full_opaque_objects_preserve_top_level_duplicates_but_projected_ambiguity_refuses() {
+    let source = "{\n\"same\":1,\"same\":2,\"large\":1234567890123456789012345678901234567890}";
+    let make = || {
+        Envelope::response(
+            "opaque",
+            "opaque input",
+            serde_json::value::RawValue::from_string(source.into()).unwrap(),
+        )
+    };
+    let mut bytes = Vec::new();
+    write(
+        &mut bytes,
+        make(),
+        OutputFormat::Ndjson,
+        &Presentation::default(),
+    )
+    .unwrap();
+    let text = String::from_utf8(bytes).unwrap();
+    assert!(text.contains("\"same\":1,\"same\":2"));
+    assert_eq!(text.lines().count(), 1);
+    let view = Presentation {
+        fields: Some(vec!["same".into()]),
+        budget: None,
+    };
+    let mut refused = Vec::new();
+    let error = write(&mut refused, make(), OutputFormat::Json, &view).unwrap_err();
+    assert!(error.to_string().contains("duplicate payload field"));
+    assert!(refused.is_empty());
+}
+#[test]
+fn retained_full_response_precedes_projection_and_has_matching_identity_and_digest() {
+    use sha2::Digest as _;
+    let directory = tempfile::tempdir().unwrap();
+    let mut response = Envelope::response("fixture", "original complete evidence", payload());
+    let original_schema = response.schema.clone();
+    retain(&mut response, directory.path()).unwrap();
+    let artifact = &response.artifacts[0];
+    let bytes = std::fs::read(&artifact.location).unwrap();
+    let original: Envelope<Payload> = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(original.schema, original_schema);
+    assert_eq!(original.invocation_id, response.invocation_id);
+    assert_eq!(original.payload.records, vec![1, 2, 3]);
+    assert_eq!(
+        artifact.digest.as_deref(),
+        Some(
+            sha2::Sha256::digest(&bytes)
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+                .as_str()
+        )
+    );
+    let mut projected = Vec::new();
+    write(
+        &mut projected,
+        response,
+        OutputFormat::Json,
+        &Presentation {
+            fields: Some(vec!["records".into()]),
+            budget: Some(0),
+        },
+    )
+    .unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&projected).unwrap();
+    assert_eq!(value["view"]["omitted_records"], 3);
+    assert_eq!(value["artifacts"].as_array().unwrap().len(), 1);
+}
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("native numerical observation")]
+struct Numbers;
+impl pse_diagnostics::TypedDiagnostic for Numbers {
+    fn diagnostic_code(&self) -> Option<pse_diagnostics::DiagnosticCode> {
+        Some(pse_diagnostics::DiagnosticCode::SolveEvaluationError)
+    }
+    fn diagnostic_facts(&self) -> pse_diagnostics::DiagnosticFacts {
+        let mut facts = pse_diagnostics::DiagnosticFacts::default();
+        facts.observe(
+            "nan",
+            pse_diagnostics::DiagnosticObservation::Number(f64::NAN),
+        );
+        facts.observe(
+            "positive",
+            pse_diagnostics::DiagnosticObservation::Number(f64::INFINITY),
+        );
+        facts.observe("missing", pse_diagnostics::DiagnosticObservation::Missing);
+        facts
+    }
+}
+#[test]
+fn nonfinite_native_facts_cannot_become_null_or_missing() {
+    let record = ErrorRecord::from_typed(&Numbers, &RedactionPolicy::default());
+    let value = serde_json::to_value(record).unwrap();
+    assert_eq!(
+        value["facts"]["observations"]["nan"],
+        serde_json::json!({"kind":"non_finite","value":"Nan"})
+    );
+    assert_eq!(
+        value["facts"]["observations"]["positive"]["value"],
+        "PositiveInfinity"
+    );
+    assert_eq!(value["facts"]["observations"]["missing"]["kind"], "missing");
 }

@@ -1711,7 +1711,10 @@ pub async fn prepare_from_release(
         .map_err(|error| invalid(format!("server release import worker failed: {error}")))?
 }
 /// Narrow standalone construction/selection surface. Service startup belongs to composition.
-pub(crate) fn execute(root: &Path, action: crate::cli::ServerAction) -> Result<i32, HostError> {
+pub(crate) fn execute(
+    root: &Path,
+    action: crate::cli::ServerAction,
+) -> Result<PreparedServer, HostError> {
     let environment: Environment = std::env::vars_os().collect();
     let selected = match action {
         crate::cli::ServerAction::Select => select(&environment)?,
@@ -1725,8 +1728,7 @@ pub(crate) fn execute(root: &Path, action: crate::cli::ServerAction) -> Result<i
             }
         }
     };
-    writeln!(std::io::stdout(), "{}", selected.executable().display())?;
-    Ok(0)
+    Ok(selected)
 }
 
 #[cfg(test)]

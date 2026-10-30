@@ -16,8 +16,8 @@ use std::{
 
 mod providers;
 mod requirements;
-pub use requirements::requirements_from_backend_features;
 pub use providers::{prepare_capabilities, select_capabilities, validate_capabilities};
+pub use requirements::requirements_from_backend_features;
 
 const PROFILE: &str = "compiler,klu";
 const OPTIONS: &[&str] = &[
@@ -804,7 +804,10 @@ pub fn select(root: &Path, environment: &Environment) -> Result<Environment, Hos
     Ok(selected)
 }
 /// Execute the narrow explicit native preparation command within authenticated containment.
-pub(crate) fn execute(root: &Path, capabilities: &str) -> Result<i32, HostError> {
+pub(crate) fn execute(
+    root: &Path,
+    capabilities: &str,
+) -> Result<BTreeMap<String, PathBuf>, HostError> {
     providers::capabilities(capabilities)?;
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -820,14 +823,7 @@ pub(crate) fn execute(root: &Path, capabilities: &str) -> Result<i32, HostError>
             Ok::<(), HostError>(())
         })?;
     let prepared = prepare_capabilities(&root, &std::env::vars_os().collect(), capabilities)?;
-    for (capability, prefix) in prepared {
-        writeln!(
-            std::io::stdout(),
-            "prepared {capability}: {}",
-            prefix.display()
-        )?;
-    }
-    Ok(0)
+    Ok(prepared.into_iter().collect())
 }
 
 #[cfg(test)]

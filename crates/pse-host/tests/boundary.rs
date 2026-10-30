@@ -156,8 +156,8 @@ fn native_explanation_is_json_and_never_activates_personal_settings() {
         String::from_utf8_lossy(&result.stderr)
     );
     let document: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
-    assert_eq!(document["native_profile"], "compiler,klu");
-    assert_eq!(document["readiness"], "not_observed");
+    assert_eq!(document["payload"]["native_profile"], "compiler,klu");
+    assert_eq!(document["payload"]["readiness"], "not_observed");
     assert!(!root.join("activation-count").exists());
 }
 
@@ -198,8 +198,8 @@ fn retained_provider_explanations_are_source_free_and_private() {
             .unwrap();
         assert!(result.status.success(), "{capabilities}: {result:?}");
         let document: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
-        assert_eq!(document["native_profile"], capabilities);
-        assert_eq!(document["readiness"], "not_observed");
+        assert_eq!(document["payload"]["native_profile"], capabilities);
+        assert_eq!(document["payload"]["readiness"], "not_observed");
         assert!(!String::from_utf8_lossy(&result.stdout).contains("do-not-print-this"));
         assert!(!root.join("activation-count").exists());
         assert!(!root.join(".cache").exists());

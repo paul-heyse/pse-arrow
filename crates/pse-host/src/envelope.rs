@@ -8,6 +8,77 @@ pub use presentation::{OutputFormat, Presentation, schema, write};
 use schemars::JsonSchema;
 use serde::Serialize;
 
+/// Shared invocation presentation, selected once by the command boundary.
+#[derive(Clone, Debug)]
+pub struct OutputOptions {
+    /// Resolved output format.
+    pub format: OutputFormat,
+    /// Payload-only detail selection.
+    pub presentation: Presentation,
+    /// The one invocation shared by every response/failure from this command.
+    pub invocation_id: CliInvocationId,
+    /// Checkout-owned immutable evidence directory for explicitly limited views.
+    pub artifact_directory: Option<std::path::PathBuf>,
+}
+impl OutputOptions {
+    /// Publish a response using the invocation's established identity and view.
+    pub fn emit<T: Serialize + JsonSchema>(
+        &self,
+        mut response: Envelope<T>,
+    ) -> std::io::Result<i32> {
+        response.invocation_id = self.invocation_id.clone();
+        let _ = schema::<T>(&response.command, &self.presentation)?;
+        if self.presentation.fields.is_some() || self.presentation.budget.is_some() {
+            let directory = self.artifact_directory.as_deref().ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "limited views require a checkout-owned evidence directory",
+                )
+            })?;
+            retain(&mut response, directory)?;
+        }
+        write(
+            std::io::stdout().lock(),
+            response,
+            self.format,
+            &self.presentation,
+        )
+    }
+}
+/// Retain the full response before presenting a limited view, with immutable content identity.
+pub fn retain<T: Serialize>(
+    response: &mut Envelope<T>,
+    directory: &std::path::Path,
+) -> std::io::Result<()> {
+    use sha2::Digest as _;
+    use std::{io::Write as _, os::unix::fs::DirBuilderExt as _};
+    let bytes = serde_json::to_vec(response)?;
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(directory)?;
+    let path = directory.join(format!("{}.json", response.invocation_id));
+    let mut temporary = tempfile::NamedTempFile::new_in(directory)?;
+    temporary.write_all(&bytes)?;
+    temporary
+        .persist_noclobber(&path)
+        .map_err(|error| error.error)?;
+    let digest = sha2::Sha256::digest(&bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    response.artifacts.push(ArtifactReference {
+        kind: "full_response".into(),
+        location: path.display().to_string(),
+        digest: Some(digest),
+    });
+    response.next.push(NextAction::ReadArtifact {
+        location: path.display().to_string(),
+        reason: "read the complete response before payload projection or record budgeting".into(),
+    });
+    Ok(())
+}
+
 /// CLI identity; never a scientific run or manager incarnation identity.
 #[derive(Clone, Debug, Serialize, serde::Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(try_from = "String", into = "String")]
@@ -116,6 +187,15 @@ pub enum Completeness {
     Partial,
     /// Coverage has not been established.
     Unknown,
+}
+/// Normalized record purpose, independent of the subject's terminal state.
+#[derive(Clone, Copy, Debug, Serialize, serde::Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordKind {
+    /// A normalized response or intermediate stream record.
+    Response,
+    /// Final observation record, which can describe a nonterminal subject.
+    ObservationSummary,
 }
 /// The actual observation's coverage and deadline, not a workload timeout.
 #[derive(Clone, Debug, Serialize, serde::Deserialize, JsonSchema)]
@@ -235,6 +315,8 @@ pub struct DetailView {
 pub struct Envelope<T> {
     /// Short actionable response.
     pub summary: String,
+    /// Record framing purpose.
+    pub record: RecordKind,
     /// Contract version, independent of package versions.
     pub version: u32,
     /// Actual presented schema identity.
@@ -273,6 +355,7 @@ impl<T> Envelope<T> {
     pub fn with_payload<U>(self, payload: U) -> Envelope<U> {
         Envelope {
             summary: self.summary,
+            record: self.record,
             version: self.version,
             schema: self.schema,
             invocation_id: self.invocation_id,
@@ -296,8 +379,9 @@ impl<T> Envelope<T> {
         let command = command.into();
         Self {
             summary: summary.into(),
+            record: RecordKind::Response,
             version: 1,
-            schema: format!("pse.cli.v1/{command}/full"),
+            schema: presentation::identity(&command, &Presentation::default()),
             invocation_id: CliInvocationId::new(),
             command,
             outcome: CommandOutcome::Success,
@@ -332,11 +416,13 @@ impl<T> Envelope<T> {
                 if matches!(
                     self.subject_state,
                     SubjectState::Failed | SubjectState::TimedOut | SubjectState::Cancelled
-                ) || matches!(
-                    self.settlement,
-                    Settlement::Incomplete | Settlement::Unknown
-                ) || (self.observation.required
-                    && self.observation.completeness != Completeness::Complete) =>
+                ) || self.child_exit.is_some_and(|code| code != 0)
+                    || matches!(
+                        self.settlement,
+                        Settlement::Incomplete | Settlement::Unknown
+                    )
+                    || (self.observation.required
+                        && self.observation.completeness != Completeness::Complete) =>
             {
                 1
             }

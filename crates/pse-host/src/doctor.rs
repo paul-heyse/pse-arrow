@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Read-only native checkout diagnostics; no dependency or service preparation.
-use crate::{
-    HostError,
-    environment::{self, Environment, EnvironmentSettings},
-};
+use crate::environment::{self, Environment, EnvironmentSettings};
 use serde::Serialize;
 use std::{
     ffi::{OsStr, OsString},
-    io::Write as _,
     path::{Path, PathBuf},
     process::Stdio,
     time::Duration,
@@ -16,7 +12,7 @@ use std::{
 use tokio::io::AsyncReadExt as _;
 
 /// One observed prerequisite, separate from optional tool readiness.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct Check {
     /// Stable diagnostic subject.
     pub name: String,
@@ -47,7 +43,7 @@ impl Check {
     }
 }
 /// Point-in-time native readiness, with unavailable optional checks retained.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct Report {
     /// Native diagnostic output interpretation.
     pub version: u32,
@@ -520,30 +516,6 @@ pub async fn inspect(root: &Path, environment: &Environment) -> Report {
     }
     checks.sort_by(|left, right| left.name.cmp(&right.name));
     Report { version: 1, checks }
-}
-
-/// Offline help and direct native doctor text/JSON output.
-pub(crate) async fn execute(root: &Path, json: bool) -> Result<i32, HostError> {
-    let report = inspect(&root, &std::env::vars_os().collect()).await;
-    if json {
-        serde_json::to_writer_pretty(std::io::stdout(), &report).map_err(std::io::Error::other)?;
-        writeln!(std::io::stdout())?;
-    } else {
-        for check in &report.checks {
-            writeln!(
-                std::io::stdout(),
-                "{}{}: {}: {}",
-                if check.ok { "ok" } else { "unavailable" },
-                if check.blocking { "" } else { " (optional)" },
-                check.name,
-                check.detail
-            )?;
-            if !check.fix.is_empty() {
-                writeln!(std::io::stdout(), "  {}", check.fix)?;
-            }
-        }
-    }
-    Ok(i32::from(!report.ready()))
 }
 
 #[cfg(test)]

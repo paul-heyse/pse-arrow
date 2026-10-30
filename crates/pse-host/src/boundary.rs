@@ -8,7 +8,6 @@ use crate::{
 };
 use std::{
     ffi::{OsStr, OsString},
-    io::Write as _,
     time::{Duration, Instant},
 };
 
@@ -26,6 +25,18 @@ struct Options {
     recipe_class: Option<OsString>,
 }
 const DEFAULT_NATIVE_CAPABILITIES: &str = "solver,klu,isolation,uno,petsc";
+/// Passive native profile selection, never readiness or an implicit build.
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct NativeExplanation {
+    /// Explicit capability selection.
+    pub native_profile: String,
+    /// No readiness probe was performed.
+    pub readiness: String,
+    /// Personal shell selections were not sourced.
+    pub personal_selections: String,
+    /// Optional literal preparation guidance.
+    pub prepare: Option<String>,
+}
 fn native_request(options: &Options, values: &Environment) -> Result<Option<String>, HostError> {
     let requested = if options.native_default {
         Some(
@@ -117,6 +128,7 @@ fn known_selections(options: &Options, values: &Environment) -> Result<(), HostE
 pub(crate) fn execute(
     args: crate::cli::BoundaryArgs,
     selected_root: Option<&std::path::Path>,
+    presentation: &crate::envelope::OutputOptions,
 ) -> Result<i32, HostError> {
     let options = options(args)?;
     if options.native.is_some() && options.docs {
@@ -137,9 +149,21 @@ pub(crate) fn execute(
                 ));
             }
             let prepare = (!capabilities.is_empty()).then(|| format!("scripts/pse-env -- scripts/pse-host native prepare --capabilities {capabilities}"));
-            let explanation = serde_json::json!({"native_profile":capabilities, "readiness":"not_observed", "personal_selections":"unresolved", "prepare":prepare});
-            writeln!(std::io::stdout(), "{explanation}")?;
-            return Ok(0);
+            let explanation = NativeExplanation {
+                native_profile: capabilities,
+                readiness: "not_observed".into(),
+                personal_selections: "unresolved".into(),
+                prepare,
+            };
+            let mut presentation = presentation.clone();
+            if options.environment.iter().any(|value| value == "--json") {
+                presentation.format = crate::envelope::OutputFormat::Json;
+            }
+            return Ok(presentation.emit(crate::envelope::Envelope::response(
+                "boundary explain native",
+                "native selection; readiness not observed",
+                explanation,
+            ))?);
         }
         return Ok(environment::execute(
             crate::cli::EnvironmentArgs {
@@ -152,6 +176,7 @@ pub(crate) fn execute(
                 cache: args_cache(options.cache),
             },
             selected_root,
+            presentation,
         )?);
     }
     if options.environment.iter().any(|value| value == "--json") {

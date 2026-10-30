@@ -6,7 +6,7 @@ use serde_json::Value;
 use std::path::PathBuf;
 
 /// Declared guest limits shared by construction and canonical artifact admission.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ModuleLimits {
     /// Guest linear-memory bound.
@@ -24,7 +24,7 @@ pub struct ModuleLimits {
 }
 
 /// Existing module receipt wire shape, consumed by canonical artifact admission.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyModuleRecord {
     /// Artifact interpretation and qualification variant.

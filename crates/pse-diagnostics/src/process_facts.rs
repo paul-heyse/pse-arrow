@@ -23,7 +23,9 @@ pub enum ProcessRead<T> {
     Changed,
 }
 /// Raw kernel identity, with no conversion of process ticks to wall time.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub struct ProcessIdentity {
     /// Kernel boot identifier.
     pub boot_id: String,

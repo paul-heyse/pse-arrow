@@ -6,7 +6,7 @@ use pse_diagnostics::process_facts::{ProcessIdentity, ProcessRead, ProcessReader
 use serde::Serialize;
 
 /// Facts about the observer, explicitly distinct from a requested unit's members.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct ObserverFacts {
     /// Authenticated procfs identity when readable.
     pub identity: Option<ProcessIdentity>,
@@ -17,7 +17,7 @@ pub struct ObserverFacts {
 }
 
 /// Partial diagnosis is useful even when workload admission cannot operate.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct ActivityObservation {
     /// Explicit selection; absence selects the observer's actual manager unit.
     pub requested_unit: Option<String>,

@@ -116,7 +116,7 @@ impl Variant {
 pub use pse_buildinfo::study_module::{ModuleLimits, StudyModuleRecord};
 type Limits = ModuleLimits;
 /// Module capability minted by explicit preparation or retained-artifact admission.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(transparent)]
 pub struct StudyModuleReceipt(StudyModuleRecord);
 impl std::ops::Deref for StudyModuleReceipt {
@@ -1311,7 +1311,10 @@ fn tool_root(env: &Environment) -> Result<PathBuf, HostError> {
     Ok(crate::paths::HostPaths::new(env).surreal_tools()?)
 }
 /// Narrow explicit setup surface. Selection requires an exact receipt, never current sources.
-pub(crate) fn execute(root: &Path, action: crate::cli::StudyAction) -> Result<i32, HostError> {
+pub(crate) fn execute(
+    root: &Path,
+    action: crate::cli::StudyAction,
+) -> Result<StudyModuleReceipt, HostError> {
     let variant = match &action {
         crate::cli::StudyAction::Prepare { variant, .. }
         | crate::cli::StudyAction::Select { variant, .. } => variant,
@@ -1337,9 +1340,7 @@ pub(crate) fn execute(root: &Path, action: crate::cli::StudyAction) -> Result<i3
                 .block_on(prepare(root, &env, &tools, variant))?
         }
     };
-    serde_json::to_writer(std::io::stdout(), &receipt).map_err(invalid)?;
-    writeln!(std::io::stdout())?;
-    Ok(0)
+    Ok(receipt)
 }
 
 #[cfg(test)]

@@ -191,7 +191,7 @@ pub struct ServiceSpec {
 }
 
 /// Observation only. Unknown properties are errors, never empty-success facts.
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq, schemars::JsonSchema)]
 pub struct UnitObservation {
     /// Original name.
     pub unit: String,

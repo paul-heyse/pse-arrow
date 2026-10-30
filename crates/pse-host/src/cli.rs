@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One command grammar and native dispatch for the host entry points.
+use crate::envelope::{
+    self, CommandOutcome, Completeness, Envelope, ErrorRecord, OutputFormat, OutputOptions,
+    Presentation, RedactionPolicy,
+};
 use crate::{HostError, environment::Environment};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::{
     ffi::OsString,
-    io::{self, Write},
+    io::{self, IsTerminal, Write},
     path::{Path, PathBuf},
     process::ExitCode,
     time::{Duration, Instant},
@@ -31,7 +35,23 @@ pub enum BinKind {
 pub(crate) struct Cli {
     #[arg(short = 'C', global = true, id = "checkout")]
     pub(crate) root: Option<PathBuf>,
-    #[arg(long, exclusive = true)]
+    #[arg(
+        long,
+        global = true,
+        value_enum,
+        env = "PSE_FORMAT",
+        hide_env_values = true,
+        default_value = "auto"
+    )]
+    /// Human output on terminals, JSON on pipes, or compact NDJSON observations.
+    format: OutputFormat,
+    #[arg(long, global = true, value_delimiter = ',')]
+    /// Select comma-separated payload fields while retaining identity, state and coverage.
+    fields: Option<Vec<String>>,
+    #[arg(long, global = true)]
+    /// Limit payload array records; retain complete evidence as an artifact.
+    budget: Option<usize>,
+    #[arg(long)]
     version: bool,
     #[command(subcommand)]
     command: Option<Command>,
@@ -40,6 +60,11 @@ pub(crate) struct Cli {
 enum Command {
     #[command(name = "__host-generation-bootstrap", hide = true)]
     HostGenerationBootstrap,
+    /// Print the serialization schema of a command's actual detail view.
+    Schema {
+        #[arg(required=true,num_args=1..)]
+        verb: Vec<String>,
+    },
     #[command(
         hide = true,
         before_help = "pse-env — native command and environment boundary"
@@ -85,6 +110,20 @@ enum Command {
         #[arg(trailing_var_arg = true, required = true)]
         command: Vec<OsString>,
     },
+}
+impl Command {
+    fn raw_protocol(&self) -> bool {
+        match self {
+            Self::Boundary(options) => options.print || !options.explain,
+            Self::AgentHook { .. }
+            | Self::HostGenerationBootstrap
+            | Self::CargoTools { .. }
+            | Self::DiagnosticTools { .. }
+            | Self::Run { .. } => true,
+            Self::Env(options) => options.print || options.activation_data,
+            _ => false,
+        }
+    }
 }
 #[derive(Debug, Subcommand)]
 pub(crate) enum HookAction {
@@ -326,17 +365,82 @@ pub fn checkout_root(selected: Option<&Path>) -> Result<PathBuf, HostError> {
     find(std::env::current_dir()?)
         .ok_or_else(|| HostError::Ownership("run inside a pse-arrow checkout".into()))
 }
-fn dispatch(cli: Cli) -> Result<i32, HostError> {
+#[derive(serde::Serialize, schemars::JsonSchema)]
+struct ServerSelection {
+    executable: PathBuf,
+    recipe: String,
+}
+fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
+    match command {
+        "doctor" => envelope::schema::<crate::doctor::Report>(command, view),
+        "env" | "env explain" => {
+            envelope::schema::<crate::environment::EnvironmentExplanation>("env explain", view)
+        }
+        "boundary explain native" => {
+            envelope::schema::<crate::boundary::NativeExplanation>(command, view)
+        }
+        "activity" => envelope::schema::<crate::activity::ActivityObservation>(command, view),
+        "study-module" | "study-module prepare" | "study-module select" => {
+            envelope::schema::<crate::study_module::StudyModuleReceipt>(command, view)
+        }
+        "telemetry-service"
+        | "telemetry-service inspect"
+        | "telemetry-service setup"
+        | "telemetry-service install"
+        | "telemetry-service start"
+        | "telemetry-service stop"
+        | "telemetry-service reconfigure"
+        | "telemetry-service recover-configuration" => {
+            envelope::schema::<serde_json::Value>(command, view)
+        }
+        "native prepare" => {
+            envelope::schema::<std::collections::BTreeMap<String, PathBuf>>(command, view)
+        }
+        "server select" | "server prepare" => envelope::schema::<ServerSelection>(command, view),
+        "error" => envelope::schema::<()>(command, &Presentation::default()),
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("no response schema for {command}; choose a supported managed command"),
+        )),
+    }
+}
+fn dispatch(cli: Cli, presentation: &OutputOptions) -> Result<i32, HostError> {
     let selected = cli.root.as_deref();
     let Some(command) = cli.command else {
         return Ok(0);
     };
     match command {
         Command::HostGenerationBootstrap => crate::generation::bootstrap(&checkout_root(selected)?),
-        Command::Boundary(options) => crate::boundary::execute(options, selected),
+        Command::Schema { verb } => {
+            let schema = response_schema(&verb.join(" "), &presentation.presentation)?;
+            serde_json::to_writer_pretty(io::stdout().lock(), &schema).map_err(io::Error::other)?;
+            writeln!(io::stdout())?;
+            Ok(0)
+        }
+        Command::Boundary(options) => crate::boundary::execute(options, selected, presentation),
         Command::AgentHook { action } => crate::agent_hooks::execute(action),
         Command::Doctor { json } => {
-            runtime()?.block_on(crate::doctor::execute(&checkout_root(selected)?, json))
+            let report = runtime()?.block_on(crate::doctor::inspect(
+                &checkout_root(selected)?,
+                &std::env::vars_os().collect(),
+            ));
+            let mut response = Envelope::response(
+                "doctor",
+                if report.ready() {
+                    "required native prerequisites are available"
+                } else {
+                    "required native prerequisites are unavailable"
+                },
+                report,
+            );
+            if !response.payload.ready() {
+                response.outcome = CommandOutcome::Failure;
+            }
+            let mut presentation = presentation.clone();
+            if json {
+                presentation.format = OutputFormat::Json;
+            }
+            Ok(presentation.emit(response)?)
         }
         Command::CargoTools { names } => {
             for spec in
@@ -363,28 +467,93 @@ fn dispatch(cli: Cli) -> Result<i32, HostError> {
             Ok(0)
         }
         Command::TelemetryService { action } => {
+            let name = match &action {
+                TelemetryAction::Install => "install",
+                TelemetryAction::Setup(_) => "setup",
+                TelemetryAction::Inspect(_) => "inspect",
+                TelemetryAction::Start(_) => "start",
+                TelemetryAction::Stop(_) => "stop",
+                TelemetryAction::Reconfigure(_) => "reconfigure",
+                TelemetryAction::RecoverConfiguration(_) => "recover-configuration",
+            };
             let value = runtime()?.block_on(crate::telemetry_service::execute(
                 &checkout_root(selected)?,
                 &std::env::vars_os().collect(),
                 action,
             ))?;
-            serde_json::to_writer_pretty(io::stdout(), &value).map_err(io::Error::other)?;
-            writeln!(io::stdout())?;
-            Ok(0)
+            Ok(presentation.emit(Envelope::response(
+                format!("telemetry-service {name}"),
+                format!("telemetry {name} response; delivery remains independently observed"),
+                value,
+            ))?)
         }
         Command::Native {
             action: NativeAction::Prepare { capabilities },
-        } => crate::native::execute(&checkout_root(selected)?, &capabilities),
-        Command::Server { action } => crate::server::execute(&checkout_root(selected)?, action),
-        Command::StudyModule { action } => {
-            crate::study_module::execute(&checkout_root(selected)?, action)
+        } => {
+            let prepared = crate::native::execute(&checkout_root(selected)?, &capabilities)?;
+            Ok(presentation.emit(Envelope::response(
+                "native prepare",
+                "requested native profiles prepared",
+                prepared,
+            ))?)
         }
-        Command::Env(options) => Ok(crate::environment::execute(options, selected)?),
+        Command::Server { action } => {
+            let name = match &action {
+                ServerAction::Select => "server select",
+                ServerAction::Prepare { .. } => "server prepare",
+            };
+            let selected = crate::server::execute(&checkout_root(selected)?, action)?;
+            Ok(presentation.emit(Envelope::response(
+                name,
+                "immutable server executable selected",
+                ServerSelection {
+                    executable: selected.executable(),
+                    recipe: selected.recipe().into(),
+                },
+            ))?)
+        }
+        Command::StudyModule { action } => {
+            let name = match &action {
+                StudyAction::Prepare { .. } => "study-module prepare",
+                StudyAction::Select { .. } => "study-module select",
+            };
+            let receipt = crate::study_module::execute(&checkout_root(selected)?, action)?;
+            Ok(presentation.emit(Envelope::response(
+                name,
+                "immutable study module receipt selected",
+                receipt,
+            ))?)
+        }
+        Command::Env(options) => Ok(crate::environment::execute(
+            options,
+            selected,
+            presentation,
+        )?),
         Command::Activity { unit } => runtime()?.block_on(async {
             let value = crate::activity::ActivityObservation::read(unit.as_deref()).await;
-            serde_json::to_writer(io::stdout(), &value).map_err(io::Error::other)?;
-            writeln!(io::stdout())?;
-            Ok(if value.complete() { 0 } else { 125 })
+            let complete = value.complete();
+            let mut response = Envelope::response(
+                "activity",
+                if complete {
+                    "activity observation complete"
+                } else {
+                    "activity observation incomplete"
+                },
+                value,
+            );
+            response.observation.scope = "manager_and_observer".into();
+            if !complete {
+                response.observation.completeness = Completeness::Partial;
+                response
+                    .observation
+                    .limitations
+                    .extend(response.payload.manager_unavailable.iter().cloned());
+                response
+                    .observation
+                    .limitations
+                    .extend(response.payload.observer.unavailable.iter().cloned());
+            }
+            Ok(presentation.emit(response)?)
         }),
         Command::Run { command } => runtime()?.block_on(crate::foreground::run(
             crate::foreground::ForegroundRequest {
@@ -402,7 +571,7 @@ fn dispatch(cli: Cli) -> Result<i32, HostError> {
 /// Run a native host entrypoint. The trampoline and raw Cargo protocol bypass parsing.
 pub fn main(kind: BinKind) -> ExitCode {
     let arguments: Vec<OsString> = std::env::args_os().skip(1).collect();
-    let result = if matches!(kind, BinKind::Correctness) {
+    if matches!(kind, BinKind::Correctness) {
         return match crate::correctness::run(arguments) {
             Ok(code) => ExitCode::from(u8::try_from(code).unwrap_or(125)),
             Err(error) => {
@@ -410,12 +579,53 @@ pub fn main(kind: BinKind) -> ExitCode {
                 ExitCode::from(2)
             }
         };
-    } else if arguments
+    }
+    if arguments
         .first()
         .is_some_and(|arg| arg == "__foreground-exec")
     {
-        crate::foreground::trampoline(&arguments[1..])
-    } else {
+        // Inherited-descriptor initialization precedes presentation and every other owner.
+        return match crate::foreground::trampoline(&arguments[1..]) {
+            Ok(code) => ExitCode::from(u8::try_from(code).unwrap_or(125)),
+            Err(error) => {
+                let _ = writeln!(io::stderr(), "pse-host: {error}");
+                ExitCode::from(125)
+            }
+        };
+    }
+    if !matches!(kind, BinKind::Correctness) && arguments.len() == 1 && arguments[0] == "--version"
+    {
+        let name = if matches!(kind, BinKind::Pse) {
+            "pse"
+        } else {
+            "pse-host"
+        };
+        let _ = writeln!(
+            io::stdout(),
+            "{name} {} protocol 1",
+            env!("CARGO_PKG_VERSION")
+        );
+        return ExitCode::SUCCESS;
+    }
+    let policy = RedactionPolicy::from_environment();
+    let mut presentation = OutputOptions {
+        format: OutputFormat::early(
+            presentation_prefix(&arguments),
+            std::env::var("PSE_FORMAT").ok().as_deref(),
+            io::stdout().is_terminal(),
+        ),
+        presentation: Presentation::default(),
+        invocation_id: envelope::CliInvocationId::new(),
+        artifact_directory: None,
+    };
+    let mut raw_protocol = arguments.first().is_some_and(|arg| {
+        arg == "boundary"
+            || arg == "__host-generation-bootstrap"
+            || arg == "agent-hook"
+            || arg == "cargo-tools"
+            || arg == "diagnostic-tools"
+    });
+    let result = {
         let mut argv = vec![OsString::from(if matches!(kind, BinKind::Pse) {
             "pse"
         } else {
@@ -442,7 +652,31 @@ pub fn main(kind: BinKind) -> ExitCode {
                 let _ = writeln!(io::stdout());
                 Ok(0)
             }
-            Ok(cli) => dispatch(cli),
+            Ok(cli) => {
+                presentation.format = cli.format.resolve(io::stdout().is_terminal());
+                presentation.presentation = Presentation {
+                    fields: cli.fields.clone(),
+                    budget: cli.budget,
+                };
+                raw_protocol = cli.command.as_ref().is_some_and(Command::raw_protocol);
+                (|| {
+                    if !raw_protocol
+                        && !matches!(cli.command.as_ref(), Some(Command::Schema { .. }))
+                        && (cli.fields.is_some() || cli.budget.is_some())
+                    {
+                        let root = checkout_root(cli.root.as_deref())?;
+                        presentation.artifact_directory = Some(
+                            crate::paths::CheckoutState::resolve(
+                                &root,
+                                &std::env::vars_os().collect(),
+                            )?
+                            .root
+                            .join("artifacts"),
+                        );
+                    }
+                    dispatch(cli, &presentation)
+                })()
+            }
             Err(error) => {
                 if error.use_stderr() && arguments.first().is_some_and(|arg| arg == "boundary") {
                     let _ = writeln!(io::stderr(), "pse-env: {error}");
@@ -452,10 +686,18 @@ pub fn main(kind: BinKind) -> ExitCode {
                 {
                     let _ = writeln!(io::stderr(), "BLOCKED: {error}");
                     Ok(2)
-                } else {
+                } else if !error.use_stderr() {
                     let code = error.exit_code();
                     let _ = error.print();
                     Ok(code)
+                } else {
+                    Ok(failure(
+                        ErrorRecord::from_clap(&error, &policy),
+                        CommandOutcome::Usage,
+                        &presentation,
+                        None,
+                        &policy,
+                    ))
                 }
             }
         }
@@ -463,6 +705,24 @@ pub fn main(kind: BinKind) -> ExitCode {
     match result {
         Ok(code) => ExitCode::from(u8::try_from(code).unwrap_or(125)),
         Err(error) => {
+            if !raw_protocol {
+                let outcome = if matches!(&error,HostError::Io(error) if error.kind()==io::ErrorKind::InvalidInput)
+                {
+                    CommandOutcome::Usage
+                } else {
+                    CommandOutcome::BoundaryFailure
+                };
+                return ExitCode::from(
+                    u8::try_from(failure(
+                        ErrorRecord::from_typed(&error, &policy),
+                        outcome,
+                        &presentation,
+                        Some(&error),
+                        &policy,
+                    ))
+                    .unwrap_or(125),
+                );
+            }
             let prefix = if arguments.first().is_some_and(|arg| arg == "boundary") {
                 "pse-env"
             } else {
@@ -473,6 +733,104 @@ pub fn main(kind: BinKind) -> ExitCode {
         }
     }
 }
+fn presentation_prefix(arguments: &[OsString]) -> &[OsString] {
+    use clap::CommandFactory as _;
+    let mut tree = Cli::command();
+    tree.build();
+    let mut command = &tree;
+    let mut index = 0;
+    while index < arguments.len() {
+        let value = &arguments[index];
+        if value == "--" {
+            return &arguments[..index];
+        }
+        if let Some(text) = value.to_str() {
+            let flag = if let Some(long) = text.strip_prefix("--") {
+                let name = long.split('=').next().unwrap_or(long);
+                command
+                    .get_arguments()
+                    .find(|arg| arg.get_long() == Some(name))
+                    .map(|arg| (arg, text.contains('=')))
+            } else if let Some(short) = text.strip_prefix('-').and_then(|text| text.chars().next())
+            {
+                command
+                    .get_arguments()
+                    .find(|arg| arg.get_short() == Some(short))
+                    .map(|arg| (arg, text.chars().count() > 2))
+            } else {
+                None
+            };
+            if let Some((arg, inline)) = flag {
+                if !inline && !arg.is_require_equals_set() && arg.get_action().takes_values() {
+                    index += arg.get_num_args().map_or(1, |range| range.min_values());
+                }
+                index += 1;
+                continue;
+            }
+            if !text.starts_with('-') {
+                if let Some(child) = command
+                    .get_subcommands()
+                    .find(|child| child.get_name() == text)
+                {
+                    command = child;
+                } else if command
+                    .get_arguments()
+                    .any(clap::Arg::is_trailing_var_arg_set)
+                {
+                    return &arguments[..index];
+                }
+            }
+        } else if command
+            .get_arguments()
+            .any(clap::Arg::is_trailing_var_arg_set)
+        {
+            return &arguments[..index];
+        }
+        index += 1;
+    }
+    arguments
+}
+fn failure(
+    record: ErrorRecord,
+    outcome: CommandOutcome,
+    presentation: &OutputOptions,
+    native: Option<&dyn miette::Diagnostic>,
+    policy: &RedactionPolicy,
+) -> i32 {
+    let mut response = Envelope::response(
+        "error",
+        "command could not produce the requested response",
+        (),
+    );
+    response.invocation_id = presentation.invocation_id.clone();
+    response.outcome = outcome;
+    response.failures.push(record);
+    let code = response.exit_code();
+    if envelope::write(
+        io::stderr().lock(),
+        response,
+        presentation.format,
+        &Presentation::default(),
+    )
+    .is_err()
+    {
+        return 125;
+    }
+    if presentation.format == OutputFormat::Human
+        && let Some(native) = native
+    {
+        let mut rendered = String::new();
+        let result = if io::stderr().is_terminal() {
+            miette::GraphicalReportHandler::new().render_report(&mut rendered, native)
+        } else {
+            miette::NarratableReportHandler::new().render_report(&mut rendered, native)
+        };
+        if result.is_ok() {
+            let _ = writeln!(io::stderr(), "{}", policy.redact(&rendered));
+        }
+    }
+    code
+}
 
 #[cfg(test)]
 mod tests {
@@ -482,6 +840,198 @@ mod tests {
     fn command_tree_is_consistent() {
         Cli::command().debug_assert();
         CorrectnessCli::command().debug_assert();
+    }
+    #[test]
+    fn early_format_prefix_comes_from_the_shared_parser_tail_declaration() {
+        let args = |values: &[&str]| values.iter().map(OsString::from).collect::<Vec<_>>();
+        for (arguments, expected) in [
+            (args(&["run", "--format", "json"]), OutputFormat::Json),
+            (
+                args(&[
+                    "run", "--format", "ndjson", "--", "child", "--format", "human",
+                ]),
+                OutputFormat::Ndjson,
+            ),
+            (
+                args(&["run", "child", "--format", "json", "-h"]),
+                OutputFormat::Human,
+            ),
+            (
+                args(&[
+                    "boundary",
+                    "--cache",
+                    "auto",
+                    "--format=json",
+                    "child",
+                    "--format",
+                    "human",
+                ]),
+                OutputFormat::Json,
+            ),
+        ] {
+            assert_eq!(
+                OutputFormat::early(presentation_prefix(&arguments), Some("human"), false),
+                expected
+            );
+        }
+    }
+    #[test]
+    fn help_snapshots_cover_the_shared_command_tree_without_running_effects() {
+        fn visit(mut command: clap::Command, path: String) {
+            // Terminal alignment padding is not a command/help semantic contract.
+            let normalize = |text: String| {
+                text.lines()
+                    .map(str::trim_end)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            let short = normalize(command.render_help().to_string());
+            let long = normalize(command.render_long_help().to_string());
+            insta::assert_snapshot!(
+                format!("help_{}", path.replace([' ', '-'], "_")),
+                format!("-h\n{short}\n--help\n{long}")
+            );
+            for child in command
+                .get_subcommands()
+                .filter(|child| child.get_name() != "help")
+            {
+                visit(child.clone(), format!("{path} {}", child.get_name()));
+            }
+        }
+        let mut command = Cli::command();
+        command.build();
+        visit(command, "pse".into());
+    }
+    #[test]
+    fn managed_response_snapshots_validate_against_the_command_schema() {
+        fn snapshot<T: serde::Serialize + schemars::JsonSchema>(command: &str, payload: T) {
+            let mut response = Envelope::response(
+                command,
+                "fixture response; no scientific outcome asserted",
+                payload,
+            );
+            if command == "activity" {
+                response.observation.completeness = Completeness::Partial;
+                response
+                    .observation
+                    .limitations
+                    .push("fixture intentionally lacks manager and kernel facts".into());
+            }
+            response.invocation_id = envelope::CliInvocationId::try_from(
+                "019a0000-0000-7000-8000-000000000001".to_owned(),
+            )
+            .unwrap();
+            let value = serde_json::to_value(&response).unwrap();
+            let schema = response_schema(command, &Presentation::default()).unwrap();
+            let validator = jsonschema::validator_for(schema.as_value()).unwrap();
+            assert!(
+                validator.is_valid(&value),
+                "{command}: {:?}",
+                validator
+                    .iter_errors(&value)
+                    .map(|error| error.to_string())
+                    .collect::<Vec<_>>()
+            );
+            insta::assert_snapshot!(
+                format!("response_{}", command.replace([' ', '-'], "_")),
+                serde_json::to_string_pretty(&response).unwrap()
+            );
+        }
+        snapshot(
+            "doctor",
+            crate::doctor::Report {
+                version: 1,
+                checks: vec![crate::doctor::Check {
+                    name: "fixture".into(),
+                    ok: true,
+                    blocking: true,
+                    detail: "read-only observation available".into(),
+                    fix: String::new(),
+                }],
+            },
+        );
+        snapshot(
+            "env explain",
+            crate::environment::EnvironmentExplanation {
+                local_unresolved: true,
+                selections: [("PSE_BUILD_MODE".into(), Some("unbounded".into()))].into(),
+            },
+        );
+        snapshot(
+            "activity",
+            crate::activity::ActivityObservation {
+                requested_unit: Some("fixture.service".into()),
+                manager: None,
+                manager_unavailable: Some("fixture bus unavailable".into()),
+                observer: crate::activity::ObserverFacts {
+                    identity: None,
+                    control_group: None,
+                    unavailable: vec!["fixture kernel unavailable".into()],
+                },
+            },
+        );
+        snapshot(
+            "boundary explain native",
+            crate::boundary::NativeExplanation {
+                native_profile: "compiler".into(),
+                readiness: "not_observed".into(),
+                personal_selections: "unresolved".into(),
+                prepare: Some("explicit preparation required".into()),
+            },
+        );
+        for action in [
+            "install",
+            "setup",
+            "inspect",
+            "start",
+            "stop",
+            "reconfigure",
+            "recover-configuration",
+        ] {
+            snapshot(
+                &format!("telemetry-service {action}"),
+                serde_json::json!({"status":"fixture","delivery":"not_observed"}),
+            );
+        }
+        snapshot(
+            "native prepare",
+            std::collections::BTreeMap::from([(
+                "compiler".to_owned(),
+                PathBuf::from("/fixture/profile"),
+            )]),
+        );
+        for action in ["server select", "server prepare"] {
+            snapshot(
+                action,
+                ServerSelection {
+                    executable: "/fixture/surreal".into(),
+                    recipe: "fixture-generation".into(),
+                },
+            );
+        }
+        for action in ["study-module select", "study-module prepare"] {
+            // This is the receipt's declared wire record, not a fabricated prepared capability.
+            snapshot(
+                action,
+                pse_buildinfo::study_module::StudyModuleRecord {
+                    kind: "fixture".into(),
+                    artifact: "/fixture/study.surli".into(),
+                    sha256: "0".repeat(64),
+                    bytes: 32,
+                    sdk_version: "fixture".into(),
+                    abi: 1,
+                    inputs: serde_json::Map::new(),
+                    limits: pse_buildinfo::study_module::ModuleLimits {
+                        max_memory_bytes: 1024,
+                        max_pool_size: 1,
+                        max_execution_time_ms: 1000,
+                        max_kv_entries: 0,
+                        max_kv_value_bytes: 0,
+                        strict_timeout: true,
+                    },
+                },
+            );
+        }
     }
     #[test]
     fn boundary_tail_is_literal_and_native_is_last_wins() {
