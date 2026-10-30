@@ -15,6 +15,23 @@ async fn current_membership_preserves_the_manager_root_and_actual_member() {
 }
 
 #[tokio::test]
+async fn service_controller_authentication_refuses_foreign_and_nonservice_intents() {
+    let manager = HostManager::connect_user(None).await.unwrap();
+    assert!(
+        manager
+            .authenticate_service_controller(&LaunchIntent::fresh().unwrap())
+            .await
+            .is_err()
+    );
+    assert!(
+        manager
+            .authenticate_service_controller(&LaunchIntent::fresh_scope().unwrap())
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test]
 async fn explicit_core_delegated_scope_keeps_its_original_finite_controls() {
     let manager = HostManager::connect_user(None).await.unwrap();
     let current = manager.current_unit().await.unwrap();

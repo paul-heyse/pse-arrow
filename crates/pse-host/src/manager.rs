@@ -729,6 +729,48 @@ impl HostManager {
         let observation = self.observe(&unit.id().await?).await?;
         subgroup::CurrentMembership::authenticate(self, observation).await
     }
+    /// Authenticate this exact original service main process for readiness notification.
+    /// Control/finalizer processes and environment hints grant no such authority.
+    pub(crate) async fn authenticate_service_controller(
+        &self,
+        intent: &LaunchIntent,
+    ) -> Result<UnitObservation, HostError> {
+        if !intent.unit.ends_with(".service") {
+            return Err(HostError::Ownership(
+                "notification controller is not a service intent".into(),
+            ));
+        }
+        let membership = self.current_membership().await?;
+        let root = &membership.root;
+        if root.unit != intent.unit || root.main_pid != std::process::id() {
+            return Err(HostError::Ownership(
+                "current process is not the original service main controller".into(),
+            ));
+        }
+        let unit = self.unit(&root.unit).await?;
+        if !unit.transient().await? {
+            return Err(HostError::Ownership(
+                "notification controller is not an original transient service".into(),
+            ));
+        }
+        require_original_identity(
+            intent,
+            &unit.description().await?,
+            &root.invocation,
+            &unit.invocation_id().await?,
+        )?;
+        membership.validate(self).await?;
+        let observed = self.observe(&root.unit).await?;
+        if observed.main_pid != std::process::id()
+            || observed.invocation != root.invocation
+            || observed.control_group != root.control_group
+        {
+            return Err(HostError::Ownership(
+                "original notification controller changed during authentication".into(),
+            ));
+        }
+        Ok(observed)
+    }
     /// Resolve explicit workload-only placement without starting, configuring or
     /// stopping another unit. Existing target limits are intentionally inherited.
     /// Moving out of source ancestors is supported only when their CPU, memory,

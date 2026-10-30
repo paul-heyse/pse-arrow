@@ -4,6 +4,8 @@
 use super::*;
 use std::ffi::OsStr;
 
+pub(crate) mod payload;
+
 /// Observation-only current placement. A descendant never replaces the manager's unit root.
 #[derive(Debug)]
 pub(crate) struct CurrentMembership {
