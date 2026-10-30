@@ -1,300 +1,224 @@
-# Registry, generation and the Python boundary
+# Registry, generation and declarations
 
-This page covers `pse-schema` (the registry), `pse-codegen`, `pse-py`, `pse-diagnostics`,
-`pse-model` and the hand-written Python package `python/pse`. Contracts are owned by
+This page covers `pse-schema` (the registry), `pse-codegen`, `pse-relations`, `pse-engine`, `pse-rules`, `pse-diagnostics`, `pse-model`, `pse-columnar` where it meets declarations, and the generated SurrealQL consumed by `pse-operations`. The file name predates the retirement of the Python boundary (commit `600d4df30` deleted `pse-py` and the Python package) and is kept so that links stay stable. Contracts are owned by
 [§4 and §6](../../authoritative_design/sections/schema-and-relations.md#section-4),
 [§21.5](../../authoritative_design/sections/workflows-and-results.md#section-21-5) and
 [§23](../../authoritative_design/sections/operations-and-validation.md#section-23). The baseline is
-on the [entry page](README.md). Codegen is not disfavoured; each generation hop is judged on its
-merits.
+on the [entry page](README.md). Codegen is not disfavoured; each generation hop is judged on its merits. Mechanisms were read statically and are *Interface-checked*; every value claim is *Proposed*, and nothing here is *Measured* except where a dated probe is cited. Counts come from `rg`, `wc` and two read-only reachability scripts, and they show shape.
 
-**System picture.** The registry catalog is the single declaration for relations, enums,
-identities, documents and invariants. Codegen turns it into:
-- Rust, rendered with `quote`/`syn`/`prettyplease`;
-- Python attrs rows;
-- msgspec document types, through a custom JSON-Schema emitter;
-- JSON Schema;
-- SurrealQL;
-- Markdown.
+**System picture.** The registry catalog is the single declaration for relations, enums, identities, documents and invariants. Codegen renders Rust with `quote`, `syn` and `prettyplease`, JSON Schema through schemars contexts, and SurrealQL, which is concatenated and substituted from Rust raw strings. The standard registry is baked into `pse-schema/src/generated/standard_registry.rs`. `pse-relations` holds an Arrow view, builder and codec module per relation (about 199k generated lines over 215 files). `pse-engine` is a governed DataFusion session. `pse-rules` lowers invariants to DataFusion plans.
 
-`pse-py` uses PyO3 0.29 with `experimental-inspect`, pyo3-arrow (zero-copy capsule streams),
-pyo3-async-runtimes and abi3. Stubs come from `pyo3_introspection`. Every error enum
-implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately custom areas:
-- framed identity;
-- compatibility and migration semantics;
-- the strict unknown-field policy;
-- finite-float and null semantics at the NumPy boundary;
-- drain-on-cancel.
+Already strong: predicate validators lower declarations to ordinary DataFusion `Expr` and `PhysicalExpr`; physical reconciliation and invariant programs are native `LogicalPlan` work; the extension-type mechanism implements Arrow's `ExtensionType` and registers with DataFusion; the result pipeline uses `FileWriter`, `FileDecoder`, `RowConverter` and Arrow kernels directly; resources use `FairSpillPool` and `TrackConsumersPool`; refusal codes are a closed, declared set. Legitimately custom: framed identity, compatibility and migration semantics, and the strict unknown-field policy.
 
-<a id="cbo-040"></a>
+With the Python reader gone, the premise that every relation must have a uniform Arrow boundary form for a foreign reader no longer holds. Three Arrow forms still earn their keep: durable IPC result blocks with their witnesses, DataFusion relational admission, and `FieldCheckedBatch` as the admission capability. Several generated and engine forms now look like residue of the universal premise ([CBO-153](#cbo-153), [CBO-154](#cbo-154), [CBO-156](#cbo-156)). Prepaid columnar accounting is [CBO-001](cross-cutting-mechanisms.md#cbo-001) and IPC admission is [CBO-005](result-data-paths.md#cbo-005).
 
-## CBO-040 — Registry products baked as about 87k lines of Rust plus JSONL plus IPC
-
-- **Operation and consumers.** `registry()` and `shared_registry()` produce the standard
-  `Registry` at process start for every crate, every `pse-py` import and the codegen itself.
-- **Current mechanism.**
-  - `pse-codegen/src/codegen/rust/registry.rs` serializes the resolved products into Rust
-    source using a pool of `#[inline(never)]` helpers.
-  - It also emits a 16.7 MB JSONL file and fifteen `standard-N.arrow` IPC files.
-  - The result is `pse-schema/src/generated/standard_registry.rs`: 87,267 lines, about 4.7 MB,
-    ending in `hydrate()`.
-  - Each `FieldContract` is rebuilt at runtime by parsing a JSONL slice.
-  - The generated header explains that array-backed literals "exhausted the compilation memory
-    cap". The output format follows a build limit.
-  - `ResolvedRegistryProducts` is already a plain data struct.
-- **Why it matters.**
-  - The same products are serialized three ways.
-  - The compile-memory workaround shapes the generator.
-  - One embedded data authority would be smaller to compile and simpler to regenerate.
-- **Patterns.** [LOP-X003](../assessment-patterns.md#lop-x003) (primary), LOP-06, LOP-07,
-  LOP-11.
-- **Footprint.**
-  - Inspected: the generator, the head and tail of the output, and the products struct.
-  - Similar but mostly typed output exists in `pse-relations/src/generated`.
-- **Preservation constraints.**
-  - Identical fingerprints and closure identities.
-  - Hydration imports no runtime proofs.
-  - Deterministic bytes for `codegen-check`.
-- **Counterevidence.**
-  - Static Rust gives type-checked constants.
-  - It may have negligible startup cost.
-  - A blob needs deterministic serde over Arrow types.
-  - Hydration cost has not been measured.
-- **Status.** Current mechanism; the alternative is proposed.
-- **Research questions.**
-  - Can the products be serialized deterministically into one embedded blob, for example with
-    `postcard`, `rkyv`, `ciborium` or Arrow IPC for everything?
-  - What does first-use construction cost?
-- **Library assessment correction (2026-10-27).** The registry product types derive no serde; only Arrow `Field` is serialized today. A blob route must first give the model a serialization contract, including deterministic ordering for Arrow `Field` metadata, which is a `HashMap`. See [postcard](../libraries/postcard/README.md) and [ciborium](../libraries/ciborium/README.md).
-- **Comparative review correction (2026-10-27).** "The same products serialized three ways" is wrong: each sub-product is encoded once, by what its type supports. Rust literals carry the hand-written model types; `standard-data.jsonl` is a deduplicated canonical-JSON pool of serde-capable leaves (Arrow `Field`, references, description `Value`s), with 4,576 lines and 6,548 `native(` decodes; IPC carries the 15 self-description batches. `HashMap` ordering is already solved on the JSON route by `pse_columnar::native_field::canonical_json` (`NativeJsonPool` in `pse-codegen/src/codegen/rust/registry.rs`), so the Field-ordering prerequisite above applies only if Field were serialized through postcard natively. `pse-codegen` re-exports `pse-schema`, which compiles `mod generated;` unconditionally. A later probe confirmed the coupling: a model field added together with its emitter breaks `just codegen` (258 × `E0063` in `standard_registry.rs`, nothing regenerated), and the only workaround found is a manual stub of the generated file. The generated module accounts for about 18 s (about 72%) of a full `pse-schema` build and is recompiled whenever its line numbers shift, while peak RSS stays under 2 GB (*Tested* and *Measured*; [evidence](../../design_review/evidence/library-leverage-registry-build-coupling-2026-10-27/README.md)). The governing proposed ADR-0210 records 304 ms versus 30 ms, fixture-bounded. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-040).
-
-- **Reassessment correction (2026-10-27, source `4f52fd239`).** The embedded-blob preference stands
-  conditionally; its complete compatibility/integrity mechanism is unresolved. A constant generated
-  alongside a blob can be stale with it. Postcard from_bytes ignores trailing input; take_from_bytes plus
-  remainder refusal is needed for complete-value admission. Layout, payload integrity and
-  source-versus-hydrated equivalence remain separate guarantees.
-
-<a id="cbo-041"></a>
-
-## CBO-041 — Boundary documents transcoded through JSON, with checks in both languages
-
-- **Operation and consumers.** Every `pse-py` call that returns or accepts a boundary document,
-  and the Python wrappers around those calls.
-- **Current mechanism.**
-  - **Rust → Python.** `serde_json` bytes, then a Python-level call into `pse.codec.decode_json`
-    (`pse-py/src/documents.rs`). That call walks `msgspec.inspect.type_info` to check version
-    headers (`codec/__init__.py`).
-  - **Header check, twice.** Rust repeats the header check (`check_required_header`, exposed as
-    `_native.check_document_header`).
-  - **Attrs rows.** These cross as attrs, then a cattrs unstructure, a finite-value check, the
-    header check, `msgspec.convert`, JSON, and finally serde (`codec/_generated.py`).
-  - **Per-call lookups.** Module imports and attribute lookups happen per call.
-- **Why it matters.**
-  - The same meaning — versioned header, finite floats, unknown-field refusal — is enforced in
-    two languages.
-  - Each document is transcoded several times.
-- **Patterns.** LOP-06 (primary), LOP-03, LOP-02.
-- **Footprint.**
-  - Inspected: the boundary module, the codec and the wire module.
-  - Covers about 70 boundary documents and every wrapper that uses them.
-- **Preservation constraints.**
-  - Refusal of unknown fields and non-finite values.
-  - The exact wire form of identities.
-  - Identical header diagnostics on both sides.
-  - Streaming allowance limits.
-  - JSON as the language-neutral contract (§21.5).
-- **Counterevidence.**
-  - JSON is stable and debuggable.
-  - Payloads are modest.
-  - msgspec is fast.
-  - Nothing has been measured.
-- **Status.** JSON as the wire is a current promise; unifying the checks is a proposed addition.
-- **Research questions.**
-  - Can the header check live on one side only, using msgspec `tag`/`Meta` or a serde tag?
-  - Can `pythonize`, or msgspec conversion from attributes, avoid the double hop where no wire
-    is needed?
-- **Library assessment correction (2026-10-27).** The catalogue has 250 entries, not about 70: 155 FlatV1, 91 Native, 3 FlatV2 and 1 ValueV1. A probe of msgspec 0.21.1 found that a single tagged Struct does not require its tag, while a union of two or more tagged Structs does ([evidence](../../design_review/evidence/library-leverage-msgspec-tagged-decode-2026-10-27/README.md)). See [msgspec](../libraries/msgspec/README.md).
-- **Comparative review correction (2026-10-27).** The header rule has one implementation, Rust `pse_model::document::check_required_header`; Python reaches it through `_native.check_document_header` and owns only traversal and message wording. The import-time `_check_native_compatibility` (called from `pse/__init__.py`) already compares `boundary_schema_fingerprint`, and generated version fields are `Literal[N] = N`. Two real duplications remain: `pse-py/src/documents.rs` `decode_document` runs `check_required_header` and `Wire::decode_slice` then runs `check_header::<N>` again (FlatV1, FlatV2 and ValueV1), and Rust→Python decode re-runs the untrusted-input traversal, with a callback into Rust, on bytes Rust just wrote. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-041).
-
-- **Reassessment correction (2026-10-27, source `4f52fd239`).** Reuse the existing bounded per-thread
-  decoder cache for trusted immediate native output. Per-type cached class/callable handles do not justify
-  sharing decoder instances globally; public untrusted header admission remains.
-
-<a id="cbo-042"></a>
-
-## CBO-042 — Document wire envelopes and directional schema surgery
-
-- **Operation and consumers.** Document versioning, schema publication and the msgspec emitter.
-- **Current mechanism.**
-  - `pse-runtime/src/boundary_document_wire.rs` (678 lines) holds the following:
-    - four wire shapes: `Native`, `FlatV1`, `FlatV2` and `ValueV1`;
-    - `Versioned<T, N>` and a streaming `DeserializeSeed` header checker;
-    - a manual `JsonSchema` implementation that rewrites schemas and examples. It comments on
-      schemars 1.2.2 flatten behaviour.
-  - `pse-codegen/src/codegen/documents.rs` splits input and output variants by hand
-    (`directional_names`, `rename_output`). That split produces about 1.7k `*Output` names.
-  - Python re-derives which field is the header.
-- **Why it matters.**
-  - It means fewer independent decisions.
-  - schemars contract modes (`Contract::Serialize`/`Deserialize`) might produce directional
-    schemas without the renaming pass.
-- **Patterns.** LOP-10 (primary), LOP-02, LOP-11, [LOP-X003](../assessment-patterns.md#lop-x003).
-- **Footprint.** The wire module, the renaming pass, and a table of about 70 entries.
-- **Preservation constraints.**
-  - Compatibility of existing flat wires.
-  - Valid examples.
-  - Domain fields named `version` stay legal.
-- **Counterevidence.**
-  - The separate header exists to protect domain `version` fields.
-  - The four wires may mirror real historical contracts (ADR-0116, ADR-0151, not re-read in
-    full).
-- **Status.** Current mechanism.
-- **Research questions.**
-  - Do schemars 1.x contract modes remove the renaming pass?
-  - Can a serde attribute or derive replace the hand-written header deserializer?
-- **Library assessment correction (2026-10-27).** schemars contract modes are already in use. The "~1.7k `*Output` names" are 1,782 occurrences of 483 distinct classes.
-- **Comparative review correction (2026-10-27).** Python does not re-derive the header field; it reads the generated `_pse_required_version_field` / `_pse_required_version` class variables. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-042).
-
-<a id="cbo-043"></a>
-
-## CBO-043 — Two Python model systems and a custom schema-to-msgspec emitter
-
-- **Operation and consumers.** Typed Python contracts:
-  - about 35k lines of msgspec document types;
-  - about 12k lines of attrs relation rows;
-  - cattrs and msgspec codecs.
-- **Current mechanism.**
-  - The `Emitter` in `codegen/documents.rs` (about 800 lines) maps JSON Schema to Python source.
-  - `codegen/python/{mod,types,extensions}.rs` separately string-builds the attrs rows. They
-    carry per-field validator chains and `_pse_equality_key`.
-  - The codec runs two libraries with two strictness mechanisms: cattrs forbid-extra-keys and
-    msgspec `forbid_unknown_fields`. Each has its own identity-type hooks.
-  - ADR-0116 weighed `datamodel-code-generator` and chose byte-deterministic output.
-- **Why it matters.** One registry contract family is expressed in two Python class systems,
-  each with its own generator and codec.
-- **Patterns.** [LOP-X003](../assessment-patterns.md#lop-x003) (primary), LOP-09, LOP-01.
-- **Footprint.**
-  - The codec and generated rows were inspected.
-  - Outside tests, rows are used only by `codec` and `_modeling`.
-- **Preservation constraints.**
-  - Exact-type bool and finite-float validation.
-  - Frozen values and equality keys.
-  - The `typing.Any` ban.
-  - Byte-deterministic generation.
-- **Counterevidence.**
-  - Arrow-shaped, nullable, extension-typed rows differ from documents.
-  - msgspec has no exact-type validator.
-  - The authoring JSON-Schema emitter is documented as intentionally outside schemars.
-- **Status.** Current mechanism.
-- **Research questions.**
-  - Can msgspec `Struct` with `Meta` and `dec_hook` carry rows?
-  - Does current `datamodel-code-generator` msgspec output meet the determinism, tagged-union
-    and `StrEnum` needs?
-  - Are rows needed outside the two edit documents?
-- **Library assessment correction (2026-10-27).** Tested: a msgspec `Struct` validates nothing at construction (`DocV1(name=5, count='x')` succeeds), and `msgspec.convert` accepts `nan` and `inf` into `float` fields. Decode itself refuses non-finite JSON.
-- **Comparative review correction (2026-10-27).** Two of the 207 generated row families are public, user-constructed values: `pse.modeling.Declaration = AuthoredModelingDeclarationsRow` and `FitDeclaration = AuthoredFitCasesRow`. Construction-time validation is therefore a live requirement, and the attrs rows and msgspec documents are two contracts rather than one meaning twice. The datamodel-code-generator route would also break `pse-codegen`'s pure Rust path-to-bytes property (§4.2) by invoking an external Python tool. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-043).
-
-<a id="cbo-044"></a>
-
-## CBO-044 — Python wrapper layer forwarding native handles accessor by accessor
-
-- **Operation and consumers.** The public Python API: `LocalStudy`, `RunHandle`, `StudyReport`,
-  `ModelingResult`, `TableStream` and related classes.
-- **Current mechanism.**
-  - There are about 405 `self._handle.…` forwards across:
-    - `_modeling.py`
-    - `_runs.py`
-    - `_workflow.py`
-    - `_project_operations_glue.py`
-    - `diagnostics.py`
-  - Some crossings are made item by item, for example
-    `tuple(self._handle.attempt(i) for i in range(self._handle.attempt_count))`.
-  - The wrappers exist mainly to back an import gate (`_build.py` and an ast-grep rule). Each
-    accessor exists three times: as a hand-written PyO3 method (about 8k Rust lines), as a
-    `_native.pyi` stub, and as a Python forward.
-- **Why it matters.**
-  - Three forms per accessor, with docstrings kept in step by hand.
-  - Per-index loops cross the boundary once per item.
-- **Patterns.** LOP-02 (primary), LOP-09, LOP-04.
-- **Footprint.** Samples were read; there are 14 wrapper classes in `_modeling` alone.
-- **Preservation constraints.**
-  - The import gate.
-  - A public naming surface separate from the extension.
-  - Real behaviour in `TableStream` iteration, `RunResult` construction and identity tuple
-    conversion.
-- **Counterevidence.** A separate public surface can deliberately hide native names.
-- **Status.** Current mechanism.
-- **Research questions.**
-  - Can the pyclass be the public type (with `#[pyclass(module = …)]`, introspected stubs and a
-    single re-export)?
-  - Are bulk getters available?
-- **Library assessment correction (2026-10-27).** The 405 forwards count is exact. The stub generator strips docstrings on purpose (`xtask/src/codegen/python_stubs/validate.rs`), although pyo3-introspection would emit them.
-- **Comparative review correction (2026-10-27).** 41 wrapper classes hold `_handle`, 6 of them Python-constructed (for example `Runtime`), and there are 22 cross-wrapper `._handle` unwraps (`# noqa: SLF001`). `Runtime` is a Python class composing generated host-operation mixins, so `#[pyclass(subclass)]` works for user-constructed owners but not for Rust-returned objects, which are always base-class instances. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-044).
-
-- **Reassessment correction (2026-10-27, source `4f52fd239`).** Wrapper removal is not one-to-one.
-  CompactStudyResult is an indexed view over the same native report wrapped by StudyReport, so it needs a
-  native indexed view or a retained small wrapper. Handle-identity equality/hash, attrs mutation exceptions,
-  constructors and helpers are not preserved merely by PyO3 name/module/frozen/eq/hash attributes. The final
-  deletion count remains unestablished.
-
-<a id="cbo-045"></a>
-
-## CBO-045 — Diagnostics implemented through a forwarding macro beside the miette derive
-
-- **Operation and consumers.** Typed diagnostic codes, facts and related or source forwarding for
-  every public error enum. The consumers are `DiagnosticReport` and Python.
-- **Current mechanism.**
-  - `impl_diagnostic!` (`pse-diagnostics/src/lib.rs`, 41 uses) implements `miette::Diagnostic`
-    by hand alongside a `TypedDiagnostic` trait. Callers usually pass several `{ None }` blocks.
-  - Other crates derive `thiserror::Error` together with `miette::Diagnostic`, for example
-    `pse-operations/src/canonical.rs`.
-  - `disposition()` maps `FailureClass` to `BoundaryClass` in a third place.
-  - The `vocabulary!` macro is defined twice, once in `pse-diagnostics/src/vocabulary.rs` and
-    once in `pse-vocabulary/src/lib.rs`. The copies differ only by a `description` parameter.
-- **Why it matters.** Three styles serve one obligation. A variant's code and its annotations
-  could sit together.
-- **Patterns.** LOP-02, LOP-03, LOP-09.
-- **Footprint.** 41 macro sites, both vocabulary macros, and the disposition map.
-- **Preservation constraints.**
-  - Codes stay the typed `DiagnosticCode`.
-  - The facts and children projection.
-  - Forwarding rules.
-  - A §23.2 code on every public error.
-- **Counterevidence.**
-  - The derive cannot supply the typed facts.
-  - The macro may be the thinnest way to cover both halves.
-- **Status.** Current mechanism.
-- **Research questions.**
-  - Could `#[derive(miette::Diagnostic)]` plus a small local derive for `TypedDiagnostic` replace
-    the macro?
-  - Could one leaf crate own `vocabulary!`?
-- **Library assessment correction (2026-10-27).** The two `vocabulary!` copies differ in more than `description`: the JsonSchema impl, String conversions, the `ALL` type and the serde rename route also differ. Derive sites such as `pse-operations/src/canonical.rs` already declare codes twice.
-- **Comparative review correction (2026-10-27).** The premise is inverted: `impl_diagnostic!` projects miette's `code()` from the typed `DiagnosticCode`, so it is the single authority, and the derive sites are where codes drift. `pse-operations/src/canonical.rs` has the container `#[diagnostic(code(runtime::infrastructure))]` while its typed impl maps `Codec(_)` to `ValidationInvariant`, and `pse-py/src/inspection/errors.rs` raises a message carrying miette's `[{code}]` while `report.code` carries the typed code, so the two disagree for that variant. 5 of the 10 derive files have no typed impl, and `Withheld` carries `pse::native::square_response`, which is not in the vocabulary. §23.2 permits either route, and `disposition()` is a legitimate separate projection. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-045).
+**Coverage on this page.** Traced: the `pse-schema` obligations, `field_contract` and `compatibility` modules; `pse-columnar` IPC and owned-buffer code; `pse-engine` entry points, `operation*`, `provider/*`, `resolution/*` and `capture` (caller and trait-implementation reachability); the canonical call modules of `pse-operations` (non-test bodies, long lines truncated); `pse-rules` `program.rs` and `references.rs`. Representative: `pse-schema` builder, products and standard registry; `pse-engine` cache, admission and scalar adapters (heads only, so [CBO-155](#cbo-155) rests on heads); `pse-codegen/src/codegen/surreal*.rs` (heads and sampled output); the diagnostics macro and both `vocabulary!` definitions. Skimmed or unread: `pse-model` generated rows, the `pse-codegen` Rust emitters beyond the registry emitter, `admission/derive.rs`, the generated retention and lifecycle SurrealQL functions, `canonical_staging`, and test modules throughout. Reachability claims are name-based or regex-based and show absence under their assumptions, not proof of non-use.
 
 <a id="cbo-046"></a>
 
-## CBO-046 — SurrealQL and Python emitted through string templates
+## CBO-046 — The canonical store program: SurrealQL in Rust strings with no semantic toolchain
 
-- **Operation and consumers.** The generated SurrealQL and the Python contract modules.
+- **Operation and consumers.** The store's transactional behaviour (admission, fencing, deadlines, retention, study readiness) is a SurrealQL program in the generated `surreal.surql` (about 4.7k lines) and its rollouts. Authors are the `pse-codegen` templates and the `pse-operations` call modules; every workflow caller depends on it.
 - **Current mechanism.**
-  - `codegen/surreal_execution.rs` chains `.replace("__INDEX_BYTES__", …)` over raw strings.
-  - The `surreal*.rs` generators (about 4k lines) and `python/mod.rs` (about 60 `push_str` or
-    `format!` sites) build text directly.
-  - The Rust target uses `quote`/`syn` instead.
-- **Why it matters.** Placeholder collisions and unescaped values go unchecked. A typed builder or
-  template engine would make substitution explicit.
-- **Patterns.** LOP-01, LOP-02, [LOP-X003](../assessment-patterns.md#lop-x003).
-- **Footprint.** The two generator families named above.
-- **Preservation constraints.** Byte-deterministic output.
-- **Counterevidence.**
-  - Embedded raw SurrealQL reads as written.
-  - A template engine is a dependency added for a handful of placeholders.
-  - This is a weak opportunity.
+  - **Generation side.** The `surreal*.rs` generators total about 4.5k lines, about 3.8k of them inside `r#"…"#` strings. `.replace` chains fill 16 distinct `__NAME__` placeholders and `/* NAME */` markers in `surreal_execution`, `surreal_projects`, `surreal_research`, `surreal_study_workbench` and `surreal_artifacts`, and the last splices `format!`-built guard fragments. Nothing checks that every placeholder was consumed. `pse-codegen` does not depend on `surrealdb-syn`; parsing happens afterwards in `canonical_maintenance::parse_definitions` (tests and maintenance activation). The `THROW` code check in `surreal.rs::append` is a text scan (`ddl.split("THROW '")`). The preamble `deadline; publication; check_owner` is repeated by hand.
+  - **Call side.** About 283 `fn::pse_` occurrences in non-test Rust restate each signature as text plus binds. Results return as `Value` or `Object` and are projected field by field. Most public store methods repeat one skeleton: `admit_activity`, `activity.scope`, `within_clock`, `ensure_writes`, `protected_query` with a string operation name, `.bind` per parameter, `take` or `ResultSlot`, a generated decoder, and `settle_exact` with a hand readback closure. Bind names for batches are rebuilt by `format!`.
+  - Arity, parameter types, result shape, referenced fields and `THROW` identities are checked against nothing before a real server runs the code, by a search of `crates/` and `xtask` for `surrealdb_syn` and `surrealdb_sql`. The `xtask` `surrealql_tools` subcommand is parse-only and no recipe or host route to it was found.
+  - Refusal codes are declared in `pse-schema/catalog/canonical_refusals.rs` and also spelled in the SQL literals. Inline SQL in `pse-operations` carries about 1,170 `THROW '` occurrences across 21 files, outside the generator check.
+- **Why it matters.** A signature or field change means edits in the template, each caller's text, the binds, the projection and possibly the refusal catalog, and failures surface only in server-backed tests. A parse at generation time could reject bad text at the boundary that owns the bytes and could derive facts such as which functions skip the preamble. A declared operation table could generate the call skeleton with the signature (Proposed).
+- **Patterns.** LOP-X015, LOP-02, LOP-X003, LOP-03.
+- **Evidence.** `surreal.rs` (`relations`, `append`), `surreal_execution.rs` head, heads of `surreal_files`, `surreal_studies` and `surreal_study_workbench`, generated `surreal.surql` execution functions, `canonical_execution.rs` append path, `canonical_script.rs`, `canonical_maintenance.rs` head, `surrealql_tools.rs`, bodies of `canonical_studies`, `canonical_projects`, `canonical_artifacts`, `canonical_results`, `canonical_retention`, `canonical_lifecycle`, `canonical_analyses`, `canonical_project_imports` and `canonical_selection`.
+- **Footprint.** Generators and non-test call modules inspected. `canonical_execution` beyond the append path, `knowledge.rs` (`stage_sql` and `activation_sql` built with `format!`) and `canonical_staging` are suspected and unread. The guarded-script split is [CBO-010](persistence-and-transport.md#cbo-010) and the response path is [CBO-066](persistence-and-transport.md#cbo-066).
+- **Preservation constraints.** Byte-identical deterministic output and `SCHEMA_DIGEST`; exact `THROW` identity semantics and native `is_thrown` decoding; no coercion of opaque text into records; `surrealdb-syn` and `surrealdb-sql` staying out of the ordinary runtime closure (feature `canonical-maintenance`, ADR-0214) and the WASI closure; generated functions' `PERMISSIONS NONE`; the original-deadline semantic at each point in a transaction. A `DEFINE PARAM` route would add a second runtime representation of constants the registry owns.
+- **Counterevidence and uncertainty.**
+  - The AST has no type checker, so semantic checking means a local analysis or a generated contract table. Dynamic `object` parameters (`$row`, `$items`) limit how far signatures can describe payloads.
+  - A generator or macro over a declarative function table may suffice without AST use. A template engine would change substitution syntax without checking SurrealQL.
+  - Real-server tests are independent assurance and are not redundant. Keeping the text in a Rust module does put it under the generator's single output.
 - **Status.** Current mechanism.
 - **Research questions.**
-  - Would `minijinja` or `askama` reduce risk, or only change the syntax?
-  - Is there a SurrealQL AST or builder (`surrealdb-sql`, already pinned) that could render
-    statements?
-- **Library assessment correction (2026-10-27).** There are 18 placeholders, mostly integers. The riskier pieces are two post-generation textual rewrites over generated Python (`.replace("v.", "")`), and the guard-fragment and relation-id splices in `surreal_artifacts.rs`. `surrealdb-syn` already validates SurrealQL in xtask and `canonical_maintenance`.
-- **Comparative review correction (2026-10-27).** The generated SurrealQL catalog is already parse-validated with `surrealdb-syn`, in a unit test (`parse_definitions(wire::SCHEMA)`, `canonical-maintenance` feature) and at maintenance activation; the `xtask` `surrealql-tools` validator is wired only into `scripts/tooling_experiments.py`. `DEFINE PARAM` would add a second runtime representation of constants the registry owns. On the Python side the rewrites are `local.replace(&format!("s.{name}"), name)` and `.replace("v.", "")` in `codegen/python/mod.rs`, plus the `from typing import …` line surgery in `codegen/documents.rs` `python_module`. See the comparative review: [SurrealQL side](../reviews/canonical-store-transport.md#cbo-046) and [templating side](../reviews/declarations-registry-and-python-boundary.md#cbo-046).
+  - What do the SurrealQL parse and AST types expose, stably, about function signatures and `THROW` expressions at the pinned server version?
+  - Does any upstream tool offer typed bindings or schema-aware linting for stored functions?
+  - Could one declared operation table generate signature, call skeleton, decoder and refusal inventory?
 
+<a id="cbo-156"></a>
+
+## CBO-156 — Recorded contracts, obligations and invariants: overlapping and unattached routes
+
+- **Operation and consumers.** §4.3 describes durable opening that verifies a recorded witness and directional consumer admission; §4.6 says publication admission consumes declaration-owned keys and visible references through `pse_schema::obligations`. The registry declares 260 `InvariantSpec`s, largely generated unique and foreign-key integrity plus native row checks.
+- **Current mechanism.**
+  - **Recorded contracts.** `compatibility.rs` plus `compatibility/recorded.rs` (about 760 lines). By name-based reachability, `select_roots`, `admit_exact_write`, `verify_recorded`, `execution_schema` and `durable_execution_schema` are unreached in production. `VerifiedRecordedContract`, `RecordedProvider` and `DomainEnvironment::recorded` are used only by `schema_transform.rs` and tests. Result blocks use `ExpectedContract` and the file schema check in `AdmittedFile::open` instead.
+  - **Obligations.** `ObligationTemplates` and `BoundObligation` are unseen from production; `validate/obligations.rs` is unreached for 169 of 192 lines; `EngineSession::bind_obligation*` is unreached. `RelationObligations` is nevertheless compiled and hydrated into the standard registry.
+  - **Invariants.** `pse_rules::invariants::run_invariants` has one non-test caller, `xtask/src/codegen/physical.rs`. `pse_rules::references::admit_entities` (pure Rust) is the only production `pse-rules` path. `pse-engine/src/session/obligation.rs` reads `registry().invariants()` for declared-obligation dependencies and receipts. `result_batch::validate_keys` and physical `reconcile_units` check keys and units elsewhere.
+- **Why it matters.** The architecture states guarantees through a route that is not the executing one, so a reader looks for key and witness enforcement in the wrong owner. Removing or wiring the unattached routes would also shrink hydrated product volume ([CBO-040](#cbo-040)) and the SQL-string assembly in `obligations.rs`. If the guarantee is wanted, there is a real gap: a durable file read does not compare recorded semantic meaning (Proposed).
+- **Patterns.** LOP-X020, LOP-09, LOP-12.
+- **Evidence.** `compatibility.rs`, the head of `recorded.rs` and its function list, `obligations.rs`, `validate/obligations.rs` function list, `field_contract.rs`, `pse-rules/src/invariants.rs` and `program.rs`, `native.rs` head, `obligation.rs` around `invariants()`, a reachability script and `rg` over the named crates.
+- **Footprint.** How `obligation.rs` compiles its plans (the dependency half only) and whether `pse-operations` interpretation checks discharge the same meaning by another route were not traced.
+- **Preservation constraints.** Actual key and reference refusal in publication; immutable result identity; refusal of incompatible history; candidate-scope distinctions (`Affected`, `Required`, `SidecarRelation`); findings as typed diagnostics; negative reads and unknown predicates retaining occurrence keys.
+- **Counterevidence and uncertainty.**
+  - The canonical store's versioned interpretation fingerprint may have replaced the witness deliberately, which would make §4.3 the stale part. ADR-0164 is proposed and in flux.
+  - Tests exercise all of this machinery, so it is unattached, not broken. Integrity may legitimately differ per stage, and `compile_individual` or `bind_declared_queries` may be consumed through a route a literal search missed.
+  - The reader's independence from the live registry is deliberate (§4.3), so any typed shared model must not couple recorded interpretation to current declarations.
+- **Status.** Current promise (documentation) versus current mechanism (not attached).
+- **Research questions.**
+  - Which route should be the one executor of declared obligations, and what remains for `pse-rules` if it is not?
+  - Does any durable read today need the recorded-meaning comparison?
+
+<a id="cbo-154"></a>
+
+## CBO-154 — Engine SQL, DML and export surfaces have no production door
+
+- **Operation and consumers.** `EngineSession` and `EngineFactory` offer SQL, native commands, `INSERT`, isolated DML, PREPARE/EXECUTE retention, round providers, workspace and role inputs, provider capture, a frozen catalog hierarchy, the `Cache` logical node, obligation binding and `prepare_schema_transform`. Retained results leave the workstation as Arrow IPC (`export_ipc`) or cohort JSON lines; DataFusion is reachable only from Rust.
+- **Current mechanism.**
+  - **Unreached engine surface.** Production uses a narrow set: `prepare_rule_plan`, `prepare_many`, `execute_group`, `bind_declared_queries`, `candidate`, `candidate_checked`, `relation_plan`, `table_source` and factory plumbing. Production implementations of `Definition` and `Body` are all inside `pse-engine`; `Producer`, `CatalogSource` and `PrivateTableFactory` have test implementations or none. No production code builds a DML plan or the `Cache` node, and `ModelCache` appears never to be filled. Even with trait dispatch over-kept, 155 of 1,233 production functions (3,232 of 19,057 lines) are unreached, including most of `schema_transform.rs`, `roles.rs`, `computed.rs`, `commands/insert.rs` and `mutation.rs`. The registry declares zero `MigrationSpec`s and `declare_migration` is unreached.
+  - **Real queries bypass it.** `pse-runtime/src/workflow/study_workbench.rs` builds `SessionContext::new_with_state(relation.session_state())` and aggregates over custom providers; `connected_results.rs` passes `session_state()` to scans; `xtask/src/development/evidence_query.rs` runs `SessionContext::sql` on fixed questions. These inherit configuration but not plan admission, roles or observation.
+  - **No query or open-format export.** No SQL entry point exists in `pse-runtime/src` and `pse-project` exposes no query. No Parquet or CSV export was found in the workflow scope.
+- **Why it matters.** Admission, the frozen catalog, the cache proof family and observation defend doors no product issues, while the analytic work that exists does not receive those defences. Two outcomes are visible: retire the unused surface, or route real queries through a small governed door, possibly with a read-only SQL or export command. The choice is a product decision (Proposed).
+- **Patterns.** LOP-X020, LOP-12, LOP-11.
+- **Evidence.** `operation.rs`, `operation/{ports,completion,ownership}.rs` heads, `provider/*`, `resolution.rs`, `capture.rs`, `native.rs`, `commands.rs`, `mutation.rs`, `round.rs`, `schema_transform.rs`, `arrow_stream.rs`, `cache_service/*`, a name-based reachability fixpoint, a full list of trait implementations, `study_workbench.rs`, `connected_results.rs` export path, `evidence_query.rs`.
+- **Footprint.** About 8 to 10k lines including `session/cache*`, which name-based reach cannot separate. Every consumer of `session_state()` was not traced. The export absence search covers `pse-runtime/src` only; `pse-host` CLI surfaces were not inspected.
+- **Preservation constraints.** Invariant SQL binding and refusal of volatile checks; immutable provider guarantees; spill and pool accounting for real queries; refusal of incompatible history; `Completion`'s no-restart-after-abandonment rule; lineage metadata, `.incomplete` staging and non-overwrite; original usability labels; exact IEEE values and the NaN and signed-zero semantics of any new format; bounded writers.
+- **Counterevidence and uncertainty.**
+  - Name-based analysis cannot prove liveness. It over-keeps trait methods and under-counts `sql`, `prepare` and `execute`, which stay reached by unrelated identifiers.
+  - Tests are consumers of a kind (`pse-runtime/tests/native_repeated_analysis.rs` uses streaming). Some surface may be intended for a future analytic product or for Plan 59; plans were not read.
+  - The bypass may be deliberate for providers whose owners already establish their fields. No consumer is recorded as asking for query or export; IPC plus external tools may suffice, and §19.2 says exact Arrow IPC remains the complete data path. Migration machinery waits for the first breaking change, and §4.1 keeps the declaration.
+- **Status.** Current mechanism, with an open product question. The query and export door is Proposed.
+- **Research questions.**
+  - Can a read-only SQL option set and plan-level admission hooks carry admission on any session built from the configured state, in place of wrapping entry points?
+  - How could a query or export stay inside the snapshot's protected custody and bounded memory? Compare [CBO-077](result-data-paths.md#cbo-077).
+
+<a id="cbo-040"></a>
+
+## CBO-040 — Registry products baked as Rust, JSONL and IPC
+
+- **Operation and consumers.** `registry()` and `shared_registry()` hydrate the standard `Registry` once per process for every consumer, and `pse-codegen` itself. ADR-0210 records the design and is still `status: proposed`.
+- **Current mechanism.**
+  - `pse-codegen/src/codegen/rust/registry.rs` serializes `ResolvedRegistryProducts` into `pse-schema/src/generated/standard_registry.rs` (87,873 lines, about 4.75 MB), which ends in `hydrate()`.
+  - Each sub-product has one encoding chosen by what its type supports: Rust constructors for model types; `native(start, end)` slices of a 16.8 MB deduplicated canonical-JSON pool (`standard-data.jsonl`) for serde-capable leaves, parsed back to Arrow `Field` at hydration; and fifteen `standard-N.arrow` IPC streams for self-description batches, read by `builder/products.rs::batch`.
+  - The generated header explains that array-backed literals "exhausted the compilation memory cap", so the output format follows a build limit.
+  - `pse-codegen` re-exports `pse-schema` (`pub use pse_schema::*`), and `pse-schema` compiles `mod generated;` unconditionally, so the generator depends on what it generates. A probe on 2026-10-27 recorded that a model field added together with its emitter breaks `just codegen` (258 × `E0063` in `standard_registry.rs`, nothing regenerated), and that the generated module is about 18 s (about 72%) of a full `pse-schema` build, with peak RSS under 2 GB ([evidence](../../design_review/evidence/library-leverage-registry-build-coupling-2026-10-27/README.md); not re-run at the current baseline). ADR-0210 records 304 ms against 30 ms, bounded by its fixture.
+- **Why it matters.** With the Python product gone, an import-latency argument is weaker; build coupling and the size of the generated diff are now the stronger reasons. Hydrated products with no production consumer (`RelationObligations`, [CBO-156](#cbo-156)) could be dropped before any format change. All fields are parsed in processes that may need only a few relations. This is a prompt to measure, not a finding of slowness (Proposed).
+- **Patterns.** LOP-X003, LOP-07, LOP-06.
+- **Evidence.** `generated/standard_registry.rs` head and tail, `builder/products.rs` (`ResolvedRegistryProducts`, `hydrate`, `batch`, `decode`), `pse-schema/src/lib.rs`, `pse-codegen/src/lib.rs`, the registry emitter, `ls -la generated/`, ADR-0210. Three commits have touched the output since 2026-10-27 without changing its shape.
+- **Footprint.** The `B04` timing test in `products.rs` was not read for results. The hydration of obligations and the arena (`resolved_contract.rs::hydrate`) is suspected and unread.
+- **Preservation constraints.** Identical fingerprints and closure identities; deterministic bytes for `codegen-check`; fresh runtime owners and no restoration of proofs (§4.6); exact equivalence to source assembly.
+- **Counterevidence and uncertainty.**
+  - A prior decision chose this for startup reasons, generated Rust is type-checked, and JSON offsets may be the cheapest compile-time workaround. `&'static str` fields in specs may block simple zero-copy formats, and lazy hydration interacts with whole-registry fingerprints.
+  - The registry product types derive no serde; only Arrow `Field` is serialized, and `HashMap` ordering of `Field` metadata is already handled on the JSON route by `pse_columnar::native_field::canonical_json`. A blob route must give the model its own serialization contract.
+  - A blob needs complete-value admission, not only decoding: some formats ignore trailing input. A constant generated beside a blob can be stale with it, and layout, payload integrity and source-versus-hydrated equivalence are separate guarantees (reassessment, 2026-10-27).
+- **Status.** Current mechanism. A single embedded data authority is Proposed.
+- **Research questions.**
+  - Can the products be serialized deterministically into one embedded blob, or can the generator be decoupled from the generated module first?
+  - Does the runtime need documentation prose at all, and could it live apart from execution fields?
+  - What does first-use construction cost?
+
+<a id="cbo-153"></a>
+
+## CBO-153 — Arrow projection generated for every relation regardless of consumers
+
+- **Operation and consumers.** Each relation in the catalog receives a `pse-relations/src/generated` module with an `ArrowValue` impl, `RelationRow`, view, builder, `allocation_size` and validation entry points. Consumers are engine admission and result files for scientific and authored relations. The canonical store's rows travel as `pse_model` values to SurrealDB and do not use these forms.
+- **Current mechanism.**
+  - Generation is uniform. The 90 `runtime/canonical_*.rs` modules account for 52,234 of about 199k generated lines.
+  - Seven of the 90 have a production consumer: `canonical_analyses`, `canonical_analysis_edges`, `canonical_analysis_nodes`, `canonical_artifacts`, `canonical_attempts`, `canonical_result_manifests` and `canonical_runs`. All seven are used for their `Builder` by `pse-runtime/src/workflow/{analyses,artifacts,connected_results}.rs`, projecting a fetched row or page of at most 64 rows into a `FieldCheckedBatch`. The other 83 are referenced only by generated code.
+  - `generated/facts.rs` generates `decode` and `encode` over every relation (`FactBatch`) as a linear `if` chain over relation ids; its only non-generated user is `pse-engine/tests/typed_collection.rs`.
+- **Why it matters.** Each declaration change regenerates forms with no reader, adding compile time and review surface, and the emitter must keep supporting shapes used only by unused modules. Consumer-selected emission could shrink the crate and would make the set of real Arrow boundaries visible (Proposed).
+- **Patterns.** LOP-X020, LOP-02, LOP-X003.
+- **Evidence.** most of `generated/runtime/solve_metrics.rs`, `generated/facts.rs` head, `pse-codegen/src/codegen/rust/semantic.rs` decode and encode emission, `columnar/collection.rs::encode_rows`, and a regex-and-brace import walker over all crates and xtask that expands nested `use` trees, aliases and wildcard imports.
+- **Footprint.** Inspected: the emitted module shape and the consumer walk. `pse-codegen/src/codegen/rust/relation.rs` internals and a per-field census of the non-canonical families are suspected and unread. Whether the seven callers need Arrow at all was not traced.
+- **Preservation constraints.** Arrow schemas, encoding fingerprints and `reference.schema_*` facts derive from declarations and stay available for every relation; durable witnesses and `no_shadow_structs` meaning survive. Only the codec and view projection would become selective.
+- **Counterevidence and uncertainty.**
+  - The walker is not a type resolver; a macro-assembled path would escape it, though none was found for these modules.
+  - Uniform generation is cheap for the generator and gives one mental model. The seven consumers show a real pattern, so other canonical relations might gain one. An unused module can serve as declaration-level type checking.
+- **Status.** Current mechanism.
+- **Research questions.**
+  - Which declaration facet or derived consumer list should select emission?
+  - Does `FactBatch` need a production door ([CBO-154](#cbo-154)) or should it be test-only?
+
+<a id="cbo-155"></a>
+
+## CBO-155 — Field metadata re-established around DataFusion by a family of adapters
+
+- **Operation and consumers.** Every declared extension or facet must survive planning and execution for admission at outputs and nested fields.
+- **Current mechanism.**
+  - `session/admission.rs` (`admit_plan`, `restore_semantic_fields*`, `derive.rs`, `FieldAdmissions`) checks and restores fields after optimization.
+  - Adapters and UDFs include `scalar/preserve_field.rs`, `retain_metadata.rs`, `list_field.rs`, `list_concat`, `element.rs`, `structure.rs`, `nonnull.rs`, `checked_value`, and `aggregate.rs` with `aggregate/collection.rs` and `selection.rs` wrapping `array_agg`.
+  - `field_transfer.rs` matches and swaps ordinary built-ins and states that "only proven gaps at this exact pin install physical adapters". `traversal.rs` adds a scoped plan graph for this evidence.
+- **Why it matters.** The family is pin-coupled: each DataFusion upgrade means rechecking the gaps, and each adapter re-delegates every hook (`native_hooks` macros). Value would be a smaller surface, or a clearer statement of which fields need their semantics inside a plan rather than only at a materialized output (Proposed).
+- **Patterns.** LOP-10, LOP-03, LOP-11.
+- **Evidence.** Heads of `admission.rs`, `field_transfer.rs` and its dispatch, `aggregate.rs`, `scalar.rs`, `preserve_field.rs`, `retain_metadata.rs`, `traversal.rs`. Bodies are representative only.
+- **Footprint.** `admission/derive.rs`, `obligation.rs`, `dependencies.rs`, `contract.rs`, `facts.rs` and `output.rs` are suspected and unread. `pse-engine` pins DataFusion 55.1.0 and 55.2.0 is in the local registry.
+- **Preservation constraints.** A plan must not carry forged or lost scientific meaning. Restoration only adds missing annotation and never changes meaning (§4.4 directional admission). The one-DataFusion-version invariant.
+- **Counterevidence and uncertainty.** Tests at this pin (`ordinary_native_functions_carry_input_fields...`) show the gaps are observed, not assumed. Upstream returns fields through `return_field_from_args`, so a later release may already close some, but which gaps remain was not checked. This may be a strong integration, not a wrong one.
+- **Status.** Current mechanism.
+- **Research questions.**
+  - For each adapter, does the current return-field or field-metadata path, or a later release, preserve child metadata?
+  - Which adapters could be offered upstream?
+
+<a id="cbo-045"></a>
+
+## CBO-045 — Two diagnostic-code authorities and macro noise
+
+- **Operation and consumers.** Every public error's §23.2 code, read through `TypedDiagnostic` or `miette::Diagnostic::code`. `pse-kernels/src/lib.rs` records the miette code as an observation `failure_code`, and `pse-worker.rs::report` prints it beside `diagnostic_report`.
+- **Current mechanism.**
+  - `impl_diagnostic!` (`pse-diagnostics/src/lib.rs`, about 63 uses in 59 files) projects miette's `code()` from `TypedDiagnostic::diagnostic_code`, so the typed code is the authority. Callers repeat `forward(_) { None }, help(_) { None }, related(_) { None }, source(_) { None }`, about 103 `{ None }` blocks.
+  - About 15 sites in 12 files derive `miette::Diagnostic` and declare a container code instead. `CanonicalError` has both, and they differ per variant: the container is `runtime::infrastructure` while its typed impl maps `Codec(_)` to `ValidationInvariant`. `square_response::Withheld` carries `pse::native::square_response`, which is not in the vocabulary and has no typed impl. Six checked files have derives and no typed impl. `FlightError` implements miette by hand with string literals.
+  - `vocabulary!` is defined twice, in `pse-diagnostics/src/vocabulary.rs` (15 uses) and `pse-vocabulary/src/lib.rs` (10), with different `description`, `try_from = "String"` versus per-variant `serde(rename)`, `ALL` shape and JsonSchema. `pse-vocabulary` depends on `pse-diagnostics`, so the lower crate cannot import the upper macro.
+  - `tests/governance/tests/error_taxonomy.rs` accepts a derive or the macro and does not compare the two authorities.
+- **Why it matters.** A diagnostic consumer can read two codes for one failure, and the typed code is the architecture's authority. The `{ None }` boilerplate could shrink through macro defaults, a local change independent of the authority question (Proposed).
+- **Patterns.** LOP-X007, LOP-02, LOP-09.
+- **Evidence.** `pse-diagnostics/src/lib.rs` and both `vocabulary!` heads, `pse-operations/src/canonical.rs`, `square_response.rs`, `pse-kernels/src/lib.rs`, `pse-worker.rs::report`, `error_taxonomy.rs`; site counts by `rg`.
+- **Footprint.** Sites by search. The `disposition()` map from `FailureClass` to `BoundaryClass` is a third place that was not re-read.
+- **Preservation constraints.** Codes stay the typed `DiagnosticCode`; the facts and children projection; forwarding rules; a §23.2 code on every public error.
+- **Counterevidence and uncertainty.**
+  - §23.2 permits either route, and `disposition()` is a legitimate separate projection.
+  - The derive cannot supply typed facts, so a small local derive is real maintenance and not obviously better than the macro. Some derive types may legitimately sit outside typed projection.
+  - Merging the vocabularies may need a small leaf crate (an ADR-level step), and the differing serde routes affect wire form.
+- **Status.** Current mechanism.
+- **Research questions.**
+  - Can a check compare the miette code with the typed code wherever both exist?
+  - Could one leaf crate own `vocabulary!` without changing wire forms?
+
+<a id="cbo-042"></a>
+
+## CBO-042 — Document wire envelopes after the foreign reader retired
+
+- **Operation and consumers.** Boundary-document versioning and schema publication for the CLI, host and schemas under `docs/generated/schema` (497 files).
+- **Current mechanism.**
+  - `pse-runtime/src/boundary_document_wire.rs` (678 lines) holds `Versioned<T, N>`, a `DeserializeSeed` header checker that forwards, and a manual `JsonSchema` implementation with `add_header`. Comments cite schemars 1.2.2 flatten behaviour and serde's flatten plus `deny_unknown_fields` limit; both remain real reasons.
+  - The wire table (`boundary_documents.rs`, `for_each_boundary_document!`) counts FlatV1 155, Native 100, FlatV2 3 and ValueV1 1.
+  - `pse-codegen/src/codegen/documents.rs` (410 lines) keeps independent input and output contract files through schemars contexts; the earlier name-renaming pass (`directional_names`, `rename_output`) no longer appears by search.
+- **Why it matters.** The four wires were justified as historical contracts for a foreign consumer that has retired, and Rust is now the only reader. Fewer distinct wire shapes would mean fewer independent decisions (Proposed).
+- **Patterns.** LOP-11, LOP-X020, LOP-10.
+- **Evidence.** The head of `boundary_document_wire.rs` and the wire table; `documents.rs`; `pse_model::document::check_required_header`. ADR-0116 and ADR-0151 were not re-read.
+- **Footprint.** Inspected: the head and the table only.
+- **Preservation constraints.** Compatibility of existing flat wires and persisted forms; valid examples; domain fields named `version` stay legal; the header rule stays in `pse_model::document::check_required_header`.
+- **Counterevidence and uncertainty.**
+  - The separate header exists to protect domain `version` fields, and the flatten limits still hold.
+  - Whether persisted forms pin the 155 FlatV1 entries was not established and needs a persistence check before any simplification.
+  - Whether the about 260 exported schemas still have any consumer beyond the Rust owner and the generation that publishes them is open.
+- **Status.** Current mechanism.
+- **Research questions.**
+  - Does any persisted or published form still require a FlatV1 header apart from the Rust reader?
+  - Can a serde attribute or derive replace the hand-written header deserializer?
+
+## Examined and not retained
+
+- **Semantic description written as `json!` and read by a separate serde shape (`fingerprint::uncached_semantic_description`).** The reader side is not reached in production (see [CBO-156](#cbo-156)), so a typed shared model would be a minor change. It must also keep the reader independent of the live registry, and the canonical bytes of existing witnesses must not move.
+- **Cache stack as over-featured for retention.** No production creation of the `Cache` node was found, so the stack is part of the unattached surface in [CBO-154](#cbo-154), not a live cache that is too large.
+- **`pse-ids` framed hashing and the `Frame` catalog.** The custom serde `Serializer` is what makes identity independent of Rust type names and key order, and accumulated versioned frames are the frozen-identity contract. The open question is the hand frames beside it, in [CBO-039](authoring-and-identity.md#cbo-039).
+- **`flight.rs` single-flight and `operation/completion.rs`.** Custom on purpose: completion-owned work with last-waiter cancel and poisoning. Drop-to-cancel libraries would release work early.
+- **Plan observation (`observation.rs`, `trace.rs`, `graph.rs`, `comparison.rs`).** Uses `PgJsonVisitor`, `displayable(...).one_line()` and native metrics without parsing display text, in a bounded pool with a live consumer, and `datafusion-tracing` already covers spans.
+- **`field_contract.rs` exact recursive comparison.** Its header explains why Arrow's `equals_datatype` and DataFusion's adapter do not establish identity.
+- **`ext_metadata` hand-spelled strings, `validate_keys`, `extrema`, `data.rs` Parquet decode.** Hash-entering spellings justify avoiding a serializer's ordering; the others already use `RowConverter`, Arrow kernels or the Parquet reader directly.
+
+## Retired opportunities
+
+<a id="cbo-041"></a>
+
+- **CBO-041 — Boundary documents transcoded through JSON, with checks in both languages.** Retired 2026-10-30: `600d4df30` deleted `crates/pse-py` and the Python package, and no `pse.codec` or Python wrapper remains in `git ls-files`, so the second-language check and the Rust-to-Python re-traversal are gone. JSON documents now cross only process and CLI boundaries. The surviving header owners are Rust-only. Successor: [CBO-042](registry-generation-and-python-boundary.md#cbo-042). Last described at [revision 93946f572](https://github.com/paul-heyse/pse-arrow/blob/93946f5721a27786fd3c4f281eb6f8036dde405b/docs/library_leverage/codebase/registry-generation-and-python-boundary.md#cbo-041).
+
+<a id="cbo-043"></a>
+
+- **CBO-043 — Two Python model systems and a custom schema-to-msgspec emitter.** Retired 2026-10-30: `600d4df30` deleted the Python side, and `pse-codegen/src/codegen/documents.rs` now publishes JSON schemas only, with no msgspec emitter or attrs row generator. Successor: [CBO-063](developer-tooling.md#cbo-063). Last described at [revision 93946f572](https://github.com/paul-heyse/pse-arrow/blob/93946f5721a27786fd3c4f281eb6f8036dde405b/docs/library_leverage/codebase/registry-generation-and-python-boundary.md#cbo-043).
+
+<a id="cbo-044"></a>
+
+- **CBO-044 — Python wrapper layer forwarding native handles accessor by accessor.** Retired 2026-10-30: `600d4df30` deleted the package, and `_modeling.py`, `_runs.py`, `_native.pyi` and `pse-py` are absent from `git ls-files`. Only stale comments remain, for example in `pse-schema/src/model/extension.rs`. Successor: [CBO-065](developer-tooling.md#cbo-065). Last described at [revision 93946f572](https://github.com/paul-heyse/pse-arrow/blob/93946f5721a27786fd3c4f281eb6f8036dde405b/docs/library_leverage/codebase/registry-generation-and-python-boundary.md#cbo-044).

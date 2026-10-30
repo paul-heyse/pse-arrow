@@ -1,311 +1,200 @@
 # Developer, test and operator tooling
 
-This page covers `scripts/` (about 100k non-test Python lines across about 150 top-level modules,
-plus `scripts/capabilities` at about 16k), `xtask` (about 27k lines), the `justfile` (244
-recipes), `pse-testkit` and `pse-buildinfo`. Guidance comes from the
-[agent environment guide](../../dev/agent-environment.md) and the
-[qualification command guide](../../dev/validation-assessment.md). The baseline is on the
-[entry page](README.md).
+This page covers the Rust tooling that remains after the Python boundary retirement: `xtask`, `pse-buildinfo`, `crates/pse-codegen` as a generator host, the `justfile`, `.config`, `sgrules`, the documentation and evidence machinery, and the test-execution side of `pse-host` where it meets nextest and Cargo. Guidance comes from the [agent environment guide](../../dev/agent-environment.md) and the [qualification command guide](../../dev/validation-assessment.md). The host runtime itself is on [host and invocation](host-and-invocation.md). The baseline is on the [entry page](README.md). Mechanisms are *Interface-checked* by static reading and every value claim is *Proposed*; nothing was built, run or measured. Counts come from `rg`, `wc` and `du` and are shape indicators.
 
-Two maintainer premises shape this page:
-- This is a personal project, so host-local choices win over portability.
-- Tooling changes should stay light, and new alignment lints are not wanted.
+Two maintainer premises shape this page: this is a personal project, so host-local choices win over portability; and tooling changes stay light, with no new alignment lints.
 
-**System picture.** The scripts own workload environment and admission (`pse-env` with
-`pse_env.py`, `host_admission.py`, `operation_lifetime.py`, `native_operation.py`). They also
-own test preparation and execution, evidence and knowledge stores, the SurrealDB supervisor,
-telemetry, and document tooling.
+**System picture.** `xtask` writes and checks generated trees that `pse-codegen` renders purely from the `pse-schema` registries (Rust rows and codecs through syn, quote and prettyplease; Markdown; JSON Schema; SurrealQL DDL; provenance sidecars), with Ipopt bindgen on the side. Producer identity (`xtask/src/producer_identity.rs`, about 7,550 lines with about 2,800 of them tests, `producer_history.rs`, `producer_preparation.rs`, `pse-buildinfo/src/identity.rs`) binds scientific reuse eligibility to Cargo units, dep-info and reviewed executable I/O. The documentation machinery covers ADR lint and supersession, the register, the lifecycle aggregate, frontmatter and mdBook plus Pagefind publication. Disposable development stores (`development/{evidence,evidence_query,knowledge,workspace_sources}`) hold evidence snapshots and a knowledge corpus. Consumers are agents and the maintainer.
 
-These tools are used well:
-- `systemd-run --user --scope` for cgroup caps.
-- nextest test-groups, profiles, JUnit and `rdeps()` filtersets.
-- `cargo --unit-graph` and `cargo metadata` for Arrow validation closures.
-- `markdown-it-py`, `ruamel.yaml`, `tomlkit` and `tomllib` for documents.
-- `clap` for xtask.
-- FastMCP, pydantic and msgspec for the capability server.
-- cargo-mutants, llvm-cov, criterion, cargo-fuzz and REUSE, all used as wrapped tools.
+What is already strong: the clap-derived command catalogue (`scripts/cli-catalog.rs` walks the owning parser); pure generators with a write-versus-check split and determinism tests; compiled schema publication through schemars with stable object ordering; GFM and heading selection delegated to pulldown-cmark; frontmatter admission on serde-saphyr that rejects duplicate and merge keys; byte-preserving ADR history; the `family_check` program over cargo_metadata; the registry emitted as embedded data (`standard-data.jsonl` hydrated through a deduplicating pool); the declared, closed refusal vocabulary folded into the schema digest; and the legitimately custom parts, namely force-validation closure composition, framed producer identity and fail-closed reuse. The Python scripts that earlier versions of this page described were deleted by `600d4df30` (2026-10-29); twelve independent reference scripts remain.
 
-The following are legitimately custom:
-- force-validation closure composition;
-- producer unit identity (framed hashing over syn-normalized source);
-- fail-closed reuse of evidence;
-- boot- and start-time-bound process identity.
+Neighbouring concerns: the SurrealQL program carried as Rust strings is [CBO-046](registry-generation-and-python-boundary.md#cbo-046); the supplier wire-shape derivation is [CBO-066](persistence-and-transport.md#cbo-066); file primitives are [CBO-003](cross-cutting-mechanisms.md#cbo-003).
 
-<a id="cbo-047"></a>
-
-## CBO-047 — File-ledger primitives re-derived per script
-
-- **Operation and consumers.** Durable metadata files need four primitives: exclusive or shared
-  locks, atomic publish, owner-only permission checks, and deadline-bounded waits. Consumers
-  are admission, resources, compiler cache, telemetry, the SurrealDB supervisor, producer
-  deployment and native-cache state.
-- **Current mechanism.**
-  - Locks: `fcntl.flock` appears in 9 non-test modules. One of them (`host_metadata.py`) is a
-    polling `lock_until` with `sleep`.
-  - Atomic publish: atomic write with fsync is spelled out in `resource_store.py`, and 13
-    separate publish, settle or atomic-write helpers exist across modules.
-  - Digests: 18 `digest` helper copies, and about 80 places that digest JSON with
-    `sort_keys=True`.
-  - The Rust side repeats the same SHA-256 hex helper in `pse-buildinfo/src/identity.rs`
-    (`value_digest`), `xtask/src/producer_history.rs` and `xtask/src/development/knowledge.rs`.
-- **Why it matters.** A single locking, publish and digest discipline would apply the stricter
-  permission and deadline checks everywhere. Today they are applied unevenly.
-- **Patterns.** LOP-09 (primary), LOP-01, LOP-02.
-- **Footprint.** Three modules were read. The rest of the footprint is about 20 modules, located
-  with `rg`.
-- **Preservation constraints.**
-  - Lock order: invocation, then identity, then resource.
-  - Absolute deadlines.
-  - `O_NOFOLLOW` and `0600` private-file checks.
-  - Directory fsync.
-  - Locks that survive phase changes.
-  - Fail-closed handling of unknown state.
-  - Stdlib-only cold-start paths in hooks.
-- **Counterevidence.** Some locks deliberately use non-inherited fds or unlinked-file semantics,
-  which `filelock` or `portalocker` may not reproduce. The remedy may be one in-repo module
-  rather than a library.
-- **Status.** Proposed addition.
-- **Research questions.**
-  - Do `filelock`, `fasteners`, `flufl.lock` or `atomicwrites` respect the fd-lifetime rules?
-  - Is a shared `fsio` module sufficient?
-  - The Rust analogue is [CBO-003](cross-cutting-mechanisms.md#cbo-003).
-- **Comparative review correction (2026-10-27).** `host_admission.metadata` defaults to `durable=False`; that path goes through `operation_lifetime.write_json`, which uses a PID-suffixed `O_TRUNC` temp, does not fsync and does not clean up. Residue exists: 22 zero-length `allocations.<pid>.tmp` files dated 2026-10-10 in `~/.local/state/pse-arrow/host-admission/`. The intended shared owner already exists in `scripts/host_metadata.py`. Python 3.14.8 exposes no `renameat2`, so stdlib no-clobber publication stays link plus unlink. See the [comparative review](../reviews/host-processes-and-durable-files.md#cbo-047).
-
-- **Reassessment correction (2026-10-27, source `4f52fd239`).** Filelock can fail closed explicitly and its
-  descriptor API preserves caller ownership; the default soft-lock fallback warns. Shared native flock,
-  composed absolute deadlines and stdlib cold start remain reasons for the local owner, as corrected in the
-  [library account](../libraries/python-file-locks/README.md).
-
-<a id="cbo-048"></a>
-
-## CBO-048 — Host workload admission and service supervision rebuilt above systemd
-
-- **Operation and consumers.** The tooling must bound concurrent workloads, track owned scopes,
-  fixtures and services, and drain them. It also starts, health-checks, backs up and migrates
-  the local SurrealDB. Consumers are every `scripts/pse-env` command, the tests, the SurrealDB
-  and telemetry services, and the Rust runtime ([CBO-020](execution-lifecycle-and-observation.md#cbo-020)).
-- **Current mechanism.** A hand-built ledger of allocations, units, lanes and drain observations
-  sits above `systemd-run --scope`. Its parts:
-  - `host_admission.py` (about 1.6k lines): reconcile, drained, conflict and acquire.
-  - `operation_lifetime.py`: terminal ownership and drain.
-  - `process_observation.py` and `pressure_observation.py`: `/proc` and pressure readers.
-  - `test_resources.py` (about 3.2k lines), `resource_store.py` and `service_borrowers.py`:
-    resource records.
-  - `compiler_cache.py`: hand-built transient unit text.
-  - About 25 `systemctl --user` shell-outs.
-  - `scripts/surreal_server.py` (about 11.6k lines, 274 functions), together with `surrealkit*.py`
-    and `surreal_*.py`. These combine supervision, readiness, budgeting, receiver generation and
-    schema maintenance.
-
-  Combined with tests, this is the largest hand-owned lifecycle machinery in the repository.
-- **Why it matters.**
-  - Several layers make independent lifetime decisions.
-  - systemd already reports authoritative unit state, through `systemctl show` and D-Bus.
-  - systemd already provides slices with CPU, memory and task limits, `BindsTo`/`PartOf`,
-    `RuntimeMaxSec`, `--wait`, and `Type=notify` readiness.
-  - The custom layer re-derives that state by polling `/proc` and parsing `systemctl` output.
-- **Patterns.** LOP-08 (primary), LOP-03 (the OS manager as adopted mechanism), LOP-10, LOP-09.
-- **Footprint.**
-  - Module heads and function lists were read. The bodies of `surreal_server.py` were not read.
-  - About 15k production lines are suspected in admission and resources, plus the supervisor.
-- **Preservation constraints.**
-  - Per-lane capacity semantics (16 lanes).
-  - Release never inferred from a missing caller.
-  - Boot- and start-identity ownership.
-  - The explicit `unbounded` mode.
-  - Drain observations stay reportable when the manager is unavailable.
-  - Durability across processes without a daemon.
-  - Privileged clients cannot bypass admission.
-- **Counterevidence.**
-  - Incidents motivated these rules: two editor-wide OOM kills and orphaned scopes.
-  - systemd has no cross-process admission semaphore, so some ledger remains necessary.
-  - It is uncertain how much of the supervisor is generic and how much is policy.
-- **Status.** Current promise.
-- **Research questions.**
-  - Which facts does systemd already own authoritatively?
-  - Can a Python D-Bus client (`pystemd`, `dbus-fast`, `jeepney`) replace the `systemctl`
-    parsing?
-  - Can `psutil` replace the `/proc` readers?
-  - Does `surreal isready` or `export/import`, or `surrealkit` migrations, cover the
-    supervisor's maintenance work?
-- **Library assessment correction (2026-10-27).** `surreal_server.py` alone mentions `systemctl` 36 times, so the earlier count was low. The placement scopes set no `Delegate=`. Since SurrealDB 3.3.0, `/health` returns 200 while the server is still starting, and the later authenticated protocol-readiness check compensates for that.
-- **Comparative review correction (2026-10-27).** The premise that admission and supervision re-derive state above systemd is only partly true: the sampled paths already combine manager facts (`systemctl show`), kernel cgroup evidence and the ledger the premises require. Bootstrap admission runs under system Python, so a non-stdlib D-Bus client would create a second route. Residue exists: 24 empty allocation slices remain, 18 of 19 under `pse-allocation.slice` and 6 of 6 under `psebuild-allocation.slice`. For this deployment (single node, no `--import-file`) the authenticated protocol-readiness proof subsumes what `/ready` adds, and `/ready`'s heartbeat-staleness rule is an unmeasured false-unready risk under saturating load. SurrealKit's dependence on the edited SDK is incidental, because it runs the unbounded transport profile. See the comparative review: [non-SurrealDB parts](../reviews/host-processes-and-durable-files.md#cbo-048) and [SurrealDB parts](../reviews/canonical-store-transport.md#cbo-048).
+**Coverage on this page.** Read closely: `producer_identity` (`expand_reviews`, `capture`, messages, dep-info, namespace), `producer_history::validate`, `documentation/{lifecycle,adr::inspect,register,site,metadata,headings}`, `development/evidence_query::ask` and its comparison functions, `audit`, `surrealql_tools`, `.config/nextest.toml`, `discovery::list`, `runner::group_policy`, the nextest group command and extractor, and the sgrules scope lines. Representative: `producer_preparation` (state, guard and signatures only), `development/{knowledge,workspace_sources}` (heads and SQL builders), `conformance` and `thermodynamic_campaign` (openings), `configuration`, `repository_tools`, four of seven GitHub workflows, `pse-codegen` `rust/*` (opening sections), `test_workflow/execute/*` and `test_workflow/observation` (not in full). Not inspected or only skimmed: `canonical_migration`, `pse-schema` beyond the refusal catalogue, `scripts/surrealdb-source`, `tests/governance`, generated outputs, and the three remaining workflows. No timings were read anywhere.
 
 <a id="cbo-049"></a>
 
-## CBO-049 — Test selection, requirements and runner configuration maintained beside nextest
+## CBO-049 — Test execution beside nextest: inert groups, binary capture, repeated resolution
 
-- **Operation and consumers.** Select tests, project their resource requirements, prepare
-  invocations, admit fixtures and archive results. Consumers are `just unit-package`, `affected`,
-  `py-test`, archives and agents.
-- **Current mechanism.**
-  - `test_requirements.py` projects per-test capacity, effects, fixtures and roles into a JSON
-    catalogue.
-  - Nextest config groups are then rewritten to match that catalogue (`native_tests.py`,
-    `test_invocation.py` via `tomlkit`). `.config/nextest.toml` says its groups are projected
-    from the catalogue.
-  - `affected.py` maps files to packages from `cargo metadata` and builds `rdeps()` filtersets.
-  - `test_archives.py` builds historical archives.
-  - About 20 recipes repeat `scripts.arrow_validation nextest …`.
-- **Why it matters.** Selection intent, resource needs and runner configuration exist in two or
-  three forms: the catalogue, the rewritten TOML and the receipts.
-- **Patterns.** LOP-02 (primary), LOP-03, LOP-06.
-- **Footprint.**
-  - Read: `affected.py`, the heads of the catalogue and archive modules, and `nextest.toml`.
-  - Suspected: 8–10k lines.
-- **Preservation constraints.**
-  - Force-validation per unit-graph closure.
-  - The managed-primary partitions.
-  - The tooling never manufactures a passing result.
-  - Fixture lifetime is tied to the reconciled outcome.
-- **Counterevidence.** Tying fixture lifetime to the outcome is not a nextest concept.
-- **Status.** Current promise.
-- **Research questions.**
-  - Can nextest setup and wrapper scripts, per-test overrides with `threads-required`,
-    `archive`/`--archive-file` and `list --message-format json` replace parts of the
-    projection?
-  - Does `cargo-hack` cover `cargo_feature_check.py`?
-- **Library assessment correction (2026-10-27).** nextest list JSON and `--archive-file` are already used. `cargo_feature_check.py` is the adapter that cargo-hack invokes, not a replacement for cargo-hack.
-- **Comparative review correction (2026-10-27).** "Two or three forms" should read: one maintained declaration (`RUST_OWNERS` plus the pytest markers in `test_requirements.py`) with per-run derived outputs. There are two chained per-run config copies: scheduling (`native_tests.scheduled_rust_arguments`) and the JUnit path (`test_invocation.report_configuration`, through `test_run.rust_report_command`). `just test`, `test-package` and the 17 preset recipes call `scripts.arrow_validation nextest` directly and bypass the selected-catalogue route, which `unit-package` (`select.py`) and `test_run` use. A nextest tool-config overlay cannot reference repository-defined test groups, and no override for `junit.path` was found. `cargo_feature_check.py` also composes Arrow force-validation for each unit-graph closure (`arrow_validation.compose` and `capture`), so feature unification cannot remove it. See the [comparative review](../reviews/developer-tooling.md#cbo-049).
+- **Operation and consumers.** Run heavy scientific and store tests concurrently without over-committing a shared pool or server, then report results to agents and the maintainer through `scripts/pse test`, `result --tests`, `just` recipes and the planned rerun migration (Plan59c).
+- **Current mechanism.** Three live manifestations, and a fourth resolved after the baseline:
+  - **Inert scheduling declarations.** `.config/nextest.toml` declares `[test-groups]` (`scientific`, `store`), and its overrides set only timeouts. A search for `test-group` and `threads-required` across `crates`, `xtask`, `scripts`, `justfile` and `.config` finds only comment text. `discovery::list` copies the file byte for byte into the capture root, and `runner::group_policy` only reads assignments, so under this config `Pending::CrossRunnerGroups` cannot fire. The per-run projection that assigned groups was deleted with the Python tooling in `600d4df30` and nothing replaced it. The comments still say scientific cases "share one budget" and server-owning tests "take all sixteen slots". No alternative was found: no `NEXTEST_TEST_GROUP` or slot consumer, no `serial_test`, and no `flock` or semaphore in `native_fixture.rs` or `pse-canonical-test.rs`. Runtime pools were not traced end to end.
+  - **Binary capture beside archives.** `discovery::pin_binaries` and `capture::executable` copy each test executable with SHA-256 and rewrite `BinaryListSummary` paths, overlapping what `cargo nextest archive` and `--archive-file` define as a build and run split.
+  - **Repeated resolution.** One `pse test` runs `cargo metadata --no-deps`, `correctness::resolve_with` (metadata plus `--unit-graph`) per group, a nextest list that re-enters `cargo-pse-correctness` and resolves again, a binaries-metadata list and a per-group policy list; `Listed::command` re-decodes `binaries.json`. `AdmissionContext` reuses metadata only within one process.
+  - **Resolved after the baseline.** At `c8244cff5` the workflow reconstructed results from `libtest-json-plus` under `NEXTEST_EXPERIMENTAL_LIBTEST_JSON=1`. `9e696e29d` replaced that with native completed reports through `quick-junit` (`extraction/completed.rs`), under Plan59 RT01. The recorder's overlap with retained output was not re-read at that commit.
+- **Why it matters.** The first leaves tests that once serialized running at the default 16 lanes unless a fixture or pool excludes them; the old comments described pools of 64 to 128 GiB and sub-second store timing controls. Possible consequences are timing flakiness, memory overcommit on a machine with OOM history, and comments that no longer match behaviour. The last is latency on every run, including one-test agent loops. None of this is *Measured*.
+- **Patterns.** LOP-03, LOP-09, LOP-02, LOP-07, LOP-X011.
+- **Evidence.** `.config/nextest.toml`; `discovery::list`, `pin_binaries`; `runner::group_policy`, `perform`; `test_workflow/mod.rs` (`GroupCommand`, `Listed::command`); `extraction::consume_record` (partial); `correctness::resolve_with`, `execute_adapter`; both nextest configs; Context7 pages on record, replay and libtest-json. A search for `store|rerun|replay|record` in `test_workflow` and `discovery` found no recorder consumption, though the word is common there.
+- **Footprint.** `test_workflow/execute/*`, `observation` and the reconciliation body of `extraction` were not read in full. Whether tests now take their own exclusion through fixtures or runtime pools was not traced, so pool-side admission may already prevent overcommit and only timing-sensitive cases would be at risk.
+- **Preservation constraints.** Scheduling groups never grant execution authority, and nextest groups are per runner process, which is why `group_policy` refuses cross-group combinations; zero matches is a nonpass; identity is the captured bytes and the listed population; a running attempt survives source rebuilds; the original exit and the semantic verdict stay separate; bounded parsing; reconciliation in `NextestExtractor` means the tooling never manufactures a passing result; admission and compilation must agree (ADR-0170). A nextest tool-config overlay cannot reference repository-defined test groups (reassessed 2026-10-27), but overrides can live in the repository config now passed with `--config-file`.
+- **Counterevidence and uncertainty.** The unbounded-placement premise prefers no serial limits for independent work, which may be why nobody restored the groups, and no measurement shows a failure. The per-user recorder is not a project premise, its on-disk layout may be unstable, and it is unverified that `-R` composes with `--binaries-metadata` and captured binaries. Live observation needs a stream and not a post-run store. Hash-pinned private copies are a stronger guarantee than an archive path. The second graph resolve is explicitly evidence against a changed build and may be cheap beside compilation.
+- **Status.** Current mechanism. The group declarations are a current promise in comments, with no assignment. Owners to reconcile: Plan 58f F02 delegated "static groups/overrides" to nextest and is `done`; Plan 59c C07 lists remaining scheduling as delegated to nextest; and Plan 53's F01 to F03 rows are `done` on the projection that `600d4df30` removed, so that completion claim needs correcting by its owner.
+- **Research questions.** Can per-test overrides with `threads-required`, derived from an owned declaration such as `fixtures::Requirement`, restore the scheduling? At the pinned nextest, can run-id retrieval, event export and reruns work under `--binaries-metadata`, and is there a stable machine-readable replay? Can one unit-graph resolution be passed through nextest?
 
-<a id="cbo-050"></a>
+<a id="cbo-060"></a>
 
-## CBO-050 — Development evidence and knowledge pipeline split across two languages
+## CBO-060 — Executable input completeness rests on a hand-written review catalogue
 
-- **Operation and consumers.** Index and query development evidence, assessments, measurements,
-  knowledge concepts and document scope. Consumers are agents through `just evidence`, the MCP
-  capabilities and `xtask evidence`.
-- **Current mechanism.**
-  - Rust side: `xtask/src/development/{evidence,evidence_query,knowledge}*.rs`, backed by
-    SurrealDB and DataFusion.
-  - Python side, about 12k lines combined:
-    - `evidence_store.py`, `evidence_sources.py`, `evidence_projection.py`, `evidence_detail.py`
-    - `knowledge_store.py`, `workspace_domains.py`, `workspace_sources.py`
-    - `document_lifecycle.py`, `assessment_store.py`
-    - `capabilities/*_queries.py`
-  - A knowledge concept moves Markdown → Python adapters → JSON → Rust → SurrealDB. Along the
-    way its meaning is restated in TypedDicts, pydantic models, Rust structs and rows, and the
-    MCP schemas are generated from those.
-- **Why it matters.**
-  - Two languages and several translations for one pipeline raise the cost of every change.
-  - The maintainer frames evidence work around reuse and staleness, not traceability. That
-    suggests a smaller query surface could do.
-- **Patterns.** LOP-09 (primary), LOP-06, LOP-02.
-- **Footprint.** Headers and module boundaries.
-- **Preservation constraints.**
-  - Source cut and identity checks.
-  - A disposable, rebuildable index.
-  - Explicit paths only.
-  - Offline inspection.
-- **Counterevidence.** The split may be deliberate: Python as the service-free source adapter,
-  Rust as the executor.
-- **Status.** Current promise.
-- **Research questions.**
-  - Could Python emit Arrow or Parquet straight to DataFusion, or use SQLite or DuckDB, for a
-    rebuildable derived index?
-  - Is SurrealDB justified for development evidence? The canonical premise covers runtime data.
-- **Library assessment correction (2026-10-27).** The Rust evidence-question path already runs on DataFusion without the SurrealDB service.
-- **Comparative review correction (2026-10-27).** The registry already generates Python msgspec wire types for this pipeline (`scripts/generated/evidence_snapshot_input.py` with `EvidenceSnapshot` and `EvidenceFact`; `knowledge_query_input.py` with `KnowledgeQuery`, `KnowledgeMode` and the enums), but they have no non-test importers. `evidence_projection.py` re-declares both types as TypedDicts field for field, and `knowledge_store.py` re-declares the query fields and the `--mode` choices. The pydantic models in `workspace_domain_contracts.py` belong to the source-only query surface (ADR-0222 design), not the indexed path. Evidence has two Rust read routes, offline and indexed through `source_cut`, both feeding the same DataFusion questions. The store is an architecture contract: blueprint §24.1 "Development knowledge and source-backed changes", §3.2, and the proposed ADR-0219 and ADR-0222 (both Tested 2026-10-23). See the [comparative review](../reviews/developer-tooling.md#cbo-050).
+- **Operation and consumers.** Decide whether a selected production closure has known inputs, and so `persistent_reuse_eligible`, for cross-build scientific reuse. Build scripts and proc macros can perform I/O that dep-info and rerun hints do not show. Consumers are native deployment and provider admission and `pse-runtime/src/math/portable.rs`.
+- **Current mechanism.** `.config/producer-build-reviews.json` (103 build-script owners, about 178 KB) and `producer-macro-reviews.json` (55 proc-macro owners, about 81 KB) hold prose rationales plus machine fields: `reviewed_source`, `reviewed_closures`, `reviewed_callers`, `environment`, `required_absent_environment`, `environment_trees`, `workspace_files`, `caller_package_files`, `pest_grammars`, `excluded_features`, `platforms`. Among build-script owners, 51 declare `environment`, 32 `platforms` and 13 `excluded_features`. `expand_reviews` turns entries into captured inputs; a changed source hash voids its review. `capture` also holds hard-coded owner branches (`paste`, `pest_derive`, the `tokens-only.v1` contract, Pest grammar matching) and the native tool closure has its own `native_reviewed_source`. Some observation exists already: dep-info, `build-script-executed` payloads, compiler identity and caller environment comparison. The gap is build-script and proc-macro execution I/O.
+- **Why it matters.** The guarantee is a person or agent reading third-party code and transcribing its I/O, redone as dependencies move, which sits awkwardly beside "bumping a pin is ordinary judgment" (ADR-0165). A bump is not silently unsound: a stale review is skipped and eligibility turns false with a stated reason. The silent risk is a current review that transcribed its I/O wrongly. Observation could turn much of the catalogue into evidence, or an observed-versus-reviewed comparison could at least find wrong reviews.
+- **Patterns.** LOP-X021, LOP-01, LOP-12.
+- **Evidence.** `OwnerReview`, `BuildScriptInputs`, `SourceReviews`, `expand_reviews`, `capture`, `run_selected` (start), `selected_build_output_observations`, `producer_history::validate` (in full), sampled catalogue entries and their distribution, and the identity-and-publication statement that no blanket closure claim follows from Cargo rerun hints.
+- **Footprint.** The middle of `capture`, `capture_configuration` and `macro_caller_input_basis_with_reader` bodies were not read. Macro-supplier patches are [CBO-061](#cbo-061).
+- **Preservation constraints.** Unknown inputs refuse reuse without preventing execution; absence premises (an environment variable is absent) survive as inputs; reviews bind exact source; the fixed-compiler-probe distinction; `validate` must still replay historical receipts, since it recomputes owner source, closure and macro caller bases from retained members.
+- **Counterevidence and uncertainty.** Tracing covers only the executed branch, while reviews reason about all branches and exclusions. `getenv` is not a syscall, so environment reads need another route. sccache restores can skip executions. A sandbox such as Landlock or a mount namespace would enforce a declared input set and not observe it, which is a different guarantee and may break builds. Native solver builds have large process trees.
+- **Status.** Current mechanism.
+- **Research questions.** Does an existing tool record a process tree's file accesses deterministically (ptrace, fanotify, eBPF, Landlock)? Could the audit model of cargo-vet hold the residual reviews?
 
-- **Reassessment correction (2026-10-27, source `4f52fd239`).** Generated declarations remain worth reusing,
-  but Struct construction and same-target convert do not validate fields, including nested existing Structs
-  ([probe](../../design_review/evidence/library-leverage-msgspec-existing-struct-2026-10-27/README.md)).
-  Validate raw nested inputs or the encoded document, retain finite/domain checks, and adapt admitted values
-  to the mapping/JSON shape accepted by resource_store.publish. Optional/list representations are not
-  field-for-field twins.
+<a id="cbo-065"></a>
 
-<a id="cbo-051"></a>
+## CBO-065 — Premises and residue that outlived their consumers
 
-## CBO-051 — Hand-written wire and front-matter parsers in tooling
+- **Operation and consumers.** Maintainers and agents reading declarations, comments and units as current authority; admission; lint scans; every full build.
+- **Current mechanism.** Four kinds of residue, kept distinct:
+  - **Operational.** Of the user units named `pse-surreal-*`, 83 are enabled and 471 disabled at inspection on 2026-10-30. One is active, `pse-surreal-5845baf003442ce5.service`, and its `ExecStart` runs a retained copy of the deleted `scripts/surreal_server.py` from a fixture state directory. `.config/systemd/pse.slice` still names `scripts/host_admission.py`, which does not exist. `Coordinator::borrowed_residents` still reads `host-admission/allocations.json` and compiler-cache records through `LegacyLedger` and `LegacyCacheRecord`; sccache runs client-side, so no daemon exists to charge. The `allocations.json` row names the retained copy's process. Fifteen `pse-allocation-*.slice` units are loaded and active, probably residue (not traced). `server/release_import::canonical` re-implements Python's sorted ASCII JSON to verify receipts from the Python era.
+  - **Manifest.** `arrow`, `arrow-array` and `arrow-schema` enable `ffi`, used only in `cfg(test)` modules; the release-profile comment gives PyO3 as a reason for unwind; `pins.schemars` cites msgspec types the generators no longer emit; ceilings forbid `buoyant_kernel*` that is not in `Cargo.lock`; `exclude` lists `crates/pse-operations-queries` and `crates/pse-catalog`, neither present; a header comment names `egglog =3.0.0`, which is undeclared.
+  - **Tooling.** Six ast-grep rules have dead scope (five Python rules on `python/**`, `pyarray-new-panics` on `crates/pse-py/**`) and two list `crates/pse-catalog`; a rule whose glob matches nothing passes silently. `tooling/dfarrow-apiex`, `tools/lu-resolve`, `xtask/src/architecture_acceptance` and `inspection_fixture` are retained or empty; `SurrealqlValidate` has no `justfile` or host route; workflows restate checks the recipes own, and `lychee` has no local recipe.
+  - **Model and data plane.** `predicates.rs::balanced` has no caller and cites Delta CHECK text; `cache_report_fields!` and `cache_settings_fields!` are exported with no external user; `model/extension.rs` justifies its table by a Python contract package; `FieldCheckedBatch::with_export_owner`, `checked_export` and `into_batch`'s raw candidate path have only test callers; `canonical/reload.rs` keeps an older-ingress branch (`exact_document_sources`, `cold_owner`, `reload_protected`).
+- **Why it matters.** Silently vacuous checks read as coverage, stale reasons misdirect later decisions, and each retained path keeps code shaped for a departed boundary. Deleting costs little and matches "delete replaced code".
+- **Patterns.** LOP-11, LOP-X020.
+- **Evidence.** Coordinator-verified unit counts and `ExecStart` on 2026-10-30; `ls` of scoped paths; `Cargo.toml` tables read in full; `cargo tree --locked --offline -e features` for `ffi` (only workspace members activate it); `borrowed_residents`, `pse.slice`; `rg` for the macros and export functions. The `tonic` and hyper `server` feature claims were dropped, because the supplier's own dependencies request them.
+- **Footprint.** Searches are non-generated code only. Unread: three workflows (`register-review`, `rust-scheduled`, `solvers-image`), and whether any durable store holds older-ingress frames.
+- **Preservation constraints.** A live daemon's capacity must still be charged while present, and "live with no metadata" must not become silently uncharged; Rust rules that do match; reproduction of evidence lockfiles (`family_check::default_evidence` has a stated reason); extension identity and metadata enter hashes, so their spellings stay.
+- **Counterevidence and uncertainty.** The live fixture unit is the maintainer's retained state and may be deliberate; no claim is made about stopping it. The `compiler-cache` lane remains a selectable capacity declaration, and removing it is separate from removing the `Legacy*` readers. Test use of `ffi` may validate the export path. Blueprint §21.6 keeps room for a future foreign Arrow adapter, a macro search can miss generated-code users, and the older-ingress branch also serves frames without `origins`, so "older" may be a misnomer.
+- **Status.** Current mechanism.
+- **Research questions.** None needing a library; this is a cleanup inventory kept so a whole-repository audit does not lose it.
 
-- **Operation and consumers.** Decode OTLP and gRPC control messages, and read ADR and plan front
-  matter. Consumers are telemetry control, document lints, agent hooks and activity.
-- **Current mechanism.**
-  - A hand-written protobuf varint reader (`scripts/grpc_wire.py`).
-  - Front matter is split independently in `adr.py`, `agent-hooks.py`, `check_agent_config.py`
-    and `document_metadata.py`.
-  - Telemetry queries are built over `urllib` and `socket`.
-- **Why it matters.** The code is small, but each copy has its own edge-case handling.
-- **Patterns.** LOP-01, LOP-02.
-- **Footprint.** At least four front-matter forms and one wire reader.
-- **Preservation constraints.**
-  - Duplicate-key rejection.
-  - Bounded reads.
-  - Stdlib-only imports on cold-start hook paths.
-- **Counterevidence.** The cold-bootstrap constraint is real, and `protobuf` or
-  `python-frontmatter` may be too heavy for hooks.
-- **Status.** Proposed addition.
-- **Research questions.**
-  - Does `opentelemetry-proto` already sit in the environment?
-  - Would routing every consumer through `document_metadata` suffice?
-- **Library assessment correction (2026-10-27).** Front matter has one strict reader, which `adr.py` delegates to, plus two stdlib strippers, not four parsers. The earlier account missed two hand-written pieces: an HTTP/2/gRPC server in `scripts/surreal_telemetry.py` and a gRPC client in `scripts/tests/surreal_mx_check.py` ([LOP-X010](../assessment-patterns.md#lop-x010)).
-- **Comparative review correction (2026-10-27).** Switching SurrealDB's exporter to OTLP/HTTP is not available. At `v3.3.4` the server builds `opentelemetry_otlp::SpanExporter::builder().with_tonic()` and compiles `opentelemetry-otlp` 0.31.1 without `http-proto`, and no protocol variable selects HTTP (read through the GitHub contents API). The hand HTTP/2 sink is therefore the minimal fixed peer, and `surreal_server.py` already points SurrealDB at the collector's `otlp_grpc_endpoint`. See the [comparative review](../reviews/developer-tooling.md#cbo-051).
+<a id="cbo-048"></a>
 
-- **Reassessment correction (2026-10-27, source `4f52fd239`).** The raw abrupt-drop client and the capture
-  sink have different contracts. Receiver.handle silently returns on EOF/socket errors, and terminating
-  streams can lose pending input without a capture_errors entry. Reopen the sink choice between explicit
-  best-effort/incomplete reporting and h2-backed HTTP/2 handling; retain the raw test client and existing
-  front-matter owners. See the revised [comparison](../reviews/developer-tooling.md#cbo-051).
+## CBO-048 — The host uses the manager but not its accounting and snapshot facts
+
+- **Operation and consumers.** Ask what a run used, or whether it died from memory; calibrate admission declarations (`slot_gib`, `pool_memory_bytes`, `pressure_guard_gib`) that are hand-set with no feedback; observe units cheaply across wait loops, launch reconcile and `ensure_finite_parent`. AGENTS.md records two editor-wide OOM incidents as the reason for this machinery.
+- **Current mechanism.** Admission and supervision are built on the systemd manager (zbus `StartTransientUnit`, `BindsTo`, `AddRef`, `PIDFDs`, `ExecStopPostEx`, cgroup events) with a revisioned private JSON journal under flock; only explicit finite selections use it, and ordinary work has no slot ledger. Two facts are left unused. First, a search of `crates/pse-host/src` for `memory.peak|memory.current|cpu.stat|io.stat|MemoryPeak|CPUUsage|OOMPolicy|OOMResult|oom` found no resource or OOM facts; `UnitObservation` carries state, invocation, PIDs and `ExecMain` code and status. The finalizer captures `$SERVICE_RESULT` into `Finalization.service_result`, but `ManagedSummary.service_result` is set to `None` in `from_payload`, and the value describes the controller service and not the payload's sibling scope. `admission::meminfo` hand-parses `MemAvailable`, while `pse.slice` sets `ManagedOOMMemoryPressure=kill`, which would reach the host only as a bare result or signal. Second, `observe_inner` reads properties as separate D-Bus round trips and re-reads `InvocationID`; each `observe` revalidates the view (`mountinfo`, the manager's cgroup file, stat and status again); proxies are built ad hoc about 20 times and the `JobRemoved` mapping appears three times.
+- **Why it matters.** `scripts/pse result` could report peak memory, CPU and an OOM outcome from cgroup accounting on a group the host already holds by fd, and finite profiles could be calibrated from evidence; a PSI-based guard may differ usefully from `MemAvailable` under page-cache-heavy compile loads. `GetAll` snapshots and small helpers could remove some rechecks and repeated builders.
+- **Patterns.** LOP-12, LOP-03, LOP-07.
+- **Evidence.** The search above; `manager::{UnitObservation, Group, observe_inner, validate_view, manager_process, ensure_finite_parent, start_*_inner}`; `admission::meminfo`; `managed/result` and `finalizer` in full; `pse.slice`; the `zbus_systemd` generated proxies, which expose `memory_peak`, `memory_current`, `cpu_usage_n_sec`, `io_read_bytes` and `oom_policy`.
+- **Footprint.** `payload::PayloadReport` construction partly read; `admission::{release, retire_charge, prepare, from_policy}` bodies unread.
+- **Preservation constraints.** "Unavailable is not zero"; observations come from the authenticated group or unit and grant no authority; ordinary unbounded work gains no cap as a side effect; cross-process admission and durable ownership evidence stay, since systemd has no admission semaphore; every authentication stays meaningful, so a view change between calls must refuse; release is never inferred from a missing caller.
+- **Counterevidence and uncertainty.** The user manager may not have accounting on in every placement, and controllers can be absent from delegated subtrees (`DelegateControllers` is an empty set in `start_scope_inner`). A group may be gone before it is read, and nested work needs attribution rules. `MainPID` and the invocation live on different interfaces, so two messages may remain, and the rechecks are a deliberate defence. Cost is unmeasured and likely small beside workload duration; `CacheProperties::No` is deliberate.
+- **Status.** Current mechanism; the resource and OOM recording is Proposed.
+- **Research questions.** Which properties remain readable after a transient unit stops, given `AddRef`, and do they need `MemoryAccounting=` in the launch properties? Does the `GetAll` reply give a single point-in-time snapshot, and does `zbus_systemd` expose it without losing typing?
 
 <a id="cbo-052"></a>
 
-## CBO-052 — Several command surfaces without a shared declaration
+## CBO-052 — Two test and check front doors with different durability
 
-- **Operation and consumers.** Discover and run workflows. Consumers are the maintainer and
-  agents in both runtimes.
-- **Current mechanism.** There are five command surfaces, and option vocabulary such as the
-  `--native` variants is repeated across them:
-  - **`justfile`.** 244 recipes. Many are one-line `python -m scripts.X` calls, and some inline
-    shell.
-  - **argparse.** 64 non-test scripts build their own `argparse` parser.
-  - **xtask.** It uses `clap`.
-  - **FastMCP capability server.**
-  - **`capabilities/cli_codegen.py`.** It generates cyclopts-style argv.
-- **Why it matters.** Changing an option or adding a workflow touches several surfaces.
-- **Patterns.** LOP-02, LOP-09.
-- **Footprint.** Counts only.
-- **Preservation constraints.**
-  - Admission through `pse-env`.
-  - Recipes stay positional.
-  - Codex and Claude parity.
-- **Counterevidence.** "Tooling changes stay light" argues against a broad consolidation. This is
-  weak unless it follows from [CBO-049](#cbo-049).
-- **Status.** Proposed addition.
-- **Research questions.**
-  - Could one typed CLI framework, already the target of `cli_codegen.py`, own the script entry
-    points?
-  - Could just modules collapse the repeated `arrow_validation nextest` compositions?
-- **Library assessment correction (2026-10-27).** `just --dump` reports 231 recipes, not 244.
-- **Comparative review correction (2026-10-27).** The premise is rejected: the surfaces are layers with distinct owners. 194 of 231 recipes have one-line bodies, 100 of them Python forwards. There are 421 long-option declarations across 64 argparse scripts under 281 distinct names, and repeated names are mostly homonyms: `--state` has three or more meanings, one of them a plan lifecycle state in `document_lifecycle`, and `--native` has two or more. Recipe metadata is already derived from `just --dump` (`capabilities/entrypoints.py`). The one real restatement is covered by [CBO-050](#cbo-050). See the [comparative review](../reviews/developer-tooling.md#cbo-052).
+- **Operation and consumers.** Agents and the maintainer select and run compile and test work.
+- **Current mechanism.** The `just` route (`unit-package`, `functional-test-target`, `check-package` and siblings) calls `cargo-pse-correctness` directly, with a `PSE_NEXTEST_ACTION` variable choosing list or run; about 90 `justfile` lines name the adapter, about 28 of them with `nextest`, and `unit-package` classifies its own filter by regex. No recipe runs `scripts/pse test`, `tests` or `check`. The `pse` route has clap parsing in `cli/selection.rs`, resolved selection, an invocation ledger, detach, wait and paged results. Each route has its own selection grammar and only one leaves retained evidence.
+- **Why it matters.** Each supported test action has two spellings with different durability, and recipe bodies repeat grammar that `selection` now owns. If recipes stay as cost-tier names and thin aliases, their bodies could delegate to `pse` or be generated from the catalog.
+- **Patterns.** LOP-09, LOP-02.
+- **Evidence.** `justfile` head and the local group; `cli/selection.rs`; the environment guide's "Choosing tests"; a count of recipe lines.
+- **Footprint.** Only part of the 1,185-line `justfile` was read, and Plan59c was not read in full.
+- **Preservation constraints.** Recipes carry features, profiles and native selections; bare tools stay first-class; `just --list` is agent discovery; nextest-native filterset passthrough.
+- **Counterevidence and uncertainty.** Plan59c owns the migration, so this may be sequencing with nothing further to find. The other command surfaces (clap in `pse`, `pse-host` and `xtask`; bare `cargo c` and `t`) are layers with distinct owners, and "tooling changes stay light" argues against any broader consolidation; the entry concerns test and check actions only.
+- **Status.** Accepted planned (in part).
+- **Research questions.** Could recipe bodies generate from the catalog without losing feature and profile selection?
+
+<a id="cbo-061"></a>
+
+## CBO-061 — Macro-supplier patches enforce build purity one owner at a time
+
+- **Operation and consumers.** Producer-identity qualification of compiled scientific code (`xtask/src/producer_identity.rs`, `producer_preparation.rs`).
+- **Current mechanism.** `vendor/paste`, `vendor/pest_derive` and `vendor/py_literal` each carry small patches that refuse environment or file channels, under ADR-0189, whose front matter still reads `status: proposed` although `[patch.crates-io]` is active. The patches do not change the macro's mathematics. `pest_derive` reaches the graph only through `py_literal`, whose lock parents are `ndarray-npy` (non-optional in all three `egobox-*` crates) and `npyz` (faer's optional `npy` feature). `vendor/diffsol-la/Cargo.toml` requests faer's `npy` and `rand` explicitly, so the workspace's `default-features = false` does not keep them out; dropping `npy` there would be cheap, but the egobox edge alone keeps `py_literal` and `pest_derive`. A new macro with an ambient channel needs another patch.
+- **Why it matters.** Enforcement is enumerated per supplier, so a dependency change can add an unreviewed channel, and a chain of NumPy file support exists in the graph to serve a path the product appears not to use.
+- **Patterns.** LOP-X021, LOP-10, LOP-03, LOP-11.
+- **Evidence.** The three `pse-patch.md` files, the ADR-0189 head, `Cargo.lock` parent queries, the egobox manifests in the registry, and `cargo tree --locked --offline -e features`.
+- **Footprint.** `producer_identity.rs` was not read here beyond size and `Command` sites. The review catalogue is [CBO-060](#cbo-060).
+- **Preservation constraints.** A body edit stays part of scientific identity without re-reviewing external I/O; helper and feature closures are bound to the guarded executable source.
+- **Counterevidence and uncertainty.** A process sandbox observes effects, whereas the patch gives a compile-time refusal tied to source, a stronger and different statement. The ADR rejected grep and caller snapshots with reasons; whether a sandbox was among its options was not read beyond the summary line.
+- **Status.** Current mechanism; ADR-0189 proposed.
+- **Research questions.** Could an OS-level build sandbox (empty environment, read-only view) discharge "no ambient channel" for all proc macros and build scripts at once? Does nightly tracked-env or tracked-path support reduce the need under the pinned nightly?
+
+<a id="cbo-062"></a>
+
+## CBO-062 — Artifact-to-unit association re-derives what compiler and Cargo could report
+
+- **Operation and consumers.** Link each selected unit to its actual artifact and dep-info files in `artifact_matches`, `artifact_dep_info`, `dep_info_outputs`, `executable_artifact_aliases` and `cargo_cached_dep_info_linkage`, for producer identity and its retained evidence.
+- **Current mechanism.** Cargo JSON messages are matched against unit-graph fields, a handful of profile keys are compared, and Makefile dep-info is parsed with a local parser (`parse_dep_info`) that handles `$$`, backslash escapes and comments and relocates output paths with sccache-specific logic. A comment on `cargo_cached_dep_info_linkage` says "sccache 0.17" while `docs/dev/build-performance.md` selects 0.19.0. `producer_history::validate` repeats the association for retained evidence.
+- **Why it matters.** Ambiguity refuses eligibility, so a fragile association costs reuse. The fingerprint-suffixed relocation heuristic stands where a first-party record could exist; fewer independent matches would mean fewer failure modes.
+- **Patterns.** LOP-05, LOP-01, LOP-11.
+- **Evidence.** The functions named above, except the bodies of `executable_artifact_aliases` and the rest of `artifact_dep_info`. `.cargo/config.toml` already uses nightly `checksum-freshness`.
+- **Footprint.** As inspected.
+- **Preservation constraints.** Exact-byte spool of Cargo output; refuse on ambiguity; the unit graph as authority over closure; uncompiled tests excluded. Historical evidence stays verifiable only if the old association stays available or versioned, so a new mechanism adds a path until retired evidence can be dropped.
+- **Counterevidence and uncertainty.** SBOM-style records may omit consumed files, leaving dep-info as the only input list; the likely gain is in the association alone.
+- **Status.** Current mechanism.
+- **Research questions.** Do nightly `-Zsbom` precursor files, `-Z build-dir` layout or `--json=artifacts` name the unit-to-artifact and dep-info paths exactly?
+
+<a id="cbo-051"></a>
+
+## CBO-051 — Tooling interchange and documents read through several parsers
+
+- **Operation and consumers.** Read Cargo, lockfile, Markdown and front-matter facts across the tooling. Consumers are lifecycle aggregation, ADR lint, the register, section ownership, publication, knowledge capture and agent routing.
+- **Current mechanism.** One need ("one meaning, one interpreter") with two distinct domains:
+  - **Cargo.** `parse_cargo_messages` and `CompilerMessageLines` index `serde_json::Value` by `message["reason"]` although `cargo_metadata` 0.23.1 is pinned. `codegen/grpc_wire.rs` walks `cargo metadata` as `Value`. `Cargo.lock` is read through `toml::Value` (`lock_records`), through `crate::Lockfile` (`main.rs`, `surrealql_tools::parser_info`) and with awk in `scripts/fetch-external.sh`. `glob_to_regex` in `main.rs` parallels `globset` in `site::matches`.
+  - **Markdown.** The section-heading regex `^#{2,4}\s+(…)` is written separately in `adr.rs`, `lifecycle.rs` and `workspace_sources.rs`, beside `headings.rs` on pulldown-cmark. `register::rows` splits on `|` while `lifecycle::tables` uses pulldown GFM and `row_arity`, so by reading an escaped pipe in a register cell is treated differently. `lifecycle::slug` regenerates anchors with regexes, `Regex::new` is called inside functions in `lifecycle` (10), `adr` (9), `register` (5) and `site` (4), `adr::inspect` validates front matter by hand over an untyped `Fields` map, and `lifecycle::aggregate` holds a plan-filename regex that belongs in `docs/lifecycle.toml`. `pse-host/src/{status,source_read}.rs` use pulldown-cmark again separately. Front matter itself has one strict reader (`metadata::read_with_policy` on serde-saphyr) plus a stripper, `configuration::body`.
+- **Why it matters.** Section numbers are the citation vocabulary (§14.3), so three recognizers of the same form are a real single-definition concern, with fenced-code false positives possible. Each Cargo spelling is a separate decision about fields and tolerance. The Cargo consolidation is mechanical and cross-cutting; the Markdown one is a small internal step.
+- **Patterns.** LOP-09, LOP-03, LOP-07.
+- **Evidence.** All named functions read; `headings.rs`, `lifecycle::{plain, row_arity, tables, heading_content}`, `register::rows`, `site::validate_attachments`, `metadata::read_with_policy`, `adr::inspect` signatures and body, `lifecycle::aggregate`.
+- **Footprint.** Some regex uses may run on lines already known to be headings, in which case a shared constant is the whole fix. Not every use was traced.
+- **Preservation constraints.** Raw Cargo bytes are retained as evidence and replayed by `producer_history`, so a typed reader must also accept old retained streams (`deny_unknown_fields` on `Index` shows strictness is valued); `artifact_matches` compares untyped unit-graph profile values; `cargo_sources_match` handles URL-encoding differences; authored bytes are never reserialized; deliberately narrow ATX heading vocabulary; line attribution; the immutable-ADR check; duplicate-key rejection.
+- **Counterevidence and uncertainty.** This code is already library-led, and `headings.rs` and `tables` are good. Typed models drop unknown fields, evidence code may deliberately avoid a crate's normalization, and `--unit-graph` has no typed library that was checked. `pulldown-cmark` has no source-preserving AST, so `comrak` with source positions is the only comparable step and may be unnecessary. `surrealql_tools` reads compiled metadata on purpose.
+- **Status.** Current mechanism.
+- **Research questions.** Does `cargo_metadata::Message` or the `cargo-lock` crate preserve what history validation needs? Is a named shared constant for the section pattern sufficient?
+
+<a id="cbo-063"></a>
+
+## CBO-063 — Generator forms emitted or transformed by hand
+
+- **Operation and consumers.** `just codegen`, `codegen-check` and the generated-file guard.
+- **Current mechanism.** Four manifestations with different obligations:
+  - **Development family by post-rewrite.** `family::development_rust` runs the product renderer on a private registry, re-parses each file with syn, filters by a hard-coded file-name list and rewrites paths with an `OwnerPaths` visitor. `rust/semantic.rs` splits model and native outputs by AST the same way, so this is the house idiom.
+  - **JSON Schema from strings.** `jsonschema.rs` assembles schema text through `format!`-built objects, while `documents.rs` and `private_documents.rs` use schemars.
+  - **Hand-listed input scopes.** `xtask/src/codegen/ownership.rs::inputs` lists each producer's input scopes by hand, though compiled input sets are knowable from dep-info.
+  - **Static serde selection.** `rust/semantic.rs::serialization_consumers` hard-codes about 25 `runtime.*` relation names beside document-derived ones, a fact the registry declaration could carry.
+- **Why it matters.** Schema assembled in strings is unchecked until parsed; the file-name list and rewrite move silently when a renderer gains a file; an accurate input map would improve the guard's message and any affected-file selection.
+- **Patterns.** LOP-X003, LOP-X007, LOP-02.
+- **Evidence.** `family.rs` and `private_store.rs` (heads), `jsonschema.rs` helpers, `codegen.rs` (`run`, `language_tree`), `ownership.rs` and `documents.rs` (heads), and opening sections of `rust/{registry,relation,physical,semantic,columnar,…}`.
+- **Footprint.** The `rust/*` renderer bodies were read at openings and selected middles, not line by line; they do not support a broader criticism.
+- **Preservation constraints.** The `all_targets_regenerate_identical_bytes` test; private and product isolation (`private_vocabulary_change_is_confined_to_its_generated_owner`); schema hash stability.
+- **Counterevidence and uncertainty.** The authoring schema derives from registry declarations with no Rust serde type, so a schemars derive cannot apply, and only a value-builder change is open for the second item. The post-rewrite is compact, reuses a proven renderer, and its tests check the isolation that matters, so the first item may be the right answer. Whether the authoring schema is expressible through schemars builders without churn is unknown.
+- **Status.** Current mechanism. Weak.
+- **Research questions.** Could a `schemars::json_schema!` or typed builder replace the string assembly? Could rendering take an owner-path context up front?
+
+<a id="cbo-064"></a>
+
+## CBO-064 — Knowledge and evidence stores: narrow query capability, and whether they earn their keep
+
+- **Operation and consumers.** `just workspace-sources`, `pse-evidence`, and the evidence store's knowledge import and query. The audience is agents and the maintainer; no in-repository automated consumer outside xtask was found by the search stated.
+- **Current mechanism.** The pipeline is Rust only (`xtask/src/development/{evidence,evidence_query,knowledge,workspace_sources}`). The offline evidence path runs DataFusion over registered snapshots; the indexed path uses SurrealDB. The knowledge corpus holds closed native subjects built from Markdown and catalogues (`KnowledgeSubjectKind`), with bounded selection (`max_sources` at most 256, 32 MiB, `max_subjects` at most 256). Queries filter on equality (`subject_filter`) and graph edges; a search for `SEARCH|ANALYZER|BM25|@@` in `development/` found none. Rust declarations are not subjects: `workspace_sources.rs` has no syn or rust-analyzer use though it admits `.rs` bytes as sources.
+- **Why it matters.** The recurring agent question is "where is this owned and what governs it?", which the relations nearly answer. Native full-text search could serve excerpt queries, and a code-symbol subject from a pinned parser could add the missing contract-to-implementation edge. It is equally fair to ask whether the store earns its keep: it needs a service, a selection file and an import step, while agents have `rg` and `pse owner`.
+- **Patterns.** LOP-12, LOP-03, LOP-05.
+- **Evidence.** Heads of `knowledge.rs` and `workspace_sources.rs`, `stage_sql`, `subject_filter`, catalog subject kinds, `docs/dev/surreal-substrate.md` references, and a consumer `rg`.
+- **Footprint.** Query bodies and most of the 1,537-line knowledge builder were not read; `docs/plans` was not consulted for planned use; usage frequency is unknown and no logs were mined. `scripts/generated/capabilities` was not traced.
+- **Preservation constraints.** Disposable and non-authoritative; source provenance by exact bytes; explicit unknowns and omissions; bounded operation; the prepared and activation lifecycle.
+- **Counterevidence and uncertainty.** The store is an architecture contract (operations-and-validation §24.1, "Development knowledge and source-backed changes"), so "does it earn its keep" is a question about that contract. The closed vocabulary and explicit selection are deliberate anti-hallucination features, and capability existing is not demand. The standing premise that SurrealDB stays canonical does not obviously cover a disposable tooling index.
+- **Status.** Proposed.
+- **Research questions.** Would `DEFINE ANALYZER` with a full-text index serve excerpt search? Does `ra_ap_syntax`, already pinned for `pse-host`, fit a code-symbol subject?
+
+## Examined and not retained
+
+- **Namespace observation in parallel forms.** `producer_identity::namespace_observation`, `pse_buildinfo::identity::namespace_digest_scoped` and `producer_history`'s re-derivation traverse trees in separate near-identical loops. They may deliberately serve inventory evidence and a runtime observer, a byte change re-keys receipts, and walker and hex duplicates are minor. A directory-handle walk would be a stronger same-object guarantee but belongs with [CBO-003](cross-cutting-mechanisms.md#cbo-003).
+- **Publication post-processing and glob emulation.** `site::annotate` edits generated HTML by `replacen`, and `site::matches` keeps Python `fnmatch` semantics. Low consequence, guarded by exact tool pins; an mdBook theme override is a lead.
+- **Evidence query rows through hand-written Arrow-to-JSON conversion.** The comparison logic is domain logic with named refusals and stays in Rust; only `json_rows` is residue, small, and `arrow-json` was not found in the manifests.
+- **Reference environments named after retired plans.** One `uv.lock` with groups is a good fit; the hard-coded version guard in `scientific_reference.environment` is a second spelling of the pin and the names are cosmetic.
+- **Small mechanical fragmentation.** About 94 hand-written `as_str` matches, at least eight local SHA-256 digest helpers, and eight sites that discard a decode cause. Each is a one-line helper behind independent crate ceilings.
+- **Token normalization in `production_source`, `streamed_child`, `audit.rs`, `family_check`.** Specialized, byte-exact or thin and correct; a library would not improve the guarantee.
+
+## Retired opportunities
+
+<a id="cbo-047"></a>
+
+- **CBO-047 — File-ledger primitives re-derived per script.** Retired 2026-10-30: every named Python module (`host_metadata.py`, `resource_store.py` and the rest) was deleted by `600d4df30`. Successor: [CBO-003](cross-cutting-mechanisms.md#cbo-003). Last described at [revision 93946f572](https://github.com/paul-heyse/pse-arrow/blob/93946f5721a27786fd3c4f281eb6f8036dde405b/docs/library_leverage/codebase/developer-tooling.md#cbo-047).
+
+<a id="cbo-050"></a>
+
+- **CBO-050 — Development evidence and knowledge pipeline split across two languages.** Retired 2026-10-30: the Python side (`evidence_store.py`, `knowledge_store.py` and the rest) was deleted by `600d4df30`, and the pipeline is now Rust in `xtask/src/development`. Successor: [CBO-064](#cbo-064). Last described at [revision 93946f572](https://github.com/paul-heyse/pse-arrow/blob/93946f5721a27786fd3c4f281eb6f8036dde405b/docs/library_leverage/codebase/developer-tooling.md#cbo-050).
 
 <a id="cbo-053"></a>
 
-## CBO-053 — Maintenance CLI output retained before bounding
-
-**Added by comparative reassessment, 2026-10-27, source `4f52fd239`; Interface-checked.**
-Maintenance must authenticate a transaction acknowledgement or copy a database while preserving
-closed admission, owned export files, redacted diagnostics and actual listener drain.
-
-`scripts/surreal_server.py::maintenance_sql` uses `capture_output=True` and a 120 s timeout;
-`maintenance_failure` bounds diagnostic tails only after full capture. `maintenance_catalog`
-also consumes that route and legitimately needs catalog-sized results. `copy_current_database`
-captures import/export control output without a local timeout, although the database payload
-travels through an owned file. In contrast, `administrative_results` bounds bytes before JSON
-decoding and composes a caller deadline.
-
-The opportunity is to shape retained output to each operation's actual demand using existing
-stdlib subprocess/file facilities, rather than accumulating every control stream in memory.
-Patterns: LOP-06, LOP-08 and LOP-X011. This is adjacent to CBO-004's child lifetime and CBO-048's
-maintenance policy, but has a distinct output-ownership responsibility.
-
-**Preserve:** exact nonce/statement checks, full required catalogs, private ownership, credential
-redaction, recovery reservation and listener/descendant settlement. Do not impose a tiny shared
-cap or arbitrary restore timeout that rejects legitimate maintenance.
-
-**Limits:** no runaway output, hang or production failure was demonstrated. No end-to-end
-maintenance clock was established by this static pass. Compare bounded incremental capture,
-file-backed complete output and discarded success output with bounded failure tails after
-establishing each consumer's needs. The library route and complete alternatives are in
-[python-subprocess](../libraries/python-subprocess/README.md) and the
-[comparison](../reviews/host-processes-and-durable-files.md#cbo-053).
-
+- **CBO-053 — Maintenance CLI output retained before bounding.** Retired 2026-10-30: `scripts/surreal_server.py`, including `maintenance_sql` and `copy_current_database`, was deleted by `600d4df30`, and maintenance reads go through the native client. No successor. Last described at [revision 93946f572](https://github.com/paul-heyse/pse-arrow/blob/93946f5721a27786fd3c4f281eb6f8036dde405b/docs/library_leverage/codebase/developer-tooling.md#cbo-053).

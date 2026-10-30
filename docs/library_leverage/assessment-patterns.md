@@ -1,6 +1,6 @@
 # Additional library-leverage patterns
 
-**Assessment output · revision 4, 2026-10-27.** Revision 1 came from the first codebase audit;
+**Assessment output · revision 5, 2026-10-30.** Revision 5 adds `LOP-X015`–`LOP-X022` from the whole-codebase audit at `c8244cff5`. Revision 1 came from the first codebase audit;
 revision 2 added `LOP-X004`–`LOP-X010` and refined `LOP-X001`–`LOP-X003` from the first library
 applicability assessment; revision 3 adds `LOP-X011`–`LOP-X014` and refines `LOP-X001`–`LOP-X010`
 from the first [comparative review](reviews/README.md). Reassessment revision 4 corrects
@@ -29,6 +29,14 @@ it keeps its `LOP-X` identity and records the base ID it maps to.
 | [LOP-X012](#lop-x012) | A retry's classification requires settling an uncertain effect | First comparative review, 2026-10-27 |
 | [LOP-X013](#lop-x013) | A library kernel's value semantics differ from the domain's | First comparative review, 2026-10-27 |
 | [LOP-X014](#lop-x014) | Library-held process-global retention outlives caller ownership | First comparative review, 2026-10-27 |
+| [LOP-X015](#lop-x015) | A domain program embedded in a host system's language without that language's tooling | Whole-codebase audit, 2026-10-30 |
+| [LOP-X016](#lop-x016) | A read is realized as durable write work | Whole-codebase audit, 2026-10-30 |
+| [LOP-X017](#lop-x017) | A caller compensates for a seam in an already vendored supplier | Whole-codebase audit, 2026-10-30 |
+| [LOP-X018](#lop-x018) | Library global state converts independent work into exclusive work | Whole-codebase audit, 2026-10-30 |
+| [LOP-X019](#lop-x019) | An incremental framework beside or beneath a hand dependency tracker | Whole-codebase audit, 2026-10-30 |
+| [LOP-X020](#lop-x020) | A form or tier whose consumer retired or never arrived | Whole-codebase audit, 2026-10-30 |
+| [LOP-X021](#lop-x021) | Assurance held by enumeration | Whole-codebase audit, 2026-10-30 |
+| [LOP-X022](#lop-x022) | A mechanism stops short of a product | Whole-codebase audit, 2026-10-30 |
 
 <a id="lop-x001"></a>
 
@@ -931,6 +939,251 @@ per-parameter-point coefficients and takes that fallback on most solves
 while collocation's use is bounded. The repository's formal-symbol pool is an existing managed
 response to the same library's global symbol registry. See the
 [comparative review](reviews/mathematics-preparation.md#cbo-025).
+
+<a id="lop-x015"></a>
+
+## LOP-X015 — A domain program embedded in a host system's language without that language's tooling
+
+**Articulation.** A substantial domain program is written in a store's or engine's language (stored
+functions, procedures, a policy language) and carried as host-language strings. The engine parses and
+runs it reliably, so it works. Nothing checks it before deployment beyond syntax and integration tests,
+and calls across the language boundary, result shapes and error identities are unchecked duplicates.
+
+**Recognize.**
+- Hundreds of kilobytes of emitted SQL-like text, with token templating such as `.replace("__NAME__", ...)`.
+- Callers restating signatures as text plus binds, and results decoded field by field.
+- Error identities as string literals, even when a closed vocabulary checks them.
+- A parser linked only for acceptance, or only downstream of the generator that owns the bytes.
+
+**Investigate.**
+- Does the engine's parser expose an AST with signatures and error expressions?
+- Can one contract table generate definition headers, call stubs and decoders?
+- Are catalog views usable for a post-install contract check?
+- How much logic could move to host code without losing transactional placement?
+
+**Counterconditions.** In-transaction placement can be mandatory. A thin surface does not merit a checker.
+Dynamic object parameters limit static knowledge. Real-server tests are independent assurance and must not
+be treated as redundant.
+
+**What the base patterns missed.** LOP-02 frames repeated forms and LOP-X003 frames emitter burden. Neither
+frames the absent verification surface of the embedded program.
+
+**Prompting observations (2026-10-30, static reading).** The canonical schema's 205 functions and parse-only
+tooling. See [CBO-046](codebase/registry-generation-and-python-boundary.md#cbo-046).
+
+<a id="lop-x016"></a>
+
+## LOP-X016 — A read is realized as durable write work
+
+**Articulation.** An operation with read intent (status, browse, open-for-read) performs durable writes,
+because the mechanism giving it consistency or protection is shared with stronger operations. The cost is
+invisible at the call site and in the API name, and it can add contention, residue or failure modes on a path
+callers assume is passive.
+
+**Recognize.**
+- "Read-only" documentation over functions calling write-admission checks.
+- Fresh identifiers minted per read.
+- Lease, ticket or capture rows created and released around a read.
+- Polling loops over such paths, and mutation effect classes on read operations.
+
+**Investigate.**
+- Which guarantee does this reader actually consume: single-snapshot consistency, protection across calls, or
+  completeness across pages?
+- Does a one-statement read deliver it?
+- What residue remains, and what can a reader block?
+
+**Counterconditions.** Reader registration can be the honest price of cross-process reclamation safety. Rare opens
+followed by many writeless reads can make the cost irrelevant.
+
+**What the base patterns missed.** LOP-05 and LOP-07 frame lost intent and repeated preparation. Neither names an
+inversion of the effect class.
+
+**Prompting observations (2026-10-30, static reading).**
+[CBO-071](codebase/persistence-and-transport.md#cbo-071), [CBO-072](codebase/persistence-and-transport.md#cbo-072).
+
+<a id="lop-x017"></a>
+
+## LOP-X017 — A caller compensates for a seam in an already vendored supplier
+
+**Articulation.** A dependency is already carried as a maintained delta, yet callers compensate for seams it lacks.
+Normally a missing seam is a fixed fact and the workaround looks necessary. With a live delta the cost comparison
+changes, and the seam may be cheaper in the supplier than in many callers.
+
+**Recognize.**
+- Thread-local bindings or reconstructions around a vendored crate.
+- "No setter" comments beside a delta manifest.
+- Source-derived envelopes citing the same vendored crate.
+- A pin note listing several couplings.
+
+**Investigate.**
+- How large would each seam be in the delta, and does it survive a rebase?
+- Would upstream take it?
+- How many caller lines and proofs would disappear?
+
+**Counterconditions.** Each added seam raises rebase and requalification cost, and a delta kept to a narrow purpose
+has value as such. A seam that changes numerics is a scientific change, not an integration.
+
+**What the base patterns missed.** LOP-X001 finds the mirror but treats an upstream change as outside local control.
+LOP-X004 concerns a published lower layer, and LOP-10 extension points. None weighs a vendoring already paid for.
+
+**Prompting observations (2026-10-30, static reading).**
+[CBO-021](codebase/mathematics-and-compilation.md#cbo-021), [CBO-106](codebase/mathematics-and-compilation.md#cbo-106).
+
+<a id="lop-x018"></a>
+
+## LOP-X018 — Library global state converts independent work into exclusive work
+
+**Articulation.** A library keeps mutable process-level state: a scheduler, random generator or initialization phase.
+The caller protects it with a process mutex, so independent requests contend although they share no data. Failure
+scope widens too, since one uncertain teardown can disable a capability for the whole process.
+
+**Recognize.**
+- A static mutex or read-write lock around a whole library.
+- Comments citing "process-global", and health flags after a failed teardown.
+- "Exclusive" owners that block a sibling library's users.
+- Resets of a global scheduler, and compute-pause-while-waiting protocols.
+
+**Investigate.**
+- What is actually global? Can a newer version take a context or an instance?
+- Can a stateless subset escape the lock?
+- Could a helper process own the library, and do callbacks prevent that?
+- What does the gate cost under real concurrency?
+
+**Counterconditions.** Low call rates make the lock free in practice. A process boundary adds lifecycle, transport and
+startup. Callbacks into in-process evaluators can make isolation impractical.
+
+**What the base patterns missed.** LOP-08 addresses coordination generally and LOP-X014 retention. Neither states the
+serializing consequence or the process-boundary option.
+
+**Prompting observations (2026-10-30, static reading).**
+[CBO-030](codebase/native-solver-integration.md#cbo-030).
+
+<a id="lop-x019"></a>
+
+## LOP-X019 — An incremental framework beside or beneath a hand dependency tracker
+
+**Articulation.** A demand-driven incremental framework is present, while a driver computes stages and pushes results
+in as inputs, or a neighbouring layer tracks reads and invalidation by hand. The framework then acts as a memo or
+firewall rather than the dependency owner, and two incremental systems share one semantic chain.
+
+**Recognize.**
+- Tracked functions that clone an input, and compare-then-set blocks.
+- Handle maps beside the database, and private plumbing for labels or keys.
+- Control-flow unwinds to avoid memoizing failures.
+- Read vocabularies, recursion cuts and memo tables written locally near an adopted framework.
+
+**Investigate.**
+- Which dependencies does the framework see, and which does the driver?
+- Can order-sensitive semantics be expressed as queries?
+- What would a pure core lose by depending on the framework?
+- Can the framework export a query's dependency closure for persistence?
+
+**Counterconditions.** A framework-free pure core can be deliberate. Persistence across restart, branching immutable
+revisions and prepaid acquisition are real contracts that the framework may not provide. Firewall behaviour may
+already be good enough.
+
+**What the base patterns missed.** LOP-03 covers adopted functionality bypassed, LOP-10 the fight generally and LOP-07 reuse. The
+increment here is that ownership of dependencies is inverted, rather than a capability merely unused.
+
+**Prompting observations (2026-10-30, static reading).**
+[CBO-107](codebase/mathematics-and-compilation.md#cbo-107),
+[CBO-087](codebase/modeling-and-preparation-workflows.md#cbo-087),
+[CBO-108](codebase/mathematics-and-compilation.md#cbo-108).
+
+<a id="lop-x020"></a>
+
+## LOP-X020 — A form or tier whose consumer retired or never arrived
+
+**Articulation.** A generated form, engine door or prepared tier was justified by a boundary or a planned route. Its
+consumer has since retired, or never connected. The form continues because its generator or guard is uniform, or
+because it is built and tested. It keeps imposing machinery on paths with no reader, and nothing links its cost to its
+value.
+
+**Recognize.**
+- One emitter per entity with a small actual consumer set, and dispatchers with only test callers.
+- Guards against input forms that no production path creates, and declarations with an empty population.
+- Publish and reuse functions whose callers are only tests, and caches whose outermost tier has no reader.
+- Architecture text stating a route that is not the executing one.
+
+**Investigate.**
+- Who consumes each form today, per entity?
+- What did the retired boundary require, and which guarantees survive independently?
+- Is there a recorded decision to defer the consumer, and does anything notice divergence?
+- Should the form be selective, wired, or deleted?
+
+**Counterconditions.** Uniform generation can be cheaper than selection. An accepted planned consumer justifies keeping a
+form, and empty populations can be a future-proof contract. Name-based searches miss dispatch and external embedders.
+
+**What the base patterns missed.** LOP-11 looks for workarounds and version conditions rather than consumer absence.
+LOP-X003 examines pipeline cost rather than whether each target has a reader. LOP-07 assumes the reuse mechanism has a
+consumer.
+
+**Prompting observations (2026-10-30, static reading).**
+[CBO-153](codebase/registry-generation-and-python-boundary.md#cbo-153),
+[CBO-154](codebase/registry-generation-and-python-boundary.md#cbo-154),
+[CBO-099](codebase/modeling-and-preparation-workflows.md#cbo-099).
+
+<a id="lop-x021"></a>
+
+## LOP-X021 — Assurance held by enumeration
+
+**Articulation.** A guarantee about a population (a program's effects, every supplier in a graph, every uncertainty window,
+every hostile input) is discharged by writing a declaration, patch, flag or example for each member. Coverage is whatever
+someone listed, and its cost scales with the population. The platform or a library can sometimes observe, confine, sweep
+or sample the same population, once it has been made nameable.
+
+**Recognize.**
+- Large review catalogues keyed by source hash, with rationale beside machine fields.
+- Patch notes explaining a policy rather than a feature, and "re-audit on every update".
+- A named flag per failure window, or a wrapper per fault.
+- Table loops of hand-picked inputs.
+
+**Investigate.**
+- What is the actual promise and its scope?
+- Could an enforcement or observation layer outside the members cover the class?
+- Would observation replace the declaration, or check it?
+- What must stay real, and what does a failure need in order to reproduce?
+
+**Counterconditions.** Observation covers one execution, while a static review reasons about all branches. Source-level
+refusal can be a stronger statement than effect observation. A hand-picked example may encode a specific regression and an
+independent expectation. Enumerating over slow real owners may be unaffordable, and naming the population may itself be the
+larger design change.
+
+**What the base patterns missed.** LOP-12 only says a capability is absent. LOP-X006 names the stack and LOP-X008 namespace
+enumeration. None frames enumerated assurance as the thing to question.
+
+**Prompting observations (2026-10-30, static reading).** [CBO-060](codebase/developer-tooling.md#cbo-060),
+[CBO-061](codebase/developer-tooling.md#cbo-061), [CBO-157](codebase/test-and-assurance.md#cbo-157).
+
+<a id="lop-x022"></a>
+
+## LOP-X022 — A mechanism stops short of a product
+
+**Articulation.** A library-backed mechanism works, but its output is confined to an internal role: a start proposal, an
+indicator. The activity it could serve remains unavailable, and a validity-limited or withheld
+result has no continuation although the repeated-evaluation machinery sits beside it.
+
+**Recognize.**
+- Comments such as "auxiliary", "proposal", "remain starts" or "does not certify".
+- A library state object with no public model product, and a statistics library called only for a couple of quantiles.
+- Fixed aggregates over a general engine, and a repeat engine serving one narrow form of variation.
+- A capability absent from scope tables although it exists in source.
+
+**Investigate.**
+- What is the smallest retained product, and what validity statement would it need?
+- Is the confinement a scientific-honesty contract, or just where the work stopped?
+- What does a user do when the local answer is withheld?
+- Who owns aggregation and failure semantics?
+
+**Counterconditions.** The confinement may be the contract: a surrogate start grants no permission. Promotion costs
+qualification burden and a new identity. Solve cost can make repeated evaluation impractical. A deliberately local claim can
+be the product decision.
+
+**What the base patterns missed.** LOP-12 asks about absence and LOP-03 about underuse. Neither distinguishes a capability
+whose hard part is done from one that needs building, and that changes how later work should weigh cost.
+
+**Prompting observations (2026-10-30, static reading).** [CBO-135](codebase/numerical-workflows.md#cbo-135),
+[CBO-034](codebase/numerical-workflows.md#cbo-034), [CBO-140](codebase/capability-gaps.md#cbo-140).
 
 ## Notes for base-framework maintenance
 

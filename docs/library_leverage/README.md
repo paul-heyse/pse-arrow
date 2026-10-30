@@ -32,20 +32,17 @@ ordinary implementation and API questions do not initiate this workflow.
 
 ## Current accounts
 
-The first broad [codebase opportunity audit](codebase/README.md) was run on 2026-10-27 at
-`dbc4c9436`. It records `CBO-001`–`CBO-052`. The first
-[library applicability assessment](libraries/README.md), also run on 2026-10-27, covers every
-opportunity across 96 directory-backed library accounts. It added [additional patterns](assessment-patterns.md)
-`LOP-X004`–`LOP-X010` (revision 2) and recorded dated premise corrections in the codebase
-account. The [comparative review](reviews/README.md) was independently reassessed against
-source `4f52fd239` after its original publication `b29fcf802`. All original 52 opportunities
-were reconsidered; CBO-032 retired on its corrected premise and CBO-053 adds maintenance CLI
-output ownership, leaving 52 current opportunities across 97 library accounts. Two new focused
-counterexample probes qualify proposed root-rounding and Struct-validation remedies. Revised
-targets, reopened choices and input corrections are integrated in place; the earlier probes
-retain their original conditions. Additional patterns remain `LOP-X001`–`LOP-X014`, refined to
-revision 4 without new IDs or base-framework changes. Record inspected baselines and limits
-rather than treating empty collections as assessed, and do not invent patterns to populate a
+The [codebase opportunity account](codebase/README.md) was rebuilt by a whole-codebase audit on
+2026-10-30 at source `c8244cff5`. It holds 142 current opportunities: 31 refreshed from the prior account,
+111 new (`CBO-054`–`CBO-164`), with 21 retired on evidence and one anchored pointer kept for each. It added
+[additional patterns](assessment-patterns.md) `LOP-X015`–`LOP-X022` (revision 5). Mechanisms are
+Interface-checked and value claims Proposed; nothing was run for it.
+
+The [library applicability assessment](libraries/README.md) and [comparative review](reviews/README.md)
+predate that baseline. They were built on the first audit at `dbc4c9436`, reassessed against source
+`4f52fd239`, and were not refreshed. New opportunities have no assessment yet, and content on retired IDs
+is historical. The codebase entry page lists the questions for the next refresh. Record inspected baselines
+and limits rather than treating empty collections as assessed, and do not invent patterns to populate a
 scaffold.
 
 The shared [vocabulary](references/shared-language.md) and
