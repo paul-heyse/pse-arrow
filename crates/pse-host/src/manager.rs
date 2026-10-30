@@ -9,7 +9,7 @@
 //! adopts them into the transient reference/ownership protocol.
 use crate::HostError;
 use futures_util::StreamExt;
-use pse_diagnostics::process_facts::{ProcessIdentity, ProcessRead, ProcessReader};
+use pse_diagnostics::process_facts::{ProcessFacts, ProcessIdentity, ProcessRead, ProcessReader};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -195,6 +195,20 @@ pub struct ServiceSpec {
     pub arguments: Vec<String>,
     /// Child environment assignments, already selected by the environment owner.
     pub environment: Vec<String>,
+}
+
+/// Explicit manager-side stop-post command, distinct from a payload's byte-exact selection.
+#[derive(Clone, Debug)]
+pub struct ServiceFinalizer {
+    /// Absolute finalizer executable path, passed directly without a shell.
+    pub executable: PathBuf,
+    /// UTF-8 control arguments excluding argv[0]; payload arguments stay with their own owner.
+    pub arguments: Vec<String>,
+}
+
+enum ServiceLaunch<'a> {
+    Exec,
+    Notify(&'a ServiceFinalizer),
 }
 
 /// Observation only. Unknown properties are errors, never empty-success facts.
@@ -1175,13 +1189,35 @@ impl HostManager {
         }
         tokio::time::timeout_at(
             deadline.into(),
-            self.start_service_inner(spec, None, deadline),
+            self.start_service_inner(spec, ServiceLaunch::Exec, None, deadline),
         )
         .await
         .map_err(|_| HostError::UnknownLaunch {
             unit: spec.intent.unit.clone(),
             detail: "absolute launch deadline".into(),
         })?
+    }
+    /// Start one original notify service with main-process-only readiness and an explicit
+    /// stop-post finalizer. Only a matching done job acknowledges readiness, not payload settlement.
+    /// Failed jobs also retain original performing custody; inspect launch_job_result separately.
+    /// No automatic restart or resubmission occurs; uncertain replies retain the original intent.
+    pub async fn start_notify_service(
+        &self,
+        spec: &ServiceSpec,
+        finalizer: &ServiceFinalizer,
+        deadline: Instant,
+    ) -> Result<OwnedUnit, HostError> {
+        if Instant::now() >= deadline {
+            return Err(HostError::Deadline(
+                "notify service launch already expired; not submitted".into(),
+            ));
+        }
+        tokio::time::timeout_at(
+            deadline.into(),
+            self.start_service_inner(spec, ServiceLaunch::Notify(finalizer), None, deadline),
+        )
+        .await
+        .map_err(|_| unknown_launch(&spec.intent, "absolute notify service startup deadline"))?
     }
     /// Start one original service bound to this process's authenticated native
     /// workload scope. The parent is borrowed: no stop/reference authority is
@@ -1240,7 +1276,7 @@ impl HostManager {
                 controls: controls.clone(),
             };
             self.validate_bound_service(&binding, deadline).await?;
-            self.start_service_inner(spec, Some(&binding), deadline)
+            self.start_service_inner(spec, ServiceLaunch::Exec, Some(&binding), deadline)
                 .await
         })
         .await
@@ -1379,44 +1415,47 @@ impl HostManager {
     async fn start_service_inner(
         &self,
         spec: &ServiceSpec,
+        launch: ServiceLaunch<'_>,
         binding: Option<&BoundServiceContext>,
         deadline: Instant,
     ) -> Result<OwnedUnit, HostError> {
         self.validate_view()?;
-        if !spec.executable.is_absolute() {
-            return Err(HostError::Ownership(
-                "service executable must be absolute".into(),
-            ));
-        }
-        let executable = spec
-            .executable
-            .to_str()
-            .ok_or_else(|| HostError::Ownership("D-Bus executable path must be UTF-8".into()))?;
-        let mut argv = vec![executable.to_owned()];
-        argv.extend(spec.arguments.iter().cloned());
+        let command = service_command(&spec.executable, &spec.arguments)?;
+        let finalizer = match &launch {
+            ServiceLaunch::Exec => None,
+            ServiceLaunch::Notify(finalizer) => Some(service_command(
+                &finalizer.executable,
+                &finalizer.arguments,
+            )?),
+        };
         let manager = self.manager().await?;
         let mut removed = manager.receive_job_removed().await?;
         let mut properties = vec![
             property("AddRef", true)?,
             property("Description", spec.intent.description.clone())?,
-            property("Type", "exec".to_owned())?,
+            property(
+                "Type",
+                if finalizer.is_some() {
+                    "notify"
+                } else {
+                    "exec"
+                }
+                .to_owned(),
+            )?,
             property("KillMode", "control-group".to_owned())?,
             property("Restart", "no".to_owned())?,
-            property("RemainAfterExit", true)?,
+            property("RemainAfterExit", finalizer.is_none())?,
             property("CollectMode", "inactive-or-failed".to_owned())?,
             // The direct transient D-Bus setter already preserves percent
             // specifiers and escapes its persisted unit form. Disable only the
             // manager's execution-time dollar expansion, as systemd-run does.
-            property(
-                "ExecStartEx",
-                vec![(
-                    executable.to_owned(),
-                    argv,
-                    vec!["no-env-expand".to_owned()],
-                )],
-            )?,
+            property("ExecStartEx", vec![command])?,
             property("Environment", spec.environment.clone())?,
         ];
+        if let Some(finalizer) = finalizer {
+            properties.push(property("NotifyAccess", "main".to_owned())?);
+            properties.push(property("ExecStopPostEx", vec![finalizer])?);
+        }
         if let Some(binding) = binding {
             self.validate_bound_service(binding, deadline).await?;
             properties.extend(bound_service_properties(binding)?);
@@ -2015,6 +2054,43 @@ impl HostManager {
     }
 }
 
+fn original_main_matches(
+    original: Option<&ProcessIdentity>,
+    observed_pid: u32,
+    current: ProcessRead<ProcessFacts>,
+    stopping: bool,
+) -> bool {
+    let Some(original) = original.filter(|identity| identity.pid == observed_pid) else {
+        return false;
+    };
+    match current {
+        ProcessRead::Present(facts) => &facts.identity == original,
+        ProcessRead::Absent => stopping,
+        ProcessRead::Unavailable(_) | ProcessRead::Changed => false,
+    }
+}
+
+fn service_command(
+    executable: &Path,
+    arguments: &[String],
+) -> Result<(String, Vec<String>, Vec<String>), HostError> {
+    if !executable.is_absolute() {
+        return Err(HostError::Ownership(
+            "service executable must be absolute".into(),
+        ));
+    }
+    let executable = executable
+        .to_str()
+        .ok_or_else(|| HostError::Ownership("D-Bus executable path must be UTF-8".into()))?;
+    let mut argv = vec![executable.to_owned()];
+    argv.extend(arguments.iter().cloned());
+    Ok((
+        executable.to_owned(),
+        argv,
+        vec!["no-env-expand".to_owned()],
+    ))
+}
+
 fn operation_coordinates(unit: &str) -> Result<(String, &str), HostError> {
     let (parent, nonce) = unit
         .strip_suffix(".slice")
@@ -2455,20 +2531,10 @@ impl OwnedUnit {
         }
         if result.main_pid != 0 {
             let current = ProcessReader::default().process(result.main_pid);
-            let original = match current {
-                ProcessRead::Present(facts) => self.process.as_ref() == Some(&facts.identity),
-                // Manager MainPID can lag actual exit after our StopUnit. Only
-                // exact original PID absence AND original empty hierarchy allow
-                // continued settlement; unavailable/reused identities still refuse.
-                ProcessRead::Absent if stopping => {
-                    self.process
-                        .as_ref()
-                        .is_some_and(|identity| identity.pid == result.main_pid)
-                        && self.group.empty()?
-                }
-                _ => false,
-            };
-            if !original {
+            // Stop targets this authenticated original unit and opened hierarchy, never
+            // the departed main PID. Its descendants/finalizer remain owned while draining.
+            // Exact known absence is safe here; reuse, unavailable identity and adoption are not.
+            if !original_main_matches(self.process.as_ref(), result.main_pid, current, stopping) {
                 return Err(HostError::Ownership(
                     "main process identity changed or unavailable".into(),
                 ));
@@ -2961,6 +3027,10 @@ fn parse_population(contents: &str) -> Result<bool, HostError> {
         )),
     }
 }
+
+#[cfg(test)]
+#[path = "manager/notify_tests.rs"]
+mod notify_tests;
 
 #[cfg(test)]
 mod tests {

@@ -48,7 +48,7 @@ pub use manager::{
     AttachedChild, BorrowedService, BorrowedUnit, CreationOutcome, CurrentMembership,
     DirectoryBinding, HostManager, LaunchIntent, OpenedSubgroupCustody, OrdinaryPlacement,
     OwnedSubgroup, OwnedUnit, PayloadParent, PayloadParentBinding, RemovalReceipt,
-    ResourceControls, ServiceSpec, SubgroupCreationIntent, UnitObservation,
+    ResourceControls, ServiceFinalizer, ServiceSpec, SubgroupCreationIntent, UnitObservation,
 };
 
 /// A host boundary failure, never a scientific outcome.
