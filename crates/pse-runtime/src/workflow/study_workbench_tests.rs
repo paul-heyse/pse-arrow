@@ -51,6 +51,16 @@ pub(in crate::workflow) async fn create(
     physical: &flow::PhysicalSource,
     points: u32,
 ) {
+    create_with_attempt_limit(runtime, study, source, physical, points, 1).await;
+}
+pub(in crate::workflow) async fn create_with_attempt_limit(
+    runtime: &Runtime,
+    study: &str,
+    source: &Revision,
+    physical: &flow::PhysicalSource,
+    points: u32,
+    attempt_limit: u32,
+) {
     let store = runtime.canonical_store().unwrap();
     let physical_row = store.revision(&physical.revision).await.unwrap().unwrap();
     let points = (0..points)
@@ -61,7 +71,7 @@ pub(in crate::workflow) async fn create(
                 dependencies: vec![],
                 start: StartPolicy::Fresh,
                 seed_need: SeedNeed::NotNeeded,
-                attempt_limit: 1,
+                attempt_limit,
             },
             descriptor: vec![42],
             run: request(source, &physical_row, &format!("{study}-point-{key}")),

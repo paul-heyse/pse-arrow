@@ -1567,7 +1567,12 @@ pub use study_workbench::{
     StudyWorkbenchFilter, StudyWorkbenchHeader, StudyWorkbenchPage, StudyWorkbenchRequest,
 };
 
+mod attempt_observation;
 mod study_observation;
+pub use attempt_observation::{
+    AttemptObservationCursor, AttemptObservationOrigin, AttemptObservationPage,
+    AttemptObservationRequest,
+};
 pub use study_observation::{
     StudyObservationContext, StudyObservationContinuity, StudyObservationCursor,
     StudyObservationPage, StudyObservationPosition, StudyObservationRequest,

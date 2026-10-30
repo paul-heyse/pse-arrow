@@ -21,6 +21,14 @@ pub struct StudyObservationRequest {
     /// Maximum events returned per poll, from one through 512.
     pub maximum_events: usize,
 }
+impl StudyObservationRequest {
+    pub(crate) fn validate(&self) -> Result<(), WorkflowError> {
+        if !(1..=64).contains(&self.maximum_members) || !(1..=512).contains(&self.maximum_events) {
+            return Err(contract("observer capture allowance outside bounds"));
+        }
+        Ok(())
+    }
+}
 /// Original immutable selection binds a cursor independently from mutable metadata revisions.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -204,11 +212,7 @@ impl RetainedDataServices {
         request: StudyObservationRequest,
         cursor: Option<StudyObservationCursor>,
     ) -> Result<StudyObserver, WorkflowError> {
-        if !(1..=64).contains(&request.maximum_members)
-            || !(1..=512).contains(&request.maximum_events)
-        {
-            return Err(contract("observer capture allowance outside bounds"));
-        }
+        request.validate()?;
         let status = self
             .freeze_study_cohort(StudyCohortRequest {
                 filter: StudyWorkbenchFilter {
@@ -567,7 +571,7 @@ impl StudyObserver {
         })
     }
 }
-fn unavailable_history(error: &WorkflowError) -> Option<String> {
+pub(super) fn unavailable_history(error: &WorkflowError) -> Option<String> {
     use pse_operations::canonical::CanonicalError;
     use pse_schema::catalog::canonical_refusals::RefusalCode as C;
     match error {
@@ -591,7 +595,10 @@ impl Drop for StudyObserver {
     }
 }
 /// Source sequence alone owns continuity; append sequence and wall time never match events.
-fn consume(position: &mut StudyObservationPosition, event: &ProgressEventDocument) -> Option<bool> {
+pub(super) fn consume(
+    position: &mut StudyObservationPosition,
+    event: &ProgressEventDocument,
+) -> Option<bool> {
     let Some(source) = &event.source else {
         return Some(true);
     };
@@ -674,6 +681,10 @@ mod tests {
         assert_eq!(dropped, 1);
     }
 }
+#[cfg(all(test, feature = "canonical-tests"))]
+#[path = "reader-history-tests.rs"]
+mod reader_history_tests;
+
 #[cfg(all(test, feature = "canonical-tests"))]
 #[allow(
     unsafe_code,

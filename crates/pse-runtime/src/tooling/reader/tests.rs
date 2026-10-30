@@ -6,6 +6,8 @@ use pse_diagnostics::observation::{
     Outcome, Policy, ProducerRole, RecordField, Relationship, Value,
 };
 use serde_json::json;
+mod canonical;
+mod publication;
 
 fn request(correlation: &str, request: Request) -> Vec<u8> {
     serde_json::to_vec(&ReaderRequest {

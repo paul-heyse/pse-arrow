@@ -126,6 +126,7 @@ pse-relations.workspace = true
 pse-schema.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+strum.workspace = true
 datafusion.workspace = true
 # Package data documents are Parquet, decoded by Arrow type into Arrow-free row sets
 # (ADR-0125).
@@ -270,6 +271,7 @@ scope.modules = [
   "workflow::physical_cache::physical_admission_cache_unit",
   "workflow::result_inspection::canonical_result_inspection_server_unit",
   "workflow::study_observation::canonical_tests",
+  "workflow::study_observation::reader_history_tests",
   "workflow::study_workbench::canonical_tests",
   "workflow::worker_tests",
 ]

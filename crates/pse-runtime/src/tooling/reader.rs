@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Product-owned passive checkpoint protocol. No mathematical or canonical service is built.
+//! Product-owned passive checkpoint and retained-history protocol, without scientific execution.
+mod canonical;
 use super::inspection::{
     self, DiagnosticListRequest, DiagnosticProcessPage, InspectionDocument, InspectionRequest,
 };
@@ -11,6 +12,7 @@ use crate::{
         read_checkpoint_source,
     },
 };
+pub use canonical::CanonicalReadSelection;
 use pse_diagnostics::observation::{
     ChildSnapshot, CoherentRecord, Coverage, OperationId, Outcome, ProducerId,
 };
@@ -109,8 +111,9 @@ pub enum Section {
     /// Whole producer-owned coherent numerical/phase records.
     Records,
 }
-/// Passive requests only. Capture, cancellation, model evaluation and store opening are absent.
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+/// Passive requests only. Configured canonical connections never start a database or science.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, strum::VariantNames)]
+#[strum(serialize_all = "snake_case")]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Request {
     /// Discover this exact product reader's protocols and schema associations.
@@ -152,6 +155,22 @@ pub enum Request {
         limit: usize,
         /// Original source/query continuation.
         cursor: Option<PageCursor>,
+    },
+    /// Exact selected study snapshot and retained per-attempt progress, without live attachment.
+    Study {
+        /// Existing connection and explicit observer allocation/allowance.
+        canonical: CanonicalReadSelection,
+        /// Existing native bounded study selection.
+        request: crate::workflow::StudyObservationRequest,
+        /// Exact existing native reconnect coordinates, never observer-issued scientific IDs.
+        cursor: Option<crate::workflow::StudyObservationCursor>,
+    },
+    /// Exact original attempt lineage and protected terminal numerical history.
+    Attempt {
+        /// Existing connection and explicit observer allocation/allowance.
+        canonical: CanonicalReadSelection,
+        /// Original attempt and native source/batch reconnect position.
+        request: crate::workflow::AttemptObservationRequest,
     },
 }
 /// Correlation is an observer request nonce, never a RunId, AttemptId or cancellation capability.
@@ -271,6 +290,23 @@ pub struct RecordPage {
     pub coverage: Coverage,
     /// Original detail omission, independent of this consumer's continuation.
     pub detail_partial: bool,
+    /// Original responsibility and expiry; neither is scientific result permission.
+    pub summary: Option<pse_diagnostics::observation::SummaryPublication>,
+    /// Native owner-selected freshness threshold.
+    #[schemars(with = "pse_diagnostics::ClosedDuration")]
+    pub stale_after: std::time::Duration,
+    /// Original producer observation timestamp in its own monotonic clock.
+    #[schemars(with = "Option<pse_diagnostics::ClosedDuration>")]
+    pub observed_at: Option<std::time::Duration>,
+    /// Actual native freshness assessment time, not a new numerical observation.
+    #[schemars(with = "pse_diagnostics::ClosedDuration")]
+    pub read_at: std::time::Duration,
+    /// Original mapping for comparing this same-host clock, unavailable when not established.
+    pub clock: Option<crate::observation::ClockMapping>,
+    /// Original process publication sequence, separate from native numerical source sequence.
+    pub publication_sequence: u64,
+    /// Original process publication wall timestamp; it is not a source event ordering key.
+    pub published_unix_micros: u128,
     /// Whole source-owned records, never arbitrary nested JSON fragments.
     pub records: Records,
     /// Number of records present in the examined copied source.
@@ -336,6 +372,16 @@ pub enum Payload {
         /// Whole semantic records and explicit source coverage.
         page: RecordPage,
     },
+    /// Original protected study snapshot/history and its existing native cursor.
+    Study {
+        /// Typed native page retained through serialization.
+        page: Box<crate::workflow::StudyObservationPage>,
+    },
+    /// Original exact attempt lineage and protected native progress page.
+    Attempt {
+        /// Typed native page retained through serialization.
+        page: Box<crate::workflow::AttemptObservationPage>,
+    },
     /// Valid read response describing unavailable evidence; not an empty successful population.
     Unavailable {
         /// Original explicit source selection.
@@ -371,6 +417,21 @@ pub enum ReaderError {
     /// Original source identity mismatch.
     #[error(transparent)]
     Identity(ObservationError),
+    /// Original canonical connection/protection/history owner failure.
+    #[error(transparent)]
+    Canonical(Box<pse_operations::canonical::CanonicalError>),
+    /// Original retained-data validation/allocation/selection failure.
+    #[error(transparent)]
+    Workflow(Box<crate::workflow::WorkflowError>),
+    /// Independent read/encoding failure and original owned-client drain failure.
+    #[error("product reader operation failed: {operation}; client drain also failed: {cleanup}")]
+    Settlement {
+        /// Original read or serialization failure.
+        #[source]
+        operation: Box<ReaderError>,
+        /// Original independently attempted client drain failure.
+        cleanup: Box<ReaderError>,
+    },
     /// A malformed selection, changed continuation, or unsupported bound.
     #[error("product reader selection: {0}")]
     Invalid(String),
@@ -378,8 +439,8 @@ pub enum ReaderError {
 pse_diagnostics::impl_diagnostic! {
     ReaderError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(this) { match this { Self::Identity(error) => Some(error), _ => None } },
-    help(_this) { None }, related(_this) { None }, source(_this) { None }
+    forward(this) { match this { Self::Identity(error) => Some(error),Self::Canonical(error)=>Some(error.as_ref()),Self::Workflow(error)=>Some(error.as_ref()), _ => None } },
+    help(_this) { None }, related(this) { match this {Self::Settlement{operation,cleanup}=>{let errors:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()];Some(Box::new(errors.into_iter()))},_=>None} }, source(_this) { None }
 }
 fn hash(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
@@ -459,6 +520,20 @@ fn validate(request: &ReaderRequest) -> Result<(), ReaderError> {
         } => {
             absolute(source.path())?;
             limit(*requested)?;
+        }
+        Request::Study {
+            canonical, request, ..
+        } => {
+            canonical.validate()?;
+            request
+                .validate()
+                .map_err(|error| ReaderError::Workflow(Box::new(error)))?;
+        }
+        Request::Attempt { canonical, request } => {
+            canonical.validate()?;
+            request
+                .validate()
+                .map_err(|error| ReaderError::Workflow(Box::new(error)))?;
         }
     }
     Ok(())
@@ -582,7 +657,7 @@ fn handle(request: Request) -> Result<Payload, ReaderError> {
             package_version: env!("CARGO_PKG_VERSION"),
             request_schema: REQUEST_SCHEMA,
             response_schema: RESPONSE_SCHEMA,
-            operations: vec!["discover", "schema", "processes", "inspect", "page"],
+            operations: <Request as strum::VariantNames>::VARIANTS.to_vec(),
             request_bytes: REQUEST_BYTES,
             response_bytes: RESPONSE_BYTES,
         }),
@@ -714,6 +789,21 @@ fn handle(request: Request) -> Result<Payload, ReaderError> {
                 ));
             };
             let offset = cursor.map_or(0, |cursor| cursor.offset);
+            // Assess freshness under the existing native policy, while retaining exact copied
+            // row membership. A later wall clock cannot change a byte-bound page's offsets.
+            let now = read
+                .image
+                .clock
+                .as_ref()
+                .and_then(|clock| clock.observation_now());
+            let mut assessed = pse_diagnostics::inspection::select_window(
+                operation.clone(),
+                now.unwrap_or(operation.read_at),
+                operation.requested_interval,
+            );
+            if now.is_none() {
+                assessed.coverage.stale = true;
+            }
             let (records, known, partial) = match section {
                 Section::Related => (
                     Records::Related(
@@ -791,8 +881,15 @@ fn handle(request: Request) -> Result<Payload, ReaderError> {
                     operation: operation_id,
                     operation_kind: operation.kind.clone(),
                     outcome: operation.outcome,
-                    coverage: operation.coverage.clone(),
+                    coverage: assessed.coverage,
                     detail_partial: operation.detail_partial,
+                    summary: operation.summary.clone(),
+                    stale_after: operation.stale_after,
+                    observed_at: operation.observed_at,
+                    read_at: assessed.read_at,
+                    clock: read.image.clock.clone(),
+                    publication_sequence: read.image.sequence,
+                    published_unix_micros: read.image.published_unix_micros,
                     records,
                     known_records: known,
                     total: (!partial).then_some(known),
@@ -802,29 +899,33 @@ fn handle(request: Request) -> Result<Payload, ReaderError> {
                 },
             })
         }
+        Request::Study { .. } | Request::Attempt { .. } => Err(invalid(
+            "canonical requests require their owned encoding boundary",
+        )),
     }
 }
-/// Decode, check and execute one passive request. A refusal is still a complete product frame.
-pub fn dispatch(bytes: &[u8]) -> ReaderResponse {
+fn correlation(bytes: &[u8]) -> String {
     #[derive(Deserialize)]
     struct Correlation {
         correlation: String,
     }
-    let correlation = if bytes.len() > REQUEST_BYTES {
+    if bytes.len() > REQUEST_BYTES {
         String::new()
     } else {
         serde_json::from_slice::<Correlation>(bytes)
             .map(|value| value.correlation)
             .unwrap_or_default()
-    };
-    let result = (|| {
-        if bytes.len() > REQUEST_BYTES {
-            return Err(invalid("request exceeds the reader extent bound"));
-        }
-        let request: ReaderRequest = serde_json::from_slice(bytes)?;
-        validate(&request)?;
-        handle(request.request)
-    })();
+    }
+}
+fn decode(bytes: &[u8]) -> Result<ReaderRequest, ReaderError> {
+    if bytes.len() > REQUEST_BYTES {
+        return Err(invalid("request exceeds the reader extent bound"));
+    }
+    let request: ReaderRequest = serde_json::from_slice(bytes)?;
+    validate(&request)?;
+    Ok(request)
+}
+fn response(correlation: String, result: Result<Payload, ReaderError>) -> ReaderResponse {
     let (category, payload) = match result {
         Ok(payload) => (Category::Success, payload),
         Err(error) => (
@@ -843,16 +944,32 @@ pub fn dispatch(bytes: &[u8]) -> ReaderResponse {
         payload,
     }
 }
-/// One bounded stdin request and one privately prepared stdout frame. No partial serialization
-/// can become evidence; an actual output I/O failure remains a transport failure.
-pub fn serve(mut input: impl Read, mut output: impl Write) -> Result<i32, ReaderError> {
-    let mut bytes = Vec::new();
-    input
-        .by_ref()
-        .take((REQUEST_BYTES + 1) as u64)
-        .read_to_end(&mut bytes)?;
-    let response = dispatch(&bytes);
-    let mut frame = serde_json::to_vec(&response)?;
+/// Complete producer-owned frame after all required protected page/client owners settled.
+pub struct EncodedResponse {
+    frame: Vec<u8>,
+    code: i32,
+}
+impl std::fmt::Debug for EncodedResponse {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("EncodedResponse")
+            .field("frame_bytes", &self.frame.len())
+            .field("code", &self.code)
+            .finish()
+    }
+}
+impl EncodedResponse {
+    /// Complete exact encoded product response, including terminal newline.
+    pub fn bytes(&self) -> &[u8] {
+        &self.frame
+    }
+    /// Product command category status, independent of original scientific outcomes.
+    pub fn exit_code(&self) -> i32 {
+        self.code
+    }
+}
+fn encode_response(response: &ReaderResponse) -> Result<EncodedResponse, ReaderError> {
+    let mut frame = serde_json::to_vec(response)?;
     let mut code = if response.category == Category::Success {
         0
     } else {
@@ -862,7 +979,7 @@ pub fn serve(mut input: impl Read, mut output: impl Write) -> Result<i32, Reader
         let refusal = ReaderResponse {
             protocol: Protocol::ProductReader,
             version: Version,
-            correlation: response.correlation,
+            correlation: response.correlation.clone(),
             schema: RESPONSE_SCHEMA,
             category: Category::Refused,
             payload: Payload::Refusal {
@@ -876,8 +993,55 @@ pub fn serve(mut input: impl Read, mut output: impl Write) -> Result<i32, Reader
         code = 2;
     }
     frame.push(b'\n');
-    output.write_all(&frame)?;
-    Ok(code)
+    Ok(EncodedResponse { frame, code })
+}
+/// Decode one passive request and encode its owned native response before releasing custody.
+/// Canonical pages remain typed and protected through encoding, then join owned client drain.
+pub fn encode(bytes: &[u8]) -> Result<EncodedResponse, ReaderError> {
+    match decode(bytes) {
+        Ok(ReaderRequest {
+            correlation,
+            request:
+                Request::Study {
+                    canonical,
+                    request,
+                    cursor,
+                },
+            ..
+        }) => canonical::encode(
+            correlation,
+            canonical,
+            canonical::Read::Study { request, cursor },
+        ),
+        Ok(ReaderRequest {
+            correlation,
+            request: Request::Attempt { canonical, request },
+            ..
+        }) => canonical::encode(correlation, canonical, canonical::Read::Attempt { request }),
+        Ok(ReaderRequest {
+            correlation,
+            request,
+            ..
+        }) => encode_response(&response(correlation, handle(request))),
+        Err(error) => encode_response(&response(correlation(bytes), Err(error))),
+    }
+}
+/// One bounded stdin request and one privately prepared stdout frame. No partial serialization
+/// can become evidence; an actual output I/O failure remains a transport failure.
+pub fn serve(mut input: impl Read, mut output: impl Write) -> Result<i32, ReaderError> {
+    let mut bytes = Vec::new();
+    input
+        .by_ref()
+        .take((REQUEST_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)?;
+    let encoded = encode(&bytes)?;
+    output.write_all(encoded.bytes())?;
+    Ok(encoded.exit_code())
+}
+#[cfg(test)]
+fn dispatch(bytes: &[u8]) -> ReaderResponse {
+    let result = decode(bytes).and_then(|request| handle(request.request));
+    response(correlation(bytes), result)
 }
 
 #[cfg(test)]
