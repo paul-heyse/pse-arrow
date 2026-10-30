@@ -52,6 +52,42 @@ pub struct WorkspaceUse {
     pub dependency_name: String,
     /// Each native edge kind and cfg/platform expression.
     pub kinds: Vec<DependencyKind>,
+    /// Matching authored declarations. These are requests, not activated compiler features.
+    pub declarations: Vec<Declaration>,
+}
+/// One authored incoming dependency declaration, preserving conditional and feature policy.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct Declaration {
+    /// Authored version requirement, separate from the lock resolution.
+    pub requirement: String,
+    /// An optional edge need not participate in the selected build.
+    pub optional: bool,
+    /// Whether this request enables the supplier's defaults.
+    pub uses_default_features: bool,
+    /// Features explicitly requested by this declaration.
+    pub features: Vec<String>,
+    /// Native dependency kind.
+    pub kind: String,
+    /// Unevaluated native platform condition.
+    pub target: Option<String>,
+}
+/// A shortest package inclusion path in the inspected metadata graph.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct InclusionPath {
+    /// Actual workspace root from which the supplier is reachable.
+    pub workspace_member: String,
+    /// Source-qualified IDs in dependency order, including both endpoints.
+    pub packages: Vec<String>,
+}
+/// Authored inverse feature links. No feature simulation or activation is inferred.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct FeatureUse {
+    /// Source-qualified owner of the authored feature declaration.
+    pub package: String,
+    /// Feature whose declared expansion contains this exact member spelling.
+    pub feature: String,
+    /// Original expansion member (`dep:foo`, `foo?/bar`, etc.).
+    pub member: String,
 }
 /// Cargo's actual edge context, not an evaluated cross-platform availability assertion.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -107,10 +143,26 @@ pub struct Report {
     pub workspace: PathBuf,
     /// Exact result or preserved ambiguity.
     pub selected: Selection,
+    /// Requested package reach; unknown when Cargo omitted the graph.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inclusion_paths: Option<Vec<InclusionPath>>,
+    /// Explicit feature member inverse lookup, without evaluating a feature expression.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub feature_uses: Option<Vec<FeatureUse>>,
 }
 
 /// Query the exact retained metadata document, never build, fetch or prepare a dependency.
 pub fn inspect(snapshot: &MetadataSnapshot, query: &str, source: &str) -> Envelope<Report> {
+    inspect_details(snapshot, query, source, false, None)
+}
+/// Expand only selected reach or exact authored feature relationships, without compilation.
+pub fn inspect_details(
+    snapshot: &MetadataSnapshot,
+    query: &str,
+    source: &str,
+    why: bool,
+    feature_member: Option<&str>,
+) -> Envelope<Report> {
     let metadata = &snapshot.metadata;
     let exact = metadata
         .packages
@@ -140,6 +192,32 @@ pub fn inspect(snapshot: &MetadataSnapshot, query: &str, source: &str) -> Envelo
             candidates: candidates.into_iter().map(PackageIdentity::from).collect(),
         },
     };
+    let inclusion_paths = if why {
+        match &selected {
+            Selection::Exact { facts } => inclusion_paths(metadata, &facts.package.id),
+            _ => None,
+        }
+    } else {
+        None
+    };
+    let feature_uses = feature_member.map(|member| {
+        metadata
+            .packages
+            .iter()
+            .flat_map(|package| {
+                package.features.iter().flat_map(move |(feature, members)| {
+                    members
+                        .iter()
+                        .filter(move |value| value.as_str() == member)
+                        .map(move |value| FeatureUse {
+                            package: package.id.to_string(),
+                            feature: feature.to_string(),
+                            member: value.to_string(),
+                        })
+                })
+            })
+            .collect()
+    });
     let mut response = Envelope::response(
         "dep",
         match &selected {
@@ -155,6 +233,8 @@ pub fn inspect(snapshot: &MetadataSnapshot, query: &str, source: &str) -> Envelo
             source: source.into(),
             workspace: metadata.workspace_root.as_std_path().to_owned(),
             selected,
+            inclusion_paths,
+            feature_uses,
         },
     );
     response.subject_state = match &response.payload.selected {
@@ -168,7 +248,43 @@ pub fn inspect(snapshot: &MetadataSnapshot, query: &str, source: &str) -> Envelo
         "metadata graph is not ordinary-build API availability, compilation success or source freshness proof".into(),
         "overview candidates match exact filenames; combined library documents may not appear".into(),
     ]);
+    if why {
+        response.observation.limitations.push("one shortest path per reachable workspace member in Cargo's package graph; target conditions, optional edges and feature unions do not prove selected-unit or test reach".into());
+    }
+    if feature_member.is_some() {
+        response.observation.limitations.push("feature member lookup reports exact authored links across the inspected metadata; it does not resolve or activate an expression and does not simulate feature configurations".into());
+    }
     response
+}
+fn inclusion_paths(metadata: &Metadata, selected: &str) -> Option<Vec<InclusionPath>> {
+    use petgraph::{algo::astar, graphmap::DiGraphMap};
+    let resolve = metadata.resolve.as_ref()?;
+    let mut graph = DiGraphMap::<&str, ()>::new();
+    for node in &resolve.nodes {
+        graph.add_node(&node.id.repr);
+        for edge in &node.deps {
+            graph.add_edge(node.id.repr.as_str(), edge.pkg.repr.as_str(), ());
+        }
+    }
+    Some(
+        metadata
+            .workspace_members
+            .iter()
+            .filter_map(|root| {
+                astar(
+                    &graph,
+                    root.repr.as_str(),
+                    |node| node == selected,
+                    |_| 1usize,
+                    |_| 0,
+                )
+                .map(|(_, path)| InclusionPath {
+                    workspace_member: root.to_string(),
+                    packages: path.into_iter().map(str::to_owned).collect(),
+                })
+            })
+            .collect(),
+    )
 }
 fn facts(metadata: &Metadata, package: &Package) -> PackageFacts {
     let node = metadata
@@ -199,6 +315,26 @@ fn facts(metadata: &Metadata, package: &Package) -> PackageFacts {
                         .map(|kind| DependencyKind {
                             kind: kind.kind.to_string(),
                             target: kind.target.as_ref().map(ToString::to_string),
+                        })
+                        .collect(),
+                    declarations: owner
+                        .dependencies
+                        .iter()
+                        .filter(|dependency| {
+                            dependency
+                                .rename
+                                .as_deref()
+                                .unwrap_or(&dependency.name)
+                                .replace('-', "_")
+                                == edge.name
+                        })
+                        .map(|dependency| Declaration {
+                            requirement: dependency.req.to_string(),
+                            optional: dependency.optional,
+                            uses_default_features: dependency.uses_default_features,
+                            features: dependency.features.clone(),
+                            kind: dependency.kind.to_string(),
+                            target: dependency.target.as_ref().map(ToString::to_string),
                         })
                         .collect(),
                 });

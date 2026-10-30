@@ -61,6 +61,7 @@ rustix.workspace = true
 zbus.workspace = true
 zbus_systemd.workspace = true
 cargo_metadata.workspace = true
+petgraph.workspace = true
 rustdoc-types.workspace = true
 nextest-metadata.workspace = true
 quick-junit.workspace = true

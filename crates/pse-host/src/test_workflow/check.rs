@@ -31,7 +31,10 @@ impl CheckIntent {
         environment: crate::environment::Environment,
     ) -> Result<Self, WorkflowError> {
         let (plan, _) = super::source::resolve(&metadata, request, String::new(), &environment)?;
-        if plan.operation() != selection::Operation::Check {
+        if !matches!(
+            plan.operation(),
+            selection::Operation::Check | selection::Operation::Rustdoc
+        ) {
             return Err(WorkflowError::Invalid(
                 "check workflow requires check intent".into(),
             ));
@@ -160,8 +163,14 @@ impl PreparedCheck {
             self.control.captured.as_os_str().to_owned(),
         );
         let mut arguments = admitted.arguments.clone();
-        arguments.push("--keep-going".into());
-        arguments.push("--message-format=json".into());
+        let controls = arguments
+            .iter()
+            .position(|argument| argument == "--")
+            .unwrap_or(arguments.len());
+        arguments.splice(
+            controls..controls,
+            ["--keep-going".into(), "--message-format=json".into()],
+        );
         Ok(GroupCommand {
             program: self.control.captured.clone(),
             arguments,
@@ -390,6 +399,9 @@ mod tests {
         selection::{Features, Filters, IgnoredPolicy, PackageIntent, Scope, TargetIntent},
     };
     fn fixture() -> (tempfile::TempDir, CheckIntent) {
+        fixture_operation(selection::Operation::Check)
+    }
+    fn fixture_operation(operation: selection::Operation) -> (tempfile::TempDir, CheckIntent) {
         let directory = tempfile::tempdir().unwrap();
         fs::create_dir(directory.path().join("src")).unwrap();
         fs::write(
@@ -399,7 +411,11 @@ mod tests {
         .unwrap();
         fs::write(
             directory.path().join("src/lib.rs"),
-            "pub fn case() { let _: u32 = \"type error\"; }\n",
+            if operation == selection::Operation::Rustdoc {
+                "/// See [missing_item].\n/// ```rust\n/// let = ;\n/// ```\npub fn case() {}\n"
+            } else {
+                "pub fn case() { let _: u32 = \"type error\"; }\n"
+            },
         )
         .unwrap();
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -423,7 +439,7 @@ mod tests {
             .exec()
             .unwrap();
         let request = Request {
-            operation: selection::Operation::Check,
+            operation,
             scope: Scope::Packages(vec![PackageIntent {
                 package: "check-case".into(),
                 target: Some(TargetIntent {
@@ -492,6 +508,83 @@ mod tests {
         assert_eq!(
             observer.finish(0, false).0.summary.outcome(),
             CompilerOutcome::Incomplete
+        );
+    }
+    #[test]
+    fn rustdoc_check_retains_native_rules_and_locations_without_a_test_verdict() {
+        let (directory, intent) = fixture_operation(selection::Operation::Rustdoc);
+        let admitted = intent.admit().unwrap();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(2)
+            .unwrap();
+        let generation = crate::generation::prepared(root).unwrap().unwrap();
+        let retained = directory.path().join("control");
+        fs::DirBuilder::new().mode(0o700).create(&retained).unwrap();
+        let control = discovery::capture::executable(
+            &generation
+                .executable(root, crate::generation::HostTool::Correctness)
+                .unwrap(),
+            &retained.join("cargo-pse-correctness"),
+        )
+        .unwrap();
+        let ready = PreparedCheck {
+            context: admitted.context,
+            resolved: admitted.resolved,
+            control,
+            generation,
+        };
+        let request = ready.command(0).unwrap();
+        let separator = request
+            .arguments
+            .iter()
+            .position(|argument| argument == "--")
+            .unwrap();
+        assert!(
+            request.arguments[..separator]
+                .iter()
+                .any(|argument| argument == "--message-format=json")
+        );
+        assert!(
+            request.arguments[separator + 1..]
+                .iter()
+                .any(|argument| argument == "rustdoc::broken_intra_doc_links")
+        );
+        let output = std::process::Command::new(request.program)
+            .args(request.arguments)
+            .current_dir(request.cwd)
+            .env_clear()
+            .envs(request.environment)
+            .output()
+            .unwrap();
+        assert_eq!(
+            output.status.code(),
+            Some(101),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let (observed, error) = framed(&output.stdout, 10);
+        assert!(error.is_none());
+        assert_eq!(observed.summary.outcome(), CompilerOutcome::Failed);
+        for rule in [
+            "rustdoc::broken_intra_doc_links",
+            "rustdoc::invalid_rust_codeblocks",
+        ] {
+            let failure = observed
+                .failures
+                .iter()
+                .find(|failure| failure.code.as_deref() == Some(rule))
+                .unwrap();
+            assert!(
+                failure
+                    .primary
+                    .iter()
+                    .any(|span| span.file.ends_with("src/lib.rs"))
+            );
+        }
+        assert!(
+            !crate::test_workflow::execute::Outcome::TestsSucceeded
+                .successful(crate::test_workflow::execute::Action::Rustdoc)
         );
     }
     #[test]

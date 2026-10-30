@@ -63,7 +63,7 @@ pub(crate) struct Cli {
     /// Select comma-separated payload fields while retaining identity, state and coverage.
     fields: Option<Vec<String>>,
     #[arg(long, global = true)]
-    /// Limit payload array records; retain complete evidence as an artifact.
+    /// Limit whole payload records; producer pages retain their omission and continuation facts.
     budget: Option<usize>,
     #[arg(long)]
     version: bool,
@@ -138,6 +138,12 @@ enum Command {
         /// Read this explicit Cargo metadata snapshot instead of collecting locked offline metadata.
         #[arg(long)]
         metadata: Option<PathBuf>,
+        /// Show one shortest package inclusion path per reachable workspace member.
+        #[arg(long)]
+        why: bool,
+        /// Find exact authored feature-expansion members without activating them.
+        #[arg(long)]
+        feature_member: Option<String>,
     },
     /// Inspect changed Git layers, declared source owners and conservative test reach.
     Changes(changes::Selection),
@@ -691,6 +697,8 @@ enum CorrectnessCommand {
     Bench(CargoTail),
     Run(CargoTail),
     Clippy(CargoTail),
+    Rustc(CargoTail),
+    Rustdoc(CargoTail),
     Nextest {
         #[command(subcommand)]
         action: NextestCommand,
@@ -1083,7 +1091,12 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
         Command::Docs(args) => docs::dispatch(args, selected, presentation, entry),
         Command::Api(args) => api::dispatch(args, &checkout_root(selected)?, presentation, entry),
         Command::Code { action } => code::dispatch(action, selected, presentation),
-        Command::Dep { package, metadata } => {
+        Command::Dep {
+            package,
+            metadata,
+            why,
+            feature_member,
+        } => {
             let snapshot = if let Some(path) = metadata.as_ref() {
                 crate::catalog::MetadataSnapshot::read(&source_path(selected, path.clone())?)?
             } else {
@@ -1092,7 +1105,7 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                     &std::env::vars_os().collect(),
                 )?
             };
-            Ok(presentation.emit(crate::dependency::inspect(
+            Ok(presentation.emit(crate::dependency::inspect_details(
                 &snapshot,
                 &package,
                 if metadata.is_some() {
@@ -1100,6 +1113,8 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                 } else {
                     "locked_offline_metadata"
                 },
+                why,
+                feature_member.as_deref(),
             ))?)
         }
         Command::Artifact {

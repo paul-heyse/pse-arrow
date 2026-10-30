@@ -134,10 +134,10 @@ async fn perform(
             "unsupported workflow input or empty profile".into(),
         ));
     }
-    let operation = if input.action == Action::Check {
-        selection::Operation::Check
-    } else {
-        selection::Operation::Test
+    let operation = match input.action {
+        Action::Check => selection::Operation::Check,
+        Action::Rustdoc => selection::Operation::Rustdoc,
+        Action::List | Action::Test => selection::Operation::Test,
     };
     if input.request.operation != operation {
         return Err(WorkflowError::Invalid(
@@ -193,7 +193,7 @@ async fn perform(
             "captured Cargo workspace differs from selected checkout".into(),
         ));
     }
-    if input.action == Action::Check {
+    if input.action.is_compiler() {
         let mut admitted =
             test_workflow::CheckIntent::new(metadata, input.request.clone(), environment)?
                 .admit()?;
@@ -214,7 +214,12 @@ async fn perform(
             directory(&capture)?;
             let mut request = prepared.command(group)?;
             if input.timings {
-                request.arguments.push("--timings".into());
+                let end = request
+                    .arguments
+                    .iter()
+                    .position(|argument| argument == "--")
+                    .unwrap_or(request.arguments.len());
+                request.arguments.insert(end, "--timings".into());
             }
             request.environment.insert(
                 "PSE_CORRECTNESS_BUILD_CAPTURE".into(),
@@ -604,7 +609,7 @@ async fn execute_groups_with_policy(
         report.outcome = Outcome::Incomplete;
         return Ok(());
     }
-    let kind = if input.action == Action::Check {
+    let kind = if input.action.is_compiler() {
         PhaseKind::Check
     } else {
         PhaseKind::Test
@@ -670,11 +675,7 @@ async fn execute_groups_with_policy(
                 record_phase(report, kind, Some(group), &prefix, &mut captured);
                 if let Some(exit) = captured.child_exit.filter(|exit| *exit != 0) {
                     report.failure(WorkflowError::PhaseExit {
-                        phase: if input.action == Action::Check {
-                            "check"
-                        } else {
-                            "test"
-                        },
+                        phase: input.action.command(),
                         exit,
                     });
                 }
@@ -722,7 +723,7 @@ async fn execute_groups_with_policy(
         Outcome::Incomplete
     } else if !success || !report.causes.is_empty() {
         Outcome::Failed
-    } else if input.action == Action::Check {
+    } else if input.action.is_compiler() {
         Outcome::CheckSucceeded
     } else {
         Outcome::TestsSucceeded

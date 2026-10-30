@@ -49,13 +49,24 @@ pub(super) struct Arguments {
     /// Expand authored Rust examples and hidden setup; never execute them.
     #[arg(long)]
     examples: bool,
+    /// Expand the original format-qualified rustdoc item, including complex bounds/associated data.
+    #[arg(long)]
+    declaration: bool,
+    /// Compare with an explicitly selected historical acquired document.json using
+    /// the separately prepared native compatibility tool; never generate either side.
+    #[arg(long, conflicts_with_all=["prepare","path","search","cursor"])]
+    compare_with: Option<std::path::PathBuf>,
+    /// Explicitly check this workspace library's authored documentation with native
+    /// rustdoc diagnostics; no API artifact or analyzer session is required.
+    #[arg(long, conflicts_with_all=["prepare","compare_with","path","search","cursor"])]
+    check_docs: bool,
     /// Continue the same immutable artifact/query page; stale contexts refuse.
     #[arg(long)]
     cursor: Option<String>,
 }
 impl Arguments {
     pub(super) fn intent(&self) -> GenerationIntent {
-        if self.prepare {
+        if self.prepare || self.compare_with.is_some() || self.check_docs {
             GenerationIntent::NewWork
         } else {
             GenerationIntent::Passive
@@ -156,6 +167,37 @@ pub(super) fn dispatch(
     let environment = std::env::vars_os().collect();
     let store = CheckoutState::resolve(root, &environment)?.root;
     let snapshot = crate::dependency::capture(root, &environment)?;
+    if arguments.check_docs {
+        let package = crate::probe::select(&snapshot.metadata, &arguments.crate_query)
+            .map_err(|error| HostError::Api(Box::new(error.into())))?;
+        if !snapshot.metadata.workspace_members.contains(&package.id) {
+            return Err(HostError::Ownership("documentation checking selects a workspace package; external API acquisition remains a separate explicit operation".into()));
+        }
+        return super::testing::start(
+            crate::test_workflow::execute::Action::Rustdoc,
+            crate::selection::Request {
+                operation: crate::selection::Operation::Rustdoc,
+                scope: crate::selection::Scope::Targets {
+                    scope: Box::new(crate::selection::Scope::Packages(vec![
+                        crate::selection::PackageIntent {
+                            package: package.id.to_string(),
+                            target: None,
+                            features: crate::selection::Features::default(),
+                        },
+                    ])),
+                    selector: crate::selection::CargoTargets::Library,
+                },
+                platform: arguments.target,
+                filters: crate::selection::Filters::default(),
+                ignored: crate::selection::IgnoredPolicy::Default,
+            },
+            "default".into(),
+            super::testing::RunOptions::default(),
+            Some(root),
+            entry,
+            output,
+        );
+    }
     if arguments.prepare {
         let acquisition = api::prepare(
             root,
@@ -250,6 +292,39 @@ pub(super) fn dispatch(
             output,
         );
     };
+    if let Some(baseline) = arguments.compare_with {
+        let baseline = api::retained(&root.join(baseline)).map_err(error)?;
+        let comparison =
+            api::comparison::prepare(root, &store, &baseline, &artifact, &environment)?;
+        providers.push(provider(&baseline.context, Some(&baseline))?);
+        return super::launch_managed_finalize(
+            ManagedCommand {
+                parent: None,
+                root: root.to_owned(),
+                cwd: root.to_owned(),
+                environment,
+                command: std::iter::once(comparison.executable.into_os_string())
+                    .chain(comparison.arguments)
+                    .collect(),
+                detach: false,
+                session: None,
+                resource_class: None,
+                verb: "api compare",
+                tool: Some(super::NativeToolSelection {
+                    kind: "cargo-semver-checks",
+                    selection: comparison.version,
+                    source_identity: format!("{}..{}", baseline.sha256, artifact.sha256),
+                    executable_sha256: comparison.executable_sha256,
+                }),
+                workflow: None,
+            },
+            entry,
+            output,
+            comparison.artifacts,
+            providers,
+            || Ok(Vec::new()),
+        );
+    }
     let mut query = Query {
         path: arguments.path,
         search: arguments.search,
@@ -262,6 +337,7 @@ pub(super) fn dispatch(
         const_only: arguments.const_only,
         docs: arguments.docs,
         examples: arguments.examples,
+        declaration: arguments.declaration,
         surface_identity: None,
         request_identity: None,
     };

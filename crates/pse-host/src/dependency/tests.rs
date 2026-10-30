@@ -59,6 +59,53 @@ fn omitted_graph_is_unknown_not_empty_features_or_no_consumers() {
     );
 }
 #[test]
+fn package_paths_and_authored_feature_links_do_not_simulate_activation() {
+    let mut snapshot = snapshot();
+    snapshot.metadata.packages.iter_mut().find(|package| package.id.repr == "consumer").unwrap()
+        .dependencies.push(serde_json::from_value(json!({
+            "name":"dep", "rename":"renamed-dep", "req":"^1.0", "kind":"build",
+            "target":"cfg(unix)", "optional":true, "uses_default_features":false, "features":["requested-not-enabled"]
+        })).unwrap());
+    let response = inspect_details(&snapshot, "first", "fixture", true, Some("extra"));
+    let Selection::Exact { facts } = &response.payload.selected else {
+        panic!("exact dependency lost")
+    };
+    let declaration = &facts.workspace_uses.as_ref().unwrap()[0].declarations[0];
+    assert!(declaration.optional);
+    assert!(!declaration.uses_default_features);
+    assert_eq!(declaration.features, ["requested-not-enabled"]);
+    assert_eq!(declaration.target.as_deref(), Some("cfg(unix)"));
+    assert_eq!(facts.metadata_features.as_ref().unwrap(), &["extra"]);
+    let paths = response.payload.inclusion_paths.unwrap();
+    assert_eq!(paths.len(), 1);
+    assert_eq!(paths[0].packages, ["consumer", "first"]);
+    let features = response.payload.feature_uses.unwrap();
+    assert_eq!(features.len(), 4);
+    assert!(
+        features
+            .iter()
+            .any(|usage| usage.package == "first" && usage.feature == "default")
+    );
+    assert!(
+        response
+            .observation
+            .limitations
+            .iter()
+            .any(|value| value.contains("does not resolve or activate"))
+    );
+    let absent = inspect_details(&snapshot, "newer", "fixture", true, Some("absent"));
+    assert!(absent.payload.inclusion_paths.unwrap().is_empty());
+    assert!(absent.payload.feature_uses.unwrap().is_empty());
+    let mut missing_graph = snapshot;
+    missing_graph.metadata.resolve = None;
+    assert!(
+        inspect_details(&missing_graph, "first", "fixture", true, None)
+            .payload
+            .inclusion_paths
+            .is_none()
+    );
+}
+#[test]
 fn actual_locked_offline_metadata_keeps_workspace_lock_and_reports_pinned_clap() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()

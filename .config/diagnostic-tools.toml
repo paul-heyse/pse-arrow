@@ -57,6 +57,14 @@ sha256 = "73657a111819a30c47c08352896796f23d64e4eb2b3ed39b6d32149241566fc5"
 member = "lychee"
 archive = "tar.gz"
 
+# Native compatibility checking over explicitly acquired format-61 rustdoc evidence.
+[cargo-semver-checks]
+version = "0.51.0"
+url = "https://github.com/obi1kenobi/cargo-semver-checks/releases/download/v0.51.0/cargo-semver-checks-x86_64-unknown-linux-gnu.tar.gz"
+sha256 = "cacadafaa5cd27ae6d05a74a103266917ebab4c5e43c898360e177d4fbf06a65"
+member = "cargo-semver-checks"
+archive = "tar.gz"
+
 # Protocol-sensitive Cargo diagnostics. One declaration serves bootstrap, CI and reuse.
 [cargo-tools]
 cargo-shear = "1.14.0"

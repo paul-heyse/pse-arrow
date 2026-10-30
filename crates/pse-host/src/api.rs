@@ -20,6 +20,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+pub mod comparison;
 pub mod query;
 
 /// A version, acquisition or original native input failure.
@@ -584,6 +585,41 @@ pub struct Artifact {
 struct ArtifactRecord {
     context_key: String,
     sha256: String,
+}
+/// Reopen an explicitly selected historical artifact without requiring present-day
+/// source to match it. The acquisition record, context key and original digest must agree.
+pub fn retained(path: &Path) -> Result<Artifact, ApiError> {
+    if path.file_name().is_none_or(|name| name != "document.json") {
+        return Err(invalid(
+            "select an acquired API document.json with its original sidecars",
+        ));
+    }
+    let parent = path
+        .parent()
+        .ok_or_else(|| invalid("API artifact parent missing"))?;
+    let private = |path: &Path| {
+        crate::test_inventory::read_private(path).map_err(|error| invalid(error.to_string()))
+    };
+    let context: Context = serde_json::from_slice(&private(&parent.join("context.json"))?)?;
+    let record: ArtifactRecord = serde_json::from_slice(&private(&parent.join("artifact.json"))?)?;
+    let bytes = private(path)?;
+    if context.key()? != record.context_key || probe::digest(&bytes) != record.sha256 {
+        return Err(invalid(
+            "retained API identity, original bytes or context changed",
+        ));
+    }
+    let document = decode(&bytes)?;
+    if document.target.triple != context.target {
+        return Err(invalid(
+            "retained rustdoc target disagrees with acquisition context",
+        ));
+    }
+    Ok(Artifact {
+        context,
+        path: path.to_owned(),
+        sha256: record.sha256,
+        document,
+    })
 }
 /// Passively select only a completed artifact in the currently observed exact context.
 /// Missing preparation returns `None`; a malformed completed artifact remains an error.

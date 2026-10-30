@@ -117,12 +117,12 @@ the review's source inspection is not an executed pinned-interface probe.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [H01](#h01) | planned | 59h | Capability search and usable public-path/constraint views over D02 artifacts |
-| [H02](#h02) | planned | 59h | Relevant examples with setup, expectation and selective extraction |
-| [H03](#h03) | planned | 59h | Dependency/feature inclusion explanations with distinct context precision |
-| [H04](#h04) | planned | 59h | Focused API/dependency comparisons using existing compatibility tools |
-| [H05](#h05) | planned | 59h | Scoped native rustdoc diagnostics integrated with D04 |
-| [H06](#h06) | planned | 59h | Agent consumer journeys, conditional decisions and integration into focused views/E03 |
+| [H01](#h01) | in-progress | 59h | Search, facade/trait provenance and optional original declaration implemented; remaining integrated acceptance below |
+| [H02](#h02) | in-progress | 59h | Authored examples retain hidden setup and distinct expectations; integrated consumer acceptance remains |
+| [H03](#h03) | in-progress | 59h | Exact metadata, shortest inclusion paths and authored inverse feature links implemented; selected-unit integration remains |
+| [H04](#h04) | in-progress | 59h | Native format-61 compatibility comparison implemented; original findings and explicit structural-diff limitations below |
+| [H05](#h05) | in-progress | 59h | Shared compiler workflow extended to native rustdoc; actual refreshed-control acceptance remains |
+| [H06](#h06) | in-progress | 59h | Actual independent API/probe journeys exercised; remaining combined comparison/diagnostic and conditional dispositions below |
 
 <a id="h01"></a>
 ### H01 — Discover a capability and a usable public path
@@ -320,7 +320,39 @@ assembled agent journey and the coordinator's scope-end static/documentation qua
 establish their named claims. Do not add a feature-matrix, provider build or scientific campaign
 solely for this developer-documentation scope.
 
-**Current state:** every H package is planned. No code, acquisition, tool installation, probe,
-compatibility check or consumer journey is delivered by authoring this document. Enduring
-operating guidance is published by E03 during actual delivery; source-review recommendations
+**Current execution checkpoint — 2026-10-30:** H is being implemented under the coordinator's
+remaining-series authorization. D02's addressed API acquisitions and isolated probes, name/docs
+and structural search, facade/trait provenance, authored examples, source-qualified metadata,
+and native documentation forwarding have working consumers. `--declaration` explicitly expands
+the original schema-qualified item when a compact signature cannot represent all constraints.
+`dep --why` uses Petgraph for one shortest package path per reachable workspace member;
+`--feature-member` reports exact authored inverse links. Optional/default/target requests remain
+separate from resolved metadata features; neither view simulates activation or compiler units.
+
+The API comparison adapter selects two acquired artifacts, checks original context/digests,
+copies their bytes into a private comparison capture, and runs the explicitly installed
+`cargo-semver-checks` 0.51.0 under the existing managed owner. Native findings, exit and complete
+stdout/stderr stay original evidence. `public-api` 0.52.2 is not selected: its upstream
+`rustdoc-types` 0.59 input is incompatible with the pinned producer's format61. There is no
+bespoke SemVer substitute. Actual native format61 trials returned100 for a removed public
+reexport and0 for identical inputs. The same changed fixture added a function and strengthened
+a generic bound; the compatibility tool did not report those as separate findings. This is an
+observed coverage limit, not evidence of compatibility. Automatic structural additions/bound
+comparison remains open; original addressed declarations remain independently inspectable.
+Sources: [native exact release](https://github.com/obi1kenobi/cargo-semver-checks/tree/v0.51.0),
+[public-api input dependency](https://github.com/cargo-public-api/cargo-public-api/blob/main/public-api/Cargo.toml).
+
+`api --check-docs` extends the existing selected/admitted compiler workflow with a Rustdoc action,
+sharing its compiler observer, original diagnostic addresses, raw capture and physical owner.
+It does not introduce another report engine. Broken/private links, invalid block attributes,
+invalid Rust blocks and invalid HTML use native rustdoc rules; API reads remain independent.
+Cargo controls are inserted before the literal compiler tail. Actual refreshed-control failure
+and public-command acceptance remain required, along with selected-unit dependency composition,
+full H06 journeys, generated discovery and scope-end qualification.
+
+**Tested:** the final focused host command selected dependency, proposal, envelope, API/cursor,
+graph-adapter and check-intent controls:47passed, zero failures and zero compiler warnings.
+The separate compiler-workflow regression batch passed57 with zero failures; its warnings were
+subsequently corrected before the final47-test batch. This is targeted acceptance, not P01 or
+all-H completion. Enduring operating guidance is published by E03 during actual delivery; source-review recommendations
 and this plan do not themselves establish Tested or Measured capability.

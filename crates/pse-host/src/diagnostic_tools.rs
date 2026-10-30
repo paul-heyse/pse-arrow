@@ -31,6 +31,8 @@ pub enum Tool {
     OpenObserve,
     /// Offline Markdown/HTML link and fragment checker.
     Lychee,
+    /// Native compatibility rules over explicitly selected rustdoc artifacts.
+    CargoSemverChecks,
 }
 impl Tool {
     /// Stable declaration name.
@@ -43,6 +45,7 @@ impl Tool {
             Self::Collector => "otelcol-contrib",
             Self::OpenObserve => "openobserve",
             Self::Lychee => "lychee",
+            Self::CargoSemverChecks => "cargo-semver-checks",
         }
     }
     /// Parse only supported declarations, never the unrelated cargo-tools table.
@@ -55,6 +58,7 @@ impl Tool {
             "otelcol-contrib" | "collector" => Ok(Self::Collector),
             "openobserve" => Ok(Self::OpenObserve),
             "lychee" => Ok(Self::Lychee),
+            "cargo-semver-checks" => Ok(Self::CargoSemverChecks),
             _ => Err(invalid("unknown diagnostic tool")),
         }
     }

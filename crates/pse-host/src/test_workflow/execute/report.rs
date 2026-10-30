@@ -29,6 +29,8 @@ pub enum Action {
     Test,
     /// Reconcile actual compiler check execution.
     Check,
+    /// Reconcile native rustdoc diagnostics over the selected authored library.
+    Rustdoc,
 }
 impl Action {
     /// One authoritative public command identity across transport and native dispatch.
@@ -37,13 +39,18 @@ impl Action {
             Self::List => "tests",
             Self::Test => "test",
             Self::Check => "check",
+            Self::Rustdoc => "api check-docs",
         }
     }
     /// Recognize precisely the fixed performing workflow commands.
     pub fn from_command(command: &str) -> Option<Self> {
-        [Self::List, Self::Test, Self::Check]
+        [Self::List, Self::Test, Self::Check, Self::Rustdoc]
             .into_iter()
             .find(|action| action.command() == command)
+    }
+    /// Compiler-only workflows share native diagnostic capture, never a test verdict.
+    pub const fn is_compiler(self) -> bool {
+        matches!(self, Self::Check | Self::Rustdoc)
     }
 }
 /// Protocol/view decoding bounds, independent of population, CPU and raw-log custody.
@@ -105,6 +112,7 @@ impl Outcome {
             (action, self),
             (Action::List, Self::Listed)
                 | (Action::Check, Self::CheckSucceeded)
+                | (Action::Rustdoc, Self::CheckSucceeded)
                 | (Action::Test, Self::TestsSucceeded)
         )
     }

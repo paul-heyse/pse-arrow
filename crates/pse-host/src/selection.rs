@@ -19,6 +19,8 @@ pub enum Operation {
     Test,
     /// Check the same selected source context.
     Check,
+    /// Check authored documentation through native rustdoc diagnostics.
+    Rustdoc,
 }
 
 /// Ignored tests remain part of selection identity, including exact reruns.
@@ -336,6 +338,7 @@ impl Group {
             match operation {
                 Operation::Test => "test",
                 Operation::Check => "check",
+                Operation::Rustdoc => "rustdoc",
             }
             .into(),
             "--locked".into(),
@@ -370,6 +373,18 @@ impl Group {
                 "--features".into(),
                 enabled.into_iter().collect::<Vec<_>>().join(","),
             ]);
+        }
+        if operation == Operation::Rustdoc {
+            arguments.push("--".into());
+            for lint in [
+                "broken_intra_doc_links",
+                "private_intra_doc_links",
+                "invalid_codeblock_attributes",
+                "invalid_rust_codeblocks",
+                "invalid_html_tags",
+            ] {
+                arguments.extend(["-D".into(), format!("rustdoc::{lint}")]);
+            }
         }
         Ok(Self {
             roots,
@@ -642,7 +657,7 @@ pub(crate) fn empty(request: &Request) -> Plan {
 
 /// Normalize against Cargo declarations only. This performs no I/O or preparation.
 pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessError> {
-    if request.operation == Operation::Check
+    if request.operation != Operation::Test
         && (request.filters != Filters::default() || request.ignored != IgnoredPolicy::Default)
     {
         return Err(invalid(

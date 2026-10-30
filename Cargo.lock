@@ -7727,6 +7727,7 @@ dependencies = [
  "object_store",
  "pathdiff",
  "percent-encoding",
+ "petgraph",
  "proptest",
  "pse-buildinfo",
  "pse-diagnostics",

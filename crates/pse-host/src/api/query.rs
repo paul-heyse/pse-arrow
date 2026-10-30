@@ -76,6 +76,8 @@ pub struct Query {
     pub docs: bool,
     /// Expand authored examples, retaining hidden setup.
     pub examples: bool,
+    /// Expand this exact format-qualified upstream declaration instead of inferring missing bounds.
+    pub declaration: bool,
     /// Facade artifact identities traversed before this declaration; binds continuations.
     pub surface_identity: Option<String>,
     /// Original public query identity, preserved while resolving facade paths.
@@ -171,6 +173,10 @@ pub struct Candidate {
     pub ordinary_build_availability: &'static str,
     /// Whole authored examples only when explicitly requested.
     pub examples: Vec<Example>,
+    /// Explicit upstream rustdoc item, opaque outside its reported schema version.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<serde_json::Value>")]
+    pub declaration: Option<Box<serde_json::value::RawValue>>,
 }
 /// Retained declaration deprecation, independent of its availability in a chosen build.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -930,8 +936,9 @@ pub fn inspect(
     let candidates=selected.into_iter().skip(offset).take(limit).filter_map(|address|artifact.document.index.get(&address.id).map(|item|{
         let (signature,signature_complete)=signature(item);
         let incomplete_declaration=match &item.inner{ItemEnum::Module(value)=>value.is_stripped,ItemEnum::Struct(value)=>match &value.kind{rustdoc_types::StructKind::Plain{has_stripped_fields,..}=>*has_stripped_fields,rustdoc_types::StructKind::Tuple(fields)=>fields.iter().any(Option::is_none),rustdoc_types::StructKind::Unit=>false},ItemEnum::Union(value)=>value.has_stripped_fields,ItemEnum::Enum(value)=>value.has_stripped_variants,ItemEnum::Use(_)=>true,_=>false};
-        Candidate{public_path:address.path,item_id:item.id.0,kind:kind(item),signature,signature_complete,docs:query.docs.then(||item.docs.clone()).flatten(),attributes:item.attrs.iter().map(|attr|format!("{attr:?}")).collect(),deprecation:item.deprecation.as_ref().map(|value|Deprecation{since:value.since.clone(),note:value.note.clone()}),source:item.span.as_ref().map(|span|Location{filename:span.filename.clone(),begin:span.begin,end:span.end}),trait_provenance:address.trait_provenance,incomplete_declaration,ordinary_build_availability:"unknown; rustdoc cfg(doc) is a documentation context",examples:if query.examples{item.docs.as_deref().map(examples).unwrap_or_default()}else{Vec::new()}}
-    })).collect::<Vec<_>>();
+        let declaration = query.declaration.then(||serde_json::value::to_raw_value(item)).transpose()?;
+        Ok::<_,serde_json::Error>(Candidate{public_path:address.path,item_id:item.id.0,kind:kind(item),signature,signature_complete,docs:query.docs.then(||item.docs.clone()).flatten(),attributes:item.attrs.iter().map(|attr|format!("{attr:?}")).collect(),deprecation:item.deprecation.as_ref().map(|value|Deprecation{since:value.since.clone(),note:value.note.clone()}),source:item.span.as_ref().map(|span|Location{filename:span.filename.clone(),begin:span.begin,end:span.end}),trait_provenance:address.trait_provenance,incomplete_declaration,ordinary_build_availability:"unknown; rustdoc cfg(doc) is a documentation context",examples:if query.examples{item.docs.as_deref().map(examples).unwrap_or_default()}else{Vec::new()},declaration})
+    })).collect::<Result<Vec<_>,_>>()?;
     let next = offset + candidates.len();
     let request_identity = query
         .request_identity

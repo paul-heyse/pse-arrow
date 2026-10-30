@@ -25,7 +25,7 @@ pub(super) struct Check {
     pub(super) run: RunOptions,
 }
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, Default, clap::Args)]
 pub(super) struct RunOptions {
     /// Ask native Cargo for timing diagnostics (shared mutable output, not retained evidence).
     #[arg(long)]
