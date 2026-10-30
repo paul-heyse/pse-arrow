@@ -14,6 +14,7 @@ pub mod envelope;
 pub mod environment;
 pub mod foreground;
 pub mod generation;
+pub mod invocation;
 mod manager;
 pub mod native;
 pub mod paths;
