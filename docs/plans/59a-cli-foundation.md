@@ -216,9 +216,9 @@ feature choices are exactly the review's
 | [A01](#a01) | complete | 59a | Rule-change edits R1–R5 landed in their owners (R4's guard change is D06) |
 | [A02](#a02) | complete | 59a | Shared clap tree/three binaries merged; targeted parser/protocol and bootstrap tests pass; broader qualification remains at series end |
 | [A03](#a03) | in-progress | 59a | Native output/diagnostic/schema, artifact read/continuation and typed source views integrated; producer-owned pages, typed direct serialization and schema corrections newly planned; run/test/product owner enforcement remains |
-| [A04](#a04) | in-progress | 59a | Resolver/consumer migration integrated with targeted tests; exact lookup isolation, partial-history contract and responsibility-specific retention newly planned; concurrent invocation acceptance remains with B01 |
+| [A04](#a04) | in-progress | 59a | Resolver/consumer migration, isolated exact lookup, diagnostic partial history and protected owner-record/request access integrated; responsibility-specific retention and concurrent managed invocation acceptance remain with B01 |
 | [A05](#a05) | in-progress | 59a | Immutable publication, existing durable entry pins, stale rebuild/reexec and authenticated cold-copy integrated; cold copy passed without destination compilation; effect-shaped promotion investigation and actual descendant/finalizer settlement remain; pruning disabled |
-| [A06](#a06) | in-progress | 59a | Parser-derived command/help/catalog/schema and passive native status integrated; staged shared explain, selective acquisition, actual provenance and owner federation remain planned |
+| [A06](#a06) | in-progress | 59a | Parser-derived command/help/catalog/schema, selective passive status, invocation/dependency candidates and pure native xtask discovery integrated; staged execution consumers, actual provenance and generated owner federation remain |
 | [A07](#a07) | complete | 59a | Proposed ADR-0233/blueprint315 published and scoped formal review accepts that target at Proposed strength; proposed ADR-0234/blueprint316 refines nested invocation ownership; runtime obligations remain with consumers |
 | [A08](#a08) | complete | 59a | Proposed ADR-0233/0234 and blueprint317 publish accepted RC01–RC04; independent focused target advice found no required correction, not formal acceptance or runtime qualification |
 

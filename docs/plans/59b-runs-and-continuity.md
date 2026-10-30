@@ -414,9 +414,9 @@ activation/fdstore remain conditional capabilities, not finalizer shortcuts or a
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [B01](#b01) | in-progress | 59b | Checkout-bound immutable selection/result store and independent pipe-reader primitives integrated with targeted tests; independent raw sinks replace the shared merged format, owner-finality enforcement, exact/partial lookup and joined CLI custody remain planned |
-| [B02](#b02) | in-progress | 59b | Strict native Cargo diagnostic extraction integrated with five targeted tests including actual scratch compilation; nextest population/setup/terminal reconciliation and joined CLI extraction remain |
-| [B03](#b03) | in-progress | 59b | Root/member and delegated payload primitives, original service-main authentication and native readiness/cooperative-task helpers integrated; serialized recovery stays test-only; joined custody, original settlement, observation fan-out and effect-shaped generation integration remain planned |
+| [B01](#b01) | in-progress | 59b | Protected immutable store, independent raw capture, exact/partial lookup and passive history/result/log commands integrated with targeted tests; owner-finality enforcement and joined managed CLI custody remain |
+| [B02](#b02) | in-progress | 59b | Strict Cargo extraction and captured-population nextest reconciliation integrated, including actual pinned retry/failure/setup cases; managed CLI observation, original-failure views and rerun consumers remain |
+| [B03](#b03) | in-progress | 59b | Original-main notify readiness, stop-post and unknown-ack whole-unit drain tested through the real user manager; original placement/admission, shared supervisor/finalizer, nested custody, observation fan-out and generation settlement integration remain |
 | [B04](#b04) | planned | 59b | `pse run-all` composite runs; `turn-end`/`ready`/`hygiene` bodies migrated; `just run-all` retired |
 | [B05](#b05) | planned | 59b | Session identity; `pse handoff`; Claude context-only PreCompact and SessionStart hooks |
 

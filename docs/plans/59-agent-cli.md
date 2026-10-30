@@ -472,6 +472,37 @@ execution scope. Historical paused checkpoints and their evidence remain below.
 The series remains incomplete. Continue with the joined invocation-owner journey; do not treat
 the implemented library foundations or targeted checks as an assembled managed-run result.
 
+### Native consumer integration checkpoint — 2026-10-30
+
+Compatible multi-root Cargo selection now preserves target and feature policies, splits only
+typed feature-absence conflicts and reuses metadata within the invocation. Native nextest
+reconciliation binds the captured population and exact binary identities; retries, ignored
+policy, setup exit105, missing records and ambiguous protocol identities retain separate outcomes.
+No result here certifies external fixture readiness or physical settlement.
+
+`pse history`, `pse result` and bounded `pse log` read the original protected ledger without
+new-work admission. History retains per-source failures and avoids terminal payload reads;
+missing terminal evidence remains unknown completion. Stream windows retain original offsets
+and non-UTF8 bytes. Native xtask parser discovery works outside a checkout, before owner effects;
+generated federation/forwarding is still open. `pse dep` provides exact locked source-qualified
+facts and lazy candidates, preserving metadata-context limits and name/version ambiguity.
+Protected immutable launch/custody/settlement records, private consumed request transport and
+an opaque held parent-launch exclusion are integrated prerequisites, not process authority.
+
+Focused checks against zero failure baseline passed: compatible-root/metadata controls18;
+correctness adapter27; extraction12 including actual pinned nextest; native notify/descendant
+controls7; invocation/view/CLI controls30; dependency/catalog/CLI controls27; xtask discovery1.
+The prepared CLI history/result/schema routes and built xtask discovery outside the checkout
+were also exercised. The original native cleanup failure exposed a departed-main drain bug and
+premature test-directory disposal; both were corrected, and that exact failed unit/cgroup is
+confirmed absent. Its failed attempt remains failed evidence.
+
+Actual service-owned placement/admission, shared supervisor/finalizer, original terminal
+construction, nested custody and managed test execution remain in progress. Source-audited
+fixture declarations and explicit-checkout/environment staged test consumers are being joined;
+no assembled run, test, product or semantic journey is claimed. Scope-end static and integrated
+qualification remain pending while functional scope is open. Execution remains active.
+
 ### Foundation execution checkpoint — 2026-10-30
 
 A08 has published the accepted Proposed amendments in ADR-0233/0234 and blueprint317.
@@ -496,8 +527,8 @@ test(managed::streams::tests)'` passed61 selected tests with zero failures again
 (312 unselected) on the integrated tree. ADR lint passed162 records. Scope-end static checks
 and assembled managed/product/semantic journeys have not run; their packages remain open.
 
-Next connect actual notify-service/finalizer custody to B01/B03, complete C07 compatible-root
-admission and B02 nextest reconciliation, then migrate their CLI consumers. Current producer
+Next connect actual notify-service/finalizer custody to B01/B03 and migrate C07/B02's
+implemented selection/reconciliation into their CLI consumers. Current producer
 tests are not evidence of a joined run/test journey or physical resource settlement.
 
 ### Library integration authoring checkpoint — 2026-10-30

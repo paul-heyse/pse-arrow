@@ -234,7 +234,7 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 | [C04](#c04) | planned | 59c | Fixture declarations and immutable inputs for both real service ownership modes; `pse fixture`; replaced fixture recipes retired |
 | [C05](#c05) | in-progress | 59c | Source-build capture and exact native binary/test inventory integrated with bounded framing and retained use custody; CLI discovery and `list-native-contracts` retirement remain |
 | [C06](#c06) | deferred | 59c | Bindeps for the cross-package service helper; trigger below |
-| [C07](#c07) | in-progress | 59c | Shared resolved selection owner and correctness graph integration underway; exact built/listed identities remain a separate explicit preparation stage |
+| [C07](#c07) | in-progress | 59c | Compatible multi-root Cargo groups, per-root absence policies, typed graph-driven splitting and invocation-local metadata reuse tested; staged CLI/list/execution consumers remain separate integration obligations |
 
 <a id="c01"></a>
 ### C01 — One capability declaration

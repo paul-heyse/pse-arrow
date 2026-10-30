@@ -164,7 +164,7 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [D01](#d01) | planned | 59d | `pse changes` and `pse brief` |
-| [D02](#d02) | planned | 59d | Trial done (server unusable under the pin; see D02); `pse dep`, `pse probe`, and the full `pse api` with rustdoc JSON cache remain |
+| [D02](#d02) | in-progress | 59d | `pse dep` provides source-qualified locked facts, metadata-context features, workspace edges, pin reasons and overview candidates; `pse probe` and full context-keyed `pse api` remain; rejected server trial is concluded |
 | [D03](#d03) | complete | 59d | Native lossless outline/show, exact source selections and shared lib-outline route integrated; batch CPU execution and source/schema/actual CLI tests cover malformed/Unicode/ambiguous/CommonMark reads |
 | [D04](#d04) | planned | 59d | Federated `pse docs check` with pinned lychee |
 | [D05](#d05) | planned | 59d | Federated `pse ref` and `pse new`; `just plan` bash scaffold retired |
