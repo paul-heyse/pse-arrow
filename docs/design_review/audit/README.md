@@ -4,6 +4,15 @@ This is the living diagnostic account of design-principle alignment in the imple
 and its development tooling. Start with the [integrated system account](system-architecture.md)
 and follow its six causes to the primary findings on the topic pages.
 
+## Scoped Plan59 host-contract refresh — 2026-10-29
+
+The [host-contract refresh](plan59-host-contracts.md) examines source `e1de22a03` plus the
+identified A07 wording corrections for invocation control, diagnostic projection, product
+delegation and analysis context. It revalidates only DA-039's host footprint and separates
+existing ownership strengths from pending A03/A05/B03 mechanisms. Its evidence is static
+and **Interface-checked**; it does not refresh the whole-system baseline below or establish
+runtime qualification. The accompanying scoped design review consumes its published revision.
+
 ## Whole-system refresh — 2026-10-29
 
 **Conclusion.** Plan56 corrected most of the preceding account. Its covariance-permission,

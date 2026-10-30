@@ -1715,7 +1715,8 @@ science needs no database.
 
 Optional foreign adapters require a named consumer and remain coarse callers of the same native
 operations, documents and protected data services. They acquire no separate scientific, scheduling,
-settlement or schema authority. No PyO3 implementation, full CLI, RMCP endpoint or cdylib is mandatory.
+settlement or schema authority. Native product APIs require no PyO3 implementation, full CLI,
+RMCP endpoint or cdylib. Plan59 separately selects the agent-facing CLI over those native owners.
 Retired producers, callers, configuration and mechanism-only tests leave together; useful scientific
 acceptance stays with native callers. Typed fixtures and native documentation/governance/evidence
 owners replace first-party Python tooling (§24.1). A successful compiler result is not invalidated

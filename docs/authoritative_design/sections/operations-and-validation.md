@@ -815,17 +815,17 @@ drain, creation borrowers, references or unknown external effects. The selected 
 retains sole outcome authority. Plan50 C05 owns implementation and race/recovery qualification
 of this maintainer-selected extension to proposed ADR-0174.
 
-**Accepted target — Plan53 P00 (operator-confirmed 2026-10-23), refined by Plan59 R6.** Managed correctness
-commands will return zero if and only if the selected terminal composer establishes a
+**Accepted target — Plan53 P00 (operator-confirmed 2026-10-23), refined by Plan59 R6.** A managed
+command asserting a terminal correctness result returns zero if and only if the selected terminal composer establishes a
 complete reconciled Pass. Raw child return (`workload_exit`), cancellation and cleanup
 remain separately observable. A zero-exit child with selected but missing reports cannot
 produce a zero managed correctness exit. Cleanup after terminal publication cannot rewrite
 the frozen assurance verdict. This changes the managed command's assurance interface, not
 `scripts/pse-env` signal/exit forwarding or read-only result-reader success semantics.
 Plan53 C04 owns implementation and caller/self-test migration; publication establishes no
-implemented exit behavior. Operator-confirmed Plan59 R6 allows successful launch acknowledgement
-or expired bounded observation wait to return zero with an explicit launched/running subject,
-never a completed pass. Workload timeout, observation timeout and unknown settlement are distinct.
+implemented exit behavior. Separately, operator-confirmed Plan59 R6 allows successful launch
+acknowledgement or expired bounded observation wait to return zero with an explicit launched/running
+subject, never a completed pass. Workload timeout, observation timeout and unknown settlement are distinct.
 Existing-invocation read/wait/cancel authenticate compatible recorded prepared controls without
 rebuilding broken current sources; failed rebuild still refuses new work. Generation pruning
 protects actual adapter, supervisor/finalizer, fixture and analyzer users until original settlement

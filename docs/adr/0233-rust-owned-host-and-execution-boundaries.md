@@ -77,7 +77,7 @@ No sd-notify, hierarchical shutdown library or new daemon is required absent an 
 A shell seed explicitly builds the locked host package with the pinned toolchain, bypassing
 Python compiler wrappers for that invocation. It privately copies a completed executable and
 atomically replaces checkout-local selection. Help, read and explain verbs never rebuild or
-rescan source. A top-level effectful `pse` verb that finds the host stale rebuilds it through the
+rescan source. A top-level new-work `pse` verb that finds the host stale rebuilds it through the
 same seed and re-executes the new generation; a failed rebuild refuses new work. Existing-invocation
 read/wait/cancel instead authenticate the compatible recorded prepared control generation and
 original unit identity without rebuilding current sources. Unknown protocols and forged tool
