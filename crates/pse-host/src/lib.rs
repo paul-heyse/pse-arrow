@@ -12,6 +12,7 @@ pub mod diagnostic_tools;
 pub mod doctor;
 pub mod environment;
 pub mod foreground;
+pub mod generation;
 mod manager;
 pub mod native;
 pub mod paths;
