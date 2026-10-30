@@ -78,6 +78,8 @@ pub struct Query {
     pub examples: bool,
     /// Facade artifact identities traversed before this declaration; binds continuations.
     pub surface_identity: Option<String>,
+    /// Original public query identity, preserved while resolving facade paths.
+    pub(crate) request_identity: Option<String>,
 }
 /// Trait provenance is a declaration fact, independent of applicability.
 #[derive(Clone, Debug, Serialize, JsonSchema)]
@@ -185,7 +187,38 @@ struct Cursor {
     version: u32,
     artifact: String,
     query: String,
+    request: String,
     offset: usize,
+}
+fn read_cursor(cursor: &str) -> Result<Cursor, ApiError> {
+    use base64::Engine as _;
+    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(cursor)
+        .map_err(|_| super::invalid("invalid API continuation encoding"))?;
+    #[derive(Deserialize)]
+    struct Header {
+        version: u32,
+    }
+    let header: Header = serde_json::from_slice(&bytes)?;
+    if header.version != 2 {
+        return Err(super::invalid(
+            "unsupported API continuation version; restart the query",
+        ));
+    }
+    Ok(serde_json::from_slice(&bytes)?)
+}
+/// Bind a continuation to the original query before any reexport routing changes its path.
+pub(crate) fn bind_request(query: &mut Query, cursor: Option<&str>) -> Result<(), ApiError> {
+    let identity = crate::probe::digest(&serde_json::to_vec(query)?);
+    if let Some(cursor) = cursor
+        && read_cursor(cursor)?.request != identity
+    {
+        return Err(super::invalid(
+            "API continuation query changed; restart against the selected public surface",
+        ));
+    }
+    query.request_identity = Some(identity);
+    Ok(())
 }
 /// Whole-candidate page with examined scope distinct from its returned size.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -866,12 +899,8 @@ pub fn inspect(
     }
     let query_digest = crate::probe::digest(&serde_json::to_vec(query)?);
     let offset = if let Some(cursor) = cursor {
-        let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .decode(cursor)
-            .map_err(|_| super::invalid("invalid API continuation encoding"))?;
-        let cursor: Cursor = serde_json::from_slice(&bytes)?;
-        if cursor.version != 1 || cursor.artifact != artifact.sha256 || cursor.query != query_digest
-        {
+        let cursor = read_cursor(cursor)?;
+        if cursor.artifact != artifact.sha256 || cursor.query != query_digest {
             return Err(super::invalid(
                 "API continuation source or query changed; select the retained original artifact or restart",
             ));
@@ -904,12 +933,17 @@ pub fn inspect(
         Candidate{public_path:address.path,item_id:item.id.0,kind:kind(item),signature,signature_complete,docs:query.docs.then(||item.docs.clone()).flatten(),attributes:item.attrs.iter().map(|attr|format!("{attr:?}")).collect(),deprecation:item.deprecation.as_ref().map(|value|Deprecation{since:value.since.clone(),note:value.note.clone()}),source:item.span.as_ref().map(|span|Location{filename:span.filename.clone(),begin:span.begin,end:span.end}),trait_provenance:address.trait_provenance,incomplete_declaration,ordinary_build_availability:"unknown; rustdoc cfg(doc) is a documentation context",examples:if query.examples{item.docs.as_deref().map(examples).unwrap_or_default()}else{Vec::new()}}
     })).collect::<Vec<_>>();
     let next = offset + candidates.len();
+    let request_identity = query
+        .request_identity
+        .clone()
+        .unwrap_or_else(|| query_digest.clone());
     let continuation = if next < total {
         Some(
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(serde_json::to_vec(&Cursor {
-                version: 1,
+                version: 2,
                 artifact: artifact.sha256.clone(),
                 query: query_digest,
+                request: request_identity,
                 offset: next,
             })?),
         )
@@ -939,4 +973,59 @@ pub fn inspect(
             "known rustdoc attributes are declaration facts; absent ordinary-build cfg gates remain unknown",
         ],
     })
+}
+
+#[cfg(test)]
+mod cursor_tests {
+    use super::*;
+    use base64::Engine as _;
+
+    #[test]
+    fn original_query_is_checked_before_reexport_routing_and_keeps_its_binding() {
+        let mut original = Query {
+            search: Some("spawn".into()),
+            ..Query::default()
+        };
+        bind_request(&mut original, None).unwrap();
+        let request = original.request_identity.clone().unwrap();
+        let cursor = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(
+            serde_json::to_vec(&Cursor {
+                version: 2,
+                artifact: "defining-artifact".into(),
+                query: "routed-query".into(),
+                request: request.clone(),
+                offset: 1,
+            })
+            .unwrap(),
+        );
+        let mut unchanged = Query {
+            search: Some("spawn".into()),
+            ..Query::default()
+        };
+        bind_request(&mut unchanged, Some(&cursor)).unwrap();
+        unchanged.path = Some("defining::method".into());
+        unchanged.surface_identity = Some("facade-artifact".into());
+        assert_eq!(unchanged.request_identity, Some(request));
+        let mut changed = Query {
+            search: Some("changed-query-with-no-matches".into()),
+            ..Query::default()
+        };
+        assert!(
+            bind_request(&mut changed, Some(&cursor))
+                .unwrap_err()
+                .to_string()
+                .contains("continuation query changed")
+        );
+    }
+
+    #[test]
+    fn retired_cursor_version_refuses_before_new_shape_decoding() {
+        let cursor = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"version":1}"#);
+        assert!(
+            read_cursor(&cursor)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported API continuation version")
+        );
+    }
 }

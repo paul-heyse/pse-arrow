@@ -11,6 +11,7 @@ use std::ops::Range;
 mod acquisition;
 pub use acquisition::{SourceIdentity, SourceOrigin, SourceRequest, SourceText};
 mod navigation;
+pub use navigation::byte_offset;
 pub(crate) use navigation::outline as outline_page;
 pub use navigation::{OutlineCursor, PageRequest, PageState, PositionSelector, SourceLocator};
 

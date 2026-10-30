@@ -116,7 +116,14 @@ fn unprepared(
 ) -> Result<i32, HostError> {
     let mut response = Envelope::response(
         "api",
-        "addressed API context is unprepared; explicitly acquire the defining crate",
+        if providers
+            .iter()
+            .any(|provider| provider.availability == envelope::SubjectState::Available)
+        {
+            "facade reused; defining crate needs explicit preparation"
+        } else {
+            "API context is unprepared; explicitly acquire this crate"
+        },
         api::query::Report::Unprepared {
             package_query: package_query.clone(),
             requested_target: target.clone(),
@@ -256,7 +263,9 @@ pub(super) fn dispatch(
         docs: arguments.docs,
         examples: arguments.examples,
         surface_identity: None,
+        request_identity: None,
     };
+    api::query::bind_request(&mut query, arguments.cursor.as_deref()).map_err(error)?;
     let mut artifacts = Vec::new();
     let mut facades = Vec::new();
     let mut visited = std::collections::BTreeSet::from([artifact.context.package_id.clone()]);

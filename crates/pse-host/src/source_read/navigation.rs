@@ -73,22 +73,12 @@ impl PositionSelector {
         match self {
             Self::Path => show(source, outline, path, None),
             Self::Byte { offset } => show(source, outline, path, Some(*offset)),
-            Self::LineColumn { line, column } => {
-                let starts = line_starts(source);
-                let start = *starts
-                    .get(line.checked_sub(1).ok_or(SourceReadError::InvalidRange)?)
-                    .ok_or(SourceReadError::InvalidRange)?;
-                let end = starts.get(*line).map_or(source.len(), |end| end - 1);
-                let text = &source[start..end];
-                let ordinal = column.checked_sub(1).ok_or(SourceReadError::InvalidRange)?;
-                let offset = text
-                    .char_indices()
-                    .map(|(offset, _)| offset)
-                    .chain(std::iter::once(text.len()))
-                    .nth(ordinal)
-                    .ok_or(SourceReadError::InvalidRange)?;
-                show(source, outline, path, Some(start + offset))
-            }
+            Self::LineColumn { line, column } => show(
+                source,
+                outline,
+                path,
+                Some(byte_offset(source, *line, *column)?),
+            ),
             Self::Range { start, end } => {
                 if !path.is_empty() {
                     return Err(SourceReadError::InvalidRange);
@@ -106,6 +96,47 @@ impl PositionSelector {
                 })
             }
         }
+    }
+}
+/// Convert one-based Unicode scalar coordinates to original UTF-8 bytes.
+/// CRLF is a single line ending; standalone CR remains an ordinary scalar.
+pub fn byte_offset(source: &str, line: usize, column: usize) -> Result<usize, SourceReadError> {
+    let starts = line_starts(source);
+    let start = *starts
+        .get(line.checked_sub(1).ok_or(SourceReadError::InvalidRange)?)
+        .ok_or(SourceReadError::InvalidRange)?;
+    let next = starts.get(line);
+    let end = next.map_or(source.len(), |end| end - 1);
+    let mut text = &source[start..end];
+    if next.is_some() {
+        text = text.strip_suffix('\r').unwrap_or(text);
+    }
+    let ordinal = column.checked_sub(1).ok_or(SourceReadError::InvalidRange)?;
+    let offset = text
+        .char_indices()
+        .map(|(offset, _)| offset)
+        .chain(std::iter::once(text.len()))
+        .nth(ordinal)
+        .ok_or(SourceReadError::InvalidRange)?;
+    Ok(start + offset)
+}
+
+#[cfg(test)]
+mod coordinate_tests {
+    use super::*;
+    #[test]
+    fn original_utf8_coordinates_normalize_only_crlf_endings() {
+        let text = "α\r\nβ\rγ\n";
+        assert_eq!(byte_offset(text, 1, 2).unwrap(), 2);
+        assert!(byte_offset(text, 1, 3).is_err());
+        assert_eq!(byte_offset(text, 2, 1).unwrap(), 4);
+        assert_eq!(byte_offset(text, 2, 2).unwrap(), 6);
+        assert_eq!(byte_offset(text, 2, 3).unwrap(), 7);
+        assert_eq!(byte_offset(text, 2, 4).unwrap(), 9);
+        assert_eq!(byte_offset("\r\r\n", 1, 2).unwrap(), 1);
+        assert_eq!(byte_offset("α\r", 1, 3).unwrap(), 3);
+        assert!(byte_offset(text, 0, 1).is_err());
+        assert!(byte_offset(text, 1, 0).is_err());
     }
 }
 /// Producer allowance applies to every declaration, including nested outline entries.

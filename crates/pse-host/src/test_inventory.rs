@@ -276,8 +276,15 @@ pub fn failures(
 fn invalid(message: &str) -> HostError {
     HostError::Ownership(format!("test inventory: {message}"))
 }
-fn read_private(path: &Path) -> Result<Vec<u8>, HostError> {
-    let mut file = OpenOptions::new()
+pub(crate) fn read_private(path: &Path) -> Result<Vec<u8>, HostError> {
+    let mut file = open_private(path)?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)?;
+    Ok(bytes)
+}
+/// Open original private evidence once so ranged consumers retain the checked descriptor.
+pub(crate) fn open_private(path: &Path) -> Result<fs::File, HostError> {
+    let file = OpenOptions::new()
         .read(true)
         .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
         .open(path)?;
@@ -290,9 +297,7 @@ fn read_private(path: &Path) -> Result<Vec<u8>, HostError> {
             "retained input is not an owned regular evidence file",
         ));
     }
-    let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)?;
-    Ok(bytes)
+    Ok(file)
 }
 fn digest(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
@@ -358,7 +363,7 @@ pub(crate) fn captured(
     })
 }
 
-fn captured_report(
+pub(crate) fn captured_report(
     store: &InvocationStore,
     selector: &str,
     session: Option<&str>,

@@ -36,6 +36,18 @@ impl CurrentMembership {
         root: UnitObservation,
     ) -> Result<Self, HostError> {
         let process = current_process(manager)?;
+        Self::authenticate_process(manager, root, process).await
+    }
+    pub(super) async fn authenticate_process(
+        manager: &HostManager,
+        root: UnitObservation,
+        process: ProcessIdentity,
+    ) -> Result<Self, HostError> {
+        if process_identity(manager, process.pid)? != process {
+            return Err(HostError::Ownership(
+                "original member process changed".into(),
+            ));
+        }
         let member = process_group(process.pid)?;
         let original = Group::open(&root.control_group, false)?;
         let ancestry = open_chain(&original, &member)?;
@@ -50,7 +62,7 @@ impl CurrentMembership {
             process,
             ancestry,
         };
-        value.validate(manager).await?;
+        value.validate_process(manager).await?;
         Ok(value)
     }
     /// Exact actual member coordinates, separate from `root.control_group`.
@@ -64,8 +76,18 @@ impl CurrentMembership {
     }
     /// Revalidate this actual process, original unit and every opened member component.
     pub async fn validate(&self, manager: &HostManager) -> Result<(), HostError> {
+        if current_process(manager)? != self.process {
+            return Err(HostError::Ownership(
+                "current member process changed".into(),
+            ));
+        }
+        self.validate_process(manager).await
+    }
+    pub(super) async fn validate_process(&self, manager: &HostManager) -> Result<(), HostError> {
         manager.validate_view()?;
-        if self.manager != manager.identity_key() || current_process(manager)? != self.process {
+        if self.manager != manager.identity_key()
+            || process_identity(manager, self.process.pid)? != self.process
+        {
             return Err(HostError::Ownership(
                 "current member manager/process identity changed".into(),
             ));
@@ -82,6 +104,11 @@ impl CurrentMembership {
         if Group::path(&process_group(self.process.pid)?)? != self.member() {
             return Err(HostError::Ownership(
                 "actual process membership changed".into(),
+            ));
+        }
+        if process_identity(manager, self.process.pid)? != self.process {
+            return Err(HostError::Ownership(
+                "original member process changed during observation".into(),
             ));
         }
         Ok(())
@@ -148,7 +175,10 @@ impl CurrentMembership {
 }
 
 fn current_process(manager: &HostManager) -> Result<ProcessIdentity, HostError> {
-    match ProcessReader::default().process(std::process::id()) {
+    process_identity(manager, std::process::id())
+}
+fn process_identity(manager: &HostManager, pid: u32) -> Result<ProcessIdentity, HostError> {
+    match ProcessReader::default().process(pid) {
         ProcessRead::Present(facts) if facts.identity.boot_id == manager.boot => Ok(facts.identity),
         _ => Err(HostError::Ownership(
             "current original process identity unavailable".into(),

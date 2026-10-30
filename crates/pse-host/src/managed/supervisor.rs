@@ -131,6 +131,15 @@ pub enum RecordedObservation {
     Gone,
 }
 
+/// Passive facts about the checked original service, without admission reconciliation.
+#[derive(Clone, Debug, Serialize)]
+pub struct PassiveRecordedObservation {
+    /// Original service observation; payload completion is a separate owner's fact.
+    pub observation: RecordedObservation,
+    /// Whether the original kernel group is proved drained at observation time.
+    pub native_drained: bool,
+}
+
 /// Control recovered only from checked invocation/launch/controller records and the fixed
 /// prepared generation. It carries no launch-client reference or arbitrary-unit adoption API.
 #[derive(Debug)]
@@ -266,6 +275,31 @@ pub async fn recorded(
     id: &CliInvocationId,
     environment: &Environment,
 ) -> Result<RecordedInvocation, HostError> {
+    let checked = checked_recorded(root, id, environment).await?;
+    Ok(RecordedInvocation {
+        coordinator: crate::admission::Coordinator::open(&checked.root, environment)?,
+        manager: checked.manager,
+        controller: checked.launch.controller,
+        original: checked.original,
+        unit: checked.unit,
+        completion: None,
+    })
+}
+
+struct CheckedRecorded {
+    root: PathBuf,
+    directory: InvocationDirectory,
+    manager: HostManager,
+    launch: LaunchRecord,
+    original: ControllerRecord,
+    unit: Option<crate::manager::RecordedUnit>,
+}
+
+async fn checked_recorded(
+    root: &std::path::Path,
+    id: &CliInvocationId,
+    environment: &Environment,
+) -> Result<CheckedRecorded, HostError> {
     let root = std::fs::canonicalize(root)?;
     let store = InvocationStore::new(CheckoutState::resolve(&root, environment)?);
     let directory = store.directory(id)?;
@@ -295,14 +329,67 @@ pub async fn recorded(
     if let Some(unit) = &unit {
         unit.observe().await?;
     }
-    Ok(RecordedInvocation {
-        coordinator: crate::admission::Coordinator::open(&root, environment)?,
+    Ok(CheckedRecorded {
+        root,
+        directory,
         manager,
-        controller: launch.controller,
+        launch,
         original,
         unit,
-        completion: None,
     })
+}
+
+/// Observe an existing original service without opening admission state, waiting,
+/// settling capacity, referencing a unit or consulting current checkout source.
+pub async fn observe_recorded(
+    root: &std::path::Path,
+    id: &CliInvocationId,
+    environment: &Environment,
+) -> Result<PassiveRecordedObservation, HostError> {
+    let checked = checked_recorded(root, id, environment).await?;
+    let observation = match checked.unit {
+        Some(unit) => RecordedObservation::Observed {
+            service: unit.observe().await?,
+        },
+        None => RecordedObservation::Gone,
+    };
+    let native_drained = checked
+        .manager
+        .original_drained(&checked.launch.controller, Some(&checked.original.binding))
+        .await?;
+    Ok(PassiveRecordedObservation {
+        observation,
+        native_drained,
+    })
+}
+
+/// Authenticate a local peer as the recorded original payload child. A PID supplied
+/// by kernel peer credentials is still checked against custody and native membership;
+/// this grants neither process control nor resource ownership.
+pub async fn authenticate_payload_peer(
+    root: &std::path::Path,
+    id: &CliInvocationId,
+    peer_pid: u32,
+    environment: &Environment,
+) -> Result<ProcessIdentity, HostError> {
+    let checked = checked_recorded(root, id, environment).await?;
+    let custody: super::service_payload::ServiceCustody = checked
+        .directory
+        .evidence(InvocationEvidence::Custody)?
+        .ok_or_else(|| invalid("original payload custody is absent"))?;
+    if custody.version != 5
+        || custody.service != checked.original.binding
+        || custody.manager != checked.original.manager
+        || custody.child.pid != peer_pid
+        || checked.unit.is_none()
+    {
+        return Err(invalid("peer differs from original payload custody"));
+    }
+    checked
+        .manager
+        .authenticate_original_member(&checked.launch.controller, &custody.service, &custody.child)
+        .await?;
+    Ok(custody.child)
 }
 
 fn invalid(message: &str) -> HostError {

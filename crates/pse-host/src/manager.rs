@@ -757,6 +757,38 @@ impl HostManager {
         let observation = self.observe(&unit.id().await?).await?;
         CurrentMembership::authenticate(self, observation).await
     }
+    /// Read-only authentication of a custody-bound process in its original native unit.
+    /// The membership proof is consumed here and lends no subgroup or stop authority.
+    pub(crate) async fn authenticate_original_member(
+        &self,
+        intent: &LaunchIntent,
+        binding: &UnitBinding,
+        process: &ProcessIdentity,
+    ) -> Result<(), HostError> {
+        self.validate_binding(intent, binding).await?;
+        let path = self.manager().await?.get_unit_by_pid(process.pid).await?;
+        let unit = UnitProxy::builder(&self.connection)
+            .destination(self.owner.as_str())
+            .path(path)
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?;
+        let observed = self.observe(&unit.id().await?).await?;
+        if observed.unit != intent.unit() || !self.native_workload(&observed).await? {
+            return Err(HostError::Ownership(
+                "peer is outside the original native workload".into(),
+            ));
+        }
+        let membership =
+            CurrentMembership::authenticate_process(self, observed, process.clone()).await?;
+        if !membership.matches_root(binding) {
+            return Err(HostError::Ownership(
+                "peer original native root changed".into(),
+            ));
+        }
+        self.validate_binding(intent, binding).await?;
+        membership.validate_process(self).await
+    }
     /// Authenticate this exact original service main process for readiness notification.
     /// Control/finalizer processes and environment hints grant no such authority.
     pub(crate) async fn authenticate_service_controller(

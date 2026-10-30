@@ -316,7 +316,10 @@ fn extraction_removes_reexec_transport_from_both_context_and_actual_compiler_inp
     let original = Environment::from([
         ("PSE_HOST_REEXEC".into(), "per-process-marker".into()),
         ("CODEX_TOOL_CALL_ID".into(), "per-client-request".into()),
+        ("DIRENV_DIFF".into(), "activation-bookkeeping".into()),
+        ("DIRENV_WATCHES".into(), "selection-observation".into()),
         ("_".into(), "per-shell-last-command".into()),
+        ("PATH".into(), "/authored/compiler/path".into()),
         ("RUSTFLAGS".into(), "--cfg meaningful".into()),
         ("CUSTOM_BUILD_INPUT".into(), "authored".into()),
     ]);
@@ -324,6 +327,12 @@ fn extraction_removes_reexec_transport_from_both_context_and_actual_compiler_inp
     assert!(!actual.contains_key(OsStr::new("PSE_HOST_REEXEC")));
     assert!(!actual.contains_key(OsStr::new("_")));
     assert!(!actual.contains_key(OsStr::new("CODEX_TOOL_CALL_ID")));
+    assert!(!actual.contains_key(OsStr::new("DIRENV_DIFF")));
+    assert!(!actual.contains_key(OsStr::new("DIRENV_WATCHES")));
+    assert_eq!(
+        actual.get(OsStr::new("PATH")),
+        original.get(OsStr::new("PATH"))
+    );
     assert_eq!(
         actual.get(OsStr::new("RUSTFLAGS")),
         original.get(OsStr::new("RUSTFLAGS"))

@@ -18,6 +18,8 @@ pub(crate) fn preparation_inputs(environment: &Environment) -> Environment {
         "PSE_HOST_REEXEC",
         "PSE_HOST_GENERATION_HANDOFF",
         "CODEX_TOOL_CALL_ID",
+        "DIRENV_DIFF",
+        "DIRENV_WATCHES",
         "_",
     ] {
         selected.remove(OsStr::new(key));

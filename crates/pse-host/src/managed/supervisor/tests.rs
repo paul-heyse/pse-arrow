@@ -202,6 +202,18 @@ async fn detached_case(finite: bool, case: LifetimeCase) {
                 let limit = std::fs::read_to_string(PathBuf::from("/sys/fs/cgroup").join(custody.service.group.trim_start_matches('/')).join("memory.max"))?;
                 assert_ne!(limit.trim(), "max", "finite service wrapper must be constrained from birth");
             }
+            if cancel || crash {
+                // Passive reads must not invoke admission selection, even when caller
+                // admission inputs are unusable for starting new work.
+                let mut passive_environment = environment.clone();
+                passive_environment.insert("PSE_BUILD_MODE".into(), "invalid-passive-read-input".into());
+                let passive = observe_recorded(&root, &id, &passive_environment).await?;
+                assert!(!passive.native_drained, "live original population cannot be inferred drained");
+                assert!(matches!(passive.observation, RecordedObservation::Observed { .. }));
+                assert_eq!(authenticate_payload_peer(&root, &id, custody.child.pid, &passive_environment).await?, custody.child);
+                assert!(authenticate_payload_peer(&root, &id, controller.process.pid, &passive_environment).await.is_err(), "controller is not the original payload peer");
+                assert!(authenticate_payload_peer(&root, &id, std::process::id(), &passive_environment).await.is_err(), "another native client's PID grants no payload identity");
+            }
             recorded = Some(super::recorded(&root, &id, &environment).await?);
             let recovered = recorded
                 .as_mut()
@@ -234,6 +246,9 @@ async fn detached_case(finite: bool, case: LifetimeCase) {
                         invalid("independent native wait expired before original completion")
                     })?;
             }
+            let passive = observe_recorded(&root, &id, &environment).await?;
+            assert!(passive.native_drained, "original kernel population must be empty after native wait");
+            assert!(authenticate_payload_peer(&root, &id, custody.child.pid, &environment).await.is_err(), "drained original child cannot authenticate a stale peer");
             let result = store
                 .result::<String, ManagedSummary>(&id)?
                 .ok_or_else(|| {

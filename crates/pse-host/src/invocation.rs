@@ -277,6 +277,19 @@ impl InvocationStore {
         Self { state }
     }
 
+    /// Initialize this inspected checkout's existing private ledger namespace without
+    /// manufacturing an invocation, starting resources or adding a second checkout registry.
+    pub fn register(&self) -> Result<(), HostError> {
+        let parent = self
+            .state
+            .root
+            .parent()
+            .ok_or_else(|| invalid("state root has no parent"))?;
+        initialize_namespace(parent)?;
+        directory(&self.state.root, true)?;
+        directory(&self.state.invocations(), true)
+    }
+
     /// Reopen only the original checkout-bound directory. This grants evidence access,
     /// never systemd reference, process, permit or finalization authority.
     pub fn directory(&self, id: &CliInvocationId) -> Result<InvocationDirectory, HostError> {
@@ -310,15 +323,8 @@ impl InvocationStore {
         &self,
         selection: InvocationSpec<O>,
     ) -> Result<InvocationDirectory, HostError> {
-        let parent = self
-            .state
-            .root
-            .parent()
-            .ok_or_else(|| invalid("state root has no parent"))?;
-        initialize_namespace(parent)?;
-        directory(&self.state.root, true)?;
+        self.register()?;
         let invocations = self.state.invocations();
-        directory(&invocations, true)?;
         let created_unix_ms = u64::try_from(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
