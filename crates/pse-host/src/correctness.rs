@@ -563,151 +563,193 @@ pub fn resolve_with<F>(
 where
     F: FnMut(&[OsString]) -> Result<Vec<u8>, CorrectnessError>,
 {
-    let arguments = diagnostic_check_arguments(arguments)?;
-    let metadata: Metadata = serde_json::from_slice(&capture(&metadata_arguments(&arguments)?)?)?;
-    let workspace = metadata.workspace_root;
-    diagnostic_workspace(&arguments, workspace.as_deref())?;
-    let mut packages = BTreeMap::new();
-    for package in metadata.packages {
-        if packages.insert(package.id.clone(), package).is_some() {
-            return Err(invalid("Cargo metadata repeats a package identity"));
-        }
-    }
-    let mut arguments = qualify_selected_check_features(&arguments, &packages)?;
-    let mut original: Graph = serde_json::from_slice(&capture(&graph_arguments(&arguments)?)?)?;
-    diagnostic_graph(&arguments, &original)?;
-    // All-feature check/Clippy callbacks need the same isolation even when
-    // cargo-hack (or the caller) does not spell the diagnostic feature. The
-    // actual reached units decide, including target and host dependency units.
-    if check_controls(&arguments)?.is_some_and(|controls| controls.all_features)
-        && original
-            .reached(&packages, &original.roots)?
-            .iter()
-            .any(|index| {
-                original.units[*index]
-                    .features
-                    .iter()
-                    .any(|feature| feature == "diagnostic-taskdump")
-            })
+    AdmissionContext::default().resolve_with(arguments, &mut capture)
+}
+
+/// Invocation-local metadata reused only while Cargo's metadata control arguments agree.
+/// It is not a persisted capability or a cross-operation freshness claim.
+#[derive(Default)]
+pub(crate) struct AdmissionContext {
+    metadata: Option<PreparedMetadata>,
+}
+struct PreparedMetadata {
+    arguments: Vec<OsString>,
+    workspace: Option<PathBuf>,
+    packages: BTreeMap<String, Package>,
+}
+impl AdmissionContext {
+    pub(crate) fn resolve_with<F>(
+        &mut self,
+        arguments: &[OsString],
+        mut capture: F,
+    ) -> Result<Resolution, CorrectnessError>
+    where
+        F: FnMut(&[OsString]) -> Result<Vec<u8>, CorrectnessError>,
     {
-        let diagnostic = diagnostic_scope_arguments(&arguments, true)?;
-        diagnostic_workspace(&diagnostic, workspace.as_deref())?;
-        diagnostic_graph(&diagnostic, &original)?;
-        if diagnostic != arguments {
-            let graph: Graph = serde_json::from_slice(&capture(&graph_arguments(&diagnostic)?)?)?;
-            diagnostic_graph(&diagnostic, &graph)?;
-            if original.root_identity()? != graph.root_identity()? {
-                return Err(invalid(
-                    "diagnostic isolation changed selected Cargo package/target roots",
-                ));
-            }
-            arguments = diagnostic;
-            original = graph;
-        }
-    }
-    let mut additions = BTreeSet::new();
-    let mut names = BTreeSet::new();
-    for root in &original.roots {
-        let reached = original.reached(&packages, &[*root])?;
-        let unit = &original.units[*root];
-        let package = &packages[&unit.pkg_id];
-        names.insert(package.name.clone());
-        if reached
-            .iter()
-            .any(|index| arrow(&packages[&original.units[*index].pkg_id]))
+        let arguments = diagnostic_check_arguments(arguments)?;
+        let metadata_arguments = metadata_arguments(&arguments)?;
+        if self
+            .metadata
+            .as_ref()
+            .is_none_or(|metadata| metadata.arguments != metadata_arguments)
         {
-            let feature = if arrow(package) {
-                "force_validate"
-            } else {
-                "force-validate"
-            };
-            if !package.features.contains_key(feature) {
-                return Err(invalid(format!(
-                    "{} has no explicit {feature} propagation",
-                    package.name
-                )));
+            let metadata: Metadata = serde_json::from_slice(&capture(&metadata_arguments)?)?;
+            let mut packages = BTreeMap::new();
+            for package in metadata.packages {
+                if packages.insert(package.id.clone(), package).is_some() {
+                    return Err(invalid("Cargo metadata repeats a package identity"));
+                }
             }
-            if !unit.features.iter().any(|value| value == feature) {
-                additions.insert(format!("{}/{feature}", package.name));
-            }
+            self.metadata = Some(PreparedMetadata {
+                arguments: metadata_arguments,
+                workspace: metadata.workspace_root,
+                packages,
+            });
         }
-    }
-    // Check malformed indices even when a graph has no selected roots.
-    original.reached(&packages, &original.roots)?;
-    let mut selected = arguments.clone();
-    if !additions.is_empty() {
-        let position = selected
-            .iter()
-            .position(|arg| arg == "--")
-            .unwrap_or(selected.len());
-        selected.splice(
-            position..position,
-            [
-                "--features".into(),
-                additions.into_iter().collect::<Vec<_>>().join(",").into(),
-            ],
-        );
-    }
-    let validated = if selected == arguments {
-        original
-    } else {
-        let graph: Graph = serde_json::from_slice(&capture(&graph_arguments(&selected)?)?)?;
-        if original.root_identity()? != graph.root_identity()? {
-            return Err(invalid(
-                "validation changed selected Cargo package/target roots",
-            ));
-        }
-        graph
-    };
-    let reached = validated.reached(&packages, &validated.roots)?;
-    for index in &reached {
-        let unit = &validated.units[*index];
-        let package = &packages[&unit.pkg_id];
-        if arrow(package)
-            && package.features.contains_key("force_validate")
-            && !unit
-                .features
+        let metadata = self
+            .metadata
+            .as_ref()
+            .ok_or_else(|| invalid("Cargo metadata was not captured"))?;
+        let workspace = &metadata.workspace;
+        let packages = &metadata.packages;
+        diagnostic_workspace(&arguments, workspace.as_deref())?;
+        let mut arguments = qualify_selected_check_features(&arguments, packages)?;
+        let mut original: Graph = serde_json::from_slice(&capture(&graph_arguments(&arguments)?)?)?;
+        diagnostic_graph(&arguments, &original)?;
+        // All-feature check/Clippy callbacks need the same isolation even when
+        // cargo-hack (or the caller) does not spell the diagnostic feature. The
+        // actual reached units decide, including target and host dependency units.
+        if check_controls(&arguments)?.is_some_and(|controls| controls.all_features)
+            && original
+                .reached(packages, &original.roots)?
                 .iter()
-                .any(|feature| feature == "force_validate")
+                .any(|index| {
+                    original.units[*index]
+                        .features
+                        .iter()
+                        .any(|feature| feature == "diagnostic-taskdump")
+                })
         {
-            return Err(invalid(format!(
-                "{} lacks force_validate in {:?} {} unit",
-                package.name, unit.platform, unit.mode
-            )));
+            let diagnostic = diagnostic_scope_arguments(&arguments, true)?;
+            diagnostic_workspace(&diagnostic, workspace.as_deref())?;
+            diagnostic_graph(&diagnostic, &original)?;
+            if diagnostic != arguments {
+                let graph: Graph =
+                    serde_json::from_slice(&capture(&graph_arguments(&diagnostic)?)?)?;
+                diagnostic_graph(&diagnostic, &graph)?;
+                if original.root_identity()? != graph.root_identity()? {
+                    return Err(invalid(
+                        "diagnostic isolation changed selected Cargo package/target roots",
+                    ));
+                }
+                arguments = diagnostic;
+                original = graph;
+            }
         }
-    }
-    let mut native_capabilities = BTreeSet::new();
-    let mut units = Vec::with_capacity(reached.len());
-    for index in reached {
-        let unit = &validated.units[index];
-        let package = &packages[&unit.pkg_id];
-        if package.name == "pse-backend-native" {
-            native_capabilities.extend(
-                crate::native::requirements_from_backend_features(
-                    &package.metadata,
-                    &unit.features,
-                )
-                .map_err(|error| invalid(error.to_string()))?,
+        let mut additions = BTreeSet::new();
+        let mut names = BTreeSet::new();
+        for root in &original.roots {
+            let reached = original.reached(packages, &[*root])?;
+            let unit = &original.units[*root];
+            let package = &packages[&unit.pkg_id];
+            names.insert(package.name.clone());
+            if reached
+                .iter()
+                .any(|index| arrow(&packages[&original.units[*index].pkg_id]))
+            {
+                let feature = if arrow(package) {
+                    "force_validate"
+                } else {
+                    "force-validate"
+                };
+                if !package.features.contains_key(feature) {
+                    return Err(invalid(format!(
+                        "{} has no explicit {feature} propagation",
+                        package.name
+                    )));
+                }
+                if !unit.features.iter().any(|value| value == feature) {
+                    additions.insert(format!("{}/{feature}", package.name));
+                }
+            }
+        }
+        // Check malformed indices even when a graph has no selected roots.
+        original.reached(packages, &original.roots)?;
+        let mut selected = arguments.clone();
+        if !additions.is_empty() {
+            let position = selected
+                .iter()
+                .position(|arg| arg == "--")
+                .unwrap_or(selected.len());
+            selected.splice(
+                position..position,
+                [
+                    "--features".into(),
+                    additions.into_iter().collect::<Vec<_>>().join(",").into(),
+                ],
             );
         }
-        units.push(CompilerUnit {
-            package_id: unit.pkg_id.clone(),
-            package_name: package.name.clone(),
-            target_name: unit.target.name.clone(),
-            target_kinds: unit.target.kind.clone(),
-            source_path: unit.target.src_path.clone(),
-            features: unit.features.iter().cloned().collect(),
-            platform: unit.platform.clone(),
-            mode: unit.mode.clone(),
-            root: validated.roots.contains(&index),
-        });
+        let validated = if selected == arguments {
+            original
+        } else {
+            let graph: Graph = serde_json::from_slice(&capture(&graph_arguments(&selected)?)?)?;
+            if original.root_identity()? != graph.root_identity()? {
+                return Err(invalid(
+                    "validation changed selected Cargo package/target roots",
+                ));
+            }
+            graph
+        };
+        let reached = validated.reached(packages, &validated.roots)?;
+        for index in &reached {
+            let unit = &validated.units[*index];
+            let package = &packages[&unit.pkg_id];
+            if arrow(package)
+                && package.features.contains_key("force_validate")
+                && !unit
+                    .features
+                    .iter()
+                    .any(|feature| feature == "force_validate")
+            {
+                return Err(invalid(format!(
+                    "{} lacks force_validate in {:?} {} unit",
+                    package.name, unit.platform, unit.mode
+                )));
+            }
+        }
+        let mut native_capabilities = BTreeSet::new();
+        let mut units = Vec::with_capacity(reached.len());
+        for index in reached {
+            let unit = &validated.units[index];
+            let package = &packages[&unit.pkg_id];
+            if package.name == "pse-backend-native" {
+                native_capabilities.extend(
+                    crate::native::requirements_from_backend_features(
+                        &package.metadata,
+                        &unit.features,
+                    )
+                    .map_err(|error| invalid(error.to_string()))?,
+                );
+            }
+            units.push(CompilerUnit {
+                package_id: unit.pkg_id.clone(),
+                package_name: package.name.clone(),
+                target_name: unit.target.name.clone(),
+                target_kinds: unit.target.kind.clone(),
+                source_path: unit.target.src_path.clone(),
+                features: unit.features.iter().cloned().collect(),
+                platform: unit.platform.clone(),
+                mode: unit.mode.clone(),
+                root: validated.roots.contains(&index),
+            });
+        }
+        Ok(Resolution {
+            arguments: selected,
+            packages: names.into_iter().collect(),
+            units,
+            native_capabilities,
+        })
     }
-    Ok(Resolution {
-        arguments: selected,
-        packages: names.into_iter().collect(),
-        units,
-        native_capabilities,
-    })
 }
 
 /// Resolve real Cargo compiler actions without building, preparing providers or starting services.
@@ -754,7 +796,7 @@ fn native_command_with_rustflags(
     }
     command
 }
-fn capture(cargo: &OsStr, arguments: &[OsString]) -> Result<Vec<u8>, CorrectnessError> {
+pub(crate) fn capture(cargo: &OsStr, arguments: &[OsString]) -> Result<Vec<u8>, CorrectnessError> {
     let output = native_command(cargo, arguments).output()?;
     if !output.status.success() {
         return Err(invalid(format!(
@@ -1172,6 +1214,44 @@ mod tests {
     }
     fn arrow_metadata() -> Value {
         json!({"packages":[package("root","root",json!({"force-validate":[]})),package("arrow-array","arrow-array",json!({"force_validate":[]}))]})
+    }
+    #[test]
+    fn invocation_metadata_is_reused_only_for_the_same_cargo_context() {
+        let mut context = AdmissionContext::default();
+        let mut metadata_calls = 0;
+        let mut graph_calls = 0;
+        for arguments in [
+            args(&["test", "-p", "root", "--lib"]),
+            args(&["check", "-p", "root", "--lib"]),
+            args(&["check", "-p", "root", "--config", "net.offline=true"]),
+        ] {
+            let resolution = context
+                .resolve_with(&arguments, |call| {
+                    if call[0] == "metadata" {
+                        metadata_calls += 1;
+                        Ok(serde_json::to_vec(
+                            &json!({"packages":[package("root", "root", json!({}))]}),
+                        )
+                        .unwrap())
+                    } else {
+                        graph_calls += 1;
+                        Ok(
+                            serde_json::to_vec(&graph(vec![unit("root", &[], &[], None, "test")]))
+                                .unwrap(),
+                        )
+                    }
+                })
+                .unwrap();
+            assert_eq!(resolution.packages, ["root"]);
+        }
+        assert_eq!(
+            metadata_calls, 2,
+            "changed metadata controls need another capture"
+        );
+        assert_eq!(
+            graph_calls, 3,
+            "each selected context gets its actual graph"
+        );
     }
     #[test]
     fn reached_backend_contexts_join_metadata_by_id_and_preserve_host_target_units() {

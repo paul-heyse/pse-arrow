@@ -133,17 +133,15 @@ pub struct DeclaredTarget {
     pub required_features: BTreeSet<String>,
 }
 
-/// A compatible Cargo invocation. Independent contexts are never feature-unioned.
+/// One intended root, retaining its independent target and feature policy inside a group.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Group {
+pub struct Root {
     package_id: String,
     package_name: String,
     target: Option<DeclaredTarget>,
     features: Features,
-    platform: Option<String>,
-    arguments: Vec<String>,
 }
-impl Group {
+impl Root {
     /// Exact package identity.
     pub fn package_id(&self) -> &str {
         &self.package_id
@@ -160,6 +158,42 @@ impl Group {
     pub fn features(&self) -> &Features {
         &self.features
     }
+    fn selector(&self) -> Result<Vec<String>, CorrectnessError> {
+        let Some(target) = &self.target else {
+            return Ok(Vec::new());
+        };
+        let flag = target_flag(&target.kinds)?;
+        Ok(if flag == "--lib" {
+            vec![flag.into()]
+        } else {
+            vec![flag.into(), target.name.clone()]
+        })
+    }
+}
+
+/// A real root set with shared Cargo selectors; admission checks feature compatibility.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct Group {
+    roots: Vec<Root>,
+    platform: Option<String>,
+    arguments: Vec<String>,
+}
+
+enum AdmissionMismatch {
+    Invalid(CorrectnessError),
+    FeatureAbsence(BTreeSet<usize>),
+}
+impl From<CorrectnessError> for AdmissionMismatch {
+    fn from(error: CorrectnessError) -> Self {
+        Self::Invalid(error)
+    }
+}
+
+impl Group {
+    /// Exact intended roots, each with its own feature-absence controls.
+    pub fn roots(&self) -> &[Root] {
+        &self.roots
+    }
     /// Requested target platform; actual host/target contexts come from admission.
     pub fn platform(&self) -> Option<&str> {
         self.platform.as_deref()
@@ -173,30 +207,145 @@ impl Group {
         &self,
         resolution: &correctness::Resolution,
     ) -> Result<(), CorrectnessError> {
-        let roots: Vec<_> = resolution.units.iter().filter(|unit| unit.root).collect();
-        if roots.is_empty() || roots.iter().any(|unit| unit.package_id != self.package_id) {
-            return Err(invalid(
-                "admitted Cargo roots differ from normalized package selection",
-            ));
-        }
-        for unit in roots {
-            if let Some(target) = &self.target
+        self.check_resolution(resolution)
+            .map_err(|error| match error {
+                AdmissionMismatch::Invalid(error) => error,
+                AdmissionMismatch::FeatureAbsence(roots) => invalid(format!(
+                    "selected Cargo roots activate features required absent: {}",
+                    roots
+                        .iter()
+                        .map(|&index| self.roots[index].package_name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )),
+            })
+    }
+
+    fn check_resolution(
+        &self,
+        resolution: &correctness::Resolution,
+    ) -> Result<(), AdmissionMismatch> {
+        let mut found = BTreeSet::new();
+        let mut absent = BTreeSet::new();
+        for unit in resolution.units.iter().filter(|unit| unit.root) {
+            let (index, root) = self
+                .roots
+                .iter()
+                .enumerate()
+                .find(|(_, root)| root.package_id == unit.package_id)
+                .ok_or_else(|| {
+                    invalid("admitted Cargo root is outside normalized package selection")
+                })?;
+            found.insert(index);
+            if unit.package_name != root.package_name {
+                return Err(invalid("admitted Cargo package identity/name disagree").into());
+            }
+            if let Some(target) = &root.target
                 && (unit.target_name != target.name
                     || unit.target_kinds != target.kinds
                     || unit.source_path != target.source_path)
             {
-                return Err(invalid(
-                    "admitted Cargo target differs from explicit target intent",
-                ));
+                return Err(
+                    invalid("admitted Cargo target differs from explicit target intent").into(),
+                );
             }
-            if !unit.features.is_disjoint(&self.features.absent) {
-                return Err(invalid(format!(
-                    "{} activates a feature required absent",
-                    self.package_name
-                )));
+            if let Some(platform) = &self.platform
+                && unit.platform.as_ref() != Some(platform)
+                && !(unit.platform.is_none()
+                    && unit.target_kinds.iter().any(|kind| kind == "proc-macro"))
+            {
+                return Err(
+                    invalid("admitted Cargo root differs from selected target platform").into(),
+                );
+            }
+            if !unit.features.is_disjoint(&root.features.absent) {
+                absent.insert(index);
+            }
+            for feature in &root.features.enabled {
+                let qualified = format!("{}/", root.package_name);
+                let local = feature.strip_prefix(&qualified).unwrap_or(feature);
+                if !local.contains('/') && !unit.features.contains(local) {
+                    return Err(invalid(
+                        "admitted Cargo root omits an explicitly required feature",
+                    )
+                    .into());
+                }
             }
         }
+        if found.len() != self.roots.len() || found.is_empty() {
+            return Err(
+                invalid("admitted Cargo graph omits an intended package/target root").into(),
+            );
+        }
+        if !absent.is_empty() {
+            return Err(AdmissionMismatch::FeatureAbsence(absent));
+        }
         Ok(())
+    }
+
+    fn new(
+        operation: Operation,
+        roots: Vec<Root>,
+        platform: Option<String>,
+    ) -> Result<Self, CorrectnessError> {
+        let first = roots
+            .first()
+            .ok_or_else(|| invalid("compiler group has no roots"))?;
+        let mut arguments = vec![
+            match operation {
+                Operation::Test => "test",
+                Operation::Check => "check",
+            }
+            .into(),
+            "--locked".into(),
+        ];
+        for root in &roots {
+            arguments.extend(["-p".into(), root.package_id.clone()]);
+        }
+        arguments.extend(first.selector()?);
+        if let Some(platform) = &platform {
+            arguments.extend(["--target".into(), platform.clone()]);
+        }
+        if !first.features.defaults {
+            arguments.push("--no-default-features".into());
+        }
+        if first.features.all {
+            arguments.push("--all-features".into());
+        }
+        let enabled: BTreeSet<_> = roots
+            .iter()
+            .flat_map(|root| {
+                root.features.enabled.iter().map(|feature| {
+                    if feature.contains('/') {
+                        feature.clone()
+                    } else {
+                        format!("{}/{feature}", root.package_name)
+                    }
+                })
+            })
+            .collect();
+        if !enabled.is_empty() {
+            arguments.extend([
+                "--features".into(),
+                enabled.into_iter().collect::<Vec<_>>().join(","),
+            ]);
+        }
+        Ok(Self {
+            roots,
+            platform,
+            arguments,
+        })
+    }
+
+    fn accepts(&self, root: &Root) -> Result<bool, CorrectnessError> {
+        let first = &self.roots[0];
+        Ok(!self
+            .roots
+            .iter()
+            .any(|existing| existing.package_id == root.package_id)
+            && first.features.defaults == root.features.defaults
+            && first.features.all == root.features.all
+            && first.selector()? == root.selector()?)
     }
 }
 
@@ -209,7 +358,7 @@ pub struct Plan {
     ignored: IgnoredPolicy,
 }
 impl Plan {
-    /// Compatible compiler selections, with independent feature contexts retained.
+    /// Candidate compiler groups; actual admission can split feature-incompatible sets.
     pub fn groups(&self) -> &[Group] {
         &self.groups
     }
@@ -228,19 +377,47 @@ impl Plan {
 
     /// Query real Cargo graphs and verify Arrow admission, without building or preparing.
     pub fn resolve(self) -> Result<Resolved, CorrectnessError> {
-        self.resolve_with(correctness::resolve)
+        let cargo = correctness::real_cargo()?;
+        let mut context = correctness::AdmissionContext::default();
+        self.resolve_with(|arguments| {
+            context.resolve_with(arguments, |arguments| {
+                correctness::capture(&cargo, arguments)
+            })
+        })
     }
 
     /// Inject the existing admission owner for independent focused tests.
-    pub fn resolve_with<F>(self, mut admit: F) -> Result<Resolved, CorrectnessError>
+    pub fn resolve_with<F>(mut self, mut admit: F) -> Result<Resolved, CorrectnessError>
     where
         F: FnMut(&[OsString]) -> Result<correctness::Resolution, CorrectnessError>,
     {
         let mut admitted = Vec::with_capacity(self.groups.len());
-        for group in &self.groups {
+        let mut pending: std::collections::VecDeque<_> = std::mem::take(&mut self.groups).into();
+        while let Some(group) = pending.pop_front() {
             let arguments: Vec<_> = group.arguments.iter().map(OsString::from).collect();
             let resolution = admit(&arguments)?;
-            group.validate_resolution(&resolution)?;
+            match group.check_resolution(&resolution) {
+                Ok(()) => {}
+                Err(AdmissionMismatch::FeatureAbsence(violating)) if group.roots.len() > 1 => {
+                    // Split only on owned feature-absence evidence. A singleton that still
+                    // violates its policy fails; no failed admission ever launches work.
+                    let split = *violating
+                        .iter()
+                        .next()
+                        .ok_or_else(|| invalid("missing incompatible root"))?;
+                    let mut remaining = group.roots;
+                    let root = remaining.remove(split);
+                    let separate = Group::new(self.operation, vec![root], group.platform.clone())?;
+                    let remainder = Group::new(self.operation, remaining, group.platform)?;
+                    pending.push_front(remainder);
+                    pending.push_front(separate);
+                    continue;
+                }
+                Err(_) => {
+                    group.validate_resolution(&resolution)?;
+                }
+            }
+            self.groups.push(group);
             admitted.push(resolution);
         }
         Ok(Resolved {
@@ -258,7 +435,7 @@ pub struct Resolved {
     admitted: Vec<correctness::Resolution>,
 }
 impl Resolved {
-    /// The unchanged normalized intent, including filters and ignored policy.
+    /// Original root policies and filters, with the grouping established by admission.
     pub fn plan(&self) -> &Plan {
         &self.plan
     }
@@ -359,7 +536,7 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
     if intents.is_empty() {
         return Err(invalid("package selection is empty"));
     }
-    let mut groups = Vec::new();
+    let mut roots = Vec::new();
     for intent in intents {
         let package = package(metadata, &intent.package)?;
         let mut features = intent.features;
@@ -414,59 +591,35 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
                 )));
             }
         }
-        let mut arguments = vec![
-            match request.operation {
-                Operation::Test => "test",
-                Operation::Check => "check",
-            }
-            .into(),
-            "--locked".into(),
-            "-p".into(),
-            package.id.repr.clone(),
-        ];
-        if let Some(target) = &target {
-            let flag = target_flag(&target.kinds)?;
-            arguments.push(flag.into());
-            if flag != "--lib" {
-                arguments.push(target.name.clone());
-            }
-        }
-        if let Some(platform) = &request.platform {
-            arguments.extend(["--target".into(), platform.clone()]);
-        }
-        if !features.defaults {
-            arguments.push("--no-default-features".into());
-        }
-        if features.all {
-            arguments.push("--all-features".into());
-        }
-        if !features.enabled.is_empty() {
-            arguments.extend([
-                "--features".into(),
-                features
-                    .enabled
-                    .iter()
-                    .map(|feature| {
-                        if feature.contains('/') {
-                            feature.clone()
-                        } else {
-                            format!("{}/{feature}", package.name)
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join(","),
-            ]);
-        }
-        let group = Group {
+        let root = Root {
             package_id: package.id.repr.clone(),
             package_name: package.name.to_string(),
             target,
             features,
-            platform: request.platform.clone(),
-            arguments,
         };
-        if !groups.contains(&group) {
-            groups.push(group);
+        if !roots.contains(&root) {
+            roots.push(root);
+        }
+    }
+    let mut groups: Vec<Group> = Vec::new();
+    for root in roots {
+        let mut compatible = None;
+        for (index, group) in groups.iter().enumerate() {
+            if group.accepts(&root)? {
+                compatible = Some(index);
+                break;
+            }
+        }
+        if let Some(index) = compatible {
+            let mut roots = std::mem::take(&mut groups[index].roots);
+            roots.push(root);
+            groups[index] = Group::new(request.operation, roots, request.platform.clone())?;
+        } else {
+            groups.push(Group::new(
+                request.operation,
+                vec![root],
+                request.platform.clone(),
+            )?);
         }
     }
     Ok(Plan {
