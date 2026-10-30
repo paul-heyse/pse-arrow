@@ -8,6 +8,23 @@ doc_topics: [environment, libraries, design, current-work]
 
 # An agent-first Rust CLI for pse-arrow
 
+> **Revision (2026-10-29, follow-up).** The first pass ran without a usable clap overview: the
+> file then at `docs/libraries/clap.md` duplicated `futures.md`. That gap should have blocked the
+> design and was noted only as an evidence limit. With the corrected
+> [clap overview](../libraries/clap.md), this follow-up adds three things:
+> - an [integrated clap capabilities](#clap-capabilities) contract covering every capability
+>   family;
+> - [first-principles opportunities](#first-principles) O15–O21, judged by the agent as the tool's
+>   user;
+> - [environment changes](#environment-followup) O23–O25, plus the operator's new direction that
+>   the CLI is strongly recommended now and required later, set out as the
+>   [adoption path](#adoption-path) and O22.
+>
+> The follow-up amends O01, O04, O06, O07, O11 and O14 in place, keeps every earlier ID, and
+> updates the order of work, rule impacts and delivery statements. Its companion-crate checks
+> include a scratch probe of rustdoc JSON on the pinned nightly. A fresh design-reviewer assessed
+> the delta; its corrections are integrated.
+
 ## Judgment and evidence boundary
 
 **Proposed:** give agents one Rust front door, `pse`, built with clap. It routes each verb to
@@ -31,6 +48,23 @@ no second implementation of any of them. The opportunities, in order of measured
 Two smaller opportunities address reading and orientation ([O07](#O07), [O08](#O08)). The
 cheapest step for reading is a configuration trial, not new code. Several tempting additions are
 explicitly not recommended ([Not recommended](#not-recommended)).
+
+**Follow-up additions.**
+- **clap usage contract.** The [integrated clap capabilities](#clap-capabilities) section is the
+  full contract. Its structural choices are one library `Cli` behind thin bins, a federated xtask subtree,
+  lazy subtrees, shared argument structs, typed domain value parsers and parser-enforced argument
+  groups.
+- **First-principles opportunities:**
+  - exact pinned-API lookup and scratch probes ([O15](#O15));
+  - owner and generator routing ([O16](#O16));
+  - fast documentation checks ([O17](#O17));
+  - shared-tree commits ([O18](#O18));
+  - test discovery ([O19](#O19));
+  - continuity across compaction ([O20](#O20));
+  - soft claims, as a candidate ([O21](#O21)).
+- **Adoption.** A staged path enforced through both harnesses' shell hooks ([O22](#O22)).
+- **Environment.** A worktree lifecycle ([O23](#O23)), one checkout-scoped home for results, logs
+  and scratch ([O24](#O24)), and harness orientation surfaces ([O25](#O25)).
 
 **Operator directions that shaped this review:**
 - The Python capability CLI, Python MCP server, operation catalogue and `pse-py` boundary were
@@ -353,8 +387,141 @@ pse commands --json                pse schema <verb>       pse doctor
 - Measured parser overhead in argparse-rosetta-rs is about 574 KiB release and a 170 ms
   incremental debug build.
 
+**clap realization (follow-up).** The [integrated clap capabilities](#clap-capabilities) contract
+is the full usage specification. Its structural decisions for O01:
+- **One library `Cli`, thin bins.** `pse`, the existing `pse-host` and `cargo-pse-correctness`
+  stay thin `[[bin]]`s of the one `pse-host` crate, sharing one library `Cli` and error contract.
+  They are already built and published as one generation. Multicall was considered and rejected;
+  see its row in the clap table.
+- **Federated xtask verbs.** xtask, already the generator, exports its own clap schema through
+  `just codegen` as a generated JSON file. Each verb records its Cargo features and invocation
+  route.
+  - **Read at runtime, not compiled in.** `pse` reads that file using the `string` feature and
+    reports staleness. If it were compiled in, every xtask flag change would force a host
+    re-bootstrap.
+  - **Help is free; dispatch builds.** Help, catalog and explain never build anything, per
+    ADR-0233. Dispatching a federated verb is an effectful run that builds xtask through the
+    correctness adapter.
+  - **Planning decision.** The catalog walker lives where both closures already reach without a
+    new crate.
+- **Lazy subtrees.** `#[command(defer = true)]` keeps them out of cold start.
+- **Shared argument structs.** `GlobalArgs`, `SelectionArgs`, `PlacementArgs` and `OutputArgs`
+  are flattened everywhere, with `global` and `from_global` where needed.
+
 **Delivery demonstration:** an agent completes the native fixture episode above using only `pse`
 verbs, with no inline `PSE_*` assignments, no `/tmp` paths and no `cd` prefix.
+
+<a id="clap-capabilities"></a>
+## Integrated clap capabilities
+
+**Basis.** This pass reads the corrected [clap overview](../libraries/clap.md) end to end (§1–§14)
+and verifies the consequential APIs in the pinned `clap_builder-4.6.7` and `clap_derive-4.6.7`
+sources:
+- `Command::defer(fn(Self) -> Self)` and the derive `defer` attribute;
+- `Command::multicall`;
+- `external_subcommand_value_parser`;
+- `get_overridden_usage`;
+- the `string` feature;
+- `ValueSource::{DefaultValue, EnvVariable, CommandLine}`;
+- `unstable-ext` `Command::add`/`Arg::add` with `get::<T>()`.
+
+**How to read it.** This is the design's clap usage contract. Each family of the overview has a
+decision:
+- *Now:* part of the first `pse` delivery.
+- *Later:* adopt once the named need appears.
+- *No:* not adopted, for the reason given.
+
+The O-ids show where a capability lands.
+
+### Command model and composition (overview §1–§3)
+
+| Capability | Decision | Use in `pse` |
+| --- | --- | --- |
+| Derive `Parser`/`Args`/`Subcommand`/`ValueEnum` | Now ([O01](#O01)) | Every host verb is a derived type. Doc comments supply `about`/`long_about`. |
+| Reusable `Args` with `#[command(flatten)]` | Now | Four shared argument structs: `GlobalArgs` (`--format`, `--budget`, `-C`, `-v/-q`), `SelectionArgs` (targets, `--changed`, `--workspace`, `-E`), `PlacementArgs` (`--class`, `--native`, `--detach`, `--wait`) and `OutputArgs` (`--fields`). One definition each, identical across verbs. |
+| Explicit `ArgGroup`s and `conflicts_with_all` | Now ([O04](#O04)) | The implicit group a derived `Args` struct creates is `multiple(true)` over all its own fields, so it cannot make its members conflict. Selection modes instead use a dedicated sub-struct, or `conflicts_with_all` on `--changed`, against explicit targets (positional `pkg:target` and `-p`, which combine) and `--workspace`. `--workspace --exclude` and `-p … -E` stay legal. `try_parse_from` cases pin these combinations, alongside `debug_assert`. |
+| `#[arg(from_global)]` | Now | Nested handlers read the global `--format`/`--budget` without threading them through. |
+| `rename_all_env` | Now, with the `env` feature | `PSE_*` names follow one rule. |
+| `defer = true` (new in 4.6.7) | Now ([O01](#O01)) | Large subtrees (`fixture`, `docs`, federated xtask verbs) are built lazily, which protects cold start. Catalog and help walks call `build()` first, as the overview's §3.3 caveat requires. |
+| Builder augmentation (`augment_subcommands`, `mut_subcommand`, `find_subcommand`) plus the `string` feature | Now ([O01](#O01)) | **Federated tree.** xtask-owned verbs appear in `pse` help and the catalog. Their schema comes from xtask's own clap definitions, exported by `just codegen` into a generated JSON file with drift check, so there is one authority. `pse` reads the file at runtime, reports when it is stale, and builds those subcommands with owned strings. Dispatch is an effectful verb that builds xtask through the correctness adapter. Help, catalog and explain never build. No xtask closure is linked into the host. |
+| `Command::debug_assert` | Now | Unit test over the whole tree, including the federated part. |
+| `Option<T>` with `require_equals` and `default_missing_value` | Now | `--native` (absent = no providers, bare = `auto`, `=CAPS` = explicit) and `--wait` (bare = `50s`). Derived `Option<Option<T>>` combined with a default is redundant: a bare flag would yield `Some(Some(default))`. |
+| `Option<Vec<T>>` | Now | `--fields`: absent means the default projection, present means exactly these fields. |
+| `Vec<Vec<T>>` (`unstable-v5`) | No | Occurrence groups are not needed. |
+| `#[command(version)]` from Cargo metadata (`cargo` feature) | No | `version`/`long_version` come from `pse-buildinfo`: build identity, host-tools generation and source fingerprint ([O13](#O13)). |
+
+### Parsing semantics, constraints and values (overview §4–§7)
+
+| Capability | Decision | Use in `pse` |
+| --- | --- | --- |
+| `ArgAction::Count` | Now | `-v`/`-q` adjusts the tracing filter. A ten-line flatten struct; `clap-verbosity-flag` is optional. |
+| `args_override_self(true)` and `ArgAction::Append` | Now | For single-valued `Set`/`SetTrue`/`SetFalse` flags, the last occurrence wins instead of producing an error. Set-valued flags (`--native`, `--fields`, `-p`) use `Append`, so repeats combine rather than silently replace. |
+| `num_args` and `value_delimiter(',')` | Now | Capability sets, package lists and field lists. |
+| `require_equals(true)` on optional-value flags | Now | `--native=CAPS` and `--wait=DUR` never swallow the next positional. Without it, `--native compiler` parses ambiguously. Paired with `default_missing_value` above. |
+| `last(true)` pass-through | Now | `pse run -- <argv…>` and `pse test … -- <nextest args>`, keeping `OsString` values. The other §4.3 mechanisms (`trailing_var_arg`, `allow_hyphen_values`, `subcommand_precedence_over_arg`, `value_terminator`) are not used. |
+| `ArgGroup` (required, exclusive and multiple), `conflicts_with`, `requires`, `requires_if`, `required_unless_present`, `exclusive` | Now ([O04](#O04)) | The parser enforces combinations before effects. Examples: exactly one selection mode; `--fields` requires a JSON format; `pse wait` needs a run ID unless `--latest`; `pse commands --json` is exclusive. Cross-checks against external state stay in the handler (overview §5.3). |
+| `ValueParserFactory` and `TypedValueParser::try_map` | Now | Domain types `PackageSpec`, `TargetSpec` (`pkg:target`), `RunId` (`latest`, prefix, full), `Duration`, `FilterExpr` (non-empty) and `CapabilitySet`. They parse syntax into lightweight IDs. Existence checks against Cargo metadata or the ledger happen in the handler but are reported as clap-style `ValueValidation` errors with did-you-mean suggestions, through `Command::error` and `Error::with_cmd`. |
+| `ValueEnum` with `#[value(help, alias, hide)]` | Now | Format, native capability, resource class (owned by `admission.rs`) and run kind. Per-value help flows into help and the catalog. Hidden aliases keep retired spellings parsable. |
+| `PossibleValuesParser` built at runtime (`string` feature) | Later | For value sets owned by configuration rather than code, such as fixture names declared in package metadata. |
+| `RangedU64ValueParser`, `NonEmptyStringValueParser` | Now | `--budget`, `--tail` and filters. |
+| `OsString`/`PathBuf` values, `get_raw` | Now | Paths and pass-through stay OS-native. |
+| `env` feature and `Arg::env` | Now | `PSE_FORMAT`, `PSE_BUDGET` and `PSE_CHECKOUT`. Each key has one owner: clap does not declare keys that `environment.rs` owns ([O06](#O06)). |
+| `ArgMatches::value_source` | Now ([O06](#O06)) | `explain` and envelopes mark each input as explicit, environment or default. Handlers keep `ArgMatches` alongside the derived struct (`FromArgMatches`) where provenance matters, because `contains_id` does not mean the user supplied a value (overview §7.2). |
+| `default_value_if`/`ifs` | Later | Only where one argument's value fixes another's default. |
+| Config-file layering in clap | No | clap stays the CLI layer; configuration remains `environment.rs`'s responsibility (overview §7.3). |
+
+### Dispatch, help, errors and generated artifacts (overview §8–§11)
+
+| Capability | Decision | Use in `pse` |
+| --- | --- | --- |
+| `subcommand_required` and `arg_required_else_help` | Now | Bare `pse` prints compact help. Agents call `pse status` explicitly. |
+| `global(true)` | Now | The `GlobalArgs` work in any position. |
+| `propagate_version` | Now | Every verb answers `--version` with the same identity. |
+| `infer_subcommands`/`infer_long_args` | No | Prefixes become ambiguous when verbs are added, which breaks generated agent commands (overview §8.1). |
+| Hidden `alias` | Now, sparingly | Only for the same semantics under a retired name. No `visible_alias`: agents should see one canonical name. `short_flag`/`long_flag` subcommands are not used. |
+| `multicall(true)` | No | clap forbids arguments on a multicall root, and dispatch depends on `argv[0]`'s file stem. Hooks exec `pse-host`. Cargo calls `cargo-pse-correctness pse-correctness …`. `bootstrap-host` probes each tool with `--version`. A copied binary would stop dispatching. Thin `[[bin]]`s over one library `Cli` give the same single build, publish and error contract without depending on `argv[0]` (DP-16). |
+| External subcommands with `external_subcommand_value_parser` | Later | `pse-<name>` executables on the checkout tool path for maintainer extensions, and git-style alias expansion (the cookbook's reparse pattern) if declared composite commands are wanted. The federated tree covers xtask without this. |
+| Help structure: `next_help_heading`, `display_order`, `after_long_help` examples, `verbatim_doc_comment`, `override_usage` for pass-through forms, `hide` | Now ([O06](#O06)) | `-h` stays one line per argument under Selection, Placement and Output headings. `--help` adds worked examples taken from the episodes in this review. `__supervise`, `__finalize` and `agent-hook` are hidden. |
+| `render_help`/`render_long_help`/`render_usage` | Now ([O06](#O06)) | Rendered text is embedded in the JSON catalog, so agents get exactly what humans see. |
+| `wrap_help`, the `unicode` feature, custom `Styles` | No | The non-TTY fixed width is deterministic, which suits agents. Default styles are used for humans. |
+| `suggestions` and `error-context` (defaults) | Now ([O02](#O02)) | `Error::kind`/`context` become the `ErrorRecord`. `KindFormatter` gives the one-line human form. `DisplayHelp`/`DisplayVersion` exit 0. |
+| clap_complete (AOT scripts and the dynamic `CompleteEnv` engine) | No | Shell completion serves interactive humans, not agents. The agent need, an argument's valid values, comes from the CLI's own value-domain providers ([O06](#O06)). These are small functions over cached Cargo metadata, the ledger and configuration, exposed in the JSON catalog. Static sets come from `PossibleValue`/`ValueEnum` metadata. |
+| clap_mangen | No | Man pages do not serve agents. A Markdown CLI reference generated into `docs/generated/` by `just codegen`, with `codegen-check` drift, serves both agents and the docs site. |
+| `try_parse_from`, `Parser::try_parse` | Now | Parser tests, plus the pre-parse format decision ([O02](#O02)). |
+| Help and output snapshots | Now | `insta` (already pinned) for `-h`/`--help`/envelope snapshots. |
+| Executable example cases (`trycmd`) | Later | Once verbs stabilize, every `after_long_help` example also runs as a case file. |
+| `update_from`, REPL with `shlex`, batch mode | No | Agents already chain shell commands. A long-lived interactive parser adds state without a consumer. |
+| `ArgMatches` occurrences and indices | No | Not needed. |
+
+### Features and ecosystem (overview §12–§13)
+
+**Workspace clap features:**
+- `derive`, `env` and `string`.
+- `unstable-ext`, for catalog metadata clap has no getter for: `requires`, examples and
+  output-schema IDs. It is bounded by the exact pin (`=4.6.7`); upgrades are deliberate pin moves.
+- Not `deprecated`. Enabling it only for linting would give clap a second feature set, which
+  ADR-0122's one-feature-set invariant forbids, and enabling it always adds noise. Pin moves read
+  clap's changelog instead.
+- Feature unification means xtask's clap also receives `env`, `string` and `unstable-ext`, which
+  is harmless.
+- Not enabled: `wrap_help`, `unicode`, `cargo`, `debug`, `unstable-v5`.
+
+**Ecosystem crates:**
+- `clap-cargo` and `argfile` are assessed in the companion note.
+- `wild` (Windows globbing), `clio` (stdin/stdout path arguments) and `clap_complete_nushell` are
+  not needed.
+
+### Companion crates (checked against the pins)
+
+| Crate | Decision | Notes |
+| --- | --- | --- |
+| `clap_complete` 4.6.11 | No | Shell completion only. Its candidate engine could be called outside a shell, but it needs `unstable-dynamic`, which adds `clap/unstable-ext` workspace-wide. Agent-facing valid values are simpler as the CLI's own providers ([O06](#O06)). |
+| `clap-cargo` 0.19.0 | Now ([O04](#O04)) | `Workspace { package, workspace, all, exclude }` with `partition_packages(&Metadata)`, which honours `workspace_default_members`. Its metadata must not come from `no_deps`. `Features { all_features, no_default_features, features }` with `forward_metadata`. Built on `cargo_metadata ^0.23` (feature `cargo_metadata`) and clap ^4.5.48, both compatible. It gives `pse test`/`check` Cargo's familiar package-selection grammar without bespoke parsing. |
+| `insta` 1.49.0 (pinned) | Now | In-process `cmd.render_long_help()` and envelope snapshots. No subprocess needed. |
+| `trycmd` 1.2.1 / `snapbox` 1.2.2 | Later | Real-binary cases from `.toml` or Markdown ` ```console ` blocks, with `[ROOT]`/`[CWD]` normalization and `TRYCMD=overwrite`. Adopting them moves the lockfile (snapbox 1.0.0 is installed). Add them once help examples stabilize, so documented examples are executed. |
+| `clap-markdown` 0.1.5 / `clap_mangen` 0.3.3 | No | clap-markdown works with clap 4.6 but last released in 2025-05. clap_mangen produces roff only. The catalog walker [O06](#O06) already needs emits both the JSON catalog and the generated Markdown reference from one walk. |
+| `argfile` 1.0.0 | No | `@file` expansion covers only `pse`'s own argv. Long nextest filters are better generated by `pse` from intent ([O04](#O04)) than passed in files. |
+| `rustdoc-types` 0.61.0 | Now ([O15](#O15)) | `FORMAT_VERSION = 61`. The pinned nightly-2026-09-29 emits `format_version: 61`, *Measured* by a scratch probe that generated JSON for a dependency at its locked version (`cargo rustdoc -p argfile@1.0.0 --lib -Z unstable-options --output-format json`). A toolchain move must bump rustdoc-types with it; readers check `format_version` first. |
 
 ## CLI opportunities
 
@@ -605,6 +772,12 @@ implemented in Python before, and JUnit reconciliation was retired with it.
   compiler-message extraction.
 
 **Enabling mechanisms** (*Interface-checked*):
+- **Package selection (follow-up).** `clap-cargo` 0.19.0 `Workspace` (`-p`, `--workspace`,
+  `--exclude`; `partition_packages` on full metadata) and `Features` give Cargo's own grammar.
+  An explicit selection group, or `conflicts_with_all` on `--changed`, makes `--changed`
+  exclusive with explicit targets (positional `pkg:target` plus `-p`) and `--workspace`. It keeps
+  `--workspace --exclude` and `-p … -E` legal. The implicit group of a derived `Args` struct
+  cannot do this, because it is `multiple(true)`.
 - `cargo_metadata` `Target::required_features` and the package graph.
 - The resolved feature graph the correctness adapter already computes for force-validation.
 - nextest filtersets (`rdeps(=pkg)`, `package()`, `test()`; see the
@@ -696,7 +869,14 @@ directly.
   - About 150–250 lines, serialized with its own schemars schema.
   - clap has no public `requires` getter. Carry that, plus examples and output-schema IDs, through
     `unstable-ext` `Command::add`/`Arg::add`, which is acceptable with an exact pin.
-  - `clap_usage`/`usage-lib` is an optional second export, with its `docs` feature off.
+  - **Valid values (follow-up).** The catalog's `valid_values` come from the CLI's own
+    value-domain providers: packages and `pkg:target` targets from cached metadata, run IDs from
+    the ledger, fixtures and capability sets from their declarations. Static sets come from
+    `PossibleValue`/`ValueEnum`. Providers are fast and side-effect-free. `pse complete` is not
+    needed: an agent reads the leaf's `valid_values`.
+  - **Generated reference (follow-up).** The same walk emits a Markdown CLI reference into
+    `docs/generated/` through `just codegen`, with `codegen-check` drift, replacing clap_mangen
+    or clap-markdown.
 - **Provenance:**
   - clap's `ArgMatches::value_source(id)` (`ValueSource::CommandLine`) keeps defaults from
     masquerading as overrides.
@@ -733,6 +913,9 @@ directly.
 
 **Mechanisms:** git subprocesses, `cargo_metadata` package ownership, the guard path tables, and
 the `[workspace.metadata.pse.pins]` reasons.
+
+**Follow-up:** [O20](#O20) adds `pse handoff`, the same packet for an agent's own continuity across
+compaction, wired to both harnesses' compaction and session hooks.
 
 <a id="O08"></a>
 ### O08 — Reading: semantic navigation, dependency facts, structural extracts
@@ -828,8 +1011,8 @@ Each of these works today and removes friction seen in the logs or in this sessi
   - discovery through `just --list` and `just --usage`.
 
   These are one-line instruction changes until `pse test` replaces them.
-- Replace [`docs/libraries/clap.md`](../libraries/clap.md) with an actual clap overview. Today it
-  duplicates `futures.md`.
+- ~~Replace [`docs/libraries/clap.md`](../libraries/clap.md) with an actual clap overview.~~ The
+  operator supplied the corrected overview on 2026-10-29; this follow-up uses it.
 
 <a id="O12"></a>
 ### O12 — Safer bulk edits with existing tools
@@ -859,7 +1042,8 @@ without changing anything.
 **Proposed:**
 - `bootstrap-host` keeps the current generation and the previous one, and prunes the rest under
   its existing `flock`.
-- Each generation records a source fingerprint of the host crate's inputs.
+- Each generation records a source fingerprint covering the whole host path-dependency closure,
+  plus `Cargo.lock`, `rust-toolchain.toml` and `.cargo/config.toml`.
 - `pse doctor` and `pse status` report a stale host as a typed diagnostic whose `next` is
   `scripts/bootstrap-host`.
 - Stale tools are never rebuilt implicitly, consistent with ADR-0233.
@@ -895,22 +1079,371 @@ principle is that systems pre-decide placement and bookkeeping for capable agent
   - the evidence-label vocabulary;
   - the README index stub.
 
-  ADRs already have `just adr-new`; `pse new adr` routes to it.
+  Plans and ADRs already have scaffolds (`just plan <slug>` and `just adr-new`). `pse new plan`
+  and `pse new adr` route to those owners rather than duplicating their templates.
+
+<a id="first-principles"></a>
+## First-principles opportunities (reviewer as user)
+
+**Proposed (first-principles; reviewer as user).** The operator asked for expansive ideas about
+what would help an agent working here: Claude directly, and Codex by the same reasoning. The
+agent is the user and judges whether each works on first use, so none of these depends on
+measurement. They come from the work of this review and its follow-up: mapping the surface,
+briefing helpers, checking library APIs, editing protected documents, validating links, and
+committing in a shared tree.
+
+<a id="O15"></a>
+### O15 — Exact pinned-API lookup and scratch probes
+
+**The problem.**
+- **Version drift.** Agents constantly need the exact signature and docs of a dependency item at
+  the locked version, with the workspace's unified features. Training memory and docs.rs both
+  drift from the pins.
+- **Today's workarounds.**
+  - `rg` through `~/.cargo/registry/src` (169 times a day).
+  - Research agents rebuilding toy crates by hand to check one behaviour; two did so in this
+    review alone.
+
+**Proposed.**
+- **`pse api <crate> <path>`** prints the item's signature, docs, feature gates and source
+  location.
+  - The data is rustdoc JSON generated once per `(crate, version, features)` for the locked
+    version, with
+    `cargo rustdoc -p <crate>@<locked version> --lib -Z unstable-options --output-format json`.
+  - The JSON is cached in the checkout store ([O24](#O24)), not in the shared `target/doc`.
+  - Lookup goes through the `paths` table.
+  - A re-export into another crate (for example `arrow` → `arrow-array`) also generates that
+    crate's JSON.
+  - `pse api <crate> --search <word>` lists matching items.
+- **`pse probe new <name> --deps <crate…>`** creates a scratch crate for tiny compile checks.
+  - It gets a copied `rust-toolchain.toml`, so rustup selects the pinned nightly (prime
+    directive 6).
+  - It gets a `Cargo.lock` seeded from the workspace lock, so nothing is re-resolved, and the
+    workspace's feature selections for the named crates.
+  - `pse probe run` compiles and runs it through the ordinary placement path.
+  - A probe consuming Arrow types runs through the correctness adapter's force-validation like
+    any other Arrow consumer. A probe is a disposable check, never correctness evidence.
+
+**Mechanisms** (*Interface-checked*; the format match is *Measured*):
+- **rustdoc format.** `rustdoc-types` 0.61.0 (`FORMAT_VERSION = 61`) matches nightly-2026-09-29,
+  which a scratch probe confirmed by generating JSON for a locked dependency.
+  - Readers check `format_version` first.
+  - Add a hold in `[workspace.metadata.pse.pins]` tying `rustdoc-types` to the toolchain date, so
+    the two move together.
+- **Try first:** `rustdoc-mcp` 0.10.0 (rustdoc-types ^0.61), an existing MCP server for item
+  lookup. The trial must confirm that it builds through the checkout's pinned toolchain, not
+  `+nightly`. If it works for both harnesses, `pse api` shrinks to producing the locked-version
+  JSON it reads.
+- `public-api` 0.52.2 is format-incompatible (^0.59).
+
+**Delivery:** an agent answers "what is the exact signature of
+`tokio::process::Command::kill_on_drop` here?" with one command, and checks a two-line behaviour
+with a probe instead of a hand-built crate.
+
+<a id="O16"></a>
+### O16 — Owner and generator lookup; protected-edit lifecycle
+
+**The problem.** In this repository, the place to change something is often not the file the
+agent is looking at:
+- generated outputs come from generators and registries;
+- architecture sections and accepted ADRs are protected and change through decision routes;
+- plans own status.
+
+The edit guard blocks correctly, but its message does not say where the change belongs.
+
+`PSE_DESIGN_EDIT` is read from the *hook process's* environment (`design_edit_authorized` in
+`agent_hooks.rs`), so setting it inline on a shell command never reaches the guard. The 23 inline
+Codex uses in one day therefore accompanied shell writes to protected documents. Those writes
+bypass the edit tools the guard covers, which makes a proper route more important.
+
+**Proposed.**
+- **`pse owner <path>`** says what owns a path and how to change it:
+  - generated path → its generator and the narrowest `xtask codegen --only …`;
+  - architecture section → its section ID, the ADR route and the `blueprint.md` revision-row
+    duty;
+  - accepted ADR → `just adr-supersede`;
+  - code → its crate and the plan that owns current work there.
+- **Guard messages.** The edit guard's `BLOCKED` message includes the same answer.
+- **`pse design-edit start "<reason>"` / `stop`** manages the untracked `.design-edit` file the
+  guard already honours:
+  - it records the reason;
+  - `pse status` lists it while active;
+  - `stop` removes it;
+  - [O18](#O18) prompts for the reason in the commit message.
+
+**Mechanisms.**
+- Today the guard's `protected()` is a set of inline prefix predicates, with no mapping to
+  generators.
+- Generator lookup needs an export from the codegen registry `xtask codegen` already owns: path
+  pattern to generator and narrowest regeneration. It is generated like the federated schema
+  ([O01](#O01)), so the guard and `pse owner` read one declaration (DP-01).
+- Documentation ownership comes from `docs/lifecycle.toml`.
+
+<a id="O17"></a>
+### O17 — Fast documentation checks for changed documents
+
+**The problem.** Validating a review's links and anchors took a hand-written shell loop in this
+session. `just docs` builds the whole site. The offline link check (lychee) runs only in the
+manually dispatched GitHub docs workflow.
+
+**Proposed.** `pse docs check [--changed | <files…>]` checks:
+- relative links and fragments, including heading slugs and explicit `<a id>` anchors;
+- front matter required by the document kind;
+- review `O`-ID anchors;
+- README index entries for new reviews and plans.
+
+**Mechanisms.**
+- **Links and fragments.** A locally pinned `lychee --offline --include-fragments` (installed like
+  the other diagnostic tools) does this rather than a new parser (DP-16).
+- **Front matter.** The existing `xtask/src/documentation/metadata.rs` checks.
+- **Section anchors.** The publisher injects `#section-N-M` anchors only at publish time
+  (`site.rs`), so they are not in the source Markdown. Links that use them are checked against
+  the publisher's section map, exported once, or verified after `just docs` builds.
+- Results are reported as [O02](#O02) diagnostics with file and line.
+
+<a id="O18"></a>
+### O18 — Commits in a shared working tree
+
+**The problem.**
+- **Shared tree.** Several agents work in one checkout. This session started with about forty
+  files modified by others, and before committing I had to confirm that the README diff was only
+  mine.
+- **Rules applied by hand.** AGENTS.md says the coordinator owns the shared index, stages only
+  owned paths or hunks, and formats only at `just turn-end`.
+
+**Proposed.** `pse commit --paths <…> [--hunk <id>…] -m <message> [--trailer <line>…]`. It never
+pushes.
+- **Private index.** It builds the commit in a private index (`GIT_INDEX_FILE`), starting from
+  HEAD plus exactly the named paths or hunks. Concurrent agents' staging cannot race it. Afterwards
+  it refreshes only those entries in the shared index.
+- **Hunk IDs** are content hashes printed by `pse changes`. If a hunk changed since it was listed,
+  the commit is refused.
+- **Formatting** is check-only. It reports unformatted named files and does not rewrite them,
+  following the execution rhythm in which only the root formats, at `just turn-end`. `rustfmt`
+  rewrites whole files, including other agents' edits.
+- **Drift check.** It runs `codegen-check` scoped to any generator whose inputs are among the
+  paths.
+- **Attribution** comes from the harness. Trailers are passed with `--trailer` and applied with
+  `git interpret-trailers`; `pse` never invents model-specific text.
+- **Output.** The envelope reports the staged diffstat and any active `.design-edit` reason
+  ([O16](#O16)).
+- **Who may commit.** Per AGENTS.md, the coordinator or an agent it explicitly delegates commits
+  to ([Rule impacts](#rule-impacts-and-decisions-needed)).
+
+<a id="O19"></a>
+### O19 — Test discovery
+
+**The problem.** "Which test covers this, and how do I run just it?" means grepping `#[test]`
+names and then reconstructing the target, features and fixtures.
+
+**Proposed.**
+- `pse tests <pattern> [--package P]` lists matching tests, each with:
+  - its package and target;
+  - its required features and native capabilities;
+  - its fixtures;
+  - the exact `pse test` command.
+- The data comes from `nextest list --message-format json`, run through the correctness adapter
+  with the same features `pse test` would use. Listing builds the test binaries, so a following
+  `pse test` reuses that build. Results are cached per build identity and joined with the
+  [O04](#O04) and [O05](#O05) declarations.
+
+<a id="O20"></a>
+### O20 — Context continuity across compaction and delegation
+
+**The problem.** Long sessions compact. After compaction an agent has lost which runs are live,
+which failures are open, what it was about to do, and which files it changed. Delegation has the
+same problem in the other direction.
+
+**Proposed.**
+- **`pse handoff`** (an amendment to [O07](#O07)) writes and prints a compact state record:
+  - HEAD, dirty paths and an active `.design-edit` reason;
+  - live and recent runs with outcomes, and open failures;
+  - the plan pointer;
+  - a "next" line the agent supplies (`pse handoff --next "…"`).
+- **Hooks that use it:**
+  - **PreCompact** runs `pse handoff --record`.
+  - **After compaction**, the session-start path adds `pse handoff --show` as
+    `additionalContext`: Claude's `SessionStart` with source `compact`, and Codex's
+    `PostCompact` or `SessionStart`.
+  - **Subagent start** injects `pse brief` for the child's paths. Codex has `SubagentStart`;
+    confirm the equivalent for the current Claude Code version before relying on it there.
+  - **One handler.** Merge this into the existing `agent-hook session-env` handler rather than
+    adding a second hook process.
+- **Limits.** Keep the record within Codex's default 2,500-token `additionalContext` cap. Codex
+  project hooks need a one-time `/hooks` trust, and a changed hook is skipped until trusted again.
+
+<a id="O21"></a>
+### O21 — Soft claims for concurrent workers (candidate)
+
+**Proposed as a candidate.**
+- `pse claim <paths> [--ttl 2h]` records an advisory claim by the calling session in the
+  checkout store.
+- `pse changes` and the edit guard warn, but do not block, when an agent edits a path another
+  live session has claimed.
+- Claims expire with their TTL or when the session ends.
+
+This helps when a coordinator runs several executors in one checkout without perfectly disjoint
+scopes. Coordinators already assign disjoint scopes, so adopt it at the first collision.
 
 ### What this reviewer found harder than necessary
 
-The opportunities above already include the items below. This list records them as first-hand
-experience from this session rather than log measurement.
+First-hand experience from the review and its follow-up, mapped to the opportunities that address
+it:
 
 | What was hard | What helps |
 | --- | --- |
 | Learning the command surface took two mapping agents | [O06](#O06) catalog and explain, [O14](#O14) `ref` |
 | Reconstructing what Codex ran meant reverse-engineering rollout JSONL, including fork-copied records | [O03](#O03) ledger and `pse history` |
 | Every subagent brief restated baseline, pins and conventions | [O07](#O07) `pse brief`, [O08](#O08) `pse dep` |
-| Review placement and front-matter conventions were learned by reading three files | [O14](#O14) `pse new` |
+| Checking an exact library API meant registry greps and hand-built toy crates | [O15](#O15) `pse api`, `pse probe` |
+| Protected-document edits meant knowing the route, the authorization file and the revision-row duty | [O16](#O16) `pse owner`, `pse design-edit` |
+| Validating a review's links and anchors meant a hand-written shell loop | [O17](#O17) `pse docs check` |
+| Committing meant proving the shared tree's diff was mine | [O18](#O18) `pse commit` |
+| Placement and front-matter conventions were learned by reading three files | [O14](#O14) `pse new` |
 | Bash working directories reset, so commands carried `cd` prefixes | [O01](#O01) `-C` and self-location |
-| The clap overview was silently a duplicate of `futures.md` | [O11](#O11) |
-| Before staging, I had to check whether the shared tree's diff was mine | [O07](#O07) `pse changes` shows generated, protected and owned scopes |
+| State is lost when a long session compacts | [O20](#O20) `pse handoff` with compaction hooks |
+| The clap overview was a duplicate of `futures.md` | Corrected by the operator; this revision uses it |
+
+<a id="adoption-path"></a>
+## Adoption path: recommended now, required later
+
+**Operator direction (2026-10-29):** the CLI is strongly recommended now and will be required
+later, but not immediately. Both harnesses can enforce this through one mechanism:
+- Claude Code and Codex both run `PreToolUse` hooks on shell commands, matching `Bash`, with the
+  command at `tool_input.command`.
+- The same contract applies in both: exit 2 or `permissionDecision: "deny"` blocks;
+  `additionalContext` annotates.
+- One `pse agent-hook shell` handler can therefore serve both, alongside the existing edit guard.
+
+<a id="O22"></a>
+### O22 — Staged adoption hooks
+
+| Stage | Instructions | Hook behaviour | Readiness to advance |
+| --- | --- | --- | --- |
+| **Recommended** (at first delivery) | AGENTS.md "Start here" routes through `pse`. Recipes for covered work delegate to `pse`. Every envelope carries `next` commands in `pse` form. | None. | — |
+| **Strongly recommended** (once O02–O05 cover the episodes in this review) | The same, plus the environment guide marks the raw forms as legacy. | `pse agent-hook shell` adds `additionalContext` naming the `pse` equivalent, but never blocks. | Covered raw forms are handled: bare `cargo test` and direct adapter nextest runs, `tail` and `ps` polling of run logs, hand-set `PSE_NATIVE_FIXTURE_*`/`PSE_WORKER_BINARY`, and `> /tmp/*.log &`-style launches. |
+| **Required** (after coverage is complete and envelopes are stable) | AGENTS.md states that `pse` is the agent interface for covered work; bare tools remain for uncovered work. | The hook denies covered raw forms with the exact `pse` replacement. Uncovered commands always pass. An explicit `PSE_RAW=1` prefix is the escape hatch for diagnosis. | The required stage needs the rule amendments below. |
+
+**Hook behaviour.**
+- **Fails open.** The new handler fails open on its own errors: a crash or timeout allows the
+  command. This is unlike the edit guard, which prints `BLOCKED` on error. Both harnesses also
+  fail open on hook errors.
+- **Matches command shapes, not text.** It splits commands into shell words, including compound
+  commands (`&&`, `;`, `|`) and the `scripts/pse-env [flags] --` wrapper, and matches the
+  resulting command shapes.
+- **Conservative.** A false block costs more than a missed nudge.
+- **Gap signal.** Each `PSE_RAW=1` use is recorded in the run store ([O24](#O24)). Repeated raw
+  use marks work `pse` does not yet cover. Agents judge from that signal; no measurement campaign
+  is involved.
+- **Codex tool names.** Check which tool names Codex `PreToolUse` actually reports. Shell commands
+  arrive as `Bash`. Edits arrive as `apply_patch`, which Codex documents `Edit`/`Write` as
+  aliases for. Confirm that the existing edit matcher fires.
+
+<a id="environment-followup"></a>
+## Environment changes for agent effectiveness
+
+These complement O09–O14 and were assessed from first principles plus quick reads of the current
+setup.
+
+<a id="O23"></a>
+### O23 — Worktree lifecycle
+
+**Today.** `just worktree` forwards to `git worktree add`, and the environment guide
+(§Worktrees) lists the rest as manual steps:
+- copy the personal `.envrc.local` deliberately;
+- review and allow its direnv configuration;
+- prepare the native host explicitly;
+- start with a cold `target/`.
+
+Worktrees are the sanctioned way to run concurrent agents in isolation. Every manual step is a
+place where a new worktree ends up half-prepared.
+
+**Proposed: `pse worktree new <name> [--base REF] [--branch B] [--warm]`.**
+1. Run `git worktree add`.
+2. Copy `.envrc.local` with mode 600.
+3. Run `direnv allow` only if the new checkout's `.envrc` is byte-identical to the source
+   checkout's allowed one. Otherwise it reports the deliberate review step instead.
+4. Prepare host tools with `scripts/bootstrap-host --from <source-checkout>`, which copies a
+   generation when fingerprints match ([O13](#O13)). `bootstrap-host` stays the only publisher
+   of `target/host-tools` (ADR-0233 seed contract).
+5. Select the already-prepared native provider generations from the shared cache.
+6. Register the checkout in the store ([O24](#O24)).
+7. With `--warm`, start a detached `pse check --workspace` through the shared sccache.
+
+**The fingerprint** covers the whole host path-dependency closure plus `Cargo.lock`,
+`rust-toolchain.toml` and `.cargo/config.toml`, not only the host crate.
+
+**Listing and removal.**
+- `pse worktree list` shows each worktree's branch, ahead/behind, dirty state, live runs and last
+  activity.
+- `pse worktree rm <name>` refuses unless the branch is merged and clean, or `--force` is given
+  with a reason. It keeps the worktree's run history.
+
+It never shares `target/` (ADR-0122) and never sets `CARGO_TARGET_DIR`.
+
+<a id="O24"></a>
+### O24 — One home for results, logs and scratch
+
+**Today.** Results and logs are scattered:
+- `target/nextest/default/junit.xml` is overwritten by every run.
+- The nextest record store lives per user. Its `-R latest` races between agents, and the
+  correctness adapter refuses `-R`.
+- Agents invent `/tmp/plan58-*.log` and `build/*.log` paths (386 in one day).
+- Codex has no per-session scratch directory.
+- `build/` holds 290 unconventioned files.
+
+The host itself resolves state roots in four places:
+- `telemetry.rs` and `telemetry_service.rs` (`$XDG_STATE_HOME/pse/telemetry`);
+- `environment.rs` (`$XDG_STATE_HOME/pse-arrow/surreal-functional-v2`);
+- `admission.rs` (`$XDG_RUNTIME_DIR/pse-host-admission`).
+
+**Proposed: one resolver, one checkout-scoped store.**
+- **One resolver** in `environment.rs` owns every host state path (DP-01) and settles the `pse/`
+  versus `pse-arrow/` prefix. Existing consumers move to it.
+- **The store:**
+
+```text
+$XDG_STATE_HOME/pse-arrow/<checkout-id>/
+  runs/<run-id>/{meta.json, events.ndjson, output.log, result.json}   # O03 ledger
+  fixtures/{study-module.json, …}                                      # O05 current pointers
+  api/<crate>-<version>-<features-hash>.json                           # O15 rustdoc cache
+  probes/<name>/                                                       # O15 scratch crates
+  scratch/<session-id>/                                                # Codex sessions (Claude uses its harness scratchpad)
+  handoff/<session-id>.json                                            # O20
+  index.json                                                           # recent runs, claims (O21), raw-use records (O22), worktree link (O23)
+```
+
+Rules for the store:
+- **Location.** `checkout-id` derives from the checkout path and git common directory. The store
+  survives `cargo clean`, and `pse status --all` sees every worktree.
+- **Retention.** Keep the last N runs per checkout plus pinned runs. Scratch is pruned when its
+  session ends or after a fixed age. Retention is an ordinary setting, not a disk guard.
+- **JUnit and nextest records.**
+  - The default-profile JUnit stays for humans.
+  - `pse` reads per-run libtest JSON from the run directory, never the shared JUnit file.
+  - The nextest record store stays enabled for human `cargo nextest replay`, with `max-records`
+    and `max-age` aligned to the run store.
+- **`/tmp` and `build/`.** `/tmp/*.log` stops being necessary. `build/` keeps only recipe outputs
+  with a declared report path.
+
+<a id="O25"></a>
+### O25 — Harness surfaces for orientation and visibility
+
+**Proposed.**
+- **Session start (Claude and Codex).** Both `SessionStart` paths add `pse status --brief` as
+  `additionalContext`: HEAD, dirty count, active plan, live runs, a stale host or `.design-edit`.
+  - For Claude, extend the existing `agent-hook session-env` handler.
+  - For Codex, add the hook. Today Codex has only the edit guard and a per-command environment
+    bridge.
+- **Status line (Claude).** `.claude/settings.json` gains a `statusLine` command running
+  `pse status --line`. It is read-only and quick, and prints nothing useful but harmless when
+  the seed exits 125 because the tools are unprepared.
+- **Hook wiring.** Add the `Bash` hook group for [O22](#O22): `.codex/hooks.json` (which needs
+  the one-time `/hooks` trust) and the `Bash` matcher in `.claude/settings.json`.
+- **No new permissions.** Claude already allows `Bash`, and Codex approvals stay inherited from
+  user configuration.
+- **Tool servers.** Enable the rust-analyzer MCP for Codex ([O11](#O11)), and trial `rustdoc-mcp`
+  for both harnesses ([O15](#O15)).
 
 <a id="not-recommended"></a>
 ## Not recommended
@@ -922,39 +1455,66 @@ experience from this session rather than log measurement.
 | figment for configuration provenance | `explain` must not run shell code, and the layers already exist in `environment.rs`. figment's useful work is unreleased (last release 2024-05), so adopting it would need a git pin. Revisit when typed, nested configuration arrives. |
 | Recreating the retired catalogue, MCP tools or generated CLI | They are an idea source only. Their discovery value reappears as derived [O06](#O06). |
 | An RMCP adapter now | No consumer needs it beyond the shell. [O02](#O02) schemas make it cheap later. |
-| Dynamic shell completion as a priority | `clap_complete`'s `CompleteEnv` helps the human, not agents. Add it late. |
+| Shell completion (`clap_complete`, AOT or dynamic) | It serves interactive humans, not agents. Valid values reach agents through the [O06](#O06) catalog instead. |
+| Prefix inference (`infer_subcommands`, `infer_long_args`) | Adding a verb or flag silently changes what an abbreviation means, which breaks generated agent commands. |
+| Man pages, a REPL or a batch mode | Agents read the generated Markdown reference and chain shell commands. A long-lived interactive parser adds state without a consumer. |
+| `@file` argument expansion (`argfile`) | It covers only `pse`'s own argv; `pse` generates long filters from intent ([O04](#O04)). |
 
 ## Order of work
 
 The operator intends to plan and execute all of these. The order follows dependencies:
 
-1. **No new CLI needed:** [O11](#O11), [O09](#O09), [O12](#O12) guidance, and [O10](#O10)
-   generated role instructions with a slimmed plan index.
-2. **[O01](#O01) and [O02](#O02):** the `pse` binary in `pse-host` with the clap tree, the
-   envelope and exit classes, `status`, `doctor`, `env --explain`, `schema`, self-location and the
-   host ceiling. Also [O13](#O13).
-3. **[O03](#O03):**
-   - the corrected property set;
-   - admission for detached runs;
-   - `wait`, `result`, `log`, `cancel` and `history`;
-   - composite runs;
-   - libtest and cargo-message extraction.
+1. **No new CLI needed:**
+   - [O11](#O11) and [O09](#O09);
+   - [O12](#O12) guidance;
+   - [O10](#O10) generated role instructions and a slimmed plan index;
+   - the [O25](#O25) status line and rust-analyzer MCP;
+   - a `rustdoc-mcp` trial ([O15](#O15)).
+2. **[O01](#O01) and [O02](#O02) with the [clap contract](#clap-capabilities):**
+   - the `pse` bin and library `Cli` in `pse-host` and the shared argument structs;
+   - the envelope and exit classes;
+   - `status`, `doctor`, `env --explain`, `schema` and `commands`;
+   - self-location and the host ceiling.
 
-   Take the ADR-0233 stop-authority decision here.
-4. **[O04](#O04):** host-resident `affected`, the leaf capability declaration and the reconciled
-   verdict.
+   Also [O13](#O13) fingerprints, the [O24](#O24) store skeleton, and [O23](#O23) worktrees, which
+   need both.
+3. **[O03](#O03):** the corrected property set, admission for detached runs, `wait`, `result`,
+   `log`, `cancel` and `history`, composite runs, and output extraction.
+
+   Take the ADR-0233 stop-authority decision here. [O20](#O20) handoff and its compaction hooks
+   follow from the ledger.
+4. **[O04](#O04) and [O19](#O19):**
+   - host-resident `affected`;
+   - `clap-cargo` selection;
+   - the leaf capability declaration;
+   - the reconciled verdict;
+   - test discovery.
 5. **[O05](#O05):** `pse fixture` and the receipt pointer, then the bindeps step.
-6. **[O06](#O06), [O08](#O08), [O14](#O14) and [O07](#O07):** catalog and explain, `dep`,
-   `outline`/`show`, `ref`/`new`, `changes`/`brief`.
-7. **The `pse-host` → `pse` rename of the hook path**, if still wanted, landing atomically with
+6. **The remaining verbs:**
+   - [O06](#O06) catalog, valid values and generated reference;
+   - [O08](#O08) `dep`, `outline`/`show`;
+   - [O15](#O15) `api`/`probe`;
+   - [O16](#O16) `owner` and guard messages;
+   - [O17](#O17) `docs check`;
+   - [O14](#O14) `ref`/`new`;
+   - [O07](#O07) `changes`/`brief`;
+   - [O18](#O18) `commit`.
+7. **[O22](#O22) stages:**
+   - *strongly recommended* hooks once steps 3–5 cover the episodes in this review;
+   - *required* once step 6 is complete and the rule amendments below are decided.
+8. **The `pse-host` → `pse` rename of the hook path**, if still wanted, landing atomically with
    `just setup-test`.
+
+[O21](#O21) waits for the first concurrent-edit collision.
 
 **Interactions:**
 - O02 is the contract every verb emits through.
-- O03 carries O04's long runs and records O10's delegated workers.
+- O03 carries O04's long runs and records O10's delegated workers. Its ledger is the substrate for
+  O20 handoff, O21 claims and O24's index.
 - O05 completes O04 for integration and database targets.
-- O06 is mostly derived once the tree exists.
-- O14 and O07 share citation and rule resolution.
+- O06 is derived from the clap tree, and O19 from O04's declarations.
+- O14, O16 and O07 share citation, ownership and rule resolution.
+- O22's hooks reuse the edit-guard entry point (`agent-hook`) and name O02 `next` commands.
 
 ## Rule impacts and decisions needed
 
@@ -968,7 +1528,15 @@ The operator intends to plan and execute all of these. The order follows depende
 | Blueprint §21.7 and §24.1 (ADR-0233 block): no mandatory or full CLI follows | `pse` becomes the documented agent route. Products remain callable without it. | ADR amending §21.7/§24.1 wording with a `blueprint.md` revision row. |
 | Blueprint §24.1 P00 / Plan53: managed commands exit 0 only on a complete reconciled pass | Not a conflict. O04 is its Rust owner after the Python reconciliation was retired. | Record O04 as realizing the accepted target. |
 | CLAUDE.md: native agent definitions "load shared contracts rather than copying role behavior" | O10 generates role contracts into Codex `developer_instructions`. | Amend the wording to allow generated, checked embedding with a single authority. |
-| AGENTS.md: "Recipes are shortcuts, not gates" | Compatible. `pse` is a shortcut too, and bare tools stay first-class. | Update AGENTS.md routing and the docs/dev guides on delivery. |
+| AGENTS.md: "Recipes are shortcuts, not gates" and "Bare tools are first-class too" | Compatible at the *recommended* and *strongly recommended* stages. The *required* stage ([O22](#O22)) denies covered raw forms. | Amend AGENTS.md and the environment guide when *required* is adopted, keeping uncovered work and the `PSE_RAW=1` escape. |
+| Operator direction, 2026-10-29: the CLI is strongly recommended now and required later | Supersedes Plan58 §Purpose's "CLIs are optional conveniences" for agent-facing development work. Products remain callable without the CLI. | Record it in the Plan58 coordinator amendment above. The *required* stage also needs the §21.7/§24.1 ADR. |
+| ADR-0149 (accepted): agent effects are bounded by role contracts alone; native role files carry no permission restrictions | A repository-wide shell hook that denies covered raw forms is a permission-like restriction outside role contracts. The existing edit guard is the precedent. | Decide with the *required* stage, either amending ADR-0149 or framing the hook as the guard's established mechanism. |
+| ADR-0161 (accepted): no end-of-turn hooks | Not a conflict. [O20](#O20), [O22](#O22) and [O25](#O25) use `PreToolUse`, `PreCompact`, `SessionStart` and Codex `SubagentStart`, not end-of-turn hooks. | None. |
+| Codex hook trust | Project hooks run only after a one-time `/hooks` trust, and a changed hook is skipped until re-trusted. | An operational step in the delivery of O20, O22 and O25, documented in the environment guide. |
+| ADR-0122 and AGENTS.md "one feature set per dependency" | Compatible as designed. clap's `deprecated` feature is not enabled for linting alone, and `env`/`string`/`unstable-ext` unify into every clap consumer. | None; recorded so that a lint-only clap feature is never added later. |
+| AGENTS.md execution rhythm (formatting only at `just turn-end`) and "the coordinator owns the shared index" | [O18](#O18) `pse commit` is check-only for formatting and commits through a private index. Use by a non-coordinator agent needs explicit delegation. | Update AGENTS.md routing when O18 lands: `pse commit` is the coordinator's tool, or a delegated agent's. |
+| Environment guide §Worktrees: supply `.envrc.local` and review/allow direnv deliberately | [O23](#O23) automates the copy and allows only a byte-identical `.envrc`. Any other case still requires the deliberate review. | Amend §Worktrees when O23 lands. |
+| `[workspace.metadata.pse.pins]` | [O15](#O15) ties `rustdoc-types` to the pinned nightly's rustdoc JSON format. | Add a pins hold row with the reason and a revisit trigger ("toolchain date move"). |
 
 New dependencies (tracing-subscriber `json`, clap `env`/`unstable-ext`, schemars `raw_value`,
 optionally `tracing-indicatif`) need no ADR under the dependency policy. Using the existing
@@ -989,6 +1557,15 @@ claims at first use:
 - **Library facts:** answered by `pse dep`.
 - **Citations:** resolved by `pse ref`.
 - **New review:** created by `pse new`.
+- **Follow-up verbs, each used in ordinary work:**
+  - an exact dependency signature answered by `pse api` (or the trialled MCP);
+  - a blocked protected edit that names its owner and route;
+  - `pse docs check --changed` before committing a document;
+  - `pse commit --paths` in a shared tree;
+  - `pse tests <pattern>` returning a runnable command;
+  - after compaction, the session resuming from the `pse handoff` context it was given;
+  - `pse worktree new` producing a ready checkout whose first build hits the shared cache;
+  - at the *strongly recommended* stage, a raw `cargo test` drawing the hook's `pse test` nudge.
 
 Ordinary implementation tests cover the contracts:
 - each verb's envelope validates against its schema;
@@ -1029,6 +1606,17 @@ No before/after measurement campaign is part of acceptance.
   - [agent-tool-discovery](agent-tool-discovery-and-access-2026-10-24.md)
   - [mcp-development-effectiveness](mcp-development-effectiveness-2026-10-25.md)
   - [rust-first system](rust-first-system-functional-opportunities-2026-10-28.md)
+- Follow-up sources:
+  - the corrected [clap overview](../libraries/clap.md);
+  - pinned `clap_builder-4.6.7`/`clap_derive-4.6.7` sources;
+  - `clap-cargo` 0.19.0 (<https://docs.rs/clap-cargo/0.19.0>);
+  - `trycmd` 1.2.1 and `snapbox` 1.2.2;
+  - `rustdoc-types` 0.61.0, plus a scratch rustdoc-JSON probe on nightly-2026-09-29;
+  - `rustdoc-mcp` 0.10.0;
+  - Codex hooks documentation (via Context7 `/openai/codex`) and Claude Code hooks
+    documentation;
+  - `justfile` recipes `worktree`, `plan` and `adr-new`, and `.github/workflows/docs.yml`
+    (lychee).
 - Primary library sources:
   - clap 4.6.7: docs.rs and `clap_builder` source.
   - argparse-rosetta-rs: <https://github.com/rosetta-rs/argparse-rosetta-rs>.

@@ -17,7 +17,14 @@ Development-environment opportunities beyond the CLI cover:
 - safer bulk edits;
 - host-tool pruning.
 
-It records rule impacts against Plan58, ADR-0233 and CLAUDE.md. It changes no plan,
+A same-day follow-up revision, using the corrected clap overview, adds:
+- a clap usage contract covering every capability family;
+- first-principles opportunities: pinned-API lookup, owner routing, documentation checks,
+  shared-tree commits, test discovery and compaction handoff;
+- a staged recommended-to-required adoption path enforced through both harnesses' shell hooks;
+- a worktree lifecycle and one checkout-scoped results store.
+
+It records rule impacts against Plan58, ADR-0233, ADR-0149 and CLAUDE.md. It changes no plan,
 implementation or qualification status.
 
 The [SurrealDB state, execution and coordination review](surrealdb-state-execution-boundaries-2026-10-29.md)
