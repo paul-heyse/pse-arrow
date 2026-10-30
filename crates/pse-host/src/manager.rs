@@ -2005,6 +2005,70 @@ impl HostManager {
             _ => Ok(false),
         }
     }
+    /// Read an original foreground custody binding without minting an intent, adopting
+    /// a unit, or mistaking one exited child for its enclosing population's drain.
+    pub(crate) async fn foreground_binding_drained(
+        &self,
+        original_manager: &str,
+        unit: &str,
+        binding: &UnitBinding,
+        child: &ProcessIdentity,
+    ) -> Result<bool, HostError> {
+        self.validate_view()?;
+        if original_manager != self.identity_key()
+            || child.boot_id != self.boot
+            || child.pid_namespace != self.pid_namespace
+            || child.pid == 0
+            || child.start_ticks == 0
+            || binding.invocation.len() != 16
+            || binding.group.is_empty()
+            || binding.device == 0
+            || binding.inode == 0
+        {
+            return Err(HostError::Ownership(
+                "original foreground custody identity is unavailable or changed".into(),
+            ));
+        }
+        match ProcessReader::default().process(child.pid) {
+            ProcessRead::Present(actual) if actual.identity == *child => return Ok(false),
+            ProcessRead::Present(_) | ProcessRead::Absent => {}
+            ProcessRead::Changed | ProcessRead::Unavailable(_) => {
+                return Err(HostError::Ownership(
+                    "original foreground process identity cannot be observed".into(),
+                ));
+            }
+        }
+        let group = Group::open(&binding.group, true)?;
+        if group.directory.is_none()
+            || group.device != binding.device
+            || group.inode != binding.inode
+        {
+            self.validate_view()?;
+            return Ok(true);
+        }
+        if !group.empty()? {
+            return Ok(false);
+        }
+        let observed = match self.observe(unit).await {
+            Ok(observed) => Some(observed),
+            Err(HostError::Manager(zbus::Error::MethodError(name, _, _)))
+                if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit" =>
+            {
+                None
+            }
+            Err(error) => return Err(error),
+        };
+        if let Some(observed) = observed {
+            if observed.invocation != binding.invocation
+                || (!observed.control_group.is_empty() && observed.control_group != binding.group)
+                || !matches!(observed.active_state.as_str(), "inactive" | "failed")
+            {
+                return Ok(false);
+            }
+        }
+        self.validate_view()?;
+        group.empty()
+    }
     pub(crate) async fn ordinary_workloads(
         &self,
         excluded: &[String],
@@ -4122,6 +4186,27 @@ mod tests {
             .start_service(&spec, Instant::now() + Duration::from_secs(10))
             .await
             .unwrap();
+        let before = owned.observe().await.unwrap();
+        let binding = owned.binding().await.unwrap();
+        let ProcessRead::Present(child) = ProcessReader::default().process(before.main_pid) else {
+            panic!("original live child identity")
+        };
+        let live = manager
+            .foreground_binding_drained(
+                &manager.identity_key(),
+                spec.intent.unit(),
+                &binding,
+                &child.identity,
+            )
+            .await;
+        let wrong_manager = manager
+            .foreground_binding_drained(
+                "different-manager-incarnation",
+                spec.intent.unit(),
+                &binding,
+                &child.identity,
+            )
+            .await;
         let timed_out = owned.stop_and_drain(Instant::now()).await;
         let retained = !owned.released();
         let observed = owned.observe().await;
@@ -4135,6 +4220,19 @@ mod tests {
         assert!(borrowed.is_ok(), "{borrowed:?}");
         assert!(cleanup.is_ok(), "{cleanup:?}");
         assert!(owned.released());
+        assert!(!live.unwrap());
+        assert!(wrong_manager.is_err());
+        assert!(
+            manager
+                .foreground_binding_drained(
+                    &manager.identity_key(),
+                    spec.intent.unit(),
+                    &binding,
+                    &child.identity
+                )
+                .await
+                .unwrap()
+        );
     }
     #[tokio::test]
     async fn real_native_resident_borrow_pins_original_facts_without_owning_lifetime() {

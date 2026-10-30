@@ -263,6 +263,41 @@ pub(crate) struct ForegroundCustody {
     pub(crate) root: crate::manager::UnitBinding,
     pub(crate) child: pse_diagnostics::process_facts::ProcessIdentity,
 }
+/// Observe original native foreground custody without source reads, launch/control
+/// authority or a claim that an enclosing borrowed owner has finished its work.
+pub(crate) async fn observe_recorded_drain(
+    root: &Path,
+    invocation: &crate::envelope::CliInvocationId,
+    environment: &Environment,
+) -> Result<bool, HostError> {
+    let root = root.canonicalize()?;
+    let store = crate::invocation::InvocationStore::new(crate::paths::CheckoutState::resolve(
+        &root,
+        environment,
+    )?);
+    // The ledger validates source-checkout/repository/invocation binding. Its control
+    // reference remains evidence only; this passive read does not reopen an executable.
+    let _: crate::invocation::InvocationMetadata<Box<serde_json::value::RawValue>> =
+        store.metadata(invocation)?;
+    let directory = store.directory(invocation)?;
+    let custody: ForegroundCustody = directory
+        .evidence(crate::invocation::InvocationEvidence::Custody)?
+        .ok_or_else(|| HostError::Ownership("original foreground custody is absent".into()))?;
+    if custody.version != 4 {
+        return Err(HostError::Ownership(
+            "unsupported original foreground custody version".into(),
+        ));
+    }
+    let manager = HostManager::connect_user(None).await?;
+    manager
+        .foreground_binding_drained(
+            &custody.manager,
+            &custody.unit,
+            &custody.root,
+            &custody.child,
+        )
+        .await
+}
 impl<O: ChunkObserver> std::fmt::Debug for CapturedForeground<O> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CapturedForeground")
