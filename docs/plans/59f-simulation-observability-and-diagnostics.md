@@ -110,12 +110,12 @@ memory release; no build telemetry or automatic semantic enrichment is introduce
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [F01](#f01) | in-progress | 59f | Prior actual discovery/schema/direct/delegated/refusal journey passes. Shared candidate transport and full native identity/membership association are implemented and owner controls pass; expanded actual association/unprepared-reader cases await the stable public fixture run |
-| [F02](#f02) | in-progress | 59f | Original units/categories/loss remain. Checked native unit aggregate accounting and optional association are implemented; expanded actual catalogue/related/shared-waiter/identity/stale-page assertions compile and await public acceptance |
-| [F03](#f03) | in-progress | 59f | One-sample polling now awaits cancellable native output readiness, with bounded stderr/terminal delivery and no writer task. Existing continuation controls and native output unit controls pass; actual filled-pipe/slow/broken/renderer/cancel/deadline assertions await public acceptance |
-| [F04](#f04) | in-progress | 59f | Original canonical history/cursor controls remain. The scoped C04 two-attempt test now uses a separately captured CLI for every query, retaining original failed history/retries and unavailable live data; its actual public run remains. Existing checkpoint reuse closes the additional-publication inquiry |
-| [F05](#f05) | in-progress | 59f | Prior actual finalized-member/portable reopen and partial-capture independence pass. Additional actual missing-tool/clock/symbol, mid-stream source failure, changed-validator and raw window/tail assertions compile and await the stable public fixture run. Maintained SQL remains explicitly unexecuted; external execution is conditional |
-| [F06](#f06) | in-progress | 59f | Shell guidance and conditional OTLP/Perfetto/RMCP dispositions are recorded. A declared fixture-backed unavailable-OTLP consumer test is implemented; actual backend-outage acceptance and assembled remaining F consumers await public runs |
+| [F01](#f01) | completed | 59f | Actual discovery/schema/direct/delegated/refusal and unprepared-help consumers pass; optional candidate association checks full kernel identity and original foreground scope or detached service membership without acquiring control |
+| [F02](#f02) | completed | 59f | Actual catalogue/related/shared-waiter/identity/stale-page consumers pass; units/categories/loss and non-atomic native aggregate accounting remain distinct from scientific evidence |
+| [F03](#f03) | completed | 59f | Actual filled-pipe slow reading, broken/full renderer, cancellation and deadline consumers preserve original native progress; output uses cancellable readiness and bounded terminal delivery without a writer task |
+| [F04](#f04) | completed | 59f | Actual separate-process canonical pages preserve failed history, retry identities/cursors and unavailable live numerics; checkpoint reuse closes the additional-publication inquiry without another bridge |
+| [F05](#f05) | completed | 59f | Actual finalized-member→frozen→portable reopen, partial/source-failed capture, unavailable tools/clocks/symbols, changed-validator and bounded raw window/tail consumers pass; external query execution and remote export remain conditional and unselected |
+| [F06](#f06) | completed | 59f | Selected shell consumers and unavailable-OTLP backend case pass; guidance records optional backend and RMCP triggers. Coordinator-owned scope-end series qualification remains separate |
 
 <a id="f01"></a>
 ## F01 — Product delegation and correlation
@@ -322,8 +322,9 @@ end. Tests must challenge a wrong identity, unavailable source and incomplete st
 snapshot the renderer. Preservation of native/scientific authority is independent of human polish.
 No broad numerical reference, remote deployment or timing/capacity campaign is implied.
 
-Performance and resource benefits remain unmeasured. The coordinator owns disposition and
-scope-end series qualification; the delivered slices below do not close F01–F06.
+Performance and resource benefits remain unmeasured. Selected F01–F06 functional acceptance is
+complete. The coordinator owns review dispositions, scope-end static and assembled series
+qualification, and document retirement; these remain separate from the F consumer results.
 
 ## Outcome — 2026-10-30 bounded implementation
 
@@ -373,18 +374,18 @@ second latest-snapshot publisher would duplicate those facts with another write/
 contract; a separate event stream would add history/storage obligations without an unanswered
 selected consumer question. No additional bridge is selected. Canonical long-term history remains
 with its current owner, and active canonical reads retain `LiveNumericsUnavailable` where no live
-checkpoint is supplied. This closes the additional-publication inquiry, not captured CLI history
-acceptance or a remote event-history service.
+checkpoint is supplied. This closes the additional-publication inquiry. The separate captured CLI
+history acceptance below exercises the canonical owner; a remote event-history service remains
+unselected.
 
 Mistake corrected: the initial integration shape put effectful requests under the passive opaque
 route. Explicit product `Access` admission and the separate new-work CLI verb now refuse that
 combination before effects. Deliberate limits: optional animated human rendering was not adopted;
 maintained SQL remains specification-only; existing source-bound pages and native collectors were
-extended instead of replacing their ownership. Full native-unit composition, captured canonical
-study/attempt retry/history, slow/broken renderer and cancellation journeys, missing-tool/clock,
-changed-validator and raw tail/window cases remain with F02–F06. External-query execution is
-conditional on a selected execution consumer, not an automatically authorized backlog item. No
-package is promoted to full completion by the focused checks or the selected consumer journeys.
+extended instead of replacing their ownership. The final selected consumer journeys below close
+the remaining F acceptance. External-query execution is conditional on a selected execution
+consumer, not an automatically authorized backlog item. Functional package completion does not
+establish whole-series static, scientific, remote or performance qualification.
 
 ### F05 finalized-member and portable consumer follow-up
 
@@ -409,9 +410,10 @@ performing producer remains alive and its published checkpoint bytes remain unch
 capture and portable reopening; only the fixture's later explicit finish request produces the
 original `Failed` operation outcome. This establishes the selected finalized-member,
 portable-read and partial-capture independence cases. It does not qualify remote export, real
-solver execution, all capture backends or the remaining F05 acceptance above.
+solver execution or all capture backends; the final expanded consumer below exercises the other
+selected F05 negative and bounded-read cases.
 
-### Native association, output settlement and remaining public consumers
+### Native association, output settlement and final public consumers
 
 **Implemented:** the product checkpoint and response transport share one
 `pse_diagnostics::process_facts::ManagedInvocationCandidate` declaration. The launch marker is
@@ -448,7 +450,7 @@ completed27 controls with zero failures and zero compiler warnings, including ac
 socket writes and original regular-file offset/append behavior. The expanded
 `pse-host:product_observation` target also compiles with zero warnings.
 
-**Implemented; actual public run pending:** the existing C04 publication fixture now publishes
+**Implemented and Tested by the final public consumer below:** the existing C04 publication fixture publishes
 an original preparation owner, a distinct waiting consumer/shared-producer relationship and a
 later native progress record on an explicit fixture rendezvous. Its four host tests exercise
 checked original native association and truthful rejected/absent enrichment; unprepared passive
@@ -460,7 +462,7 @@ windows/tails and a changed native ETag. Original evidence and the performing ow
 independent of failed enrichments. No manual public fixture environment input, database owner
 or production path was added.
 
-**Implemented; actual public run pending:** the existing two-attempt canonical history test now
+**Implemented and Tested by the final canonical consumer below:** the two-attempt canonical history test
 uses a source-captured native CLI and product reader supplied by its scoped runner-borrowed C04
 declaration. Each retained page runs in another process, preserves the failed original attempt's
 events and cursors, distinguishes retry generations and exposes unavailable live numerics.
@@ -473,9 +475,9 @@ diagnostic correlation, with loss/shutdown facts separate from delivery. RMCP is
 unselected until an actual client requires typed tools/resources/subscriptions beyond shell
 access; a future adapter must preserve native/canonical authority and demonstrate actual host
 attachment. No MCP configuration or new required service is selected. The environment guide
-now documents actual reader preparation, discovery/schema, query/follow, retained history and
-explicit investigation routes. These source and focused-test results do not yet close the
-pending public journeys or promote F01–F06 to completed.
+documents actual reader preparation, discovery/schema, query/follow, retained history and
+explicit investigation routes. The final public journeys below establish selected functional
+acceptance; optional remote adapters and full-series qualification remain outside that claim.
 
 **Tested, first expanded public consumer:** `scripts/pse test pse-host:product_observation`
 completed all four selected tests in workflow `01a18f00-5e10-703e-9714-dcbd955eea71`, with two
@@ -489,6 +491,54 @@ second installation of the existing host subscriber. The original failure report
 projection and publishes a bounded fixture-owned routing hint for the cooperating producer.
 Full kernel identity and original native membership still establish the association; a copied
 hint supplies no authority. The optional telemetry fixture supplies the original decoder's
-required identity and uses its existing one-time host installation. Positive association,
-optional-backend and extended investigation acceptance await the corrected public run; the
-separate canonical history journey also remains pending.
+required identity and uses its existing one-time host installation.
+
+The corrected routing exposed a production distinction: ordinary foreground workflows retain
+v4 foreground scope custody, while detached services retain v5 service/controller custody. The
+passive association now opens the original custody kind and validates its full current process
+identity and original native membership before and after reading. Foreground scope views omit
+service-only properties rather than inventing a service launch record. The focused host command
+`scripts/cargo-bin/cargo-pse-correctness nextest run -p pse-host --lib --locked -E 'test(product_reader::) | test(fixtures::) | test(cli::product::) | test(passive_scope_wire_omits_service_properties_and_uses_its_declared_view_schema)'`
+completed28 controls with zero failures against the zero baseline. Its only compiler warning was
+the then-unconsumed foreground-drain prerequisite owned by the separate source workflow slice.
+
+**Tested, final expanded public consumer:** `scripts/pse test pse-host:product_observation`
+selected and completed all four tests with zero failures against the zero baseline in workflow
+`01a18f23-d66a-7590-9b99-763a3c049284`. Required capture and native settlement completed,
+the original child exited zero, and no native lifetime remained pending. The retained report
+SHA-256 is `1ca2f8d23fbab3bc84a4c02b29c3be2fd7dca7ab0dbf1c632416d6025f292345`.
+
+This actual prepared CLI consumer proves the foreground association, original native accounting
+and passive status/journal suggestions. Absent, wrong-invocation, wrong-boot and wrong-start
+candidates leave the original scientific view readable. The slow consumer fills a test-owned
+4096-byte pipe, observes the original producer advance while output is stalled, then receives
+eight complete samples and a clean terminal NDJSON frame. Broken pipe, full renderer, observer
+SIGTERM and output deadline similarly leave the producer alive and advancing; cancelled and
+stalled observers exit130 and124 respectively. A real optional OTLP endpoint outage leaves local
+inspection usable, with loss/shutdown evidence separate from unobserved remote delivery.
+
+The same consumer exercises explicit capture with missing optional tools, unchecked symbols and
+unknown clocks, mid-stream source disappearance, changed native ETag and exact bounded raw
+windows/tails. It admits actual finalized raw members into supplied frozen evidence, reopens a
+portable selected pack after original paths disappear and preserves original identities, byte
+counts and hashes. Partial/failed capture and failed enrichment leave scientific outcome and
+the existing readable owner evidence independent.
+
+**Tested, final canonical history consumer:**
+`scripts/pse test pse-runtime --lib --features canonical-tests -E 'test(product_retained_study_and_attempt_pages_preserve_original_history_and_join_read_custody)'`
+selected and completed one test with zero failures against the zero baseline in workflow
+`01a18f26-1569-75cb-9eff-1a1e1eb3ca97`. Required capture, fixture settlement and native
+settlement completed, the original child exited zero, and no native lifetime remained pending.
+The retained report SHA-256 is
+`0d0cde725508a1f648a558ece792ecf9b262c84039bb7ad4eb4b411649b23828`.
+Each canonical page uses the separately captured CLI/reader. Original failed-attempt events,
+retry attempt/generation separation, bound continuation refusal and unavailable active live
+numerics survive the process boundary. Two observer invocations retain distinct invocation IDs
+and the same original scientific context. The original canonical fixture owns its service;
+readers drain their own connection custody, and isolated fixture removal succeeds afterward.
+
+**Completion boundary:** these actual consumers and focused owner controls complete selected
+F01–F06 functional acceptance. No solver execution, broad numerical reference, remote export,
+external-query execution, required telemetry backend, MCP adapter or performance benefit is
+claimed. The original failed expanded run remains retained alongside the corrected passing
+results. Coordinator-owned integrated series qualification and document lifecycle remain open.
