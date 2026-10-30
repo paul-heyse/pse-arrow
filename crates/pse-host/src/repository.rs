@@ -45,7 +45,7 @@ pub enum GitName {
     Bytes(Vec<u8>),
 }
 impl GitName {
-    fn new(bytes: &[u8]) -> Self {
+    pub(crate) fn new(bytes: &[u8]) -> Self {
         match std::str::from_utf8(bytes) {
             Ok(text) => Self::Utf8(text.to_owned()),
             Err(_) => Self::Bytes(bytes.to_vec()),
