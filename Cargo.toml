@@ -184,6 +184,9 @@ tokio = { version = "=1.53.3", default-features = false, features = [
 tokio-util = { version = "=0.7.19", default-features = false, features = [
   "rt",
 ] }
+tokio-graceful-shutdown = "=0.20.0"
+tokio-rayon = "=2.1.0"
+sd-notify = "=0.5.0"
 tokio-metrics = { version = "=0.5.2", default-features = false, features = [
   "rt",
 ] }
