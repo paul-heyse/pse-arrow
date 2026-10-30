@@ -59,6 +59,8 @@ pub use entry::{
 };
 mod transfer;
 pub use transfer::rebuild_and_reexec;
+mod finalizer;
+pub(crate) use finalizer::{BoundFinalizerUse, FinalizerClaimLocator, FinalizerUseScope};
 
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(format!("host generation: {}", message.into()))
@@ -622,7 +624,7 @@ impl GenerationManifest {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct UseRecord {
     version: u32,
@@ -631,6 +633,8 @@ struct UseRecord {
     manifest_digest: String,
     #[serde(default)]
     handoff: Option<transfer::UseHandoff>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    finalizer: Option<FinalizerUseScope>,
 }
 
 /// An unsettled durable claim remains protective even after a controller crash.
@@ -704,6 +708,7 @@ impl GenerationUse {
             owner,
             manifest_digest: manifest.digest()?,
             handoff: None,
+            finalizer: None,
         })?)?;
         file.sync_all()?;
         File::open(&records)?.sync_all()?;

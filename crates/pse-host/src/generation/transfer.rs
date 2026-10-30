@@ -8,6 +8,7 @@ use std::{
 };
 
 pub(super) const HANDOFF: &str = "PSE_HOST_GENERATION_HANDOFF";
+const RECORD_LIMIT: u64 = 16 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -57,7 +58,7 @@ struct Handoff {
     source: Option<Claim>,
 }
 
-fn identity() -> Result<pse_diagnostics::process_facts::ProcessIdentity, HostError> {
+pub(super) fn identity() -> Result<pse_diagnostics::process_facts::ProcessIdentity, HostError> {
     match pse_diagnostics::process_facts::ProcessReader::default().process(std::process::id()) {
         pse_diagnostics::process_facts::ProcessRead::Present(facts) => Ok(facts.identity),
         _ => Err(invalid(
@@ -79,13 +80,13 @@ pub(super) fn was_reexecuted(inputs: &Environment) -> Result<bool, HostError> {
     };
     Ok(captured == identity()?)
 }
-fn read_record(path: &Path) -> Result<UseRecord, HostError> {
+pub(super) fn read_record(path: &Path) -> Result<UseRecord, HostError> {
     let file = owned_file(path, false)?;
-    if file.metadata()?.len() > 16 * 1024 {
+    if file.metadata()?.len() > RECORD_LIMIT {
         return Err(invalid("generation use record exceeds its bound"));
     }
     let mut bytes = Vec::new();
-    file.take(16 * 1024 + 1).read_to_end(&mut bytes)?;
+    file.take(RECORD_LIMIT + 1).read_to_end(&mut bytes)?;
     serde_json::from_slice(&bytes).map_err(|_| invalid("generation use record is invalid"))
 }
 
@@ -119,18 +120,26 @@ impl GenerationUse {
         if record.version != VERSION
             || record.owner != identity()?
             || record.manifest_digest != self.manifest.digest()?
+            || record.finalizer.is_some()
         {
             return Err(invalid(
                 "generation claim does not belong to the performing process and manifest",
             ));
         }
         record.handoff = handoff;
+        self.replace_record(&record)
+    }
+    pub(super) fn replace_record(&self, record: &UseRecord) -> Result<(), HostError> {
+        let bytes = encoded(record)?;
+        if u64::try_from(bytes.len()).map_or(true, |length| length > RECORD_LIMIT) {
+            return Err(invalid("generation use record exceeds its bound"));
+        }
         let parent = self
             .record
             .parent()
             .ok_or_else(|| invalid("generation claim has no parent"))?;
         let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
-        temporary.write_all(&encoded(&record)?)?;
+        temporary.write_all(&bytes)?;
         temporary.as_file().sync_all()?;
         temporary
             .persist(&self.record)
@@ -198,6 +207,7 @@ fn adopt_claim(
     if captured.version != VERSION
         || captured.handoff.as_ref() != Some(expected)
         || captured.manifest_digest != manifest.digest()?
+        || captured.finalizer.is_some()
     {
         return Err(invalid(
             "executable handoff differs from the original owned claim",
