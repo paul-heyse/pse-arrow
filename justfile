@@ -39,11 +39,7 @@ venv := env("UV_PROJECT_ENVIRONMENT", ".venv")
 # silently produces a different diff than CI.
 bin := venv / if os() == "windows" { "Scripts" } else { "bin" }
 py := bin / if os() == "windows" { "python.exe" } else { "python" }
-ruff := bin / "ruff"
-pyrefly := bin / "pyrefly"
 reuse := bin / "reuse"
-taplo := bin / "taplo"
-typos := bin / "typos"
 # Correctness commands derive explicit opt-ins from actual selected Cargo units.
 # Listing uses the same selectors, features and build modes as execution.
 nextest_action := env("PSE_NEXTEST_ACTION", "run --no-fail-fast")
@@ -261,7 +257,7 @@ fmt-rust-check:
 
 [group('local')]
 lint-toml:
-    "{{ taplo }}" fmt --check --diff
+    uv run taplo fmt --check --diff
 
 [group('local')]
 [positional-arguments]
@@ -515,7 +511,7 @@ lock-workspace:
 [group('local')]
 [doc('Resolve changed Python dependency declarations without upgrading unrelated packages')]
 lock-python:
-    uv lock
+    UV_LOCKED=0 uv lock
 
 
 [group('local')]
@@ -648,19 +644,19 @@ ci-fast:
 [group('local')]
 [doc('ruff format in check mode')]
 fmt-py-check:
-    "{{ ruff }}" format --config pyproject.toml --check
+    uv run ruff format --config pyproject.toml --check
 
 [group('local')]
 [doc('ruff check (no --fix; the baseline is zero)')]
 lint-py:
-    "{{ ruff }}" check --config pyproject.toml
+    uv run ruff check --config pyproject.toml
 
 [group('local')]
 [doc('pyrefly type check, including warnings (the baseline is zero)')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 typecheck:
-    "{{ pyrefly }}" check --min-severity warn
-    "{{ pyrefly }}" check --config pyproject.toml --min-severity warn --python-version 3.12 --python-interpreter-path build/plan14-reference/bin/python scripts/plan14_reference.py scripts/feos_entropy_reference.py scripts/pr_stability_reference.py
+    uv run pyrefly check --min-severity warn
+    uv run pyrefly check --config pyproject.toml --min-severity warn --python-version 3.12 --python-interpreter-path build/plan14-reference/bin/python scripts/plan14_reference.py scripts/feos_entropy_reference.py scripts/pr_stability_reference.py
 
 # Native consumers require explicitly prepared providers and retain their own
 # typed prerequisite, scientific and fixture failures.
@@ -850,9 +846,9 @@ register-check:
 [doc('Format Rust, TOML and Python in place and apply ruff auto-fixes; lint-py reports the rest')]
 fmt:
     cargo fmt --all
-    "{{ taplo }}" fmt
-    "{{ ruff }}" check --config pyproject.toml --fix --quiet --exit-zero
-    "{{ ruff }}" format --config pyproject.toml
+    uv run taplo fmt
+    uv run ruff check --config pyproject.toml --fix --quiet --exit-zero
+    uv run ruff format --config pyproject.toml
 
 [group('mutating')]
 [doc('Regenerate native relations, JSON schemas, documentation, canonical codecs and Ipopt bindings')]
@@ -887,7 +883,7 @@ solver-image target="ci":
     docker build --target {{ target }} -t pse-solvers:{{ target }}-local --build-arg RUST_TOOLCHAIN="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" -f docker/solvers/Dockerfile docker/solvers
 
 # Move named packages after a deliberate version change (ADR-0165). Declared dependencies
-# are exact, so bump one by editing its pin (`cargo add name@=x.y.z`, `uv add 'name==x.y.z'`)
+# are exact, so bump one by editing its pin (`cargo add name@=x.y.z`, `UV_LOCKED=0 uv add 'name==x.y.z'`)
 # and pass its name here; an undeclared (transitive) package moves by name alone
 # (`name@version` selects one of several resolved majors, as `cargo update -p` suggests).
 # There is no whole-lock form: a wholesale re-resolve is an operator request. Upgrade-specific
@@ -906,7 +902,7 @@ upgrade +packages:
         name="${p%%@*}"
         moved=0
         if grep -qiE "^name = \"${name//[-_]/[-_]}\"$" uv.lock; then
-            uv lock --upgrade-package "$name"; moved=1
+            UV_LOCKED=0 uv lock --upgrade-package "$name"; moved=1
         fi
         if grep -qE "^name = \"$name\"$" Cargo.lock; then
             cargo update -p "$p"; moved=1
@@ -916,7 +912,7 @@ upgrade +packages:
             exit 1
         fi
     done
-    python3 - "$before" <<'PY'
+    uv run python - "$before" <<'PY'
     import sys, tomllib
     from pathlib import Path
     def versions(path):
@@ -986,7 +982,7 @@ solver-rebuild-check:
 [group('local')]
 [doc('Spelling with the project-pinned tool')]
 lint-typos:
-    "{{ typos }}"
+    uv run typos
 
 [group('local')]
 [doc('License headers with the project-pinned tool')]
@@ -1190,4 +1186,4 @@ workspace-sources *args:
 [group('manual')]
 [doc('Independent reference helper assertions in the locked numerical-reference environment')]
 reference-unit:
-    uv run --locked --group test -- python -m unittest scripts.tests.test_scientific_references
+    UV_PROJECT_ENVIRONMENT=.venv-parity uv run --locked --only-group parity --python 3.13 -- python -m unittest scripts.tests.test_scientific_references

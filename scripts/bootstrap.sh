@@ -14,7 +14,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-.venv}"
+# This entry point prepares ordinary development tools, never a caller's oracle prefix.
+unset VIRTUAL_ENV UV_PYTHON UV_PROJECT UV_WORKING_DIR UV_NO_PROJECT UV_NO_SYNC UV_FROZEN
+export UV_PROJECT_ENVIRONMENT="$ROOT/.venv"
 
 # Names live here; protocol-sensitive versions come from diagnostic-tools.toml.
 CARGO_TOOLS=(

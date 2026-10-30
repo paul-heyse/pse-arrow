@@ -69,17 +69,6 @@
         ],
         "matcher": "^(Edit|MultiEdit|NotebookEdit|Write)$"
       }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/scripts/pse-host\" agent-hook session-env",
-            "timeout": 10
-          }
-        ]
-      }
     ]
   }
 }

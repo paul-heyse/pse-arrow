@@ -19,13 +19,46 @@ project `pse-arrow-reference-tools`, version `0.0.0`, with `package = false`. Th
 there is no editable scientific extension, wheel or Python product to install.
 `just bootstrap-docs` explicitly installs the declared documentation tools.
 
+Ordinary Python tool commands use the default uv environment and declared `dev` group:
+
+```bash
+uv run ruff check scripts
+uv run pyrefly check
+uv run python -c 'import sys; print(sys.executable)'
+```
+
+`bash scripts/setup-env tools` and `just bootstrap-venv` explicitly prepare this checkout's
+`.venv`, regardless of inherited Python/project selections. `bash scripts/setup-env reference`
+selects only the parity group in `.venv-parity` with Python 3.13; it never replaces the dev
+interpreter. `just reference-unit` also uses that isolated parity environment. Other scientific
+reference recipes retain their explicit prefixes and interpreters. Bare Python/tool activation
+is not an interface requirement; native helpers may retain their own explicit executable paths.
+
 Review `.envrc`, then `direnv allow` in each checkout. Activation composes the native
 export owner without syncing packages, running doctor or compiling providers.
-`.envrc.local` is the ignored personal override. Inherited Python paths are removed before
-checkout-local selection; a checkout without its own environment must not borrow another's.
-On this workstation Codex's `local-env` bridge runs direnv for each top-level Bash command
-through `~/.config/codex/bash-env.bash`, then unsets `BASH_ENV` for nested children. Review
-changed activation files before allowing them. Nested commands retain their owner's selection.
+`.envrc.local` is the ignored personal override. A checkout without its own environment must
+not borrow another's. On this workstation the Codex Bash bridge initializes the machine
+baseline once, then refreshes approved direnv settings without rebuilding unchanged activation.
+It unsets `BASH_ENV` for workload children, which retain their native or oracle owner's selection.
+Existing daemons without the initialized baseline use a safe compatibility path until a fresh
+terminal-launched session. Claude Code's global SessionStart adapter sources the same bridge
+for each Bash command after shell snapshot loading. Directory refresh reaches this checkout's
+native export owner through `.envrc`; the local SessionStart hook no longer captures a fixed
+checkout's native exports in `CLAUDE_ENV_FILE`. The local edit guard remains active. Review
+changed activation files before allowing them.
+
+Codex and Claude Code supply `UV_LOCKED=1`: ordinary `uv run` checks the lockfile and synchronizes required
+packages while retaining extra installed packages. A stale lockfile fails rather than changing
+it. Deliberate dependency changes use `UV_LOCKED=0 uv add 'name==x.y.z'`; `just lock-python`
+and `just upgrade name` already opt into their intended lock mutation. No global no-sync,
+frozen, interpreter or alternate-environment selection is required.
+
+Run commands from this checkout or select another project deliberately. `uv run python
+path/to/script.py` retains the selected project; `uv run path/to/script.py` discovers the
+project from the script's location in uv 0.12+. `--project` selects project discovery without
+changing relative argument paths; `--directory` also changes the working directory. Keep uv's
+normal shared cache: use package-specific refresh/reinstall only to diagnose a concrete stale
+artifact, rather than clearing the cache or disabling synchronization routinely.
 
 ## One native environment and foreground boundary
 

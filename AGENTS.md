@@ -114,7 +114,9 @@ carry force-validation. Workload recipes run through `scripts/pse-env`; the fixe
 remains diagnosable. These exceptions accept observer options or the fixed capability server,
 never an arbitrary command.
 Direnv and Claude
-sessions load the same environment, and Codex commands prefix `scripts/pse-env --`.
+sessions load the same native environment. On this workstation Codex and Claude Code refresh
+approved direnv settings for each Bash command. Ordinary Python tool commands use `uv run`;
+native workloads retain the `scripts/pse-env --` boundary.
 
 Independent scientific references use explicitly selected environments and Rust candidate
 exchange files (`just parity` and the narrower reference recipes). `just reference-unit`
@@ -149,8 +151,10 @@ dispatched.
    "When an ADR is required" below. **Adding a third-party dependency needs none of it** —
    no library and no licence is refused during phases 0–1
    ([dependency policy](docs/dev/dependency-policy.md), ADR-0066).
-6. **Use the tool from `.venv` and the pinned toolchain, never `$PATH`.** A stale global
-   `ruff` or a `cargo +<other>` silently produces a different result than CI. The pinned
+6. **Use `uv run` for ordinary Python tools and the pinned Rust toolchain.** uv selects
+   the checkout `.venv` and declared default dependency groups; bare Python activation is
+   not required. A stale global `ruff` or a `cargo +<other>` silently produces a different
+   result than CI. The pinned
    toolchain is the dated nightly in `rust-toolchain.toml`, its only declaration
    (ADR-0122); rustup selects it for every cargo run in a checkout. Never override it
    with `+toolchain` or `RUSTUP_TOOLCHAIN`: stable Cargo ignores the `[unstable]`

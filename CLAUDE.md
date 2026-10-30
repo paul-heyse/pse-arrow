@@ -4,11 +4,13 @@
 
 This is a real file so the shared import survives a Windows checkout without symlinks.
 
-`.claude/settings.json` configures permissions, the edit hook and the SessionStart hook;
+`.claude/settings.json` configures permissions and the local edit hook;
 [the agent environment guide](docs/dev/agent-environment.md) describes which permission layers
 survive an unprompted session. Both Claude and Codex call `scripts/pse-host agent-hook`, whose
-pre-edit checks protect generated files and decided documents; in Claude its `session-env`
-action also gives every Bash command the checkout environment (`scripts/pse-env --print`).
+pre-edit checks protect generated files and decided documents. On this workstation Claude's
+global SessionStart adapter installs the shared per-command environment bridge; approved
+direnv settings select the actual working directory through the native `scripts/pse-env` owner.
+The local settings do not capture fixed checkout exports in `CLAUDE_ENV_FILE`.
 There are no end-of-turn hooks (ADR-0161): run `just turn-end` at the end of a
 turn that changed files, `just ready` after an environment change and `just hygiene` at scope end.
 The guard does not stand between you and your own runtime directories — memory, scratch

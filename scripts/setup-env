@@ -4,6 +4,9 @@
 # Explicit preparation only; the native host is independent of Python environments.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+# Preparation selects its own checkout; inherited project choices cannot redirect it.
+unset VIRTUAL_ENV UV_PYTHON UV_PROJECT UV_WORKING_DIR UV_NO_PROJECT UV_NO_SYNC UV_FROZEN
+export UV_PROJECT_ENVIRONMENT="$PWD/.venv"
 mode=${1:-core}
 [[ $# -le 1 ]] || exit 2
 case "$mode" in
@@ -13,7 +16,7 @@ case "$mode" in
         uv sync --locked --only-group quality --no-install-project
         ;;
     reference)
-        uv sync --locked --only-group parity --no-install-project --python 3.13
+        UV_PROJECT_ENVIRONMENT="$PWD/.venv-parity" uv sync --locked --only-group parity --no-install-project --python 3.13
         ;;
     docs)
         scripts/bootstrap-host
