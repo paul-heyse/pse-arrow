@@ -123,6 +123,105 @@ fn raw_pretty_payload_cannot_break_ndjson_or_change_number_lexemes() {
     assert_eq!(value["subject_state"], "not_applicable");
 }
 #[test]
+fn no_projection_preserves_opaque_payload_bytes_in_json_and_human_output() {
+    let source = "{\n  \"same\": 1, \"same\": 2,\n  \"large\": 1234567890123456789012345678901234567890,\n  \"number\": -0.000, \"exponent\": 1E+009, \"escaped\": \"\\u03b1\"\n}";
+    for format in [OutputFormat::Json, OutputFormat::Human] {
+        let raw = serde_json::value::RawValue::from_string(source.into()).unwrap();
+        let mut bytes = Vec::new();
+        write(
+            &mut bytes,
+            Envelope::response("opaque", "original input", raw),
+            format,
+            &Presentation::default(),
+        )
+        .unwrap();
+        let text = String::from_utf8(bytes).unwrap();
+        assert!(text.contains(source));
+        let json = if format == OutputFormat::Human {
+            text.split_once('\n').unwrap().1
+        } else {
+            &text
+        };
+        #[derive(Deserialize)]
+        struct RawResponse<'a> {
+            #[serde(borrow)]
+            payload: &'a serde_json::value::RawValue,
+        }
+        let response: RawResponse<'_> = serde_json::from_str(json).unwrap();
+        assert_eq!(response.payload.get(), source);
+    }
+}
+#[test]
+fn projected_schema_resolves_percent_encoded_payload_and_record_references() {
+    #[derive(Serialize, JsonSchema)]
+    #[schemars(rename = "Payload with % 雪")]
+    struct EscapedPayload {
+        records: EscapedRecords,
+        explanation: String,
+    }
+    #[derive(Serialize, JsonSchema)]
+    #[schemars(rename = "Records with % 雪")]
+    struct EscapedRecords(Vec<u32>);
+    let view = Presentation {
+        fields: Some(vec!["records".into()]),
+        budget: Some(1),
+    };
+    let declared = schemars::generate::SchemaSettings::draft2020_12()
+        .for_serialize()
+        .into_generator()
+        .into_root_schema_for::<Envelope<EscapedPayload>>();
+    assert!(
+        declared
+            .pointer("/properties/payload/$ref")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .contains("%25")
+    );
+    let mut bytes = Vec::new();
+    write(
+        &mut bytes,
+        Envelope::response(
+            "escaped",
+            "selected records",
+            EscapedPayload {
+                records: EscapedRecords(vec![1, 2, 3]),
+                explanation: "detail".into(),
+            },
+        ),
+        OutputFormat::Json,
+        &view,
+    )
+    .unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(value["payload"], serde_json::json!({"records":[1]}));
+    let projected = schema::<EscapedPayload>("escaped", &view).unwrap();
+    assert_eq!(
+        projected.pointer("/properties/payload/properties/records/maxItems"),
+        Some(&serde_json::json!(1))
+    );
+    let validator = jsonschema::validator_for(projected.as_value()).unwrap();
+    assert!(validator.is_valid(&value));
+}
+#[test]
+fn invalid_projected_view_is_rejected_before_retaining_an_artifact() {
+    let directory = tempfile::tempdir().unwrap();
+    let options = OutputOptions {
+        format: OutputFormat::Json,
+        presentation: Presentation {
+            fields: Some(vec!["missing".into()]),
+            budget: None,
+        },
+        invocation_id: CliInvocationId::new(),
+        artifact_directory: Some(directory.path().to_owned()),
+    };
+    let error = options
+        .emit(Envelope::response("fixture", "invalid view", payload()))
+        .unwrap_err();
+    assert!(error.to_string().contains("unknown payload field missing"));
+    assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+}
+#[test]
 fn exit_classes_keep_launch_wait_workload_failure_and_settlement_distinct() {
     let mut response = Envelope::response("wait", "still active", ());
     response.subject_state = SubjectState::Launched;

@@ -83,12 +83,12 @@ pub(super) fn identity(command: &str, view: &Presentation) -> String {
             .map_or("unbounded".into(), |value| value.to_string())
     )
 }
-fn dereference(value: &Value, root: &Value) -> Value {
+fn dereference(value: &Value, root: &Schema) -> Value {
     value
         .get("$ref")
         .and_then(Value::as_str)
-        .and_then(|reference| reference.strip_prefix('#'))
-        .and_then(|pointer| root.pointer(pointer))
+        .filter(|reference| reference.starts_with('#'))
+        .and_then(|reference| root.pointer(reference))
         .unwrap_or(value)
         .clone()
 }
@@ -115,11 +115,10 @@ pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<S
         .for_serialize()
         .into_generator()
         .into_root_schema_for::<Envelope<T>>();
-    let root = schema.as_value().clone();
-    let payload = root
+    let payload = schema
         .pointer("/properties/payload")
         .ok_or_else(|| invalid("envelope payload schema missing"))?;
-    let mut payload = dereference(payload, &root);
+    let mut payload = dereference(payload, &schema);
     if let Some(fields) = &view.fields {
         if payload.get("properties").is_none() {
             let field_type = payload
@@ -154,7 +153,7 @@ pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<S
         }
         if let Some(properties) = payload.get_mut("properties").and_then(Value::as_object_mut) {
             for value in properties.values_mut() {
-                let mut resolved = dereference(value, &root);
+                let mut resolved = dereference(value, &schema);
                 if resolved.get("type").and_then(Value::as_str) == Some("array") {
                     limit_array(&mut resolved, budget);
                     *value = resolved;
@@ -297,13 +296,37 @@ impl serde_json::ser::Formatter for LineFormatter {
 }
 /// Write complete JSON records. Failure never publishes a truncated JSON string as a result.
 pub fn write<T: Serialize + JsonSchema>(
-    mut writer: impl Write,
+    writer: impl Write,
     envelope: Envelope<T>,
     format: OutputFormat,
     view: &Presentation,
 ) -> io::Result<i32> {
-    // Validate a requested view against the same type declaration used by `schema`.
-    let _ = schema::<T>(&envelope.command, view)?;
+    let prepared = prepare::<T>(&envelope.command, view)?;
+    write_prepared(writer, envelope, format, prepared)
+}
+/// A type-checked view prepared before any retained response is published.
+pub(super) struct PreparedView<'a, T> {
+    view: &'a Presentation,
+    payload: std::marker::PhantomData<fn() -> T>,
+}
+pub(super) fn prepare<'a, T: JsonSchema>(
+    command: &str,
+    view: &'a Presentation,
+) -> io::Result<PreparedView<'a, T>> {
+    // Use the same declaration as schema output, once per response.
+    let _ = schema::<T>(command, view)?;
+    Ok(PreparedView {
+        view,
+        payload: std::marker::PhantomData,
+    })
+}
+pub(super) fn write_prepared<T: Serialize>(
+    mut writer: impl Write,
+    envelope: Envelope<T>,
+    format: OutputFormat,
+    prepared: PreparedView<'_, T>,
+) -> io::Result<i32> {
+    let view = prepared.view;
     let code = envelope.exit_code();
     let raw = serde_json::value::to_raw_value(&envelope.payload)?;
     let (payload, detail) = present(&raw, view)?;

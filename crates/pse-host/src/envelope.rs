@@ -27,7 +27,7 @@ impl OutputOptions {
         mut response: Envelope<T>,
     ) -> std::io::Result<i32> {
         response.invocation_id = self.invocation_id.clone();
-        let _ = schema::<T>(&response.command, &self.presentation)?;
+        let prepared = presentation::prepare::<T>(&response.command, &self.presentation)?;
         if self.presentation.fields.is_some() || self.presentation.budget.is_some() {
             let directory = self.artifact_directory.as_deref().ok_or_else(|| {
                 std::io::Error::new(
@@ -37,12 +37,7 @@ impl OutputOptions {
             })?;
             retain(&mut response, directory)?;
         }
-        write(
-            std::io::stdout().lock(),
-            response,
-            self.format,
-            &self.presentation,
-        )
+        presentation::write_prepared(std::io::stdout().lock(), response, self.format, prepared)
     }
 }
 /// Retain the full response before presenting a limited view, with immutable content identity.
