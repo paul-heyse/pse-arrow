@@ -374,6 +374,11 @@ inspect never installs, repairs, loads or starts a service. Start/stop authentic
 nonce description, literal execution and executable identity. Independent stop failures are
 retained while other authenticated units still settle.
 
+New starts require `Type=exec` and correlated native job completion before strict process
+inspection. This acknowledges execution, not collector ingestion readiness. A stopped older
+`Type=simple` definition requires explicit setup/reload; an already running original remains
+inspectable and stoppable after its executable, process, invocation and group authenticate.
+
 Reconfiguration records its previous/candidate generation and attempts rollback on failure;
 explicit recovery selects the recorded previous configuration. Login enable/disable is an
 external systemd operation, with no implicit enable side effect. An already login-enabled

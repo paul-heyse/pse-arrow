@@ -30,6 +30,7 @@ impl Control {
                         control_group: "/fixture".into(),
                     },
                     enabled: "disabled".into(),
+                    service_type: "exec".into(),
                     process: Some(pse_diagnostics::process_facts::ProcessIdentity {
                         boot_id: "fixture".into(),
                         pid_namespace: "fixture".into(),
@@ -372,6 +373,26 @@ async fn login_activation_refuses_before_reconfiguration_effects() {
             .all(|call| call.starts_with("inspect:") && call.ends_with(":false"))
     );
 }
+#[test]
+fn installed_unit_requires_native_exec_acknowledgement_for_direct_image() {
+    let unit = unit_text(
+        "collector",
+        Path::new("/private/bin/collector"),
+        Path::new("/private/generation"),
+        Path::new("/private/state"),
+        Path::new("/private/service.env"),
+        "fixture-owner",
+    )
+    .unwrap();
+    assert!(unit.lines().any(|line| line == "Type=exec"));
+    assert_eq!(
+        unit.lines().find(|line| line.starts_with("ExecStart=")),
+        Some(
+            "ExecStart=\"/private/bin/collector\" --config=\"/private/generation/collector.yaml\""
+        )
+    );
+}
+
 #[test]
 fn unit_escaping_and_port_validation_reject_ambiguous_input() {
     let mut options = SetupOptions::default();

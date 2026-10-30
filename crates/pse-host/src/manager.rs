@@ -281,6 +281,7 @@ pub(crate) struct InstalledServiceSpec {
 pub(crate) struct InstalledServiceState {
     pub observation: UnitObservation,
     pub enabled: String,
+    pub service_type: String,
     pub process: Option<ProcessIdentity>,
 }
 
@@ -368,6 +369,7 @@ impl HostManager {
                 return Err(HostError::Ownership("installed telemetry unit fragment or owner differs".into()));
             }
             let service = ServiceProxy::builder(&self.connection).destination(self.owner.as_str()).path(unit.inner().path().to_owned()).cache_properties(CacheProperties::No).build().await?;
+            let service_type = service.type_property().await?;
             let starts = service.exec_start().await?;
             if !matches!(starts.as_slice(), [(executable, arguments, false, _, _, _, _, _, _, _)] if Path::new(executable) == spec.executable && arguments == &spec.arguments)
                 || service.environment_files().await? != vec![(spec.environment_file.to_string_lossy().into_owned(), false)]
@@ -401,7 +403,7 @@ impl HostManager {
             };
             let after = self.observe(&spec.name).await?;
             if after != observation { return Err(HostError::Ownership("installed telemetry changed during inspection".into())); }
-            Ok(Some(InstalledServiceState { observation, process, enabled: unit.unit_file_state().await? }))
+            Ok(Some(InstalledServiceState { observation, process, service_type, enabled: unit.unit_file_state().await? }))
         }).await.map_err(|_| HostError::Deadline("installed-service authentication".into()))?
     }
     /// Explicit installed-unit activation; never creates or adopts a transient unit.
@@ -416,36 +418,32 @@ impl HostManager {
         if previous.observation.active_state == "active" && previous.process.is_some() {
             return Ok(());
         }
+        if previous.service_type != "exec" {
+            return Err(HostError::Ownership("installed telemetry requires Type=exec; rerun explicit telemetry setup and reload its user unit before starting".into()));
+        }
         tokio::time::timeout(Duration::from_secs(45), async {
-            self.manager()
-                .await?
-                .start_unit(spec.name.clone(), "fail".into())
-                .await?;
-            loop {
-                let current = self
-                    .inspect_installed_service(spec, false)
-                    .await?
-                    .ok_or_else(|| {
-                        HostError::Ownership("started telemetry unit disappeared".into())
-                    })?;
-                if current.observation.active_state == "active" && current.process.is_some() {
-                    return Ok(());
-                }
-                if current.observation.active_state == "failed" {
-                    return Err(HostError::Ownership(
-                        "telemetry service failed; inspect its user journal".into(),
-                    ));
-                }
-                tokio::time::sleep(Duration::from_millis(50)).await;
+            let manager = self.manager().await?;
+            let mut removed = manager.receive_job_removed().await?;
+            let intent = LaunchIntent { unit: spec.name.clone(), description: spec.description.clone() };
+            // Subscribe before dispatch. Type=exec completes this native start job only
+            // after execve, so strict inspection never authenticates the pre-exec executor.
+            let outcome = launch_job(&intent, manager.start_unit(spec.name.clone(), "fail".into()),
+                removed.by_ref().map(|signal| {
+                    let args = signal.args()?;
+                    Ok(JobEvent { job: args.job().clone(), unit: args.unit().clone(), result: args.result().clone() })
+                })).await?;
+            if outcome != "done" {
+                return Err(HostError::Ownership(format!("installed telemetry start job ended {outcome}; inspect its user journal")));
             }
+            let current = self.inspect_installed_service(spec, false).await?
+                .ok_or_else(|| HostError::Ownership("started telemetry unit disappeared".into()))?;
+            if current.observation.active_state != "active" || current.process.is_none() {
+                return Err(HostError::Ownership("installed telemetry start completed without a live authenticated original process".into()));
+            }
+            Ok(())
         })
         .await
-        .map_err(|_| {
-            HostError::Deadline(format!(
-                "telemetry start acknowledgement unknown for {}; inspect before retry",
-                spec.name
-            ))
-        })?
+        .map_err(|_| HostError::UnknownLaunch { unit: spec.name.clone(), detail: "installed start acknowledgement timeout; inspect original before retry".into() })?
     }
     /// Recheck the captured incarnation immediately before stopping and retain its opened
     /// original cgroup until physical drain. External reconfiguration remains unsupported.
@@ -481,7 +479,17 @@ impl HostManager {
                 .stop_unit(spec.name.clone(), "fail".into())
                 .await?;
             loop {
-                let after = self.inspect_installed_service(spec, false).await?;
+                let after = match self.inspect_installed_service(spec, false).await {
+                    // An inactive unit may be collected between GetUnit and a later
+                    // property read. Absence settles nothing until the opened original
+                    // kernel population below is also physically empty.
+                    Err(HostError::Manager(zbus::Error::MethodError(name, _, _)))
+                        if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit" =>
+                    {
+                        None
+                    }
+                    result => result?,
+                };
                 if after.as_ref().is_none_or(|after| {
                     after.observation.main_pid == 0
                         && matches!(
@@ -3550,7 +3558,13 @@ mod tests {
             .mode(0o600)
             .open(&fragment)
             .unwrap();
-        write!(file, "[Unit]\nDescription={description}\n[Service]\nType=simple\nWorkingDirectory={}\nEnvironmentFile={}\nExecStart={} 120\nKillMode=control-group\nTimeoutStopSec=5s\nRestart=no\n", scratch.path().display(), environment_file.display(), executable.display()).unwrap();
+        let exec_unit = format!(
+            "[Unit]\nDescription={description}\n[Service]\nType=exec\nWorkingDirectory={}\nEnvironmentFile={}\nExecStart={} 120\nKillMode=control-group\nTimeoutStopSec=5s\nRestart=no\n",
+            scratch.path().display(),
+            environment_file.display(),
+            executable.display()
+        );
+        file.write_all(exec_unit.as_bytes()).unwrap();
         file.sync_all().unwrap();
         let mut spec = InstalledServiceSpec {
             name: name.clone(),
@@ -3603,6 +3617,23 @@ mod tests {
                 ));
             }
             spec.executable_identity = (executable_info.dev(), executable_info.ino());
+            // A queued native start job is an exec acknowledgement only for Type=exec.
+            // An accurately authenticated but stale simple definition must refuse before dispatch.
+            std::fs::write(&fragment, exec_unit.replace("Type=exec", "Type=simple"))?;
+            spec.fragment_sha256 = crate::diagnostic_tools::digest(&fragment)?;
+            manager.reload_installed_units().await?;
+            if !matches!(manager.start_installed_service(&spec).await, Err(HostError::Ownership(message)) if message.contains("requires Type=exec")) {
+                return Err(HostError::Ownership("stale Type=simple installation acquired activation".into()));
+            }
+            match manager.observe(&name).await {
+                Ok(observation) if observation.main_pid == 0 => {}
+                Err(HostError::Manager(zbus::Error::MethodError(name, _, _))) if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit" => {}
+                Ok(_) => return Err(HostError::Ownership("refused Type=simple installation created a process".into())),
+                Err(error) => return Err(error),
+            }
+            std::fs::write(&fragment, &exec_unit)?;
+            spec.fragment_sha256 = crate::diagnostic_tools::digest(&fragment)?;
+            manager.reload_installed_units().await?;
             manager.start_installed_service(&spec).await?;
             let running = manager
                 .inspect_installed_service(&spec, false)
@@ -3635,6 +3666,21 @@ mod tests {
                     "live control group unexpectedly empty".into(),
                 ));
             }
+            // Existing original-process authentication does not depend on startup's
+            // exec acknowledgement. A loaded older definition remains inspectable
+            // and stoppable so explicit setup can replace it without self-blocking.
+            std::fs::write(&fragment, exec_unit.replace("Type=exec", "Type=simple"))?;
+            spec.fragment_sha256 = crate::diagnostic_tools::digest(&fragment)?;
+            manager.reload_installed_units().await?;
+            let older = manager.inspect_installed_service(&spec, false).await?
+                .ok_or_else(|| HostError::Ownership("running simple control absent".into()))?;
+            if older.service_type != "simple" || older.process != running.process
+                || older.observation.invocation != running.observation.invocation
+                || older.observation.control_group != running.observation.control_group {
+                return Err(HostError::Ownership("older definition lost original process authentication".into()));
+            }
+            manager.start_installed_service(&spec).await?;
+            let running = older;
             let mut stale = running.clone();
             stale.observation.invocation[0] ^= 1;
             if manager.stop_installed_service(&spec, &stale).await.is_ok() {
@@ -3642,7 +3688,8 @@ mod tests {
                     "stale invocation acquired stop authority".into(),
                 ));
             }
-            manager.stop_installed_service(&spec, &running).await?;
+            manager.stop_installed_service(&spec, &running).await
+                .map_err(|error| HostError::Ownership(format!("authenticated older-definition stop: {error}")))?;
             if !original_group.empty()? {
                 return Err(HostError::Ownership(
                     "original kernel population remained after installed stop".into(),
@@ -3657,6 +3704,9 @@ mod tests {
         spec.arguments = vec![executable.to_str().unwrap().into(), "120".into()];
         spec.executable_identity = (executable_info.dev(), executable_info.ino());
         let cleanup: Result<(), HostError> = async {
+            std::fs::write(&fragment, &exec_unit)?;
+            spec.fragment_sha256 = crate::diagnostic_tools::digest(&fragment)?;
+            manager.reload_installed_units().await?;
             if let Some(current) = manager.inspect_installed_service(&spec, false).await? {
                 manager.stop_installed_service(&spec, &current).await?;
             }

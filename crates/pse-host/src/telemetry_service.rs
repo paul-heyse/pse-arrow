@@ -412,7 +412,7 @@ fn unit_text(
         command.push_str(&unit_quote(text_path(&generation.join("collector.yaml"))?)?);
     }
     Ok(format!(
-        "[Unit]\nDescription=PSE telemetry {name} {owner_id}\n\n[Service]\nType=simple\nWorkingDirectory={}\nEnvironmentFile={}\nExecStart={command}\nRestart=on-failure\nRestartSec=2s\nTimeoutStopSec=30s\nKillMode=control-group\nUMask=0077\nNoNewPrivileges=yes\n\n[Install]\nWantedBy=default.target\n",
+        "[Unit]\nDescription=PSE telemetry {name} {owner_id}\n\n[Service]\nType=exec\nWorkingDirectory={}\nEnvironmentFile={}\nExecStart={command}\nRestart=on-failure\nRestartSec=2s\nTimeoutStopSec=30s\nKillMode=control-group\nUMask=0077\nNoNewPrivileges=yes\n\n[Install]\nWantedBy=default.target\n",
         text_path(state)?.replace('%', "%%"),
         text_path(environment_file)?.replace('%', "%%")
     ))
