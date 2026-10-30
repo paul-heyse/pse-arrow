@@ -11,7 +11,7 @@ use std::{
 pub type Environment = BTreeMap<OsString, OsString>;
 
 /// Explicit compiler-cache intent belongs to the command owner, not another environment knob.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, clap::ValueEnum)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum CacheMode {
     /// Use the native installed cache when supported, otherwise compile directly.
     #[default]
@@ -742,7 +742,7 @@ pub fn activation_script(
     cache: CacheMode,
 ) -> Result<String, EnvironmentError> {
     let command = format!(
-        "{} -C {} env --activation-data --cache {}{}",
+        "{} env --activation-data --root {} --cache {}{}",
         quote(executable.as_os_str())?,
         quote(root.as_os_str())?,
         match cache {
@@ -811,163 +811,121 @@ else
 fi
 "#;
 
-/// The declaration that marks a checkout root.
-const CHECKOUT_MARKER: &str = ".config/diagnostic-tools.toml";
-
-/// The checkout that owns a published host-tools generation executable
-/// (`<checkout>/target/host-tools/<generation>/<tool>`), if `executable` is one.
-fn generation_checkout(executable: &Path) -> Option<PathBuf> {
-    let generation = executable.parent()?;
-    let tools = generation.parent()?;
-    let target = tools.parent()?;
-    let root = target.parent()?;
-    (tools.file_name() == Some(OsStr::new("host-tools"))
-        && target.file_name() == Some(OsStr::new("target"))
-        && root.join(CHECKOUT_MARKER).is_file())
-    .then(|| root.to_path_buf())
-}
-
-/// The nearest enclosing checkout root of `start`, walking up to the checkout marker.
-fn enclosing_checkout(start: &Path) -> Option<PathBuf> {
-    start
-        .ancestors()
-        .find(|path| path.join(CHECKOUT_MARKER).is_file())
-        .map(Path::to_path_buf)
-}
-
-/// Locate the checkout: an explicit selection (walked up to its root), then the checkout
-/// owning the running host-tools generation, then the current directory walked up.
-/// Pure over its inputs; `checkout_root` supplies the process facts.
-pub fn locate_checkout(
-    explicit: Option<&Path>,
-    executable: Option<&Path>,
-    cwd: &Path,
-) -> Result<PathBuf, EnvironmentError> {
-    if let Some(explicit) = explicit {
-        let start = if explicit.is_absolute() {
-            explicit.to_path_buf()
-        } else {
-            cwd.join(explicit)
-        };
-        return enclosing_checkout(&start).ok_or_else(|| {
-            failure(format!(
-                "{} is not inside a pse-arrow checkout",
-                explicit.display()
-            ))
-        });
+/// Fixed environment command: explanation and script generation never evaluate personal code.
+pub fn run_cli(arguments: &[OsString]) -> Result<i32, EnvironmentError> {
+    let mut print = false;
+    let mut explain = false;
+    let mut json = false;
+    let mut transfer = false;
+    let mut docs = false;
+    let mut selected_root = None;
+    let mut cache = CacheMode::Auto;
+    let mut args = arguments.iter();
+    while let Some(argument) = args.next() {
+        match argument.to_str() {
+            Some("--help" | "-h") => {
+                use std::io::Write as _;
+                std::io::stdout()
+                    .lock()
+                    .write_all(b"env --print|--explain [--json] [--docs] [--cache auto|on|off]\n")
+                    .map_err(|error| failure(error.to_string()))?;
+                return Ok(0);
+            }
+            Some("--print") => print = true,
+            Some("--explain") => explain = true,
+            Some("--json") => json = true,
+            Some("--activation-data") => transfer = true,
+            Some("--docs") => docs = true,
+            Some("--root") => {
+                selected_root = Some(PathBuf::from(
+                    args.next()
+                        .ok_or_else(|| failure("--root requires a path"))?,
+                ))
+            }
+            Some("--cache") => {
+                cache = match args.next().and_then(|arg| arg.to_str()) {
+                    Some("auto") => CacheMode::Auto,
+                    Some("on") => CacheMode::On,
+                    Some("off") => CacheMode::Off,
+                    _ => return Err(failure("--cache requires auto, on or off")),
+                }
+            }
+            _ => {
+                return Err(failure(
+                    "expected --print or --explain [--json] [--docs] [--cache auto|on|off]",
+                ));
+            }
+        }
     }
-    executable
-        .and_then(generation_checkout)
-        .or_else(|| enclosing_checkout(cwd))
-        .ok_or_else(|| failure("run inside a pse-arrow checkout or select one with -C"))
-}
-
-/// The single checkout self-location used by every host verb.
-pub fn checkout_root(explicit: Option<&Path>) -> Result<PathBuf, EnvironmentError> {
-    let cwd = std::env::current_dir().map_err(|error| failure(error.to_string()))?;
-    locate_checkout(explicit, std::env::current_exe().ok().as_deref(), &cwd)
-}
-
-/// One fixed, source-free environment read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EnvironmentRead {
-    /// The fixed Bash activation program; it never contains private values.
-    Print,
-    /// The selected values as JSON, without evaluating personal code.
-    Explain,
-    /// The private NUL activation transfer the printed program reads from a pipe.
-    ActivationData,
-}
-
-/// Fixed environment output: explanation and script generation never evaluate personal code.
-pub fn read(
-    root: &Path,
-    caller: &Environment,
-    operation: EnvironmentRead,
-    docs: bool,
-    cache: CacheMode,
-) -> Result<Vec<u8>, EnvironmentError> {
-    Ok(match operation {
-        EnvironmentRead::Print => activation_script(
+    if u8::from(print) + u8::from(explain) + u8::from(transfer) != 1
+        || (json && !explain)
+        || (selected_root.is_some() && !transfer)
+    {
+        return Err(failure("select exactly one environment operation"));
+    }
+    let mut root = selected_root
+        .unwrap_or(std::env::current_dir().map_err(|error| failure(error.to_string()))?);
+    while !root.join(".config/diagnostic-tools.toml").is_file() {
+        if !root.pop() {
+            return Err(failure(
+                "run environment selection inside a pse-arrow checkout",
+            ));
+        }
+    }
+    let caller = std::env::vars_os().collect();
+    let output = if print {
+        activation_script(
             &std::env::current_exe().map_err(|error| failure(error.to_string()))?,
-            root,
+            &root,
             docs,
             cache,
         )?
-        .into_bytes(),
-        EnvironmentRead::ActivationData => {
-            use std::os::unix::fs::FileTypeExt as _;
-            let kind = std::fs::metadata("/proc/self/fd/1")
-                .map_err(|error| failure(error.to_string()))?
-                .file_type();
-            if !kind.is_fifo() && !kind.is_socket() {
-                return Err(failure("activation data requires a private pipe"));
-            }
-            activate_with_options(root, caller, &Environment::new(), cache, docs)?
-                .activation_transfer(caller)?
-        }
-        EnvironmentRead::Explain => {
-            let plan = resolve_with_options(root, caller, None, &Environment::new(), cache, docs)?;
-            let selected: [&str; 9] = [
-                "PSE_BUILD_MODE",
-                "CARGO_BUILD_JOBS",
-                "RUSTC_WRAPPER",
-                "SCCACHE_CLIENT_SIDE",
-                "SCCACHE_DIR",
-                "PSE_SURREAL_STATE",
-                "UV_PROJECT_ENVIRONMENT",
-                "PSE_PYTHON",
-                "PSE_TELEMETRY_CONFIGURATION_STATUS",
-            ];
-            let values: BTreeMap<_, _> = selected
-                .into_iter()
-                .map(|name| (name, get(&plan.values, name).and_then(OsStr::to_str)))
-                .collect();
-            (serde_json::to_string_pretty(
-                &serde_json::json!({"local_unresolved":plan.local_unresolved,"selections":values}),
-            )
+        .into_bytes()
+    } else if transfer {
+        use std::os::unix::fs::FileTypeExt as _;
+        let kind = std::fs::metadata("/proc/self/fd/1")
             .map_err(|error| failure(error.to_string()))?
-                + "\n")
-                .into_bytes()
+            .file_type();
+        if !kind.is_fifo() && !kind.is_socket() {
+            return Err(failure("activation data requires a private pipe"));
         }
-    })
+        activate_with_options(&root, &caller, &Environment::new(), cache, docs)?
+            .activation_transfer(&caller)?
+    } else {
+        let plan = resolve_with_options(&root, &caller, None, &Environment::new(), cache, docs)?;
+        let selected: [&str; 9] = [
+            "PSE_BUILD_MODE",
+            "CARGO_BUILD_JOBS",
+            "RUSTC_WRAPPER",
+            "SCCACHE_CLIENT_SIDE",
+            "SCCACHE_DIR",
+            "PSE_SURREAL_STATE",
+            "UV_PROJECT_ENVIRONMENT",
+            "PSE_PYTHON",
+            "PSE_TELEMETRY_CONFIGURATION_STATUS",
+        ];
+        let values: BTreeMap<_, _> = selected
+            .into_iter()
+            .map(|name| (name, get(&plan.values, name).and_then(OsStr::to_str)))
+            .collect();
+        (serde_json::to_string_pretty(
+            &serde_json::json!({"local_unresolved":plan.local_unresolved,"selections":values}),
+        )
+        .map_err(|error| failure(error.to_string()))?
+            + "\n")
+            .into_bytes()
+    };
+    use std::io::Write as _;
+    std::io::stdout()
+        .lock()
+        .write_all(&output)
+        .map_err(|error| failure(error.to_string()))?;
+    Ok(0)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn checkout_location_prefers_explicit_then_generation_then_cwd() {
-        let base = tempfile::tempdir().unwrap();
-        let checkout = |name: &str| {
-            let root = base.path().join(name);
-            std::fs::create_dir_all(root.join(".config")).unwrap();
-            std::fs::create_dir_all(root.join("target/host-tools/generation.abc")).unwrap();
-            std::fs::create_dir_all(root.join("target/debug")).unwrap();
-            std::fs::create_dir_all(root.join("crates/x")).unwrap();
-            std::fs::write(root.join(CHECKOUT_MARKER), "").unwrap();
-            root
-        };
-        let (own, other, explicit) = (checkout("own"), checkout("other"), checkout("explicit"));
-        let generation = own.join("target/host-tools/generation.abc/pse");
-        let cwd = other.join("crates/x");
-        assert_eq!(
-            locate_checkout(Some(&explicit.join("crates/x")), Some(&generation), &cwd).unwrap(),
-            explicit
-        );
-        assert_eq!(
-            locate_checkout(Some(Path::new("crates")), None, &explicit).unwrap(),
-            explicit
-        );
-        assert!(locate_checkout(Some(base.path()), Some(&generation), &cwd).is_err());
-        assert_eq!(locate_checkout(None, Some(&generation), &cwd).unwrap(), own);
-        // A Cargo-built executable is not a published generation: the cwd decides.
-        assert_eq!(
-            locate_checkout(None, Some(&own.join("target/debug/pse")), &cwd).unwrap(),
-            other
-        );
-        assert!(locate_checkout(None, None, base.path()).is_err());
-    }
     #[test]
     fn environment_invalid_toml_does_not_quote_private_configuration() {
         let directory = tempfile::tempdir().unwrap();

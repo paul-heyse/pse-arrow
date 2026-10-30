@@ -6,7 +6,6 @@ pub mod activity;
 pub mod admission;
 pub mod agent_hooks;
 pub mod boundary;
-pub mod cli;
 pub mod correctness;
 pub mod diagnostic_tools;
 pub mod doctor;
@@ -14,7 +13,6 @@ pub mod environment;
 pub mod foreground;
 mod manager;
 pub mod native;
-pub mod outline;
 pub mod server;
 pub mod study_module;
 pub use manager::{

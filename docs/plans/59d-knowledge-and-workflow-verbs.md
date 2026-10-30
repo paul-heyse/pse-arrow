@@ -148,7 +148,7 @@ current.
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [D01](#d01) | planned | 59d | `pse changes` and `pse brief` |
-| [D02](#d02) | in progress | 59d | Trial done (server unusable under the pin; see D02); `pse dep`, `pse probe`, and the full `pse api` with rustdoc JSON cache remain |
+| [D02](#d02) | planned | 59d | Trial done (server unusable under the pin; see D02); `pse dep`, `pse probe`, and the full `pse api` with rustdoc JSON cache remain |
 | [D03](#d03) | planned | 59d | `pse outline` and `pse show` |
 | [D04](#d04) | planned | 59d | Federated `pse docs check` with pinned lychee |
 | [D05](#d05) | planned | 59d | Federated `pse ref` and `pse new`; `just plan` bash scaffold retired |

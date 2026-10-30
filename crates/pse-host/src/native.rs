@@ -14,50 +14,8 @@ use std::{
     process::Command,
 };
 
-pub mod capabilities;
 mod providers;
 pub use providers::{prepare_capabilities, select_capabilities, validate_capabilities};
-
-/// The full native profile a bare request selects when the caller names none.
-pub const DEFAULT_CAPABILITIES: &str = "solver,klu,isolation,uno,petsc";
-
-/// A requested native capability profile, as typed on a command line.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Request {
-    /// A bare request (spelled `auto`): the caller's `PSE_NATIVE_CAPABILITIES`, else
-    /// [`DEFAULT_CAPABILITIES`].
-    Default,
-    /// Exactly these capabilities; the empty set is a meaningful selection.
-    Explicit(String),
-}
-impl Request {
-    /// Parse one command-line value; explicit capability sets are validated immediately.
-    pub fn parse(value: &str) -> Result<Self, HostError> {
-        if value == "auto" {
-            return Ok(Self::Default);
-        }
-        validate_capabilities(value)?;
-        Ok(Self::Explicit(value.to_owned()))
-    }
-    /// The validated capability set; only a bare request consults the caller environment.
-    pub fn resolve(&self, environment: &Environment) -> Result<String, HostError> {
-        let requested = match self {
-            Self::Explicit(value) => value.clone(),
-            Self::Default => environment
-                .get(OsStr::new("PSE_NATIVE_CAPABILITIES"))
-                .map(|value| {
-                    value
-                        .to_str()
-                        .ok_or_else(|| invalid("PSE_NATIVE_CAPABILITIES must be UTF-8"))
-                })
-                .transpose()?
-                .unwrap_or(DEFAULT_CAPABILITIES)
-                .to_owned(),
-        };
-        validate_capabilities(&requested)?;
-        Ok(requested)
-    }
-}
 
 const PROFILE: &str = "compiler,klu";
 const OPTIONS: &[&str] = &[
@@ -854,13 +812,26 @@ pub fn select(root: &Path, environment: &Environment) -> Result<Environment, Hos
     }
     Ok(selected)
 }
-/// Explicit native preparation, refused outside authenticated `scripts/pse-env` containment.
-/// Returns each prepared capability with its immutable prefix.
-pub fn prepare_explicit(
-    root: &Path,
-    environment: &Environment,
-    capabilities: &str,
-) -> Result<BTreeMap<String, PathBuf>, HostError> {
+/// Execute the narrow explicit native preparation command within authenticated containment.
+pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
+    if arguments
+        .first()
+        .is_some_and(|value| value == "--help" || value == "-h")
+    {
+        writeln!(
+            std::io::stdout(),
+            "native prepare --capabilities compiler[,solver,klu,isolation,uno,petsc]\nRun explicitly through scripts/pse-env; native launches never prepare missing artifacts."
+        )?;
+        return Ok(0);
+    }
+    if arguments.len() != 3 || arguments[0] != "prepare" || arguments[1] != "--capabilities" {
+        return Err(invalid(
+            "expected native prepare --capabilities compiler[,solver,klu,isolation,uno,petsc]",
+        ));
+    }
+    let capabilities = arguments[2]
+        .to_str()
+        .ok_or_else(|| invalid("capabilities must be UTF-8"))?;
     providers::capabilities(capabilities)?;
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -875,7 +846,21 @@ pub fn prepare_explicit(
             }
             Ok::<(), HostError>(())
         })?;
-    prepare_capabilities(root, environment, capabilities)
+    let mut root = std::env::current_dir()?;
+    while !root.join(".config/diagnostic-tools.toml").is_file() {
+        if !root.pop() {
+            return Err(invalid("run inside the selected checkout"));
+        }
+    }
+    let prepared = prepare_capabilities(&root, &std::env::vars_os().collect(), capabilities)?;
+    for (capability, prefix) in prepared {
+        writeln!(
+            std::io::stdout(),
+            "prepared {capability}: {}",
+            prefix.display()
+        )?;
+    }
+    Ok(0)
 }
 
 #[cfg(test)]

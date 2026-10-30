@@ -3,7 +3,7 @@
 //! Public native server selection is read-only and does not depend on Python or source.
 #![cfg(test)]
 use pse_host::{environment::Environment, server};
-use std::{fs, process::Command};
+use std::{ffi::OsString, fs};
 
 #[test]
 fn server_missing_selection_refuses_without_creating_tools_or_reading_checkout() {
@@ -34,18 +34,6 @@ fn server_corrupt_selection_never_searches_or_builds_a_fallback() {
 
 #[test]
 fn server_cli_rejects_implicit_build_and_service_arguments_before_effects() {
-    let fixture = tempfile::tempdir().unwrap();
-    let refused = |arguments: &[&str]| {
-        let output = Command::new(env!("CARGO_BIN_EXE_pse"))
-            .arg("server")
-            .args(arguments)
-            .current_dir(fixture.path())
-            .env("PSE_SURREAL_TOOLS", fixture.path().join("tools"))
-            .output()
-            .unwrap();
-        assert_eq!(output.status.code(), Some(125), "{arguments:?}: {output:?}");
-        assert!(output.stderr.starts_with(b"pse-host: "), "{output:?}");
-    };
     for command in [
         "start",
         "setup",
@@ -53,14 +41,21 @@ fn server_cli_rejects_implicit_build_and_service_arguments_before_effects() {
         "build-server",
         "prepare --force",
     ] {
-        refused(&[command]);
+        assert!(server::run_cli(&[OsString::from(command)]).is_err());
     }
     for arguments in [
-        &["prepare", "--from-release"][..],
-        &["select", "--from-release", "/unused"],
-        &["prepare", "--from-release", "/unused", "--force"],
+        vec!["prepare", "--from-release"],
+        vec!["select", "--from-release", "/unused"],
+        vec!["prepare", "--from-release", "/unused", "--force"],
     ] {
-        refused(arguments);
+        assert!(
+            server::run_cli(
+                &arguments
+                    .into_iter()
+                    .map(OsString::from)
+                    .collect::<Vec<_>>()
+            )
+            .is_err()
+        );
     }
-    assert_eq!(fs::read_dir(fixture.path()).unwrap().count(), 0);
 }

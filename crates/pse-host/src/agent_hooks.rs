@@ -5,9 +5,9 @@ use crate::HostError;
 use serde_json::Value;
 use std::{
     collections::VecDeque,
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     fs,
-    io::Write,
+    io::{Read, Write},
     path::{Component, Path, PathBuf},
     process::Command,
 };
@@ -253,25 +253,82 @@ pub fn session_env(root: &Path, destination: Option<&Path>) -> Result<(), HostEr
     Ok(())
 }
 
-/// Check every path a `PreToolUse` payload edits. `Err` carries the blocking reason.
-pub fn guard(root: &Path, input: &str, design_edit: Option<&OsStr>) -> Result<(), HostError> {
-    let payload =
-        serde_json::from_str::<Value>(input).map_err(|error| invalid(error.to_string()))?;
-    let paths = edit_paths(&payload)?;
-    let design_edit = design_edit_authorized(root, design_edit)?;
-    for path in paths {
-        if let Some(reason) = protected(root, Path::new(&path), design_edit)? {
-            return Err(invalid(format!("{path}: {reason}")));
+fn default_root() -> Result<PathBuf, HostError> {
+    if let Some(root) = std::env::var_os("CLAUDE_PROJECT_DIR").map(PathBuf::from)
+        && root.join("scripts/pse-env").is_file()
+    {
+        return Ok(root);
+    }
+    let mut root = std::env::current_dir()?;
+    while !root.join(".config/diagnostic-tools.toml").is_file() {
+        if !root.pop() {
+            return Err(invalid("run agent hooks inside a pse-arrow checkout"));
         }
     }
-    Ok(())
+    Ok(root)
 }
 
-/// Append the session activation for the payload's checkout (or `default`) to `destination`.
-pub fn session(default: &Path, input: &str, destination: Option<&Path>) -> Result<(), HostError> {
-    let payload = serde_json::from_str(input).unwrap_or(Value::Null);
-    let root = session_root(default, &payload)?;
-    session_env(&root, destination)
+/// The lean host hook endpoint. Help remains offline and never reads standard input.
+pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
+    if arguments.is_empty()
+        || arguments == [OsString::from("--help")]
+        || arguments == [OsString::from("-h")]
+    {
+        writeln!(std::io::stdout(), "agent-hook guard|session-env")?;
+        return Ok(0);
+    }
+    let action = arguments.first().and_then(|value| value.to_str());
+    if arguments.len() != 1 || !matches!(action, Some("guard" | "session-env")) {
+        writeln!(
+            std::io::stderr(),
+            "BLOCKED: expected agent-hook guard|session-env"
+        )?;
+        return Ok(2);
+    }
+    let mut input = String::new();
+    let read = std::io::stdin().lock().read_to_string(&mut input);
+    if action == Some("session-env") {
+        let result: Result<(), HostError> = (|| {
+            let default = default_root()?;
+            let payload = serde_json::from_str(&input).unwrap_or(Value::Null);
+            let root = session_root(&default, &payload)?;
+            session_env(
+                &root,
+                std::env::var_os("CLAUDE_ENV_FILE")
+                    .as_deref()
+                    .map(Path::new),
+            )
+        })();
+        if let Err(error) = result {
+            writeln!(
+                std::io::stderr(),
+                "pse-env: session environment unavailable: {error}"
+            )?;
+        }
+        return Ok(0);
+    }
+    let result: Result<(), HostError> = (|| {
+        read?;
+        let payload =
+            serde_json::from_str::<Value>(&input).map_err(|error| invalid(error.to_string()))?;
+        let paths = edit_paths(&payload)?;
+        let root = default_root()?;
+        let design_edit =
+            design_edit_authorized(&root, std::env::var_os("PSE_DESIGN_EDIT").as_deref())?;
+        for path in paths {
+            if let Some(reason) = protected(&root, Path::new(&path), design_edit)? {
+                return Err(invalid(format!("{path}: {reason}")));
+            }
+        }
+        Ok(())
+    })();
+    match result {
+        Ok(()) => Ok(0),
+        Err(error) => {
+            writeln!(std::io::stderr(), "BLOCKED: {error}")?;
+            Ok(2)
+        }
+    }
 }
 
 #[cfg(test)]

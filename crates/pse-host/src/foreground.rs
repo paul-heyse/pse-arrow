@@ -42,10 +42,6 @@ impl std::fmt::Debug for ForegroundRequest {
     }
 }
 
-/// The hidden argv[1] that re-executes this image (`/proc/self/exe`) as the gated child.
-/// Every host binary dispatches it before any parsing or descriptor setup.
-pub const TRAMPOLINE: &str = "__foreground-exec";
-
 /// Run the same-image gated child, before constructing any async runtime.
 /// This internal protocol grants no manager mutation authority.
 #[allow(
@@ -345,7 +341,7 @@ async fn run_owned(
     let (gate_read, mut gate_write) = std::io::pipe()?;
     let mut command = Command::new("/proc/self/exe");
     command
-        .arg(TRAMPOLINE)
+        .arg("__foreground-exec")
         .args(&request.command)
         .env_clear()
         .envs(&request.environment)

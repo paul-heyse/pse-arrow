@@ -141,9 +141,6 @@ pub struct Resolution {
     pub arguments: Vec<OsString>,
     /// Selected root package names, not a test inventory.
     pub packages: Vec<String>,
-    /// Features every reached package activates across the validated graph's target and
-    /// host units, keyed by package name (versions of one name share an entry).
-    pub activated: BTreeMap<String, BTreeSet<String>>,
 }
 fn mode_position(arguments: &[OsString]) -> Result<usize, CorrectnessError> {
     let mut index = 0;
@@ -629,14 +626,9 @@ where
         }
         graph
     };
-    let mut activated: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for index in validated.reached(&packages, &validated.roots)? {
         let unit = &validated.units[index];
         let package = &packages[&unit.pkg_id];
-        activated
-            .entry(package.name.clone())
-            .or_default()
-            .extend(unit.features.iter().cloned());
         if arrow(package)
             && package.features.contains_key("force_validate")
             && !unit
@@ -653,13 +645,7 @@ where
     Ok(Resolution {
         arguments: selected,
         packages: names.into_iter().collect(),
-        activated,
     })
-}
-/// Resolve a Cargo compiler selection against real Cargo without compiling it.
-pub fn resolve(arguments: &[OsString]) -> Result<Resolution, CorrectnessError> {
-    let cargo = real_cargo()?;
-    resolve_with(arguments, |args| capture(&cargo, args))
 }
 fn native_command(cargo: &OsStr, arguments: &[OsString]) -> Command {
     native_command_with_rustflags(
@@ -716,7 +702,7 @@ fn exit_status(status: ExitStatus) -> i32 {
         .code()
         .unwrap_or_else(|| 128 + status.signal().unwrap_or(1))
 }
-pub(crate) fn real_cargo() -> Result<OsString, CorrectnessError> {
+fn real_cargo() -> Result<OsString, CorrectnessError> {
     let cargo = std::env::var_os(REAL_CARGO)
         .filter(|value| !value.is_empty())
         .or_else(|| std::env::var_os("CARGO").filter(|value| !value.is_empty()))
@@ -879,59 +865,75 @@ fn execute_adapter(
     let resolution = resolve_with(arguments, |args| capture(cargo, args))?;
     execute(cargo, &resolution.arguments)
 }
-/// Whether Cargo (through nextest) or cargo-hack invoked this executable as its Cargo.
-/// Its argv is then Cargo's own and is never parsed as this tool's grammar.
-pub fn adapter_mode() -> bool {
-    std::env::var_os(ADAPTER).is_some_and(|value| value == "1")
-        || std::env::var_os(CARGO_HACK_ADAPTER).is_some_and(|value| !value.is_empty())
-}
-/// Invocation-local Cargo adapter: forwards Cargo's own argv through correctness admission.
-/// Nextest's setup action (`--nextest-test-env`) is served here too, since it inherits the
-/// adapter marker.
-pub fn adapter(arguments: &[OsString]) -> Result<i32, CorrectnessError> {
+/// Native external Cargo command and invocation-local nextest build adapter.
+pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
+    let mut arguments = arguments;
+    if arguments
+        .first()
+        .is_some_and(|arg| arg == "pse-correctness")
+    {
+        arguments.remove(0);
+    }
     if arguments
         .first()
         .is_some_and(|arg| arg == "--nextest-test-env")
     {
         return restore_test_environment();
     }
-    execute_adapter(
-        &real_cargo()?,
-        arguments,
-        std::env::var_os(FIXTURE_METADATA_CAPTURE).as_deref(),
-    )
-}
-/// A Cargo compiler mode (`check`, `build`, `test`, `bench`, `run`, `clippy`) with its
-/// arguments, executed with the validated feature closure.
-pub fn cargo(arguments: &[OsString]) -> Result<i32, CorrectnessError> {
-    let cargo = real_cargo()?;
-    let resolution = resolve_with(arguments, |args| capture(&cargo, args))?;
-    execute(&cargo, &resolution.arguments)
-}
-/// `nextest run|list` with its arguments, routing nextest's builds through this adapter.
-pub fn nextest(arguments: &[OsString]) -> Result<i32, CorrectnessError> {
-    if !arguments
-        .get(1)
-        .is_some_and(|arg| arg == "run" || arg == "list")
-    {
-        return Err(invalid(
-            "only nextest run/list source-build modes are supported",
-        ));
+    let cargo_adapter = std::env::var_os(ADAPTER).is_some_and(|value| value == "1")
+        || std::env::var_os(CARGO_HACK_ADAPTER).is_some_and(|value| !value.is_empty());
+    if arguments.as_slice() == [OsString::from("--version")] && !cargo_adapter {
+        writeln!(
+            io::stdout(),
+            "cargo-pse-correctness {} protocol 1",
+            env!("CARGO_PKG_VERSION")
+        )?;
+        return Ok(0);
     }
     let cargo = real_cargo()?;
-    reject_reuse(&arguments[2..])?;
-    require_nextest_workspace(&cargo)?;
-    let executable = std::env::current_exe()?;
-    Ok(exit_status(
-        Command::new("cargo-nextest")
-            .args(arguments)
-            .env("CARGO", &executable)
-            .env("PSE_CORRECTNESS_EXECUTABLE", &executable)
-            .env(REAL_CARGO, &cargo)
-            .env(ADAPTER, "1")
-            .env_remove("NEXTEST_TEST_PHASE")
-            .status()?,
-    ))
+    if cargo_adapter {
+        return execute_adapter(
+            &cargo,
+            &arguments,
+            std::env::var_os(FIXTURE_METADATA_CAPTURE).as_deref(),
+        );
+    }
+    if arguments
+        .first()
+        .is_some_and(|arg| arg == "--help" || arg == "-h")
+        || arguments.is_empty()
+    {
+        writeln!(
+            io::stdout(),
+            "cargo pse-correctness check|build|test|bench|run|clippy [Cargo arguments]\ncargo pse-correctness nextest run|list [native nextest arguments]\nSource-build correctness only. Nextest supports this executable checkout; foreign workspace, manifest/config overrides, archive/reused binaries are refused before nextest starts."
+        )?;
+        return Ok(0);
+    }
+    if arguments.first().is_some_and(|arg| arg == "nextest") {
+        if !arguments
+            .get(1)
+            .is_some_and(|arg| arg == "run" || arg == "list")
+        {
+            return Err(invalid(
+                "only nextest run/list source-build modes are supported",
+            ));
+        }
+        reject_reuse(&arguments[2..])?;
+        require_nextest_workspace(&cargo)?;
+        let executable = std::env::current_exe()?;
+        return Ok(exit_status(
+            Command::new("cargo-nextest")
+                .args(&arguments)
+                .env("CARGO", &executable)
+                .env("PSE_CORRECTNESS_EXECUTABLE", &executable)
+                .env(REAL_CARGO, &cargo)
+                .env(ADAPTER, "1")
+                .env_remove("NEXTEST_TEST_PHASE")
+                .status()?,
+        ));
+    }
+    let resolution = resolve_with(&arguments, |args| capture(&cargo, args))?;
+    execute(&cargo, &resolution.arguments)
 }
 
 #[cfg(test)]

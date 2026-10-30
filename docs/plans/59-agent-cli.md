@@ -225,7 +225,8 @@ required.
 
 ## Current state and next step
 
-**2026-10-29 — execution authorized for the full scope.** The rule changes (A01) and the edit
-guidance (E05) have landed. A02 (clap tree), C01 (capability declaration) and the D02 trial and
-D03 outline library are in progress. Next: A03 and A04 in order after A02, then the A05/A06
-foundation, before the 59b, 59c and 59d tracks fan out.
+**2026-10-29 — execution stopped by the operator; production code reverted.** The rule changes
+(A01) and the edit guidance (E05) remain. The code from A02 (the clap tree), C01 (capability
+derivation) and D03 (the outline library) was reverted to the pre-execution tree at the
+operator's request, and those packages are planned again. The D02 trial outcome is kept. No
+package is in progress. Further execution needs new operator authorization.

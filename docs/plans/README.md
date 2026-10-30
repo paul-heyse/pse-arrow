@@ -10,7 +10,7 @@ companions plan:
 - worktree and Claude orientation surfaces.
 
 The operator accepted rule changes R1–R5. Direnv and Codex configuration are out of scope.
-Execution of the full scope was authorized on 2026-10-29.
+Execution stopped on 2026-10-29 at the operator's request, and its code changes were reverted.
 
 [Plan58: Rust-owned system](58-rust-owned-system.md) owns the Rust-first functional,
 hard-cutover and SurrealDB-boundary reviews. The authorized A–G functional implementation

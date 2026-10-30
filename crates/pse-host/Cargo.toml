@@ -11,23 +11,9 @@ repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
 publish.workspace = true
-autobins = false
 
 [lib]
 doctest = false
-
-# Three thin entry points over the one library command tree (`pse_host::cli`).
-[[bin]]
-name = "pse"
-path = "src/bin/pse.rs"
-
-[[bin]]
-name = "pse-host"
-path = "src/bin/pse-host.rs"
-
-[[bin]]
-name = "cargo-pse-correctness"
-path = "src/bin/cargo-pse-correctness.rs"
 
 [lints]
 workspace = true
@@ -35,7 +21,6 @@ workspace = true
 [dependencies]
 pse-diagnostics.workspace = true
 pse-buildinfo.workspace = true
-clap.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 serde.workspace = true
@@ -56,8 +41,5 @@ tar.workspace = true
 flate2.workspace = true
 zip.workspace = true
 base64.workspace = true
-syn.workspace = true
-proc-macro2.workspace = true
-pulldown-cmark.workspace = true
 
 [dev-dependencies]

@@ -210,13 +210,16 @@ async fn setup_keeps_private_credentials_sealed_generation_and_no_unit_publicati
     assert!(!unit_directory(&environment).unwrap().exists());
 }
 #[tokio::test]
-async fn passive_inspection_never_creates_state_or_requests_manager_effects() {
+async fn passive_inspection_and_help_never_create_state_or_request_manager_effects() {
     let directory = tempfile::tempdir().unwrap();
     let environment = Environment::from([("HOME".into(), directory.path().into())]);
     let selected = directory.path().join("absent");
     let observed = inspect(&environment, Some(&selected)).await.unwrap();
     assert_eq!(observed["status"], "unconfigured");
     assert!(!selected.exists());
+    command(directory.path(), &environment, &["--help".into()])
+        .await
+        .unwrap();
     assert!(!directory.path().join(".local").exists());
     let (_directory, environment, config) = fixture().await;
     let control = Control::new(&config);

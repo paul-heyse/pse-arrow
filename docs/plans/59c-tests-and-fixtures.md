@@ -189,7 +189,7 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [C01](#c01) | complete | 59c | Capability declaration on `pse-backend-native` (build.rs unchanged); unit-graph capability derivation in `native::capabilities` (`e2877e515`) |
+| [C01](#c01) | planned | 59c | Capability declaration on `pse-backend-native` (build.rs unchanged); unit-graph capability derivation |
 | [C02](#c02) | planned | 59c | `pse test` and `pse check` with selection, features, capabilities, force-validation, reconciled verdict, explain and rerun; replaced recipes retired |
 | [C03](#c03) | planned | 59c | `affected` in `pse-host`; `pse test --changed`; xtask `affected` and its recipe retired |
 | [C04](#c04) | planned | 59c | Fixture declarations, `pse fixture`, receipt pointer, `CARGO_BIN_EXE_pse-worker`; database targets through `pse-canonical-test`; `worker-test`/`native-test`/`canonical-test` retired |

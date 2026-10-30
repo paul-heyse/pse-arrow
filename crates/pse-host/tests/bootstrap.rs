@@ -65,7 +65,6 @@ fn successful_construction_publishes_only_completed_executable() {
         "#!/bin/sh\n[ -z \"${RUSTC_WRAPPER+x}\" ] || exit 92\n[ -z \"${RUSTC_WORKSPACE_WRAPPER+x}\" ] || exit 93\nexit 0\n",
     );
     let artifact = "#!/bin/sh\nprintf 'completed native selection\\n'\n";
-    executable(&root.path().join("target/debug/pse"), artifact);
     executable(&root.path().join("target/debug/pse-host"), artifact);
     executable(
         &root.path().join("target/debug/cargo-pse-correctness"),
@@ -77,12 +76,10 @@ fn successful_construction_publishes_only_completed_executable() {
         "{}",
         String::from_utf8_lossy(&result.stderr)
     );
-    for tool in ["pse", "pse-host"] {
-        assert_eq!(
-            fs::read_to_string(root.path().join("target/host-tools/current").join(tool)).unwrap(),
-            artifact
-        );
-    }
+    assert_eq!(
+        fs::read_to_string(root.path().join("target/host-tools/current/pse-host")).unwrap(),
+        artifact
+    );
     assert_eq!(
         fs::read_dir(root.path().join("target/host-tools"))
             .unwrap()
@@ -122,7 +119,6 @@ fn foreign_target_cannot_publish_stale_local_artifact() {
 fn invalid_completed_artifact_preserves_previous_selection() {
     let root = checkout();
     executable(&root.path().join("bin/cargo"), "#!/bin/sh\nexit 0\n");
-    executable(&root.path().join("target/debug/pse"), "#!/bin/sh\nexit 0\n");
     executable(
         &root.path().join("target/debug/pse-host"),
         "#!/bin/sh\nexit 69\n",
@@ -145,12 +141,10 @@ fn invalid_completed_artifact_preserves_previous_selection() {
 fn incomplete_pair_cannot_publish_the_new_host_alone() {
     let root = checkout();
     executable(&root.path().join("bin/cargo"), "#!/bin/sh\nexit 0\n");
-    for tool in ["pse", "pse-host"] {
-        executable(
-            &root.path().join("target/debug").join(tool),
-            "#!/bin/sh\nexit 0\n",
-        );
-    }
+    executable(
+        &root.path().join("target/debug/pse-host"),
+        "#!/bin/sh\nexit 0\n",
+    );
     executable(
         &root.path().join("target/debug/cargo-pse-correctness"),
         "#!/bin/sh\nexit 71\n",
@@ -178,12 +172,12 @@ fn interruption_after_atomic_switch_keeps_the_completed_pair() {
         "#!/bin/sh\n/bin/mv \"$@\" || exit $?\nkill -TERM \"$PPID\"\n",
     );
     let artifact = "#!/bin/sh\nexit 0\n";
-    for tool in ["pse", "pse-host", "cargo-pse-correctness"] {
+    for tool in ["pse-host", "cargo-pse-correctness"] {
         executable(&root.path().join("target/debug").join(tool), artifact);
     }
     let result = seed(root.path()).output().unwrap();
     assert!(result.status.code() == Some(143) || result.status.signal() == Some(15));
-    for tool in ["pse", "pse-host", "cargo-pse-correctness"] {
+    for tool in ["pse-host", "cargo-pse-correctness"] {
         assert_eq!(
             fs::read_to_string(root.path().join("target/host-tools/current").join(tool)).unwrap(),
             artifact
@@ -199,7 +193,7 @@ fn concurrent_updates_publish_complete_pairs_and_preserve_prior_generations() {
 mkdir constructing || exit 89
 trap 'rmdir constructing' EXIT
 sleep 0.05
-for tool in pse pse-host cargo-pse-correctness; do
+for tool in pse-host cargo-pse-correctness; do
     printf '#!/bin/sh\nexit 0\n' > "target/debug/$tool"
     chmod 700 "target/debug/$tool"
 done
@@ -222,7 +216,7 @@ done
         .collect();
     assert_eq!(generations.len(), 2);
     for generation in generations {
-        for tool in ["pse", "pse-host", "cargo-pse-correctness"] {
+        for tool in ["pse-host", "cargo-pse-correctness"] {
             assert!(
                 Command::new(generation.path().join(tool))
                     .arg("--version")
