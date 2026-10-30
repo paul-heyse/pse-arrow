@@ -112,6 +112,117 @@ name = "pse-canonical-service"
 path = "src/bin/pse-canonical-service.rs"
 required-features = ["native-service"]
 
+# Authored runtime prerequisites. These declarations never prepare or own a service.
+[[package.metadata.pse.test-fixtures]]
+id = "native-service-owned"
+target = "native_service"
+kind = "test"
+ownership = "target-owned"
+# This integration target gets its own helper through CARGO_BIN_EXE.
+inputs = ["server", "study-module"]
+
+[[package.metadata.pse.test-fixtures]]
+id = "native-service-predecessor"
+target = "native_service"
+kind = "test"
+ownership = "preparation-only"
+inputs = ["predecessor-module-state"]
+scope.tests = [
+  "native_service_original_v2_target_and_old_module_resume_after_restart",
+  "native_service_retained_v2_old_module_upgrades_to_explicit_prepared_target",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "canonical-borrowed"
+target = "pse_operations"
+kind = "lib"
+required-features = ["canonical-tests"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.modules = [
+  "canonical::canonical_server_unit",
+  "canonical_analyses::canonical_analyses_server_unit",
+  "canonical_analyses::race_tests",
+  "canonical_artifacts::canonical_artifact_tests",
+  "canonical_capability_tests",
+  "canonical_contexts::tests",
+  "canonical_execution::canonical_execution_server_unit",
+  "canonical_files::catalog_controls",
+  "canonical_history::canonical_history_tests",
+  "canonical_lifecycle::canonical_lifecycle_tests",
+  "canonical_projects::tests",
+  "canonical_research::canonical_research_server_unit",
+  "canonical_result_retention::canonical_result_retention_server_unit",
+  "canonical_results::canonical_results_server_unit",
+  "canonical_retention::canonical_server_unit",
+  "canonical_retention::canonical_server_unit_exact_conflicts",
+  "canonical_selection::canonical_server_unit",
+  "canonical_studies::canonical_studies_server_unit",
+  "testing::canonical_server_unit",
+]
+scope.tests = [
+  "canonical_staging::canonical_server_unit::identical_source_edit_waits_for_live_and_closed_writer_receipt",
+  "canonical_staging::canonical_server_unit::dropping_source_edit_waiter_preserves_writer_generation_and_lease",
+  "canonical_staging::canonical_server_unit::sixteen_independent_source_staging_clients_preserve_closed_shared_version",
+  "canonical_staging::canonical_server_unit::sixteen_cloned_staging_callers_preserve_shared_versions_replay_and_fences",
+  "canonical_staging::canonical_server_unit::independent_clients_staging_and_reclaim_preserve_shared_version",
+  "canonical_staging::canonical_server_unit::staging_reclamation_advances_retention_stage_and_version_guards",
+  "canonical_staging::canonical_server_unit::concurrent_identical_source_api_edits_return_one_exact_revision",
+  "canonical_staging::canonical_server_unit::source_edit_reacquires_expired_or_abandoned_stage_with_head_fence",
+  "canonical_staging::canonical_server_unit::declaration_inventory_above_old_edit_count_activates_atomically",
+  "canonical_staging::canonical_server_unit::committed_stage_close_acknowledgement_replays_without_reviving_authority",
+  "canonical_staging::canonical_server_unit::atomic_revision_exceeds_old_whole_payload_cap_and_has_native_graph_endpoints",
+  "canonical_staging::canonical_server_unit::individual_payload_above_message_limit_is_exact_and_corruption_refuses_completion",
+  "canonical_staging::canonical_server_unit::grouped_selected_frontier_is_exact_bounded_and_cannot_escape_released_or_expired_pin",
+  "canonical_staging::canonical_server_unit::interrupted_stage_resumes_and_fences_previous_writer_and_stale_head",
+  "canonical_staging::canonical_server_unit::abandoned_blocks_reclaim_in_bounded_pages_and_permanent_identity_survives",
+  "canonical_explanations::server_tests::canonical_graph_explanation_root_readers_bypass_conditional_row_permissions",
+  "canonical_explanations::server_tests::canonical_graph_explanation_preserves_isolates_parallel_edges_and_protected_inputs",
+  "canonical_explanations::server_tests::canonical_operator_graph_evidence",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "maintenance-borrowed"
+target = "pse_operations"
+kind = "lib"
+required-features = ["canonical-tests", "canonical-maintenance"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "canonical::maintenance::tests::generated_maintenance_pages_fence_generations_and_replay_exact_effects",
+  "canonical::maintenance::tests::native_maintenance_event_catalog_roundtrips_and_refuses_changed_or_extra_events",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "publication-owned"
+target = "pse_operations"
+kind = "lib"
+required-features = ["canonical-tests", "native-service"]
+ownership = "target-owned"
+inputs = ["server", "study-module", "service-helper"]
+scope.modules = ["canonical_execution::native_publication_controls"]
+
+[[package.metadata.pse.test-fixtures]]
+id = "operator-evidence"
+target = "pse_operations"
+kind = "lib"
+required-features = ["canonical-tests"]
+ownership = "preparation-only"
+inputs = ["canonical-tools", "diagnostic-evidence"]
+scope.tests = [
+  "canonical_explanations::server_tests::canonical_operator_graph_evidence",
+  "canonical_studies::canonical_studies_server_unit::canonical_operator_query_evidence",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "external-server-restart"
+target = "pse_operations"
+kind = "lib"
+required-features = ["canonical-tests"]
+ownership = "preparation-only"
+inputs = ["canonical-restart-control"]
+scope.tests = ["canonical_execution::canonical_execution_server_unit::retained_canonical_store_recovers_a_new_generation_after_external_server_restart"]
+
 [[bin]]
 name = "pse-canonical-test"
 path = "src/bin/pse-canonical-test.rs"
