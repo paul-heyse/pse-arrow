@@ -311,4 +311,6 @@ pub async fn parent(
     }))
 }
 #[cfg(test)]
+mod crash_tests;
+#[cfg(test)]
 mod tests;
