@@ -21,6 +21,8 @@ use std::{
 };
 /// Bounded observer polling; no native scientific or canonical control is retained.
 pub mod follow;
+pub mod native;
+pub(crate) mod output;
 
 const PROTOCOL: &str = "pse.product-reader";
 const REQUEST_SCHEMA: &str = "urn:pse:product-reader:v1:request";
@@ -184,6 +186,7 @@ pub struct ProductReply {
     frame: Vec<u8>,
     stderr: Vec<u8>,
     next_request: Option<Box<RawValue>>,
+    managed_invocation: Option<pse_diagnostics::process_facts::ManagedInvocationCandidate>,
 }
 impl std::fmt::Debug for ProductReply {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -217,6 +220,12 @@ impl ProductReply {
     pub fn next_request(&self) -> Option<&RawValue> {
         self.next_request.as_deref()
     }
+    /// Producer-published routing candidate; native custody and membership require readback.
+    pub fn managed_invocation(
+        &self,
+    ) -> Option<&pse_diagnostics::process_facts::ManagedInvocationCandidate> {
+        self.managed_invocation.as_ref()
+    }
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -229,6 +238,8 @@ struct Response {
     payload: Box<RawValue>,
     #[serde(default)]
     next_request: Option<Box<RawValue>>,
+    #[serde(default)]
+    managed_invocation: Option<pse_diagnostics::process_facts::ManagedInvocationCandidate>,
 }
 #[derive(Serialize)]
 struct Request<'a> {
@@ -425,6 +436,7 @@ fn decode(output: Output, correlation: &str) -> Result<ProductReply, ProductRead
         frame: output.stdout,
         stderr: output.stderr,
         next_request: decoded.next_request,
+        managed_invocation: decoded.managed_invocation,
     })
 }
 

@@ -36,6 +36,19 @@ pub struct ProcessIdentity {
     /// Raw stat field22, without clock arithmetic.
     pub start_ticks: u64,
 }
+/// Producer-published routing candidate for a separately checked managed invocation.
+/// Neither the marker nor copied process facts grant native ownership or prove membership.
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
+pub struct ManagedInvocationCandidate {
+    /// Original launcher's opaque invocation marker; the host validates its own identity type.
+    #[schemars(length(min = 1, max = 128))]
+    pub invocation: String,
+    /// Actual publishing process identity at establishment; readers recheck kernel membership.
+    pub process: ProcessIdentity,
+}
 /// Stat facts parsed by the exact-release library.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProcessStat {

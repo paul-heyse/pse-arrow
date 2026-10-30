@@ -251,6 +251,15 @@ ownership = "preparation-only"
 inputs = ["scientific-inputs"]
 
 [[package.metadata.pse.test-fixtures]]
+id = "product-retained-history"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["canonical-tests"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper", "product-reader"]
+scope.modules = ["workflow::study_observation::reader_history_tests"]
+
+[[package.metadata.pse.test-fixtures]]
 id = "library-borrowed-services"
 target = "pse_runtime"
 kind = "lib"
@@ -265,7 +274,6 @@ scope.modules = [
   "workflow::physical_cache::physical_admission_cache_unit",
   "workflow::result_inspection::canonical_result_inspection_server_unit",
   "workflow::study_observation::canonical_tests",
-  "workflow::study_observation::reader_history_tests",
   "workflow::study_workbench::canonical_tests",
   "workflow::worker_tests",
 ]

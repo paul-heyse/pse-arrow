@@ -12,6 +12,8 @@ use std::{
     process::{Command, Stdio},
     time::{Duration, Instant},
 };
+#[path = "product_observation/follow.rs"]
+mod follow;
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -78,6 +80,29 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
     let source = json!({"selection":"retained","checkpoint":checkpoint,"expected":null});
     let inspect = json!({"operation":"inspect","source":source,"request":{"version":2,"operation":supplied["operation"],"window":{"secs":30,"nanos":0},"include_related":false,"related_limit":1},"invocation":null});
     let delegated = query(directory.path(), &reader, &inspect, false);
+    let original_launch = std::env::var("PSE_MANAGED_INVOCATION")
+        .expect("declared native workflow publishes its original managed launch routing hint");
+    assert_eq!(
+        delegated["payload"]["native"]["state"], "observed",
+        "{delegated}"
+    );
+    assert_eq!(
+        delegated["payload"]["native"]["candidate"]["invocation"],
+        original_launch
+    );
+    let native = &delegated["payload"]["native"]["facts"];
+    assert_eq!(native["observation"]["service"]["active_state"], "active");
+    assert_eq!(
+        native["observation"]["service"]["invocation"]
+            .as_array()
+            .unwrap()
+            .len(),
+        16
+    );
+    assert_eq!(native["native_drained"], false);
+    assert_eq!(native["accounting"]["state"], "available", "{native}");
+    assert_eq!(native["accounting"]["facts"]["atomic_snapshot"], false);
+    assert!(native["accounting"]["facts"]["service_result"].is_string());
     let first_observer = delegated["invocation_id"].clone();
     let environment: Environment = std::env::vars_os().collect();
     let selected = ProductReaderSelection::open(&root(), &environment, &reader).unwrap();
@@ -103,6 +128,24 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
             serde_json::from_str::<Value>(selected.schema(contract).unwrap().get()).unwrap()
         );
     }
+    let unprepared = tempfile::tempdir().unwrap();
+    let help = pse()
+        .env("XDG_STATE_HOME", unprepared.path())
+        .arg("--help")
+        .output()
+        .unwrap();
+    assert!(help.status.success(), "{help:?}");
+    let unavailable = pse()
+        .env("XDG_STATE_HOME", unprepared.path())
+        .args(["observe", "discover", "--reader", &reader])
+        .output()
+        .unwrap();
+    assert!(!unavailable.status.success());
+    assert_eq!(
+        std::fs::read_dir(unprepared.path()).unwrap().count(),
+        0,
+        "passive unprepared reads and help create no replacement reader/state"
+    );
     let direct = selected
         .read(
             &RawValue::from_string(inspect.to_string()).unwrap(),
@@ -144,6 +187,101 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
         fields
             .iter()
             .any(|field| field["name"] == "inf_pr" && field["value"]["kind"] == "NonFinite")
+    );
+    let original_image: Value = serde_json::from_slice(&original).unwrap();
+    let mut expected =
+        json!({"process":original_image["process"],"locator":original_image["locator"]});
+    expected["locator"]["start_ticks"] =
+        json!(expected["locator"]["start_ticks"].as_u64().unwrap() + 1);
+    let mut wrong_current = inspect.clone();
+    wrong_current["source"] =
+        json!({"selection":"current","checkpoint":checkpoint,"expected":expected});
+    let refused_identity = query(directory.path(), &reader, &wrong_current, false);
+    assert_eq!(refused_identity["payload"]["category"], "refused");
+    let copied = directory.path().join("explicit-association-copy.json");
+    for mode in ["absent", "wrong_invocation", "wrong_boot", "wrong_start"] {
+        let mut image = original_image.clone();
+        match mode {
+            "absent" => image["managed_invocation"] = Value::Null,
+            "wrong_invocation" => {
+                image["managed_invocation"]["invocation"] =
+                    json!("00000000-0000-4000-8000-000000000000")
+            }
+            "wrong_boot" => image["managed_invocation"]["process"]["boot_id"] = json!("wrong-boot"),
+            "wrong_start" => image["managed_invocation"]["process"]["start_ticks"] = json!(0),
+            _ => unreachable!(),
+        }
+        std::fs::write(&copied, image.to_string()).unwrap();
+        let mut selected_copy = inspect.clone();
+        selected_copy["source"]["checkpoint"] = json!(copied);
+        let observed = query(directory.path(), &reader, &selected_copy, false);
+        assert_eq!(
+            observed["payload"]["category"], "success",
+            "{mode}: {observed}"
+        );
+        assert_eq!(
+            observed["payload"]["product"]["document"]["operation"]["id"],
+            supplied["operation"]
+        );
+        assert_eq!(
+            observed["payload"]["native"]["state"],
+            if matches!(mode, "absent" | "wrong_start") {
+                "absent"
+            } else {
+                "rejected"
+            },
+            "{mode}: {observed}"
+        );
+    }
+    let catalogue = query(
+        directory.path(),
+        &reader,
+        &json!({"operation":"processes","directory":Path::new(checkpoint).parent().unwrap(),"limit":1,"cursor":null}),
+        false,
+    );
+    assert_eq!(
+        catalogue["payload"]["product"]["page"]["processes"][0]["process"],
+        original_image["process"]
+    );
+    let related_request = json!({"operation":"page","source":source,"operation_id":supplied["operation"],"section":"related","producer":null,"limit":1,"cursor":null});
+    let first_related = query(directory.path(), &reader, &related_request, false);
+    assert!(first_related["payload"]["product"]["page"]["continuation"].is_object());
+    let mut next_related = related_request.clone();
+    next_related["cursor"] = first_related["payload"]["product"]["page"]["continuation"].clone();
+    let second_related = query(directory.path(), &reader, &next_related, false);
+    assert_eq!(
+        first_related["payload"]["product"]["page"]["records"]["records"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        second_related["payload"]["product"]["page"]["records"]["records"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_ne!(
+        first_related["payload"]["product"]["page"]["records"]["records"][0]["id"],
+        second_related["payload"]["product"]["page"]["records"]["records"][0]["id"]
+    );
+    let mut waiting = inspect.clone();
+    waiting["request"]["operation"] = supplied["waiter"].clone();
+    waiting["request"]["include_related"] = json!(true);
+    let waiting = query(directory.path(), &reader, &waiting, false);
+    assert_eq!(
+        waiting["payload"]["product"]["document"]["operation"]["id"],
+        supplied["waiter"]
+    );
+    assert_eq!(
+        waiting["payload"]["product"]["document"]["related"][0]["id"],
+        supplied["preparation"]
+    );
+    assert_eq!(
+        waiting["payload"]["product"]["document"]["operation"]["children"][0]["relationship"],
+        "SharedProduction"
     );
     let refused = query(
         directory.path(),
@@ -221,6 +359,164 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect();
+    assert_eq!(capture_document["symbols"]["checked"], false);
+    let window_length = prefix.min(16);
+    for offset in [
+        (prefix / 3).min(prefix - window_length),
+        prefix - window_length,
+    ] {
+        let output = pse()
+            .args(["artifact", "read"])
+            .arg(timeline["path"].as_str().unwrap())
+            .args([
+                "--offset",
+                &offset.to_string(),
+                "--length",
+                &window_length.to_string(),
+            ])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        let read: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(
+            read["payload"]["byte_range"],
+            json!({"start":offset,"end":offset+window_length})
+        );
+        assert_eq!(read["payload"]["atomic_snapshot"], false);
+        let digest: String =
+            Sha256::digest(&original_raw[offset as usize..(offset + window_length) as usize])
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect();
+        assert_eq!(read["payload"]["selected_sha256"], digest);
+    }
+    let mutable_copy = directory.path().join("mutable-capture-copy");
+    std::fs::write(&mutable_copy, &original_raw).unwrap();
+    let before = pse()
+        .args(["artifact", "read"])
+        .arg(&mutable_copy)
+        .args(["--length", "1"])
+        .output()
+        .unwrap();
+    assert!(before.status.success(), "{before:?}");
+    let before: Value = serde_json::from_slice(&before.stdout).unwrap();
+    let validator = before["payload"]["etag"].as_str().unwrap();
+    let mut changed = original_raw.clone();
+    changed.extend_from_slice(b"changed fixture tail");
+    std::fs::write(&mutable_copy, changed).unwrap();
+    let changed = pse()
+        .args(["artifact", "read"])
+        .arg(&mutable_copy)
+        .args(["--length", "1", "--if-match", validator])
+        .output()
+        .unwrap();
+    assert!(!changed.status.success());
+    assert!(!changed.stderr.is_empty());
+    assert_eq!(
+        std::fs::read(timeline["path"].as_str().unwrap()).unwrap()[..prefix as usize],
+        original_raw
+    );
+
+    let unaligned_path = directory.path().join("unaligned-checkpoint.json");
+    let mut unaligned = original_image.clone();
+    unaligned["clock"] = Value::Null;
+    std::fs::write(&unaligned_path, unaligned.to_string()).unwrap();
+    let mut unaligned_capture = capture.clone();
+    unaligned_capture["request"]["request"]["checkpoint"] = json!(unaligned_path);
+    unaligned_capture["request"]["request"]["output"] =
+        json!(directory.path().join("unaligned-capture"));
+    let unaligned = query(directory.path(), &reader, &unaligned_capture, true);
+    assert_eq!(unaligned["payload"]["category"], "success", "{unaligned}");
+    let unaligned = &unaligned["payload"]["product"]["result"]["document"];
+    assert_eq!(unaligned["loss"]["unknown_clock"], true);
+    assert!(
+        unaligned["targets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|target| target["clock_aligned"] == false
+                && target["clock_uncertainty_nanoseconds"].is_null())
+    );
+
+    // Use the already captured product through its native transport API to select an
+    // actually absent optional perf executable; the source/scientific selection is unchanged.
+    let no_tools = directory.path().join("empty-tool-path");
+    std::fs::create_dir(&no_tools).unwrap();
+    let mut without_tools = environment.clone();
+    without_tools.insert("PATH".into(), no_tools.into_os_string());
+    let mut missing_tool = capture.clone();
+    missing_tool["request"]["request"]["kind"] = json!("Cpu");
+    missing_tool["request"]["request"]["output"] =
+        json!(directory.path().join("missing-tool-capture"));
+    let missing_tool = selected
+        .investigate(
+            &RawValue::from_string(missing_tool.to_string()).unwrap(),
+            "missing-optional-tool",
+            &without_tools,
+        )
+        .unwrap();
+    let missing_tool: Value = serde_json::from_str(missing_tool.payload().get()).unwrap();
+    assert_eq!(
+        missing_tool["result"]["document"]["status"], "Failed",
+        "{missing_tool}"
+    );
+    assert!(
+        !missing_tool["result"]["document"]["errors"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        missing_tool["result"]["document"]["symbols"]["checked"],
+        false
+    );
+
+    let interrupted_path = directory.path().join("source-interrupted-capture");
+    let mut interrupted = capture.clone();
+    interrupted["request"]["request"]["output"] = json!(interrupted_path);
+    interrupted["request"]["request"]["duration"] = json!({"secs":1,"nanos":0});
+    let request_path = directory.path().join("interrupted-capture-request.json");
+    std::fs::write(&request_path, interrupted.to_string()).unwrap();
+    let mut command = pse();
+    command
+        .args(["observe", "investigate", "--reader", &reader, "--request"])
+        .arg(request_path)
+        .stdout(Stdio::piped());
+    let mut collector = SupervisedChild::spawn(
+        &mut command,
+        DrainFailurePolicy::Park,
+        Some(pse_diagnostics::StderrCapture {
+            bytes: 65536,
+            stack_bytes: 256 << 10,
+        }),
+    )
+    .unwrap();
+    let stdout = collector.take_stdout().unwrap();
+    let draining = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stdout.take(1 << 20).read_to_end(&mut bytes).unwrap();
+        bytes
+    });
+    wait(&interrupted_path.join("timeline.pftrace"));
+    let temporarily_absent = directory.path().join("temporarily-absent-checkpoint");
+    std::fs::rename(checkpoint, &temporarily_absent).unwrap();
+    let ready = collector.wait_ready(None, Some(Instant::now() + Duration::from_secs(5)));
+    let status = collector.cancel();
+    let bytes = draining.join().unwrap();
+    std::fs::rename(&temporarily_absent, checkpoint).unwrap();
+    ready.unwrap();
+    assert!(status.unwrap().success());
+    let interrupted: Value = serde_json::from_slice(&bytes).unwrap();
+    let interrupted = &interrupted["payload"]["product"]["result"]["document"];
+    assert!(
+        matches!(interrupted["status"].as_str(), Some("Partial" | "Failed")),
+        "{interrupted}"
+    );
+    assert!(!interrupted["errors"].as_array().unwrap().is_empty());
+    assert!(owner.try_wait().unwrap().is_none());
+    let still_readable = query(directory.path(), &reader, &inspect, false);
+    assert_eq!(still_readable["payload"]["category"], "success");
+    assert_eq!(std::fs::read(checkpoint).unwrap(), original);
     let partial_path = directory.path().join("partial-capture");
     let mut curtailed = capture.clone();
     curtailed["request"]["request"]["output"] = json!(partial_path);
@@ -289,6 +585,8 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
         "Failed"
     );
     assert!(terminal["payload"]["next_request"].is_null());
+    let stale_page = query(directory.path(), &reader, &next_related, false);
+    assert_eq!(stale_page["payload"]["category"], "refused");
     std::fs::write(directory.path().join("expire"), []).unwrap();
     wait(&directory.path().join("expired.ready"));
     let expired = query(directory.path(), &reader, &follow, false);

@@ -272,6 +272,8 @@ pub struct SourceFacts {
 /// Original native process facts, never an operation-private resource charge.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct ProcessFacts {
+    #[serde(skip)]
+    managed_invocation: Option<pse_diagnostics::process_facts::ManagedInvocationCandidate>,
     /// Native process-instance locator, not a scientific ID.
     pub process: String,
     /// Actual original PID/start/executable association.
@@ -313,6 +315,8 @@ pub enum Records {
 /// A semantically bounded source page; unknown total is distinct from observed prefix size.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct RecordPage {
+    #[serde(skip)]
+    managed_invocation: Option<pse_diagnostics::process_facts::ManagedInvocationCandidate>,
     /// Exact original diagnostic operation.
     pub operation: OperationId,
     /// Original producer-supplied operation description.
@@ -450,6 +454,8 @@ pub struct ReaderResponse {
     /// Opaque transport continuation; only the product constructs its domain selection.
     #[schemars(with = "Option<Request>")]
     next_request: Option<Box<serde_json::value::RawValue>>,
+    /// Candidate association only; native host custody and current membership require readback.
+    managed_invocation: Option<pse_diagnostics::process_facts::ManagedInvocationCandidate>,
 }
 /// Concrete native protocol failure; read availability stays in a valid typed response.
 #[derive(Debug, thiserror::Error)]
@@ -717,6 +723,20 @@ fn association(path: &Path, operation: OperationId) -> Result<InvocationAssociat
         canonical_attempt: document.canonical_attempt,
     })
 }
+fn managed_candidate(
+    image: &crate::observation::ProcessCheckpoint,
+) -> Option<pse_diagnostics::process_facts::ManagedInvocationCandidate> {
+    image
+        .managed_invocation
+        .as_ref()
+        .filter(|candidate| {
+            !candidate.invocation.is_empty()
+                && candidate.invocation.len() <= 128
+                && candidate.process.pid == image.locator.pid
+                && Some(candidate.process.start_ticks) == image.locator.start_ticks
+        })
+        .cloned()
+}
 fn handle(request: Request) -> Result<Payload, ReaderError> {
     match request {
         Request::Discover => Ok(Payload::Discovery {
@@ -806,6 +826,7 @@ fn handle(request: Request) -> Result<Payload, ReaderError> {
                 .map(|path| association(path, request.operation))
                 .transpose()?;
             let process = ProcessFacts {
+                managed_invocation: managed_candidate(&read.image),
                 current_start_identity: read
                     .image
                     .locator
@@ -951,6 +972,7 @@ fn handle(request: Request) -> Result<Payload, ReaderError> {
             });
             Ok(Payload::Page {
                 page: RecordPage {
+                    managed_invocation: managed_candidate(&read.image),
                     operation: operation_id,
                     operation_kind: operation.kind.clone(),
                     outcome: operation.outcome,
@@ -1012,6 +1034,17 @@ fn response(correlation: String, result: Result<Payload, ReaderError>) -> Reader
         Payload::Follow { sample } => sample.next_request(),
         _ => None,
     };
+    fn candidate(
+        payload: &Payload,
+    ) -> Option<pse_diagnostics::process_facts::ManagedInvocationCandidate> {
+        match payload {
+            Payload::Inspection { process, .. } => process.managed_invocation.clone(),
+            Payload::Follow { sample } => candidate(&sample.observation),
+            Payload::Page { page } => page.managed_invocation.clone(),
+            _ => None,
+        }
+    }
+    let managed_invocation = candidate(&payload);
     ReaderResponse {
         protocol: Protocol::ProductReader,
         version: Version,
@@ -1020,6 +1053,7 @@ fn response(correlation: String, result: Result<Payload, ReaderError>) -> Reader
         category,
         payload,
         next_request,
+        managed_invocation,
     }
 }
 /// Complete producer-owned frame after all required protected page/client owners settled.
@@ -1067,6 +1101,7 @@ fn encode_response(response: &ReaderResponse) -> Result<EncodedResponse, ReaderE
                 ),
             },
             next_request: None,
+            managed_invocation: None,
         };
         frame = serde_json::to_vec(&refusal)?;
         code = 2;

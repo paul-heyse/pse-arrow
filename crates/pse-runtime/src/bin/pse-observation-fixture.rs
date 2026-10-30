@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Source-built cooperating observation fixture, prepared only for its declared consumer.
 use pse_backend_native::solve::{Event, EventSource, Metric, Progress};
-use pse_diagnostics::observation::{Outcome, Policy};
+use pse_diagnostics::observation::{Outcome, Policy, Relationship};
 use pse_runtime::{
     observation::{Diagnostics, read_checkpoint},
-    tooling::{frozen_inspection::FrozenEvidenceSet, review_pack::PackReader},
+    tooling::{frozen_inspection::FrozenEvidenceSet, review_pack::PackReader, telemetry},
 };
 use sha2::{Digest as _, Sha256};
 use std::{
@@ -71,9 +71,37 @@ fn verify_portable(root: &Path) -> Result<()> {
     std::fs::write(root.join("portable.ready"), serde_json::to_vec(&response)?)?;
     Ok(())
 }
-fn wait_for_finish(root: &Path) -> Result<()> {
+fn push(progress: &Progress, ordinal: u64) {
+    progress.push(Event {
+        source: Some(EventSource::new(
+            "nonlinear_iteration",
+            Some("physical_model"),
+            Some("scaled_native"),
+        )),
+        phase: "native iteration".into(),
+        elapsed: Duration::from_millis(ordinal),
+        values: BTreeMap::from([
+            ("iteration".into(), Metric::Integer(ordinal as i64)),
+            ("obj_value".into(), Metric::Real(17.25)),
+            ("inf_pr".into(), Metric::Real(f64::INFINITY)),
+            (
+                "native_missing".into(),
+                Metric::Unavailable(
+                    pse_model::generated::enums::EvidenceUnavailableReason::NotComputed,
+                ),
+            ),
+        ]),
+        incumbent: None,
+    });
+}
+fn wait_for_finish(root: &Path, owner: &Diagnostics, progress: &Progress) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(60);
     while !root.join("finish").exists() {
+        if root.join("advance").exists() && !root.join("advanced.ready").exists() {
+            push(progress, 4);
+            owner.publish()?;
+            std::fs::write(root.join("advanced.ready"), [])?;
+        }
         if root.join("verify-portable").exists() && !root.join("portable.ready").exists() {
             verify_portable(root)?;
         }
@@ -98,6 +126,13 @@ fn main() -> Result<()> {
                 "observation fixture needs its explicitly owned output directory",
             )
         })?;
+    // Fixed executable composition consumes only the launcher's existing resolved settings.
+    // An unavailable optional exporter must not become checkpoint or scientific ownership.
+    let telemetry = telemetry::Host::from_environment("pse-observation-fixture")?;
+    if let Some(host) = &telemetry {
+        host.install_global()?;
+        tracing::info_span!("pse.fixture.optional_export", pse.owner.stage = true).in_scope(|| {});
+    }
     let owner = Diagnostics::new(
         Policy {
             record_capacity: 1,
@@ -110,29 +145,21 @@ fn main() -> Result<()> {
     let context = operation.context();
     context.declare_summary("original numerical checkpoints, not permission");
     let _entered = context.enter();
+    let preparation = context.child("original preparation owner", Relationship::Nested);
+    let preparing = preparation
+        .context()
+        .phase("native preparation publication");
+    preparation.context().count("prepared.items", "items", 1);
+    let waiter = context.child("independent waiting consumer", Relationship::DependencyWait);
+    waiter
+        .context()
+        .link(&preparation.context(), Relationship::SharedProduction);
+    let waiting = waiter
+        .context()
+        .phase("waiting for original shared preparation");
     let progress = Progress::new(1);
     for ordinal in 1..=3 {
-        progress.push(Event {
-            source: Some(EventSource::new(
-                "nonlinear_iteration",
-                Some("physical_model"),
-                Some("scaled_native"),
-            )),
-            phase: "native iteration".into(),
-            elapsed: Duration::from_millis(ordinal),
-            values: BTreeMap::from([
-                ("iteration".into(), Metric::Integer(ordinal as i64)),
-                ("obj_value".into(), Metric::Real(17.25)),
-                ("inf_pr".into(), Metric::Real(f64::INFINITY)),
-                (
-                    "native_missing".into(),
-                    Metric::Unavailable(
-                        pse_model::generated::enums::EvidenceUnavailableReason::NotComputed,
-                    ),
-                ),
-            ]),
-            incumbent: None,
-        });
+        push(&progress, ordinal);
     }
     owner.publish()?;
     let frozen = FrozenEvidenceSet {
@@ -140,10 +167,14 @@ fn main() -> Result<()> {
         ..Default::default()
     };
     std::fs::write(root.join("frozen.json"), serde_json::to_vec(&frozen)?)?;
-    let evidence = serde_json::json!({"checkpoint":owner.checkpoint_path(),"operation":context.id(),"event":pse_runtime::workflow::ProgressEventDocument::from(progress.current().ok_or_else(|| std::io::Error::other("fixture current source missing"))?),"dropped":progress.snapshot().1});
+    let evidence = serde_json::json!({"checkpoint":owner.checkpoint_path(),"operation":context.id(),"preparation":preparation.context().id(),"waiter":waiter.context().id(),"event":pse_runtime::workflow::ProgressEventDocument::from(progress.current().ok_or_else(|| std::io::Error::other("fixture current source missing"))?),"dropped":progress.snapshot().1});
     std::fs::write(root.join("source.json"), serde_json::to_vec(&evidence)?)?;
     std::fs::write(root.join("active.ready"), [])?;
-    wait_for_finish(&root)?;
+    wait_for_finish(&root, &owner, &progress)?;
+    drop(waiting);
+    drop(preparing);
+    waiter.finish(Outcome::Completed);
+    preparation.finish(Outcome::Completed);
     operation.finish(Outcome::Failed);
     owner.publish()?;
     std::fs::write(root.join("terminal.ready"), [])?;
@@ -153,5 +184,16 @@ fn main() -> Result<()> {
     std::fs::write(root.join("expired.ready"), [])?;
     wait(&root.join("close"))?;
     owner.release()?;
+    if let Some(host) = telemetry {
+        let loss = host.loss_observer();
+        let shutdown = host.shutdown();
+        std::fs::write(
+            root.join("telemetry.settled"),
+            serde_json::to_vec(&serde_json::json!({
+                "shutdown_error": shutdown.err().map(|error| error.to_string()),
+                "health": loss.snapshot(),
+            }))?,
+        )?;
+    }
     Ok(())
 }

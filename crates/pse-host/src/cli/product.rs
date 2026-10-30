@@ -100,6 +100,8 @@ pub(super) struct ProductView<'a> {
     product: &'a RawValue,
     /// Opaque product-issued continuation when the selected operation supports one.
     next_request: Option<&'a RawValue>,
+    /// Independently checked native unit association and aggregate facts.
+    native: product_reader::native::Association,
 }
 /// Each whole stream record declares observer lifecycle independently of scientific state.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -110,6 +112,7 @@ pub(super) struct FollowView<'a> {
     product: Option<&'a RawValue>,
     next_request: Option<&'a RawValue>,
     summary: Option<&'a product_reader::follow::Summary>,
+    native: Option<product_reader::native::Association>,
 }
 fn product_error(error: product_reader::ProductReaderError) -> HostError {
     HostError::ProductReader(Box::new(error))
@@ -167,6 +170,7 @@ pub(super) fn dispatch(
                 deadline,
             },
             output,
+            &root,
         );
     }
     if matches!(&action, Action::Prepare) {
@@ -217,7 +221,7 @@ pub(super) fn dispatch(
     };
     let reader =
         ProductReaderSelection::open(&root, &environment, &reader_id).map_err(product_error)?;
-    let (command, payload, category, next_request) = match request {
+    let (command, payload, category, next_request, native) = match request {
         None => {
             // Captured discovery is a complete transport frame from this same executable.
             #[derive(serde::Deserialize)]
@@ -227,7 +231,13 @@ pub(super) fn dispatch(
             let captured: Discovery =
                 serde_json::from_slice(&reader.discovery().map_err(product_error)?)
                     .map_err(io::Error::other)?;
-            ("observe discover", captured.payload, "success", None)
+            (
+                "observe discover",
+                captured.payload,
+                "success",
+                None,
+                product_reader::native::Association::Absent,
+            )
         }
         Some(request) => {
             let reply = if investigation {
@@ -243,6 +253,11 @@ pub(super) fn dispatch(
                 product_reader::Category::Success => "success",
                 product_reader::Category::Refused => "refused",
             };
+            let native = super::runtime()?.block_on(product_reader::native::inspect(
+                &root,
+                &environment,
+                reply.managed_invocation(),
+            ));
             (
                 if investigation {
                     "observe investigate"
@@ -252,6 +267,7 @@ pub(super) fn dispatch(
                 reply.payload().to_owned(),
                 category,
                 reply.next_request().map(ToOwned::to_owned),
+                native,
             )
         }
     };
@@ -263,10 +279,12 @@ pub(super) fn dispatch(
             category,
             product: &payload,
             next_request: next_request.as_deref(),
+            native,
         },
     );
     response.observation.scope = "captured_product_reader_transport".into();
     response.observation.limitations.push("Scientific identities, outcome, source coverage and validity remain in the original product payload.".into());
+    response.observation.limitations.push("Native unit accounting includes its descendants, is independent of process/scientific facts, and is not an atomic snapshot.".into());
     if category == "refused" {
         response.outcome = envelope::CommandOutcome::Usage;
     }
@@ -279,50 +297,61 @@ fn follow(
     request: Box<RawValue>,
     limits: product_reader::follow::Limits,
     output: &OutputOptions,
+    root: &Path,
 ) -> Result<i32, HostError> {
     if output.presentation.fields.is_some() || output.presentation.budget.is_some() {
         return Err(HostError::Ownership("follow emits producer-owned whole snapshots; select detail in the product request rather than --fields/--budget".into()));
     }
     let reader = Arc::new(reader);
-    let control = pse_diagnostics::Cancellation::default();
-    let mut count = 0;
-    let mut refused = false;
-    let summary = super::runtime()?.block_on(async {
+    let environment = Arc::new(environment);
+    super::runtime()?.block_on(async {
+        let stdout = product_reader::output::Writer::new(io::stdout())?;
+        let stderr = product_reader::output::Writer::new(io::stderr())?;
+        let control = pse_diagnostics::Cancellation::default();
+        let count = std::cell::Cell::new(0);
+        let refused = std::cell::Cell::new(false);
+        let complete_frame = std::cell::Cell::new(true);
         let mut interrupt =
             tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
         let mut terminate =
             tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
         let observing = product_reader::follow::run(
             reader.clone(),
-            Arc::new(environment),
+            environment.clone(),
             output.invocation_id.as_str().into(),
             request,
             limits,
             control.clone(),
             |reply| {
-                count += 1;
-                refused |= reply.category() == product_reader::Category::Refused;
-                if !reply.stderr().is_empty() {
-                    io::stderr().lock().write_all(reply.stderr())?;
+                let count = &count;
+                let refused = &refused;
+                let complete_frame = &complete_frame;
+                let reader = &reader;
+                let stdout = &stdout;
+                let stderr = &stderr;
+                let environment = &environment;
+                async move {
+                    complete_frame.set(false);
+                    refused.set(refused.get() || reply.category() == product_reader::Category::Refused);
+                    stderr.write(reply.stderr()).await?;
+                    let native = product_reader::native::inspect(root, environment, reply.managed_invocation()).await;
+                    let mut response = Envelope::response(
+                        "observe follow", "whole product follow sample", FollowView {
+                            reader: reader.id(), observer_state: "observing", sample: count.get() + 1,
+                            product: Some(reply.payload()), next_request: reply.next_request(), summary: None,
+                            native: Some(native),
+                        },
+                    );
+                    response.observation.scope = "captured_product_reader_transport".into();
+                    response.observation.limitations.push("Native unit accounting includes its descendants and is independent of scientific process facts; the combined read is not atomic.".into());
+                    if refused.get() { response.outcome = envelope::CommandOutcome::Usage; }
+                    let (_, frame) = output.encode_frame(response)?;
+                    drop(reply);
+                    stdout.write(&frame).await?;
+                    count.set(count.get() + 1);
+                    complete_frame.set(true);
+                    Ok(())
                 }
-                let mut response = Envelope::response(
-                    "observe follow",
-                    "whole product follow sample",
-                    FollowView {
-                        reader: reader.id(),
-                        observer_state: "observing",
-                        sample: count,
-                        product: Some(reply.payload()),
-                        next_request: reply.next_request(),
-                        summary: None,
-                    },
-                );
-                response.observation.scope = "captured_product_reader_transport".into();
-                if refused {
-                    response.outcome = envelope::CommandOutcome::Usage;
-                }
-                output.emit(response)?;
-                Ok(())
             },
         );
         tokio::pin!(observing);
@@ -331,29 +360,47 @@ fn follow(
             _ = interrupt.recv() => { control.cancel(); observing.await },
             _ = terminate.recv() => { control.cancel(); observing.await },
         };
-        result.map_err(product_error)
-    })?;
-    let mut response = Envelope::response(
-        "observe follow",
-        "observation ended; original work retains its own owner",
-        FollowView {
-            reader: reader.id(),
-            observer_state: "stopped",
-            sample: count,
-            product: None,
-            next_request: None,
-            summary: Some(&summary),
-        },
-    );
-    response.observation.scope = "captured_product_reader_transport".into();
-    response.observation.timed_out = matches!(summary.stop, product_reader::follow::Stop::Deadline);
-    if refused {
-        response.outcome = envelope::CommandOutcome::Usage;
-    }
-    if matches!(summary.stop, product_reader::follow::Stop::Cancelled) {
-        response.outcome = envelope::CommandOutcome::Interrupted;
-    }
-    Ok(output.emit(response)?)
+        let summary = match result {
+            Ok(summary) => summary,
+            Err(error) => {
+                let mut failure = Envelope::response("observe follow", "observation failed; original work retains its own owner", ());
+                failure.outcome = envelope::CommandOutcome::Failure;
+                failure.observation.completeness = envelope::Completeness::Partial;
+                failure.failures.push(envelope::ErrorRecord::from_typed(&error, &envelope::RedactionPolicy::from_inputs(&std::env::vars_os().collect())));
+                if let Ok((_, frame)) = output.encode_frame(failure) {
+                    // A broken/blocked renderer cannot send us through the synchronous
+                    // command-level error printer and strand observer signal settlement.
+                    let _ = tokio::time::timeout(Duration::from_secs(1), stderr.write(&frame)).await;
+                }
+                return Ok(1);
+            }
+        };
+        if !complete_frame.get() {
+            // A caller interrupted delivery, not a byte budget. Never append a second
+            // frame to an incomplete first frame or claim required output completed.
+            return Ok(match summary.stop {
+                product_reader::follow::Stop::Cancelled => 130,
+                product_reader::follow::Stop::Deadline => 124,
+                _ => 1,
+            });
+        }
+        let mut response = Envelope::response(
+            "observe follow", "observation ended; original work retains its own owner", FollowView {
+                reader: reader.id(), observer_state: "stopped", sample: count.get(),
+                product: None, next_request: None, summary: Some(&summary),
+                native: None,
+            },
+        );
+        response.observation.scope = "captured_product_reader_transport".into();
+        response.observation.timed_out = matches!(summary.stop, product_reader::follow::Stop::Deadline);
+        if refused.get() { response.outcome = envelope::CommandOutcome::Usage; }
+        if matches!(summary.stop, product_reader::follow::Stop::Cancelled) { response.outcome = envelope::CommandOutcome::Interrupted; }
+        let (code, frame) = output.encode_frame(response)?;
+        match tokio::time::timeout(Duration::from_secs(1), stdout.write(&frame)).await {
+            Ok(Ok(())) => Ok(code),
+            _ => Ok(if matches!(summary.stop, product_reader::follow::Stop::Cancelled) { 130 } else { 1 }),
+        }
+    })
 }
 
 #[cfg(test)]

@@ -27,6 +27,8 @@ const DESTINATION: &str = "org.freedesktop.systemd1";
 
 pub(crate) mod subgroup;
 pub use subgroup::CurrentMembership;
+mod native_facts;
+pub use native_facts::NativeUnitAccounting;
 
 /// Original intent, generated before the effect and retained for uncertain replies.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

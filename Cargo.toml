@@ -416,6 +416,8 @@ prost = "=0.14.4"
 event-listener = "=5.4.2"
 rustix = { version = "=1.1.5", features = [
   "fs",
+  "net",
+  "pipe",
   "time",
   "thread",
   "process",

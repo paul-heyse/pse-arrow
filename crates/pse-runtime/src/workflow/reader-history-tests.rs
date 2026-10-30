@@ -6,7 +6,7 @@
     reason = "isolated native progress fixture asserts an original failed effect-free completion and transient retry under the original seal/observation contracts"
 )]
 use super::*;
-use crate::tooling::reader::{self, CanonicalReadSelection, Protocol, ReaderRequest, Request};
+use crate::tooling::reader::{CanonicalReadSelection, Request};
 use pse_backend_native::solve::{Event, EventSource, Progress};
 use pse_model::{
     generated::enums::{AttemptState, StudyPointState},
@@ -25,23 +25,78 @@ async fn query(
     request: Request,
     expected: i32,
 ) -> FixtureResult<serde_json::Value> {
-    let request = serde_json::to_vec(&ReaderRequest {
-        protocol: Protocol::ProductReader,
-        version: pse_model::document::Version,
-        correlation: correlation.into(),
-        access: Default::default(),
-        request,
-    })?;
-    let (status, frame) = tokio::task::spawn_blocking(move || {
-        let mut frame = Vec::new();
-        let status = reader::serve(request.as_slice(), &mut frame)?;
-        Ok::<_, reader::ReaderError>((status, frame))
+    // C04 supplies both captured inputs only for this selected consumer. The read runs
+    // in another native process and independently drains its canonical connection.
+    let cli = std::env::var_os("PSE_NATIVE_FIXTURE_CLI")
+        .ok_or_else(|| std::io::Error::other("declared captured CLI fixture is absent"))?;
+    let reader = std::env::var_os("PSE_NATIVE_FIXTURE_PRODUCT_READER")
+        .ok_or_else(|| std::io::Error::other("declared captured product reader is absent"))?;
+    let request = serde_json::to_vec(&request)?;
+    let (status, frame) = tokio::task::spawn_blocking(move || -> FixtureResult<_> {
+        use pse_diagnostics::{DrainFailurePolicy, StderrCapture, SupervisedChild};
+        use std::{
+            io::Read as _,
+            process::{Command, Stdio},
+            time::Instant,
+        };
+        let input = tempfile::tempdir()?;
+        let path = input.path().join("request.json");
+        std::fs::write(&path, request)?;
+        let mut command = Command::new(cli);
+        command
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .args(["--format", "json", "observe", "query", "--reader"])
+            .arg(reader)
+            .arg("--request")
+            .arg(path)
+            .stdout(Stdio::piped());
+        let mut child = SupervisedChild::spawn(
+            &mut command,
+            DrainFailurePolicy::Park,
+            Some(StderrCapture {
+                bytes: 65536,
+                stack_bytes: 256 << 10,
+            }),
+        )?;
+        let mut stdout = child
+            .take_stdout()
+            .ok_or_else(|| std::io::Error::other("selected CLI stdout absent"))?;
+        let drain = std::thread::spawn(move || -> std::io::Result<_> {
+            let mut frame = Vec::new();
+            let mut total = 0_usize;
+            let mut buffer = [0_u8; 8192];
+            loop {
+                let read = stdout.read(&mut buffer)?;
+                if read == 0 {
+                    break;
+                }
+                total += read;
+                let keep = read.min((40 << 20) - frame.len());
+                frame.extend_from_slice(&buffer[..keep]);
+            }
+            Ok((frame, total))
+        });
+        let ready = child.wait_ready(None, Some(Instant::now() + Duration::from_secs(30)));
+        let status = child.cancel();
+        let drained = drain
+            .join()
+            .map_err(|_| std::io::Error::other("selected CLI output drainer panicked"))?;
+        // All independent responsibilities have settled before a failure is returned.
+        ready?;
+        let status = status?;
+        let (frame, total) = drained?;
+        if total != frame.len() {
+            return Err(std::io::Error::other("selected CLI frame exceeds bound").into());
+        }
+        Ok((status, frame))
     })
     .await??;
     let response: serde_json::Value = serde_json::from_slice(&frame)?;
-    assert_eq!(status, expected, "{response}");
-    assert_eq!(response["correlation"], correlation);
-    Ok(response)
+    assert_eq!(status.code(), Some(expected), "{correlation}: {response}");
+    assert!(response["invocation_id"].is_string(), "{response}");
+    Ok(
+        serde_json::json!({"payload":response["payload"]["product"], "observer_invocation":response["invocation_id"]}),
+    )
 }
 fn selection(
     store: &pse_operations::canonical::CanonicalStore,
@@ -119,6 +174,23 @@ async fn product_retained_study_and_attempt_pages_preserve_original_history_and_
             && source["events"].as_array().unwrap().is_empty()
     ));
     let active_cursor = serde_json::from_value(active_page["cursor"].clone()).unwrap();
+    let second = query(
+        "study-active-two",
+        Request::Study {
+            canonical: canonical.clone(),
+            request: selected_study.clone(),
+            cursor: None,
+        },
+        0,
+    )
+    .await
+    .unwrap();
+    assert_ne!(active["observer_invocation"], second["observer_invocation"]);
+    assert!(active_page["cursor"]["context"]["run"].is_string());
+    assert_eq!(
+        active_page["cursor"]["context"],
+        second["payload"]["page"]["cursor"]["context"]
+    );
     let attempt = crate::workflow::AttemptObservationRequest {
         run: claim.point.run.clone(),
         attempt: claim.fence.attempt().into(),

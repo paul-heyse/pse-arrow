@@ -203,6 +203,7 @@ pub(super) fn sample(
         .map(|path| association(path, request.operation))
         .transpose()?;
     let process = ProcessFacts {
+        managed_invocation: managed_candidate(&read.image),
         current_start_identity: read
             .image
             .locator

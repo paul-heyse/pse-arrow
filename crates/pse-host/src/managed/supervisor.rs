@@ -119,7 +119,7 @@ impl Launched {
 }
 
 /// Native service observation only; neither variant establishes payload/scientific settlement.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum RecordedObservation {
     /// The original manager reports the exact recorded incarnation.
@@ -132,13 +132,33 @@ pub enum RecordedObservation {
 }
 
 /// Passive facts about the checked original service, without admission reconciliation.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
 pub struct PassiveRecordedObservation {
     /// Original service observation; payload completion is a separate owner's fact.
     pub observation: RecordedObservation,
     /// Whether the original kernel group is proved drained at observation time.
     pub native_drained: bool,
+    /// Independently observed unit aggregate accounting, with unavailable source failures retained.
+    pub accounting: AccountingObservation,
 }
+/// Availability of the native accounting enrichment, separate from original unit/process facts.
+#[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum AccountingObservation {
+    /// Original unit aggregates; inclusive of its descendants.
+    Available {
+        /// Actual native aggregates, with native unavailable counters explicit.
+        facts: NativeUnitAccounting,
+    },
+    /// Source failure is retained while the original unit observation remains readable.
+    Unavailable {
+        /// Original typed source failure and causes.
+        diagnostic: crate::envelope::ErrorRecord,
+    },
+    /// The manager already proved the original unit gone/drained.
+    NotPresent,
+}
+pub use crate::manager::NativeUnitAccounting;
 
 /// Control recovered only from checked invocation/launch/controller records and the fixed
 /// prepared generation. It carries no launch-client reference or arbitrary-unit adoption API.
@@ -347,7 +367,13 @@ pub async fn observe_recorded(
     environment: &Environment,
 ) -> Result<PassiveRecordedObservation, HostError> {
     let checked = checked_recorded(root, id, environment).await?;
-    let observation = match checked.unit {
+    passive_snapshot(&checked, environment).await
+}
+async fn passive_snapshot(
+    checked: &CheckedRecorded,
+    environment: &Environment,
+) -> Result<PassiveRecordedObservation, HostError> {
+    let observation = match &checked.unit {
         Some(unit) => RecordedObservation::Observed {
             service: unit.observe().await?,
         },
@@ -357,10 +383,62 @@ pub async fn observe_recorded(
         .manager
         .original_drained(&checked.launch.controller, Some(&checked.original.binding))
         .await?;
+    let accounting = if checked.unit.is_some() {
+        match checked
+            .manager
+            .native_accounting(&checked.launch.controller, &checked.original.binding)
+            .await
+        {
+            Ok(facts) => AccountingObservation::Available { facts },
+            Err(error) => AccountingObservation::Unavailable {
+                diagnostic: crate::envelope::ErrorRecord::from_typed(
+                    &error,
+                    &RedactionPolicy::from_inputs(environment),
+                ),
+            },
+        }
+    } else {
+        AccountingObservation::NotPresent
+    };
     Ok(PassiveRecordedObservation {
         observation,
         native_drained,
+        accounting,
     })
+}
+
+/// Check a copied publisher's complete kernel identity and actual membership in the
+/// recorded original unit. Markers route checked opens; they supply no native authority.
+pub async fn observe_candidate_member(
+    root: &std::path::Path,
+    id: &CliInvocationId,
+    process: &ProcessIdentity,
+    environment: &Environment,
+) -> Result<PassiveRecordedObservation, HostError> {
+    let checked = checked_recorded(root, id, environment).await?;
+    if checked.unit.is_none() {
+        return Err(invalid(
+            "original unit is no longer present for candidate membership",
+        ));
+    }
+    checked
+        .manager
+        .authenticate_original_member(
+            &checked.launch.controller,
+            &checked.original.binding,
+            process,
+        )
+        .await?;
+    let observed = passive_snapshot(&checked, environment).await?;
+    checked
+        .manager
+        .authenticate_original_member(
+            &checked.launch.controller,
+            &checked.original.binding,
+            process,
+        )
+        .await?;
+    Ok(observed)
 }
 
 /// Authenticate a local peer as the recorded original payload child. A PID supplied

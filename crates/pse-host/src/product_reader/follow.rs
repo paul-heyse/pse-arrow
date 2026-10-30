@@ -58,20 +58,21 @@ enum Event {
 }
 /// Run one outstanding passive helper at a time, emit complete responses, then settle stop.
 /// A failing renderer ends observation; no observed-work control capability exists here.
-pub async fn run(
+pub async fn run<Emission: Future<Output = Result<(), ProductReaderError>>>(
     selection: Arc<ProductReaderSelection>,
     environment: Arc<Environment>,
     correlation: String,
     request: Box<RawValue>,
     limits: Limits,
     control: Cancellation,
-    mut emit: impl FnMut(ProductReply) -> Result<(), ProductReaderError>,
+    mut emit: impl FnMut(ProductReply) -> Emission,
 ) -> Result<Summary, ProductReaderError> {
     if limits.samples == 0 || limits.interval.is_zero() {
         return Err(invalid(
             "follow requires positive sample and polling allowances",
         ));
     }
+    let observer_control = control.clone();
     let state = State {
         selection,
         environment,
@@ -183,10 +184,24 @@ pub async fn run(
         }
     });
     futures_util::pin_mut!(events);
+    let mut emitted = 0;
     while let Some(event) = events.next().await {
         match event? {
-            Event::Sample(reply) => emit(reply)?,
-            Event::End(summary) => return Ok(summary),
+            Event::Sample(reply) => {
+                tokio::select! {
+                    result = emit(reply) => result?,
+                    _ = observer_control.cancelled() => return Ok(Summary { samples: emitted, stop: Stop::Cancelled }),
+                    _ = tokio::time::sleep_until(tokio::time::Instant::from_std(limits.deadline)) => {
+                        observer_control.cancel();
+                        return Ok(Summary { samples: emitted, stop: Stop::Deadline });
+                    },
+                }
+                emitted += 1;
+            }
+            Event::End(mut summary) => {
+                summary.samples = emitted;
+                return Ok(summary);
+            }
         }
     }
     Err(invalid("follow stream ended without observer settlement"))

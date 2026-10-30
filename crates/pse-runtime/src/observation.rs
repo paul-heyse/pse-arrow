@@ -122,6 +122,9 @@ pub struct ProcessCheckpoint {
     pub parent: Option<OperationId>,
     /// Actual operational attachment locator, not build provenance.
     pub locator: ProcessLocator,
+    /// Optional launch routing hint plus actual publisher identity; never ownership proof.
+    #[serde(default)]
+    pub managed_invocation: Option<pse_diagnostics::process_facts::ManagedInvocationCandidate>,
     /// Mapping to the same-host monotonic clock, with bounded read uncertainty.
     pub clock: Option<ClockMapping>,
     /// Bounded actual native-thread execution scopes.
@@ -191,6 +194,7 @@ pub struct Diagnostics {
     parent: Mutex<Option<OperationId>>,
     clock: Arc<target::ProcessClock>,
     locator: ProcessLocator,
+    managed_invocation: Option<pse_diagnostics::process_facts::ManagedInvocationCandidate>,
     threads: Mutex<Vec<ThreadExecution>>,
     threads_partial: AtomicBool,
 }
@@ -217,6 +221,22 @@ impl Diagnostics {
         );
         let instance = hub.process_instance();
         let process = format!("{:016x}-{:016x}", instance[0], instance[1]);
+        let managed_invocation = std::env::var("PSE_MANAGED_INVOCATION")
+            .ok()
+            .filter(|value| !value.is_empty() && value.len() <= 128)
+            .and_then(|invocation| {
+                match pse_diagnostics::process_facts::ProcessReader::default()
+                    .process(std::process::id())
+                {
+                    pse_diagnostics::process_facts::ProcessRead::Present(facts) => {
+                        Some(pse_diagnostics::process_facts::ManagedInvocationCandidate {
+                            invocation,
+                            process: facts.identity,
+                        })
+                    }
+                    _ => None,
+                }
+            });
         Arc::new(Self {
             hub,
             process,
@@ -231,6 +251,7 @@ impl Diagnostics {
             parent: Mutex::new(None),
             clock,
             locator: ProcessLocator::current(),
+            managed_invocation,
             threads: Mutex::new(Vec::new()),
             threads_partial: AtomicBool::new(false),
         })
@@ -447,6 +468,7 @@ impl Diagnostics {
             resources: ProcessResources::sample(),
             runtime_metrics: crate::tooling::runtime_metrics::snapshot(),
             locator: self.locator.clone(),
+            managed_invocation: self.managed_invocation.clone(),
             clock: self.clock.mapping(),
             threads: self
                 .threads

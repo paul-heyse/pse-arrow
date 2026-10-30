@@ -310,6 +310,12 @@ impl PreparedExecution {
                 "PSE_NATIVE_FIXTURE_PRODUCT_READER".into(),
                 reader.id().into(),
             );
+            let generation = crate::generation::prepared(&command.cwd)?
+                .ok_or_else(|| invalid("declared product consumer CLI is unprepared"))?;
+            let cli = generation.executable(&command.cwd, crate::generation::HostTool::Pse)?;
+            command
+                .environment
+                .insert("PSE_NATIVE_FIXTURE_CLI".into(), cli.into_os_string());
         }
         if borrowed {
             let runner = self

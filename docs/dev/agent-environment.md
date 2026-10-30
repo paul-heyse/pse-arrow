@@ -432,6 +432,56 @@ consumes explicit state and typed documents; the derived evidence index has sepa
 Neither can initialize/start an unrelated canonical service during a read. See
 [the substrate guide](surreal-substrate.md#project-and-derived-evidence-operations).
 
+### Local observation and selected investigation
+
+Explicitly prepare the product reader with `scripts/pse observe prepare`, then use the returned
+immutable reader ID. Host help and captured discovery/schema reads do not build a reader.
+The product owns the request grammar and numerical interpretation; obtain the accepted contract
+from that exact captured executable:
+
+```bash
+scripts/pse observe discover --reader READER_ID
+scripts/pse observe schema --reader READER_ID request
+scripts/pse observe schema --reader READER_ID response
+scripts/pse observe query --reader READER_ID --request selection.json
+scripts/pse --format ndjson observe follow --reader READER_ID --request follow.json --samples 32 --interval-ms 1000 --timeout 30
+scripts/pse observe investigate --reader READER_ID --request investigation.json
+```
+
+Each request file contains the product request alone. Discovery describes checkpoint catalogue,
+inspection, whole-record pages, follow, retained study/attempt reads and explicit investigation.
+Current-process selections require the original process/start identity; retained selections
+describe copied evidence. Product-issued cursors bind the selected source and limits. A changed
+source can require restarting a page; follow reports gaps and resynchronization explicitly.
+
+Observer invocation IDs, scientific run/attempt IDs, diagnostic operation IDs and native manager
+incarnations retain their separate meanings. A successful read can describe failed science,
+missing live numerics or partial capture. Inspect original outcome, units, numerical categories,
+source clocks and coverage in the product payload. Canonical study/attempt requests select an
+existing deployment/database and an explicit observer allocation/allowance; their connection
+reader never starts its configured database. Active remote attempts can report
+`live_numerics_unavailable` while retained terminal history remains readable.
+
+Optional native association checks the publishing process's full kernel identity and membership
+in the recorded original unit. Its CPU, memory and task accounting covers that whole unit and
+its descendants; combined native/product reads are non-atomic. Rejected or absent enrichment
+leaves the original product evidence readable and grants no stop or result capability.
+
+Follow limits govern observation. Closing its output, stopping the observer or reaching its
+allowance leaves the performing owner responsible for its original work. Capture and selected
+export require the explicit `investigate` verb; passive queries refuse those effects. Supplied
+frozen evidence and selected finalized capture members can be analyzed and exported through
+their existing owners. Embedded original paths do not authorize adjacent reads or reconstruction.
+Maintained query specifications report `executed: false`; executing an external query requires
+a separately selected consumer and bounded tool ownership.
+
+Local checkpoint reads remain available when optional OTLP/Collector/OpenObserve export is
+unavailable. Perfetto collection is an explicit investigation. Ordinary shell consumers require
+no MCP setup. RMCP remains deferred until an actual client needs typed tools, resources or
+subscriptions beyond shell access; any future adapter must preserve native and canonical
+execution authority and demonstrate actual host attachment. Current delivery and remaining
+acceptance are owned by [Plan59 F](../plans/59f-simulation-observability-and-diagnostics.md).
+
 ### Selected performance tooling on this workstation
 
 `just diagnostic-tools TOOL` installs a declared optional pinned tool.
