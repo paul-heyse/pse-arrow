@@ -14,6 +14,7 @@ pub mod discovery;
 pub mod doctor;
 pub mod envelope;
 pub mod environment;
+pub mod extraction;
 pub mod foreground;
 pub mod generation;
 pub mod invocation;
