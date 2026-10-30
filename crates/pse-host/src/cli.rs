@@ -22,6 +22,7 @@ mod changes;
 mod code;
 mod compiler;
 mod control;
+mod dependency;
 mod docs;
 mod probe;
 mod product;
@@ -145,8 +146,12 @@ enum Command {
         xtask_selection: Option<String>,
     },
     /// Inspect exact locked dependency identities, features and direct workspace consumers.
+    #[command(subcommand_negates_reqs = true, args_conflicts_with_subcommands = true)]
     Dep {
-        package: String,
+        #[arg(required = true)]
+        package: Option<String>,
+        #[command(subcommand)]
+        action: Option<dependency::Action>,
         /// Read this explicit Cargo metadata snapshot instead of collecting locked offline metadata.
         #[arg(long)]
         metadata: Option<PathBuf>,
@@ -814,7 +819,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         }
         "worktree new" => envelope::schema::<crate::worktree::NewReport>(command, view),
         "worktree list" => envelope::schema::<crate::worktree::ListReport>(command, view),
-        "api prepare" | "probe run" => envelope::schema::<ManagedReply>(command, view),
+        "api prepare" | "api compare" | "api check-docs" | "probe run" => {
+            envelope::schema::<ManagedReply>(command, view)
+        }
         "probe new" => envelope::schema::<crate::probe::Probe>(command, view),
         "probe rm" => envelope::schema::<PathBuf>(command, view),
         "outline batch" => envelope::schema::<crate::source_command::batch::Report>(command, view),
@@ -835,6 +842,7 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "owner" => envelope::schema::<OwnerView>(command, view),
         "affected" => envelope::schema::<crate::affected::Preview>(command, view),
         "dep" => envelope::schema::<crate::dependency::Report>(command, view),
+        "dep units" => envelope::schema::<dependency::Units>(command, view),
         "history" => envelope::schema::<crate::invocation_view::HistoryPage>(command, view),
         "result" => envelope::schema::<crate::invocation_view::ResultView>(command, view),
         "result tests" => envelope::schema::<crate::test_inventory::TestPage>(command, view),
@@ -1117,10 +1125,17 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
         Command::Worktree { action } => worktree::dispatch(action, selected, presentation),
         Command::Dep {
             package,
+            action,
             metadata,
             why,
             feature_member,
         } => {
+            if let Some(action) = action {
+                return dependency::dispatch(action, selected, presentation);
+            }
+            let package = package.ok_or_else(|| {
+                HostError::Ownership("select a dependency identity or dep units operation".into())
+            })?;
             let snapshot = if let Some(path) = metadata.as_ref() {
                 crate::catalog::MetadataSnapshot::read(&source_path(selected, path.clone())?)?
             } else {

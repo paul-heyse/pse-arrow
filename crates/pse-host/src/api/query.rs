@@ -290,6 +290,11 @@ pub(crate) struct ExternalUse {
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(tag = "availability", rename_all = "snake_case")]
 pub enum Report {
+    /// Native structural differences over two original acquired artifacts.
+    Comparison {
+        /// Whole differences selected by the comparison producer.
+        page: super::comparison::Page,
+    },
     /// A finalized artifact in the exact currently observed context was selected.
     Prepared {
         /// Whole producer-selected page over that artifact.

@@ -13,6 +13,7 @@ pub mod admission;
 pub mod affected;
 pub mod agent_hooks;
 pub mod api;
+pub mod applicable_rules;
 pub mod artifacts;
 pub mod boundary;
 pub mod catalog;

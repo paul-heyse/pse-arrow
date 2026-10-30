@@ -164,13 +164,13 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [D01](#d01) | planned | 59d | Focused `pse changes`; generic briefing/packet composition removed |
-| [D02](#d02) | in-progress | 59d | `pse dep` provides source-qualified locked facts, metadata-context features, workspace edges, pin reasons and overview candidates; `pse probe` and full context-keyed `pse api` remain; rejected server trial is concluded |
+| [D01](#d01) | in-progress | 59d | Native changed Git layers, package grouping, generated owners, authored advisory rule scopes and conservative test handoff implemented; final public acceptance remains |
+| [D02](#d02) | in-progress | 59d | Exact dependency facts, API acquisition/search/facades/examples and isolated probes delivered; H adds selected units/structural comparisons/native documentation checks; combined remaining consumer acceptance stays open |
 | [D03](#d03) | complete | 59d | Native lossless outline/show, exact source selections and shared lib-outline route integrated; batch CPU execution and source/schema/actual CLI tests cover malformed/Unicode/ambiguous/CommonMark reads |
-| [D04](#d04) | planned | 59d | Federated `pse docs check` with pinned lychee |
+| [D04](#d04) | in-progress | 59d | Scoped native checker, exact prepared forwarding and passive help/schema delivered with actual broken/clean controls; final generated-discovery acceptance remains |
 | [D05](#d05) | deferred | 59d | Citation/scaffold wrappers deferred pending demonstrated workflow need; existing native routes remain |
 | [D06](#d06) | in-progress | 59d | Testing-wave generated contributor/affected consumers and publication routing are delivered and qualified. Aggregate output map, original contributor reads and advisory guard remain integrated; broader document/source owner federation stays open |
-| [D07](#d07) | planned | 59d | Generated Markdown CLI reference under `docs/generated/` with drift check |
+| [D07](#d07) | in-progress | 59d | Parser-derived Markdown reference and generator delivered; republish final integrated grammar and scope-end drift check remain |
 | [D08](#d08) | deferred | 59d | Operator-confirmed deferral; D09 investigation retained, no commit CLI implementation required |
 | [D09](#d09) | complete | 59d | Native Git transaction strategy selected with 11 passing disposable-repository probes; D08 runtime acceptance remains outstanding |
 

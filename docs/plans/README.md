@@ -5,7 +5,7 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
-| [59: Agent CLI](59-agent-cli.md#current-state-and-next-step) | Simplification/testing wave complete: B01–B05 and C testing scope delivered; 579 host tests and both strict workspace Clippy modes pass. Broader feature packages and J03–J05 remain open under their native owners. |
+| [59: Agent CLI](59-agent-cli.md#current-state-and-next-step) | Remaining-series implementation active, including J. Native package tables own feature integration and pending acceptance; the earlier testing-wave checks retain their original scope. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
 | [53: Test architecture](53-test-architecture-target.md) | Test architecture and existing remaining qualification/decision scope. |

@@ -119,8 +119,8 @@ the review's source inspection is not an executed pinned-interface probe.
 | --- | --- | --- | --- |
 | [H01](#h01) | in-progress | 59h | Search, facade/trait provenance and optional original declaration implemented; remaining integrated acceptance below |
 | [H02](#h02) | in-progress | 59h | Authored examples retain hidden setup and distinct expectations; integrated consumer acceptance remains |
-| [H03](#h03) | in-progress | 59h | Exact metadata, shortest inclusion paths and authored inverse feature links implemented; selected-unit integration remains |
-| [H04](#h04) | in-progress | 59h | Native format-61 compatibility comparison implemented; original findings and explicit structural-diff limitations below |
+| [H03](#h03) | in-progress | 59h | Exact metadata, inclusion paths, authored inverse feature links and the shared C07 selected-unit consumer implemented; actual combined acceptance remains |
+| [H04](#h04) | in-progress | 59h | Library-owned structural pages with selected-input losslessness checks and separate native compatibility rules implemented; actual combined consumer acceptance remains |
 | [H05](#h05) | in-progress | 59h | Shared compiler workflow extended to native rustdoc; actual refreshed-control acceptance remains |
 | [H06](#h06) | in-progress | 59h | Actual independent API/probe journeys exercised; remaining combined comparison/diagnostic and conditional dispositions below |
 
@@ -328,17 +328,28 @@ the original schema-qualified item when a compact signature cannot represent all
 `dep --why` uses Petgraph for one shortest package path per reachable workspace member;
 `--feature-member` reports exact authored inverse links. Optional/default/target requests remain
 separate from resolved metadata features; neither view simulates activation or compiler units.
+`dep units DEPENDENCY PACKAGE[:TARGET] ...` explicitly consumes the same selection, compatible
+multi-root grouping, feature-absence controls and correctness admission as checks. It returns
+the selected dependency's actual planned host/target instances beside original roots, arguments
+and examined-unit counts. It neither compiles, enumerates tests nor grants provider readiness.
 
-The API comparison adapter selects two acquired artifacts, checks original context/digests,
-copies their bytes into a private comparison capture, and runs the explicitly installed
-`cargo-semver-checks` 0.51.0 under the existing managed owner. Native findings, exit and complete
-stdout/stderr stay original evidence. `public-api` 0.52.2 is not selected: its upstream
-`rustdoc-types` 0.59 input is incompatible with the pinned producer's format61. There is no
-bespoke SemVer substitute. Actual native format61 trials returned100 for a removed public
-reexport and0 for identical inputs. The same changed fixture added a function and strengthened
-a generic bound; the compatibility tool did not report those as separate findings. This is an
-observed coverage limit, not evidence of compatibility. Automatic structural additions/bound
-comparison remains open; original addressed declarations remain independently inspectable.
+The API comparison adapter selects two acquired artifacts and checks original context/digests.
+The default read uses `public-api` 0.52.2's native public-path matching and declaration
+normalization to page additions, removals and changed signatures/bounds. Its rustdoc-types0.59
+decoder is qualified separately for each selected format61 document: decoding through it and
+back into the pinned0.61 type must preserve the complete typed document. Unrepresentable or
+lost fields refuse with a remedy. This is not blanket cross-version compatibility. Native missing
+item references remain incomplete; native omission of blanket/auto-trait/auto-derived impls
+is explicit. Source/context/backend-bound cursors page whole differences without retaining a
+rebuildable full response. Scanning/normalization still examines both complete artifacts.
+
+`--compatibility` instead copies the original bytes into a private comparison capture and
+runs explicitly installed `cargo-semver-checks` 0.51.0 under the existing managed owner. Native
+findings, exit and complete stdout/stderr stay original evidence. There is no bespoke SemVer
+substitute. Actual format61 trials returned100 for a removed public reexport and0 for identical
+inputs. That tool did not separately report the same fixture's added function or strengthened
+generic bound; the independent structural library did report both. Structural differences,
+native compatibility rules and behavioral compatibility remain different claims.
 Sources: [native exact release](https://github.com/obi1kenobi/cargo-semver-checks/tree/v0.51.0),
 [public-api input dependency](https://github.com/cargo-public-api/cargo-public-api/blob/main/public-api/Cargo.toml).
 
@@ -347,7 +358,7 @@ sharing its compiler observer, original diagnostic addresses, raw capture and ph
 It does not introduce another report engine. Broken/private links, invalid block attributes,
 invalid Rust blocks and invalid HTML use native rustdoc rules; API reads remain independent.
 Cargo controls are inserted before the literal compiler tail. Actual refreshed-control failure
-and public-command acceptance remain required, along with selected-unit dependency composition,
+and public-command acceptance remain required, along with actual selected-unit dependency composition,
 full H06 journeys, generated discovery and scope-end qualification.
 
 **Tested:** the final focused host command selected dependency, proposal, envelope, API/cursor,

@@ -383,6 +383,40 @@ declared regeneration argv and offers an outline of the known emitter. An unknow
 declaration location stays unknown. A changed working source refuses the original-hit action;
 neither preview nor drill-through edits files, regenerates outputs or prepares a semantic session.
 
+### Dependency, API and native documentation investigations
+
+`scripts/pse dep tokio --why` adds shortest metadata inclusion paths; `--feature-member VALUE`
+finds exact authored feature-expansion links. Declaration optionality, default requests and
+target expressions are retained independently of Cargo's resolved metadata feature union.
+For selected compiler instances, use `scripts/pse dep units tokio pse-host --lib
+--no-default-features --without-feature diagnostic-taskdump`. The root/target/features grammar
+is shared with checks, including multiple roots and negative features. The answer is admitted
+compiler-unit context, not compilation, native readiness, a test population or impact proof.
+
+`scripts/pse api tokio --prepare` explicitly acquires a source/context-qualified rustdoc artifact;
+lookup does not compile. Then `scripts/pse api tokio --search spawn --budget 3 --examples`
+selects authored examples with hidden setup and native expectations. `--declaration` expands
+the original version-qualified item when compact signatures omit complex bounds or associated
+data. A facade may require explicit preparation of its defining package; absence of that
+artifact is unprepared, not an empty API result. `scripts/pse probe --help` exposes separate
+authored experiments; printing an example never executes it.
+
+`scripts/pse api PACKAGE --compare-with /original/acquisition/document.json --budget 10`
+reads native structural differences against the currently acquired PACKAGE context. Continue
+with the returned cursor; different original bytes, extraction context or backend policy refuse.
+The structural backend is admitted per input only after a lossless typed decoder round trip;
+unsupported newer declarations remain unavailable. Full artifacts are still scanned. Native
+automatic/blanket impl omissions and unresolved references remain visible. Structural change
+is not a SemVer or behavioral compatibility verdict.
+
+Adding `--compatibility` explicitly runs separately installed native rules under managed
+ownership; prepare that optional tool with `scripts/pse diagnostic-tools install
+cargo-semver-checks`. It uses both original captured JSON files, without generating a baseline
+or updating manifests/locks. Original findings/exit/raw streams and differing extraction
+premises are retained. `scripts/pse api pse-ids --check-docs` separately runs scoped native
+rustdoc lints through the shared compiler workflow, retaining original rule/source addresses.
+Ordinary API queries require neither that check nor an analyzer session.
+
 ## Explicit host controls
 
 ### Optional native telemetry

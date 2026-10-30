@@ -10,6 +10,8 @@ use std::{
     os::unix::fs::DirBuilderExt as _,
     path::{Path, PathBuf},
 };
+mod structural;
+pub use structural::{Difference, Page, Side, inspect};
 
 /// Native performing inputs plus preserved comparison premises.
 #[derive(Debug)]
@@ -86,12 +88,8 @@ pub fn prepare(
         .mode(0o700)
         .create(&directory)?;
     let copy = |artifact: &Artifact, name: &str| -> Result<PathBuf, HostError> {
-        let bytes = crate::test_inventory::read_private(&artifact.path)?;
-        if crate::probe::digest(&bytes) != artifact.sha256 {
-            return Err(HostError::Ownership(
-                "API input changed before comparison capture".into(),
-            ));
-        }
+        let bytes =
+            super::artifact_bytes(artifact).map_err(|error| HostError::Api(Box::new(error)))?;
         let path = directory.join(name);
         super::write(&path, &bytes).map_err(|error| HostError::Api(Box::new(error)))?;
         Ok(path)
@@ -107,7 +105,7 @@ pub fn prepare(
         limitations: [
             "native compatibility findings are not a complete behavioral compatibility verdict",
             "rule findings and actual tool exit are original retained stdout/stderr; no textual rule parsing or bespoke SemVer rules",
-            "public-api 0.52.2 uses rustdoc-types 0.59 and cannot establish format-61 structural additions; inspect addressed declarations separately",
+            "native rule findings are separate from library-owned structural differences; neither is complete behavioral compatibility evidence",
         ],
     }).map_err(std::io::Error::other)?;
     super::write(&context_path, &context).map_err(|error| HostError::Api(Box::new(error)))?;
@@ -215,6 +213,101 @@ mod tests {
             },
             format_version: 61,
         }
+    }
+    fn add_function(document: &mut rustdoc_types::Crate, id: u32, name: &str) {
+        let id = rustdoc_types::Id(id);
+        let mut item = document.index[&document.root].clone();
+        item.id = id;
+        item.name = Some(name.into());
+        item.inner = rustdoc_types::ItemEnum::Function(rustdoc_types::Function {
+            sig: rustdoc_types::FunctionSignature {
+                inputs: vec![],
+                output: None,
+                is_c_variadic: false,
+            },
+            generics: rustdoc_types::Generics {
+                params: vec![],
+                where_predicates: vec![],
+            },
+            header: rustdoc_types::FunctionHeader {
+                is_const: false,
+                is_unsafe: false,
+                is_async: false,
+                abi: rustdoc_types::Abi::Rust,
+            },
+            has_body: true,
+            default_unstable: None,
+        });
+        document.index.insert(id, item);
+        if let rustdoc_types::ItemEnum::Module(module) =
+            &mut document.index.get_mut(&document.root).unwrap().inner
+        {
+            module.items.push(id);
+        }
+    }
+    fn artifact(path: &Path, document: rustdoc_types::Crate) -> Artifact {
+        let bytes = serde_json::to_vec(&document).unwrap();
+        super::super::write(path, &bytes).unwrap();
+        Artifact {
+            context: context(),
+            path: path.to_owned(),
+            sha256: crate::probe::digest(&bytes),
+            document,
+        }
+    }
+    #[test]
+    fn native_structural_pages_refuse_stale_inputs_and_loss_through_the_backend_decoder() {
+        let directory = tempfile::tempdir().unwrap();
+        let old = artifact(&directory.path().join("before.json"), document());
+        let mut changed = document();
+        add_function(&mut changed, 1, "first");
+        add_function(&mut changed, 2, "second");
+        let new = artifact(&directory.path().join("after.json"), changed.clone());
+        let page = inspect(&old, &new, 1, None).unwrap();
+        assert_eq!(page.total_differences, 2);
+        assert_eq!(page.differences.len(), 1);
+        assert_eq!(page.missing_items, [0, 0]);
+        let next = page.continuation.unwrap();
+        let second = inspect(&old, &new, 1, Some(&next)).unwrap();
+        assert!(second.continuation.is_none());
+        assert!(
+            matches!(&page.differences[0],Difference::Added {declaration} if declaration.contains("first"))
+        );
+        assert!(
+            matches!(&second.differences[0],Difference::Added {declaration} if declaration.contains("second"))
+        );
+        let value = serde_json::to_value(&second).unwrap();
+        let schema = schemars::generate::SchemaSettings::draft2020_12()
+            .for_serialize()
+            .into_generator()
+            .into_root_schema_for::<Page>();
+        jsonschema::validator_for(schema.as_value())
+            .unwrap()
+            .validate(&value)
+            .unwrap();
+        let mut stale = artifact(&directory.path().join("stale.json"), changed.clone());
+        stale.context.features.insert("changed".into());
+        assert!(
+            inspect(&old, &stale, 1, Some(&next))
+                .unwrap_err()
+                .to_string()
+                .contains("source/context/backend changed")
+        );
+        let rustdoc_types::ItemEnum::Function(function) =
+            &mut changed.index.get_mut(&rustdoc_types::Id(1)).unwrap().inner
+        else {
+            panic!("function fixture")
+        };
+        function.default_unstable = Some(Box::new(rustdoc_types::ProvidedDefaultUnstable {
+            feature: "new-schema-only-default".into(),
+        }));
+        let unsupported = artifact(&directory.path().join("unsupported.json"), changed);
+        assert!(
+            inspect(&old, &unsupported, 20, None)
+                .unwrap_err()
+                .to_string()
+                .contains("loses selected typed declaration data")
+        );
     }
     #[test]
     fn historical_artifact_checks_original_context_digest_and_target_before_use() {

@@ -250,7 +250,13 @@ pub fn command_tree() -> Command {
         });
     }
     tree = tree.mut_subcommand("dep", |command| {
-        command.mut_arg("package", |arg| arg.add(Domain::Dependencies.association()))
+        command
+            .mut_arg("package", |arg| arg.add(Domain::Dependencies.association()))
+            .mut_subcommand("units", |command| {
+                command.mut_arg("dependency", |arg| {
+                    arg.add(Domain::Dependencies.association())
+                })
+            })
     });
     fn attach(mut command: Command, path: Vec<String>) -> Command {
         let name = path.join(" ");

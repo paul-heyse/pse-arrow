@@ -52,10 +52,14 @@ pub(super) struct Arguments {
     /// Expand the original format-qualified rustdoc item, including complex bounds/associated data.
     #[arg(long)]
     declaration: bool,
-    /// Compare with an explicitly selected historical acquired document.json using
-    /// the separately prepared native compatibility tool; never generate either side.
-    #[arg(long, conflicts_with_all=["prepare","path","search","cursor"])]
+    /// Read structural differences from an explicitly selected acquired document.json;
+    /// --compatibility separately executes native rules. Neither generates an input.
+    #[arg(long, conflicts_with_all=["prepare","path","search"])]
     compare_with: Option<std::path::PathBuf>,
+    /// Explicitly execute separately prepared native compatibility rules. Without
+    /// this flag comparison only reads library-owned structural differences.
+    #[arg(long, requires = "compare_with", conflicts_with = "cursor")]
+    compatibility: bool,
     /// Explicitly check this workspace library's authored documentation with native
     /// rustdoc diagnostics; no API artifact or analyzer session is required.
     #[arg(long, conflicts_with_all=["prepare","compare_with","path","search","cursor"])]
@@ -66,7 +70,7 @@ pub(super) struct Arguments {
 }
 impl Arguments {
     pub(super) fn intent(&self) -> GenerationIntent {
-        if self.prepare || self.compare_with.is_some() || self.check_docs {
+        if self.prepare || self.compatibility || self.check_docs {
             GenerationIntent::NewWork
         } else {
             GenerationIntent::Passive
@@ -294,6 +298,38 @@ pub(super) fn dispatch(
     };
     if let Some(baseline) = arguments.compare_with {
         let baseline = api::retained(&root.join(baseline)).map_err(error)?;
+        if !arguments.compatibility {
+            let page = api::comparison::inspect(
+                &baseline,
+                &artifact,
+                output.presentation.budget.unwrap_or(20),
+                arguments.cursor.as_deref(),
+            )
+            .map_err(error)?;
+            let detail = envelope::DetailView {
+                budget: Some(output.presentation.budget.unwrap_or(20)),
+                omitted_records: page.omitted_differences,
+                truncated: page.omitted_differences > 0,
+                ..envelope::DetailView::default()
+            };
+            let incomplete = page.missing_items != [0, 0];
+            let mut response = Envelope::response(
+                "api",
+                "native structural API differences; no compatibility rules executed",
+                api::query::Report::Comparison { page },
+            );
+            response.subject_state = envelope::SubjectState::Available;
+            response.providers = providers;
+            response
+                .providers
+                .push(provider(&baseline.context, Some(&baseline))?);
+            response.observation.scope =
+                "two_addressed_rustdoc_artifacts_native_public_path_normalization".into();
+            if incomplete {
+                response.observation.completeness = envelope::Completeness::Partial;
+            }
+            return Ok(output.emit_page(response, detail)?);
+        }
         let comparison =
             api::comparison::prepare(root, &store, &baseline, &artifact, &environment)?;
         providers.push(provider(&baseline.context, Some(&baseline))?);

@@ -4652,6 +4652,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashbag"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7040a10f52cba493ddb09926e15d10a9d8a28043708a405931fe4c6f19fac064"
+
+[[package]]
 name = "hashbrown"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7720,6 +7726,7 @@ dependencies = [
  "flate2",
  "futures-util",
  "gix",
+ "globset",
  "insta",
  "jsonschema",
  "miette",
@@ -7731,15 +7738,17 @@ dependencies = [
  "proptest",
  "pse-buildinfo",
  "pse-diagnostics",
+ "public-api",
  "pulldown-cmark",
  "quick-junit",
  "ra_ap_syntax",
  "rayon",
- "rustdoc-types",
+ "rustdoc-types 0.61.0",
  "rustix 1.1.5",
  "schemars",
  "sd-notify",
  "serde",
+ "serde-saphyr",
  "serde_json",
  "sha2 0.11.0",
  "tar",
@@ -8248,6 +8257,19 @@ checksum = "4dcd034599e63b970727f70d79e02d62390a4a84f7c6b827c27c46d5ac3fa622"
 dependencies = [
  "ar_archive_writer",
  "cc",
+]
+
+[[package]]
+name = "public-api"
+version = "0.52.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d102ca8df9d07fa01215671136dd188312ebdd901b7f7e70765c51df87dd35e1"
+dependencies = [
+ "hashbag",
+ "rustdoc-types 0.59.0",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -9082,6 +9104,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
 dependencies = [
  "semver",
+]
+
+[[package]]
+name = "rustdoc-types"
+version = "0.59.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3e25ff539c83e47de65a6a790446186286d3a64bfadc780ed557cc3410d9509"
+dependencies = [
+ "serde",
+ "serde_derive",
 ]
 
 [[package]]

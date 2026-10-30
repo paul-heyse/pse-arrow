@@ -28,12 +28,26 @@ pub(super) struct Selection {
 struct ChangedPath {
     source: crate::ownership::SourceOwnerQuery,
     generated: Option<crate::ownership::OwnerQuery>,
+    applicable_rules: Option<Vec<crate::applicable_rules::Match>>,
 }
 #[derive(Debug, Serialize, JsonSchema)]
 pub(super) struct Report {
     observed: crate::affected::ChangeSet,
     paths: Vec<ChangedPath>,
+    groups: Vec<PackageGroup>,
     reach: crate::affected::Preview,
+}
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(tag = "status", rename_all = "snake_case")]
+enum GroupOwner {
+    WorkspacePackage { package_id: String },
+    Unmapped,
+    MetadataUnavailable,
+}
+#[derive(Debug, Serialize, JsonSchema)]
+struct PackageGroup {
+    owner: GroupOwner,
+    path_indices: Vec<usize>,
 }
 pub(super) fn dispatch(
     args: Selection,
@@ -54,6 +68,13 @@ fn inspect(
 ) -> Result<Envelope<Report>, HostError> {
     let observed = crate::affected::observe(root, base, Arc::new(AtomicBool::new(false)))?;
     let mut owner_failures = Vec::new();
+    let rules = match crate::applicable_rules::Catalog::load(root) {
+        Ok(rules) => Some(rules),
+        Err(error) => {
+            owner_failures.push(error);
+            None
+        }
+    };
     let paths = observed
         .paths()
         .into_iter()
@@ -62,28 +83,56 @@ fn inspect(
             let generated = match crate::ownership::query(&root, &path) {
                 Ok(owner) => Some(owner),
                 Err(error) => {
-                    owner_failures.push(error);
+                    owner_failures.push(HostError::from(error));
                     None
                 }
             };
             Ok(ChangedPath {
+                applicable_rules: rules.as_ref().map(|rules| rules.matching(&path)),
                 source: crate::ownership::source_owner(&root, &path, Some(&snapshot))?,
                 generated,
             })
         })
         .collect::<Result<Vec<_>, HostError>>()?;
     let reach = crate::affected::preview(&root, &observed, Some(&snapshot.metadata))?;
+    let mut groups = std::collections::BTreeMap::new();
+    for (index, path) in paths.iter().enumerate() {
+        let (key, owner) = match &path.source.package {
+            crate::ownership::PackageOwnership::WorkspacePackage { package_id, .. } => (
+                format!("workspace:{package_id}"),
+                GroupOwner::WorkspacePackage {
+                    package_id: package_id.clone(),
+                },
+            ),
+            crate::ownership::PackageOwnership::Unmapped { .. } => {
+                ("unmapped".into(), GroupOwner::Unmapped)
+            }
+            crate::ownership::PackageOwnership::Unavailable { .. } => {
+                ("unavailable".into(), GroupOwner::MetadataUnavailable)
+            }
+        };
+        groups
+            .entry(key)
+            .or_insert_with(|| PackageGroup {
+                owner,
+                path_indices: vec![],
+            })
+            .path_indices
+            .push(index);
+    }
     let mut response = Envelope::response(
         "changes",
         "changed paths with declared owners and conservative test reach",
         Report {
             observed,
             paths,
+            groups: groups.into_values().collect(),
             reach,
         },
     );
     response.observation.scope = "direct_base_to_head_plus_separate_live_git_layers".into();
     response.observation.limitations = response.payload.reach.coverage_limits.clone();
+    response.observation.limitations.push("Shared-rule scope matches are advisory navigation from current authored YAML globs, not an edit authorization or replacement for AGENTS and native guards.".into());
     let policy = crate::envelope::RedactionPolicy::from_environment();
     response.failures.extend(
         owner_failures

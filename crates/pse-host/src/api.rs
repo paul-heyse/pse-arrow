@@ -621,6 +621,14 @@ pub fn retained(path: &Path) -> Result<Artifact, ApiError> {
         document,
     })
 }
+pub(crate) fn artifact_bytes(artifact: &Artifact) -> Result<Vec<u8>, ApiError> {
+    let bytes = crate::test_inventory::read_private(&artifact.path)
+        .map_err(|error| invalid(error.to_string()))?;
+    if probe::digest(&bytes) != artifact.sha256 {
+        return Err(invalid("original API artifact bytes changed"));
+    }
+    Ok(bytes)
+}
 /// Passively select only a completed artifact in the currently observed exact context.
 /// Missing preparation returns `None`; a malformed completed artifact remains an error.
 pub fn locate(
