@@ -250,6 +250,7 @@ impl PreparedExecution {
         requirements: &[Requirement],
         inventory: &Path,
         state_parent: &Path,
+        invocation: &crate::envelope::CliInvocationId,
     ) -> Result<GroupCommand, FixtureError> {
         let relevant: Vec<_> = requirements
             .iter()
@@ -296,6 +297,12 @@ impl PreparedExecution {
             }
         }
         if demand.contains(&Input::ProductReader) {
+            // Native correctness commands deliberately drop managed execution markers.
+            // Publish the original workflow ID as fixture data, not process authority.
+            command.environment.insert(
+                "PSE_NATIVE_FIXTURE_ORIGINAL_INVOCATION".into(),
+                invocation.as_str().into(),
+            );
             let selected = self
                 .reader
                 .as_ref()

@@ -161,6 +161,7 @@ fn target_owned_recorded_module_state_is_not_replaced_by_a_prepared_module() {
             &requirements,
             &directory.path().join("unused-inventory.json"),
             directory.path(),
+            &crate::envelope::CliInvocationId::new(),
         )
         .unwrap();
     assert_eq!(command.environment, environment);

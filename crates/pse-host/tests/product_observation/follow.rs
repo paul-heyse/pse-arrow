@@ -20,13 +20,39 @@ impl Producer {
         let mut command = Command::new(helper);
         command
             .arg(directory.path())
+            .env(
+                "PSE_MANAGED_INVOCATION",
+                std::env::var("PSE_NATIVE_FIXTURE_ORIGINAL_INVOCATION")
+                    .expect("declared C04 original launch routing candidate"),
+            )
             .stdout(Stdio::null())
             .stderr(Stdio::null());
         if let Some(settings) = settings {
             command.env("PSE_NATIVE_TELEMETRY_SETTINGS", settings.to_string());
         }
-        let owner = SupervisedChild::spawn(&mut command, DrainFailurePolicy::Park, None).unwrap();
-        wait(&directory.path().join("active.ready"));
+        let mut owner = SupervisedChild::spawn(
+            &mut command,
+            DrainFailurePolicy::Park,
+            Some(pse_diagnostics::StderrCapture {
+                bytes: 16384,
+                stack_bytes: 256 << 10,
+            }),
+        )
+        .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !directory.path().join("active.ready").exists() {
+            if let Some(status) = owner.try_wait().unwrap() {
+                panic!(
+                    "publication fixture exited {status}; original stderr: {}",
+                    String::from_utf8_lossy(&owner.take_stderr_prefix().unwrap_or_default())
+                );
+            }
+            assert!(
+                Instant::now() < deadline,
+                "publication fixture handoff timed out"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
         let source =
             serde_json::from_slice(&std::fs::read(directory.path().join("source.json")).unwrap())
                 .unwrap();
@@ -157,11 +183,12 @@ fn unavailable_optional_otlp_backend_leaves_actual_shell_observation_and_native_
         "traces":{"enabled":true,"endpoint":format!("http://{address}/v1/traces"),"headers":{},"timeout_ms":100},
         "logs":{"enabled":false,"endpoint":null,"headers":{},"timeout_ms":100},
         "metrics":{"enabled":false,"endpoint":null,"headers":{},"timeout_ms":100},
-        "resource":{"service.name":"observation-unavailable-backend"},
+        "resource":{"service.name":"observation-unavailable-backend","service.instance.id":"fixture-unavailable-backend"},
         "process_incarnation":"fixture-unavailable-backend","max_queue_size":8,"max_export_batch_size":1,
         "schedule_delay_ms":10,"export_timeout_ms":200,"metric_export_interval_ms":60000,
         "sampler":"always_on","sampler_argument":1.0
     });
+    pse_diagnostics::telemetry_settings::Settings::from_json(&settings.to_string()).unwrap();
     let mut producer = Producer::with_telemetry(Some(settings));
     std::thread::sleep(Duration::from_millis(150));
     producer.advance();

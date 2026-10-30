@@ -129,8 +129,7 @@ fn main() -> Result<()> {
     // Fixed executable composition consumes only the launcher's existing resolved settings.
     // An unavailable optional exporter must not become checkpoint or scientific ownership.
     let telemetry = telemetry::Host::from_environment("pse-observation-fixture")?;
-    if let Some(host) = &telemetry {
-        host.install_global()?;
+    if telemetry.is_some() {
         tracing::info_span!("pse.fixture.optional_export", pse.owner.stage = true).in_scope(|| {});
     }
     let owner = Diagnostics::new(

@@ -341,6 +341,7 @@ async fn perform(
                     &requirements,
                     &destination.join("inventory/inventory.json"),
                     destination,
+                    &input.invocation,
                 )?,
                 GroupObserver::Test(observer),
             ));

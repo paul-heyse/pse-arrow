@@ -68,8 +68,13 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
     let fixture = std::env::var_os("PSE_NATIVE_FIXTURE_OBSERVATION_HELPER")
         .expect("native fixture owner supplies the source-built product publication helper");
     let directory = tempfile::tempdir().unwrap();
+    let original_launch = std::env::var("PSE_NATIVE_FIXTURE_ORIGINAL_INVOCATION")
+        .expect("declared C04 workflow publishes its original invocation as fixture routing data");
     let mut command = Command::new(fixture);
-    command.arg(directory.path()).stdout(Stdio::null());
+    command
+        .arg(directory.path())
+        .env("PSE_MANAGED_INVOCATION", &original_launch)
+        .stdout(Stdio::null());
     let mut owner = SupervisedChild::spawn(&mut command, DrainFailurePolicy::Park, None).unwrap();
     wait(&directory.path().join("active.ready"));
     let supplied: Value =
@@ -80,8 +85,6 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
     let source = json!({"selection":"retained","checkpoint":checkpoint,"expected":null});
     let inspect = json!({"operation":"inspect","source":source,"request":{"version":2,"operation":supplied["operation"],"window":{"secs":30,"nanos":0},"include_related":false,"related_limit":1},"invocation":null});
     let delegated = query(directory.path(), &reader, &inspect, false);
-    let original_launch = std::env::var("PSE_MANAGED_INVOCATION")
-        .expect("declared native workflow publishes its original managed launch routing hint");
     assert_eq!(
         delegated["payload"]["native"]["state"], "observed",
         "{delegated}"

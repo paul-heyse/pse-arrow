@@ -476,3 +476,19 @@ attachment. No MCP configuration or new required service is selected. The enviro
 now documents actual reader preparation, discovery/schema, query/follow, retained history and
 explicit investigation routes. These source and focused-test results do not yet close the
 pending public journeys or promote F01–F06 to completed.
+
+**Tested, first expanded public consumer:** `scripts/pse test pse-host:product_observation`
+completed all four selected tests in workflow `01a18f00-5e10-703e-9714-dcbd955eea71`, with two
+failures against the zero baseline, complete required capture and complete native settlement.
+The actual filled-pipe slow-reader and broken-pipe/full-renderer/cancel/deadline consumers passed.
+The association fixture assumed a managed marker that correctness intentionally removes; the
+optional-backend fixture omitted the required telemetry resource identity and also attempted a
+second installation of the existing host subscriber. The original failure report is retained.
+
+**Implemented correction:** C04 now passes its typed original `Input.invocation` to fixture
+projection and publishes a bounded fixture-owned routing hint for the cooperating producer.
+Full kernel identity and original native membership still establish the association; a copied
+hint supplies no authority. The optional telemetry fixture supplies the original decoder's
+required identity and uses its existing one-time host installation. Positive association,
+optional-backend and extended investigation acceptance await the corrected public run; the
+separate canonical history journey also remains pending.
