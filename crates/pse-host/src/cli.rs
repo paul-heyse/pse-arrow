@@ -222,6 +222,17 @@ enum Command {
         invocation: String,
         #[arg(long)]
         session: Option<String>,
+        /// Read whole selected-test records from this original workflow's retained inventory.
+        #[arg(long)]
+        tests: bool,
+        /// Continue a test page using its original JSON cursor, refusing changed inventory bytes.
+        #[arg(long, requires = "tests", value_parser = test_cursor)]
+        cursor: Option<crate::test_inventory::Cursor>,
+        #[arg(long, requires = "tests", default_value = "20")]
+        limit: std::num::NonZeroUsize,
+        /// Bound serialized whole test rows; source scanning remains explicit.
+        #[arg(long, requires = "tests", default_value = "16384")]
+        page_bytes: std::num::NonZeroUsize,
     },
     /// Read a bounded original raw stream with exact byte offsets.
     Log {
@@ -584,6 +595,9 @@ fn resource_class(value: &str) -> Result<String, String> {
     crate::admission::validate_class(value).map_err(|error| error.to_string())?;
     Ok(value.into())
 }
+fn test_cursor(value: &str) -> Result<crate::test_inventory::Cursor, serde_json::Error> {
+    serde_json::from_str(value)
+}
 
 #[derive(Parser)]
 #[command(
@@ -708,6 +722,7 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "dep" => envelope::schema::<crate::dependency::Report>(command, view),
         "history" => envelope::schema::<crate::invocation_view::HistoryPage>(command, view),
         "result" => envelope::schema::<crate::invocation_view::ResultView>(command, view),
+        "result tests" => envelope::schema::<crate::test_inventory::TestPage>(command, view),
         "log" => envelope::schema::<crate::invocation_view::LogView>(command, view),
         "status brief" => envelope::schema::<crate::status::Summary>(command, view),
         "doctor" => envelope::schema::<crate::doctor::Report>(command, view),
@@ -1252,8 +1267,22 @@ fn dispatch(
         Command::Result {
             invocation,
             session,
+            tests,
+            cursor,
+            limit,
+            page_bytes,
         } => {
             let store = invocation_store(selected)?;
+            if tests {
+                return Ok(presentation.emit(crate::test_inventory::read(
+                    &store,
+                    &invocation,
+                    session.as_deref(),
+                    cursor.as_ref(),
+                    limit,
+                    page_bytes,
+                )?)?);
+            }
             Ok(presentation.emit(crate::invocation_view::result(
                 &store,
                 &invocation,
