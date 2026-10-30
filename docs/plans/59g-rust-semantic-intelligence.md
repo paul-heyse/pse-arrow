@@ -20,9 +20,10 @@ Focused producer views expose their own bounded answers and typed next actions;
 [B02](59b-runs-and-continuity.md#b02) owns original compiler diagnostic extraction.
 The coordinator owns source opportunity dispositions and combined completion.
 
-The source baseline is `a569b52e4`, 2026-10-29. The review's preceding end-to-end library
-research and focused code assessment are retained at their original strength. Production
-execution remains stopped; none of this document's packages is implemented by authoring it.
+The review source baseline is `a569b52e4`, 2026-10-29. Implementation starts from
+`49aaeb3f8` and the shared original-native observation/peer-custody helpers. The review's
+preceding library research remains evidence at its original strength; working implementation
+and its focused acceptance are recorded below, independently from series integration.
 Core 3.4, efficiency heuristics 1.0 and process-simulator 1.5 apply through the binding.
 This is developer tooling, not a new scientific or numerical interpretation owner.
 
@@ -126,15 +127,15 @@ The review checked development interfaces; exact pinned extension/native signatu
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [G01](#g01) | in-progress | 59g | Exact pinned protocol/source mapping and client selection inspected; working session/request qualification remains |
-| [G02](#g02) | planned | 59g | Explicit preparation and reusable authenticated analysis session ownership |
-| [G03](#g03) | planned | 59g | Selected context, source synchronization, positions and stale-result handling |
-| [G04](#g04) | planned | 59g | Resolution, discovery and selected implicit-semantic explanations |
-| [G05](#g05) | planned | 59g | References, bounded calls/traits and macro/source provenance |
-| [G06](#g06) | planned | 59g | Candidate tests and contextual code-construction discovery |
-| [G07](#g07) | planned | 59g | Source-bound rename, assist and SSR previews |
-| [G08](#g08) | planned | 59g | Apply investigation concluded; implementation only if its publication criteria hold |
-| [G09](#g09) | planned | 59g | Integrated semantic consumer, focused views and lifecycle acceptance |
+| [G01](#g01) | complete | 59g | Exact pinned LSP/client mechanism implemented and exercised against the real analyzer |
+| [G02](#g02) | complete | 59g | Original B03 native session, real socket-peer authentication, explicit restricted/macro preparation, independent request cancellation and original drain |
+| [G03](#g03) | complete | 59g | Selected Cargo model, scalar/UTF-8/UTF-16 conversion, active-file/manifest fences and source-bound lazy candidate identity; exact compiler-unit context remains explicitly unsupported |
+| [G04](#g04) | complete | 59g | Native explanation/symbols and selected hints with lazy resolution; unsupported typed HIR fields remain explicit |
+| [G05](#g05) | complete | 59g | File-grouped references, one-hop calls, implementations, predicate outcomes and actual proc-macro expansion with invocation fallback |
+| [G06](#g06) | complete | 59g | Related-test/completion producers, lazy resolution and actual test-owner enumeration through a produced next action |
+| [G07](#g07) | complete | 59g | Source-bound rename, lazy assist, scoped semantic SSR, file-rename and complete supported workspace-effect previews into J02 |
+| [G08](#g08) | complete | 59g | Preview-only decision below; no apply command is advertised |
+| [G09](#g09) | in-progress | 59g | Native selected CLI/lifecycle journey passed; coordinator retains adjacent original-diagnostic/discovery composition and assembled series acceptance |
 
 <a id="g01"></a>
 ## G01 — Pinned capability and integration design
@@ -185,6 +186,12 @@ workspace contract. No client dependency has been pinned. Compare a different ma
 with a narrow adapter over the library's public generic transport and established framing;
 retain the actual initialization evidence and original child owner. This qualification replaces
 any assumption above that the convenient spawn route alone is sufficient.
+
+The implemented adapter uses the library's public generic transport, `lsp-server =0.10.0`
+for native framing and generated standard request types. It supplies the actual process/workspace
+root and captures the unmodified actual initialization result before forwarding it. The installed
+analyzer negotiates UTF-8; UTF-16 conversion is independently exercised. Native framework request
+correlation, abandoned-request cancellation and EOF failures remain library-owned.
 
 The pinned configuration uses `checkOnSave: false`; `check.enable` is not a supported setting.
 Build-script override and proc-macro preparation must use the actual pinned configuration and
@@ -375,6 +382,15 @@ the race, protected path and mid-application cases exercise actual writes and pr
 partial outcomes. If not adopted, no apply command is advertised as available; G07 remains
 usable and the coordinator retains the conditional disposition rather than claiming apply.
 
+**Decision — preview only, 2026-10-30.** J02 checks exact original sources and effects without
+claiming an application transaction. `git apply --check` followed by application leaves a
+check/write race; atomic replacements of individual files do not create a multi-file transaction;
+advisory locks cannot fence editors that do not participate. A private Git index protects index
+publication, not working files. Compensating rollback could overwrite a subsequent unrelated
+edit. None establishes the required concurrency boundary for this shared working checkout, so
+no apply command is present. Revisit when a repeated selected editing workflow has an available
+isolation/cooperative publication mechanism that resolves that boundary.
+
 <a id="g09"></a>
 ## G09 — Consumer composition and qualification
 
@@ -421,8 +437,67 @@ and relevant integration journeys run once with the coordinator's qualification,
 package or document checkpoint. Test ambiguity, Unicode, unavailable macros, revision races and
 native settlement where those semantics are at risk; schema snapshots alone are insufficient.
 
-**Current state:** all G packages are planned. No analyzer/service started, dependency installed,
-product code changed or functional/performance test run by this authoring change. The next
-design work is G01; working session delivery additionally waits for the named A/B slices.
-The coordinator remains the only source-opportunity disposition owner and records completion
-only with the selected consumer and required evidence.
+**Implemented — selected semantic delivery, 2026-10-30.** `pse code session prepare` selects
+project/features/defaults/platform and explicitly starts or reuses the original B03-owned
+service. `status` and `stop` remain passive/existing-control routes. The short private socket
+authenticates the actual `SO_PEERCRED` PID against original payload custody before sending a
+request. The fixed native entry also checks its original command and immutable selected model.
+No arbitrary LSP method, executable, editor attachment or analyzer-produced argv is exposed.
+
+Restricted preparation disables automatic checking, build scripts and proc macros. Explicit
+`--build-macros` uses the original immutable `cargo-pse-correctness` command with Cargo JSON,
+selected features/platform and native admission; `checkOnSave` and build-script rerun-on-save
+stay disabled. Initial native Cargo loading activates the model; after native quiescence the
+adapter answers the pinned backend's `workspace/configuration` request with automatic Cargo
+reload disabled. It observes the actual configuration response write and completes an ordered
+native roundtrip before exposing semantic queries. Readiness retains the pending/failed exchange
+separately. Native VFS/Salsa invalidation remains analyzer-owned. Actual backend health/pending
+state and captured-context mismatch remain visible. Request-scoped client buffers
+close after the last overlapping query, returning disk updates to native watches without scanning
+every previously visited file on subsequent queries.
+
+`explain`, `symbols`, `refs`, `calls`, `implementations`, `predicate`, `macro`, `tests`,
+`candidates`/`candidate`, `hints`/`hint` and `edit rename|file-rename|assists|assist|ssr` are
+working selected consumers. CLI columns are one-based Unicode scalars; provider coordinates
+retain both exact UTF-8 byte/source identity and negotiated LSP units. Lazy selections require
+original source/generation and an exact discovery-record fingerprint; a bare index is not an
+identity. Selected multi-file edits discover affected inputs, synchronize only those inputs and
+recompute through the native producer before translating into J02. New/changed affected inputs,
+manifest/toolchain changes and stale candidates refuse rather than joining generations. Native
+create/rename/delete and snippet intent remain explicit; overwrite/ignore and unrepresented
+sequential-edit semantics refuse. There is no source application or second semantic graph.
+
+**Tested — Linux, pinned analyzer/toolchain, zero failure baseline.** Targeted
+`scripts/pse test pse-host --lib -E 'test(semantic::) | test(cli::control::)'` exercises the real
+analyzer, Unicode/CRLF, same-spelled methods, stale source/configuration, cancellation/reuse,
+original native CLI lifecycle, socket spoof refusal, proposal effects/snippets and shared original
+owner settlement composition. The targeted set contains eight semantic tests and three existing
+control tests; unselected tests are not qualification. `scripts/pse check pse-host --all-targets`
+passed for the implementation closure. These are pure host correctness closures; no Arrow leaf
+or scientific execution is selected.
+
+Actual separate CLI journeys exercised source-linked references/calls/tests, lazy hint/completion/
+assist resolution, rename/SSR previews, multi-file affected-input recomputation, file-rename
+effects and old-source refusal. Pausing the real analyzer, canceling one socket client and resuming
+proved request removal plus reuse of the same original service. Passive status/stop also worked
+with intentionally broken current host source, restored byte-exactly afterward. A real build
+script supplied its cfg through Cargo JSON and real proc-macro children expanded a generated
+constant; original native groups were observed drained after stop. An actual checkout-model
+related-test result produced a `pse tests -p pse-host --lib -E 'test(=...)'` next action that the
+original test owner successfully enumerated. Enumeration is not execution or affected coverage.
+The manifest-effect witness changes default features after explicit macro preparation: native
+status observes a blocked reload, the query refuses stale context, and the build-script execution
+count remains one. The retained native lifecycle test exercises that effect boundary.
+
+**Outcome and handoff.** The initial `cargo.autoreload: false` choice prevented the pinned
+backend from activating its workspace; actual resolution tests caught this. Auto-reload is now
+enabled only for explicit initial activation and disabled through the actual pinned reverse-config
+exchange afterward. `rebuildOnSave: false` alone does not block a manifest-triggered compiler
+invocation: the pinned native workspace switch can queue build-data fetching independently.
+Deliberate limits are exact compiler-unit/crate-
+instance selection, typed capture/adjustment/reference-category fields, exact macro source maps
+and application. Native IDE/HIR remains the existing material-gap trigger, not an automatic
+fallback. No performance benefit or scientific correctness is claimed. The coordinator retains
+G09's adjacent original-diagnostic/discovery composition, integrated review, assembled acceptance
+and scope-end static/manual qualification; this delegated result does not retire the plan or
+claim the complete series accepted.

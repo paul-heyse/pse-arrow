@@ -11,9 +11,58 @@ use crate::{
 use clap::{Args, Subcommand, ValueEnum};
 use std::path::{Path, PathBuf};
 use tokio_util::sync::CancellationToken;
+mod semantic;
 
 #[derive(Debug, Subcommand)]
-pub(super) enum Action {
+pub(super) enum Action {    /// Explicit reusable semantic session preparation, passive status and original stop.
+    Session {
+        #[command(subcommand)]
+        action: semantic::Session,
+    },
+    /// Explain selected code through native hover, definition and type resolution.
+    Explain(semantic::Subject),
+    /// Semantic document symbols, distinct from server-free outline.
+    Symbols(semantic::Subject),
+    /// Native semantic references including declarations.
+    Refs(semantic::Subject),
+    /// One-hop incoming and outgoing semantic calls.
+    Calls(semantic::Subject),
+    /// Native implementation targets; no universal trait-applicability claim.
+    Implementations(semantic::Subject),
+    /// Selected macro expansion text with invocation provenance limits.
+    Macro(semantic::Subject),
+    /// Related test candidates; does not run analyzer-supplied commands.
+    Tests(semantic::Subject),
+    /// Contextual completion candidates, preserving unresolved editing intent.
+    Candidates(semantic::Subject),
+    /// Selected native inlay annotations, without dumping the full file.
+    Hints(semantic::Subject),
+    /// Resolve one source/generation-bound native inlay hint lazily.
+    Hint {
+        #[command(flatten)]
+        subject: semantic::Subject,
+        #[arg(long)]
+        select: usize,
+    },
+    /// Resolve one source-bound completion candidate, retaining imports and snippet intent.
+    Candidate {
+        #[command(flatten)]
+        subject: semantic::Subject,
+        #[arg(long)]
+        select: usize,
+    },
+    /// Ask a native trait predicate question; not-proven remains distinct from contradiction.
+    Predicate {
+        #[command(flatten)]
+        subject: semantic::Subject,
+        #[arg(long)]
+        text: String,
+    },
+    /// Native source-bound semantic edit previews, without filesystem application.
+    Edit {
+        #[command(subcommand)]
+        action: semantic::Edit,
+    },
     /// Follow an exact generated hit to existing declared contributors and regeneration routing.
     Origin {
         source: PathBuf,
@@ -43,6 +92,14 @@ pub(super) enum Action {
         #[arg(long = "select", value_delimiter = ',')]
         selected: Vec<usize>,
     },
+}
+impl Action {
+    pub(super) fn intent(&self) -> super::GenerationIntent {
+        match self {
+            Self::Session { action } => action.intent(),
+            _ => super::GenerationIntent::Passive,
+        }
+    }
 }
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub(super) enum Mode {
@@ -137,8 +194,23 @@ pub(super) fn dispatch(
     action: Action,
     selected: Option<&Path>,
     output: &OutputOptions,
+    entry: &super::EntryGuard,
 ) -> Result<i32, HostError> {
     match action {
+        Action::Session { action } => semantic::session(action,selected,entry,output),
+        Action::Explain(subject) => semantic::query(crate::semantic::Kind::Explain,subject,selected,output),
+        Action::Symbols(subject) => semantic::query(crate::semantic::Kind::Symbols,subject,selected,output),
+        Action::Refs(subject) => semantic::query(crate::semantic::Kind::Refs,subject,selected,output),
+        Action::Calls(subject) => semantic::query(crate::semantic::Kind::Calls,subject,selected,output),
+        Action::Implementations(subject) => semantic::query(crate::semantic::Kind::Implementations,subject,selected,output),
+        Action::Macro(subject) => semantic::query(crate::semantic::Kind::Macro,subject,selected,output),
+        Action::Tests(subject) => semantic::query(crate::semantic::Kind::Tests,subject,selected,output),
+        Action::Candidates(subject) => semantic::query(crate::semantic::Kind::Candidates,subject,selected,output),
+        Action::Hints(subject) => semantic::hint(subject,None,selected,output),
+        Action::Hint {subject,select} => semantic::hint(subject,Some(select),selected,output),
+        Action::Candidate {subject,select} => semantic::query(crate::semantic::Kind::Candidate{index:select},subject,selected,output),
+        Action::Predicate {subject,text} => semantic::query(crate::semantic::Kind::Predicate{text},subject,selected,output),
+        Action::Edit {action} => semantic::edit(action,selected,output),
         Action::Origin {
             source,
             range_start,

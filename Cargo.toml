@@ -181,6 +181,7 @@ tokio = { version = "=1.53.3", default-features = false, features = [
   "process",
   "signal",
   "io-util",
+  "net",
 ] }
 tokio-util = { version = "=0.7.19", default-features = false, features = [
   "rt",
@@ -253,6 +254,8 @@ hyper = { version = "=1.11.1", features = ["client", "server", "http2"] }
 hyper-util = { version = "=0.1.21", features = ["tokio"] }
 base64 = "=0.22.1"
 bytes = "=1.12.1"
+lspf = "=1.0.3"
+lsp-server = "=0.10.0"
 chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 pulldown-cmark = { version = "=0.13.5", default-features = false }
 ra_ap_syntax = "=0.0.360"

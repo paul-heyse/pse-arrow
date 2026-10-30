@@ -1,0 +1,326 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! Fixed semantic operations over a reusable, originally owned rust-analyzer session.
+mod edit;
+mod engine;
+mod service;
+#[cfg(test)]
+mod tests;
+mod transport;
+use crate::source_proposal::ChangeProposal;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+pub use service::{
+    SessionOverview, SessionRecord, SessionStatus, client, load, preparation_lock, prepare_record,
+    serve, socket_path, stop,
+};
+use std::path::PathBuf;
+
+/// Selected analysis context; LSP cannot choose an exact Cargo compiler-unit instance.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Configuration {
+    /// Canonical Cargo project root, independent of the owning checkout.
+    pub project: PathBuf,
+    /// Explicit feature names passed to the analyzer's Cargo model.
+    pub features: Vec<String>,
+    /// Disable Cargo defaults in this analyzer model.
+    pub no_default_features: bool,
+    /// Explicit compilation target, when selected.
+    pub target: Option<String>,
+    /// Explicitly admit native build-script and proc-macro preparation through correctness Cargo.
+    pub build_macros: bool,
+}
+impl Configuration {
+    /// Validate and canonicalize before preparation; reads do not prepare a session.
+    pub fn resolve(mut self) -> Result<Self> {
+        self.project = self.project.canonicalize()?;
+        if !self.project.join("Cargo.toml").is_file() {
+            return Err(Error::Unavailable(
+                "selected project has no Cargo.toml".into(),
+            ));
+        }
+        self.features.sort();
+        self.features.dedup();
+        Ok(self)
+    }
+    /// Content identity of explicitly selected context, independent of Git HEAD.
+    pub fn identity(&self) -> Result<String> {
+        Ok(crate::source_read::source_digest(&serde_json::to_string(
+            self,
+        )?))
+    }
+}
+/// Fixed requests; clients cannot choose arbitrary protocol methods or executable arguments.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Request {
+    /// Session state without a semantic query.
+    Status {},
+    /// Request original owner teardown; acknowledgement is not native drain evidence.
+    Stop {},
+    /// Selected semantic producer.
+    Query(Query),
+}
+/// Explicit source question, with one-based Unicode scalar CLI coordinates.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Query {
+    /// Fixed semantic operation.
+    pub kind: Kind,
+    /// Original working source, within the selected project.
+    pub file: PathBuf,
+    /// One-based line.
+    pub line: usize,
+    /// One-based Unicode scalar column, excluding a newline.
+    pub column: usize,
+    /// Optional precondition on original source bytes.
+    pub if_source: Option<String>,
+    /// Expected session generation, required for selected lazy handles.
+    pub if_generation: Option<u64>,
+    /// Exact discovery candidate fingerprint; indexes alone cannot identify a lazy action.
+    pub if_candidate: Option<String>,
+    /// Whole record limit; no records are recursively truncated.
+    pub limit: usize,
+    /// Optional inclusive final line for selected range annotations.
+    pub end_line: Option<usize>,
+}
+/// Supported backend operations, distinct from server-free syntax queries.
+#[derive(Clone, Debug, Serialize, Deserialize, clap::ValueEnum, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Kind {
+    /// Hover plus declaration/type targets.
+    Explain,
+    /// Semantic references, including declarations.
+    Refs,
+    /// One-hop incoming and outgoing call hierarchy.
+    Calls,
+    /// Implementations at the selected source position.
+    Implementations,
+    /// Selected macro expansion with invocation fallback.
+    Macro,
+    /// Related test candidates; never executes analyzer-produced argv.
+    Tests,
+    /// Contextual completion candidates, including unresolved snippets.
+    Candidates,
+    /// Document symbols from the semantic provider.
+    Symbols,
+    /// Selected native inlay annotations.
+    Hints,
+    /// Resolve a selected generation-bound inlay annotation.
+    #[value(skip)]
+    Hint {
+        /// Original native hint index.
+        index: usize,
+    },
+    /// Preview native semantic search and replace in its selected resolution context.
+    #[value(skip)]
+    Ssr {
+        /// Native SSR rule including its ==>> replacement.
+        rule: String,
+    },
+    /// Native predicate question with distinct holds/not-proven/unsupported outcomes.
+    #[value(skip)]
+    Predicate {
+        /// Rust predicate text resolved at the selected source context.
+        text: String,
+    },
+    /// Resolve a selected source-bound completion candidate lazily.
+    #[value(skip)]
+    Candidate {
+        /// Original completion candidate index.
+        index: usize,
+    },
+    /// Rename preview, never filesystem application.
+    #[value(skip)]
+    Rename {
+        /// New identifier supplied to native rename.
+        name: String,
+    },
+    /// Native file-rename follow-up edits plus the explicit source-bound filesystem proposal.
+    #[value(skip)]
+    FileRename {
+        /// Destination regular file; no file is moved by this operation.
+        destination: PathBuf,
+    },
+    /// Discover code actions without resolving every edit.
+    Assists,
+    /// Resolve a selected native action and preview its edits.
+    #[value(skip)]
+    Assist {
+        /// Zero-based candidate index in the original source-bound action set.
+        index: usize,
+    },
+}
+/// Native protocol result retained as opaque backend evidence, with whole-record budgeting.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct Section {
+    /// Actual native result category.
+    pub category: String,
+    /// Native fields retain their original backend meaning and coordinate encoding.
+    pub evidence: serde_json::Value,
+    /// Exact known records excluded from this presentation.
+    pub omitted: usize,
+    /// Source/generation-bound discovery handles for lazy selection; no permanent symbol identity.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub handles: Vec<CandidateHandle>,
+}
+/// Stateless identity of one original native discovery record.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct CandidateHandle {
+    /// Index in the original producer's complete native ordering.
+    pub index: usize,
+    /// Exact original native record fingerprint, checked after reacquisition.
+    pub fingerprint: String,
+}
+/// One source-bound semantic response. Analysis is not compiler acceptance.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct Answer {
+    /// Actual session/context and backend initialization evidence.
+    pub session: AnalysisContext,
+    /// Exact input source identity.
+    pub source: crate::source_read::SourceIdentity,
+    /// Actual canonical backend URI, independent of the caller's operand spelling.
+    pub source_uri: String,
+    /// Exact selected input byte offset, in the identified original source.
+    pub source_byte_offset: usize,
+    /// A working provider can report no match within its explicitly selected model.
+    pub availability: Availability,
+    /// Session revision observed before and after the operation.
+    pub generation: u64,
+    /// Negotiated protocol position, distinct from CLI scalar columns.
+    pub position: serde_json::Value,
+    /// Whole native views, each retaining the provider's scope.
+    pub sections: Vec<Section>,
+    /// Checked immutable source-bound edit proposal, when requested.
+    pub proposal: Option<ChangeProposal>,
+    /// Explicit interpretation/preparation limits.
+    pub limitations: Vec<String>,
+}
+/// Result presence is independent of backend preparation and compiler correctness.
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Availability {
+    /// Selected native evidence or edit candidates exist.
+    Available,
+    /// No match in this selected model; declared preparation/scope limits still apply.
+    NoMatch,
+}
+/// Compact mandatory query context; full actual capabilities belong to session status.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct AnalysisContext {
+    /// Actual analyzer identity.
+    pub backend: String,
+    /// Explicit project/features/target/preparation selection.
+    pub configuration: Configuration,
+    /// Negotiated native coordinate unit.
+    pub position_encoding: String,
+    /// Native load/health notification; absent remains unknown.
+    pub backend_status: Option<serde_json::Value>,
+    /// Actual supported preparation boundary.
+    pub preparation: String,
+}
+/// Serialized service response; a failed query does not terminate the session.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum Reply {
+    /// Typed backend response serialized once by its owning producer.
+    Answer {
+        /// Opaque complete response, decoded by its selected CLI consumer.
+        value: serde_json::Value,
+    },
+    /// Actual failure, never an empty successful result.
+    Failed {
+        /// Typed availability/revision/cancellation outcome with original backend error facts.
+        failure: Failure,
+    },
+}
+/// Query refusal preserves its semantic state across the private transport.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, thiserror::Error)]
+#[error("{message}")]
+pub struct Failure {
+    /// Owner-classified refusal, never inferred by parsing hover/debug text.
+    pub state: FailureState,
+    /// Original explanatory message, under the normal redaction policy.
+    pub message: String,
+    /// Original JSON-RPC error code when the native peer supplied one.
+    pub backend_code: Option<i32>,
+    /// Original backend data, retained as opaque native evidence.
+    pub backend_data: Option<serde_json::Value>,
+}
+/// Distinguish explicit preparation, unsupported capability, cancellation and revision invalidation.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureState {
+    /// Explicit preparation is missing/pending or another selected premise is unavailable.
+    Unavailable,
+    /// Selected backend does not implement the requested operation.
+    Unsupported,
+    /// Abandoned request; session lifetime remains independent.
+    Cancelled,
+    /// Source/configuration changed; reacquire inputs.
+    Stale,
+    /// Original protocol, source or native owner failed.
+    Failed,
+}
+impl Failure {
+    /// Preserve selected typed error categories at the serialization boundary.
+    pub fn from_error(error: &Error) -> Self {
+        if let Error::Refusal(failure) = error {
+            return failure.clone();
+        }
+        let state = match error {
+            Error::Stale => FailureState::Stale,
+            Error::Cancelled => FailureState::Cancelled,
+            Error::Unavailable(_) => FailureState::Unavailable,
+            _ => FailureState::Failed,
+        };
+        Self {
+            state,
+            message: crate::envelope::RedactionPolicy::from_environment()
+                .redact(&error.to_string()),
+            backend_code: None,
+            backend_data: None,
+        }
+    }
+}
+/// Semantic operation errors preserve input and native protocol causes.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    /// Native local I/O.
+    #[error("semantic I/O: {0}")]
+    Io(#[from] std::io::Error),
+    /// Fixed transport or typed payload conversion.
+    #[error("semantic JSON: {0}")]
+    Json(#[from] serde_json::Error),
+    /// Exact source acquisition and position failures.
+    #[error(transparent)]
+    Source(#[from] crate::source_read::SourceReadError),
+    /// Checked edit proposal failure.
+    #[error(transparent)]
+    Proposal(#[from] crate::source_proposal::ProposalError),
+    /// Existing native ownership/admission failure.
+    #[error("semantic native owner: {0}")]
+    Host(#[from] Box<crate::HostError>),
+    /// Missing explicit preparation or unsupported capability.
+    #[error("semantic preparation/capability unavailable: {0}")]
+    Unavailable(String),
+    /// Native LSP failure; no fallback response is fabricated.
+    #[error("semantic protocol: {0}")]
+    Protocol(String),
+    /// An original native refusal retains structured machine meaning across clients.
+    #[error(transparent)]
+    Refusal(Failure),
+    /// Client request cancellation never implies session cancellation.
+    #[error("semantic request canceled; inspect session status for original session availability")]
+    Cancelled,
+    /// An old handle/input cannot be joined with current analysis.
+    #[error("semantic source/context changed; reacquire the current generation")]
+    Stale,
+}
+pse_diagnostics::impl_diagnostic! { Error,
+    code(_this) { Some(pse_diagnostics::DiagnosticCode::HostOwnership) },
+    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+}
+/// Semantic owner result.
+pub type Result<T> = std::result::Result<T, Error>;

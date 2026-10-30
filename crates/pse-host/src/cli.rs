@@ -104,6 +104,13 @@ enum Command {
     FixturePrepare,
     #[command(name = "__workflow", hide = true)]
     Workflow(ManagedEntryArgs),
+    #[command(name = "__semantic-service", hide = true)]
+    SemanticService {
+        #[arg(long, value_parser = parse_invocation_id)]
+        invocation: CliInvocationId,
+        #[arg(long)]
+        configuration: String,
+    },
     /// Explicit captured development-tool preparation, discovery and managed native forwarding.
     Tools {
         #[command(subcommand)]
@@ -348,6 +355,7 @@ impl Command {
             Self::Boundary(options) => options.print || !options.explain,
             Self::AgentHook { .. }
             | Self::Workflow(_)
+            | Self::SemanticService { .. }
             | Self::Bundle(_)
             | Self::Supervise(_)
             | Self::Finalize(_)
@@ -371,10 +379,12 @@ impl Command {
             Self::Probe { action } => action.intent(),
             Self::Api(args) => args.intent(),
             Self::Docs(args) => args.intent(),
+            Self::Code { action } => action.intent(),
             Self::HostGenerationBootstrap { .. }
             | Self::Supervise(_)
             | Self::Finalize(_)
             | Self::Workflow(_)
+            | Self::SemanticService { .. }
             | Self::Bundle(_)
             | Self::FixturePrepare => GenerationIntent::Internal,
             Self::Boundary(options)
@@ -388,7 +398,6 @@ impl Command {
             | Self::Owner { .. }
             | Self::Dep { .. }
             | Self::Changes(_)
-            | Self::Code { .. }
             | Self::Compiler { .. }
             | Self::Outline { .. }
             | Self::Show { .. }
@@ -822,6 +831,12 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "api prepare" | "api compare" | "api check-docs" | "probe run" => {
             envelope::schema::<ManagedReply>(command, view)
         }
+        "code semantic" | "code explain" | "code symbols" | "code refs" | "code calls" | "code implementations" | "code macro" | "code tests" | "code candidates" | "code candidate" | "code predicate" | "code hints" | "code hint" | "code edit rename" | "code edit assists" | "code edit assist" | "code edit ssr" => envelope::schema::<crate::semantic::Answer>(command, view),
+        "code session prepare" => envelope::schema::<crate::semantic::SessionStatus>(command, view),
+        "code session status" => envelope::schema::<crate::semantic::SessionOverview>(command,view),
+        "code session stop" => envelope::schema::<control::ControlView>(command,view),
+        "code semantic refusal" => envelope::schema::<crate::semantic::Failure>(command,view),
+        "code edit file-rename" => envelope::schema::<crate::semantic::Answer>(command,view),
         "probe new" => envelope::schema::<crate::probe::Probe>(command, view),
         "probe rm" => envelope::schema::<PathBuf>(command, view),
         "outline batch" => envelope::schema::<crate::source_command::batch::Report>(command, view),
@@ -963,6 +978,11 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             crate::managed::decode_checkout(&args.checkout_bytes)?,
             args.invocation,
         )),
+        Command::SemanticService { invocation, configuration } => {
+            let configuration = serde_json::from_str(&configuration).map_err(|error| HostError::Ownership(format!("semantic configuration: {error}")))?;
+            runtime()?.block_on(crate::semantic::serve(checkout_root(selected)?, invocation, configuration)).map_err(|error| HostError::Ownership(error.to_string()))?;
+            Ok(0)
+        }
         Command::Tests(args) => testing::start(
             crate::test_workflow::execute::Action::List,
             args.selection.request()?,
@@ -1120,7 +1140,7 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
         Command::Changes(args) => changes::dispatch(args, selected, presentation),
         Command::Docs(args) => docs::dispatch(args, selected, presentation, entry),
         Command::Api(args) => api::dispatch(args, &checkout_root(selected)?, presentation, entry),
-        Command::Code { action } => code::dispatch(action, selected, presentation),
+        Command::Code { action } => code::dispatch(action, selected, presentation, entry),
         Command::Compiler { action } => compiler::dispatch(action, selected, presentation),
         Command::Worktree { action } => worktree::dispatch(action, selected, presentation),
         Command::Dep {

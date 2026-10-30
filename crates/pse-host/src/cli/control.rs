@@ -73,29 +73,32 @@ pub(super) fn dispatch(
             _ = terminate.recv() => Ok((None, true)),
         }
     })?;
+    if let Some(observed) = observed {
+        return Ok(output.emit(settled_response(
+            &store,
+            id,
+            observed,
+            if cancel { "cancel" } else { "wait" },
+            "original native service settled; owner evidence inspected separately",
+            cancel,
+        )?)?);
+    }
     // This observer executed no protected image and delegated no descendants. The original
     // performing invocation retains its own independent resources and generation claims.
 
-    let (service, service_gone) = match observed.as_ref() {
-        Some(RecordedObservation::Observed { service }) => (Some(service.clone()), false),
-        Some(RecordedObservation::Gone) => (None, true),
-        None => (None, false),
-    };
     let result = store.result::<serde::de::IgnoredAny, Box<serde_json::value::RawValue>>(&id)?;
     let command = if cancel { "cancel" } else { "wait" };
     let mut response = Envelope::response(
         command,
         if interrupted {
             "observation interrupted; subject was not cancelled"
-        } else if observed.is_none() {
-            "observation deadline ended; completion remains unobserved"
         } else {
-            "original native service settled; owner evidence inspected separately"
+            "observation deadline ended; completion remains unobserved"
         },
         ControlView {
             original_invocation: id,
-            service,
-            service_gone,
+            service: None,
+            service_gone: false,
             result,
         },
     );
@@ -107,16 +110,9 @@ pub(super) fn dispatch(
         output.emit(response)?;
         return Ok(130);
     }
-    if observed.is_none() {
-        response.subject_state = envelope::SubjectState::Unknown;
-        response.observation.timed_out = true;
-        response.observation.required = false;
-    } else if response.payload.result.is_none() {
-        response.subject_state = envelope::SubjectState::Unknown;
-        response.outcome = envelope::CommandOutcome::BoundaryFailure;
-    } else {
-        project_terminal_owner(&mut response, cancel);
-    }
+    response.subject_state = envelope::SubjectState::Unknown;
+    response.observation.timed_out = true;
+    response.observation.required = false;
     Ok(output.emit(response)?)
 }
 
@@ -154,6 +150,42 @@ fn project_terminal_owner(response: &mut Envelope<ControlView>, cancel: bool) {
             response.child_exit = original.child_exit;
         }
     }
+}
+
+/// Compose proved original native drain with the original performing-owner evidence.
+/// Session consumers use this owner instead of turning a native acknowledgement into settlement.
+pub(super) fn settled_response(
+    store: &crate::invocation::InvocationStore,
+    id: CliInvocationId,
+    observed: RecordedObservation,
+    command: &str,
+    summary: &str,
+    cancel: bool,
+) -> Result<Envelope<ControlView>, HostError> {
+    let (service, service_gone) = match observed {
+        RecordedObservation::Observed { service } => (Some(service), false),
+        RecordedObservation::Gone => (None, true),
+    };
+    let result = store.result::<serde::de::IgnoredAny, Box<serde_json::value::RawValue>>(&id)?;
+    let mut response = Envelope::response(
+        command,
+        summary,
+        ControlView {
+            original_invocation: id,
+            service,
+            service_gone,
+            result,
+        },
+    );
+    response.observation.scope = "original_native_service_and_retained_owner_result".into();
+    if response.payload.result.is_none() {
+        response.subject_state = envelope::SubjectState::Unknown;
+        response.outcome = envelope::CommandOutcome::BoundaryFailure;
+        response.settlement = envelope::Settlement::Unknown;
+    } else {
+        project_terminal_owner(&mut response, cancel);
+    }
+    Ok(response)
 }
 
 #[cfg(test)]

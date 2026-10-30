@@ -42,6 +42,7 @@ pub mod probe;
 pub mod product_reader;
 pub mod repository;
 pub mod selection;
+pub mod semantic;
 pub mod server;
 pub mod source_command;
 pub mod source_proposal;
