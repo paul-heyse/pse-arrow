@@ -204,7 +204,9 @@ generation-use pin until finalization and actual protected users settle, includi
 
 **Extraction:**
 - **cargo** (`check`, `build`, `clippy`). Run with plain `--message-format=json` and parse with
-  `cargo_metadata::Message::parse_stream`.
+  the native `cargo_metadata::Message` Serde model. Decode each bounded complete record strictly:
+  `Message::parse_stream` in pinned0.23.1 converts malformed JSON to `TextLine` and disables
+  the recursion limit, which would hide missing required protocol evidence here.
   - From each `CompilerMessage`, build the one-line form from the primary span.
   - Deduplicate on (level, code, primary span, message).
   - Keep the full `rendered` text in the run directory.
@@ -219,6 +221,12 @@ generation-use pin until finalization and actual protected users settle, includi
     a test name alone is not an identity across binaries.
   - Feature-detect the stream. If it is missing or incomplete, the exit class plus log tail
     is diagnostic fallback only; retain an incomplete managed outcome, never a reconciled pass.
+  - Match the pinned0.9.146 runner's actual event naming against C05's inventory. Its
+    `package::binary$test` event spelling omits target kind and is not `RustBinaryId`;
+    same-named targets of different kinds can be ambiguous. Refuse an invented reconciliation
+    where event context cannot disambiguate. Setup exit105, retries, ignored/filter policy
+    and suite terminals retain their independent meanings. The stream is experimental and
+    nextest-metadata0.15.0 supplies listing models, not a typed execution-event protocol.
 - **Generic.** Exit, duration, log tail and any declared output files.
 - The JSON passes through the adapter's inherited-stdio path unchanged. Confirming that in
   practice is part of B02's acceptance.
@@ -298,7 +306,7 @@ generation-use pin until finalization and actual protected users settle, includi
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [B01](#b01) | in-progress | 59b | Checkout-bound immutable selection/result store integrated and ten targeted tests pass; foreground tee, owner settlement and result/log/history CLI consumers remain |
-| [B02](#b02) | planned | 59b | cargo/nextest typed extraction, actual selection/setup/terminal reconciliation and diagnostic-only fallback |
+| [B02](#b02) | in-progress | 59b | Strict native Cargo diagnostic extraction integrated with five targeted tests including actual scratch compilation; nextest population/setup/terminal reconciliation and joined CLI extraction remain |
 | [B03](#b03) | planned | 59b | Authenticated service-entry placement, supervisor/finalizer, recorded-generation wait/control, original resource settlement and resource readings |
 | [B04](#b04) | planned | 59b | `pse run-all` composite runs; `turn-end`/`ready`/`hygiene` bodies migrated; `just run-all` retired |
 | [B05](#b05) | planned | 59b | Session identity; `pse handoff`; Claude context-only PreCompact and SessionStart hooks |

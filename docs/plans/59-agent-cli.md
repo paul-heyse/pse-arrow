@@ -431,6 +431,24 @@ subprocess parsing and supplies typed byte-preserving status facts; nine targete
 tests pass. D09's tested publication strategy is retained, with library primitives eligible
 where their actual transaction boundaries preserve it. No CLI status/changes delivery is implied.
 
+A03's envelope is now integrated with the existing managed command surface, and A06's passive
+status composition/catalog cores are integrated; their remaining public command wiring stays
+with A06. A05 now authenticates/pins actual executable generations, handles eligible top-level
+stale rebuild/re-exec and can copy a matching prepared generation under a source use pin.
+Cold-copy entry wiring, positive descendant-based claim retirement and pruning remain pending.
+C05's immutable binary/inventory capture, bounded framing and source-owned selection schemas
+are integrated; this does not establish execution/setup or physical settlement. B02's strict
+native Cargo-message extraction preserves original diagnostic attribution and independent
+completeness. B01's tee and the nested managed-run physical owner are the next joined consumers.
+The latter must retain the original aggregate allocation; moving a nested run to a sibling
+scope or observing leader exit would not establish its required descendant settlement.
+
+The operator-added syntax, AST-grep and `syn`/`quote`/`prettyplease` references were read end to
+end. D03 now selects native lossless/error-tolerant `ra_ap_syntax` for source reads; G07 records
+distinct syntax-pattern previews, typed fragment generation and resolved semantic refactorings.
+Tree-sitter Rust is the candidate pattern engine's grammar, not a required independent parsing
+service. These choices do not imply G07/G08 delivery or weaken their source-concurrency contract.
+
 ### Code-intelligence planning checkpoint — 2026-10-29
 
 **Proposed:** G–I and the affected A–F slices schedule the code-intelligence review. RC01–RC05,
