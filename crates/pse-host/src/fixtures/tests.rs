@@ -135,6 +135,40 @@ fn explicit_scientific_input_remains_with_its_original_owner_without_helper_buil
 }
 
 #[test]
+fn target_owned_recorded_module_state_is_not_replaced_by_a_prepared_module() {
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("must-not-be-created");
+    let mut requirement = requirement();
+    requirement.declaration.inputs = BTreeSet::from([Input::StudyModule]);
+    let environment = BTreeMap::from([(
+        "PSE_NATIVE_FIXTURE_MODULE_STATE".into(),
+        "/original/owner-admitted-state".into(),
+    )]);
+    let requirements = vec![requirement];
+    let prepared =
+        PreparedExecution::prepare(directory.path(), &environment, &destination, &requirements)
+            .unwrap();
+    let command = prepared
+        .command(
+            crate::test_workflow::GroupCommand {
+                program: "/original/test-owner".into(),
+                arguments: Vec::new(),
+                cwd: directory.path().to_owned(),
+                environment: environment.clone(),
+                group: 0,
+                runtime_inputs: crate::discovery::RuntimeInputObservation::NotCapturedByDiscovery,
+            },
+            &requirements,
+            &directory.path().join("unused-inventory.json"),
+            directory.path(),
+        )
+        .unwrap();
+    assert_eq!(command.environment, environment);
+    assert_eq!(command.program, PathBuf::from("/original/test-owner"));
+    assert!(!destination.exists());
+}
+
+#[test]
 fn actual_admitted_root_selects_authored_ownership_and_inputs_without_preparation() {
     let data = metadata(json!([owned()]));
     let selected = requirements(&data, &resolved(&data, &[], Operation::Test)).unwrap();

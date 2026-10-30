@@ -138,7 +138,12 @@ impl PreparedExecution {
                 .create(destination)
                 .map_err(HostError::from)?;
         }
-        let module = if demand.contains(&Input::StudyModule) {
+        let borrowed = requirements
+            .iter()
+            .any(|requirement| requirement.ownership() == Ownership::RunnerBorrowed);
+        let module = if demand.contains(&Input::StudyModule)
+            && (borrowed || !recorded_module_selected(environment))
+        {
             Some(selected_module(root, environment)?)
         } else {
             None
@@ -152,9 +157,6 @@ impl PreparedExecution {
             workers: BTreeMap::new(),
             runner: None,
         };
-        let borrowed = requirements
-            .iter()
-            .any(|requirement| requirement.ownership() == Ownership::RunnerBorrowed);
         if demand.contains(&Input::ServiceHelper) || borrowed {
             let mut bins = vec!["pse-canonical-service"];
             if borrowed {
@@ -228,7 +230,12 @@ impl PreparedExecution {
             .iter()
             .flat_map(|requirement| requirement.inputs().iter().copied())
             .collect();
-        if demand.contains(&Input::StudyModule) {
+        let borrowed = relevant
+            .iter()
+            .any(|requirement| requirement.ownership() == Ownership::RunnerBorrowed);
+        if demand.contains(&Input::StudyModule)
+            && (borrowed || !recorded_module_selected(&command.environment))
+        {
             let module = self
                 .module
                 .as_ref()
@@ -255,10 +262,7 @@ impl PreparedExecution {
                     .insert(variable.into(), executable.captured.as_os_str().to_owned());
             }
         }
-        if relevant
-            .iter()
-            .any(|requirement| requirement.ownership() == Ownership::RunnerBorrowed)
-        {
+        if borrowed {
             let runner = self
                 .runner
                 .as_ref()
@@ -314,6 +318,13 @@ impl PreparedExecution {
         }
         Ok(command)
     }
+}
+
+fn recorded_module_selected(environment: &Environment) -> bool {
+    // The target's existing NativeModuleSource owner interprets this opaque state selector.
+    // Preserve its original explicit-receipt precedence, including an explicitly empty value.
+    !environment.contains_key(OsStr::new("PSE_NATIVE_FIXTURE_MODULE_RECEIPT"))
+        && environment.contains_key(OsStr::new("PSE_NATIVE_FIXTURE_MODULE_STATE"))
 }
 
 fn original_input_variable(input: Input) -> Option<&'static str> {
