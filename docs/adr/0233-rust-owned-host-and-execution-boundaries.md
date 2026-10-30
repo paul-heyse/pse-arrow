@@ -169,12 +169,12 @@ separate capability rather than inflate the bootstrap closure.
 
 ### Plan59 library-integration amendment — 2026-10-30
 
-**Proposed; operator-confirmed review RC01–RC04.** Temporary nonspawning readers retain
-scoped generation protection against pruning. Retained executable paths, children and
-finalizers require durable custody before effects/handoff. Qualify exclusion, inheritance,
-promotion and pruning races before selecting a process-held guard. Until qualified, retain
-conservative protection and disabled pruning. Absent PIDs, terminal metadata or a new protocol
-do not settle historical unknown obligations.
+**Proposed; A09 refines the earlier RC01–RC04 target under RT03.** Immutable prepared
+generations remain retained without automatic collection. Remove collection-exclusive
+protection/promotion machinery after separating authentication, provenance and real process/resource
+duties. Existing unknown claims/artifacts remain untouched; no PID absence or new protocol
+supplies historical settlement/deletion authority. Stale new-work refresh and authenticated
+old-generation control remain selected.
 
 Retain original stdout/stderr bytes in independently owned raw files; an optional compact
 offset index describes observation order, not global producer order. Capture failures retain
@@ -267,10 +267,10 @@ implementation tests cover repeated reconciliation followed by a single release.
 
 **Proposed:** the operator accepted [Plan59](../plans/59-agent-cli.md#rule-changes) R3. One clap
 command grammar in the `pse-host` library, exposed as `pse`, `pse-host` and `cargo-pse-correctness`,
-and a per-run supervisor for agent-started runs are selected. This narrows the earlier "no second
+and native operation ownership are selected. This narrows the earlier "no second
 CLI grammar" and "optional CLIs" wording; its catalog is derived from the parser, not an authored
-universal operation catalogue. A detached run is a transient user service whose supervisor hosts
-the existing foreground ownership path; the run ledger, not the launching bus client, is its stop
+universal operation catalogue. A09 selects synchronous foreground ownership and a detached transient service containing
+its fixed wrapper, payload and ordinary descendants; the run ledger, not the launching bus client, is its stop
 authority. Read-only verbs never build; top-level effectful verbs rebuild a stale host and fail on
 a failed rebuild. Concurrent agents use separate worktrees, each with its own host tools. Build-stage
 telemetry stays retired. This grants no formal ADR acceptance.
@@ -297,3 +297,12 @@ The package owners must establish actual migrated callers and targeted acceptanc
 Crate/governance and enduring boundary amendments require the scoped design assessment and
 architecture revision before dependent implementation; this proposed text grants no formal ADR
 acceptance and does not claim that retirement is implemented.
+
+### Plan59 A09 native completed results — 2026-10-30
+
+Operator-confirmed RT01 selects native Nextest exit, actual context/binary/test inventory and
+producer-private completed reports with required setup/capture/drain. It removes independent
+per-event lifecycle/byte-address verification, not missing-evidence refusal or independent science.
+RT04 defers the specialized commit transaction; generic briefing and packet hooks leave required
+scope. Ordinary Git is not claimed to provide the deferred shared-index guarantee. These changes
+are Proposed; implementation and scoped acceptance remain with Plan59 owners.

@@ -1715,15 +1715,14 @@ science needs no database.
 
 > Decision: ADR-0234 (proposed Plan59 managed-invocation realization; native qualification pending).
 
-Managed foreground and detached invocations share one native user-service supervisor/finalizer.
-Foreground retains an authenticated origin-lifetime lease; passive reads remain direct. Keep the
-service controller in its service cgroup and distinguish the immutable original workload root,
-actual current membership and owned invocation subtree. Nested payload groups stay below their
-enclosing invocation under core-only delegation, preserving the original aggregate allocation.
-Nested owners borrow admission without releasing or stopping the enclosing owner. Close nested
-launch authority before recursive kill/drain/removal; finalizers explicitly settle external payload
-groups rather than relying on service KillMode. Unknown settlement remains unknown, and core-only
-subgroup accounting is not silently presented as invocation-exclusive memory use.
+Plan59 A09 replaces the earlier proposed universal supervisor topology. Foreground operations
+use native synchronous caller-bound ownership through reap, capture and settlement; generic
+foreground reconnection/crash-finalizer continuity is not promised. Explicit detached operations
+use one transient user service containing the fixed wrapper, payload and ordinary descendants.
+Nested ordinary work inherits aggregate ownership; independent detach requires admitted placement
+and cannot escape finite constraints. Independent nested CLI subtree control is not selected.
+Systemd owns forced termination, Rust owns cooperative joins and required output. Missing original
+evidence remains incomplete; scientific and fixture owners retain their independent authority.
 
 Optional foreign adapters require a named consumer and remain coarse callers of the same native
 operations, documents and protected data services. They acquire no separate scientific, scheduling,
@@ -1738,10 +1737,10 @@ durable-deployment campaigns (§24.2).
 
 > Decision: ADR-0233/0234 (proposed Plan59 A08 clarification; operator-confirmed library-integration RC01–RC04).
 
-Generation protection follows retained effects: scoped passive reads remain protected from
-pruning, while child/path/finalizer handoff acquires durable custody before effects. Qualify
-inheritance, promotion and exclusion before selecting a new mechanism; conservative protection
-and disabled pruning remain the fallback. Existing unknown claims require positive settlement.
+A09 removes automatic host-generation collection. Immutable completed generations remain
+available until explicitly authorized administrative cleanup. Remove collection-only obligations
+after separating executable authentication, provenance and actual process/resource duties.
+Unknown existing claims/artifacts remain untouched; no retrospective release is inferred.
 Native owners enforce valid terminal facts before presentation. Directional wire schemas and
 common source/range/conflict proposals establish neither scientific validity, semantic name
 resolution nor publication. Source-only readiness has no semantic-session prerequisite;

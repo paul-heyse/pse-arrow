@@ -827,9 +827,16 @@ implemented exit behavior. Separately, operator-confirmed Plan59 R6 allows succe
 acknowledgement or expired bounded observation wait to return zero with an explicit launched/running
 subject, never a completed pass. Workload timeout, observation timeout and unknown settlement are distinct.
 Existing-invocation read/wait/cancel authenticate compatible recorded prepared controls without
-rebuilding broken current sources; failed rebuild still refuses new work. Generation pruning
-protects actual adapter, supervisor/finalizer, fixture and analyzer users until original settlement
-and independent disposal permit release. No ledger-only inference establishes physical drain.
+rebuilding broken current sources; failed rebuild still refuses new work. A09 removes automatic host-generation collection; immutable old tools remain available.
+Authentication and actual resource ownership remain required, and unknown historical resources
+are not deleted or declared settled by removal of collection bookkeeping.
+
+Plan59 A09 selects completed Nextest exit/inventory/private-report reconciliation, replacing
+independent per-start/terminal event verification. Native setup/retry policy and exact selected
+identities remain visible. Missing/malformed reports and missing required capture/drain cannot
+establish pass; known failures remain visible alongside incomplete coverage. Scientific acceptance
+is independent of runner reports. Generic briefing/handoff hooks and the specialized commit
+transaction are not required delivery; ordinary Git carries no equivalent transaction guarantee.
 
 Plan59 A08 (proposed ADR-0233/0234 clarification) retains independent raw stdout/stderr streams
 with original-byte prefixes and explicit incomplete/flush failures. Any offset index records

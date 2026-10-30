@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 317
+revision: 318
 date: 2026-10-30
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 318 | 2026-10-30 | Plan59 A09: synchronous foreground, single-service explicit detach, native completed reports and no automatic host-generation collection (§21.7, §24.1/§24.2). | Operator-confirmed RT01–RT04; proposed ADR-0233/0234 amended. Target publication only; implementation/native qualification and formal ADR acceptance remain separate. |
 | 317 | 2026-10-30 | Plan59 A08: effect-shaped generation protection, independent raw capture, owner-validated views/finality and source/semantic readiness separation (§21.7, §24.1). | Operator-confirmed library-integration RC01–RC04; proposed ADR-0233/0234. Authorized `PSE_DESIGN_EDIT=1`; focused advice only, no extension of prior formal acceptance or native qualification. |
 | 316 | 2026-10-30 | Plan59 managed foreground/detached invocations share the service supervisor and authenticated nested payload-subtree ownership (§21.7). | Proposed ADR-0234 realization within ADR-0233, source-grounded independent advice during authorized execution; `PSE_DESIGN_EDIT=1`. Target only; native permission/crash/nesting qualification and formal ADR status remain pending. |
 | 315 | 2026-10-29 | Plan59 A07: compatible existing-work control, acknowledgement versus terminal pass, product-owned decoding, diagnostic projection and analysis-generation scope (§21.7, §23.2, §24.1). | Operator-confirmed R3/R6 and RC01–RC05; proposed ADR-0233. Authorized design workflow; target publication only, no runtime qualification or formal ADR status change. |
