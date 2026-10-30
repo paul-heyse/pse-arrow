@@ -1,5 +1,13 @@
 # Functional opportunity reviews
 
+The [CLI, test and runtime workflow review](cli-test-and-runtime-workflows-2026-10-30.md)
+develops fourteen opportunities for a smaller CLI over native test, fixture and process
+owners. It compares completed Nextest reports with custom event reconciliation, proposes
+synchronous foreground and explicit persistent execution, and identifies useful test,
+feedback and calculation diagnostics. It recommends removing low-value briefing and automatic
+generation-collection scope, with explicit capability losses and decision impacts. Findings
+are proposals; Plan59's status and production implementation are unchanged.
+
 The [Rust code-intelligence CLI review](rust-code-intelligence-cli-2026-10-29.md)
 assesses the full supplied analyzer, compiler, dependency and rustdoc capability surface from
 the agent consumer's perspective. Sixteen opportunities cover semantic understanding and
