@@ -81,6 +81,9 @@ pub enum HostError {
     /// Passive source reading retains original file/selection causes.
     #[error(transparent)]
     SourceCommand(#[from] source_command::SourceCommandError),
+    /// Native artifact path, range and backend failures retain their original causes.
+    #[error(transparent)]
+    Artifact(#[from] artifacts::ArtifactError),
 }
 
 pse_diagnostics::impl_diagnostic! {
@@ -96,8 +99,9 @@ pse_diagnostics::impl_diagnostic! {
         Self::Repository(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::Correctness(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::SourceCommand(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
+        Self::Artifact(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
     }) },
-    forward(this) { match this { Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::Artifact(error) => Some(error), _ => None } },
     help(_this) { None },
     related(this) { match this { Self::Settlement {operation,cleanup} => { let children:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()]; Some(Box::new(children.into_iter())) }, _ => None } },
     source(_this) { None }

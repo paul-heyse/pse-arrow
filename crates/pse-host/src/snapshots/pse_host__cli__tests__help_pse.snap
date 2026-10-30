@@ -8,6 +8,7 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  artifact           Read an explicit retained file without interpreting its content as a protocol
   outline            Read one Rust file's written declarations or a Markdown document's headings
   show               Read exact original source at FILE::ITEM[::ITEM], preserving ambiguity
   commands           Discover actual command declarations or lazily query one argument's candidates
@@ -38,6 +39,7 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  artifact           Read an explicit retained file without interpreting its content as a protocol
   outline            Read one Rust file's written declarations or a Markdown document's headings
   show               Read exact original source at FILE::ITEM[::ITEM], preserving ambiguity
   commands           Discover actual command declarations or lazily query one argument's candidates

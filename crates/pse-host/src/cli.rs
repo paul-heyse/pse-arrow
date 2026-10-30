@@ -60,6 +60,11 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Read an explicit retained file without interpreting its content as a protocol.
+    Artifact {
+        #[command(subcommand)]
+        action: ArtifactAction,
+    },
     /// Read one Rust file's written declarations or a Markdown document's headings.
     Outline {
         #[arg(required=true,num_args=1..)]
@@ -175,6 +180,7 @@ impl Command {
             Self::Boundary(_)
             | Self::Outline { .. }
             | Self::Show { .. }
+            | Self::Artifact { .. }
             | Self::Commands(_)
             | Self::Help(_)
             | Self::Status { .. }
@@ -241,6 +247,24 @@ struct SourceParsing {
     /// Explicit syntax policy; no Cargo edition or cfg discovery is performed.
     #[arg(long, value_enum, default_value = "2024")]
     edition: crate::source_read::RustEdition,
+}
+#[derive(Debug, Subcommand)]
+enum ArtifactAction {
+    /// Read a selected byte range with explicit continuation; default maximum 4096 bytes.
+    Read {
+        file: PathBuf,
+        #[arg(long, default_value_t = 0)]
+        offset: u64,
+        /// Select a positive byte length instead of the default prefix.
+        #[arg(long, conflicts_with = "all")]
+        length: Option<std::num::NonZeroU64>,
+        /// Explicitly select every remaining byte from the offset.
+        #[arg(long)]
+        all: bool,
+        /// Require the opaque native ETag observed previously; this is not a content hash.
+        #[arg(long)]
+        if_match: Option<String>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -517,6 +541,7 @@ struct ServerSelection {
 }
 pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
     match command {
+        "artifact read" => envelope::schema::<crate::artifacts::ArtifactRead>(command, view),
         "outline" => envelope::schema::<crate::source_command::FileOutline>(command, view),
         "outline batch" => envelope::schema::<crate::source_command::batch::Report>(command, view),
         "show" => envelope::schema::<crate::source_command::FileSelection>(command, view),
@@ -571,6 +596,67 @@ fn dispatch(
         return Ok(0);
     };
     match command {
+        Command::Artifact {
+            action:
+                ArtifactAction::Read {
+                    file,
+                    offset,
+                    length,
+                    all,
+                    if_match,
+                },
+        } => {
+            let file = source_path(selected, file)?;
+            let request = crate::artifacts::ReadRequest {
+                offset,
+                length: if all {
+                    None
+                } else {
+                    length.or_else(|| crate::artifacts::ReadRequest::default().length)
+                },
+                expected_etag: if_match,
+            };
+            let payload = runtime()?.block_on(crate::artifacts::read_file(&file, &request))?;
+            let mut response = Envelope::response(
+                "artifact read",
+                format!(
+                    "artifact bytes {}..{} of {}; whole_object={}",
+                    payload.byte_range.start,
+                    payload.byte_range.end,
+                    payload.object_bytes,
+                    payload.whole_object
+                ),
+                payload,
+            );
+            response.observation.scope = "selected_artifact_byte_range".into();
+            response.observation.limitations.push("native ETag is an opaque provider validator, not a content hash; local mutable files have no snapshot-isolation guarantee".into());
+            if let Some(offset) = response.payload.next_offset {
+                let file = std::path::absolute(file)?;
+                let file = file.to_str().ok_or_else(|| {
+                    HostError::Ownership(
+                        "artifact continuation requires the native reader's Unicode filesystem key"
+                            .into(),
+                    )
+                })?;
+                let mut argv = vec![
+                    "artifact".into(),
+                    "read".into(),
+                    "--offset".into(),
+                    offset.to_string(),
+                ];
+                if let Some(length) = request.length {
+                    argv.extend(["--length".into(), length.to_string()]);
+                } else {
+                    argv.push("--all".into());
+                }
+                if let Some(etag) = &response.payload.etag {
+                    argv.extend(["--if-match".into(), etag.clone()]);
+                }
+                argv.extend(["--".into(), file.into()]);
+                response.next.push(envelope::NextAction::Command{argv,reason:"read the next selected byte range under the observed native validator; no whole-file identity is inferred".into()});
+            }
+            source_emit(presentation, response, artifact_text)
+        }
         Command::Outline { files, parsing } => {
             let mut files = files
                 .into_iter()
@@ -821,6 +907,23 @@ fn source_path(selected: Option<&Path>, file: PathBuf) -> Result<PathBuf, HostEr
         Some(root) => Ok(checkout_root(Some(root))?.join(file)),
         None => Ok(file),
     }
+}
+fn artifact_text(view: &crate::artifacts::ArtifactRead) -> String {
+    let content = match &view.content {
+        crate::artifacts::Content::Utf8(text) => format!("UTF-8 selected bytes:\n{text}"),
+        crate::artifacts::Content::Base64(text) => format!("base64 selected bytes:\n{text}"),
+    };
+    format!(
+        "{}; bytes={}..{}; whole_object={}; next_offset={:?}; selected_sha256={}; native_etag={:?}; atomic_snapshot={}\n{content}\n",
+        view.object_key,
+        view.byte_range.start,
+        view.byte_range.end,
+        view.whole_object,
+        view.next_offset,
+        view.selected_sha256,
+        view.etag,
+        view.atomic_snapshot
+    )
 }
 fn source_emit<T: serde::Serialize + schemars::JsonSchema>(
     presentation: &OutputOptions,
@@ -1520,6 +1623,22 @@ mod tests {
                 }],
                 cancellation_requested: false,
                 cpu_work_completed: true,
+            },
+        );
+        snapshot(
+            "artifact read",
+            crate::artifacts::ArtifactRead {
+                object_key: "fixture/evidence".into(),
+                object_bytes: 10,
+                etag: Some("native-validator".into()),
+                version: None,
+                byte_range: 0..3,
+                selected_sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+                    .into(),
+                content: crate::artifacts::Content::Utf8("abc".into()),
+                whole_object: false,
+                next_offset: Some(3),
+                atomic_snapshot: false,
             },
         );
         snapshot(

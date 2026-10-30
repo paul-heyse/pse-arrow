@@ -1,0 +1,54 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "serde_json::to_string_pretty(&response).unwrap()"
+---
+{
+  "summary": "fixture response; no scientific outcome asserted",
+  "record": "response",
+  "version": 1,
+  "schema": "urn:pse:cli:v1:artifact/read:full:budget:unbounded",
+  "invocation_id": "019a0000-0000-7000-8000-000000000001",
+  "command": "artifact read",
+  "outcome": "success",
+  "subject_state": "not_applicable",
+  "child_exit": null,
+  "settlement": "not_required",
+  "observation": {
+    "reference": null,
+    "scope": "command_response",
+    "completeness": "complete",
+    "required": true,
+    "timed_out": false,
+    "limitations": []
+  },
+  "scientific": [],
+  "providers": [],
+  "failures": [],
+  "artifacts": [],
+  "next": [],
+  "view": {
+    "fields": null,
+    "omitted_fields": [],
+    "budget": null,
+    "omitted_records": 0,
+    "truncated": false
+  },
+  "payload": {
+    "object_key": "fixture/evidence",
+    "object_bytes": 10,
+    "etag": "native-validator",
+    "version": null,
+    "byte_range": {
+      "start": 0,
+      "end": 3
+    },
+    "selected_sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    "content": {
+      "encoding": "utf8",
+      "data": "abc"
+    },
+    "whole_object": false,
+    "next_offset": 3,
+    "atomic_snapshot": false
+  }
+}
