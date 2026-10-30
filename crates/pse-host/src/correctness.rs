@@ -772,6 +772,18 @@ pub fn resolve(arguments: &[OsString]) -> Result<Resolution, CorrectnessError> {
     let cargo = real_cargo()?;
     resolve_with(arguments, |arguments| capture(&cargo, arguments))
 }
+/// Resolve a selected checkout and captured environment without modifying global
+/// cwd/environment. Queries use exactly the performing adapter's native Cargo policy.
+pub fn resolve_at(
+    checkout: &Path,
+    environment: &crate::environment::Environment,
+    arguments: &[OsString],
+) -> Result<Resolution, CorrectnessError> {
+    let cargo = real_cargo_in(environment)?;
+    resolve_with(arguments, |arguments| {
+        capture_at(&cargo, arguments, checkout, environment)
+    })
+}
 fn native_command(cargo: &OsStr, arguments: &[OsString]) -> Command {
     native_command_with_rustflags(
         cargo,
