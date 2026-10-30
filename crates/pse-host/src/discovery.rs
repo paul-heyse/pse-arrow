@@ -12,6 +12,7 @@ use crate::{
     selection::{self, IgnoredPolicy, Operation},
 };
 use nextest_metadata::{BinaryListSummary, RustTestSuiteStatusSummary, TestListSummary};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
@@ -82,7 +83,7 @@ fn invalid(message: impl Into<String>) -> DiscoveryError {
 }
 
 /// Exact identity of one observed test, including its independent build context.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
 pub struct TestIdentity {
     /// Selection context; the same binary/test in incompatible feature contexts is distinct.
     pub group: usize,
