@@ -7,6 +7,7 @@ Usage: pse __host-generation-bootstrap [OPTIONS]
 
 Options:
   -C <checkout>
+      --from <FROM>
       --format <FORMAT>  Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
       --fields <FIELDS>  Select comma-separated payload fields while retaining identity, state and coverage
       --budget <BUDGET>  Limit payload array records; retain complete evidence as an artifact
@@ -16,6 +17,9 @@ Usage: pse __host-generation-bootstrap [OPTIONS]
 
 Options:
   -C <checkout>
+
+
+      --from <FROM>
 
 
       --format <FORMAT>

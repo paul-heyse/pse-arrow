@@ -432,12 +432,6 @@ fn publish(
     Ok(())
 }
 
-/// Explicit construction transaction invoked only by the cold seed script. No caller
-/// may hold the update lock across this call; it acquires its own exclusive exclusion.
-pub fn bootstrap(root: &Path) -> Result<i32, HostError> {
-    bootstrap_from(root, None, BootstrapMode::CopyOrBuild).map(|outcome| outcome.exit_code)
-}
-
 /// Private seed result: this destination requires construction by its fresh local helper.
 pub const LOCAL_SEED_REQUIRED: i32 = 79;
 /// Whether this process owns the destination's current construction policy.

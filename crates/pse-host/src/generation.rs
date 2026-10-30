@@ -50,7 +50,7 @@ const BUILD_VARIABLES: &[&str] = &[
 mod bootstrap;
 pub use bootstrap::{
     BootstrapMode, BootstrapOutcome, Freshness, HostTool, LOCAL_SEED_REQUIRED, PreparedGeneration,
-    bootstrap, bootstrap_from, bootstrap_mode, freshness, prepared,
+    bootstrap_from, bootstrap_mode, freshness, prepared,
 };
 mod entry;
 pub use entry::{EntryGuard, EntrySettlement, NewWorkDecision, new_work_decision};

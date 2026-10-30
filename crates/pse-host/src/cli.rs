@@ -93,7 +93,10 @@ enum Command {
         all: bool,
     },
     #[command(name = "__host-generation-bootstrap", hide = true)]
-    HostGenerationBootstrap,
+    HostGenerationBootstrap {
+        #[arg(long)]
+        from: Option<PathBuf>,
+    },
     /// Print the serialization schema of a command's actual detail view.
     Schema {
         #[arg(required=true,num_args=1..)]
@@ -150,7 +153,7 @@ impl Command {
         match self {
             Self::Boundary(options) => options.print || !options.explain,
             Self::AgentHook { .. }
-            | Self::HostGenerationBootstrap
+            | Self::HostGenerationBootstrap { .. }
             | Self::CargoTools { .. }
             | Self::DiagnosticTools { .. }
             | Self::Run { .. } => true,
@@ -163,7 +166,7 @@ impl Command {
     // from its presentation protocol. Control and internal entries never auto-rebuild.
     fn generation_intent(&self) -> GenerationIntent {
         match self {
-            Self::HostGenerationBootstrap => GenerationIntent::Internal,
+            Self::HostGenerationBootstrap { .. } => GenerationIntent::Internal,
             Self::Boundary(options)
                 if !options.print && !options.explain && !options.command.is_empty() =>
             {
@@ -557,7 +560,12 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         )),
     }
 }
-fn dispatch(cli: Cli, presentation: &OutputOptions) -> Result<i32, HostError> {
+fn dispatch(
+    cli: Cli,
+    presentation: &OutputOptions,
+    entry: &EntryGuard,
+    settlement: &mut EntrySettlement,
+) -> Result<i32, HostError> {
     let selected = cli.root.as_deref();
     let Some(command) = cli.command else {
         return Ok(0);
@@ -642,7 +650,16 @@ fn dispatch(cli: Cli, presentation: &OutputOptions) -> Result<i32, HostError> {
             }
             Ok(presentation.emit(response)?)
         }
-        Command::HostGenerationBootstrap => crate::generation::bootstrap(&checkout_root(selected)?),
+        Command::HostGenerationBootstrap { from } => {
+            let mode = crate::generation::bootstrap_mode(entry, from.as_deref())?;
+            let outcome = crate::generation::bootstrap_from(
+                &checkout_root(selected)?,
+                from.as_deref(),
+                mode,
+            )?;
+            *settlement = outcome.settlement;
+            Ok(outcome.exit_code)
+        }
         Command::Schema { verb } => {
             let schema = response_schema(&verb.join(" "), &presentation.presentation)?;
             serde_json::to_writer_pretty(io::stdout().lock(), &schema).map_err(io::Error::other)?;
@@ -1111,7 +1128,7 @@ pub fn main(kind: BinKind) -> ExitCode {
                         if intent != GenerationIntent::Passive {
                             settlement = EntrySettlement::Unresolved;
                         }
-                        dispatch(cli, &presentation)
+                        dispatch(cli, &presentation, &entry, &mut settlement)
                     })();
                     settle_entry(result, entry, settlement)
                 })()
