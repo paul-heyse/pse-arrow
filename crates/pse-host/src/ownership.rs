@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Passive generated-output routing over the aggregate generator's actual declarations.
+/// Wire contract emitted only by the native document interpretation owner.
+#[path = "../../../scripts/document-ownership.rs"]
+pub mod document;
 #[path = "../../../scripts/generated-outputs.rs"]
 pub mod protocol;
 
@@ -186,6 +189,134 @@ pub struct OwnerQuery {
     #[serde(skip)]
     #[schemars(skip)]
     pub failures: Vec<OwnershipError>,
+}
+
+/// Containing workspace-package scope from an explicitly captured Cargo snapshot.
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum PackageOwnership {
+    /// No metadata was supplied; this reader never starts Cargo.
+    Unavailable {
+        /// Missing input, distinct from an empty workspace.
+        reason: String,
+    },
+    /// The deepest containing workspace member's actual manifest directory.
+    WorkspacePackage {
+        /// Exact Cargo source identity, not a name-only package guess.
+        package_id: String,
+        /// Cargo's current captured package name.
+        name: String,
+        /// Captured package version.
+        version: String,
+        /// Actual manifest path, preserving native platform representation.
+        manifest_path: OsString,
+        /// Exact retained snapshot byte identity.
+        metadata_digest: String,
+    },
+    /// No workspace-member manifest scope contains this selected path.
+    Unmapped {
+        /// Exact retained snapshot byte identity, independent of currentness.
+        metadata_digest: String,
+    },
+}
+/// Current authoritative plan binding availability, independent of package membership.
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum PlanOwnership {
+    /// The captured source owner has no source-path-to-active-plan declaration.
+    NotDeclared {
+        /// Explicit authority limit, not an inferred plan from directory or package naming.
+        reason: String,
+    },
+}
+/// Passive source-scope ownership, independent of generator/document availability.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct SourceOwnerQuery {
+    /// Normalized selected native path.
+    pub path: OsString,
+    /// Captured containing package, never inferred from directory naming.
+    pub package: PackageOwnership,
+    /// Current source-bound active plan authority, independently declared if available.
+    pub owning_plan: PlanOwnership,
+    /// Scope and authority limits.
+    pub coverage_limits: Vec<String>,
+}
+
+/// Resolve a containing workspace package using only an optional captured metadata owner.
+/// No Cargo process, document parser, build inventory or fixture preparation is started.
+pub fn source_owner(
+    root: &Path,
+    path: &Path,
+    snapshot: Option<&crate::catalog::MetadataSnapshot>,
+) -> Result<SourceOwnerQuery, OwnershipError> {
+    let root = resolve(root)?;
+    let target = resolve(&root.join(path))?;
+    if !target.starts_with(&root) {
+        return Err(invalid("source ownership path is outside checkout"));
+    }
+    let package = if let Some(snapshot) = snapshot {
+        if !snapshot.metadata.workspace_root.is_absolute() {
+            return Err(invalid("captured metadata workspace root is not absolute"));
+        }
+        if resolve(snapshot.metadata.workspace_root.as_std_path())? != root {
+            return Err(invalid(
+                "captured metadata belongs to a different workspace root",
+            ));
+        }
+        let mut candidates = Vec::new();
+        for package in snapshot.metadata.workspace_packages() {
+            if !package.manifest_path.is_absolute() {
+                return Err(invalid(
+                    "captured workspace package manifest is not absolute",
+                ));
+            }
+            let manifest = resolve(package.manifest_path.as_std_path())?;
+            let directory = manifest
+                .parent()
+                .ok_or_else(|| invalid("package manifest parent absent"))?;
+            if target.starts_with(directory) {
+                candidates.push((directory.components().count(), package, manifest));
+            }
+        }
+        candidates.sort_by_key(|(depth, _, _)| *depth);
+        if candidates.len() > 1
+            && candidates[candidates.len() - 1].0 == candidates[candidates.len() - 2].0
+        {
+            return Err(invalid(
+                "captured workspace members have ambiguous containing manifest scopes",
+            ));
+        }
+        if let Some((_, package, manifest)) = candidates.pop() {
+            PackageOwnership::WorkspacePackage {
+                package_id: package.id.to_string(),
+                name: package.name.to_string(),
+                version: package.version.to_string(),
+                manifest_path: manifest.into_os_string(),
+                metadata_digest: snapshot.digest.clone(),
+            }
+        } else {
+            PackageOwnership::Unmapped {
+                metadata_digest: snapshot.digest.clone(),
+            }
+        }
+    } else {
+        PackageOwnership::Unavailable {
+            reason:
+                "captured Cargo metadata was not supplied; passive ownership does not run Cargo"
+                    .into(),
+        }
+    };
+    Ok(SourceOwnerQuery {
+        path: target.into_os_string(), package,
+        owning_plan: PlanOwnership::NotDeclared {
+            reason: "Captured Cargo metadata declares package scopes, not source-path-to-active-plan authority".into(),
+        },
+        coverage_limits: vec![
+            "Containing workspace-member manifest scope only; no module, target, dependency, semantic-reference or build coverage is inferred.".into(),
+            "Captured metadata freshness is unknown. No source-path-to-active-plan binding is declared by this source.".into(),
+            "Document ownership requires the separate native document interpreter; this reader does not parse its metadata or section policy.".into(),
+        ],
+    })
 }
 
 fn contributors(

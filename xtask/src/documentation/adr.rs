@@ -170,7 +170,7 @@ fn issued_number(id: &str) -> Option<u32> {
         .then(|| number.parse().ok())
         .flatten()
 }
-fn adr_paths(root: &Path) -> Result<Vec<PathBuf>> {
+pub(super) fn adr_paths(root: &Path) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     let dir = root.join("docs/adr");
     if !dir.is_dir() {

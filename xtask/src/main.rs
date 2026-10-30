@@ -135,6 +135,11 @@ enum Cmd {
         #[command(flatten)]
         query: xtask::documentation::lifecycle::Query,
     },
+    /// Read native document ownership and architecture section identities.
+    Owner {
+        #[command(flatten)]
+        query: xtask::documentation::ownership::Query,
+    },
     /// Build, serve or explicitly install the selected documentation tools.
     Docs {
         #[arg(value_enum)]
@@ -496,6 +501,40 @@ mod command_catalog_tests {
     use super::*;
 
     #[test]
+    fn owner_selection_is_the_actual_native_grammar_and_catalogue() {
+        assert!(matches!(
+            Cli::try_parse_from(["xtask", "owner", "--schema"])
+                .unwrap()
+                .command,
+            Cmd::Owner {
+                query: xtask::documentation::ownership::Query {
+                    path: None,
+                    schema: true
+                }
+            }
+        ));
+        assert!(matches!(
+            Cli::try_parse_from(["xtask", "owner", "docs/README.md"])
+                .unwrap()
+                .command,
+            Cmd::Owner {
+                query: xtask::documentation::ownership::Query {
+                    path: Some(_),
+                    schema: false
+                }
+            }
+        ));
+        assert!(Cli::try_parse_from(["xtask", "owner"]).is_err());
+        assert!(Cli::try_parse_from(["xtask", "owner", "docs/README.md", "--schema"]).is_err());
+        let selected = command_catalog(&["owner".into()], false);
+        assert_eq!(
+            selected.availability,
+            xtask::cli_catalog::Availability::Available
+        );
+        assert!(selected.records[0].long_help.contains("--schema"));
+    }
+
+    #[test]
     fn discovery_reads_the_actual_owner_parser_and_scopes_without_effects() {
         assert!(matches!(
             Cli::try_parse_from(["xtask", "commands", "--json"])
@@ -550,6 +589,11 @@ fn main() -> Result<()> {
         }
         return Ok(());
     }
+    if let Cmd::Owner { query } = &cli.command
+        && query.schema
+    {
+        return xtask::documentation::ownership::schema();
+    }
     // This pure tooling route also runs in namespaces without a checkout or store.
     #[cfg(feature = "surrealql-tools")]
     if let Cmd::SurrealqlValidate { inputs } = &cli.command {
@@ -558,6 +602,7 @@ fn main() -> Result<()> {
     let root = workspace_root()?;
     match cli.command {
         Cmd::Commands { .. } => bail!("command discovery was not handled before checkout lookup"),
+        Cmd::Owner { query } => xtask::documentation::ownership::execute(&root, query),
         Cmd::Register { command } => {
             std::process::exit(xtask::documentation::register::execute(&root, command)?);
         }

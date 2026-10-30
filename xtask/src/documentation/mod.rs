@@ -8,5 +8,6 @@ pub mod lifecycle;
 pub mod metadata;
 #[cfg(test)]
 mod metadata_tests;
+pub mod ownership;
 pub mod register;
 pub mod site;

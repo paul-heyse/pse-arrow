@@ -2,6 +2,124 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 
+fn source_metadata(root: &Path) -> crate::catalog::MetadataSnapshot {
+    let package = |name: &str, relative: &str| {
+        serde_json::json!({
+            "name": name, "version": "0.1.0", "id": format!("path+file:///{name}#{name}@0.1.0"),
+            "manifest_path": root.join(relative).join("Cargo.toml"), "dependencies": [],
+            "targets": [], "features": {}
+        })
+    };
+    crate::catalog::MetadataSnapshot {
+        metadata: serde_json::from_value(serde_json::json!({
+            "packages": [package("outer", "crates/outer"), package("nested", "crates/outer/nested"), package("external", "vendor/external")],
+            "workspace_members": ["path+file:///outer#outer@0.1.0", "path+file:///nested#nested@0.1.0"],
+            "workspace_default_members": ["path+file:///outer#outer@0.1.0"],
+            "workspace_root": root, "target_directory": root.join("target"), "version": 1
+        })).unwrap(), digest: "retained-source-bytes".into()
+    }
+}
+
+#[test]
+fn source_scopes_use_captured_workspace_members_and_deepest_manifest() {
+    let root = tempfile::tempdir().unwrap();
+    let snapshot = source_metadata(root.path());
+    let result = source_owner(
+        root.path(),
+        Path::new("crates/outer/nested/src/actual.rs"),
+        Some(&snapshot),
+    )
+    .unwrap();
+    assert!(matches!(
+        result.owning_plan,
+        PlanOwnership::NotDeclared { .. }
+    ));
+    match result.package {
+        PackageOwnership::WorkspacePackage {
+            name,
+            package_id,
+            metadata_digest,
+            ..
+        } => {
+            assert_eq!(name, "nested");
+            assert_eq!(package_id, "path+file:///nested#nested@0.1.0");
+            assert_eq!(metadata_digest, "retained-source-bytes");
+        }
+        other => panic!("unexpected {other:?}"),
+    }
+    for path in [
+        "crates/outer-extra/file.rs",
+        "vendor/external/src/lib.rs",
+        "docs/model.md",
+    ] {
+        assert!(matches!(
+            source_owner(root.path(), Path::new(path), Some(&snapshot))
+                .unwrap()
+                .package,
+            PackageOwnership::Unmapped { .. }
+        ));
+    }
+    assert!(matches!(
+        source_owner(root.path(), Path::new("crates/outer/src/lib.rs"), None)
+            .unwrap()
+            .package,
+        PackageOwnership::Unavailable { .. }
+    ));
+    assert!(source_owner(root.path(), Path::new("../outside.rs"), Some(&snapshot)).is_err());
+    let other = tempfile::tempdir().unwrap();
+    assert!(source_owner(other.path(), Path::new("src/file.rs"), Some(&snapshot)).is_err());
+    let mut malformed = source_metadata(root.path());
+    malformed.metadata.packages[0].manifest_path = "relative/Cargo.toml".into();
+    assert!(source_owner(root.path(), Path::new("src/file.rs"), Some(&malformed)).is_err());
+}
+
+#[cfg(unix)]
+#[test]
+fn source_scope_rejects_symlink_escape_without_requiring_selected_file_to_exist() {
+    let root = tempfile::tempdir().unwrap();
+    let other = tempfile::tempdir().unwrap();
+    std::os::unix::fs::symlink(other.path(), root.path().join("escaped")).unwrap();
+    assert!(source_owner(root.path(), Path::new("escaped/missing.rs"), None).is_err());
+}
+
+#[cfg(unix)]
+#[test]
+fn document_and_source_owner_wire_schemas_preserve_native_path_bytes() {
+    use std::os::unix::ffi::OsStringExt as _;
+    let path = OsString::from_vec(b"opaque-\xff.md".to_vec());
+    let record = document::DocumentOwnership {
+        path: path.clone(),
+        doc_owner: None,
+        historical_owner: None,
+        doc_role: None,
+        doc_retention: None,
+        status: None,
+        sections: vec![],
+        workflow: document::Workflow::DocumentOwner,
+        coverage_limits: vec![],
+    };
+    let value = serde_json::to_value(&record).unwrap();
+    let schema = serde_json::to_value(schemars::schema_for!(document::DocumentOwnership)).unwrap();
+    jsonschema::validator_for(&schema)
+        .unwrap()
+        .validate(&value)
+        .unwrap();
+    assert_eq!(
+        serde_json::from_value::<document::DocumentOwnership>(value)
+            .unwrap()
+            .path,
+        path
+    );
+    let root = tempfile::tempdir().unwrap();
+    let record = source_owner(root.path(), Path::new(&path), None).unwrap();
+    let value = serde_json::to_value(record).unwrap();
+    let schema = serde_json::to_value(schemars::schema_for!(SourceOwnerQuery)).unwrap();
+    jsonschema::validator_for(&schema)
+        .unwrap()
+        .validate(&value)
+        .unwrap();
+}
+
 fn fixture() -> tempfile::TempDir {
     let root = tempfile::tempdir().unwrap();
     let owner = |producer: &str, path: &str, kind, contributors| GeneratorOwner {
