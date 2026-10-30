@@ -134,12 +134,50 @@ pub enum RecordedObservation {
 /// Passive facts about the checked original service, without admission reconciliation.
 #[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
 pub struct PassiveRecordedObservation {
-    /// Original service observation; payload completion is a separate owner's fact.
+    /// Original native unit observation; scopes omit inapplicable service-only properties.
+    #[serde(serialize_with = "serialize_passive_unit")]
+    #[schemars(with = "PassiveUnitView<'static>")]
     pub observation: RecordedObservation,
     /// Whether the original kernel group is proved drained at observation time.
     pub native_drained: bool,
     /// Independently observed unit aggregate accounting, with unavailable source failures retained.
     pub accounting: AccountingObservation,
+}
+#[derive(Serialize, schemars::JsonSchema)]
+#[serde(tag = "state", rename_all = "snake_case")]
+enum PassiveUnitView<'a> {
+    Observed { service: &'a UnitObservation },
+    ObservedScope { scope: ScopeFacts<'a> },
+    Gone,
+}
+#[derive(Serialize, schemars::JsonSchema)]
+struct ScopeFacts<'a> {
+    unit: &'a str,
+    invocation: &'a [u8],
+    active_state: &'a str,
+    sub_state: &'a str,
+    control_group: &'a str,
+}
+fn serialize_passive_unit<S: serde::Serializer>(
+    observation: &RecordedObservation,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    let view = match observation {
+        RecordedObservation::Observed { service } if service.unit.ends_with(".scope") => {
+            PassiveUnitView::ObservedScope {
+                scope: ScopeFacts {
+                    unit: &service.unit,
+                    invocation: &service.invocation,
+                    active_state: &service.active_state,
+                    sub_state: &service.sub_state,
+                    control_group: &service.control_group,
+                },
+            }
+        }
+        RecordedObservation::Observed { service } => PassiveUnitView::Observed { service },
+        RecordedObservation::Gone => PassiveUnitView::Gone,
+    };
+    view.serialize(serializer)
 }
 /// Availability of the native accounting enrichment, separate from original unit/process facts.
 #[derive(Clone, Debug, Serialize, schemars::JsonSchema)]
@@ -384,19 +422,14 @@ async fn passive_snapshot(
         .original_drained(&checked.launch.controller, Some(&checked.original.binding))
         .await?;
     let accounting = if checked.unit.is_some() {
-        match checked
-            .manager
-            .native_accounting(&checked.launch.controller, &checked.original.binding)
-            .await
-        {
-            Ok(facts) => AccountingObservation::Available { facts },
-            Err(error) => AccountingObservation::Unavailable {
-                diagnostic: crate::envelope::ErrorRecord::from_typed(
-                    &error,
-                    &RedactionPolicy::from_inputs(environment),
-                ),
-            },
-        }
+        accounting_snapshot(
+            &checked.manager,
+            &checked.original.manager,
+            checked.launch.controller.unit(),
+            &checked.original.binding,
+            environment,
+        )
+        .await
     } else {
         AccountingObservation::NotPresent
     };
@@ -405,6 +438,26 @@ async fn passive_snapshot(
         native_drained,
         accounting,
     })
+}
+async fn accounting_snapshot(
+    manager: &HostManager,
+    original_manager: &str,
+    name: &str,
+    binding: &crate::manager::UnitBinding,
+    environment: &Environment,
+) -> AccountingObservation {
+    match manager
+        .native_accounting(original_manager, name, binding)
+        .await
+    {
+        Ok(facts) => AccountingObservation::Available { facts },
+        Err(error) => AccountingObservation::Unavailable {
+            diagnostic: crate::envelope::ErrorRecord::from_typed(
+                &error,
+                &RedactionPolicy::from_inputs(environment),
+            ),
+        },
+    }
 }
 
 /// Check a copied publisher's complete kernel identity and actual membership in the
@@ -415,7 +468,70 @@ pub async fn observe_candidate_member(
     process: &ProcessIdentity,
     environment: &Environment,
 ) -> Result<PassiveRecordedObservation, HostError> {
-    let checked = checked_recorded(root, id, environment).await?;
+    let root = root.canonicalize()?;
+    let store = InvocationStore::new(CheckoutState::resolve(&root, environment)?);
+    let _: crate::invocation::InvocationMetadata<Box<serde_json::value::RawValue>> =
+        store.metadata(id)?;
+    let directory = store.directory(id)?;
+    #[derive(Deserialize)]
+    struct CustodyVersion {
+        version: u32,
+    }
+    let header: CustodyVersion = directory
+        .evidence(InvocationEvidence::Custody)?
+        .ok_or_else(|| invalid("original publisher custody is absent"))?;
+    if header.version == 4 {
+        let custody: crate::foreground::ForegroundCustody = directory
+            .evidence(InvocationEvidence::Custody)?
+            .ok_or_else(|| invalid("original foreground custody is absent"))?;
+        if custody.version != 4 {
+            return Err(invalid("original foreground custody changed during read"));
+        }
+        let manager = HostManager::connect_user(None).await?;
+        let unit = manager
+            .authenticate_foreground_member(&custody.manager, &custody.unit, &custody.root, process)
+            .await?;
+        let native_drained = manager
+            .foreground_binding_drained(
+                &custody.manager,
+                &custody.unit,
+                &custody.root,
+                &custody.child,
+            )
+            .await?;
+        let accounting = accounting_snapshot(
+            &manager,
+            &custody.manager,
+            &custody.unit,
+            &custody.root,
+            environment,
+        )
+        .await;
+        manager
+            .authenticate_foreground_member(&custody.manager, &custody.unit, &custody.root, process)
+            .await?;
+        return Ok(PassiveRecordedObservation {
+            observation: RecordedObservation::Observed { service: unit },
+            native_drained,
+            accounting,
+        });
+    }
+    if header.version != 5 {
+        return Err(invalid("unsupported original publisher custody version"));
+    }
+    let checked = checked_recorded(&root, id, environment).await?;
+    let custody: super::service_payload::ServiceCustody = checked
+        .directory
+        .evidence(InvocationEvidence::Custody)?
+        .ok_or_else(|| invalid("original service payload custody is absent"))?;
+    if custody.version != 5
+        || custody.manager != checked.original.manager
+        || custody.service != checked.original.binding
+    {
+        return Err(invalid(
+            "original service payload custody changed or differs from its controller",
+        ));
+    }
     if checked.unit.is_none() {
         return Err(invalid(
             "original unit is no longer present for candidate membership",

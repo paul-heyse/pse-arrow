@@ -94,19 +94,25 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
         original_launch
     );
     let native = &delegated["payload"]["native"]["facts"];
-    assert_eq!(native["observation"]["service"]["active_state"], "active");
-    assert_eq!(
-        native["observation"]["service"]["invocation"]
-            .as_array()
-            .unwrap()
-            .len(),
-        16
-    );
+    let scope = native["observation"]["state"] == "observed_scope";
+    let unit = if scope {
+        &native["observation"]["scope"]
+    } else {
+        &native["observation"]["service"]
+    };
+    assert_eq!(unit["active_state"], "active");
+    assert_eq!(unit["invocation"].as_array().unwrap().len(), 16);
     assert_eq!(native["native_drained"], false);
     assert_eq!(native["accounting"]["state"], "available", "{native}");
     assert_eq!(native["accounting"]["facts"]["atomic_snapshot"], false);
-    assert!(native["accounting"]["facts"]["service_result"].is_string());
-    let native_invocation: String = native["observation"]["service"]["invocation"]
+    if scope {
+        assert!(unit.get("main_pid").is_none());
+        assert!(unit.get("exit_code").is_none());
+        assert!(native["accounting"]["facts"]["service_result"].is_null());
+    } else {
+        assert!(native["accounting"]["facts"]["service_result"].is_string());
+    }
+    let native_invocation: String = unit["invocation"]
         .as_array()
         .unwrap()
         .iter()
@@ -117,8 +123,7 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
             .as_array()
             .unwrap()
             .iter()
-            .any(|action| action["argv"]
-                == json!(["pse", "activity", native["observation"]["service"]["unit"]]))
+            .any(|action| action["argv"] == json!(["pse", "activity", unit["unit"]]))
     );
     assert!(delegated["next"].as_array().unwrap().iter().any(|action| {
         action["argv"].as_array().is_some_and(|argv| {

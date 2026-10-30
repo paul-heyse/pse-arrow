@@ -11,6 +11,45 @@ pub(in crate::managed) const FRONTEND_ENTRY: &str =
     "managed::supervisor::tests::detached_frontend_entry";
 const PUBLICATION_COLLISION: &str = "PSE_DETACHED_TEST_PUBLICATION_COLLISION";
 
+#[test]
+fn passive_scope_wire_omits_service_properties_and_uses_its_declared_view_schema() {
+    let mut observed = PassiveRecordedObservation {
+        observation: RecordedObservation::Observed {
+            service: UnitObservation {
+                unit: "original.scope".into(),
+                invocation: vec![1; 16],
+                active_state: "active".into(),
+                sub_state: "running".into(),
+                main_pid: 0,
+                exit_code: 0,
+                exit_status: 0,
+                control_group: "/original".into(),
+            },
+        },
+        native_drained: false,
+        accounting: AccountingObservation::NotPresent,
+    };
+    let scope = serde_json::to_value(&observed).unwrap();
+    assert_eq!(scope["observation"]["state"], "observed_scope");
+    assert!(scope["observation"]["scope"].get("main_pid").is_none());
+    assert!(scope["observation"]["scope"].get("exit_status").is_none());
+    let schema = schemars::schema_for!(PassiveRecordedObservation).to_value();
+    assert!(schema["$defs"]["ScopeFacts"]["properties"]["unit"].is_object());
+    assert!(
+        schema["$defs"]["ScopeFacts"]["properties"]
+            .get("main_pid")
+            .is_none()
+    );
+    let RecordedObservation::Observed { service } = &mut observed.observation else {
+        unreachable!()
+    };
+    service.unit = "original.service".into();
+    service.main_pid = 42;
+    let service = serde_json::to_value(&observed).unwrap();
+    assert_eq!(service["observation"]["state"], "observed");
+    assert_eq!(service["observation"]["service"]["main_pid"], 42);
+}
+
 #[tokio::test]
 async fn detached_frontend_entry() {
     let Some(scratch) = std::env::var_os(FRONTEND).map(PathBuf::from) else {
