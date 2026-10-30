@@ -49,6 +49,11 @@ impl CurrentMembership {
     pub fn member(&self) -> &Path {
         &self.ancestry[self.ancestry.len() - 1].path
     }
+    pub(crate) fn contains_original(&self, binding: &DirectoryBinding) -> bool {
+        self.ancestry.iter().any(|group| {
+            group.path == binding.path() && (group.device, group.inode) == binding.identity()
+        })
+    }
     /// Revalidate this actual process, original unit and every opened member component.
     pub async fn validate(&self, manager: &HostManager) -> Result<(), HostError> {
         manager.validate_view()?;

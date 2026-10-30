@@ -22,6 +22,9 @@ use std::{path::PathBuf, sync::Arc, time::Instant};
 use tokio_util::sync::CancellationToken;
 
 const STATE_BASE: &str = "PSE_MANAGED_STATE_BASE_BYTES";
+pub(super) const CHECKOUT: &str = "PSE_MANAGED_CHECKOUT_BYTES";
+mod ancestry;
+pub use ancestry::{ManagedParent, parent};
 
 /// The foreground origin remains a live lifetime owner; detachment explicitly omits that lease.
 #[derive(Clone, Copy, Debug)]
@@ -47,6 +50,8 @@ pub struct ManagedRequest {
     pub policy: PayloadPolicy,
     /// Foreground origin lease or explicit detached lifetime.
     pub mode: LaunchMode,
+    /// Actual checked parent member, captured before publishing child metadata.
+    pub parent: Option<ManagedParent>,
 }
 impl std::fmt::Debug for ManagedRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -70,6 +75,44 @@ pub(super) struct LaunchRecord {
     request_digest: String,
     origin: Option<ProcessIdentity>,
     pub(super) policy: PayloadPolicy,
+    #[serde(default)]
+    parent: Option<ancestry::ParentRecord>,
+}
+impl LaunchRecord {
+    fn verified_executable(&self, root: &std::path::Path) -> Result<PathBuf, HostError> {
+        let generation =
+            GenerationUse::acquire(&root.join("target/host-tools"), &self.control.generation)?;
+        let verified = self.control.executable(root, HostTool::Host);
+        let released = generation.settle();
+        match (verified, released) {
+            (Ok(path), Ok(())) => Ok(path),
+            (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
+            (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
+                operation: Box::new(operation),
+                cleanup: Box::new(cleanup),
+            }),
+        }
+    }
+    fn validate(
+        &self,
+        id: &CliInvocationId,
+        metadata: &crate::invocation::InvocationMetadata<Box<serde_json::value::RawValue>>,
+    ) -> Result<(), HostError> {
+        if !matches!(
+            (self.version, self.parent.is_some()),
+            (1, false) | (2, true)
+        ) || self.invocation != *id
+            || self.command != metadata.selection.command
+            || self.control.generation != metadata.selection.control.generation
+            || self.control.manifest_digest != metadata.selection.control.manifest_digest
+            || self.control.protocol != metadata.selection.control.protocol
+            || self.parent.as_ref().map(|parent| &parent.link.invocation)
+                != metadata.selection.parent.as_ref()
+        {
+            return Err(invalid("recorded launch differs from original metadata"));
+        }
+        Ok(())
+    }
 }
 
 /// Actual original controller incarnation, published by that authenticated live main before
@@ -228,15 +271,7 @@ pub async fn recorded(
     let launch: LaunchRecord = directory
         .evidence(InvocationEvidence::Launch)?
         .ok_or_else(|| invalid("original launch record is absent"))?;
-    if launch.version != 1
-        || launch.invocation != *id
-        || launch.command != metadata.selection.command
-        || launch.control.generation != metadata.selection.control.generation
-        || launch.control.manifest_digest != metadata.selection.control.manifest_digest
-        || launch.control.protocol != metadata.selection.control.protocol
-    {
-        return Err(invalid("recorded launch differs from original metadata"));
-    }
+    launch.validate(id, &metadata)?;
     let original: ControllerRecord = directory
         .evidence(InvocationEvidence::Controller)?
         .ok_or_else(|| invalid("actual original controller record is absent"))?;
@@ -244,20 +279,7 @@ pub async fn recorded(
     {
         return Err(invalid("actual original controller record is invalid"));
     }
-    let generation =
-        GenerationUse::acquire(&root.join("target/host-tools"), &launch.control.generation)?;
-    let verified = launch.control.executable(&root, HostTool::Host).map(|_| ());
-    let released = generation.settle();
-    match (verified, released) {
-        (Ok(()), Ok(())) => {}
-        (Err(error), Ok(())) | (Ok(()), Err(error)) => return Err(error),
-        (Err(operation), Err(cleanup)) => {
-            return Err(HostError::Settlement {
-                operation: Box::new(operation),
-                cleanup: Box::new(cleanup),
-            });
-        }
-    }
+    launch.verified_executable(&root)?;
     let manager = HostManager::connect_user(None).await?;
     let unit = manager
         .recorded_original(
@@ -289,8 +311,8 @@ fn current_identity() -> Result<ProcessIdentity, HostError> {
     }
 }
 
-/// Launch one top-level generic invocation. Nested entry deliberately refuses until its
-/// protected original-member handoff is supplied; it never escapes to a sibling allocation.
+/// Launch a generic invocation using top-level placement or checked original-member handoff.
+/// A nested payload remains below its original parent and borrows its reservation.
 pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostError> {
     let ManagedRequest {
         root,
@@ -299,6 +321,7 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
         selection,
         policy,
         mode,
+        parent,
     } = request;
     let root = std::fs::canonicalize(root)?;
     let state = CheckoutState::resolve(&root, &command.environment)?;
@@ -316,13 +339,20 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
         .ok_or_else(|| invalid("startup horizon exceeds clock range"))?;
     let manager = HostManager::connect_user(None).await?;
     let membership = manager.current_membership().await?;
-    if manager.native_workload(membership.root()).await? {
+    if manager.native_workload(membership.root()).await? != parent.is_some() {
         return Err(invalid(
             "nested managed entry requires protected original-member handoff",
         ));
     }
-    let (_, _, tasks) = manager.foreground_placement(membership.root()).await?;
-    crate::foreground::preflight_service(&membership.root().control_group, tasks)?;
+    if parent.is_none() {
+        let (_, _, tasks) = manager.foreground_placement(membership.root()).await?;
+        crate::foreground::preflight_service(&membership.root().control_group, tasks)?;
+    }
+    if metadata.selection.parent.as_ref() != parent.as_ref().map(ManagedParent::invocation_id) {
+        return Err(invalid(
+            "nested parent differs from original child metadata",
+        ));
+    }
     let origin = match mode {
         LaunchMode::Foreground => Some(current_identity()?),
         LaunchMode::Detached => None,
@@ -342,7 +372,7 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
     };
     let controller = LaunchIntent::fresh()?;
     let record = LaunchRecord {
-        version: 1,
+        version: if parent.is_some() { 2 } else { 1 },
         invocation: directory.id().clone(),
         command: metadata.selection.command,
         controller: controller.clone(),
@@ -350,6 +380,7 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
         request_digest: private.digest()?,
         origin,
         policy,
+        parent: parent.as_ref().map(|parent| parent.record.clone()),
     };
     directory.publish_evidence(InvocationEvidence::Launch, &record)?;
     directory.publish_request(&private)?;
@@ -380,7 +411,14 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
     };
     let mut unit = None;
     let launched = async {
-        unit = Some(manager.start_notify_service(&spec, &finalizer, startup).await?);
+        unit = Some(match &parent {
+            Some(parent) => {
+                let mut guards = Some(parent.locks(&manager, startup).await?);
+                manager.start_notify_service_bound(&spec, &finalizer, &crate::ResourceControls::default(), startup,
+                    || drop(guards.take())).await?
+            }
+            None => manager.start_notify_service(&spec, &finalizer, startup).await?,
+        });
         let unit = unit.as_ref().ok_or_else(|| invalid("original service custody is missing"))?;
         if unit.launch_job_result() != Some("done") {
             return Err(invalid("original notify job did not acknowledge readiness; inspect retained invocation evidence"));
@@ -451,15 +489,7 @@ pub(super) async fn context(
         .ok_or_else(|| invalid("original launch evidence is absent"))?;
     let metadata: crate::invocation::InvocationMetadata<Box<serde_json::value::RawValue>> =
         store.metadata(id)?;
-    if record.version != 1
-        || record.invocation != *id
-        || record.command != metadata.selection.command
-        || record.control.generation != metadata.selection.control.generation
-        || record.control.protocol != metadata.selection.control.protocol
-        || record.control.manifest_digest != metadata.selection.control.manifest_digest
-    {
-        return Err(invalid("launch evidence differs from original selection"));
-    }
+    record.validate(id, &metadata)?;
     if std::env::current_exe()? != record.control.executable(root, HostTool::Host)? {
         return Err(invalid(
             "internal entry is not the recorded prepared control executable",
@@ -537,6 +567,10 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
         return Err(invalid("private input differs from captured launch"));
     }
     let (command, selection, policy) = private.into_parts()?;
+    let parent = match context.record.parent.clone() {
+        Some(parent) => Some(ManagedParent::reopen(parent, &context.manager, &selection).await?),
+        None => None,
+    };
     let redaction = RedactionPolicy::from_inputs(&command.environment);
     if policy.startup != context.record.policy.startup
         || policy.drain != context.record.policy.drain
@@ -597,6 +631,7 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
                 policy,
                 owner_cancel,
                 GenericObserver,
+                parent,
             )
             .await;
             let _ = send_report.send(report);

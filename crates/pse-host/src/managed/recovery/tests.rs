@@ -87,6 +87,7 @@ async fn crash_supervisor_entry() {
         policy,
         tokio_util::sync::CancellationToken::new(),
         GenericObserver,
+        None,
     )
     .await
     .unwrap();

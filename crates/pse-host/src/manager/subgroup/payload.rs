@@ -32,7 +32,7 @@ impl DirectoryBinding {
     }
 }
 /// Inert original root/member snapshot, suitable for protected evidence storage.
-/// Production recovery requires a protected ledger owner and is not implemented yet.
+/// Production recovery requires the managed owner's checked protected ledger and launch ancestry.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PayloadParentBinding {
     manager: String,
@@ -40,11 +40,27 @@ pub struct PayloadParentBinding {
     root: UnitBinding,
     ancestry: Vec<DirectoryBinding>,
 }
+impl PayloadParentBinding {
+    pub(crate) fn root(&self) -> &UnitBinding {
+        &self.root
+    }
+    pub(crate) fn intent(&self) -> &LaunchIntent {
+        &self.intent
+    }
+    pub(crate) fn contains_original(&self, binding: &DirectoryBinding) -> bool {
+        self.ancestry.contains(binding)
+    }
+}
 /// Persist this unique intent before asking the kernel to create its child.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SubgroupCreationIntent {
     parent: PayloadParentBinding,
     name: String,
+}
+impl SubgroupCreationIntent {
+    pub(crate) fn parent_binding(&self) -> &PayloadParentBinding {
+        &self.parent
+    }
 }
 /// Borrowed native root/member authority. It cannot stop the root or release its reservation.
 #[derive(Debug)]
@@ -138,8 +154,7 @@ impl OwnedUnit {
 }
 impl HostManager {
     /// Reopen an exact recorded parent after supervisor handoff; no original-unit stop is lent.
-    /// Fixture feasibility only until a protected production ledger owner supplies authority.
-    #[cfg(test)]
+    /// The managed owner supplies protected custody and authenticates its complete launch ancestry.
     pub(crate) async fn recover_payload_parent(
         &self,
         binding: &PayloadParentBinding,
@@ -215,6 +230,19 @@ async fn require_core(
     Ok(())
 }
 impl PayloadParent {
+    pub(crate) async fn validate_origin(&self, origin: &ProcessIdentity) -> Result<(), HostError> {
+        self.require_launchable().await?;
+        if !matches!(ProcessReader::default().process(origin.pid), ProcessRead::Present(facts)
+            if facts.identity == *origin && !matches!(facts.stat.state, 'Z' | 'X'))
+            || Group::path(&process_group(origin.pid)?)?
+                != self.ancestry[self.ancestry.len() - 1].path
+        {
+            return Err(HostError::Ownership(
+                "original nested launcher left its actual parent member".into(),
+            ));
+        }
+        Ok(())
+    }
     /// Inert evidence snapshot. Deserializing it never grants a production capability.
     pub fn binding(&self) -> &PayloadParentBinding {
         &self.binding
@@ -307,13 +335,12 @@ impl PayloadParent {
         })
     }
     /// Recover only an actually recorded original child inode, including unbound-open custody.
-    /// Fixture feasibility only; production sibling adoption needs a protected ledger owner.
-    #[cfg(test)]
+    /// The managed owner supplies protected original creation and inode custody.
     pub(crate) async fn recover_created(
         &self,
         intent: &SubgroupCreationIntent,
         binding: &DirectoryBinding,
-    ) -> Result<OwnedSubgroup, HostError> {
+    ) -> Result<Option<OwnedSubgroup>, HostError> {
         if intent.parent != self.binding {
             return Err(HostError::Ownership(
                 "recorded child creation parent differs".into(),
@@ -322,7 +349,22 @@ impl PayloadParent {
         self.creation_intent(&intent.name)?;
         self.validate().await?;
         let parent = &self.ancestry[self.ancestry.len() - 1];
-        let group = open_child(parent, OsStr::new(&intent.name))?;
+        if binding.path != parent.path.join(&intent.name) {
+            return Err(HostError::Ownership(
+                "recorded subgroup path differs from original creation".into(),
+            ));
+        }
+        let group = match open_child(parent, OsStr::new(&intent.name)) {
+            Ok(group) => group,
+            Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {
+                self.validate().await?;
+                if !binding.path.try_exists()? {
+                    return Ok(None);
+                }
+                return Err(error.into());
+            }
+            Err(error) => return Err(error),
+        };
         if !binding.matches(&group) {
             return Err(HostError::Ownership(
                 "recorded original child inode changed".into(),
@@ -335,7 +377,7 @@ impl PayloadParent {
             removed: false,
         };
         group.validate().await?;
-        Ok(group)
+        Ok(Some(group))
     }
     /// Does not release any payload gate. Errors retain known effects and opened custody.
     pub async fn create(&self, intent: &SubgroupCreationIntent) -> CreationOutcome {

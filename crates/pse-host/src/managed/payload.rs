@@ -20,6 +20,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio_util::sync::CancellationToken;
+pub(super) mod nested;
 
 /// Original Unix command. Debug deliberately excludes payload arguments, paths and environment.
 pub struct PayloadCommand {
@@ -59,6 +60,8 @@ pub(crate) struct PayloadIntent {
     pub controller: LaunchIntent,
     pub workload: LaunchIntent,
     pub operation: Option<LaunchIntent>,
+    #[serde(default)]
+    pub subgroup: Option<crate::SubgroupCreationIntent>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -69,6 +72,10 @@ pub(super) struct PayloadCustody {
     pub(super) child: pse_diagnostics::process_facts::ProcessIdentity,
     pub(super) operation: Option<crate::manager::UnitBinding>,
     pub(super) reservation: Option<crate::admission::PermitRecovery>,
+    #[serde(default)]
+    pub(super) subgroup: Option<crate::DirectoryBinding>,
+    #[serde(default)]
+    pub(super) creation: Option<crate::SubgroupCreationIntent>,
 }
 
 /// Original physical resource results. Only the settling owner constructs this value.
@@ -84,12 +91,14 @@ pub struct PayloadReport<O: ChunkObserver> {
     pub(super) borrowed: bool,
     pub(super) cancelled: bool,
     pub(super) retained: RetainedResources,
+    pub(super) subgroup: Option<nested::SubgroupReport>,
 }
 #[derive(Debug)]
 pub(super) struct RetainedResources {
     _workload: Option<OwnedUnit>,
     _operation: Option<OwnedUnit>,
     _permit: Option<Permit>,
+    _subgroup: Option<crate::OwnedSubgroup>,
 }
 impl<O: ChunkObserver> std::fmt::Debug for PayloadReport<O> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -121,6 +130,10 @@ impl<O: ChunkObserver> PayloadReport<O> {
             && self.operation.is_ok()
             && self.kill.is_ok()
             && matches!(self.permit, Ok(true))
+            && self
+                .subgroup
+                .as_ref()
+                .is_none_or(nested::SubgroupReport::settled)
     }
 }
 
@@ -172,64 +185,21 @@ async fn settle_unit(
         None => Ok(None),
     }
 }
-
-/// Execute one top-level managed payload while keeping the authenticated controller in its
-/// original notify service. A caller must establish origin and parent-launch lifetime first.
-/// Readiness is sent only after original placement, admission and required capture exist.
-pub(crate) async fn run<O: ChunkObserver>(
-    directory: Arc<InvocationDirectory>,
-    controller: LaunchIntent,
-    root: PathBuf,
-    mut command: PayloadCommand,
-    selection: Selection,
-    trampoline: PathBuf,
-    policy: PayloadPolicy,
-    cancellation: CancellationToken,
+async fn captured_child<O: ChunkObserver>(
+    directory: &InvocationDirectory,
+    command: &PayloadCommand,
+    trampoline: &std::path::Path,
     observer: O,
-) -> Result<PayloadReport<O>, HostError> {
-    let startup_deadline = deadline(policy.startup)?;
-    let manager = HostManager::connect_user(None).await?;
-    let (original, slice, slice_group) = manager.managed_service_placement(&controller).await?;
-    let placement = match selection.requested_ordinary_target() {
-        Some(target) if selection.profile().ordinary() => Some(
-            manager
-                .ordinary_placement(&manager.current_unit().await?, target, startup_deadline)
-                .await?,
-        ),
-        _ => None,
-    };
-    let workload_intent = LaunchIntent::fresh_scope()?;
-    let operation_intent = if selection.profile().ordinary() {
-        Some(LaunchIntent::fresh_operation(
-            placement.as_ref().map_or(slice.as_str(), |p| p.slice()),
-            &controller,
-        )?)
-    } else {
-        None
-    };
-    let intent = PayloadIntent {
-        version: 1,
-        controller: controller.clone(),
-        workload: workload_intent.clone(),
-        operation: operation_intent.clone(),
-    };
-    directory.publish_evidence(InvocationEvidence::PayloadIntent, &intent)?;
-    let guard = launch_lock(&directory, startup_deadline).await?;
-    if guard.is_closed()? {
-        return Err(HostError::Ownership(
-            "managed invocation already closed launches".into(),
-        ));
-    }
-    selection.apply_pending_environment(&mut command.environment, &workload_intent);
-    command.environment.insert(
-        "PSE_HOST_WORKLOAD_UNIT".into(),
-        workload_intent.unit().into(),
-    );
-    command.environment.insert(
-        "PSE_MANAGED_INVOCATION".into(),
-        directory.id().as_str().into(),
-    );
-    let coordinator = Coordinator::open(&root, &command.environment)?;
+    write: Duration,
+    startup_deadline: Instant,
+) -> Result<
+    (
+        tokio::process::Child,
+        std::io::PipeWriter,
+        streams::TeeHandle<tokio::fs::File, tokio::fs::File, O>,
+    ),
+    HostError,
+> {
     let file = |name| {
         std::fs::OpenOptions::new()
             .write(true)
@@ -240,7 +210,7 @@ pub(crate) async fn run<O: ChunkObserver>(
             .map(tokio::fs::File::from_std)
     };
     let sinks = (file("stdout.raw")?, file("stderr.raw")?);
-    let (gate_read, mut gate_write) = std::io::pipe()?;
+    let (gate_read, gate_write) = std::io::pipe()?;
     let mut process = tokio::process::Command::new(trampoline);
     process
         .arg("__foreground-exec")
@@ -277,7 +247,104 @@ pub(crate) async fn run<O: ChunkObserver>(
             },
         });
     };
-    let capture = streams::start(stdout, stderr, sinks, observer, None, policy.write);
+    let capture = streams::start(stdout, stderr, sinks, observer, None, write);
+    Ok((child, gate_write, capture))
+}
+
+/// Execute one top-level managed payload while keeping the authenticated controller in its
+/// original notify service. A caller must establish origin and parent-launch lifetime first.
+/// Readiness is sent only after original placement, admission and required capture exist.
+pub(crate) async fn run<O: ChunkObserver>(
+    directory: Arc<InvocationDirectory>,
+    controller: LaunchIntent,
+    root: PathBuf,
+    mut command: PayloadCommand,
+    selection: Selection,
+    trampoline: PathBuf,
+    policy: PayloadPolicy,
+    cancellation: CancellationToken,
+    observer: O,
+    parent: Option<super::supervisor::ManagedParent>,
+) -> Result<PayloadReport<O>, HostError> {
+    if let Some(parent) = parent {
+        return nested::run(
+            directory,
+            controller,
+            root,
+            command,
+            trampoline,
+            policy,
+            cancellation,
+            observer,
+            parent,
+        )
+        .await;
+    }
+    let startup_deadline = deadline(policy.startup)?;
+    let manager = HostManager::connect_user(None).await?;
+    let (original, slice, slice_group) = manager.managed_service_placement(&controller).await?;
+    let placement = match selection.requested_ordinary_target() {
+        Some(target) if selection.profile().ordinary() => Some(
+            manager
+                .ordinary_placement(&manager.current_unit().await?, target, startup_deadline)
+                .await?,
+        ),
+        _ => None,
+    };
+    let workload_intent = LaunchIntent::fresh_scope()?;
+    let operation_intent = if selection.profile().ordinary() {
+        Some(LaunchIntent::fresh_operation(
+            placement.as_ref().map_or(slice.as_str(), |p| p.slice()),
+            &controller,
+        )?)
+    } else {
+        None
+    };
+    let intent = PayloadIntent {
+        version: 1,
+        controller: controller.clone(),
+        workload: workload_intent.clone(),
+        operation: operation_intent.clone(),
+        subgroup: None,
+    };
+    directory.publish_evidence(InvocationEvidence::PayloadIntent, &intent)?;
+    let guard = launch_lock(&directory, startup_deadline).await?;
+    if guard.is_closed()? {
+        return Err(HostError::Ownership(
+            "managed invocation already closed launches".into(),
+        ));
+    }
+    selection.apply_pending_environment(&mut command.environment, &workload_intent);
+    command.environment.insert(
+        "PSE_HOST_WORKLOAD_UNIT".into(),
+        workload_intent.unit().into(),
+    );
+    command.environment.insert(
+        "PSE_MANAGED_INVOCATION".into(),
+        directory.id().as_str().into(),
+    );
+    command.environment.insert(
+        super::supervisor::CHECKOUT.into(),
+        super::request::encode_path(&root).into(),
+    );
+    command.environment.insert(
+        "PSE_MANAGED_STATE_BASE_BYTES".into(),
+        super::request::encode_path(
+            &crate::paths::HostPaths::new(&command.environment)
+                .base(crate::paths::UserDirectory::State)?,
+        )
+        .into(),
+    );
+    let coordinator = Coordinator::open(&root, &command.environment)?;
+    let (mut child, mut gate_write, capture) = captured_child(
+        &directory,
+        &command,
+        &trampoline,
+        observer,
+        policy.write,
+        startup_deadline,
+    )
+    .await?;
     let mut workload = None;
     let mut operation = None;
     let mut permit: Option<Permit> = None;
@@ -392,6 +459,8 @@ pub(crate) async fn run<O: ChunkObserver>(
                 child,
                 operation: operation_binding,
                 reservation,
+                subgroup: None,
+                creation: None,
             },
         )?;
         let notifier =
@@ -488,7 +557,9 @@ pub(crate) async fn run<O: ChunkObserver>(
             _workload: workload,
             _operation: operation,
             _permit: permit,
+            _subgroup: None,
         },
+        subgroup: None,
     })
 }
 

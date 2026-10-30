@@ -150,6 +150,9 @@ impl TerminalResult<ManagedSummary> {
         errors.extend(report.workload.err());
         errors.extend(report.operation.err());
         errors.extend(report.kill.err());
+        if let Some(subgroup) = report.subgroup {
+            errors.extend(subgroup.into_failures());
+        }
         let permit_released = matches!(report.permit, Ok(true));
         let permit_retained = matches!(report.permit, Ok(false));
         errors.extend(report.permit.err());

@@ -45,10 +45,10 @@ async fn original_origin_pidfd_refuses_reuse_and_observes_actual_exit() {
     }
 }
 
-const FRONTEND: &str = "PSE_RECORDED_FRONTEND";
-const FRONTEND_ROOT: &str = "PSE_RECORDED_FRONTEND_ROOT";
-const FRONTEND_ID: &str = "PSE_RECORDED_FRONTEND_ID";
-const FRONTEND_ENTRY: &str = "managed::supervisor::tests::detached_frontend_entry";
+pub(super) const FRONTEND: &str = "PSE_RECORDED_FRONTEND";
+pub(super) const FRONTEND_ROOT: &str = "PSE_RECORDED_FRONTEND_ROOT";
+pub(super) const FRONTEND_ID: &str = "PSE_RECORDED_FRONTEND_ID";
+pub(super) const FRONTEND_ENTRY: &str = "managed::supervisor::tests::detached_frontend_entry";
 
 #[tokio::test]
 async fn detached_frontend_entry() {
@@ -70,6 +70,7 @@ async fn detached_frontend_entry() {
     let private: PrivateRequest = directory.take_request().unwrap();
     let (command, selection, policy) = private.into_parts().unwrap();
     let launched = launch_generic(ManagedRequest {
+        parent: None,
         root,
         directory,
         command,

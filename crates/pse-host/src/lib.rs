@@ -65,6 +65,9 @@ pub enum HostError {
     /// Native I/O failed.
     #[error("host I/O: {0}")]
     Io(#[from] std::io::Error),
+    /// A routed native invocation hint failed its checked identity constructor.
+    #[error("native invocation identity: {0}")]
+    InvocationIdentity(#[from] uuid::Error),
     /// Original asynchronous task termination, preserving panic/cancellation cause.
     #[error("host task: {0}")]
     Task(#[from] tokio::task::JoinError),
@@ -140,6 +143,7 @@ pse_diagnostics::impl_diagnostic! {
     HostError,
     code(this) { Some(match this {
         Self::Io(_) => pse_diagnostics::DiagnosticCode::HostIo,
+        Self::InvocationIdentity(_) => pse_diagnostics::DiagnosticCode::HostOwnership,
         Self::Task(_) => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
         Self::Subsystem(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::Workflow(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),

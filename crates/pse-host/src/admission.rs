@@ -1556,6 +1556,16 @@ pub(crate) struct PermitRecovery {
     binding: UnitBinding,
     minimum_revision: u64,
 }
+/// A borrowed original allocation; this handoff never carries retirement authority.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PermitBorrow {
+    directory: Vec<u8>,
+    nonce: String,
+    profile: Profile,
+    root: UnitBinding,
+    minimum_revision: u64,
+}
 #[derive(Debug)]
 pub(crate) struct RecoveredPermit {
     permit: Permit,
@@ -1575,6 +1585,105 @@ impl RecoveredPermit {
     }
 }
 impl Permit {
+    pub(crate) fn borrow_record(&self, root: &UnitBinding) -> Result<PermitBorrow, HostError> {
+        if !self.borrowed {
+            return Err(invalid("only an actual inherited permit can lend custody"));
+        }
+        let nonce = self
+            .nonce
+            .as_ref()
+            .ok_or_else(|| invalid("borrowed reservation identity absent"))?;
+        let state = self.coordinator.read_existing()?;
+        let row = state
+            .finite
+            .get(nonce)
+            .ok_or_else(|| invalid("borrowed original reservation absent"))?;
+        if row.released
+            || row.profile != self.profile
+            || !row
+                .units
+                .iter()
+                .any(|unit| !unit.controller && unit.binding.as_ref() == Some(root))
+        {
+            return Err(invalid("borrowed original root changed before handoff"));
+        }
+        Ok(PermitBorrow {
+            directory: self.coordinator.directory.as_os_str().as_bytes().to_vec(),
+            nonce: nonce.clone(),
+            profile: self.profile.clone(),
+            root: root.clone(),
+            minimum_revision: state.revision,
+        })
+    }
+    pub(crate) async fn from_borrow_record(
+        record: &PermitBorrow,
+        manager: &HostManager,
+        root: &UnitBinding,
+        selection: &Selection,
+    ) -> Result<Self, HostError> {
+        let directory = PathBuf::from(OsString::from_vec(record.directory.clone()));
+        if directory.file_name() != Some(OsStr::new("pse-host-admission")) || record.root != *root {
+            return Err(invalid("borrowed reservation routing/root differs"));
+        }
+        private_directory(&directory, false)?;
+        let coordinator = Coordinator {
+            directory,
+            declared_parent: PathBuf::new(),
+            legacy_state: None,
+        };
+        let state = coordinator.read_existing()?;
+        let row = state
+            .finite
+            .get(&record.nonce)
+            .ok_or_else(|| invalid("borrowed original reservation absent"))?;
+        let registered = row
+            .units
+            .iter()
+            .find(|unit| !unit.controller && unit.binding.as_ref() == Some(root))
+            .ok_or_else(|| invalid("borrowed original workload binding differs"))?;
+        if state.revision < record.minimum_revision
+            || row.released
+            || row.manager != manager.identity_key()
+            || row.boot != manager.boot_id()
+            || row.profile != record.profile
+            || !selection.profile.ordinary()
+                && (selection.profile.memory > row.profile.memory
+                    || selection.profile.exclusive && !row.profile.exclusive
+                    || !selection
+                        .profile
+                        .cores
+                        .iter()
+                        .all(|core| row.profile.cores.contains(core)))
+        {
+            return Err(invalid(
+                "borrowed original reservation changed or demand exceeds it",
+            ));
+        }
+        manager.validate_binding(&registered.intent, root).await?;
+        let slice = row
+            .units
+            .iter()
+            .find(|unit| unit.intent.unit().ends_with(".slice"))
+            .ok_or_else(|| invalid("borrowed original allocation absent"))?;
+        manager
+            .validate_binding(
+                &slice.intent,
+                slice
+                    .binding
+                    .as_ref()
+                    .ok_or_else(|| invalid("borrowed allocation binding absent"))?,
+            )
+            .await?;
+        Ok(Self {
+            coordinator,
+            selection: Some(selection.clone()),
+            profile: record.profile.clone(),
+            nonce: Some(record.nonce.clone()),
+            slice: Some(slice.intent.clone()),
+            slice_owner: None,
+            borrowed: true,
+        })
+    }
     pub(crate) async fn recovery(&self) -> Result<Option<PermitRecovery>, HostError> {
         if self.borrowed {
             return Err(invalid("borrowed reservation cannot mint release custody"));

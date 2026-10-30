@@ -995,6 +995,37 @@ impl HostManager {
             inode: group.inode,
         })
     }
+    pub(crate) async fn require_nested_service(
+        &self,
+        controller: &LaunchIntent,
+        parent: &PayloadParentBinding,
+    ) -> Result<(), HostError> {
+        let (current, slice, _) = self.managed_service_placement(controller).await?;
+        self.validate_binding(parent.intent(), parent.root())
+            .await?;
+        let root = self.observe(parent.intent().unit()).await?;
+        let unit = self.unit(controller.unit()).await?;
+        if !self.native_workload(&root).await?
+            || root.active_state != "active"
+            || !unit
+                .binds_to()
+                .await?
+                .iter()
+                .any(|name| name == parent.intent().unit())
+            || !unit
+                .after()
+                .await?
+                .iter()
+                .any(|name| name == parent.intent().unit())
+            || self.foreground_placement(&root).await?.0 != slice
+            || current.main_pid != std::process::id()
+        {
+            return Err(HostError::Ownership(
+                "nested notify service is not bound to its original native allocation/root".into(),
+            ));
+        }
+        Ok(())
+    }
     async fn entry_slice(
         &self,
         observed: &UnitObservation,
@@ -1366,7 +1397,7 @@ impl HostManager {
         }
         tokio::time::timeout_at(
             deadline.into(),
-            self.start_service_inner(spec, ServiceLaunch::Exec, None, deadline),
+            self.start_service_inner(spec, ServiceLaunch::Exec, None, deadline, || {}),
         )
         .await
         .map_err(|_| HostError::UnknownLaunch {
@@ -1391,7 +1422,13 @@ impl HostManager {
         }
         tokio::time::timeout_at(
             deadline.into(),
-            self.start_service_inner(spec, ServiceLaunch::Notify(finalizer), None, deadline),
+            self.start_service_inner(
+                spec,
+                ServiceLaunch::Notify(finalizer),
+                None,
+                deadline,
+                || {},
+            ),
         )
         .await
         .map_err(|_| unknown_launch(&spec.intent, "absolute notify service startup deadline"))?
@@ -1413,51 +1450,93 @@ impl HostManager {
             ));
         }
         tokio::time::timeout_at(deadline.into(), async {
-            if enclosing.manager.identity_key() != self.identity_key() {
-                return Err(HostError::Ownership(
-                    "bound service parent belongs to another manager".into(),
-                ));
-            }
-            let selected = enclosing.observe().await?;
-            let current = self.current_unit().await?;
-            if current.unit != selected.unit
-                || current.invocation != selected.invocation
-                || current.control_group != selected.control_group
-                || !current.unit.ends_with(".scope")
-                || current.active_state != "active"
-                || !self.native_workload(&current).await?
-            {
-                return Err(HostError::Ownership(
-                    "bound service requires this process's original native workload scope".into(),
-                ));
-            }
-            let (slice, parent_group, _) = self.foreground_placement(&current).await?;
-            let parent = self.observe(&slice).await?;
-            let original = Group::open(&current.control_group, false)?;
-            let parent_group = Group::open(&parent_group, false)?;
-            let binding = BoundServiceContext {
-                original: UnitBinding {
-                    invocation: current.invocation.clone(),
-                    group: current.control_group.clone(),
-                    device: original.device,
-                    inode: original.inode,
-                },
-                enclosing: current,
-                slice,
-                parent: UnitBinding {
-                    invocation: parent.invocation,
-                    group: parent.control_group,
-                    device: parent_group.device,
-                    inode: parent_group.inode,
-                },
-                controls: controls.clone(),
-            };
-            self.validate_bound_service(&binding, deadline).await?;
-            self.start_service_inner(spec, ServiceLaunch::Exec, Some(&binding), deadline)
+            let binding = self
+                .bound_service_context(enclosing, controls, deadline)
+                .await?;
+            self.start_service_inner(spec, ServiceLaunch::Exec, Some(&binding), deadline, || {})
                 .await
         })
         .await
         .map_err(|_| unknown_launch(&spec.intent, "absolute bound service startup deadline"))?
+    }
+    pub(crate) async fn start_notify_service_bound(
+        &self,
+        spec: &ServiceSpec,
+        finalizer: &ServiceFinalizer,
+        controls: &ResourceControls,
+        deadline: Instant,
+        submitted: impl FnOnce(),
+    ) -> Result<OwnedUnit, HostError> {
+        if Instant::now() >= deadline {
+            return Err(HostError::Deadline(
+                "nested notify launch not submitted".into(),
+            ));
+        }
+        tokio::time::timeout_at(deadline.into(), async {
+            let current = self.current_unit().await?;
+            let enclosing = self.borrow(current.unit);
+            let binding = self
+                .bound_service_context(&enclosing, controls, deadline)
+                .await?;
+            self.start_service_inner(
+                spec,
+                ServiceLaunch::Notify(finalizer),
+                Some(&binding),
+                deadline,
+                submitted,
+            )
+            .await
+        })
+        .await
+        .map_err(|_| unknown_launch(&spec.intent, "absolute nested notify startup deadline"))?
+    }
+    async fn bound_service_context(
+        &self,
+        enclosing: &BorrowedUnit,
+        controls: &ResourceControls,
+        deadline: Instant,
+    ) -> Result<BoundServiceContext, HostError> {
+        if enclosing.manager.identity_key() != self.identity_key() {
+            return Err(HostError::Ownership(
+                "bound service parent belongs to another manager".into(),
+            ));
+        }
+        let selected = enclosing.observe().await?;
+        let current = self.current_unit().await?;
+        if current.unit != selected.unit
+            || current.invocation != selected.invocation
+            || current.control_group != selected.control_group
+            || !current.unit.ends_with(".scope")
+            || current.active_state != "active"
+            || !self.native_workload(&current).await?
+        {
+            return Err(HostError::Ownership(
+                "bound service requires this process's original native workload scope".into(),
+            ));
+        }
+        let (slice, parent_group, _) = self.foreground_placement(&current).await?;
+        let parent = self.observe(&slice).await?;
+        let original = Group::open(&current.control_group, false)?;
+        let parent_group = Group::open(&parent_group, false)?;
+        let binding = BoundServiceContext {
+            original: UnitBinding {
+                invocation: current.invocation.clone(),
+                group: current.control_group.clone(),
+                device: original.device,
+                inode: original.inode,
+            },
+            enclosing: current,
+            slice,
+            parent: UnitBinding {
+                invocation: parent.invocation,
+                group: parent.control_group,
+                device: parent_group.device,
+                inode: parent_group.inode,
+            },
+            controls: controls.clone(),
+        };
+        self.validate_bound_service(&binding, deadline).await?;
+        Ok(binding)
     }
     async fn validate_bound_service(
         &self,
@@ -1595,6 +1674,7 @@ impl HostManager {
         launch: ServiceLaunch<'_>,
         binding: Option<&BoundServiceContext>,
         deadline: Instant,
+        submitted: impl FnOnce(),
     ) -> Result<OwnedUnit, HostError> {
         self.validate_view()?;
         let command = service_command(&spec.executable, &spec.arguments)?;
@@ -1639,12 +1719,21 @@ impl HostManager {
         }
         let job_result = launch_job(
             &spec.intent,
-            manager.start_transient_unit(
-                spec.intent.unit.clone(),
-                "fail".into(),
-                properties,
-                vec![],
-            ),
+            async {
+                let reply = manager
+                    .start_transient_unit(
+                        spec.intent.unit.clone(),
+                        "fail".into(),
+                        properties,
+                        vec![],
+                    )
+                    .await;
+                // The request was dispatched while the caller held its launch exclusions.
+                // Drop them before awaiting READY; the service rechecks the complete chain
+                // before its own payload gate. Unknown acknowledgement never triggers replay.
+                submitted();
+                reply
+            },
             removed.by_ref().map(|signal| {
                 let args = signal.args()?;
                 Ok(JobEvent {

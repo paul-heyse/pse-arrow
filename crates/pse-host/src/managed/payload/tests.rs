@@ -46,6 +46,7 @@ async fn service_payload_entry() {
         policy,
         CancellationToken::new(),
         crate::managed::result::GenericObserver,
+        None,
     )
     .await
     .unwrap();

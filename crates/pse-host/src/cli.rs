@@ -1304,6 +1304,12 @@ fn launch_managed(
     let control = entry.prepared().cloned().ok_or_else(|| HostError::Ownership("managed run requires an explicitly prepared native generation; run scripts/bootstrap-host".into()))?;
     let selection =
         crate::admission::Selection::load(&root, &environment, resource_class.as_deref(), None)?;
+    let runtime = runtime()?;
+    let parent = runtime.block_on(crate::managed::supervisor::parent(
+        &environment,
+        &selection,
+        Instant::now() + Duration::from_secs(30),
+    ))?;
     let environment_digest = environment_digest(&environment);
     let state = crate::paths::CheckoutState::resolve(&root, &environment)?;
     let store = crate::invocation::InvocationStore::new(state);
@@ -1311,7 +1317,7 @@ fn launch_managed(
         invocation_id: presentation.invocation_id.clone(),
         command: verb.into(),
         session,
-        parent: None,
+        parent: parent.as_ref().map(|parent| parent.invocation_id().clone()),
         operation: RunSelection {
             command: command.clone(),
             cwd: cwd.as_os_str().to_owned(),
@@ -1326,9 +1332,9 @@ fn launch_managed(
     let program = arguments
         .next()
         .ok_or_else(|| HostError::Ownership("empty managed payload".into()))?;
-    let runtime = runtime()?;
     let launched = runtime.block_on(crate::managed::supervisor::launch_generic(
         crate::managed::supervisor::ManagedRequest {
+            parent,
             root,
             directory,
             command: crate::managed::payload::PayloadCommand {

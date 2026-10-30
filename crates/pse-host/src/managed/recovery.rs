@@ -22,18 +22,22 @@ pub(super) struct RecoveryReport {
     _workload: Option<crate::manager::RecordedUnit>,
     _operation: Option<crate::manager::RecordedUnit>,
     _reservation: Option<RecoveredPermit>,
+    subgroup: Option<super::payload::nested::SubgroupReport>,
+    _subgroup: Option<crate::OwnedSubgroup>,
 }
 #[derive(Serialize)]
 pub(super) struct RecoveryView {
     workload: Result<Option<UnitObservation>, ErrorRecord>,
     operation: Result<Option<UnitObservation>, ErrorRecord>,
     reservation: Result<Option<bool>, ErrorRecord>,
+    subgroup: Option<super::payload::nested::SubgroupView>,
 }
 #[derive(Debug)]
 pub(super) struct RecoveryCustody {
     _workload: Option<crate::manager::RecordedUnit>,
     _operation: Option<crate::manager::RecordedUnit>,
     _reservation: Option<RecoveredPermit>,
+    _subgroup: Option<crate::OwnedSubgroup>,
 }
 impl RecoveryReport {
     pub(super) fn view(&self, policy: &RedactionPolicy) -> RecoveryView {
@@ -53,6 +57,7 @@ impl RecoveryReport {
                 .as_ref()
                 .copied()
                 .map_err(|error| ErrorRecord::from_typed(error, policy)),
+            subgroup: self.subgroup.as_ref().map(|report| report.view(policy)),
         }
     }
     pub(super) fn finish(
@@ -73,6 +78,9 @@ impl RecoveryReport {
             )),
             Ok(None | Some(true)) => {}
         }
+        if let Some(report) = self.subgroup {
+            failures.extend(report.into_failures());
+        }
         (
             view,
             failures,
@@ -80,6 +88,7 @@ impl RecoveryReport {
                 _workload: self._workload,
                 _operation: self._operation,
                 _reservation: self._reservation,
+                _subgroup: self._subgroup,
             },
         )
     }
@@ -88,6 +97,10 @@ impl RecoveryReport {
         self.workload.is_ok()
             && self.operation.is_ok()
             && matches!(self.reservation, Ok(None | Some(true)))
+            && self
+                .subgroup
+                .as_ref()
+                .is_none_or(super::payload::nested::SubgroupReport::settled)
     }
 }
 
@@ -108,6 +121,53 @@ pub(super) async fn recover(
         .ok_or_else(|| {
             HostError::Ownership("original initialized payload custody absent".into())
         })?;
+    if intent.version == 2 && custody.version == 3 {
+        if intent.controller != *controller
+            || custody.manager != manager.identity_key()
+            || original.manager != custody.manager
+            || intent.operation.is_some()
+            || custody.operation.is_some()
+            || custody.reservation.is_some()
+            || intent.subgroup != custody.creation
+        {
+            return Err(HostError::Ownership(
+                "original nested recovery binding differs".into(),
+            ));
+        }
+        let creation = custody
+            .creation
+            .as_ref()
+            .ok_or_else(|| HostError::Ownership("original nested creation missing".into()))?;
+        if creation.parent_binding().root() != &custody.workload
+            || creation.parent_binding().intent() != &intent.workload
+        {
+            return Err(HostError::Ownership(
+                "original nested workload root differs".into(),
+            ));
+        }
+        let binding = custody
+            .subgroup
+            .as_ref()
+            .ok_or_else(|| HostError::Ownership("original nested inode custody missing".into()))?;
+        let parent = manager
+            .recover_payload_parent(creation.parent_binding())
+            .await?;
+        let mut subgroup = parent.recover_created(creation, binding).await?;
+        let report = match &mut subgroup {
+            Some(group) => Some(super::payload::nested::settle(group, deadline).await),
+            None => None,
+        };
+        return Ok(RecoveryReport {
+            workload: Ok(None),
+            operation: Ok(None),
+            reservation: Ok(None),
+            _workload: None,
+            _operation: None,
+            _reservation: None,
+            subgroup: report,
+            _subgroup: subgroup,
+        });
+    }
     if intent.version != 1
         || custody.version != 2
         || intent.controller != *controller
@@ -189,6 +249,8 @@ pub(super) async fn recover(
         _workload: workload,
         _operation: operation,
         _reservation: reservation,
+        subgroup: None,
+        _subgroup: None,
     })
 }
 

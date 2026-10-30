@@ -294,6 +294,7 @@ async fn native_cross_group_attach_nested_drain_sibling_isolation_and_replacemen
         let recovered = parent
             .recover_created(&original_intent, &original_binding)
             .await
+            .unwrap()
             .unwrap();
         assert_eq!(recovered.binding(), original_binding);
         drop(recovered);
@@ -404,6 +405,13 @@ async fn native_cross_group_attach_nested_drain_sibling_isolation_and_replacemen
             sibling_identity.process
         );
         assert_eq!(fixture.root.group.limit("memory.max").unwrap(), CEILING);
+        assert!(
+            parent
+                .recover_created(&original_intent, &original_binding)
+                .await
+                .unwrap()
+                .is_none()
+        );
         groups.push(create(&parent, "invocation-a").await);
         assert!(
             parent
