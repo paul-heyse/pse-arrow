@@ -5,6 +5,7 @@
 pub mod activity;
 pub mod admission;
 pub mod agent_hooks;
+pub mod artifacts;
 pub mod boundary;
 pub mod catalog;
 pub mod cli;
