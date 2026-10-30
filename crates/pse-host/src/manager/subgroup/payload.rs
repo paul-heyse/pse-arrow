@@ -6,12 +6,20 @@ use std::{ffi::OsString, io::Write, os::unix::ffi::OsStrExt};
 
 /// Exact observed directory coordinates, never a pathname-only destructive capability.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub(crate) struct DirectoryBinding {
+pub struct DirectoryBinding {
     pub(crate) path: PathBuf,
     pub(crate) device: u64,
     pub(crate) inode: u64,
 }
 impl DirectoryBinding {
+    /// Recorded coordinates; this inert snapshot grants no mutation or adoption authority.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+    /// Original opened directory's device and inode.
+    pub fn identity(&self) -> (u64, u64) {
+        (self.device, self.inode)
+    }
     fn from_group(group: &Group) -> Self {
         Self {
             path: group.path.clone(),
@@ -23,9 +31,10 @@ impl DirectoryBinding {
         self == &Self::from_group(group)
     }
 }
-/// Immutable recovery input for an original root and every actual parent component.
+/// Inert original root/member snapshot, suitable for protected evidence storage.
+/// Production recovery requires a protected ledger owner and is not implemented yet.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub(crate) struct PayloadParentBinding {
+pub struct PayloadParentBinding {
     manager: String,
     intent: LaunchIntent,
     root: UnitBinding,
@@ -33,13 +42,13 @@ pub(crate) struct PayloadParentBinding {
 }
 /// Persist this unique intent before asking the kernel to create its child.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub(crate) struct SubgroupCreationIntent {
+pub struct SubgroupCreationIntent {
     parent: PayloadParentBinding,
     name: String,
 }
 /// Borrowed native root/member authority. It cannot stop the root or release its reservation.
 #[derive(Debug)]
-pub(crate) struct PayloadParent {
+pub struct PayloadParent {
     manager: HostManager,
     binding: PayloadParentBinding,
     ancestry: Vec<Group>,
@@ -48,7 +57,7 @@ pub(crate) struct PayloadParent {
 impl CurrentMembership {
     /// Lend only this actual member of an authenticated live native workload role.
     /// No pathname, environment marker or caller-supplied launch intent grants it.
-    pub(crate) async fn borrow_payload_parent(
+    pub async fn borrow_payload_parent(
         &self,
         manager: &HostManager,
     ) -> Result<PayloadParent, HostError> {
@@ -108,7 +117,7 @@ impl CurrentMembership {
 
 impl OwnedUnit {
     /// Lend subgroup authority without transferring the original unit/reference/reservation.
-    pub(crate) async fn payload_parent(&self) -> Result<PayloadParent, HostError> {
+    pub async fn payload_parent(&self) -> Result<PayloadParent, HostError> {
         let binding = self.binding().await?;
         let root = self.observe().await?;
         let ancestry = vec![copy_group(&self.group)?];
@@ -129,6 +138,8 @@ impl OwnedUnit {
 }
 impl HostManager {
     /// Reopen an exact recorded parent after supervisor handoff; no original-unit stop is lent.
+    /// Fixture feasibility only until a protected production ledger owner supplies authority.
+    #[cfg(test)]
     pub(crate) async fn recover_payload_parent(
         &self,
         binding: &PayloadParentBinding,
@@ -204,11 +215,12 @@ async fn require_core(
     Ok(())
 }
 impl PayloadParent {
-    pub(crate) fn binding(&self) -> &PayloadParentBinding {
+    /// Inert evidence snapshot. Deserializing it never grants a production capability.
+    pub fn binding(&self) -> &PayloadParentBinding {
         &self.binding
     }
     /// Select the actual member under this exact original root, never a sibling scope.
-    pub(crate) async fn at_current_member(
+    pub async fn at_current_member(
         &self,
         membership: &CurrentMembership,
     ) -> Result<Self, HostError> {
@@ -277,7 +289,8 @@ impl PayloadParent {
         }
         Ok(())
     }
-    pub(crate) fn creation_intent(&self, name: &str) -> Result<SubgroupCreationIntent, HostError> {
+    /// Select a strict child component; persist its unique intent before creation effects.
+    pub fn creation_intent(&self, name: &str) -> Result<SubgroupCreationIntent, HostError> {
         if name.is_empty()
             || name.len() > 128
             || !name
@@ -294,6 +307,8 @@ impl PayloadParent {
         })
     }
     /// Recover only an actually recorded original child inode, including unbound-open custody.
+    /// Fixture feasibility only; production sibling adoption needs a protected ledger owner.
+    #[cfg(test)]
     pub(crate) async fn recover_created(
         &self,
         intent: &SubgroupCreationIntent,
@@ -323,7 +338,7 @@ impl PayloadParent {
         Ok(group)
     }
     /// Does not release any payload gate. Errors retain known effects and opened custody.
-    pub(crate) async fn create(&self, intent: &SubgroupCreationIntent) -> CreationOutcome {
+    pub async fn create(&self, intent: &SubgroupCreationIntent) -> CreationOutcome {
         if intent.parent.manager != self.binding.manager
             || intent.parent.ancestry != self.binding.ancestry
             || intent.parent.intent != self.binding.intent
@@ -342,6 +357,11 @@ impl PayloadParent {
         if let Err(cause) = self.require_launchable().await {
             return CreationOutcome::NoEffect(cause);
         }
+        // Preserve the complete live parent capability before the first creation effect.
+        let owned_parent = match self.copy() {
+            Ok(parent) => parent,
+            Err(cause) => return CreationOutcome::NoEffect(cause),
+        };
         let parent = &self.ancestry[self.ancestry.len() - 1];
         let mkdir = directory(parent).and_then(|fd| {
             rustix::fs::mkdirat(fd, intent.name.as_str(), rustix::fs::Mode::RWXU)
@@ -361,18 +381,8 @@ impl PayloadParent {
                 };
             }
         };
-        let parent = match self.copy() {
-            Ok(parent) => parent,
-            Err(cause) => {
-                return CreationOutcome::CreatedButUnbound {
-                    intent: intent.clone(),
-                    opened: Some(OpenedSubgroupCustody { group }),
-                    cause,
-                };
-            }
-        };
         let subgroup = OwnedSubgroup {
-            parent,
+            parent: owned_parent,
             group,
             name: intent.name.clone(),
             removed: false,
@@ -381,9 +391,7 @@ impl PayloadParent {
             Ok(()) => CreationOutcome::Created(subgroup),
             Err(cause) => CreationOutcome::CreatedButUnbound {
                 intent: intent.clone(),
-                opened: Some(OpenedSubgroupCustody {
-                    group: subgroup.group,
-                }),
+                opened: Some(OpenedSubgroupCustody { group: subgroup }),
                 cause,
             },
         }
@@ -403,29 +411,41 @@ impl PayloadParent {
 /// All possible creation effect boundaries; no contradictory boolean/optional state.
 #[derive(Debug)]
 #[must_use = "creation outcomes retain committed subgroup effects and opened custody"]
-pub(crate) enum CreationOutcome {
+pub enum CreationOutcome {
+    /// The subgroup was not created by this attempt.
     NoEffect(HostError),
+    /// The fresh subgroup is fully bound to its original parent and inode.
     Created(OwnedSubgroup),
+    /// Creation committed but complete authentication did not finish. No payload gate opened.
     CreatedButUnbound {
+        /// Persisted pre-effect identity and parent snapshot.
         intent: SubgroupCreationIntent,
+        /// Actual fresh inode custody, when opening succeeded, never reconstructed from data.
         opened: Option<OpenedSubgroupCustody>,
+        /// Original authentication/opening error.
         cause: HostError,
     },
 }
 /// Original opened inode retained even if post-creation authentication could not complete.
 #[derive(Debug)]
-pub(crate) struct OpenedSubgroupCustody {
-    group: Group,
+pub struct OpenedSubgroupCustody {
+    group: OwnedSubgroup,
 }
 impl OpenedSubgroupCustody {
-    pub(crate) fn binding(&self) -> DirectoryBinding {
-        DirectoryBinding::from_group(&self.group)
+    /// Original fresh inode evidence, independent of failed post-creation validation.
+    pub fn binding(&self) -> DirectoryBinding {
+        self.group.binding()
+    }
+    /// Return only the actual fresh capability for revalidated cleanup/retry.
+    /// This never adopts a directory from serialized coordinates.
+    pub fn into_owned(self) -> OwnedSubgroup {
+        self.group
     }
 }
 /// One original child cgroup. Drop never asserts removal or managed settlement.
 #[derive(Debug)]
 #[must_use = "original subgroups require explicit recursive drain and removal"]
-pub(crate) struct OwnedSubgroup {
+pub struct OwnedSubgroup {
     parent: PayloadParent,
     group: Group,
     name: String,
@@ -454,13 +474,16 @@ impl OwnedSubgroup {
         )
         .await
     }
-    pub(crate) fn path(&self) -> &Path {
+    /// Original child coordinates, never permission to act on a replacement at that path.
+    pub fn path(&self) -> &Path {
         &self.group.path
     }
-    pub(crate) fn binding(&self) -> DirectoryBinding {
+    /// Inert original inode evidence, not a production adoption constructor.
+    pub fn binding(&self) -> DirectoryBinding {
         DirectoryBinding::from_group(&self.group)
     }
-    pub(crate) async fn as_parent(&self) -> Result<PayloadParent, HostError> {
+    /// Lend this owned child as the exact parent for further descendants.
+    pub async fn as_parent(&self) -> Result<PayloadParent, HostError> {
         self.validate().await?;
         let mut parent = self.parent.copy()?;
         parent.ancestry.push(copy_group(&self.group)?);
@@ -471,12 +494,12 @@ impl OwnedSubgroup {
         Ok(parent)
     }
     /// Original kernel population, not a launch-cutoff or workload-settlement assertion.
-    pub(crate) fn population_empty(&self) -> Result<bool, HostError> {
+    pub fn population_empty(&self) -> Result<bool, HostError> {
         self.group.require_present()?;
         self.group.empty()
     }
     /// Attach only a locally owned unreaped child. Its execution gate remains with the caller.
-    pub(crate) async fn attach(
+    pub async fn attach(
         &self,
         child: &mut tokio::process::Child,
     ) -> Result<AttachedChild, HostError> {
@@ -507,7 +530,7 @@ impl OwnedSubgroup {
         Ok(AttachedChild { process, pidfd })
     }
     /// Revalidate immediately before the actual lifecycle releases its still-held gate.
-    pub(crate) async fn validate_attachment(
+    pub async fn validate_attachment(
         &self,
         attachment: &AttachedChild,
         child: &tokio::process::Child,
@@ -526,12 +549,12 @@ impl OwnedSubgroup {
         Ok(())
     }
     /// Recursive kernel kill. The supervisor separately prevents future attachments.
-    pub(crate) async fn kill(&self) -> Result<(), HostError> {
+    pub async fn kill(&self) -> Result<(), HostError> {
         self.validate().await?;
         write_control(&self.group, "cgroup.kill", b"1")
     }
     /// Positive recursive drain observation, independent of any kill error or child reap.
-    pub(crate) async fn wait_empty(&self, deadline: Instant) -> Result<(), HostError> {
+    pub async fn wait_empty(&self, deadline: Instant) -> Result<(), HostError> {
         self.validate().await?;
         let events = self.group.watch()?;
         loop {
@@ -546,10 +569,7 @@ impl OwnedSubgroup {
     }
     /// Remove every original directory after positive drain. Root replacement refuses.
     /// Removal is a kernel fact; caller must also close launch authority before final settlement.
-    pub(crate) async fn remove_tree(
-        &mut self,
-        deadline: Instant,
-    ) -> Result<RemovalReceipt, HostError> {
+    pub async fn remove_tree(&mut self, deadline: Instant) -> Result<RemovalReceipt, HostError> {
         self.validate().await?;
         if !self.group.empty()? {
             return Err(HostError::Ownership(
@@ -614,18 +634,43 @@ impl OwnedSubgroup {
 }
 /// Retained original child identity/pidfd, independent of child exit and group removal.
 #[derive(Debug)]
-pub(crate) struct AttachedChild {
+pub struct AttachedChild {
     pub(crate) process: ProcessIdentity,
     pub(crate) pidfd: std::os::fd::OwnedFd,
 }
+/// Original-inode removal facts and independent failures, without a lifecycle settlement claim.
 #[derive(Debug)]
 #[must_use = "removal receipts and every independent failure must reach the lifecycle owner"]
-pub(crate) struct RemovalReceipt {
+pub struct RemovalReceipt {
     pub(crate) removed_directories: u64,
     pub(crate) original_device: u64,
     pub(crate) original_inode: u64,
     pub(crate) original_removed: bool,
     pub(crate) failures: Vec<HostError>,
+}
+impl AttachedChild {
+    /// Original child start identity. Retained pidfd custody is internal to attachment checks.
+    pub fn process(&self) -> &ProcessIdentity {
+        &self.process
+    }
+}
+impl RemovalReceipt {
+    /// Number of original directories positively removed by this attempt.
+    pub fn removed_directories(&self) -> u64 {
+        self.removed_directories
+    }
+    /// Original root of this subgroup removal, independent of any later pathname occupant.
+    pub fn original_identity(&self) -> (u64, u64) {
+        (self.original_device, self.original_inode)
+    }
+    /// Positive original-inode removal, not managed launch closure or terminal settlement.
+    pub fn original_removed(&self) -> bool {
+        self.original_removed
+    }
+    /// Every retained independent traversal/removal failure.
+    pub fn failures(&self) -> &[HostError] {
+        &self.failures
+    }
 }
 fn child_identity(pid: u32, manager: &HostManager) -> Result<ProcessIdentity, HostError> {
     match ProcessReader::default().process(pid) {

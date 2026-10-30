@@ -26,6 +26,11 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 const DESTINATION: &str = "org.freedesktop.systemd1";
 
 pub(crate) mod subgroup;
+pub use subgroup::CurrentMembership;
+pub use subgroup::payload::{
+    AttachedChild, CreationOutcome, DirectoryBinding, OpenedSubgroupCustody, OwnedSubgroup,
+    PayloadParent, PayloadParentBinding, RemovalReceipt, SubgroupCreationIntent,
+};
 
 /// Original intent, generated before the effect and retained for uncertain replies.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -711,9 +716,7 @@ impl HostManager {
         Ok(self.current_membership().await?.into_root())
     }
     /// Observe the immutable unit root separately from the actual current member.
-    pub(crate) async fn current_membership(
-        &self,
-    ) -> Result<subgroup::CurrentMembership, HostError> {
+    pub async fn current_membership(&self) -> Result<CurrentMembership, HostError> {
         self.validate_view()?;
         let path = self
             .manager()
@@ -727,7 +730,7 @@ impl HostManager {
             .build()
             .await?;
         let observation = self.observe(&unit.id().await?).await?;
-        subgroup::CurrentMembership::authenticate(self, observation).await
+        CurrentMembership::authenticate(self, observation).await
     }
     /// Authenticate this exact original service main process for readiness notification.
     /// Control/finalizer processes and environment hints grant no such authority.

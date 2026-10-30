@@ -8,7 +8,7 @@ pub(crate) mod payload;
 
 /// Observation-only current placement. A descendant never replaces the manager's unit root.
 #[derive(Debug)]
-pub(crate) struct CurrentMembership {
+pub struct CurrentMembership {
     root: UnitObservation,
     manager: String,
     process: ProcessIdentity,
@@ -16,7 +16,8 @@ pub(crate) struct CurrentMembership {
     ancestry: Vec<Group>,
 }
 impl CurrentMembership {
-    pub(crate) fn root(&self) -> &UnitObservation {
+    /// Original manager unit facts. Actual membership never overwrites its control group.
+    pub fn root(&self) -> &UnitObservation {
         &self.root
     }
     pub(super) fn into_root(self) -> UnitObservation {
@@ -45,10 +46,11 @@ impl CurrentMembership {
         Ok(value)
     }
     /// Exact actual member coordinates, separate from `root.control_group`.
-    pub(crate) fn member(&self) -> &Path {
+    pub fn member(&self) -> &Path {
         &self.ancestry[self.ancestry.len() - 1].path
     }
-    pub(crate) async fn validate(&self, manager: &HostManager) -> Result<(), HostError> {
+    /// Revalidate this actual process, original unit and every opened member component.
+    pub async fn validate(&self, manager: &HostManager) -> Result<(), HostError> {
         manager.validate_view()?;
         if self.manager != manager.identity_key() || current_process(manager)? != self.process {
             return Err(HostError::Ownership(

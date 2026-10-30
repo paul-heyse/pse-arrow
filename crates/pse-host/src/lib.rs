@@ -1,6 +1,18 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Independent native host capabilities. A manager reply is not physical release.
+//!
+//! [`HostManager::current_membership`] keeps the immutable unit root separate from the
+//! authenticated actual member. Only a live [`OwnedUnit`] or that actual native workload
+//! membership can construct a [`PayloadParent`]. Fresh child creation yields an opaque
+//! [`OwnedSubgroup`]; inert identity snapshots cannot adopt existing directories.
+//!
+//! Callers keep children unreaped and gated while attaching/revalidating. They also serialize
+//! parent launch closure against recursive kill, positive drain and original-inode removal.
+//! These APIs report kernel facts, not that lifecycle cutoff, reservation release or managed
+//! terminal settlement. Root limits remain aggregate; borrowing never grants root stop.
+//! Dropping a capability establishes no cleanup. Production recovery from protected ledger
+//! records and the shared service lifecycle remain pending; recovery probes are test-only.
 
 pub mod activity;
 pub mod admission;
@@ -32,8 +44,10 @@ pub mod status;
 pub mod stream_records;
 pub mod study_module;
 pub use manager::{
-    BorrowedService, BorrowedUnit, HostManager, LaunchIntent, OrdinaryPlacement, OwnedUnit,
-    ResourceControls, ServiceSpec, UnitObservation,
+    AttachedChild, BorrowedService, BorrowedUnit, CreationOutcome, CurrentMembership,
+    DirectoryBinding, HostManager, LaunchIntent, OpenedSubgroupCustody, OrdinaryPlacement,
+    OwnedSubgroup, OwnedUnit, PayloadParent, PayloadParentBinding, RemovalReceipt,
+    ResourceControls, ServiceSpec, SubgroupCreationIntent, UnitObservation,
 };
 
 /// A host boundary failure, never a scientific outcome.
