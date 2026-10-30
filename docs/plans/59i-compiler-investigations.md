@@ -127,11 +127,11 @@ extraction remain explicit instead of becoming empty successful answers.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [I01](#i01) | in-progress | 59i | Original B02 detail and explicit native artifact/probe evidence passed worker public journeys; main assembled acceptance remains separate |
-| [I02](#i02) | in-progress | 59i | Native rejected-move detail and selected drop/coroutine MIR/THIR evidence; structured flow facts remain explicitly unsupported |
-| [I03](#i03) | in-progress | 59i | Authored isolated constant/layout evaluation and native encountered type-size output; unresolved substitution retains the actual compiler failure |
-| [I04](#i04) | in-progress | 59i | Native selected-unit mono-items and body/pass-filtered before/after MIR retained as opaque original artifacts |
-| [I05](#i05) | planned | 59i | Pin-specific structured-driver decision and conditional selected implementation |
+| [I01](#i01) | complete | 59i | Original B02 detail, explicit generation, context/index and same-descriptor digest reads delivered; main public probe→read→safe removal→retained read passes |
+| [I02](#i02) | complete | 59i | Native rejected-move detail and selected drop/coroutine MIR/THIR evidence tested; structured flow facts remain explicitly unsupported |
+| [I03](#i03) | complete | 59i | Authored isolated constant/layout evaluation and encountered type-size output tested; unresolved substitutions preserve actual compiler failure |
+| [I04](#i04) | complete | 59i | Native selected-unit mono-items and body/pass-filtered before/after MIR retained as opaque original artifacts and tested |
+| [I05](#i05) | complete | 59i | Lighter routes selected; no structured driver adopted without an unanswered recurring question meeting the criteria below |
 
 <a id="i01"></a>
 ## I01 — Original evidence and explicit generation foundation
@@ -371,6 +371,18 @@ and unsupported/phase/context failure controls; missing preparation leaves origi
 syntax/API reads and ordinary control usable. Report cancellation/settlement independently.
 No universal driver, whole-workspace pass or compulsory performance campaign is required.
 
+**Decision, 2026-10-30 — retain lighter routes.** The selected questions are original move/borrow
+explanation, remaining drops after a partial move, saved values across suspension, concrete
+constant/layout evaluation and selected instantiated/code-generation evidence. Actual native
+diagnostics, before/after MIR, coroutine/THIR/type-size/mono outputs and authored probes answer
+those questions at their stated scope. A compiler-private driver would add a second compiler
+integration and pin-specific maintenance without a selected unanswered structured query.
+No driver is installed. Structured loans/liveness, exact substitutions and typed compiler
+queries remain unavailable, rather than being inferred from text. Reopen I05 when an actual
+recurring question cannot use those retained original outputs and a bounded typed query plus its
+source/toolchain/preparation ownership justifies the component. This completes the conditional
+inquiry, not the unavailable capability.
+
 **Source:** [external compiler drivers](https://rustc-dev-guide.rust-lang.org/rustc-driver/external-rustc-drivers.html)
 and review O14/O15 realization discussion.
 
@@ -408,5 +420,33 @@ an agent uses a representative ownership or native-boundary journey. A deferred 
 question remains unavailable explicitly. No speed, memory, ABI portability, scientific success
 or external-resource drain claim follows from this completion.
 
-**Current state:** all packages planned; no compiler component installed and no new command
-implemented or tested by this document. The coordinator owns the next authorized execution wave.
+## Outcome
+
+**Implemented:** selected I01–I04 and the I05 non-adoption decision are integrated. Compiler
+work uses existing correctness admission, selected cwd and the original managed foreground
+owner. Original diagnostics and artifact reads stay passive. Probe deletion uses its existing
+exclusive lease and authenticated original native drain, independently of calculation success.
+
+**Tested, 2026-10-30:** the merged main-checkout targeted command selected `worktree::`,
+`probe::`, `compiler_investigation::`, `artifacts::` and `cli::compiler::`:34/34 passed, zero failures
+and zero compiler warnings. It includes real native partial-move/coroutine/THIR/layout/mono
+outputs, original related diagnostics, descriptor/hash controls and probe-reference refusals.
+The main public `pse compiler probe plan59-i-main --question ...` produced invocation
+`01a18f3b-b91e-7474-92e7-7bfe3b28a407`, child0, complete capture and settlement.
+`compiler artifacts` and `compiler file` reopened the original index and whole-file-verified
+bounded output, reporting `count=13; size=16; align=8` for the authored captured-host question.
+`probe rm plan59-i-main` succeeded after native drain; the retained compiler output remained
+readable with its original digest after probe removal. Worker native and original-failure
+journeys above retain their original checkout/context, not main identities. Scope-end whole-series
+qualification remains with P01.
+
+**Mistakes corrected:** native dump side effects cannot rely on ordinary cache hits;
+`SCCACHE_RECACHE` attempted to cache absent THIR outputs. Explicit dump stages now select
+`SCCACHE_NO_CACHE=1` and disable incremental reuse locally. Original probe leases also needed
+durable prelaunch references to retain protection after an unresolved foreground return; missing
+or legacy custody now refuses deletion rather than assuming that a terminal row proves release.
+
+**Deliberate limits:** compiler-private output is opaque and exact-pin-specific. It establishes
+neither a structured borrow model, portable ABI, runtime reach nor a performance benefit.
+Arbitrary original full-source identity cannot be reconstructed from snippets; a guarded semantic
+next action is explicitly a separate current-source observation. No performance claim is made.
