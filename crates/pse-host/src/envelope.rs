@@ -21,6 +21,21 @@ pub struct OutputOptions {
     pub artifact_directory: Option<std::path::PathBuf>,
 }
 impl OutputOptions {
+    /// Emit a page already selected by its producer, without retaining a rebuildable full answer.
+    /// The producer supplies omission facts and has applied the requested record allowance.
+    pub fn emit_page<T: Serialize + JsonSchema>(
+        &self,
+        mut response: Envelope<T>,
+        detail: DetailView,
+    ) -> std::io::Result<i32> {
+        response.invocation_id = self.invocation_id.clone();
+        response.view = detail;
+        let projection = Presentation {
+            fields: self.presentation.fields.clone(),
+            budget: None,
+        };
+        write(std::io::stdout().lock(), response, self.format, &projection)
+    }
     /// Publish a response using the invocation's established identity and view.
     pub fn emit<T: Serialize + JsonSchema>(
         &self,

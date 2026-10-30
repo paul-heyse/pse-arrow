@@ -17,6 +17,34 @@ fn payload() -> Payload {
     }
 }
 #[test]
+fn producer_page_omissions_survive_direct_and_projected_emission() {
+    for fields in [None, Some(vec!["records".into()])] {
+        let mut response = Envelope::response("page", "selected original records", payload());
+        response.view = DetailView {
+            budget: Some(3),
+            omitted_records: 19,
+            truncated: true,
+            ..DetailView::default()
+        };
+        let mut bytes = Vec::new();
+        write(
+            &mut bytes,
+            response,
+            OutputFormat::Json,
+            &Presentation {
+                fields,
+                budget: None,
+            },
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(value["view"]["omitted_records"], 19);
+        assert_eq!(value["view"]["budget"], 3);
+        assert_eq!(value["view"]["truncated"], true);
+        assert_eq!(value["payload"]["records"], serde_json::json!([1, 2, 3]));
+    }
+}
+#[test]
 fn owned_payload_projection_preserves_original_terminal_evidence() {
     let mut original = Envelope::response("test", "original owner failed", vec![1, 2]);
     original.outcome = CommandOutcome::BoundaryFailure;
@@ -428,7 +456,7 @@ fn early_format_selection_does_not_interpret_child_options() {
     );
 }
 #[test]
-fn fixed_arrays_and_tuples_have_valid_prefix_view_schemas() {
+fn budgets_preserve_indivisible_fixed_arrays_and_tuples() {
     #[derive(Serialize, JsonSchema)]
     struct Fixed {
         array: [u32; 4],
@@ -454,8 +482,11 @@ fn fixed_arrays_and_tuples_have_valid_prefix_view_schemas() {
     )
     .unwrap();
     let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(value["payload"]["array"], serde_json::json!([1]));
-    assert_eq!(value["payload"]["tuple"], serde_json::json!([]));
+    assert_eq!(value["payload"]["array"], serde_json::json!([1, 2, 3, 4]));
+    assert_eq!(
+        value["payload"]["tuple"],
+        serde_json::json!(["first", 2, true])
+    );
     let validator =
         jsonschema::validator_for(schema::<Fixed>("fixed", &view).unwrap().as_value()).unwrap();
     assert!(

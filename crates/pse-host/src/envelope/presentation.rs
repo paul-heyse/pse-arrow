@@ -93,6 +93,9 @@ fn dereference(value: &Value, root: &Schema) -> Value {
         .clone()
 }
 fn limit_array(schema: &mut Value, budget: usize) {
+    if !record_array(schema) {
+        return;
+    }
     let maximum = schema
         .get("maxItems")
         .and_then(Value::as_u64)
@@ -100,14 +103,11 @@ fn limit_array(schema: &mut Value, budget: usize) {
             budget.min(usize::try_from(value).unwrap_or(usize::MAX))
         });
     schema["maxItems"] = maximum.into();
-    // A prefix view is a different contract from a complete fixed-size array.
-    // Other fields may already have consumed the shared record allowance.
-    if let Some(object) = schema.as_object_mut() {
-        object.remove("minItems");
-    }
-    if let Some(prefix) = schema.get_mut("prefixItems").and_then(Value::as_array_mut) {
-        prefix.truncate(maximum);
-    }
+}
+fn record_array(schema: &Value) -> bool {
+    schema.get("type").and_then(Value::as_str) == Some("array")
+        && schema.get("prefixItems").is_none()
+        && schema.get("minItems").and_then(Value::as_u64).unwrap_or(0) == 0
 }
 /// Serialization-direction schema for the exact full/projected view.
 pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<Schema> {
@@ -205,8 +205,10 @@ fn records<'a>(
     raw: &'a RawValue,
     remaining: &mut Option<usize>,
     omitted: &mut usize,
+    may_limit: bool,
 ) -> serde_json::Result<Presented<'a>> {
-    if raw.get().starts_with('[')
+    if may_limit
+        && raw.get().starts_with('[')
         && let Some(remaining) = remaining
     {
         let mut values: Vec<&RawValue> = serde_json::from_str(raw.get())?;
@@ -219,7 +221,12 @@ fn records<'a>(
         Ok(Presented::Raw(raw))
     }
 }
-fn present<'a>(raw: &'a RawValue, view: &Presentation) -> io::Result<(Presented<'a>, DetailView)> {
+fn present<'a>(
+    raw: &'a RawValue,
+    view: &Presentation,
+    shape: &Value,
+    root: &Schema,
+) -> io::Result<(Presented<'a>, DetailView)> {
     let mut detail = DetailView {
         fields: view.fields.clone(),
         budget: view.budget,
@@ -245,9 +252,18 @@ fn present<'a>(raw: &'a RawValue, view: &Presentation) -> io::Result<(Presented<
                 .as_ref()
                 .is_none_or(|fields| fields.iter().any(|field| field == &name))
             {
+                let may_limit = shape
+                    .get("properties")
+                    .and_then(|properties| properties.get(&name))
+                    .is_some_and(|field| record_array(&dereference(field, root)));
                 presented.insert(
                     name,
-                    records(value, &mut remaining, &mut detail.omitted_records)?,
+                    records(
+                        value,
+                        &mut remaining,
+                        &mut detail.omitted_records,
+                        may_limit,
+                    )?,
                 );
             } else {
                 detail.omitted_fields.push(name);
@@ -258,7 +274,12 @@ fn present<'a>(raw: &'a RawValue, view: &Presentation) -> io::Result<(Presented<
         if view.fields.is_some() {
             return Err(invalid("--fields requires an object payload"));
         }
-        records(raw, &mut remaining, &mut detail.omitted_records)?
+        records(
+            raw,
+            &mut remaining,
+            &mut detail.omitted_records,
+            record_array(shape),
+        )?
     };
     detail.truncated = !detail.omitted_fields.is_empty() || detail.omitted_records > 0;
     Ok((value, detail))
@@ -307,6 +328,7 @@ pub fn write<T: Serialize + JsonSchema>(
 /// A type-checked view prepared before any retained response is published.
 pub(super) struct PreparedView<'a, T> {
     view: &'a Presentation,
+    schema: Schema,
     payload: std::marker::PhantomData<fn() -> T>,
 }
 pub(super) fn prepare<'a, T: JsonSchema>(
@@ -314,25 +336,50 @@ pub(super) fn prepare<'a, T: JsonSchema>(
     view: &'a Presentation,
 ) -> io::Result<PreparedView<'a, T>> {
     // Use the same declaration as schema output, once per response.
-    let _ = schema::<T>(command, view)?;
+    let schema = schema::<T>(command, view)?;
     Ok(PreparedView {
         view,
+        schema,
         payload: std::marker::PhantomData,
     })
 }
 pub(super) fn write_prepared<T: Serialize>(
-    mut writer: impl Write,
+    writer: impl Write,
     envelope: Envelope<T>,
     format: OutputFormat,
     prepared: PreparedView<'_, T>,
 ) -> io::Result<i32> {
     let view = prepared.view;
     let code = envelope.exit_code();
+    if view.fields.is_none() && view.budget.is_none() {
+        let mut envelope = envelope;
+        envelope.schema = identity(&envelope.command, view);
+        return write_frame(writer, envelope, format, code);
+    }
     let raw = serde_json::value::to_raw_value(&envelope.payload)?;
-    let (payload, detail) = present(&raw, view)?;
+    let shape = prepared
+        .schema
+        .pointer("/properties/payload")
+        .map(|value| dereference(value, &prepared.schema))
+        .unwrap_or(Value::Bool(true));
+    let (payload, mut detail) = present(&raw, view, &shape, &prepared.schema)?;
+    detail.budget = envelope.view.budget.or(detail.budget);
+    detail.omitted_records += envelope.view.omitted_records;
+    detail.truncated |= envelope.view.truncated;
+    detail
+        .omitted_fields
+        .extend(envelope.view.omitted_fields.iter().cloned());
     let mut envelope = envelope.with_payload(payload);
     envelope.view = detail;
     envelope.schema = identity(&envelope.command, view);
+    write_frame(writer, envelope, format, code)
+}
+fn write_frame<T: Serialize>(
+    mut writer: impl Write,
+    mut envelope: Envelope<T>,
+    format: OutputFormat,
+    code: i32,
+) -> io::Result<i32> {
     // Serialize a complete response before publication. I/O can still fail mid-write;
     // no serializer failure can publish a syntactically partial response as evidence.
     let mut frame = Vec::new();
