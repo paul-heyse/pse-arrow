@@ -18,33 +18,44 @@ use pse_operations::{
 };
 use std::num::NonZeroUsize;
 
-async fn query(correlation: &str, request: Request, expected: i32) -> serde_json::Value {
+type FixtureResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+async fn query(
+    correlation: &str,
+    request: Request,
+    expected: i32,
+) -> FixtureResult<serde_json::Value> {
     let request = serde_json::to_vec(&ReaderRequest {
         protocol: Protocol::ProductReader,
         version: pse_model::document::Version,
         correlation: correlation.into(),
         request,
-    })
-    .unwrap();
+    })?;
     let (status, frame) = tokio::task::spawn_blocking(move || {
         let mut frame = Vec::new();
-        let status = reader::serve(request.as_slice(), &mut frame).unwrap();
-        (status, frame)
+        let status = reader::serve(request.as_slice(), &mut frame)?;
+        Ok::<_, reader::ReaderError>((status, frame))
     })
-    .await
-    .unwrap();
-    let response: serde_json::Value = serde_json::from_slice(&frame).unwrap();
+    .await??;
+    let response: serde_json::Value = serde_json::from_slice(&frame)?;
     assert_eq!(status, expected, "{response}");
     assert_eq!(response["correlation"], correlation);
-    response
+    Ok(response)
 }
-fn selection(store: &pse_operations::canonical::CanonicalStore) -> CanonicalReadSelection {
-    CanonicalReadSelection {
+fn selection(
+    store: &pse_operations::canonical::CanonicalStore,
+) -> FixtureResult<CanonicalReadSelection> {
+    Ok(CanonicalReadSelection {
         state: store.deployment_state().to_owned(),
         database: Some(store.database().into()),
-        memory_bytes: NonZeroUsize::new(256 << 20).unwrap(),
+        memory_bytes: NonZeroUsize::new(256 << 20).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "reader fixture allocation must be nonzero",
+            )
+        })?,
         timeout_ms: 25_000,
-    }
+    })
 }
 #[tokio::test]
 async fn product_retained_study_and_attempt_pages_preserve_original_history_and_join_read_custody()
@@ -81,7 +92,7 @@ async fn product_retained_study_and_attempt_pages_preserve_original_history_and_
         )
         .await
         .unwrap();
-    let canonical = selection(store);
+    let canonical = selection(store).unwrap();
     let selected_study = StudyObservationRequest {
         study: "reader-history".into(),
         maximum_members: 1,
@@ -96,7 +107,8 @@ async fn product_retained_study_and_attempt_pages_preserve_original_history_and_
         },
         0,
     )
-    .await;
+    .await
+    .unwrap();
     let active_page = &active["payload"]["page"];
     assert_eq!(active_page["status"]["header"]["study"], "reader-history");
     assert!(active_page["sources"].as_array().unwrap().iter().any(
@@ -120,7 +132,8 @@ async fn product_retained_study_and_attempt_pages_preserve_original_history_and_
         },
         0,
     )
-    .await;
+    .await
+    .unwrap();
     assert_eq!(
         live["payload"]["page"]["source"]["continuity"],
         "live_numerics_unavailable"
@@ -208,7 +221,8 @@ async fn product_retained_study_and_attempt_pages_preserve_original_history_and_
         },
         0,
     )
-    .await;
+    .await
+    .unwrap();
     let first_page = &first["payload"]["page"];
     assert_eq!(first_page["origin"]["run"], claim.point.run);
     assert_eq!(first_page["origin"]["attempt"], claim.fence.attempt());
@@ -274,7 +288,8 @@ async fn product_retained_study_and_attempt_pages_preserve_original_history_and_
             },
             0,
         )
-        .await;
+        .await
+        .unwrap();
         let page = &response["payload"]["page"];
         observed.extend(
             page["source"]["events"]
@@ -297,7 +312,8 @@ async fn product_retained_study_and_attempt_pages_preserve_original_history_and_
         },
         0,
     )
-    .await;
+    .await
+    .unwrap();
     let sources = reconnected["payload"]["page"]["sources"]
         .as_array()
         .unwrap();
@@ -329,7 +345,8 @@ async fn product_retained_study_and_attempt_pages_preserve_original_history_and_
         },
         2,
     )
-    .await;
+    .await
+    .unwrap();
     assert_eq!(refused["payload"]["kind"], "refusal");
     // Successful fixture removal follows independently drained reader connections,
     // not a dropped page or a command status taken as custody settlement evidence.
