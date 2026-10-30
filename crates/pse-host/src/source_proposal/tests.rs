@@ -41,6 +41,14 @@ fn small_preview_keeps_exact_original_region_without_serializing_unselected_file
         .unwrap()
         .validate(&value)
         .unwrap();
+    assert_eq!(value["version"], 2);
+    let mut old_contract = value;
+    old_contract["version"] = 1.into();
+    assert!(
+        !jsonschema::validator_for(schema.as_value())
+            .unwrap()
+            .is_valid(&old_contract)
+    );
 }
 fn proposal(
     sources: Vec<SourceText>,

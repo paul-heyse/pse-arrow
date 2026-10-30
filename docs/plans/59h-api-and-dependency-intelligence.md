@@ -367,3 +367,24 @@ The separate compiler-workflow regression batch passed57 with zero failures; its
 subsequently corrected before the final47-test batch. This is targeted acceptance, not P01 or
 all-H completion. Enduring operating guidance is published by E03 during actual delivery; source-review recommendations
 and this plan do not themselves establish Tested or Measured capability.
+
+**Native consumer acceptance and correction — 2026-10-30:** actual public serde_json acquisition
+finished with child0, complete original capture and settlement; a two-candidate declaration/example
+page returned27omissions and a bound continuation. Same-artifact structural comparison preserved
+362unresolved native item references on each side as incomplete; native compatibility rules
+separately returned0 with complete capture/settlement. `pse dep units tokio pse-host --lib
+--no-default-features --without-feature diagnostic-taskdump` returned the original selected root
+and436examined units without compilation. `pse api pse-ids --check-docs` completed through the
+original compiler workflow with child0 and complete capture/settlement. These are their stated
+consumer scenarios, not whole-series qualification.
+
+The first deliberate bad-document test incorrectly expected a token-valid `let = ;` example to
+trigger rustdoc's invalid-codeblock lint. Native rule inspection showed that this lint is not a
+complete Rust grammar/type check. The fixture now uses an unterminated character literal; both
+the original broken-link and invalid-codeblock rule/source addresses pass through the existing
+compiler observer, without a test-success verdict. The failed original run remains retained.
+Incoming metadata declaration joins also now require alias, matching version requirement,
+native kind/target and explicit source/path agreement; conditional same-alias requests are not
+misattributed. Unknown joins remain unknown. The six focused correction controls passed;
+the remaining unused foreground-read prerequisite warning belongs to the immediately dependent
+probe-custody consumer and remains a zero-warning scope-end obligation, not a baseline.

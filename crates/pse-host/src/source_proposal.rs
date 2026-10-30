@@ -132,6 +132,8 @@ pub struct ChangeProposal {
 #[derive(Serialize, JsonSchema)]
 #[schemars(rename = "ChangeProposal")]
 struct ProposalView<'a> {
+    #[schemars(extend("const" = PROPOSAL_VERSION))]
+    version: u32,
     producer: &'a ProducerContext,
     sources: Vec<&'a SourceIdentity>,
     file_operations: &'a [FileOperation],
@@ -142,9 +144,11 @@ struct ProposalView<'a> {
     limitations: &'a [String],
     unresolved_placeholders: &'a [UnresolvedPlaceholder],
 }
+const PROPOSAL_VERSION: u32 = 2;
 impl Serialize for ChangeProposal {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         ProposalView {
+            version: PROPOSAL_VERSION,
             producer: &self.producer,
             sources: self.sources.iter().map(SourceText::identity).collect(),
             file_operations: &self.file_operations,

@@ -52,7 +52,8 @@ pub struct WorkspaceUse {
     pub dependency_name: String,
     /// Each native edge kind and cfg/platform expression.
     pub kinds: Vec<DependencyKind>,
-    /// Matching authored declarations. These are requests, not activated compiler features.
+    /// Joined authored requests, not activated features. Empty means no unambiguous
+    /// request/source join was established, rather than no authored declaration.
     pub declarations: Vec<Declaration>,
 }
 /// One authored incoming dependency declaration, preserving conditional and feature policy.
@@ -247,6 +248,7 @@ pub fn inspect_details(
         "metadata features aggregate package contexts; selected compiler host/target units require correctness admission".into(),
         "metadata graph is not ordinary-build API availability, compilation success or source freshness proof".into(),
         "overview candidates match exact filenames; combined library documents may not appear".into(),
+        "incoming authored requests join only when alias, version, native kind/target and explicit source/path agree; unmatched request details remain unknown".into(),
     ]);
     if why {
         response.observation.limitations.push("one shortest path per reachable workspace member in Cargo's package graph; target conditions, optional edges and feature unions do not prove selected-unit or test reach".into());
@@ -327,6 +329,20 @@ fn facts(metadata: &Metadata, package: &Package) -> PackageFacts {
                                 .unwrap_or(&dependency.name)
                                 .replace('-', "_")
                                 == edge.name
+                                && dependency.name == package.name.as_str()
+                                && dependency.req.matches(&package.version)
+                                && edge.dep_kinds.iter().any(|kind| {
+                                    kind.kind == dependency.kind && kind.target == dependency.target
+                                })
+                                && match (&dependency.path, &dependency.source, &package.source) {
+                                    (Some(path), None, None) => {
+                                        package.manifest_path.parent() == Some(path.as_path())
+                                    }
+                                    (None, Some(requested), Some(resolved)) => {
+                                        requested == resolved
+                                    }
+                                    _ => false,
+                                }
                         })
                         .map(|dependency| Declaration {
                             requirement: dependency.req.to_string(),

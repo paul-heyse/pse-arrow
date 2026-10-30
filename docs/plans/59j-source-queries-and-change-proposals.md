@@ -68,6 +68,12 @@ Generated fragments cannot silently consume additional effects or alter evaluati
 
 ## Package state
 
+The compact proposal output now has payload version2. Its one borrowed serialization/schema
+view supplies exact source identities and selected original/replacement regions; complete
+original inputs remain inside the checked proposal for validation. The declared schema fixes
+that version through the same constant and rejects version1. This is a direct immature-wire
+cutover under RC03; it adds no apply authority or historical-response compatibility path.
+
 The maintainer authorized the remaining whole series, including J03–J05, on 2026-10-30.
 The current source implements addressed working/index/blob acquisition, positional/range reads,
 source-bound nested declaration pages, shared proposals with file-operation intent, and explicit

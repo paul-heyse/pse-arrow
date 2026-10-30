@@ -412,7 +412,7 @@ mod tests {
         fs::write(
             directory.path().join("src/lib.rs"),
             if operation == selection::Operation::Rustdoc {
-                "/// See [missing_item].\n/// ```rust\n/// let = ;\n/// ```\npub fn case() {}\n"
+                "/// See [missing_item].\n/// ```rust\n/// '<\n/// ```\npub fn case() {}\n"
             } else {
                 "pub fn case() { let _: u32 = \"type error\"; }\n"
             },
@@ -574,7 +574,13 @@ mod tests {
                 .failures
                 .iter()
                 .find(|failure| failure.code.as_deref() == Some(rule))
-                .unwrap();
+                .unwrap_or_else(|| {
+                    panic!(
+                        "missing original rule {rule}; observed {:?}; stdout {}",
+                        observed.failures,
+                        String::from_utf8_lossy(&output.stdout)
+                    )
+                });
             assert!(
                 failure
                     .primary

@@ -64,13 +64,35 @@ fn package_paths_and_authored_feature_links_do_not_simulate_activation() {
     snapshot.metadata.packages.iter_mut().find(|package| package.id.repr == "consumer").unwrap()
         .dependencies.push(serde_json::from_value(json!({
             "name":"dep", "rename":"renamed-dep", "req":"^1.0", "kind":"build",
-            "target":"cfg(unix)", "optional":true, "uses_default_features":false, "features":["requested-not-enabled"]
+            "target":"cfg(unix)", "path":"/workspace/first", "optional":true, "uses_default_features":false, "features":["requested-not-enabled"]
         })).unwrap());
+    let consumer = snapshot
+        .metadata
+        .packages
+        .iter_mut()
+        .find(|package| package.id.repr == "consumer")
+        .unwrap();
+    let valid = consumer.dependencies[0].clone();
+    let mut other_version = valid.clone();
+    other_version.req = "^2.0".parse().unwrap();
+    let mut other_target = valid.clone();
+    other_target.target = Some("cfg(windows)".parse().unwrap());
+    let mut other_kind = valid.clone();
+    other_kind.kind = cargo_metadata::DependencyKind::Normal;
+    let mut other_source = valid;
+    other_source.path = Some("/workspace/elsewhere".into());
+    consumer
+        .dependencies
+        .extend([other_version, other_target, other_kind, other_source]);
     let response = inspect_details(&snapshot, "first", "fixture", true, Some("extra"));
     let Selection::Exact { facts } = &response.payload.selected else {
         panic!("exact dependency lost")
     };
     let declaration = &facts.workspace_uses.as_ref().unwrap()[0].declarations[0];
+    assert_eq!(
+        facts.workspace_uses.as_ref().unwrap()[0].declarations.len(),
+        1
+    );
     assert!(declaration.optional);
     assert!(!declaration.uses_default_features);
     assert_eq!(declaration.features, ["requested-not-enabled"]);
