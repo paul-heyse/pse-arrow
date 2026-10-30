@@ -198,11 +198,16 @@ pub fn rust(source: &str, edition: RustEdition) -> Outline {
 
 /// Parse CommonMark headings, including setext headings and excluding fenced-code pseudo-headings.
 pub fn markdown(source: &str) -> Outline {
-    use pulldown_cmark::{Event, Parser, Tag, TagEnd};
+    use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
     let lines = line_starts(source);
     let mut headings = Vec::<(usize, String, Range<usize>)>::new();
     let mut current: Option<(usize, String, usize)> = None;
-    for (event, range) in Parser::new(source).into_offset_iter() {
+    // Repository documents use frontmatter; parsing it as a setext heading would
+    // misidentify authored metadata as navigable content. Library metadata parsing
+    // retains original source coordinates without a separate stripping pass.
+    let options = Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
+        | Options::ENABLE_PLUSES_DELIMITED_METADATA_BLOCKS;
+    for (event, range) in Parser::new_ext(source, options).into_offset_iter() {
         match event {
             Event::Start(Tag::Heading { level, .. }) => {
                 current = Some((level as usize, String::new(), range.start))

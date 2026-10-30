@@ -25,10 +25,11 @@ pub mod paths;
 pub mod repository;
 pub mod selection;
 pub mod server;
-pub mod status;
+pub mod source_command;
 pub mod source_read;
-pub mod study_module;
+pub mod status;
 pub mod stream_records;
+pub mod study_module;
 pub use manager::{
     BorrowedService, BorrowedUnit, HostManager, LaunchIntent, OrdinaryPlacement, OwnedUnit,
     ResourceControls, ServiceSpec, UnitObservation,
@@ -76,6 +77,9 @@ pub enum HostError {
     /// Preserve correctness/metadata interpretation and its original native causes.
     #[error(transparent)]
     Correctness(#[from] correctness::CorrectnessError),
+    /// Passive source reading retains original file/selection causes.
+    #[error(transparent)]
+    SourceCommand(#[from] source_command::SourceCommandError),
 }
 
 pse_diagnostics::impl_diagnostic! {
@@ -90,8 +94,9 @@ pse_diagnostics::impl_diagnostic! {
         Self::Environment(_) => pse_diagnostics::DiagnosticCode::HostEnvironment,
         Self::Repository(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::Correctness(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
+        Self::SourceCommand(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
     }) },
-    forward(this) { match this { Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), _ => None } },
     help(_this) { None },
     related(this) { match this { Self::Settlement {operation,cleanup} => { let children:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()]; Some(Box::new(children.into_iter())) }, _ => None } },
     source(_this) { None }

@@ -1,0 +1,71 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
+---
+-h
+Read one Rust file's written declarations or a Markdown document's headings
+
+Usage: pse outline [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+
+Options:
+  -C <checkout>
+      --language <LANGUAGE>  Override the .rs/.md/.markdown filename inference [possible values: rust, markdown]
+      --edition <EDITION>    Explicit syntax policy; no Cargo edition or cfg discovery is performed [default: 2024] [possible values: 2015, 2018, 2021, 2024]
+      --format <FORMAT>      Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --fields <FIELDS>      Select comma-separated payload fields while retaining identity, state and coverage
+      --budget <BUDGET>      Limit payload array records; retain complete evidence as an artifact
+  -h, --help                 Print help (see more with '--help')
+--help
+Read one Rust file's written declarations or a Markdown document's headings
+
+Usage: pse outline [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+
+
+Options:
+  -C <checkout>
+
+
+      --language <LANGUAGE>
+          Override the .rs/.md/.markdown filename inference
+
+          Possible values:
+          - rust:     Lossless Rust syntax, without Cargo/cfg/macro expansion
+          - markdown: CommonMark headings and their source sections
+
+      --edition <EDITION>
+          Explicit syntax policy; no Cargo edition or cfg discovery is performed
+
+          Possible values:
+          - 2015: Rust 2015 syntax
+          - 2018: Rust 2018 syntax
+          - 2021: Rust 2021 syntax
+          - 2024: Rust 2024 syntax
+
+          [default: 2024]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit payload array records; retain complete evidence as an artifact
+
+  -h, --help
+          Print help (see a summary with '-h')

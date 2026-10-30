@@ -236,8 +236,10 @@ versions:
 
 [group('discovery')]
 [doc('Heading outline of a document (capability maps and the blueprint are large)')]
+[positional-arguments]
+[script("bash", "-euo", "pipefail")]
 lib-outline doc:
-    @grep -nE '^#{1,3} ' "{{ doc }}"
+    exec scripts/pse --format human outline "$1"
 
 [group('discovery')]
 [doc('cargo metadata for the workspace (no dependency resolution)')]

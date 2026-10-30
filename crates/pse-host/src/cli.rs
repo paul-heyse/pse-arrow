@@ -60,6 +60,24 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Read one Rust file's written declarations or a Markdown document's headings.
+    Outline {
+        file: PathBuf,
+        #[command(flatten)]
+        parsing: SourceParsing,
+    },
+    /// Read exact original source at FILE::ITEM[::ITEM], preserving ambiguity.
+    Show {
+        source: OsString,
+        /// Select literal path components; also supports filenames/headings containing ::.
+        #[arg(long)]
+        item: Vec<String>,
+        /// Disambiguate duplicate paths using an original UTF-8 byte position.
+        #[arg(long)]
+        at_byte: Option<usize>,
+        #[command(flatten)]
+        parsing: SourceParsing,
+    },
     /// Discover actual command declarations or lazily query one argument's candidates.
     Commands(CatalogArgs),
     /// Inspect one command's native help and public parser metadata.
@@ -151,6 +169,8 @@ impl Command {
                 GenerationIntent::NewWork
             }
             Self::Boundary(_)
+            | Self::Outline { .. }
+            | Self::Show { .. }
             | Self::Commands(_)
             | Self::Help(_)
             | Self::Status { .. }
@@ -208,6 +228,15 @@ struct CatalogArgs {
     /// Explicit retained Cargo metadata; only a selected metadata provider reads it.
     #[arg(long)]
     metadata: Option<PathBuf>,
+}
+#[derive(Debug, Args)]
+struct SourceParsing {
+    /// Override the .rs/.md/.markdown filename inference.
+    #[arg(long, value_enum)]
+    language: Option<crate::source_command::Language>,
+    /// Explicit syntax policy; no Cargo edition or cfg discovery is performed.
+    #[arg(long, value_enum, default_value = "2024")]
+    edition: crate::source_read::RustEdition,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -484,6 +513,8 @@ struct ServerSelection {
 }
 pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
     match command {
+        "outline" => envelope::schema::<crate::source_command::FileOutline>(command, view),
+        "show" => envelope::schema::<crate::source_command::FileSelection>(command, view),
         "commands" | "help" => envelope::schema::<
             crate::catalog::description::Page<crate::catalog::description::Description>,
         >(command, view),
@@ -530,6 +561,33 @@ fn dispatch(cli: Cli, presentation: &OutputOptions) -> Result<i32, HostError> {
         return Ok(0);
     };
     match command {
+        Command::Outline { file, parsing } => {
+            let file = source_path(selected, file)?;
+            let response =
+                crate::source_command::outline(&file, parsing.language, parsing.edition)?;
+            source_emit(presentation, response, crate::source_command::outline_text)
+        }
+        Command::Show {
+            source,
+            item,
+            at_byte,
+            parsing,
+        } => {
+            let (file, items) = crate::source_command::selector(&source, item)?;
+            let file = source_path(selected, file)?;
+            let response = crate::source_command::show(
+                &file,
+                &items,
+                at_byte,
+                parsing.language,
+                parsing.edition,
+            )?;
+            source_emit(
+                presentation,
+                response,
+                crate::source_command::selection_text,
+            )
+        }
         Command::Commands(args) => catalog_dispatch(args, true, "commands", selected, presentation),
         Command::Help(args) => catalog_dispatch(args, false, "help", selected, presentation),
         Command::Status { brief, line, all } => {
@@ -708,6 +766,38 @@ fn dispatch(cli: Cli, presentation: &OutputOptions) -> Result<i32, HostError> {
                 drain_timeout: Duration::from_secs(30),
             },
         )),
+    }
+}
+fn source_path(selected: Option<&Path>, file: PathBuf) -> Result<PathBuf, HostError> {
+    match selected {
+        Some(root) => Ok(checkout_root(Some(root))?.join(file)),
+        None => Ok(file),
+    }
+}
+fn source_emit<T: serde::Serialize + schemars::JsonSchema>(
+    presentation: &OutputOptions,
+    mut response: Envelope<T>,
+    render: impl FnOnce(&T) -> String,
+) -> Result<i32, HostError> {
+    if presentation.format == OutputFormat::Human
+        && presentation.presentation.fields.is_none()
+        && presentation.presentation.budget.is_none()
+    {
+        response.invocation_id = presentation.invocation_id.clone();
+        let _ = envelope::schema::<T>(&response.command, &presentation.presentation)?;
+        let text = render(&response.payload);
+        let frame = format!(
+            "{}; invocation={}; coverage={:?}; subject={:?}; settlement={:?}\n{text}",
+            response.summary,
+            response.invocation_id,
+            response.observation.completeness,
+            response.subject_state,
+            response.settlement
+        );
+        io::stdout().lock().write_all(frame.as_bytes())?;
+        Ok(response.exit_code())
+    } else {
+        Ok(presentation.emit(response)?)
     }
 }
 fn catalog_envelope<T: serde::Serialize + schemars::JsonSchema>(
@@ -1345,6 +1435,27 @@ mod tests {
         let summary = status.summary();
         snapshot("status", status);
         snapshot("status brief", summary);
+        let source = "/// fixture\nfn observed() {}\n";
+        let outline = crate::source_read::rust(source, crate::source_read::RustEdition::E2024);
+        let selection =
+            crate::source_read::show(source, &outline, &["observed".into()], None).unwrap();
+        snapshot(
+            "outline",
+            crate::source_command::FileOutline {
+                file: "fixture.rs".into(),
+                outline: outline.clone(),
+            },
+        );
+        snapshot(
+            "show",
+            crate::source_command::FileSelection {
+                file: "fixture.rs".into(),
+                backend: outline.backend,
+                rust_edition: outline.rust_edition,
+                parse_issues: outline.parse_issues,
+                selection,
+            },
+        );
         snapshot(
             "env explain",
             crate::environment::EnvironmentExplanation {
