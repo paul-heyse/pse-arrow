@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, design, libraries, diagnostics, validation]
-review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
 ---
 
 # Compiler investigations
@@ -153,9 +153,9 @@ Use Cargo `CompilerMessage`/rustc JSON already captured by B02; do not re-run co
 write a custom diagnostic emitter merely to retrieve those fields. Preserve full original
 rendered/raw evidence separately when a summary cannot carry every detail.
 Use [J01](59j-source-queries-and-change-proposals.md#j01) for addressed source when available;
-an original location can remain useful without a live semantic session. D01 can compose these
-diagnostic/source/context sections immediately, with unavailable API/semantic/compiler detail
-visible; it does not wait for all G/H/I work or prepare a driver merely to explain a failure.
+an original location can remain useful without a live semantic session. I exposes source/context
+links directly, with unavailable API/semantic/compiler detail visible; no generic composer,
+complete G/H/I population or new driver is needed merely to explain a failure.
 
 Explicit artifact generation accepts the selected question and unit/body/pass context, retains
 the command/tool identity and returns the result plus available artifact locations. Use native
@@ -171,7 +171,7 @@ does not compile. A requested body-filtered artifact identifies the actual selec
 missing, unsupported, truncated and failed generation are distinguishable. Verify one real
 selected invocation/probe through the existing correctness route, including original diagnostics
 and actual failure status, rather than accepting JSON shape alone.
-Follow that retained failure through D01 to a selected typed next action without a second
+Follow that retained failure directly to a selected typed next action without a second
 compilation. Include paged related spans/body detail, unknown totals, failed/stale continuation,
 unknown schema/protocol and invalid source/context construction. Removing a regenerable summary
 must preserve the sole original diagnostic and authored inputs needed for the original question.
@@ -341,8 +341,8 @@ their actual available prerequisite slices. I05 consumes a concrete unanswered q
 can branch into one specialized structured capability without delaying useful artifact/probe
 investigation. There is no dependency on completing G/H, all nextest reconciliation, native
 scientific fixtures or product observability. Optional source navigation and API explanation
-compose as they become available. D01 owns any combined investigation packet; I supplies its
-original evidence, context and optional detail rather than creating a new handoff/status ledger.
+link as they become available. I supplies original evidence, context and optional detail
+directly; no generic investigation-packet or handoff/status ledger is required.
 
 During implementation, run targeted compile checks and unit/consumer tests for changed adapters,
 plus the explicitly selected compiler/probe journeys above. Delete only genuinely replaced

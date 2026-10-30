@@ -3,7 +3,7 @@ title: "Plan59f: Simulation observability and diagnostics"
 status: active
 date: 2026-10-29
 adrs: [ADR-0233]
-review_sources: [docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
+review_sources: [docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [architecture, design, libraries, environment, validation]
@@ -71,7 +71,7 @@ Keep these meanings independently observable:
 
 | Meaning | Authority |
 | --- | --- |
-| CLI invocation and actual executed tool generation | A/B invocation contract and original supervisor |
+| CLI invocation and actual executed tool generation | A/B invocation contract and actual foreground owner or detached wrapper |
 | Scientific RunId/AttemptId and canonical lookup keys | Existing product run/attempt owners |
 | Diagnostic OperationId, producer, source sequence and reset generation | Performing observation owner |
 | Process/unit identity, invocation incarnation and resource facts | Native host manager and process facts |
@@ -102,7 +102,7 @@ fields/budgets only project these producer-owned results mechanically.
 
 F02/F05 may offer source navigation when original observation/capture identifies an actual
 location/build; [59j J01/J04](59j-source-queries-and-change-proposals.md) supplies addressed
-source/generated navigation, and D01/G09 compose it without moving scientific interpretation into analysis.
+source/generated navigation, and source navigation can consume it without moving scientific interpretation into analysis.
 Expose current-source/binary mismatches. Missing scientific-model-to-code mapping stays
 unavailable. F06 includes this composed case when delivered, but base inspection/follow/capture
 does not wait on G–I. Static calls prove neither runtime causal edges, native settlement nor
@@ -160,10 +160,18 @@ from low CPU, stale checkpoints or silent foreign execution. Inclusive phase tim
 
 Candidate command families are `pse observe list|inspect`; settle final spelling with A06's actual
 tree, keeping operation semantics here. Snapshot reads use the product-owned pages above.
-D01 may compose this base answer with available invocation/source/API sections immediately;
+The owner view may link available invocation/source/API detail directly;
 missing enrichments remain explicit and do not require all G/H/I packages to finish. Typed next
 actions declare arguments/effects and never run a capture or check merely to explain a snapshot.
 They never capture, attach a profiler, grant result access or cancel work implicitly.
+
+**Native process facts (review O13).** Link the exact selected systemd unit and native
+status/journal facilities. Show `ActiveState`/`SubState`, available CPU/memory/task accounting,
+and applicable service `MainPID`/`Result`/`InvocationID` separately from capture completeness.
+Do not invent service properties for foreground scopes or label a mixed read atomic. sd-notify
+`Ready` follows actual initialization and `Status` names a current wrapper phase; notification
+transport alone is not readiness. Calculation values, units, source ages and gaps remain with
+scientific owners. Low CPU or silent foreign execution does not prove a hang.
 
 **Acceptance:** shared producer/waiter observations stay distinct; reused PID/start identity is
 rejected; missing/curtailed/stale evidence is not empty success; a preparation/publication/native
@@ -192,6 +200,11 @@ Human presentation may use indicatif `MultiProgress` and rate-limited stderr dra
 exact-pin adoption. Its hidden printing is not a durable error channel. Use unknown-total
 indicators for solver progress; percentages/ETA require a meaningful finite count. NDJSON stays
 clean and independent of terminal rendering, with explicit nonterminal/terminal observation state.
+
+`MultiProgress`/draw targets and optional tracing-indicatif consume existing facts only;
+non-TTY/NDJSON output requires no animation task. Tokio console/metrics, Nextest timelines/USDT
+and profilers are explicit diagnostic escalation for an actual question, not always-on collectors,
+watchdogs or restart policy. Inspect selected tool/version support before enabling an attachment.
 
 **Acceptance:** slow reader, broken pipe, renderer failure and observer cancellation cannot own
 scientific cancellation or block native progress. Resets/gaps are reported; compact JSON is not
@@ -245,8 +258,8 @@ prepared tool, timeout, output bound, schema interpretation, cancellation and or
 A pure SQL specification alone is not execution qualification. Do not introduce arbitrary SQL or
 rebuild retired generic debugger/campaign controllers to achieve superficial interface parity.
 
-F05 contributes original diagnostic/evidence references, selected statement pages, clocks/coverage
-and typed next observations to D01's incremental investigation packets. Address selected raw
+F05 returns original diagnostic/evidence references, selected statement pages, clocks/coverage
+and typed next observations directly; no generic investigation-packet composer is required. Address selected raw
 windows/tails through A04's immutable-artifact resolver and native `object_store::GetOptions`,
 `GetRange` and streaming payloads where applicable. Preserve byte offsets, encoding and validators;
 ETag/version/hash are distinct and local mutable reads do not acquire snapshot isolation. Keep
@@ -263,14 +276,13 @@ Compare retained invocations under original applicability conditions without cla
 At least one actual selected capture→frozen analysis/export consumer journey establishes delivery.
 Add mid-stream failure, changed validator and bounded tail/window cases; retained original evidence
 and authored inputs remain usable after regenerable pages are removed. A failed enrichment leaves
-the already available packet sections readable and does not launch replacement collection.
+the already available owner views readable and does not launch replacement collection.
 
 <a id="f06"></a>
 ## F06 — Integration, conditional adapters and publication
 
-**Consumes:** F01–F05 selected capabilities and E03's per-verb guidance integration. D01 packet
-composition consumes each available F producer slice as it ships; full G/H/I readiness is not
-a prerequisite to this base observation/capture journey.
+**Consumes:** F01–F05 selected capabilities and E03's per-verb guidance integration.
+No D01 packet composer or full G/H/I readiness is a prerequisite to observation/capture.
 
 **Delivers:** actual shell-consumer journeys across checkpoint discovery, explanation, follow,
 retained study history and selected investigation, including failure/coverage cases. Update current
@@ -279,6 +291,12 @@ mechanisms demonstrably replaced. Qualify a useful F01→F02 inspection slice an
 coverage failure case first, then follow/history/capture slices on their actual prerequisites;
 do not defer every assembled CLI journey to F06. The coordinator owns scope-end static and
 assembled series qualification timing.
+
+Local private control data remains filesystem-owned. Existing object_store `GetOptions`,
+`GetRange` and streaming reads can serve immutable result/checkpoint data where their backend
+semantics fit; object storage does not become process ownership, report finality or remote-log
+coordination. An actual remote-export consumer must justify credentials/transfer/abort lifetime
+and preserve the one resolved dependency family before adoption.
 
 Record the following conditional dispositions, without requiring adoption for core completion:
 

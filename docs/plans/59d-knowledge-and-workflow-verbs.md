@@ -5,14 +5,18 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
 ---
 
 # Knowledge and workflow verbs
 
-Part of [Plan59](59-agent-cli.md). This plan adds the verbs that remove an agent's lookup and
+Part of [Plan59](59-agent-cli.md).
+
+The current target incorporates the [CLI/test/runtime review](../functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md)
+O01/O03. The coordinator owns its dispositions and confirmed rule decisions; historical
+implementation evidence below retains its original scope. Product execution remains paused. This plan adds the verbs that remove an agent's lookup and
 bookkeeping work:
-- orientation and delegation briefs;
+- focused changed-path and source facts;
 - exact dependency facts and API lookup;
 - scratch probes and structural reading;
 - owner routing, with the edit guard informing instead of blocking for documents;
@@ -100,17 +104,13 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 
 | Verb | Owner | Behaviour |
 | --- | --- | --- |
-| `pse changes [--base REF]` | host | Changed paths grouped by owning crate; generated and protected paths with their regeneration verb (from the map below); affected tests as a ready `pse test --changed`; applicable `.claude/rules/*` by path scope; content-hash hunk IDs for `pse commit`. |
-| `pse brief [--paths …] [--libraries …]` | host | A delegation packet: HEAD and dirty state, active plan pointers, applicable rule files with content hashes, exact pins, features and overview paths for the named libraries, the evidence-label vocabulary, and document conventions. |
+| `pse changes [--base REF]` | host | Changed paths grouped by owning crate; generated and protected paths with their regeneration verb (from the map below); affected tests as a ready `pse test --changed`; applicable `.claude/rules/*` by path scope; source-qualified selected diff facts. Generic briefs are excluded and commit integration is deferred. |
 | `pse dep <crate>` | host | Exact locked version, enabled features, workspace users, `[workspace.metadata.pse.pins]` reason, locked source path and `docs/libraries` overview. |
 | `pse api <crate> <path>`, `pse api <crate> --search W` | host | Item signature, docs, known availability conditions and source location (unknown ordinary-build applicability remains explicit), from rustdoc JSON keyed by exact package/version and source identity, resolved features, target/cfg, pinned toolchain and rustdoc format. Cached in `<store>/api/`. Re-exports generate the addressed crate's JSON in that same context. Check `format_version` before decoding; report unsupported format with a remedy. |
 | `pse probe new\|run\|rm <name> --deps …` | host | Scratch crate under `<store>/probes/`, copied toolchain pin, seeded workspace lock and explicit selected features. A separate target/build context isolates artifacts; report actual scratch resolution and its source/target/toolchain identity. The workspace lock is unchanged; a copied lock does not freeze every modified scratch manifest. Runs use ordinary placement and disposal refuses live users. |
 | `pse outline <file>`, `pse show <file>::<item>` | host | Server-free syntactic extraction with line numbers: items, impls and tests via `syn` with span locations; headings for Markdown. |
 | `pse owner <path>` | host | Generator plus narrowest regeneration verb for generated paths; section ID plus route for architecture documents; supersession for accepted ADRs; crate and owning plan for code. |
 | `pse docs check [--changed\|<files…>]` | xtask (delegated) | Pinned `lychee --offline --include-fragments` over named/changed files, plus metadata, section/O-anchor and README index checks. Typed diagnostics distinguish changed-file issues from external/historical issues. No automatic historical cleanup or unrelated check expansion. |
-| `pse ref <ID>` | xtask (federated) | ADR number → title, status, decision and supersession (`adr::inspect`); `§N.M` → section file and anchor (`section_owners`); plan packet, review `O` IDs and DP/AP IDs → file, heading and lead paragraph. |
-| `pse new review\|plan\|probe <slug>` | xtask (federated) | Pre-decided placement and name, front matter, standard version from `standard.toml`, HEAD as baseline, evidence labels and a README index stub. `pse new plan` moves `just plan`'s bash numbering into xtask. `pse new adr` routes to `xtask adr new`. |
-| `pse commit --paths … [--hunk ID…] -m … [--trailer …]` | host | Proposed private-index tree construction (HEAD plus named paths/hunks), conditional HEAD publication and concurrency-safe shared-index reconciliation under the strategy decided by D09. Content-hash hunk IDs refuse stale selection. Whole-file formatting uses pinned tools and preserves concurrent content edits; hunk mode only reports formatting. A touched generator adds its scoped drift-check hint, not a gate. Trailers use `git interpret-trailers`. Report whether publication occurred, including committed-with-unreconciled-index. Never automatically retry publication or push. |
 
 **Generated-outputs map (one authority).**
 - `just codegen` emits a generated JSON map. For each `--only` target it records:
@@ -155,7 +155,7 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
   and shared-index refresh are separate transactions. D09 must settle their interaction before
   D08 adoption; a private index alone does not preserve concurrent same-path staged intent.
 - **Delegated product inspection.** [59f F01](59f-simulation-observability-and-diagnostics.md#f01)
-  owns the prepared product executable/schema boundary and causal correlation. D's briefs and
+  owns the prepared product executable/schema boundary and causal correlation. D's focused views and
   catalogues reference its exact invocation/scientific locators without importing model/runtime
   or Arrow interpretation into the host, or becoming another mutable status ledger.
 
@@ -163,58 +163,39 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [D01](#d01) | planned | 59d | `pse changes` and `pse brief` |
+| [D01](#d01) | planned | 59d | Focused `pse changes`; generic briefing/packet composition removed |
 | [D02](#d02) | in-progress | 59d | `pse dep` provides source-qualified locked facts, metadata-context features, workspace edges, pin reasons and overview candidates; `pse probe` and full context-keyed `pse api` remain; rejected server trial is concluded |
 | [D03](#d03) | complete | 59d | Native lossless outline/show, exact source selections and shared lib-outline route integrated; batch CPU execution and source/schema/actual CLI tests cover malformed/Unicode/ambiguous/CommonMark reads |
 | [D04](#d04) | planned | 59d | Federated `pse docs check` with pinned lychee |
-| [D05](#d05) | planned | 59d | Federated `pse ref` and `pse new`; `just plan` bash scaffold retired |
-| [D06](#d06) | in-progress | 59d | Aggregate-generated actual output map, original contributor routing, `pse owner` generated reads and advisory design/ADR guard integrated; document/source owner federation and adjacent affected/brief consumers remain |
+| [D05](#d05) | deferred | 59d | Citation/scaffold wrappers deferred pending demonstrated workflow need; existing native routes remain |
+| [D06](#d06) | in-progress | 59d | Aggregate-generated actual output map, original contributor routing, `pse owner` generated reads and advisory design/ADR guard integrated; document/source owner federation and adjacent affected consumers remain |
 | [D07](#d07) | planned | 59d | Generated Markdown CLI reference under `docs/generated/` with drift check |
-| [D08](#d08) | planned | 59d | `pse commit` with private index, hunk IDs, whole-file formatting, scoped drift check and trailers |
+| [D08](#d08) | deferred | 59d | Operator-confirmed deferral; D09 investigation retained, no commit CLI implementation required |
 | [D09](#d09) | complete | 59d | Native Git transaction strategy selected with 11 passing disposable-repository probes; D08 runtime acceptance remains outstanding |
 
 <a id="d01"></a>
-### D01 — Orientation and delegation briefs
+### D01 — Focused changed-path facts
 
-**Git mechanism refinement (2026-10-30).** Reuse A06's `gix` observation owner for HEAD,
-staged, unstaged and untracked paths. Use Gitoxide tree/revision/pathspec facilities when
-base-relative changes or historical content are required; retain byte identities and keep
-rename inference distinct from changed-path facts. No hand-maintained porcelain parser or
-Git-ignore implementation is needed. D08 may use native object/index/ref primitives where
-they preserve D09's selected publication and staging semantics; a reference transaction alone
-does not make shared-index reconciliation atomic. Its existing adversarial acceptance remains.
+**Consumes:** A03/A04 output and source identity, A06's existing gix observation owner,
+D06 only for generated-input/output flags. No generic briefing or handoff product is required.
 
-Select diff/hunk, rename and bounded history navigation under review I09. State direct-base
-versus merge-base semantics; pass revision/index/working source locators to J01 without a
-checkout. Selected-range blame is a conditional expansion when a concrete attribution question
-needs it, not invented attribution for uncommitted lines. Converted diffs must retain their
-attribute/configuration context; reproducible syntax reading uses raw addressed blob bytes.
+**Delivers:** `pse changes` only where it adds useful grouping, generator ownership and an
+explicit affected-test action beyond native Git. Preserve HEAD/index/working/blob identities,
+raw paths, selected diff context and direct-base versus merge-base semantics. Use Gitoxide
+revision/tree/pathspec facilities rather than a custom porcelain or ignore parser. Rename
+inference remains distinct from changed-path facts; attribution of uncommitted lines is unknown.
+J01 can consume addressed source without a checkout or generic packet assembly.
 
-**Consumes:** [59a A03–A04](59a-cli-foundation.md), and the D06 map for generated-path flags.
-Until the map exists, use the guard's current prefixes.
+Original failures, API constraints, scientific statements and source explanations remain bounded
+views owned by B/F/G/H/I. Their typed next actions carry argv/effects and original context;
+missing enrichment or changed source is explicit. No reading operation compiles or prepares.
+Remove generic `pse brief`, delegation-packet and cross-producer assembly requirements from
+producers and guidance. Retain existing native Git/file tools with distinct useful roles.
 
-**Delivers:** `pse changes` and `pse brief` as described above. D01 owns incremental investigation
-composition under review I09/I10: original B02 failures and command context, J01 addressed
-source excerpts, H API constraints, G semantic enrichment, I compiler artifacts and F owner
-statements are selected sections, not prerequisites to the base brief. Missing enrichments
-remain visible without erasing useful evidence. Reading a packet never runs a check/probe,
-prepares analysis or captures science. Next actions retain argv/effects rather than reconstructed
-shell strings. A source edit is reported as a mismatch against original diagnostic evidence.
-Use producer-owned bounded views under A03; small output does not imply a cheap underlying scan.
-Retire duplicated status/brief assembly when actual consumers move, not useful distinct commands.
-Briefs link authoritative plan
-state and immutable B invocation evidence, selected failures and pending authored intent. Once
-F01 correlation exists they carry its exact product locators; that is incremental integration,
-not a prerequisite for the initial source/dependency brief.
-
-**Acceptance:**
-- A tree with one Rust change, one generated-path change and one document change yields three
-  groups: the generated path flagged with its verb, and the document flagged with its rule files.
-- `pse brief --libraries clap,tokio` lists the exact pins, features and overview paths.
-- An original failure leads to selected context/source and an explicit targeted-check action
-  without re-running compilation; absent semantic preparation leaves the base packet usable.
-- Staged and unstaged hunks in one file, a rename, linked worktree and selected history lead
-  to their exact source kinds. A concurrent index change is detected rather than overwritten.
+**Acceptance:** changed Rust, generated and document paths have correct groups and owner routes;
+staged/unstaged, rename and historical selections preserve actual source kind. An original
+failure can lead directly to source and a runnable selected action without building a brief.
+No content-hash hunk identity is introduced solely for deferred D08.
 
 <a id="d02"></a>
 ### D02 — Dependency facts, API lookup and probes
@@ -290,7 +271,8 @@ Do not start a persistent analyzer or implement a separate parser cache for one-
 review I07/I09 extensions: positional addressed working/index/blob reads, operation-owned
 pages and source-bound continuations. D03's completion records only the implemented reader
 basis; it does not establish those new outcomes. J02/J03 own shared proposals and structural
-previews, G07 semantic production, G08 conditional application and D08 Git publication.
+previews, G07 semantic production and G08 conditional application. Deferred D08 Git publication
+is not a dependency of those capabilities.
 
 Multiple outline operands use one coarse `tokio-rayon` submission and the existing shared
 Rayon pool's indexed parallel iteration. Parsing/extraction remain together inside workers;
@@ -329,24 +311,14 @@ native metadata-block options exclude YAML/TOML frontmatter while preserving sou
   links to external/historical evidence report that category and actionable source context.
 
 <a id="d05"></a>
-### D05 — Citations and scaffolds
+### D05 — Citations and scaffolds (deferred)
 
-**Consumes:** [59a A06](59a-cli-foundation.md#a06).
-
-**Delivers:**
-- `xtask ref <ID>` and `xtask new review|plan|probe <slug>`, federated as `pse ref` and `pse new`.
-- Plan numbering moves from the `just plan` recipe into xtask, including the never-reuse count
-  over retained and historical plans.
-- `pse new adr` routes to `xtask adr new`.
-
-**Deletes:** the `just plan` bash body; the recipe becomes a thin call or is retired.
-
-**Acceptance:**
-- `pse ref ADR-0233` gives title, status and decision.
-- `pse ref §24.1` gives the section file and anchor.
-- `pse new review agent-x` creates a correctly named file with front matter, standard version,
-  baseline and a README stub.
-- `pse new plan x` picks the next never-used number.
+The CLI/runtime review O01 removes these convenience wrappers from required delivery. Existing
+files, `just plan`, native ADR commands and skills remain available; none is retired for a
+replacement that has not shipped. Revisit only when repeated actual citation/scaffold work
+reveals a concrete failure or burden that these existing routes do not address. Record the
+consumer and compare native improvements before scheduling federated `pse ref`/`pse new`.
+This deferral supplies no prerequisite to source intelligence or other CLI commands.
 
 <a id="d06"></a>
 ### D06 — Owner routing and the guard change
@@ -400,42 +372,25 @@ under different semantics. Generating this reference is development publication,
 effect of help/status.
 
 <a id="d08"></a>
-### D08 — Shared-tree commits
+### D08 — Shared-tree commits (deferred)
 
-**Supported-mode qualification (review I09):** before publication, declare the selected Git
-hook/filter/attribute policy and qualify it with D09's transaction mechanism. Do not claim
-blanket commit-hook execution or clean/smudge support from a gix or private-index API. Compare
-the actual supported mode with native Git, preserving staged intent and path bytes; refuse
-unsupported configured modes before creating a commit. If a configured hook/filter is supported,
-its effects and failures belong to the operation's declared custody. Test supported conversion
-and explicit refusal in disposable repositories. D09's completed research is not evidence that
-every such mode already works; no new compatibility framework is required.
+The operator explicitly deferred `pse commit` on 2026-10-30 under review O01. D09 remains a
+completed bounded investigation, not an obligation to build the transaction. Revisit when a
+concrete shared-index publication need warrants implementing and maintaining its guarantee.
+Ordinary Git does not offer equivalent conditional publication/shared-index reconciliation.
+Preserve path/hunk ownership and staging cautions; do not advertise the deferred CLI as usable.
 
-**Consumes:** [59a A01](59a-cli-foundation.md#a01) (R5 landed), D01 (hunk IDs), D06 (map), and
-D09's decided transaction strategy with counterexample evidence. D09 gates implementation and
-adoption of the commit path; it does not gate unrelated D verbs.
-
-**Delivers:** `pse commit` as described above.
-
-**Acceptance:**
-- **Private index.** In a tree where another file is staged in the shared index, `pse commit
-  --paths a.rs` commits only `a.rs` and leaves the other staged entry untouched.
-- **Same-path staging.** A concurrent stage of different content on the same path survives
-  publication/reconciliation, including deleted/renamed entries and partial hunk intent.
-- **Concurrent HEAD.** A HEAD that moved during the commit is refused by the compare-and-swap.
-- **Hunk mode.** A hunk whose content changed after listing is refused.
-- **Formatting.** An unformatted whole file is formatted before commit, unless the file changed
-  after it was read. Format the privately captured commit snapshot; never overwrite a shared
-  working file merely to match the formatted commit. Report remaining worktree differences.
-- **Drift hint.** A touched generator input yields the scoped `codegen-check` hint in `next`.
-- **Trailers.** Trailers appear exactly as passed.
-- **Publication then failure.** If HEAD advanced and shared-index reconciliation fails, report
-  committed-with-unreconciled-index with the commit identity and recovery action. Preserve the
-  concurrent index and never retry the commit. Formatter failure or concurrent working-tree
-  edits preserve dirty work and accurately report whether a commit was created.
+If selected later, consume D09's investigated strategy, recheck its supported Git hook/filter/
+attribute premises, and qualify concurrent staging plus post-publication partial failure before
+adoption. No current consumer requires D08, and G08 filesystem application is a separate decision.
+A09 owns any required revision to earlier R5/commit-guidance promises.
 
 <a id="d09"></a>
 ### D09 — Git publication and index reconciliation investigation
+
+The investigation below is completed historical evidence. Its original proposal, criteria and
+candidate strategy are retained for a concrete future D08 need; they do not schedule D08 or
+block current consumers. Ordinary Git still lacks the investigated transaction's guarantee.
 
 **Consumes:** D08's proposed ownership boundary, the existing shared-checkout workflow and
 [I10](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I10).
@@ -468,9 +423,9 @@ reading or writing the worktree/index. **Tested:** the retained research source
 `scripts/pse-env -- uv run --no-sync python` with eleven disposable-repository cases,
 zero failures against baseline zero. This establishes the investigated algorithm over those
 cases, not an implemented `pse commit`, crash durability qualification or universal Git-format
-support. D08 remains implementation work.
+support. D08 is now deferred; the following investigated strategy is retained as historical decision evidence, not scheduled implementation.
 
-Select this concrete D08 strategy:
+The D09 investigation selected this candidate strategy for any future D08 adoption:
 
 1. Capture the selected attached branch, expected HEAD, selected source/hunk identities and
    working bytes. Build the proposed tree from that HEAD in a private index, applying only
@@ -526,28 +481,22 @@ Native contracts: [update-ref](https://git-scm.com/docs/git-update-ref),
 
 ## Verification and handoff
 
-### API enrichment and investigation packets
+### Focused API and failure investigation
 
-H extends **D02** acquisition/cache/probe authority without another generator or rejected MCP
-server. Cache identity includes extraction flags/documentation conditions; API JSON, doctest
-extraction and hosted JSON have distinct schema/provenance. **D01** owns O16 packet composition:
-selected source/contract, consumers/tests, original diagnostics and API evidence with budgets
-and progressive next actions. G09/H06 add producers incrementally; base briefs never wait on
-their consumers. No automatic whole-workspace enrichment or second status/knowledge ledger.
+H extends D02 acquisition/cache/probe authority without another generator or rejected MCP
+server. Exact source/features/tool context remains part of API evidence; hosted JSON, doctest
+extraction and local JSON are distinct. B/F/G/H/I expose their own source-linked bounded views
+and explicit next actions. No D01 packet composer, base brief or complete enrichment population
+is required. Missing detail cannot erase useful original evidence or silently launch a probe.
 
-**D03** retains cheap syntactic reading when semantics are unprepared. G01 may justify tolerant
-parsing for incomplete edits; no gratuitous parser migration. **D04** gains H05's explicit scoped
-rustdoc checks alongside Markdown checks. **D06** supplies generated-path ownership to macros
-and semantic proposals. **D07** derives the new command reference from actual parser/discovery.
+D03 retains cheap syntax reading; D04 owns scoped Markdown/rustdoc checks; D06 supplies actual
+generator ownership; D07 derives parser/discovery reference content. D05/D08 are deferred and
+are excluded from current acceptance. Original diagnostic → source/API constraint → selected
+next action is the consumer journey, including source mismatch and absent preparation.
+Targeted host/xtask tests and real supported command journeys accompany implementation; generic
+briefs, citation wrappers and scratch commit adoption are not series completion conditions.
 
-Acceptance adds a packet following original diagnostics without recompiling, examples with
-setup/mode without automatic execution and explicit source-generation mismatches. MCP/editor/
-Codex configuration exclusions remain; CLI stdio LSP is a distinct selected capability.
 
-Targeted tests run on `pse-host` and xtask (the `documentation` and `codegen` tests). Real runs:
-- `pse docs check` on this series;
-- `pse ref` on this series' citations;
-- one `pse commit` in a scratch repository.
 
 [59e E03](59e-environment-and-adoption.md#e03) adds each verb to the AGENTS.md task table and the
 skills that use it, in the same change as the verb.

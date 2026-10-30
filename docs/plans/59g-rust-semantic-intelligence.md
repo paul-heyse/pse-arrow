@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, design, libraries, environment, diagnostics]
-review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
 ---
 
 # Rust semantic intelligence
@@ -16,7 +16,7 @@ review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.m
 evidence, then to a selected expansion or edit proposal. This companion owns analysis
 sessions and semantic producers for the [code-intelligence review](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md):
 O01–O04, O07–O09, O13, the analyzer portion of O10 and the semantic inputs to O16.
-[D01](59d-knowledge-and-workflow-verbs.md#d01) owns assembled investigation packets;
+Focused producer views expose their own bounded answers and typed next actions;
 [B02](59b-runs-and-continuity.md#b02) owns original compiler diagnostic extraction.
 The coordinator owns source opportunity dispositions and combined completion.
 
@@ -134,7 +134,7 @@ The review checked development interfaces; exact pinned extension/native signatu
 | [G06](#g06) | planned | 59g | Candidate tests and contextual code-construction discovery |
 | [G07](#g07) | planned | 59g | Source-bound rename, assist and SSR previews |
 | [G08](#g08) | planned | 59g | Apply investigation concluded; implementation only if its publication criteria hold |
-| [G09](#g09) | planned | 59g | Integrated semantic consumer, packet producers and lifecycle acceptance |
+| [G09](#g09) | planned | 59g | Integrated semantic consumer, focused views and lifecycle acceptance |
 
 <a id="g01"></a>
 ## G01 — Pinned capability and integration design
@@ -246,7 +246,7 @@ applicability. Indirect dispatch/callback/FFI edges remain unknown where not sup
 Macro expansion returns selected text plus available origin and invocation fallback. HIR
 descent/original-range mechanisms can enrich provenance where selected. Missing preparation
 is not empty expansion. Registry-generated files and virtual macro expansion have different
-owners; neither permits writing generated output. D01 may combine these views with package
+owners; neither permits writing generated output. Focused navigation may link these views with package
 reach, but semantic absence never narrows authoritative conservative test selection.
 
 **Acceptance:** unrelated same-name symbols are excluded from resolved references; scoped
@@ -345,12 +345,11 @@ usable and the coordinator retains the conditional disposition rather than claim
 <a id="g09"></a>
 ## G09 — Consumer composition and qualification
 
-**Consumes:** selected working G04/G05/G06/G07 producers, D01 packet composition, B02 original
+**Consumes:** selected working G04/G05/G06/G07 producers, B02 original
 diagnostic source-generation references and A06 discovery. G08's conditional apply outcome
 does not block initial semantic reading. Full H/I capabilities are not prerequisites.
 
-Supply D01 with source-linked selected views for O16; keep packet selection/presentation in
-that owner. Join an original compiler diagnostic to its matching source generation or expose
+Expose source-linked selected views for O16 directly; no generic packet composer is required. Join an original compiler diagnostic to its matching source generation or expose
 the mismatch. IDE-native diagnostic/failed-obligation views retain provider and unknown versus
 contradiction; `full_diagnostics` is not actual Cargo/Clippy execution. F may offer a source
 follow-up from runtime evidence but a static caller is not a propagated execution edge.

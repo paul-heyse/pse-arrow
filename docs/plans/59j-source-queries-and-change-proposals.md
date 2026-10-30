@@ -5,7 +5,7 @@ date: 2026-10-30
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, design, libraries, diagnostics, validation]
-review_sources: [docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
+review_sources: [docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
 ---
 
 # Source queries and change proposals
@@ -21,9 +21,10 @@ and applicable PS1.5 guidance apply through the binding.
 
 D03's native lossless outline/show and coarse Rayon batch are implemented foundations, not
 evidence for the extensions here. A03 owns outer output and wire/schema policy; A04 owns
-artifact addressing/retention. D01 owns Git changes and composed investigation packets; D06
+artifact addressing/retention. D01 owns focused Git changes; D06
 owns generated-output protection/regeneration routes. G owns semantic context and producers;
-G08 owns the conditional filesystem-application decision; D08/D09 own Git publication.
+G08 owns the conditional filesystem-application decision. D08 is deferred; D09 preserves its
+historical Git publication investigation without becoming an application prerequisite.
 
 The operator accepted review RC03/RC04 on2026-10-30: migrate immature response/proposal shapes
 directly and remove the semantic-session prerequisite for syntax-only queries/previews.
@@ -79,7 +80,7 @@ Generated fragments cannot silently consume additional effects or alter evaluati
 ### J01 — Addressed source and bounded reading
 
 **Consumes:** D03's working readers; A03's owned-view/schema slice. Git sources reuse the
-existing repository owner, not the whole D01 packet implementation. Exact-source retention
+existing repository owner; generic D01 packet assembly is not selected. Exact-source retention
 consumes only A04's artifact slice where needed.
 
 Extend outline/show with positional enclosing-declaration/range selection and reusable source
@@ -159,13 +160,14 @@ location, and show the regeneration action without editing generated output.
 <a id="j05"></a>
 ### J05 — Integrated source consumer
 
-**Consumes:** J01–J04; A06/D07 discovery/reference slices; D01 only for packet integration.
+**Consumes:** J01–J04 and A06/D07 discovery/reference slices. No D01 packet prerequisite.
 Core source commands remain useful without completing every D01/G/H/I producer.
 
 An actual CLI consumer selects a changed location, reads addressed source, narrows a structural
 query, inspects a preview and follows generated ownership where applicable. Missing semantic
-preparation must not prevent this journey. Wire selected results into D01 incrementally; G07
-and G08 remain independent semantic-production and conditional-application consumers.
+preparation must not prevent this journey. Expose selected addressed results directly; G07
+and G08 remain independent semantic-production and conditional-application consumers. J03–J05
+remain outside the paused execution scope; these dependency repairs do not authorize them.
 
 **Acceptance:** real CLI outputs, matching directional schemas, stale source and unavailable
 provider controls establish the selected path. Schema agreement alone does not establish

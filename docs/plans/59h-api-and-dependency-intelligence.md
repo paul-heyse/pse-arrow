@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, design, libraries, environment, validation]
-review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
 ---
 
 # API and dependency intelligence
@@ -98,7 +98,7 @@ model. Do not turn unavailable/nonfinite numerical facts into a null/zero succes
 | Query result and evidence | A03 presents declared API structure, candidate ranking, compatibility diagnostics, planned units and observed compiler results as distinct facts. No rendered docs string becomes an inferred semantic authority. |
 | Compiler/test selection | C07 owns the selected command context; existing correctness admission governs actual probes/checks. Unit graphs are plans; captured compiler artifacts and test listing are observations. |
 | Source-use enrichment | G's references may be requested when available. Basic API/dependency work has no G session prerequisite; missing semantic enrichment stays explicit. |
-| Source navigation and composed answer | J01 addresses exact source/revision; D01 joins each available H page with original diagnostics/source and optional G/I facts. Missing enrichment never blocks the base answer or runs a probe/check implicitly. |
+| Source navigation and composed answer | J01 addresses exact source/revision; H links its page to original diagnostics/source and optional G/I facts without a generic composer. Missing enrichment never blocks the base answer or runs a probe/check implicitly. |
 
 Use `rustdoc_types::Crate.index`, `paths`, `external_crates`, `Use`, `Type`, `Generics`,
 `WherePredicate`, `Trait`, `Impl`, structured attributes and documentation links for the
@@ -120,9 +120,9 @@ the review's source inspection is not an executed pinned-interface probe.
 | [H01](#h01) | planned | 59h | Capability search and usable public-path/constraint views over D02 artifacts |
 | [H02](#h02) | planned | 59h | Relevant examples with setup, expectation and selective extraction |
 | [H03](#h03) | planned | 59h | Dependency/feature inclusion explanations with distinct context precision |
-| [H04](#h04) | planned | 59h | Explicit API/dependency migration briefs using existing compatibility tools |
+| [H04](#h04) | planned | 59h | Focused API/dependency comparisons using existing compatibility tools |
 | [H05](#h05) | planned | 59h | Scoped native rustdoc diagnostics integrated with D04 |
-| [H06](#h06) | planned | 59h | Agent consumer journeys, conditional decisions and integration into D01/E03 |
+| [H06](#h06) | planned | 59h | Agent consumer journeys, conditional decisions and integration into focused views/E03 |
 
 <a id="h01"></a>
 ### H01 — Discover a capability and a usable public path
@@ -214,7 +214,7 @@ Sources: [Cargo metadata](https://doc.rust-lang.org/cargo/commands/cargo-metadat
 baseline/current acquisition. Semantic references from G are optional enrichment; the core
 comparison can work without G or any live analyzer session.
 
-**Delivers:** a selected before/after brief of additions/removals, public paths, signatures,
+**Delivers:** a selected before/after comparison of additions/removals, public paths, signatures,
 bounds, associated items, trait defaults and deprecations, plus likely workspace consumers.
 Use `public_api::Builder::from_rustdoc_json`, `PublicApiDiff` and `cargo-semver-checks` where
 their inspected pinned interfaces fit; keep the selected tool/version and comparison scope.
@@ -266,19 +266,18 @@ Source: [rustdoc lints](https://doc.rust-lang.org/rustdoc/lints.html).
 ### H06 — Integrate the agent journey and settle conditional mechanisms
 
 **Consumes:** H01–H05 working selected behaviors for this companion's integrated acceptance;
-D01's brief composition for packet handoff;
 D07/A06 discovery/reference and E03 continuing adoption. Optional G enrichment is tested only
 if selected and available, never substituted for the independent API path.
 
-Each working H01/H03 page can feed D01 earlier, without waiting for H06, full G/H/I completion,
+Each working H01/H03 page can serve a direct consumer earlier, without waiting for H06, full G/H/I completion,
 or compiler-private preparation. Availability is explicit at each section; a failed enrichment
-leaves original diagnostic/source sections useful. D01 owns packet composition, while H retains
-query meaning and detail/paging decisions.
+leaves original diagnostic/source sections useful. H retains query meaning, detail/paging decisions and typed next actions; generic packet
+composition is removed from current scope.
 
 **Delivers:** an agent discovers an unfamiliar operation, selects its public path and example,
 inspects a dependency/migration question and follows a consequential uncertainty to an explicit
-probe or original diagnostic. D01 assembles selected H sections rather than H maintaining a
-second knowledge/status ledger. Update guidance alongside each delivered verb and remove any
+probe or original diagnostic. Addressed H views require no second knowledge/status ledger or
+generic briefing product. Update guidance alongside each delivered verb and remove any
 actually replaced helper/caller when its replacement is proven; retain independent source and
 browser tools with distinct useful roles.
 
@@ -290,8 +289,8 @@ capability was implemented. Future triggers remain with the coordinator's dispos
 and example expansions retain context/evidence boundaries; budgets preserve necessary bounds
 and status while paging optional detail. The assembled journey uses actual CLI artifacts and
 tools, not only response snapshots. Report performance benefit only if explicitly measured.
-Include an original-failure→API-constraint→selected next-action packet without recompiling merely
-to explain it; edited source is an explicit mismatch. No packet rendering silently runs a probe.
+Include an original-failure→API-constraint→selected next action without recompiling merely
+to explain it; edited source is an explicit mismatch. No view rendering silently runs a probe.
 
 ## Conditional mechanisms and non-adoption
 

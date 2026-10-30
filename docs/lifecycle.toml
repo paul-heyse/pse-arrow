@@ -4072,10 +4072,6 @@ from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G09"
 to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G07"
 kind = "depends-on"
 
-[[relationships]]
-from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G09"
-to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D01"
-kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G09"
@@ -4172,10 +4168,6 @@ from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H06"
 to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H05"
 kind = "depends-on"
 
-[[relationships]]
-from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H06"
-to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D01"
-kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H06"
@@ -4433,20 +4425,12 @@ from = "docs/plans/59b-runs-and-continuity.md::package-state::B03"
 to = "docs/plans/59a-cli-foundation.md::package-state::A07"
 kind = "depends-on"
 
-[[relationships]]
-from = "docs/plans/59b-runs-and-continuity.md::package-state::B04"
-to = "docs/plans/59b-runs-and-continuity.md::package-state::B03"
-kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/59b-runs-and-continuity.md::package-state::B05"
 to = "docs/plans/59b-runs-and-continuity.md::package-state::B01"
 kind = "depends-on"
 
-[[relationships]]
-from = "docs/plans/59b-runs-and-continuity.md::package-state::B05"
-to = "docs/plans/59a-cli-foundation.md::package-state::A06"
-kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
@@ -4473,10 +4457,6 @@ from = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
 to = "docs/plans/59b-runs-and-continuity.md::package-state::B01"
 kind = "depends-on"
 
-[[relationships]]
-from = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
-to = "docs/plans/59b-runs-and-continuity.md::package-state::B02"
-kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/59c-tests-and-fixtures.md::package-state::C03"
@@ -4493,10 +4473,6 @@ from = "docs/plans/59c-tests-and-fixtures.md::package-state::C04"
 to = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
 kind = "depends-on"
 
-[[relationships]]
-from = "docs/plans/59c-tests-and-fixtures.md::package-state::C04"
-to = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
-kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/59c-tests-and-fixtures.md::package-state::C04"
@@ -4513,10 +4489,6 @@ from = "docs/plans/59c-tests-and-fixtures.md::package-state::C05"
 to = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
 kind = "depends-on"
 
-[[relationships]]
-from = "docs/plans/59c-tests-and-fixtures.md::package-state::C05"
-to = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
-kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/59c-tests-and-fixtures.md::package-state::C05"
@@ -4528,10 +4500,6 @@ from = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D08"
 to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D09"
 kind = "depends-on"
 
-[[relationships]]
-from = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D08"
-to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D01"
-kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D08"
@@ -4548,15 +4516,6 @@ from = "docs/plans/59e-environment-and-adoption.md::package-state::E01"
 to = "docs/plans/59a-cli-foundation.md::package-state::A05"
 kind = "depends-on"
 
-[[relationships]]
-from = "docs/plans/59e-environment-and-adoption.md::package-state::E02"
-to = "docs/plans/59a-cli-foundation.md::package-state::A06"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/59e-environment-and-adoption.md::package-state::E02"
-to = "docs/plans/59b-runs-and-continuity.md::package-state::B05"
-kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F01"
@@ -4758,3 +4717,91 @@ kind = "depends-on"
 from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J05"
 to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D07"
 kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A03"
+to = "docs/plans/59a-cli-foundation.md::package-state::A09"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A04"
+to = "docs/plans/59a-cli-foundation.md::package-state::A09"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A05"
+to = "docs/plans/59a-cli-foundation.md::package-state::A09"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A09"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B03"
+to = "docs/plans/59a-cli-foundation.md::package-state::A09"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
+to = "docs/plans/59a-cli-foundation.md::package-state::A09"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B02"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C04"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C06"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C08"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B04"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B05"
+to = "docs/plans/59a-cli-foundation.md::package-state::A04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59e-environment-and-adoption.md::package-state::E01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A09"
+kind = "depends-on"
+
+# CLI/test/runtime opportunities: the coordinator table owns disposition.
+[[scope_tables]]
+path = "docs/plans/59-agent-cli.md"
+name = "runtime-test-dispositions"
+heading = "Runtime and test dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required evidence or trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2

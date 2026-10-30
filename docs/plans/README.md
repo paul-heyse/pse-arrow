@@ -15,6 +15,10 @@ resume stopped work or establish implementation, qualification or measured benef
 
 Plan59's [dependency route](59-agent-cli.md#dependencies-and-route) and companion package
 Consumes sections identify readiness; letters are responsibility groups, not serial lanes.
+Its [runtime/test dispositions](59-agent-cli.md#runtime-test-dispositions) integrate the
+2026-10-30 review and confirmed simplifications. A09 owns governing publication; C06/C08/C09
+own helper composition, reader feedback and focused assurance. Document revision does not
+resume production execution or qualify the revised target.
 Conditional options and paused campaigns retain their recorded triggers and authority.
 
 For supported implementation and historical qualification, use

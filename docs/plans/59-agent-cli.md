@@ -3,7 +3,7 @@ title: "Plan59: Agent-first pse CLI"
 status: active
 date: 2026-10-29
 adrs: [ADR-0233, ADR-0234]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
+review_sources: [docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
@@ -61,12 +61,12 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
 1. This coordinator: target, shared decisions, rule changes, dependencies, completion.
 2. [59a CLI foundation](59a-cli-foundation.md): the front door, output contract, catalog, state
    store, host tools, and the rule-change edits.
-3. [59b Runs and continuity](59b-runs-and-continuity.md): ledger, supervision, wait/result/cancel,
-   compaction handoff.
+3. [59b Runs and continuity](59b-runs-and-continuity.md): synchronous foreground, explicit
+   detached continuity, capture/results, wait/cancel and session identity.
 4. [59c Tests and fixtures](59c-tests-and-fixtures.md): `test`, `check`, `tests`, fixtures, and the
    reconciled verdict.
-5. [59d Knowledge and workflow verbs](59d-knowledge-and-workflow-verbs.md): `changes`, `brief`,
-   `dep`, `api`, `probe`, `outline`/`show`, `owner`, `docs check`, `ref`/`new`, `commit`.
+5. [59d Knowledge and workflow verbs](59d-knowledge-and-workflow-verbs.md): focused `changes`,
+   `dep`, `api`, `probe`, `outline`/`show`, `owner` and `docs check`; wrappers/commit deferred.
 6. [59e Environment and adoption](59e-environment-and-adoption.md): worktrees, harness surfaces,
    communication and recipe migration.
 7. [59f Simulation observability and diagnostics](59f-simulation-observability-and-diagnostics.md):
@@ -80,7 +80,53 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
 11. [59j Source queries and change proposals](59j-source-queries-and-change-proposals.md):
     server-free addressed reads, structural queries, common proposals and contributor navigation.
 
-## Library integration target amendment — 2026-10-30
+## Runtime and test target decisions — 2026-10-30
+
+The [CLI, test and runtime review](../functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md)
+was published at `c8244cff5`, inspecting `26ac0b893`. Its O01–O14 are qualified to that review.
+All fourteen are accounted for below; selection/scheduling is not implementation acceptance.
+The operator explicitly confirmed the following during plan creation on 2026-10-30:
+
+| Change | Decision and consequence | Publication route |
+| --- | --- | --- |
+| RT01 | accepted: native completed reports replace independent test event verification; retain exact selection, native exit, setup/capture/drain and incomplete refusal | A09 → blueprint §24.1/§24.2 and affected Plan53/59 consumers; C02/B02 implement |
+| RT02 | accepted: synchronous foreground and one-service explicit detach; lose generic foreground reconnect/history and independent nested CLI subtree control | A09 → proposed ADR-0233/0234, blueprint §21.7 and operating guidance; B01/B03 implement |
+| RT03 | accepted: remove automatic host-generation collection; retain immutable tools until explicit administrative cleanup | A09 → proposed ADR-0233/0234, blueprint §21.7/§24.1; A05/E01 consumers. No current data deletion |
+| RT04 | accepted: defer D08 transaction; ordinary Git does not supply its shared-index concurrency guarantee | A09 schedules R5/guidance correction; D09 evidence remains complete; D08 awaits actual consumer need |
+
+Automatic stale-host refresh remains selected. Generic briefs and mandatory session context
+assembly leave required scope; useful focused source/diagnostic capabilities remain. R1/R2/R4/R6
+retain their substantive meanings. RT02 replaces R3's universal per-invocation supervisor;
+RT04 defers R5's specialized interface, not permission for agents to commit owned changes.
+A09 is new work; A07/A08 completion remains historical. Authority documents are unchanged by
+this authoring. Production execution is paused, and no prior physical/numerical qualification
+is enlarged by these proposals.
+
+<a id="runtime-test-dispositions"></a>
+## Runtime and test dispositions
+
+Every opportunity below refers to the CLI/test/runtime review linked above. Companion package
+tables own execution evidence. Conditional library candidates need their stated question, not
+blanket adoption or a mandatory measurement campaign.
+
+| Opportunity | Disposition | Work owner | Required evidence or trigger |
+| --- | --- | --- | --- |
+| O01 | scheduled | D01/D05/D08, B05, E02/E03; G/H/I consumers | Remove generic briefs/hooks and packet barriers; deferred conveniences keep actual-use triggers; preserve focused queries. |
+| O02 | scheduled | C02; B02/A03 | Isolated native reports, exact identities, native exit and setup/capture/drain; explicit loss of event-by-event proof. |
+| O03 | scheduled | C02/C05; B02 | Original failed cases and explicit exact rerun; source/fixture mismatches visible. Recording upgrade conditional on a concrete diagnostic need. |
+| O04 | scheduled | C04/C05/C07 | Selected preparation through existing owner, both fixture modes, no service for pure reader tests. |
+| O05 | scheduled | C07/C09 | Native scheduling; explicit sequencing where incompatible runners cannot share groups; useful case identity only. |
+| O06 | scheduled | C09 | Real CLI semantic assertions with selected assertion/snapshot tools; no wholesale framework conversion. |
+| O07 | scheduled | C08 | Narrow public reader target, private invariants retained; assess the ordinary dependency closure and eligible Cargo binaries. |
+| O08 | scheduled | C06/C04 | Correct artifact API, exact roots/validation/absence controls; selective two-build alternative may win. |
+| O09 | scheduled | A09; B01/B03 | Foreground death and detached observer exit differ; aggregate constraints preserved; no universal recovery protocol. |
+| O10 | scheduled | B01/B03 | Async wait, actual joined ownership, explicit stage timeouts and independent cleanup failures. |
+| O11 | scheduled | A09/A05/E01 | No automatic collection; classify and retire collection-only claims without inferring old resource release. |
+| O12 | scheduled | C08; A05/A06 | Effective context/phase/native timing links; no unmeasured cache or latency claim; one coherent bootstrap producer inquiry. |
+| O13 | scheduled | F02/F03/F05/F06; B03 | Applicable native unit facts, actual calculation progress, optional rendering and selected diagnostic escalation. |
+| O14 | scheduled | C09 | Independent adversarial framing/CLI expectations; targeted model/UI/profiling tools only for a concrete question. |
+
+## Earlier library integration basis — 2026-10-30
 
 **Proposed target; implementation paused.** The [library integration review](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md)
 published at `0c8c17ebf` assesses production `09e878957`. Its I01–I16/RC01–RC04 references below
@@ -101,22 +147,22 @@ No ADR/architecture amendment or production change occurs merely by revising the
 
 The combined target is an owned parser/intent → resolved/admitted stage → captured execution
 route. Explain and execution use the same stage premises; explain never fabricates a prepared
-fixture or actual test population. B's managed foreground/detached service path shares custody,
-not scientific authority. Passive readers and reusable analyzer sessions retain independent
+fixture or actual test population. B's performing owners share result meaning, not scientific authority; RT02 replaces the
+universal service topology. Passive readers and reusable analyzer sessions retain independent
 lifetimes. Product scientific inspection, canonical state and units stay with their owners.
 
 A03's typed producer views and directional Serde/Schemars contracts replace shape-blind detail
 truncation as the means of obtaining useful bounded answers. Generic projection remains
 mechanical. B finalizes authoritative terminal results from actual evidence before projecting
 an envelope. A04 distinguishes protected local publication, artifacts, authored inputs and
-original diagnostic evidence. A05 protection follows actual retained effects with a qualified
-promotion/pruning boundary; pruning stays disabled until that boundary and settlement work.
+original diagnostic evidence. A05 retains identity/provenance and actual resource protection. RT03 removes automatic
+collection and its exclusive promotion/retirement obligations; unknown existing claims stay protected.
 
 [59j: Source queries and change proposals](59j-source-queries-and-change-proposals.md) adds
 J01 addressed source/pages, J02 shared proposals, J03 syntax queries/previews, J04 declared
 generated-source navigation and J05 integrated consumer acceptance. D03's implemented reader
 is the basis, G07 supplies semantic proposals, and G08 separately decides filesystem application.
-D08/D09 retain Git publication; none of these mechanisms implies multi-file atomicity.
+D08 is deferred under RT04; D09 retains its original evidence. No proposal mechanism implies multi-file atomicity.
 
 <a id="library-integration-dispositions"></a>
 ## Library integration dispositions
@@ -130,13 +176,13 @@ original meaning; scheduling does not turn every opportunity into a defect.
 | [I01](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I01) | explain→selected execution with unchanged premises | scheduled | A06/C07; B/D02/F/G–I consumers | Same-stage value; unavailable preparation causes no effects |
 | [I02](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I02) | foreground/detached nested payload settlement | scheduled | B01/B03, A05/C04/G02 | Actual original drain, custody transfer and release |
 | [I03](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I03) | scoped status/follow under reset/lag | scheduled | B03, F02/F03 | Native reconciliation, incarnation fence and gap handling |
-| [I04](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I04) | killed passive read and retained child/path | scheduled | A05/A08, B03/E01/G02 | Qualified guard/promotion/pruning race; no old-claim deletion |
+| [I04](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I04) | killed passive read and retained child/path | scheduled | A05/A08, B03/E01/G02 | Actual resource protection retained; collection-specific target superseded by RT03; no old-claim deletion |
 | [I05](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I05) | stalled stream sink and independent extractor | scheduled | B01/B02/B03 | Exact raw files, independent failures and flush/drain |
 | [I06](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I06) | exact healthy ID plus unrelated corrupt history | scheduled | A04/A06, B01/B03 | Direct lookup; prefix ambiguity and incomplete latest/history |
 | [I07](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I07) | nested outline budget and stale continuation | scheduled | A03/A06; J01 and D/F–I producers | Producer pages, indivisible records and source premises |
 | [I08](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I08) | structural and semantic preview without conflation | scheduled | J02/J03, G07/G08 | Shared proposal, explicit authority, no session barrier for syntax |
 | [I09](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I09) | staged/working/blob source navigation | scheduled | J01, D01/D08/D09/E01 | Exact source kinds, paths, supported Git policy |
-| [I10](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I10) | original failure→useful next action | scheduled | D01; B02/F/G09/H06/I producers | Incremental packet without implicit compilation/preparation |
+| [I10](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I10) | original failure→useful next action | scheduled | B02/F/G09/H06/I producers | Focused next action without implicit compilation/preparation |
 | [I11](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I11) | two observers, failed science, missing live numerics | scheduled | F01–F06 | Original statements/units/clocks, passive detachment |
 | [I12](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I12) | tail/range/export versus protected local writes | scheduled | A03/A04; B/D02/F05/H/I | Backend limits, retention classes, original evidence protection |
 | [I13](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I13) | valid wire view versus invalid domain finality | scheduled | A03; B01/B03 and F/G/H/I adapters | Checked owner construction, directional schemas and raw fidelity |
@@ -203,7 +249,7 @@ Scheduling is not resolution. Companion package tables own execution state.
 | [O13](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O13) | scheduled | G05; D06 | Expansion/origin with honest mapping limits and actual generator ownership. |
 | [O14](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O14) | scheduled | I01/I02/I05 | Selected ownership/async explanations; driver only when I05 establishes its need/fit. |
 | [O15](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O15) | scheduled | I03–I05 | Selected constants/layout/instances; context-bound evidence, no portable ABI/performance proof. |
-| [O16](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O16) | scheduled | D01; G09/H06; F02 | Progressive investigation packets composed from available original sources; no automatic enrichment. |
+| [O16](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O16) | scheduled | B02; G09/H06; F02 | Focused next actions composed from available original sources; no automatic enrichment. |
 
 Review capability families not selected as ordinary delivery retain their companion-owned
 triggers: static indexes/term search in G, archives/Guppy/scraping in H, driver/Polonius in I.
@@ -246,25 +292,25 @@ it cannot claim the deferred capability was delivered.
 | O04 | scheduled | [59c](59c-tests-and-fixtures.md) | `pse test`/`check` derive features, capabilities and filters; reconciled verdict; `--changed` from the host-resident `affected` |
 | O05 | scheduled | [59c](59c-tests-and-fixtures.md) | Integration targets run with no hand-set fixture variables or `/tmp` receipt paths |
 | O06 | scheduled | [59a](59a-cli-foundation.md) (catalog, explain, provenance); [59d](59d-knowledge-and-workflow-verbs.md) (generated reference) | `pse commands --json` with `valid_values`; `pse explain` matches what runs |
-| O07 | scheduled | [59d](59d-knowledge-and-workflow-verbs.md) | `pse changes` and `pse brief` used for orientation and delegation |
+| O07 | scheduled | D01 | Selected Git/source facts remain; generic `brief` is superseded by runtime O01. |
 | O08 | scheduled | [59d](59d-knowledge-and-workflow-verbs.md) | `pse dep`, `outline` and `show` used in place of registry greps and `sed` ranges. Rust-analyzer MCP for Codex excluded. |
 | O09 | deferred | Operator's environment work | Direnv quieting on hold by operator direction |
-| O10 | scheduled (items 2–3); excluded (items 1, 4) | [59e](59e-environment-and-adoption.md) | Plan index slimmed; Claude SessionStart brief. Codex items excluded by operator direction. |
+| O10 | superseded (brief portion); retained index delivered | E04 | Current-work index remains; mandatory session brief removed under runtime O01. Codex exclusions remain. |
 | O11 | scheduled | [59c](59c-tests-and-fixtures.md) (fixtures), [59a](59a-cli-foundation.md) (host ceiling), [59e](59e-environment-and-adoption.md) (start routes) | Items land with their owning packages; the clap overview is already corrected. Rust-analyzer MCP for Codex excluded. |
 | O12 | scheduled | [59e](59e-environment-and-adoption.md) | Edit guidance in AGENTS.md and the tooling rule |
 | O13 | scheduled | [59a](59a-cli-foundation.md) | Safe generation-use protection and coherent fingerprints; new work rebuilds, existing-work control uses its compatible prepared generation. |
-| O14 | scheduled | [59d](59d-knowledge-and-workflow-verbs.md) | `pse ref` and `pse new` used for citations and new documents |
+| O14 | deferred | D05 | Revisit citation/scaffold wrappers for a demonstrated repeated navigation/authoring need. Existing native routes remain. |
 | O15 | scheduled | [59d](59d-knowledge-and-workflow-verbs.md) | `pse api` and `pse probe` answer exact pinned-API questions; rustdoc-mcp trialled for Claude only |
 | O16 | scheduled | [59d](59d-knowledge-and-workflow-verbs.md) | `pse owner` and guard context; documents inform instead of block ([R4](#rule-changes)) |
 | O17 | scheduled | [59d](59d-knowledge-and-workflow-verbs.md) | `pse docs check --changed` before document commits |
-| O18 | scheduled | [59d](59d-knowledge-and-workflow-verbs.md) | `pse commit --paths` in a shared tree ([R5](#rule-changes)) |
+| O18 | deferred | D08 | RT04: actual shared-index transaction consumer need; D09 investigation stays complete. |
 | O19 | scheduled | [59c](59c-tests-and-fixtures.md) | `pse tests <pattern>` returns runnable commands |
-| O20 | scheduled (Claude) | [59b](59b-runs-and-continuity.md) | A session resumes after compaction from `pse handoff` context |
+| O20 | deferred | B05 | Automatic handoff hooks await a demonstrated context-loss consumer; preserve authored notes and session identity. |
 | O21 | deferred | This coordinator | Adopt soft claims at the first concurrent-edit collision, recorded in the checkout store |
 | O22 | scheduled | [59e](59e-environment-and-adoption.md) (continuing) | Start route, guides, roles/skills and `next` hints point to `pse` as each verb ships |
 | O23 | scheduled (without direnv) | [59e](59e-environment-and-adoption.md) | `pse worktree new` yields a ready checkout whose first build is warm |
 | O24 | scheduled | [59a](59a-cli-foundation.md) (resolver and store), [59b](59b-runs-and-continuity.md) (runs) | One state resolver; per-run directories replace `/tmp` logs |
-| O25 | scheduled (Claude) | [59e](59e-environment-and-adoption.md) | Claude session-start brief and status line |
+| O25 | superseded | E02 | Mandatory session-start brief/status line removed under runtime O01; useful passive native status remains. |
 
 ## Simulation observability dispositions
 
@@ -280,7 +326,7 @@ Conditional portions retain the stated trigger; companions own package progress.
 | [O04](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O04) | scheduled | F05 | Selected actual capture/analysis/export consumer with original identity, coverage and collector settlement. |
 | [O05](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O05) | scheduled | A03/A06; B02 | Original typed facts/causes, honest provenance and shared resolved operation; secrets redacted. |
 | [O06](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O06) | scheduled | C07/C01–C05; A05 | Exact selection, both fixture modes and immutable selected tools; actual native journey without manual input assembly. |
-| [O07](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O07) | scheduled | D01–D09; B05; E03 | API/probe identity, scoped documentation, preserved concurrent edits/staging and compact handoff. |
+| [O07](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O07) | scheduled | D02/D04/D06/D07; E03 | API/probe and scoped documentation remain; briefing/handoff superseded and specialized commits deferred by runtime O01/RT04. |
 | [O08](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O08) | scheduled | A06; F03/F06 | Human presentation and scoped discovery selected; RMCP deferred until an actual client needs tools/resources/subscriptions beyond shell access. |
 
 ## CLI improvement dispositions
@@ -299,11 +345,15 @@ The work below integrates the proposals into this plan; no finding is resolved b
 | [I07](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I07) | scheduled | C07/C01–C05; A05 | Exact binary/feature/filter identity, preserved absence controls, both actual fixture owners and pinned tool generation. |
 | [I08](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I08) | scheduled | A04/A05; B03; E01 | Generation use beyond ledger entries, safe active-work preflight, independent fixture disposal and partial creation outcomes. |
 | [I09](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I09) | scheduled | A02/A04/A06; D01/D02/D07 | Owning parsers enforce grammar; byte-exact activation preserved; typed Figment subset only if it earns adoption. |
-| [I10](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I10) | scheduled | D01–D09; B05; E02/E03 | Complete API/probe identity, scoped checks and guarded Git transaction with explicit post-commit partial outcome. |
+| [I10](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I10) | scheduled | D02/D04/D06/D07; E03 | API/probe identity and scoped checks remain; Git transaction and handoff portions deferred under RT04/runtime O01. |
 | [I11](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I11) | scheduled | A02/A03/A06; D07 | Scoped candidate discovery, honest incompleteness and early parsing that cannot consume a child argument tail. |
 
 <a id="rule-changes"></a>
 ## Rule changes
+
+The earlier decisions below retain their history. RT01–RT04 above own the current changes;
+R3's universal supervisor and R5's required transaction interface are superseded/deferred.
+A09 schedules publication before dependent implementation.
 
 The operator accepted each of these on 2026-10-29. Each is scheduled in
 [59a A01](59a-cli-foundation.md#a01) before the packages that depend on it. A01's original
@@ -321,107 +371,71 @@ and contract publication before dependent implementation. Formal ADR status is u
 
 ## Target
 
-`pse` is one clap command tree in the `pse-host` crate's library. Thin `[[bin]]`s expose it as:
-- `pse`;
-- `pse-host`, which keeps the hook entry stable;
-- `cargo-pse-correctness`, which Cargo invokes as an external subcommand.
+`pse` remains one Clap tree in the native host, with thin `pse`, `pse-host` and
+`cargo-pse-correctness` binaries. It routes to actual native/test/product owners and stays free
+of scientific/Arrow/database policy. Products remain independently callable. The selected
+runtime simplification is a target, not the behavior of the paused source baseline.
 
-Capabilities share these contracts:
-
-| Contract | Owner | What consumers rely on |
+| Contract | Owner | Selected behavior |
 | --- | --- | --- |
-| clap usage contract | [59a](59a-cli-foundation.md#a02) | Typed shared host arguments, CliInvocationId and explicit selections; narrow owner dispatch preserves literal tokens and the owning parser. Generated catalogues describe grammar, never reconstruct arbitrary validators. Scoped discovery reports candidate freshness/exhaustiveness. No prefix inference or multicall. |
-| Output and exit contract | [59a](59a-cli-foundation.md#a03) | A versioned envelope, summary first, with `--fields` and `--budget`; NDJSON streams ending in `summary`; diagnostic records with §23.2 codes, `help` and `next`. Exec-adapter verbs forward the child's exit. Managed verbs use 0/1/2/125, and 130 when interrupted. `launched` and a still-`running` wait exit 0 with the status in the envelope. Protocol outputs keep their raw formats: `pse-env --print`, the `--version` probes, the agent-hook protocol, and line-oriented tool listings. |
-| State store | [59a](59a-cli-foundation.md#a04) | Scoped resolver with resource-specific lifetimes; checkout invocations, immutable preparation references, API/probe/scratch/handoff state. History/latest derive from invocation records, not a second mutable index. Scientific data and live fixture disposal stay with their original owners. |
-| Run ledger | [59b](59b-runs-and-continuity.md#b01) | Run IDs generated by the launcher, per-run directories, terminal records written by the supervisor or finalizer, and the ledger as stop authority (a reconcile by recorded description and invocation ID) |
-| Product observation | [59f](59f-simulation-observability-and-diagnostics.md#f01) | Product-owned requests/schemas/interpretation; host transport bounds; explicit references join invocation, scientific, canonical, diagnostic and process identities. Passive readers own no scientific cancellation or result authority. |
+| Parsing, output and selection | A02/A03/A06; C07 for tests | One owning parser; typed directional Serde/Schemars views; exact selected context; explain never fabricates build, fixture or execution evidence. |
+| Synchronous foreground | B01/B02 | Existing native foreground ownership through child wait, required capture and actual settlement. No generic reconnectable foreground history or crash-written foreground finalizer guarantee. Operation-specific test/scientific artifacts remain useful. |
+| Explicit detached execution | B03 | One transient user service contains its fixed wrapper, payload and ordinary descendants. Authenticated compatible recorded controls support wait/result/log/cancel independently of current-source builds. |
+| Nested work | B01/B03 | Ordinary descendants inherit the admitted aggregate; no independently cancellable generic CLI subtrees. Explicit detach requires an admitted placement/lifetime and cannot escape finite constraints. Scientific operation cancellation retains its actual owner. |
+| Completed test outcome | C02/C05 with B02 | Native exit, exact context/binary/test inventory and privately produced JUnit, plus actual required setup/capture/drain. No independent start/terminal event proof. Missing evidence is incomplete, not pass. |
+| Prepared tools | A05 | Immutable selected generations and coherent stale-host refresh. No automatic collection. Explicit administrative cleanup requires its own authorization and actual safety assessment; existing unknown claims remain protected. |
+| Scientific observation | F01–F06 | Product owns schemas, units and interpretation; invocation/scientific/process/observation identities stay distinct. Native status, optional rendering and diagnostic attachments confer no scientific or cancellation authority. |
 
-The ledger's ID is a CLI invocation identity, not a scientific RunId, canonical key or diagnostic
-OperationId. Child outcome, command success, observation coverage, scientific outcome and physical
-settlement remain separate. The finalizer may record a crash without establishing drain/disposal.
-The output invariant core survives projection and budget selection; opaque upstream records are
-not schema-qualified scientific/test facts. A03/B define the authoritative shared contracts.
+Launch acknowledgement and expired observation wait may succeed with an explicitly nonterminal
+subject. A zero-exit child is not a completed correctness pass. Raw exec adapters retain their
+exit/signal forwarding. Original output, observation completeness, physical settlement and
+scientific acceptance remain separate. No default restart, watchdog, result database or second
+resource governor is selected. Ordinary 32-job/16-lane unbounded work, explicit finite choices,
+force-validation, exact pins and independent science retain their meanings.
 
-**What stays the same:**
-- `scripts/pse-env` exec forwarding (child exit, 128+signal, 125 for boundary failure).
-- The agent-hook stdin protocol.
-- The correctness adapter's force-validation closure and refusal rules.
-- Admission and placement semantics.
-- The cold-start closure of `pse-host`: no scientific, Arrow/DataFusion, database-client or
-  product-schema dependencies.
-- Products remain callable without `pse`.
+Generic brief/delegation packet assembly, mandatory session briefs/status-line work and
+collection-only recovery leave the target. Citation/scaffold wrappers, automatic handoff hooks
+and D08's specialized commit transaction are deferred. Focused source/dependency/API queries,
+generator navigation, diagnostics and explicit failure next actions remain selected. Existing
+native Git, document and recipe routes remain valid for deferred convenience commands.
 
-**Intentional behaviour changes:**
-- Managed verbs distinguish successful acknowledgement/observation from a reconciled subject pass (R6).
-- New-work verbs fail on rebuild error; compatible existing-work control never requires rebuilding (R3).
-- The edit guard informs instead of blocking for documents.
-- Retired recipes and wrappers are deleted, not shimmed.
-
-**Credible future changes the target accommodates:**
-- **A new verb** is a derived subcommand plus a handler. The catalog, generated reference, `-h`
-  and schema follow automatically.
-- **A new heavy verb** uses owner-generated discovery and its owning parser, without importing
-  product dependencies into the host or duplicating validators in a generated parser mirror.
-- **A new run kind** (for example a benchmark runner) adds an extractor to the ledger. `wait`,
-  `result` and `cancel` are unchanged.
-- **A thin RMCP adapter**, if a consumer ever needs one, maps the same envelopes and schemas.
+A future runner adds a native result adapter to its operation owner; it does not automatically
+need a generic event extractor or foreground service. A future diagnostic consumer reads the
+original addressed evidence and may deepen one selected question without creating a brief.
+Reusable analyzer sessions retain their own actual process lifetime and source synchronization;
+a request is not automatically an independently supervised CLI subtree.
 
 ## Dependencies and route
 
-### Code-intelligence dependency integration
+Packages are responsibility groups, not serial lanes. A09 publishes approved contract changes
+before dependent implementation; research and target assessment may proceed before publication.
+A working prerequisite means its performing consumer and targeted evidence exist, not merely
+an agreed interface. The native lifecycle bindings mirror these dependencies.
 
-G/H/I are responsibility groups, not a new serial barrier in front of A–F. Read their
-package-level Consumes sections and native lifecycle edges for exact prerequisites.
-
-| Consumer | Minimum supplied capability | Independence and completion boundary |
+| Consumer / change | Minimum prerequisite | Independent work / boundary |
 | --- | --- | --- |
-| G01 | Review and pinned backend evidence | Design/coverage investigation can begin before the CLI works. Native embedding requires a demonstrated protocol gap. |
-| J01/J02 | D03 working source basis, A03 owned-view slice, then addressed-source contract | No semantic preparation; J02 proposal can serve semantic and syntax producers independently. |
-| J03/J04 | J01/J02 for syntax previews; J01/D06 for generated navigation | Independent producers; no G03 session gate. |
-| G07 | G03 selected semantics plus J02 proposal | Shares proposal without depending on the J03 pattern backend. |
-| J05 | J01–J04 and A06/D07 selected discovery/reference slices | Actual server-free consumer; D01 packet composition is incremental integration. |
-| G02/G03 | A03/A04/A05, B03 authenticated ownership slice, then C07 context slice | Reusable sessions require working placement and source synchronization; no whole B02/test-fixture prerequisite. |
-| G04–G07 | Working G03 context and selected native operations | Reading, navigation, candidates and previews can progress independently; C05 only gates actual test handoff. |
-| H01–H04 | D02 acquisition/probes, shared output and exact context | Main library journey needs no live analyzer. Local-use enrichment is optional, never a whole-G barrier. |
-| H05 scoped rustdoc checks | D04 dispatch, A03 diagnostics and C07 selected check context | D02 API lookup is optional enrichment; ordinary rustdoc checks do not wait for API/probe delivery. |
-| I01–I04 | Original B02 diagnostics, D02 probes, C07 selected compiler actions | No live analyzer prerequisite. Existing artifacts/probes precede a custom driver. |
-| G08 | J02 proposal, actual J03 or G07 producer, D06 owner/guard contract | Syntax application needs no semantic producer. Investigation may select apply or preview-only; D09 is not a filesystem transaction. |
-| G09/H06 and D01 packet integration | Their selected working producers and D01 base brief | Compose incrementally; base D01 never waits on consumers that themselves use it. |
-| Optional F02 source navigation | Matching original source/build identity and a working source reader | Base F inspection/follow does not wait for G, H or I. |
+| A03/A04/A05 changed contracts; B01/B03 and C02 cutover | A09 governing publication | Preserve existing primitives and historical A07/A08 completion. No automatic pruning package remains. |
+| Foreground B01/B02 | Existing native foreground owner, A03 results and selected capture | Add capture/result composition without another foreground service. |
+| Detached B03 | A03/A04 identity/store and A05 immutable tools; A09 | Qualify one-service placement, finite sharing, raw bytes and kill/drain. No dependency on full test parsing. |
+| C02 native completed reports | C07 admitted selection, C05 actual listing/capture and report-isolation/reader decision | The report investigation can proceed independently of B topology; actual foreground/detached consumers need their working B mode. |
+| C04 selected fixtures | C01/C07 demand and existing performing fixture owners; A05 immutable capture | Source build precedes creation. Both owned and borrowed modes; listing needs inputs, not a running service. |
+| C06 helper composition inquiry | C04 input contract and correctness artifact-edge evidence | Compare selective construction; helper preparation for pure tests is a rejection condition. No universal helper edge. |
+| C08 reader feedback | Existing public reader contract and actual target/dependency assessment | No whole B, service or analyzer prerequisite for pure protocol tests. |
+| C09 CLI/test assurance | Each actual operation under test | Real binary/result semantics; targeted generators and test utilities, not a universal framework. |
+| C03 affected execution | D06 actual generated contributor map and C07/C02 | No generic briefing or commit dependency. |
+| F01/F02 | A03 product transport, explicit product preparation and existing reader | Base checkpoint/inspection works independently of B history; invocation associations consume actual B evidence when available. |
+| F03/F04/F05/F06 | Respective working F producers | Follow, history and selected capture develop independently. No collector/backend or extra live-publisher prerequisite. |
+| G02/G03 | Working owned analyzer placement from B03, A03/A04/A05 and selected C07 context | Sessions outlive queries; no test-fixture or generic packet gate. |
+| G04–G07; H01–H05; I01–I04 | Their actual semantic, documentation, selected diagnostic/probe producers | Preserve each companion's bounded prerequisites. Original compiler facts do not require live analysis or generic D01 composition. |
+| G09/H06 and failure next actions | Their available original producers and A03 views | Direct consumer integration; no base brief/packet prerequisite. |
+| J01/J02; G07/G08 | Existing D03 source, A03 addressed views; J02 proposals for edit producers | Minimal J01/J02 exception only. No D08 transaction gate. J03–J05 remain outside execution scope. |
+| E01 / E03 | Actual worktree users / each delivered verb | Worktree removal still requires genuine user safety; no generation-GC qualification gate. Guidance and deletions accompany migrated callers. |
 
-Existing recommended first waves below remain useful. Establishing source intelligence is
-not a prerequisite for ordinary command control, fixture delivery or scientific observation.
-
-Letters group responsibility, not serial execution lanes. A design/interface can enable parallel
-authoring, but a production consumer needs the actual working prerequisite. The lifecycle binding
-records package edges; the table below explains the delivered capability behind those edges.
-
-| Consumer/change | Prerequisite capability | Reason and readiness |
-| --- | --- | --- |
-| A03/A05/B03 changed contracts | A07 decision/architecture route; original A01 remains done | Confirmed R3/R6 and identity/finality contracts precede dependent code; planning does not claim authority publication completed. |
-| B01 foreground invocation | A02 runnable host, A03 output/identity, A04 invocation paths | Establish one real invocation/result journey before requiring a complete catalogue or migration of every state root. |
-| C01/C02/C04/C05 selection consumers | C07 normalized selection | Package/binary/features/filters/ignored policy are shared; compatible groups preserve feature-absence cases. |
-| C02 managed tests | B01/B02 working recording/extraction plus C01 | Actual nextest and correctness ownership; C04 supplies the selected fixture integration, not every fixture kind. |
-| B03 detached/control | B01 generic recording, A03 and A05 control protocol/generation protection | Generic detached work does not wait for full B02 nextest extraction. Real service-entry admission and original settlement remain required. |
-| A05 pruning; E01 removal | Effect-shaped protection for every retaining consumer; B03 original settlement | Unrecorded adapters and exported paths count as users. No deletion on ledger/PID absence; qualify scoped guard and durable promotion first. |
-| C03 affected; C02 recipe-documentation retirement | D06 generated-input/output map and informing document guard | Only these slices need the map/route; native test behavior need not wait on all D convenience verbs. |
-| F01 product delegation | A03 transport/identity and A06 narrow owner-dispatch slice | Product design can proceed in parallel; CLI integration requires the working dispatch, not the whole catalogue. |
-| F02 inspection | F01 working reader; B01 for invocation-linked navigation | Explicit checkpoint reads can ship before invocation-history views. No database is required for local process evidence. |
-| F03/F04/F05 | F02 inspection and respective existing product owners | Follow, retained study reads and selected capture can develop independently; F04 live-publication decision does not block existing checkpoint/capture consumers. |
-| D01–D07 engineering aids | Applicable A03/A04/A06 slices; D06 for generated-path flags | Owner forwarding preserves parser authority. Dependency/API tooling need not gate lifecycle control or simulation observation. |
-| D08 commit | D09 transaction decision, D01 hunk identities and D06 map | No custom commit adoption before concurrent staging and post-commit partial outcomes have a sound route. |
-| E01 warm checkout; E02 context | A04/A05; B03 for warm detached work; B05/A06 for context | Distinguish created from ready and refuse removal while actual users remain. |
-| E03 adoption; F06 integrated consumers | Each working verb; F01–F05 selected core | Update current guidance and delete replaced consumers alongside capability delivery. |
-
-Next authorized wave: A08's changed-contract publication and the necessary A03/A04/A05
-slices alongside B01/B03's actual foreground custody/capture/settlement journey. Establish
-one test/fixture consumer with B02 and C07 compatible-root admission, then safe detached
-control. J01/J02 source/views and F01/F02 passive inspection can progress on their independent
-prerequisites; neither waits for semantic/compiler-private preparation. Shared design is not
-an implemented prerequisite, and an early slice does not complete its enclosing package.
-Then add follow, retained studies, capture/analysis/export and ready engineering aids. Generation
-pruning and worktree removal follow proven use protection. Optional live-publication/backends/MCP
-are decision branches, not prerequisites to useful local delivery.
+The next implementation wave starts with A09 and the bounded C02/C06/C08 foundation decisions,
+then delivers foreground and detached consumers, native report composition and selected fixtures
+in coherent slices. These dependencies do not authorize restarting implementation. Delete
+replaced mechanisms with migrated consumers and targeted acceptance; do not preserve compatibility
+paths or port tests for mechanisms deliberately removed. Final assembled checks run at scope end.
 
 <a id="foundation-state"></a>
 ## Foundation state
@@ -460,11 +474,17 @@ Completion also requires an actual product-reader/inspection/follow journey and 
 capture→analysis/export use, with coverage/loss and independent scientific ownership preserved.
 Cross-source timestamps are not global causal order; solver status is not a CLI success code.
 The new reviews' closure scenarios belong to their named packages: broken-source cancellation,
-supervisor crash/unknown drain, unrecorded adapter retention, changed tool generations, both
+supervisor crash/unknown drain, immutable old-tool retention without automatic collection, changed tool generations, both
 fixture modes, feature-absence/duplicate test identities, output pressure, diagnostic causes and
-concurrent Git operations. Local snapshots alone cannot qualify physical or scientific lifetimes.
+applicable native ownership operations. D08 concurrent Git acceptance is deferred. Local snapshots alone cannot qualify physical or scientific lifetimes.
 
 ## Current state and next step
+
+**Planning update, 2026-10-30:** runtime/test O01–O14 and RT01–RT04 are integrated into native
+package owners and dependencies. Next authorized implementation begins with A09 and bounded
+report/target/helper decisions, not further qualification of the superseded event parser or
+collection protocol. Existing source remains the pre-cutover implementation. The checkpoints
+below record historical execution and are not competing target specifications.
 
 Execution is **paused at the operator's request after bounded closeout**.
 No agents or owned validation commands remain running. Remaining A–I is incomplete; the minimal J01/J02
@@ -522,7 +542,7 @@ claims are unresolved; observing no process references is not release authority.
 
 Remaining work stays with the companion package tables, including C03 changed-selection
 execution (not started), C04 actual fixture owner integration, richer discovery/exact reruns,
-original generation retirement, canonical captured-reader CLI integration and the other open
+retirement of collection-only machinery (without old-resource deletion), canonical captured-reader CLI integration and the other open
 A–I consumers. No whole-series, scientific, performance or deployment qualification is claimed.
 
 ### Earlier native consumer integration checkpoint — 2026-10-30

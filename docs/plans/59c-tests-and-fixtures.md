@@ -1,11 +1,11 @@
 ---
 title: "Plan59c: Tests and fixtures"
 status: active
-date: 2026-10-29
+date: 2026-10-30
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, validation]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
 ---
 
 # Tests and fixtures
@@ -16,6 +16,14 @@ fixtures and filters. It replaces caller-assembled fixture inputs with resolutio
 actual fixture owners, and gives blueprint §24.1's reconciled-pass rule a Rust owner.
 The remaining targets below are **Proposed**; the coordinator's paused 2026-10-30 checkpoint
 and completed evidence below remain unchanged by this documentation amendment.
+
+The current target incorporates O02–O08/O12/O14 of the
+[CLI, test and runtime workflow review](../functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md).
+The operator confirmed native completed-report reconciliation on 2026-10-30: independent
+event-by-event start/terminal verification is intentionally retired. A09 publishes that
+contract change before dependent implementation. Research and test-target design can proceed
+without waiting for publication. This document owns test integration, not another runner,
+scientific authority or process supervisor.
 
 Sources: [O04](../functional_reviews/rust-agent-cli-2026-10-29.md#O04),
 [O05](../functional_reviews/rust-agent-cli-2026-10-29.md#O05),
@@ -40,6 +48,13 @@ assignments and chose between eight hand-picked `--native` capability sets. Test
 four different entry forms, including 73 bare `cargo test` runs that skip force-validation.
 
 ## Baseline
+
+The detailed original map below is historical. At the new review's source baseline
+`26ac0b893`, C01 was complete and C02–C05/C07 were partially integrated as recorded in the
+package table. The current Nextest event reconciler remains implemented until replaced;
+planning its removal does not erase its focused evidence. The recorded reader selection
+compiled `pse-runtime --lib` for 3m56s, then ran 18 selected tests in 6.454s. This establishes
+a broad compile unit followed by narrow execution, not a cache miss or CPU-width defect.
 
 The original code map is at `68e075493`; the 2026-10-29 amendment corrects fixture ownership
 against `crates/pse-operations/src/native_fixture.rs`, its `pse-canonical-test` caller and
@@ -134,10 +149,14 @@ those preparation inputs. Neither ledger terminality nor child exit authorizes f
 - **Preparation.** Source build/list and immutable tool/helper capture precede service creation.
   A mutable `target/debug` path or fixture current pointer is discovery, not a pinned executable.
 - **Running.** Through the [59b](59b-runs-and-continuity.md) run modes: foreground by default,
-  `--detach` available, nextest libtest extraction.
+  synchronous foreground by default and explicit `--detach` for persistent work. The selected
+  test owner composes outcomes in either mode; ordinary tests do not require a generic service.
 - **Reconciled verdict** (blueprint §24.1 P00). A reconciled pass requires successful setup,
-  the actual selected binary/test population, complete required records and terminal runner
-  evidence. Missing evidence is `incomplete`; a known test/setup failure remains that failure.
+  the actual selected binary/test population, original native exit, an invocation-owned
+  completed report and required capture/fixture evidence. Use native Nextest JUnit rather
+  than reconstructing its experimental event protocol. Missing evidence is `incomplete`;
+  a known test/setup failure remains that failure. No independent event ordering or per-event
+  byte-address guarantee remains; original raw streams retain their separate fidelity contract.
   Preserve child exit, observation completeness, settlement and scientific acceptance separately.
   Launch acknowledgements and nonterminal waits may exit 0 under A03/B's command contract;
   they do not assert a reconciled workload pass. Raw adapter exits keep their existing meaning.
@@ -180,7 +199,7 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
   `[package.metadata.pse.test.<target>]`, with an optional `when-features = [...]`. That
   keeps canonical database lib subsets, selected by `canonical-tests` plus a filter, apart from
   ordinary `--lib` runs.
-- Fixture names include:
+- Existing fixture inputs include:
   - `canonical-service`;
   - `study-module` (`production` or `qualification`);
   - `scientific-inputs`;
@@ -200,8 +219,9 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 - `pse test` supplies `PSE_NATIVE_FIXTURE_*` for target-owned services and other declared
   inputs from these records; runner-owned services lend `PSE_NATIVE_CANONICAL_FIXTURE` through
   the existing owner. Prepared tools, including xtask outputs, are captured before a later
-  Cargo feature selection can overwrite their original output paths. Retention follows A05
-  generation-use pins and the fixture owner's positive disposal decision.
+  Cargo feature selection can overwrite their original output paths. A05 retains immutable
+  prepared generations without automatic collection; actual fixture state and resource
+  disposal remain with the fixture owner's positive decision.
 - Historical module-state selectors (`…_MODULE_STATE`, `…_PREDECESSOR_…`, `…_TARGET_…`) are
   recorded inputs. They are explicit `pse fixture` and `pse test` arguments, never defaults.
 
@@ -220,21 +240,23 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
   solver features needs no providers.
 - **Use `CARGO_BIN_EXE` wherever Cargo provides it.** That covers same-package integration
   targets on stable Cargo. Cross-package helpers and lib tests use fixture records. Cargo
-  artifact dependencies (`-Z bindeps`) come last and only for the cross-package helper, because
-  their features must also pass ADR-0170's force-validation unit-graph check and interact with
-  ADR-0122 feature unification.
+  artifact dependencies (`-Z bindeps`) are a reopened C06 comparison, not an assumed improvement.
+  Their unit graphs must preserve force-validation and feature-absence controls without
+  preparing the helper for unrelated targets.
 
 ## Package state
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [C01](#c01) | complete | 59c | Declaration and actual reached-unit capability derivation integrated; targeted real no-build Cargo graphs cover every mapped feature and pure/full runtime; no provider preparation or solver build |
-| [C02](#c02) | in-progress | 59c | Fixed authenticated managed helper, complete phase capture and native reconciliation integrated. Prepared public list/check/test and detached zero-match→wait journeys work; package-wide ignored-suite evidence and top-level performing outcomes corrected. Fixture lifecycle, richer verdict/rerun consumers and recipe retirement remain |
+| [C02](#c02) | in-progress | 59c | Existing managed helper, phase capture and event reconciliation have focused evidence. Native completed-report replacement/isolation, synchronous ownership integration, fixture lifecycle, failure/rerun consumers and recipe retirement remain; prior event checks are not the new target |
 | [C03](#c03) | in-progress | 59c | Native Gitoxide preview and conservative captured declaration closure pass6 controls; prepared CLI preview works and replaced xtask implementation/tests/recipe are deleted. `pse test --changed` integration remains |
 | [C04](#c04) | in-progress | 59c | Source-audited runtime/operations declarations and passive existing-owner prerequisite selection integrated for both service modes; fixture CLI, immutable helper source-build admission, worker variable migration and actual service journeys remain |
 | [C05](#c05) | in-progress | 59c | Source-build capture, complete phase custody and exact native binary/test inventory integrated. Public `tests` retains the inventory; source-built `result ID --tests` reads whole-record pages with byte-bound continuation and stale/foreign cursor refusal. Fixture/capability presentation, exact rerun consumers and `list-native-contracts` retirement remain |
-| [C06](#c06) | deferred | 59c | Bindeps for the cross-package service helper; trigger below |
-| [C07](#c07) | in-progress | 59c | Compatible Cargo groups, per-root absence policies, graph-driven splitting and metadata reuse tested; managed list/check/test share the staged native owner. Shared named-group coordination across independent split runners remains explicitly pending; no full C07 completion claimed |
+| [C06](#c06) | planned | 59c | Reopened bounded comparison of selective helper construction and Cargo artifact composition; no adoption or timing benefit established |
+| [C07](#c07) | in-progress | 59c | Compatible groups, absence policies and metadata reuse have focused evidence; remaining scheduling delegates to Nextest and explicitly sequences incompatible groups needing shared exclusion |
+| [C08](#c08) | planned | 59c | Public reader feedback target and useful native compilation explanation; dependency-boundary investigation only where needed |
+| [C09](#c09) | planned | 59c | Focused real-CLI assertions, meaningful case identities and adversarial framing assurance using established test utilities |
 
 <a id="c01"></a>
 ### C01 — One capability declaration
@@ -260,8 +282,11 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 <a id="c02"></a>
 ### C02 — `pse test` and `pse check`
 
-**Consumes:** C07, C01, [59a A03](59a-cli-foundation.md#a03), and [59b B01–B02](59b-runs-and-continuity.md)
-(the foreground runs and extractors). It also uses [B03](59b-runs-and-continuity.md#b03) for
+**Consumes:** C07, C01, [59a A03](59a-cli-foundation.md#a03), A09's completed-report contract,
+and [59b B01](59b-runs-and-continuity.md#b01)'s shared foreground capture. B02 consumes
+C02's completed domain result for presentation; its full delivery is not a prerequisite to
+the report-reader decision. Integrate the actual result consumer in the same performing change.
+It also uses [B03](59b-runs-and-continuity.md#b03) for
 `--detach` when present.
 
 Its recipe-retirement documentation edits include the architecture section
@@ -276,10 +301,32 @@ Its recipe-retirement documentation edits include the architecture section
 - The reconciled verdict, constructed by the owning reconciler from actual setup, population,
   terminal and completeness evidence before A03 renders it. Typed decode and directional
   schemas do not independently establish a pass or permit invalid outcome combinations.
+- Producer-isolated JUnit for every invocation/compiler group. The current profile-shared
+  `junit.xml` path cannot identify its writer; copying it after execution is insufficient.
+  Set report placement before launch and retain effective configuration/provenance. Resolve
+  `junit.path` against the selected profile store, preserving repository configuration
+  precedence. If a derived captured config is needed, change only placement and refuse
+  unsupported precedence before effects; a tool-default file cannot silently override policy.
+- Native inventory from `nextest-metadata` and exact `(compiler context, binary ID, test name)`
+  reconciliation against the completed report. Setup suites and skipped populations remain
+  distinct; retry/flaky details and original runner exit retain native policy.
+- A bounded typed-reader decision: qualify a selected exact `quick-junit` release's `Report`,
+  `TestCaseStatus`, `TestRerun` and deserialization against the pinned runner. Its API is a
+  candidate, not an adopted pin. Unsupported/malformed/missing reports remain incomplete.
+  Do not replace the event interpreter with a handwritten XML event interpreter or embed
+  `nextest-runner` merely to retain unnecessary lifecycle reconstruction.
+- Bounded failed-case/setup/runner pages and original stdout/stderr links under B02. A result
+  read preserves the performing failure at the top level. Rerun is explicit; changed source,
+  features or external fixture premises are reported, not silently reinterpreted. Retained
+  binaries do not freeze scientific inputs. Native record/replay and timeline attachments
+  remain conditional on a selected compatible runner; replay is not fresh-source validation.
 - `--rerun-failed`.
 - `--explain`.
 
 **Deletes:**
+- The replaced `NextestExtractor` suite/event state, retry-name reconstruction, ignored-tail
+  compatibility and mechanism-only tests; retain Cargo diagnostic extraction and raw streams.
+- Parallel failure briefs/history formats that merely restate the same native result.
 - The `unit-package`, `test-package`, `check-package`, `check-library`, `unit-native-package`,
   `unit-native-capability-package` and `unit-native-selected` recipes, plus their literal
   capability lists.
@@ -294,6 +341,10 @@ Its recipe-retirement documentation edits include the architecture section
 - Reconciliation cases: nextest exit 0 with a missing selected record is incomplete;
   setup failure and zero-match selection remain explicit; duplicate test names across binaries
   and ignored-policy changes cannot produce an incorrect pass or rerun.
+- Two concurrent report producers cannot consume each other's report; crash/cancellation and
+  malformed/partial XML never establish pass. Include setup, retry/flaky and native nonzero
+  exit even where individual report entries look successful. Report completion never proves
+  physical fixture teardown or scientific acceptance. These cases qualify the selected reader.
 - **Force-validation.** It is present for a small Arrow-consuming target and absent for
   `pse-host`, which has no Arrow, both through the real adapter. A passing run yields the
   reconciled verdict.
@@ -321,12 +372,18 @@ its dependents with the derived capabilities.
 <a id="c04"></a>
 ### C04 — Fixtures
 
-**Consumes:** C07, C02, [59a A04](59a-cli-foundation.md#a04) (store) and A05's immutable
-artifact capture/generation-use pin contract before retaining helpers or pruning their generation.
+**Consumes:** C07's captured population, C01 requirements, [59a A04](59a-cli-foundation.md#a04)
+(store) and A05's immutable artifact identity. C02 supplies actual execution/result integration;
+passive declaration/input resolution need not wait for its completed report reader.
 
 **Delivers:**
 - Fixture declarations for the targets and lib tests listed in the baseline, including both
   service ownership modes and their actual preparation inputs.
+- Build/list once, derive exact selected fixture demand and prepare only required inputs.
+  Pure schema/framing/preflight tests need no canonical service or solver provider. Reuse
+  `NativeTestCommand`/`NativeCanonicalService` performing owners; do not duplicate them in the
+  host or rewrite ordinary test bodies to serve CLI control. Nextest setup scripts may export
+  inputs where appropriate but do not automatically become an external service teardown owner.
 - `pse fixture prepare|show`.
 - The study-module current pointer, written by `study-module prepare` through the store resolver.
 - `pse test` setting fixture variables from the records.
@@ -353,12 +410,15 @@ recipe bodies. Their scenarios become `pse test` invocations.
 - Both runner-borrowed and target-owned service journeys receive their required inputs.
   Source-build failure creates no service; signal/unknown-join evidence preserves owner state.
 - A later different-feature Cargo build cannot change an already selected helper/tool.
+- Pure and mixed selections show actual demand; a support-absent control retains absence.
+  The existing build/list handoff reuses binaries/Cargo metadata rather than compiling again.
 
 <a id="c05"></a>
 ### C05 — Test discovery
 
-**Consumes:** C07, C01, C02 and C04's declaration/immutable-input slice. Actual fixture startup
-is not a prerequisite to listing.
+**Consumes:** C07's shared source-build/capture stage, C01 and C04's declaration/immutable-input
+slice. Listing is independent of C02 execution/reconciliation and actual fixture startup;
+C02 consumes this observed inventory rather than forming a reverse prerequisite.
 
 **Delivers:** `pse tests <pattern> [--package P]` over adapter `nextest list --message-format json`
 with derived features, joined with declarations. Official nextest filtering/listing remains the
@@ -374,26 +434,32 @@ Add compatible multi-package discovery with duplicate test names, an incompatibl
 context and a stale captured binary; matching/rerun must preserve the original binary/context.
 
 <a id="c06"></a>
-### C06 — Cross-package helper by artifact dependency (deferred)
+### C06 — Selective helper construction or Cargo artifact composition
 
-**Trigger.** Revisit if the `canonical-service` fixture from C04 proves burdensome in use, or if
-Cargo stabilizes artifact dependencies.
+**Consumes:** C04's actual helper demand and existing correctness selection contract. Research
+can begin before fixture CLI delivery; adoption needs its working selected consumers.
 
-**Consumes:** C04.
+**Delivers:** a bounded decision comparing the existing selective helper build plus test build
+with one Cargo DAG. Two Cargo invocations do not establish duplicate expensive compilation.
+For artifact dependencies, examine `-Z bindeps`, `artifact = "bin:pse-canonical-service"` and
+`lib = true` only if library use is needed. Cross-package access is
+`CARGO_BIN_FILE_<DEP>_<NAME>`, not same-package `CARGO_BIN_EXE_*`.
+See the [Cargo artifact contract](https://doc.rust-lang.org/cargo/reference/unstable.html#artifact-dependencies).
 
-**Delivers, when triggered:** a focused probe of `-Z bindeps` for `pse-runtime`'s dev-dependency
-on the `pse-canonical-service` artifact.
-- **Criteria for adoption:**
-  - the correctness adapter's unit-graph check and force-validation splice accept artifact edges;
-  - workspace feature unification gives one feature set;
-  - sccache and nextest behave normally.
-- **If the criteria hold:** helper consumers switch to
-  `env!("CARGO_BIN_EXE_pse-canonical-service")` (artifact form) and drop the
-  `canonical-service` fixture.
-- **Otherwise:** the C04 fixture remains the route, and this package records why.
+Compare a feature-selected optional artifact edge with retaining selective construction;
+package-wide dev dependencies can build helpers for unrelated test targets. A dedicated harness
+package is conditional on a responsibility that warrants a new crate and its decision route.
+Do not combine arbitrary helper-bin/runtime-lib roots with global selectors or implement a
+custom Cargo-equivalence planner. Preserve immutable captured binaries, source-built provenance,
+host/target/artifact force-validation, feature unification and support-absent controls.
 
-**Acceptance:** the decision and its evidence are recorded here. If adopted, the cross-package
-targets run without the fixture variable.
+**Deletes if adopted:** only the replaced helper-build invocation/path handoff and duplicated
+capture. Existing fixture service lifecycle remains where required. If exact selected demand
+cannot be preserved, retain C04's selective build and record the limiting contract here.
+
+**Acceptance:** a pure reader builds no helper/provider solely because of composition; the
+canonical consumer receives the exact source-built helper; validation and negative-feature
+cases remain effective. No timing saving or repeated Arrow-build elimination is presumed.
 
 <a id="c07"></a>
 ### C07 — Shared resolved selection foundation
@@ -417,6 +483,12 @@ the existing correctness adapter's selection/force-validation contract.
    B02 consumes the actual selected population and setup policy for reconciliation. Intent or
    a unit graph never fabricates a built binary or a test ID.
 
+Delegate scheduling, groups, retries, threads, timeouts and fail-fast to one Nextest invocation
+for compatible roots. Native named groups are not cross-process semaphores. For incompatible
+contexts needing common exclusion, explicitly sequence only those affected groups; do not add
+a second scheduler or host-wide serial policy. Keep ordinary 16 physical lanes/unbounded
+placement, with actual scientific timing/exclusive fixture contracts preserved.
+
 C01 derives capabilities from admitted units; C02 executes/checks the admitted selection;
 C04 resolves declared fixture inputs without changing their owner; C05 discovers actual tests.
 [59a A06](59a-cli-foundation.md#a06)'s explain consumes the same available stage and renders
@@ -433,6 +505,78 @@ execution agree for unchanged premises and refuse/re-resolve changed ones before
 explain performs no build/list/provider/service preparation. C05's duplicate-name binary journey
 challenges discovery identity independently of normalization. Structural repeated work is removed
 when compatible roots share admission; elapsed-time improvement remains unmeasured.
+An exclusive fixture cannot overlap across split groups; independent tests retain native
+parallelism. Existing semantics, not a general CPU reduction, justify any sequencing.
+
+<a id="c08"></a>
+### C08 — Reader feedback and compilation explanations
+
+**Consumes:** existing public `tooling::reader::{encode,serve,schema}` and C07's selected target
+context. C04 is needed only for canonical assertions; pure reader design is independent of
+B03 or the new report reader. Boundary changes requiring a new crate consume A09's decision route.
+
+**Delivers:** a named public-contract test target for reader encoding/framing/schema, with
+independent decoding/expected values; retain genuinely private invariants beside implementation.
+Inspect Cargo's automatic eligible-bin build for same-package integration tests before choosing
+the exact target. Moving tests removes unrelated unit-test bodies, not ordinary runtime
+compiler/mathematics/DataFusion/telemetry dependencies. Compare module/feature extraction only
+where a real production responsibility narrows that closure. No new public test-only accessors,
+`#[path]` recompilation or unproven unused-dependency removals.
+
+Extend existing result presentation with phase durations, effective profile/features/targets,
+raw Cargo links and an opt-in native `--timings` attachment. Explain check metadata versus
+executable codegen/link versus running tests. Shared cache totals cannot attribute a miss to
+one invocation. Keep workspace incremental/dependency nonincremental choices unless a selected
+feedback profile's compile/runtime trade justifies another artifact population; that profile
+cannot substitute for production-shaped scientific/performance evidence.
+
+A05 owns the smaller optional bootstrap simplification: compare one source-coherent constructor
+with the current shell build plus bootstrap build. It is not an explanation for the recorded
+runtime compile. No pre-test Clippy warming, new cache ledger, smaller CPU partition or cache-hit
+campaign is required. Native [Cargo timings](https://doc.rust-lang.org/cargo/reference/timings.html)
+answer a selected critical-path question; sccache cannot cache incremental Rust compilations
+or final linker outputs under its documented 0.19 restrictions.
+
+**Deletes:** migrated duplicate unit tests, obsolete fixture identities and any duplicate
+construction invocation whose coherence duties are preserved by A05's chosen producer.
+
+**Acceptance:** edit framing and select the public target without a database/provider or the
+unrelated runtime unit-test executable; independent malformed/truncated/identity cases reject.
+Canonical history assertions still exercise their real service. A check→test journey explains
+different compilation work without claiming cache failure. Structural reduction is sufficient;
+numerical speed or hit-rate claims need a separate measurement.
+
+<a id="c09"></a>
+### C09 — Focused CLI and adversarial test assurance
+
+**Consumes:** existing real-binary `pse-host` tests and the selected behavior delivered by
+C02/B01–B03. Framing assurance can proceed independently using existing stream owners.
+
+**Delivers:** selectively replace repetitive process assertion helpers with `assert_cmd` and
+predicates; `Assert::new(Output)` can use an existing fixture's process output. Keep semantic
+JSON/schema/exit assertions and existing insta presentation snapshots. Consider snapbox only
+for meaningful filesystem effects, trycmd for an actual executable-example corpus, rstest for
+usefully selectable static matrices, datatest-stable for per-file identities and libtest-mimic
+only for genuinely dynamic harness cases. Do not convert cheap loops or economical Clap tree
+snapshots into unnecessary process populations.
+
+Extend existing Proptest at byte framing boundaries for arbitrary chunks, EOF, malformed data
+and bounds, checking conservation/truncation against independent expectations. Keep useful
+counterexamples. Do not invest in the disappearing Nextest event machine. Real kernel/fixture
+tests retain process ownership assertions: assertion-tool timeouts do not prove descendant drain.
+Scientific expectations/reference routes remain independent under PS-10/PS-13.
+
+Loom/Shuttle require a small explicit modeled responsibility; Miri, coverage, mutation, CPU/
+allocation profilers and tracing assertions remain selected inquiries, not new gates or CLI
+commands. No test-history database or universal test-support registry is selected.
+
+**Deletes:** replaced ad hoc assertion helpers, duplicate snapshots/case registries and one-off
+journey scripts once durable tests cover their actual behavior. Preserve unique original evidence.
+
+**Acceptance:** malformed invocation has the expected structured error/exit/streams and no
+effects; reading incomplete/failed work preserves the performing failure; generated chunk/EOF
+cases reject known bad input and retain useful minimized counterexamples when found. Actual foreground/detached cancellation
+journeys stay with their physical owner. Utility adoption does not qualify unexercised science.
 
 ## Verification and handoff
 

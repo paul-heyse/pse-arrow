@@ -5,12 +5,16 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, documentation]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
 ---
 
 # Environment and adoption
 
-Part of [Plan59](59-agent-cli.md). This plan covers the environment around the CLI:
+Part of [Plan59](59-agent-cli.md).
+
+The current target incorporates the [CLI/test/runtime review](../functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md)
+O01/O11. The coordinator owns its dispositions and confirmed rule decisions; historical
+implementation evidence below retains its original scope. Product execution remains paused. This plan covers the environment around the CLI:
 - worktrees that are ready on creation;
 - Claude's orientation surfaces;
 - guidance that makes `pse` the obvious first choice;
@@ -81,8 +85,8 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
   2. copies `.envrc.local` with its current behaviour and mode;
   3. prepares host tools with `scripts/bootstrap-host --from <source>`, which copies a
      fingerprint-matching immutable generation ([59a A05](59a-cli-foundation.md#a05)); copying
-     holds the source protection required by A05 until destination identity/custody is established.
-     Retained executable paths, children or finalizers require durable protection before handoff.
+     preserves source/destination identity and coherent completed bytes during the copy.
+     Actual child/resource ownership remains separate from collection-only claims.
      A nonmatching generation
      uses the explicit bootstrap preparation route and reports any build failure;
   4. relies on the already-shared native provider caches;
@@ -108,29 +112,26 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
     `--force` never overrides that protection. Once safe, `--force` authorizes loss of dirty or
     unmerged work only. Run history remains in the store under A04's typed retention rules;
     fixture evidence, scientific data and protected artifacts do not become disposable logs.
-  - Passive list/status reads use temporary protection under the same exclusion protocol as
-    publication/pruning; they do not automatically publish a permanent use claim. A05 owns
-    the qualified mechanism and any promotion before retained effects. A process-held shared
-    guard is a candidate requiring inheritance/promotion/race evidence, not a selected lock
-    implementation here. Retain current conservative protection until that contract is working.
-    Existing unknown claims remain protected: a missing PID, terminal ledger row or newly
-    introduced ephemeral guard does not prove old descendants/finalizers have settled. Keep
-    pruning disabled where that premise remains unresolved; no retrospective cleanup is implied.
-- **Claude orientation.**
-  - The session-start context hook from [59b B05](59b-runs-and-continuity.md#b05) returns
-    `pse status --brief` (HEAD, dirty count, active plan, live runs, stale host) and one line
-    naming the main verbs. After compaction it returns the handoff instead.
-  - A `statusLine` running `pse status --line` shows live runs and the last failure. It is
-    read-only and reads only the run directories and a cached staleness result. It never hashes
-    sources or runs `git status` on a render, and it is harmless when tools are unprepared.
+  - Automatic host-generation collection is removed under review O11. A05 retains immutable
+    generations and atomic selection until explicit administrative cleanup. Worktree removal
+    is a separate destructive action: actual users, unresolved settlement and required evidence
+    still refuse removal. Preserve existing unknown claims; neither a missing PID nor a terminal
+    row proves safety. Collection-only claims may retire only after A09 distinguishes them from
+    actual resource/admission ownership. No current data deletion is authorized.
+
+
+- **Focused orientation.** Existing passive status/help remains useful on demand. The generic
+  session-start brief, status-line product and automatic handoff hooks are removed from required
+  scope. B05 retains session identity; no new Claude/Codex hook is needed for these conveniences.
+
+
 - **Communication** puts `pse` where agents already look, as each verb ships:
   - AGENTS.md "Start here" becomes a short task-to-verb table ("run a test → `pse test`", "wait
     on a run → `pse wait`", "exact dependency API → `pse api`", …), pointing to
     `pse commands --json` and the generated reference.
   - The environment, validation and documentation guides route their workflows through `pse`.
-  - Role contracts and process skills name the verb for each step: `pse brief` when delegating,
-    `pse handoff` before long work, `pse new`/`ref`/`docs check` in review and plan skills, and
-    `pse commit` when D09/D08 establish its tested transaction strategy.
+  - Role contracts and skills name only delivered useful commands; direct files, native Git
+    and existing plan/ADR routes remain first-class. Do not recommend deferred wrappers.
   - As [59f](59f-simulation-observability-and-diagnostics.md) ships, guides show passive
     process/operation inspection, follow continuity, study history/current availability, and
     explicit capture/analysis/export escalation. Optional backend/MCP inquiries remain choices;
@@ -140,7 +141,7 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
     59d own the retirements).
   - Envelope `next` hints and diagnostic remedies already use `pse` forms ([59a A03](59a-cli-foundation.md#a03)).
   - Deliver guidance alongside each usable producer→consumer slice, including source queries/
-    previews and base observation before full semantic/compiler enrichment. D01 packets expose
+    previews and base observation before full semantic/compiler enrichment. Focused owner views expose
     available sections and explicit missing producers; agents can follow typed next actions
     without automatic builds, captures or probe execution.
 - **Plan index.** `docs/plans/README.md` becomes a short current-work pointer: active plans, one
@@ -156,7 +157,7 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [E01](#e01) | planned | 59e | `pse worktree new\|list\|rm`; `just worktree` retired; environment guide §Worktrees updated (direnv wording unchanged) |
-| [E02](#e02) | planned | 59e | Claude session-start status brief content and `statusLine` |
+| [E02](#e02) | superseded | 59e | Generic session brief/status-line target removed by review O01; existing passive status remains |
 | [E03](#e03) | planned | 59e (continuing) | AGENTS.md task-to-verb entries pointing to `pse commands`, guide routes, roles/skills mentions and retired-recipe routes, updated as each verb ships |
 | [E04](#e04) | complete | 59e | Current-work pointer links native status owners; lifecycle validate passed with zero errors |
 | [E05](#e05) | complete | 59e | Edit guidance in AGENTS.md and `.claude/rules/tooling.md` |
@@ -166,10 +167,10 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 
 **Consumes:**
 - [59a A04](59a-cli-foundation.md#a04) (store, checkout ID) and [A05](59a-cli-foundation.md#a05)
-  (`bootstrap-host --from`, immutable fingerprinted generations and use pins covering every
-  supported retaining route, not only live ledger entries). Consume A05's revised effect-shaped
-  protection only after the accepted RC01 decision route and actual guard/promotion protocol
-  are available; until then preserve conservative claims and disabled pruning.
+  (`bootstrap-host --from`, immutable fingerprinted generations and coherent copy/publication).
+  A09 publishes the no-collection contract; collection guard/promotion qualification is not a
+  worktree-creation prerequisite. Actual checkout users, required artifacts and unresolved
+  settlement still protect removal; no automatic generation collection is selected.
 - [59b B03](59b-runs-and-continuity.md#b03) for `--warm`; until it lands, `--warm` is absent.
 - B's independent stop/settlement evidence and C04's actual fixture ownership contract before
   removal of a checkout with those users. A terminal invocation alone does not clear a fixture's
@@ -194,39 +195,27 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
   After an explicitly requested stop
   and demonstrated owner settlement/release, ordinary removal succeeds. Pruning presentation
   logs cannot erase finalizer generations, fixture decisions or scientific artifacts.
-- Kill a passive reader under the selected temporary-protection protocol, then exercise
-  concurrent publication/pruning and source-generation copy handoff. A reader's death may
-  release only its temporary guard. Exported paths, children, reusable sessions, finalizers
-  and unresolved historical claims continue to protect their actual generation/checkout.
-  Demonstrate promotion before effects and required descriptor inheritance at the owning
-  OS boundary; a missing original PID never supplies an old claim's retirement authority.
+- Prepare newer immutable tools while an older detached job runs; the old paths remain usable
+  without automatic collection. Exercise coherent source-generation copy and separate checkout
+  removal refusal for actual readers, children, reusable sessions and unresolved evidence.
+  No generation-GC race campaign is required. A missing original PID never supplies authority
+  to delete unknown historical resources.
 
 <a id="e02"></a>
-### E02 — Claude session-start brief and status line
+### E02 — Session brief and status line (superseded)
 
-**Consumes:** [59a A06](59a-cli-foundation.md#a06) (`status`) and [59b B05](59b-runs-and-continuity.md#b05)
-(context hook), with A05's non-building existing-work control path for unprepared/stale tools.
-
-**Delivers:**
-- The `--brief` content: one compact block plus the main-verbs line.
-- `pse status --line`.
-- The `statusLine` entry in `.claude/settings.json`, coordinated with the operator's concurrent
-  edits to that file.
-
-**Acceptance:**
-- A new Claude session's first context includes the brief.
-- The status line renders from cached state well under its timeout, and prints a neutral line
-  when tools are unprepared.
-- Host source changes or a missing product executable do not trigger a status-line build or
-  prevent existing-work observation through a compatible control generation. Unknown/stale
-  observations remain labelled; status never claims settled science from command exit alone.
+Review O01 removes mandatory session-start briefing and status-line integration. No hook,
+renderer, cached brief or new settings entry is required. This is scope retirement, not an
+implemented feature. Existing passive status/help and B05 session identity remain supported;
+uniquely authored handoff notes are not deleted. Reconsider only for an actual user whose
+orientation need is not served by current files, command help and selected result reads.
 
 <a id="e03"></a>
 ### E03 — Communication and routing (continuing)
 
 **Consumes:** each verb as it ships, including F01–F05's actual supported product contracts and
 F06's eventual inquiry decisions. No guide advertises a proposed bridge, backend or MCP adapter
-as available. D08 commit guidance waits for the D09 decision and D08 delivery.
+as available. D05/D08 and briefing/handoff wrappers are deferred or removed; guidance must not advertise them.
 
 **Delivers, per verb, in the same change as the verb:**
 - its AGENTS.md task-table row;
@@ -294,7 +283,7 @@ analysis, generates rustdoc or compiles automatically. **E01** lists reusable se
 checkout users and refuses removal while they, their children or required generations remain
 live/unsettled; explicit stop-and-settle precedes safe removal. Query completion or absence
 from scientific run lists is not drain evidence. Each checkout retains independent analysis
-context/build state. **E02** may show existing readiness without scans/priming on render;
+context/build state. E02 adds no hook/status-line prerequisite.
 **E04** links coordinator-owned G–J scope rather than duplicating status. Per-slice actual CLI
 journeys and their distinguishing failure cases precede replaced-caller retirement; scope-end
 static/integrated qualification keeps its existing timing and does not block discrete adoption.
@@ -303,7 +292,7 @@ Acceptance adds two checkouts, active-analysis removal refusal and successful re
 actual settlement. Codex/editor/MCP/direnv exclusions and ordinary host capacity remain intact.
 
 - **E01:** targeted `pse-host` tests and one real worktree creation and removal.
-- **E02:** one real Claude session start.
+- **E02:** no feature-delivery acceptance; verify retired requirements are absent from current guidance.
 - **E03–E05:** documentation and agent-configuration changes, checked with `just lint-agents` and
   the documentation link check.
 - **Scope end:** the series' scope-end `just docs`/`just governance` runs cover them.

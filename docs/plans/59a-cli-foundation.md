@@ -5,7 +5,7 @@ date: 2026-10-30
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
 ---
 
 # CLI foundation
@@ -106,6 +106,13 @@ single code `RuntimeInfrastructure`, and none is rendered.
   `admission` rows, but no `host` row.
 
 ## Target
+
+The [CLI/test/runtime review](../functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md)
+O09–O13 supplies the current target. The operator confirmed synchronous foreground ownership,
+single-service explicit detachment and removal of automatic host-generation collection on
+2026-10-30. A09 publishes the changed governing contracts before dependent implementation.
+A07/A08 retain their completed historical publication evidence; their replaced realization is
+not a second target. Production execution remains paused.
 
 ### Foundation assessment and authority boundaries
 
@@ -217,13 +224,17 @@ feature choices are exactly the review's
 | [A02](#a02) | complete | 59a | Shared clap tree/three binaries merged; targeted parser/protocol and bootstrap tests pass; broader qualification remains at series end |
 | [A03](#a03) | in-progress | 59a | Native output/diagnostic/schema, artifact windows and typed source views integrated. Original performing outcomes stay at the top level; launch/terminal reply schemas and owned payload projection pass focused controls. Captured test pages preserve whole records and continuation identity; other producer pages/direct serialization and product owner integration remain |
 | [A04](#a04) | in-progress | 59a | Resolver/consumer migration, isolated exact lookup, diagnostic partial history and protected owner-record/request access integrated; responsibility-specific retention and concurrent managed invocation acceptance remain with B01 |
-| [A05](#a05) | in-progress | 59a | Immutable publication, stale rebuild/reexec, authenticated cold-copy, passive guards and explicit promotion integrated. Actual finalizers retire only their own context claims after native/local duties; normal/crash/publication-failure controls preserve original users. Original launcher/supervisor/trampoline/entry settlement remains; pruning disabled and old/unknown claims protected |
+| [A05](#a05) | in-progress | 59a | Immutable publication, stale refresh/copy and prior claim controls retain focused evidence; classify and retire collection-only machinery under A09, preserve unknown artifacts and real owners, retain immutable tools without automatic collection |
 | [A06](#a06) | in-progress | 59a | Parser-derived command/help/catalog/schema, selective passive status, invocation/dependency candidates and pure native xtask discovery integrated; staged execution consumers, actual provenance and generated owner federation remain |
 | [A07](#a07) | complete | 59a | Proposed ADR-0233/blueprint315 published and scoped formal review accepts that target at Proposed strength; proposed ADR-0234/blueprint316 refines nested invocation ownership; runtime obligations remain with consumers |
 | [A08](#a08) | complete | 59a | Proposed ADR-0233/0234 and blueprint317 publish accepted RC01–RC04; independent focused target advice found no required correction, not formal acceptance or runtime qualification |
+| [A09](#a09) | planned | 59a | Publish the confirmed native-result, lifetime, generation-retention and reduced-command amendments before dependent implementation |
 
 <a id="a01"></a>
 ### A01 — Land the accepted rule changes
+
+Completed historical publication scope follows. A09 owns superseding runtime/result/retention
+changes; these original decisions are not a competing current implementation target.
 
 **Consumes:** the operator decisions R1–R5 in the [coordinator](59-agent-cli.md#rule-changes).
 
@@ -255,6 +266,9 @@ newly selected contract amendments belong to A07; A01 is not reopened or credite
 <a id="a07"></a>
 ### A07 — Amend the control and observability contracts
 
+Completed historical publication scope follows. A09 owns superseding runtime/result/retention
+changes; these original decisions are not a competing current implementation target.
+
 **Consumes:** the coordinator's operator-confirmed R3 refinement (2026-10-29), the selected
 O01–O08/I01–I11 scope and existing ADR/architecture routes.
 
@@ -275,6 +289,9 @@ strength. The 2026-10-30 library-integration amendments are owned by A08, not cr
 
 <a id="a08"></a>
 ### A08 — Publish the accepted library-integration rule amendments
+
+Completed historical publication scope follows. A09 owns superseding runtime/result/retention
+changes; these original decisions are not a competing current implementation target.
 
 **Consumes:** the library-integration review RC01–RC04, operator-accepted 2026-10-30, and the
 existing decision/review route. The coordinator owns the single series disposition table.
@@ -465,8 +482,8 @@ page/raw-evidence wire amendments before changing those contracts.
   - `checkout_id` comes from the checkout's absolute path and its git common directory, so
     worktrees of one repository relate.
   - Typed paths cover the store (`invocations/`, `fixtures/`, `api/`, `probes/`, `scratch/<session>/`,
-    `handoff/`), telemetry state, Surreal state, sccache, tool roots, native cache and the
-    admission runtime directory.
+    retained authored notes where already present), telemetry state, Surreal state, sccache,
+    tool roots, native cache and the admission runtime directory.
   - Empty variables are treated as unset uniformly.
 - All ten current resolution sites migrate to it and their local `base()` copies are deleted.
 - There is no separate writable history index. A full ID validates and opens only its bound
@@ -483,8 +500,9 @@ page/raw-evidence wire amendments before changing those contracts.
   invocation is terminal. Age/count applies only to
   eligible disposable state; active invocations, unresolved settlement, generation users and
   independently retained fixtures are protected. Scratch age alone cannot prove disposal.
-  A04 defines eligibility; pruning waits for A05/B03's real lifetime protections. This
-  schedules a policy, not deletion of existing caches/data.
+  A04 defines non-generation retention eligibility; its actual disposal owner still requires
+  positive authority. A05 retains prepared generations until explicit administration. This
+  schedules no deletion of existing caches/data and no automatic host-generation collector.
 
 **Acceptance:**
 - Resolver unit tests cover each path with and without the relevant variables, including empty
@@ -497,82 +515,70 @@ page/raw-evidence wire amendments before changing those contracts.
   coverage, and an uncertain latest selection is not labeled complete.
 
 <a id="a05"></a>
-### A05 — Host-tool lifecycle: fingerprint, pruning, stale rebuild
+### A05 — Immutable prepared tools, fingerprint and stale rebuild
 
-**Consumes:** A02, A04, A07's R3/control amendment and A08's RC01 publication. Generation-use protection must be
-available to B01/B03 and C's immutable selections before pruning is enabled.
+**Consumes:** A02/A04 and A09's generation-retention/control publication. Existing A07/A08
+publication and runtime evidence retain their original conditions.
 
-**Delivers.**
-- **Fingerprint.**
-  - At build time, `pse-host` computes its path-dependency closure from `cargo_metadata`: today
-    `pse-host`, `pse-diagnostics`, `pse-buildinfo` with `build.rs`, and `pse-ids`.
-  - It stores that path list, plus `Cargo.lock`, the root `Cargo.toml`, `rust-toolchain.toml` and
-    `.cargo/config.toml`, with a hash in the generation.
-  - A staleness check rehashes only the stored paths. The closure is not declared again in shell.
-- **Generation protection and promotion investigation (I04).** Separate temporary passive-read
-  protection from durable obligations for retained effects: foreground/nested children,
-  unrecorded exec adapters, Cargo's exported `CARGO`/`PSE_CORRECTNESS_EXECUTABLE`, analyzer
-  children, supervisor/finalizer and exported executable paths. Investigate a process-held
-  shared generation guard under the same exclusion as publication/pruning, promoted durably
-  before effects/path handoff. Qualify descriptor inheritance, atomic promotion, crash recovery
-  and concurrent pruning before selecting that mechanism; an ephemeral lock alone does not
-  prove descendant settlement. Exit with a selected protocol and its limits or keep conservative
-  protection and pruning disabled. Existing unresolved claims remain protective; vanished PIDs
-  and ledger absence do not authorize removal or retroactively establish their cause.
-  Release durable obligations only after actual users/children and required finalization settle.
-  Under the selected exclusion, pruning must preserve actual users plus current/previous
-  convenience retention. Pinned C/D/J helper outputs share the actual lifetime premise.
-  Distinguish source-equivalence checks, prepared-manifest integrity and live-use protection:
-  reuse immutable integrity only within an explicit trust/mutation boundary, never substitute
-  mtime for content validity or hash the entire repository on every brief query. Replace
-  every-entry durable bookkeeping and its mechanism tests once the chosen consumers migrate.
-- **Copying between worktrees.** `bootstrap-host --from <checkout>` copies a matching generation
-  instead of building; [59e E01](59e-environment-and-adoption.md#e01) uses it for worktrees.
-- **Automatic rebuild** (R3; operator decision 2026-10-29).
-  - When a top-level verb launching new work finds the host stale, it rebuilds it through
-    `bootstrap-host`, then re-execs the new generation before proceeding.
-  - **If the rebuild fails, launching new work fails with the build error.** No older
-    generation launches that work. Separate worktrees do not protect control of work already
-    launched from the now-broken checkout.
-  - **Existing-invocation exception** (operator confirmed 2026-10-29): read, wait and cancel
-    use a compatible prepared control protocol and the invocation's recorded generation,
-    without rebuilding current sources. Resolve/version-check the record first; authenticate
-    the generation against the prepared tool root/manifest and unit identity before mutation.
-    Never execute an arbitrary recorded path. Unsupported protocols refuse explicitly and
-    identify the documented compatible-tool recovery route without weakening stop authority.
-  - **Where it never rebuilds:**
-    - read-only verbs (`-h`, `status`, `explain`, `env --explain`/`--print`, `doctor`, `schema`,
-      `commands`), which report `host.stale_tools` instead;
-    - `cargo-pse-correctness` adapter mode, which runs inside Cargo while Cargo holds the build
-      lock;
-    - `agent-hook`, with its seconds-long timeout;
-    - the internal `__foreground-exec`, `__supervise` and `__finalize`;
-    - any call nested inside a workload scope.
-  - **Build coherence and re-exec.** Re-exec happens at most once, guarded by an environment
-    marker. Compare the complete fingerprint before/after construction and before atomic
-    publication (or build from a fixed source snapshot). If inputs changed, do not publish or
-    launch under a misattributed fingerprint; return a retryable stale-build diagnostic.
-    The marker prevents loops; it is not evidence that the binary matches its declared source.
-- **Host ceiling.** `[workspace.metadata.pse.dependency-ceilings.host]` declares
-  `roots = ["pse-host"]` and forbids `pse-engine`, `pse-runtime`, `pse-operations`, `arrow*`,
-  `datafusion*`, `parquet`, `pse-schema` and `surrealdb*`. `just family-check` enforces it.
+**Delivers:** immutable completed tool generations with atomic current selection; the captured
+path-dependency closure, lockfile, manifests, pinned toolchain and relevant Cargo configuration
+supply content freshness. Construction compares complete pre/post source fingerprints and
+publishes only coherent complete artifacts. Reuse manifest integrity within its actual trust
+boundary; no repository-wide scan is needed for a passive detail query.
 
-**Acceptance:**
-- `tests/bootstrap.rs` gains pruning with recorded and unrecorded long users, delayed finalizer,
-  fingerprint-match copy, fingerprint-mismatch rebuild and source-change-during-build cases.
-- **Stale host.** A stale generation is reported by `pse status`, rebuilt by `pse run -- true`,
-  and not rebuilt in adapter mode or from a hook.
-- **Failed rebuild.** With a host source that does not compile, `pse run -- true` fails with the
-  compiler error, and `current` still points to the previous generation, unused.
-- **Independent recovery.** Start a detached invocation, break current host compilation, then
-  read/wait/cancel from another process using its prepared generation with no rebuild. Original
-  resources settle; mismatched invocation or incompatible record refuses. A forged executable
-  path is never invoked. Pruning cannot remove that control/supervisor/finalizer generation.
-- **Promotion investigation.** Killed passive reads, child/path export, source-copy handoff,
-  promotion interruption and concurrent pruning challenge the chosen guard. Existing unknown
-  claims remain protected in every case; pruning remains disabled while any necessary premise
-  is unresolved. Retain individual original errors rather than infer settlement from process absence.
-- `just family-check` passes with the new row.
+Automatic host-generation collection is removed from this target. Retain completed generations
+until explicit administrative cleanup; no background reclamation, fixed previous-generation
+window or durable recovery protocol solely to permit garbage collection. Classify current
+claims by responsibility before retirement: provenance, executable authentication, admission,
+resource ownership and original evidence are retained where consumed. Remove only collection-
+exclusive guards/claims/schedulers and their callers/tests. Existing unresolved claims and
+artifacts are not deleted or retroactively declared settled by this migration.
+
+Retain authenticated `bootstrap-host --from <checkout>` copy and per-checkout tool roots. A
+later generation must not overwrite an earlier detached operation's selected executable.
+Compare one bootstrap construction producer with today's repeated build only if source
+coherence and complete publication survive; removing a mostly-fresh build is not evidence
+of a large speedup (review O12).
+
+**Automatic refresh remains selected.** Effectful top-level new work rebuilds a stale host,
+then re-execs at most once. A failed rebuild refuses new work and preserves the previous
+current selection. Read/help/explain/status, adapter mode inside Cargo, agent hooks, internal
+execution helpers and nested calls never rebuild. Existing detached read/wait/cancel uses its
+compatible authenticated prepared generation without rebuilding current sources. Never execute
+an arbitrary recorded path; unsupported versions refuse with the supported recovery route.
+Explicit-only refresh is an unselected alternative, not an incidental consequence of removing
+collection.
+
+The host dependency ceiling remains: no product/scientific/Arrow/DataFusion/database schema
+closure in `pse-host`; exact declarations remain with Cargo and the existing family check.
+
+**Acceptance:** bootstrap copy match/mismatch and source-change-during-build controls; stale
+new-work refresh and failed-build refusal; existing detached control with broken current source;
+forged control path refusal; preparation of a newer generation while older work continues.
+Assert that no automatic generation collection runs. Existing unknown claims remain untouched;
+removal of collection bookkeeping cannot remove a real resource or evidence owner. Targeted
+bootstrap/owner tests accompany migration. No timing benefit is claimed without measurement.
+
+<a id="a09"></a>
+### A09 — Publish the confirmed CLI/test/runtime contract changes
+
+**Consumes:** operator decisions of 2026-10-30 recorded by the coordinator for review O01/O02/
+O09/O10/O11. This package is planned governing work, not a claim that authoring published it.
+
+**Delivers:** amend proposed ADR-0233/0234 and blueprint §21.7/§24.1/§24.2 through their decision
+route, including the required revision row and applicable focused review. Preserve immutable
+accepted ADRs. Publish prerequisite slices before effects that rely on them:
+
+| Decision | Publication and consumers |
+| --- | --- |
+| Native completed results | C02/B02 retain actual selection, native exit, required setup/capture/drain while dropping independent per-event verification and event byte-address proof. |
+| Lifetime modes | B01 uses native synchronous foreground ownership; B03 uses one service containing detached wrapper/payload/descendants. Generic foreground reconnection and independently cancellable nested CLI subtrees leave the target. Detachment cannot escape enclosing finite admission. |
+| No automatic host-generation collection | A05/E01/G02 retain immutable artifacts and real ownership; retire only collection-exclusive obligations. Existing unknown claims remain untouched. |
+| Reduced commands | D/E remove generic brief/handoff automation and defer citation/scaffold and D08 commit wrappers. Update applicable R5/operating guidance without claiming ordinary Git preserves the deferred transaction guarantee. |
+
+**Acceptance:** changed owners, decision references and package dependencies agree. A07/A08
+keep historical completion, not acceptance of the replacement. Architecture publication does
+not establish new runtime qualification. This document revision edits no ADR or architecture.
 
 <a id="a06"></a>
 ### A06 — Derived catalog, explain, provenance and status
