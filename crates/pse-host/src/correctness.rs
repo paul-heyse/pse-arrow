@@ -188,6 +188,8 @@ fn mode_position(arguments: &[OsString]) -> Result<usize, CorrectnessError> {
             "bench",
             "run",
             "clippy",
+            "rustc",
+            "rustdoc",
             "metadata",
             "locate-project",
         ]
@@ -224,7 +226,11 @@ fn graph_arguments(arguments: &[OsString]) -> Result<Vec<OsString>, CorrectnessE
     let mode = arguments[position]
         .to_str()
         .ok_or_else(|| invalid("Cargo operation must be UTF-8"))?;
-    if !["check", "build", "test", "bench", "run", "clippy"].contains(&mode) {
+    if ![
+        "check", "build", "test", "bench", "run", "clippy", "rustc", "rustdoc",
+    ]
+    .contains(&mode)
+    {
         return Err(invalid("not a Cargo compiler operation"));
     }
     let end = arguments
@@ -2001,6 +2007,37 @@ mod tests {
     }
     #[test]
     fn correctness_direct_graph_adapters_preserve_explicit_scope() {
+        for operation in ["rustc", "rustdoc"] {
+            let original = args(&[
+                operation,
+                "-p",
+                "root",
+                "--lib",
+                "--",
+                "-Zunpretty=thir-tree",
+            ]);
+            let (resolution, calls) = resolve(
+                &original,
+                vec![
+                    json!({"packages":[package("root", "root", json!({}))]}),
+                    graph(vec![unit("root", &[], &[], None, operation)]),
+                ],
+            )
+            .unwrap();
+            assert_eq!(resolution.arguments, original);
+            assert_eq!(
+                calls[1],
+                args(&[
+                    operation,
+                    "-p",
+                    "root",
+                    "--lib",
+                    "--unit-graph",
+                    "-Z",
+                    "unstable-options"
+                ])
+            );
+        }
         for timing in ["--timings", "--timings=html"] {
             let original = args(&["test", "--lib", timing]);
             assert_eq!(
