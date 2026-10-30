@@ -108,6 +108,173 @@ impl Launched {
     }
 }
 
+/// Native service observation only; neither variant establishes payload/scientific settlement.
+#[derive(Clone, Debug, Serialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum RecordedObservation {
+    /// The original manager reports the exact recorded incarnation.
+    Observed {
+        /// Uncached observation fenced to the recorded original service incarnation.
+        service: UnitObservation,
+    },
+    /// The original manager no longer loads the unit and its original group is proved empty.
+    Gone,
+}
+
+/// Control recovered only from checked invocation/launch/controller records and the fixed
+/// prepared generation. It carries no launch-client reference or arbitrary-unit adoption API.
+#[derive(Debug)]
+pub struct RecordedInvocation {
+    manager: HostManager,
+    controller: LaunchIntent,
+    original: ControllerRecord,
+    unit: Option<crate::manager::RecordedUnit>,
+    completion: Option<RecordedObservation>,
+}
+impl RecordedInvocation {
+    async fn resync(&mut self) -> Result<(), HostError> {
+        self.unit = self
+            .manager
+            .recorded_original(
+                &self.controller,
+                &self.original.manager,
+                &self.original.binding,
+                Some(&self.original.process),
+            )
+            .await?;
+        Ok(())
+    }
+    /// Wait on original unit/cgroup events. None means only this observation deadline expired.
+    pub async fn wait(
+        &mut self,
+        deadline: Option<Instant>,
+    ) -> Result<Option<RecordedObservation>, HostError> {
+        if let Some(completion) = &self.completion {
+            return Ok(Some(completion.clone()));
+        }
+        let Some(unit) = &self.unit else {
+            return Ok(Some(RecordedObservation::Gone));
+        };
+        match unit.wait(deadline).await {
+            Ok(Some(service)) => {
+                let completion = RecordedObservation::Observed { service };
+                self.completion = Some(completion.clone());
+                Ok(Some(completion))
+            }
+            Ok(None) => Ok(None),
+            Err(error) => {
+                if let Err(cleanup) = self.resync().await {
+                    return Err(HostError::Settlement {
+                        operation: Box::new(error),
+                        cleanup: Box::new(cleanup),
+                    });
+                }
+                if self.unit.is_none() {
+                    Ok(Some(RecordedObservation::Gone))
+                } else {
+                    Err(error)
+                }
+            }
+        }
+    }
+    /// Stop only the exact original service and prove its root empty; payload settlement
+    /// remains with the original owner/finalizer evidence and is never inferred here.
+    pub async fn cancel(&mut self, deadline: Instant) -> Result<RecordedObservation, HostError> {
+        if let Some(completion) = &self.completion {
+            return Ok(completion.clone());
+        }
+        let Some(unit) = &mut self.unit else {
+            return Ok(RecordedObservation::Gone);
+        };
+        match unit.stop_and_drain(deadline).await {
+            Ok(service) => {
+                let completion = RecordedObservation::Observed { service };
+                self.completion = Some(completion.clone());
+                Ok(completion)
+            }
+            Err(error) => {
+                if let Err(cleanup) = self.resync().await {
+                    return Err(HostError::Settlement {
+                        operation: Box::new(error),
+                        cleanup: Box::new(cleanup),
+                    });
+                }
+                if self.unit.is_none() {
+                    Ok(RecordedObservation::Gone)
+                } else {
+                    Err(error)
+                }
+            }
+        }
+    }
+}
+
+/// Open passive/control custody for an existing invocation without current-source reads,
+/// rebuilding, referencing the unit or accepting a caller-supplied executable path.
+pub async fn recorded(
+    root: &std::path::Path,
+    id: &CliInvocationId,
+    environment: &Environment,
+) -> Result<RecordedInvocation, HostError> {
+    let root = std::fs::canonicalize(root)?;
+    let store = InvocationStore::new(CheckoutState::resolve(&root, environment)?);
+    let directory = store.directory(id)?;
+    let metadata: crate::invocation::InvocationMetadata<Box<serde_json::value::RawValue>> =
+        store.metadata(id)?;
+    let launch: LaunchRecord = directory
+        .evidence(InvocationEvidence::Launch)?
+        .ok_or_else(|| invalid("original launch record is absent"))?;
+    if launch.version != 1
+        || launch.invocation != *id
+        || launch.command != metadata.selection.command
+        || launch.control.generation != metadata.selection.control.generation
+        || launch.control.manifest_digest != metadata.selection.control.manifest_digest
+        || launch.control.protocol != metadata.selection.control.protocol
+    {
+        return Err(invalid("recorded launch differs from original metadata"));
+    }
+    let original: ControllerRecord = directory
+        .evidence(InvocationEvidence::Controller)?
+        .ok_or_else(|| invalid("actual original controller record is absent"))?;
+    if original.version != 1 || original.process.pid == 0 || original.binding.invocation.len() != 16
+    {
+        return Err(invalid("actual original controller record is invalid"));
+    }
+    let generation =
+        GenerationUse::acquire(&root.join("target/host-tools"), &launch.control.generation)?;
+    let verified = launch.control.executable(&root, HostTool::Host).map(|_| ());
+    let released = generation.settle();
+    match (verified, released) {
+        (Ok(()), Ok(())) => {}
+        (Err(error), Ok(())) | (Ok(()), Err(error)) => return Err(error),
+        (Err(operation), Err(cleanup)) => {
+            return Err(HostError::Settlement {
+                operation: Box::new(operation),
+                cleanup: Box::new(cleanup),
+            });
+        }
+    }
+    let manager = HostManager::connect_user(None).await?;
+    let unit = manager
+        .recorded_original(
+            &launch.controller,
+            &original.manager,
+            &original.binding,
+            Some(&original.process),
+        )
+        .await?;
+    if let Some(unit) = &unit {
+        unit.observe().await?;
+    }
+    Ok(RecordedInvocation {
+        manager,
+        controller: launch.controller,
+        original,
+        unit,
+        completion: None,
+    })
+}
+
 fn invalid(message: &str) -> HostError {
     HostError::Ownership(format!("managed service: {message}"))
 }
@@ -151,7 +318,7 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
         ));
     }
     let (_, _, tasks) = manager.foreground_placement(membership.root()).await?;
-    crate::foreground::preflight(&membership.root().control_group, tasks)?;
+    crate::foreground::preflight_service(&membership.root().control_group, tasks)?;
     let origin = match mode {
         LaunchMode::Foreground => Some(current_identity()?),
         LaunchMode::Detached => None,

@@ -2259,7 +2259,107 @@ impl HostManager {
             launch_job_result: None,
             released: false,
             reference_released: false,
+            authority: UnitAuthority::OriginalClient,
         })
+    }
+    /// Internal protected-ledger recovery. Callers first authenticate the owning invocation
+    /// records and fixed control generation; this constructor never references or adopts units.
+    pub(crate) async fn recorded_original(
+        &self,
+        intent: &LaunchIntent,
+        manager: &str,
+        binding: &UnitBinding,
+        process: Option<&ProcessIdentity>,
+    ) -> Result<Option<RecordedUnit>, HostError> {
+        self.validate_view()?;
+        if manager != self.identity_key() {
+            return Err(HostError::Ownership(
+                "recorded original manager incarnation changed".into(),
+            ));
+        }
+        require_original_identity(
+            intent,
+            &intent.description,
+            &binding.invocation,
+            &binding.invocation,
+        )?;
+        if process.is_some_and(|process| {
+            process.boot_id != self.boot || process.pid == 0 || process.start_ticks == 0
+        }) {
+            return Err(HostError::Ownership(
+                "recorded original process identity is invalid".into(),
+            ));
+        }
+        let unit = match self.unit(intent.unit()).await {
+            Ok(unit) => unit,
+            Err(HostError::Manager(zbus::Error::MethodError(name, _, _)))
+                if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit" =>
+            {
+                let group = Group::open(&binding.group, true)?;
+                if group.directory.is_some()
+                    && (group.device != binding.device || group.inode != binding.inode)
+                {
+                    return Err(HostError::Ownership(
+                        "absent recorded unit has a replaced cgroup".into(),
+                    ));
+                }
+                if !group.empty()? {
+                    return Err(HostError::Ownership(
+                        "absent recorded unit still has original population".into(),
+                    ));
+                }
+                self.validate_view()?;
+                return Ok(None);
+            }
+            Err(error) => return Err(error),
+        };
+        let observed = self.observe(intent.unit()).await?;
+        require_original_identity(
+            intent,
+            &unit.description().await?,
+            &binding.invocation,
+            &observed.invocation,
+        )?;
+        let terminal = matches!(observed.active_state.as_str(), "inactive" | "failed");
+        if (!observed.control_group.is_empty() && observed.control_group != binding.group)
+            || (observed.main_pid != 0
+                && !original_main_matches(
+                    process,
+                    observed.main_pid,
+                    ProcessReader::default().process(observed.main_pid),
+                    true,
+                ))
+        {
+            return Err(HostError::Ownership(
+                "recorded original process or cgroup changed".into(),
+            ));
+        }
+        let group = Group::open(&binding.group, terminal)?;
+        if group.directory.is_some()
+            && (group.device != binding.device || group.inode != binding.inode)
+        {
+            return Err(HostError::Ownership(
+                "recorded original cgroup inode changed".into(),
+            ));
+        }
+        if intent.unit().ends_with(".service") && !self.notify_controller(&unit).await? {
+            return Err(HostError::Ownership(
+                "recorded controller is not the original notify service".into(),
+            ));
+        }
+        let core = OwnedUnit {
+            manager: self.clone(),
+            intent: intent.clone(),
+            invocation: binding.invocation.clone(),
+            process: process.cloned(),
+            group,
+            launch_job_result: None,
+            released: false,
+            reference_released: false,
+            authority: UnitAuthority::ProtectedLedger,
+        };
+        core.observe_bound(true).await?;
+        Ok(Some(RecordedUnit { core }))
     }
 }
 
@@ -2694,6 +2794,35 @@ pub struct OwnedUnit {
     launch_job_result: Option<String>,
     released: bool,
     reference_released: bool,
+    authority: UnitAuthority,
+}
+#[derive(Debug, PartialEq, Eq)]
+enum UnitAuthority {
+    OriginalClient,
+    ProtectedLedger,
+}
+
+/// Private performing ledger authority: never exposes original-client references to callers.
+#[derive(Debug)]
+pub(crate) struct RecordedUnit {
+    core: OwnedUnit,
+}
+impl RecordedUnit {
+    pub(crate) async fn wait(
+        &self,
+        deadline: Option<Instant>,
+    ) -> Result<Option<UnitObservation>, HostError> {
+        self.core.wait(deadline).await
+    }
+    pub(crate) async fn stop_and_drain(
+        &mut self,
+        deadline: Instant,
+    ) -> Result<UnitObservation, HostError> {
+        self.core.stop_and_drain(deadline).await
+    }
+    pub(crate) async fn observe(&self) -> Result<UnitObservation, HostError> {
+        self.core.observe_bound(true).await
+    }
 }
 impl OwnedUnit {
     pub(crate) async fn binding(&self) -> Result<UnitBinding, HostError> {
@@ -2769,7 +2898,9 @@ impl OwnedUnit {
         }
         let result = self.manager.observe(&self.intent.unit).await?;
         let unit = self.manager.unit(&self.intent.unit).await?;
-        self.manager.require_reference(&unit).await?;
+        if self.authority == UnitAuthority::OriginalClient {
+            self.manager.require_reference(&unit).await?;
+        }
         require_original_identity(
             &self.intent,
             &unit.description().await?,
@@ -2891,7 +3022,9 @@ impl OwnedUnit {
             if matches!(observation.active_state.as_str(), "inactive" | "failed")
                 && self.group.empty()?
             {
-                manager.unref_unit(self.intent.unit.clone()).await?;
+                if self.authority == UnitAuthority::OriginalClient {
+                    manager.unref_unit(self.intent.unit.clone()).await?;
+                }
                 self.released = true;
                 self.reference_released = true;
                 return Ok(observation);
@@ -2946,6 +3079,11 @@ impl OwnedUnit {
     /// Release the manager reference without stopping the controller's own scope.
     /// Scope lifetime remains its population; dependent workloads bind to that lifetime.
     pub async fn release_reference(&mut self, deadline: Instant) -> Result<(), HostError> {
+        if self.authority != UnitAuthority::OriginalClient {
+            return Err(HostError::Ownership(
+                "recorded unit has no launch-client reference authority".into(),
+            ));
+        }
         tokio::time::timeout_at(deadline.into(), async {
             self.observe().await?;
             self.manager

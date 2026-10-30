@@ -286,6 +286,27 @@ async fn native_notify_case(ready: bool) {
                 || owned.observe().await?.main_pid != original.pid {
                 return Err(failure("bounded native wait stopped or completed the running original service"));
             }
+            let independent = HostManager::connect_user(None).await?;
+            if independent.reconcile(&intent, Instant::now() + Duration::from_secs(2)).await.is_ok() {
+                return Err(failure("second manager client acquired original launch-client authority"));
+            }
+            let binding = owned.binding().await?;
+            let mut wrong = binding.clone();
+            wrong.invocation[0] ^= 1;
+            if independent.recorded_original(&intent, &manager.identity_key(), &wrong, owned.process.as_ref()).await.is_ok() {
+                return Err(failure("recorded unit accepted a mismatched invocation"));
+            }
+            let mut wrong_inode = binding.clone();
+            wrong_inode.inode ^= 1;
+            if independent.recorded_original(&intent, &manager.identity_key(), &wrong_inode, owned.process.as_ref()).await.is_ok()
+                || independent.recorded_original(&intent, "another manager", &binding, owned.process.as_ref()).await.is_ok() {
+                return Err(failure("recorded unit accepted replaced cgroup or manager"));
+            }
+            let recorded = independent.recorded_original(&intent, &manager.identity_key(), &binding, owned.process.as_ref()).await?
+                .ok_or_else(|| failure("live recorded unit was observed absent"))?;
+            if recorded.wait(Some(Instant::now() + Duration::from_millis(10))).await?.is_some() {
+                return Err(failure("recorded bounded observation promoted ongoing work"));
+            }
             std::fs::write(scratch.path().join("exit"), b"main may finish")?;
             // Natural main exit must run stop-post without a later StopUnit trigger.
             tokio::time::timeout(Duration::from_secs(5), async {
@@ -305,6 +326,9 @@ async fn native_notify_case(ready: bool) {
             if complete.invocation != original.invocation {
                 return Err(failure("native wait reported another service incarnation"));
             }
+            if recorded.wait(Some(Instant::now() + Duration::from_secs(2))).await?.is_none() {
+                return Err(failure("recorded native wait missed original terminal service"));
+            }
         } else {
             match launching.await {
                 Err(HostError::UnknownLaunch { unit, .. }) if unit == intent.unit() => {}
@@ -314,6 +338,15 @@ async fn native_notify_case(ready: bool) {
                     return Err(failure("withheld READY unexpectedly completed the start job"));
                 }
             }
+            owned = Some(manager.reconcile(&intent, Instant::now() + Duration::from_secs(2)).await?);
+            let recovered = owned.as_ref().ok_or_else(|| failure("original unknown-ack unit custody missing"))?;
+            let independent = HostManager::connect_user(None).await?;
+            let mut recorded = independent.recorded_original(&intent, &manager.identity_key(),
+                &recovered.binding().await?, recovered.process.as_ref()).await?
+                .ok_or_else(|| failure("original unknown-ack unit disappeared before independent cancel"))?;
+            recorded.stop_and_drain(Instant::now() + Duration::from_secs(5)).await?;
+            // Independent ledger control neither adds nor removes the original client's ref.
+            manager.require_reference(&manager.unit(intent.unit()).await?).await?;
         }
         Ok(original)
     }).catch_unwind().await;

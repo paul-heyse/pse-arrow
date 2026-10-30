@@ -107,6 +107,18 @@ fn pidfd(pid: u32) -> Result<std::os::fd::OwnedFd, HostError> {
 }
 
 pub(crate) fn preflight(group: &str, default_tasks_max: u64) -> Result<(), HostError> {
+    preflight_entry(group, default_tasks_max, true)
+}
+/// Managed entry leaves its origin in place, so only the displaced leaf policy needs
+/// validation; the raw adapter additionally needs an anchor after moving its controller.
+pub(crate) fn preflight_service(group: &str, default_tasks_max: u64) -> Result<(), HostError> {
+    preflight_entry(group, default_tasks_max, false)
+}
+fn preflight_entry(
+    group: &str,
+    default_tasks_max: u64,
+    moving_controller: bool,
+) -> Result<(), HostError> {
     let relative = group
         .strip_prefix('/')
         .ok_or_else(|| HostError::Ownership("nonabsolute placement".into()))?;
@@ -152,6 +164,9 @@ pub(crate) fn preflight(group: &str, default_tasks_max: u64) -> Result<(), HostE
         return Err(HostError::Ownership(
             "custom leaf task limit requires a separate native placement owner".into(),
         ));
+    }
+    if !moving_controller {
+        return Ok(());
     }
     // Moving the caller must not itself empty the prior lifetime unit. This
     // supported entry uses the surviving application scope, never a dead binding.
