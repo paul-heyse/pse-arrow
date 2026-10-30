@@ -18,6 +18,7 @@ pub mod extraction;
 pub mod foreground;
 pub mod generation;
 pub mod invocation;
+pub mod managed;
 mod manager;
 pub mod native;
 pub mod paths;

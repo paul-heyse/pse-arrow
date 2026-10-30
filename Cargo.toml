@@ -172,6 +172,7 @@ zbus_systemd = { version = "=0.26201.0", default-features = false, features = [
   "zbus-async-tokio",
 ] }
 tokio = { version = "=1.53.3", default-features = false, features = [
+  "fs",
   "rt-multi-thread",
   "sync",
   "macros",
