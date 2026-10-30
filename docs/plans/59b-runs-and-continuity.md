@@ -1,11 +1,11 @@
 ---
 title: "Plan59b: Runs and continuity"
 status: active
-date: 2026-10-29
+date: 2026-10-30
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
 ---
 
 # Runs and continuity
@@ -29,6 +29,13 @@ The [observability review](../functional_reviews/agent-cli-and-simulation-observ
 O01/O03/O05–O07 and [improvement review](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md)
 I01–I08/I10/I11 refine identity, result, control, output and handoff. The coordinator owns
 dispositions; this document schedules its part. Production execution remains stopped.
+
+The [library-integration review](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md)
+I01–I07/I12–I14 amend the substantive target below: staged selection, owner-enforced finality,
+effect-shaped generation protection, independent raw streams, selective invocation lookup,
+native observation and producer-owned pages. Its RC01–RC04 were operator-accepted 2026-10-30;
+[A08](59a-cli-foundation.md#a08) owns their prerequisite publication. These amendments are
+planned work, preserving completed primitives and the paused production boundary.
 
 **Why it matters.** Over one day in the review's measured window:
 - 491 runs were backgrounded, writing 386 ad hoc log paths.
@@ -87,6 +94,14 @@ It is caller-bound by design, so it cannot outlive the caller.
 - `just turn-end`, `ready` and `hygiene` call `just run-all <recipes…>`, which keeps going after a
   failure and prints `Failed recipes:`.
 
+The library-integration assessment at `09e878957` and the package table below distinguish that
+historical map from the paused implementation. Immutable selection/result publication,
+independent pipe readers, strict Cargo decoding and service-main/readiness primitives exist.
+The shared retained-chunk sink, history-wide exact lookup and generic envelope terminal
+publication still need the amended mechanisms below. The assembled service supervisor/
+finalizer, native resource settlement and nextest reconciliation are not established by those
+component tests. Their original evidence remains at the coordinator checkpoint.
+
 ## Target
 
 A **CLI invocation** is one supervised command with a typed `CliInvocationId`, a directory in the
@@ -102,8 +117,10 @@ Systemd supplies detachment, cgroups and kill policy, not scientific authority (
 <store>/invocations/<invocation-id>/
   meta.json       version, invocation_id, command, cwd, environment digest, immutable tools/generation,
                   placement, kind, unit name + systemd invocation ID, session, parent invocation,
-                  explicit scientific/observation associations
-  output.log      child stdout/stderr with source attribution; retained readable prefix on failure
+                  selection stage/premises, explicit scientific/observation associations
+  stdout.raw      exact original stdout bytes, stream-local offsets and retained prefix on failure
+  stderr.raw      exact original stderr bytes, independently written/drained and synchronized
+  stream-index    optional compact stream/offset observations when interleaving is requested
   events.ndjson   normalized invocation events, ending in an observation summary
   result.json     command/process outcome, subject state, settlement, observation completeness,
                   child_exit, typed failures, counts, durations, artifacts — published once (NOREPLACE)
@@ -113,9 +130,13 @@ Systemd supplies detachment, cgroups and kill policy, not scientific authority (
 representation is a validated UUIDv7 (time and random identity), with inspected checkout and
 repository IDs bound and verified separately in immutable metadata. This preserves checkout
 provenance and uniqueness without making an invocation ID a storage-path identity. The distinct systemd invocation ID is recorded once the unit
-exists. It cannot be the salt, because the CLI ID is already in `ExecStartEx`. An invocation ID resolves
-by full value, unique prefix or `latest` (per session, then per checkout), found by scanning
-`invocations/`. Ambiguous prefixes refuse. Command arguments historically called `<run>` select
+exists. It cannot be the salt, because the CLI ID is already in `ExecStartEx`. A full ID validates
+and opens only its own bound directory/record. A prefix enumerates candidate identities and
+establishes ambiguity before opening chosen metadata; unreadable matching records do not justify
+silently choosing another. History and `latest` (per session, then per checkout) are collection
+queries with declared ordering, per-record diagnostics and explicit partial coverage. Uncertain
+coverage cannot certify global latest or an unjustified session fallback. Avoid a second writable
+history index. Command arguments historically called `<run>` select
 this CLI identity; they do not select canonical scientific `RunId`.
 
 **Finality and settlement.** A successful managed response means the command fulfilled its
@@ -128,6 +149,22 @@ only knows systemd's supervisor result publishes failed/unknown settlement and a
 subject, never ordinary completed work. Result publication is exclusive between supervisor and
 finalizer; once published it is an immutable statement of the evidence then available. Any later
 authenticated recovery evidence is separately attributed by the actual settlement owner.
+
+B01/B03 must enforce this at the owner boundary (I13). The baseline
+`InvocationDirectory::publish_result` accepts a generic envelope and validates binding/version,
+non-running state and absence of projection; that does not establish terminal child/reconciliation
+evidence. Construct a valid terminal owner result from original process, capture, reconciliation
+and settlement facts before exclusive publication, and project that result into A03's envelope.
+The generic renderer/schema is not a terminal admission authority. Do not merge all product
+states into one universal enum: scientific/fixture owners keep their own validity operations.
+Launch acknowledgement and observation timeout remain typed nonterminal responses. Targeted
+constructor tests reject invalid combinations even when their JSON/schema shape is valid.
+
+Selection follows A06's stage boundary (I01): preserve parsed intent, resolved plan, admitted
+operation and captured execution population with their premises. Explain and execution consume
+the same stage value, but explain cannot prepare unavailable tools/fixtures or invent actual
+nextest listing. Changed premises re-resolve/refuse before effects. C07/C02 supply selected test
+population and required terminal rules when that consumer joins the generic custody path.
 
 **Execution modes:**
 
@@ -146,12 +183,12 @@ would leave the unit active(exited) and the finalizer would never run.
 - `ExecStopPostEx`: that generation's `pse __finalize <invocation-id>`, which receives `$SERVICE_RESULT`, `$EXIT_CODE` and
   `$EXIT_STATUS`.
 - `StandardOutputFileToAppend` and `StandardErrorFileToAppend` pointing at a separate
-  `supervisor.log` in the run directory. The child's output goes to `output.log` through the
-  supervisor's tee, so the two writers never interleave.
+  `supervisor.log` in the run directory. The child's streams go to independent `stdout.raw`
+  and `stderr.raw` writers, separate from supervisor diagnostics.
 - `WorkingDirectory`, `Environment` and `RuntimeMaxUSec`.
 - The usual `CollectMode`.
 
-**Library-owned lifecycle realization (operator-authorized October30).** Use pinned zbus/
+**Library-owned lifecycle target.** Use pinned zbus/
 zbus_systemd for transient-service/dependency/job state, `sd-notify` for native readiness/status,
 and `tokio-graceful-shutdown` with a concrete host error type for named cooperative supervisor
 subsystems. Tokio/tokio-util own cancellation tokens and the appropriate task joins/tracking;
@@ -182,13 +219,26 @@ rather than treat `sd-notify`'s optional no-op as managed readiness.
   never released by the nested owner. Close parent launch authority before recursive drain,
   and qualify the origin-death lease and explicit finalizer cleanup of external payload groups.
 - Holds its own handles with `kill_on_drop(true)`.
-- Reads both pipes on separate tasks in a `JoinSet` and writes `output.log` and events.
+- Reads both pipes through independent owned readers/writers; narrower task populations use
+  `JoinSet` or `TaskTracker` where appropriate, not both as duplicate registries. Required
+  capture survives cancellation of a view/main control task through its explicit drain policy.
 - Runs the kind-specific extractor.
 - Honours a `CancellationToken` wired to `SIGTERM`.
-- Writes `result.json` by temp file, fsync and `renameat_with(…, NOREPLACE)`.
+- Constructs the valid terminal owner result, then writes `result.json` by temp file, fsync and
+  `renameat_with(…, NOREPLACE)` in competition with the authenticated finalizer.
 
 **Output and failure policy.** Separate pipe readers, bounded extractor state and presentation
 queues keep slow terminal/NDJSON/optional telemetry consumers off the child-settlement path.
+Replace the current shared `managed/streams.rs::State::accept` sink lock and retained base64
+`LogChunk` NDJSON with exact per-stream files (I05). Each raw writer owns its offset and
+durability/failure report; a stalled stdout sink cannot serialize stderr capture behind its
+write. A required sink has a bounded failure/drain policy that can mark incomplete capture and
+continue pipe discard, preserving every independent writer/reader/final-flush failure. Optional
+attributed index entries carry stream/offset extents; their cross-pipe order is observation order,
+never exact producer execution order. Omit the index when offsets suffice. JSON transport may
+encode non-UTF8 bytes; it does not redefine raw retention. Tokio reads and cancellation-safe
+framing, including tokio-util codecs where suitable, must preserve oversized/truncated original
+records rather than silently discarding them under a default decoder policy.
 Coalesce/drop optional observations with explicit sequence/loss coverage. Required test-verdict
 records have an independent completeness path; overload, oversized records, disk-full or reader
 failure marks reconciliation incomplete, never a pass. On log write failure retain the readable
@@ -197,6 +247,18 @@ child/resources. A broken presentation pipe stops that view, not scientific owne
 explicit caller cancellation still follows the owning foreground contract. Budgeting selects
 whole normalized records/pages, never cuts JSON bytes or hides required state. Tokio tasks and
 bounded Futures stream composition are mechanisms, not proof that dropped work has settled.
+
+`pse log`, B02 extractors and F03 capture/follow migrate to exact stream/offset references in the
+same replacement slice. Remove merged-chunk encoding/reconstruction and its mechanism tests
+once these consumers move; no parallel production log format or compatibility shim remains.
+Original diagnostic evidence is retained by its owner; terminality/age does not make the sole
+original copy disposable. A04 classifies authored probes, Git intent, preparation and scientific
+data separately. I12's `object_store` range/tail/stream reads serve immutable addressed artifacts,
+not the protected mutable invocation ledger: local `PutMode::Update` is unsupported and generic
+local storage follows symlinks, so no generic CAS or multi-file publication guarantee is inferred.
+Bounded tails/windows/export preserve offsets, encoding and validator distinctions (ETag/version/
+hash); local mutable reads report their non-atomic scope. Provider transfer remains separately
+selected work, not an implicit storage migration.
 
 **The finalizer** writes a result only if none exists. It records the systemd result for a
 supervisor crash or `RuntimeMaxUSec` timeout. It must recover authenticated original scope and
@@ -215,6 +277,17 @@ generation-use pin until finalization and actual protected users settle, includi
 - A unit that vanished without a result is reported as `lost observation`, with a recovered
   systemd result only if available and explicit unknown settlement. Wait expiry is nonterminal,
   distinct from workload timeout, cancellation, incomplete result and actual completed success.
+
+Native reconciliation remains with the existing manager owner (I03). Use typed zbus_systemd
+list operations for summaries and interface-scoped `GetAll` for selected detail instead of
+serial uncached scalar reads. Preserve original unit-incarnation fences: several interface
+reads are not an atomic snapshot. One request/session-scoped owner can publish latest state via
+Tokio `watch`, with bounded `broadcast` only for actual transition consumers. Lag/disconnect/
+manager replacement requires explicit resynchronization and coverage; latest state is not
+lossless history. Extend existing property/cgroup subscriptions instead of another polling
+supervisor. Retain checkpoint polling for product sources with no push facility, and keep
+native sd-notify readiness/status/stopping scoped to the authenticated service. Watchdog/socket
+activation/fdstore remain conditional capabilities, not finalizer shortcuts or a resident daemon.
 
 **Stop authority** ([R3](59-agent-cli.md#rule-changes)):
 - `pse cancel <invocation>` validates the record/control version and prepared generation before
@@ -277,6 +350,14 @@ generation-use pin until finalization and actual protected users settle, includi
 - `pse history [--session]` lists one session's runs and outcomes.
 - `pse result <run> [--failures] [--fields …]` returns the envelope.
 - `pse log <run> [--grep RE] [--tail N]` gives bounded raw output.
+- Producers expose useful detail modes and whole-record pages: failure pages prioritize original
+  diagnostics/related spans before optional raw output, history pages retain partial coverage,
+  and log windows reference exact streams/offsets. A03 only mechanically projects these typed
+  results. No view recursively clips a tagged result or hides mandatory settlement/completeness.
+  Push selection into acquisition where possible; brief status does not read every terminal
+  result. Continuations bind original evidence/selection context and refuse changed premises;
+  [59j J01](59j-source-queries-and-change-proposals.md#j01) supplies source-bound continuations
+  only where source/diagnostic navigation consumes them. Basic custody does not wait for all J.
 - Product phases, scientific references and inspection statements come through
   [F01/F02](59f-simulation-observability-and-diagnostics.md#f01), using exact declared links and
   source coverage. [F03](59f-simulation-observability-and-diagnostics.md#f03) owns bounded
@@ -333,9 +414,9 @@ generation-use pin until finalization and actual protected users settle, includi
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [B01](#b01) | in-progress | 59b | Checkout-bound immutable selection/result store and independent stdout/stderr tee integrated with targeted tests; joined foreground owner settlement and result/log/history CLI consumers remain |
+| [B01](#b01) | in-progress | 59b | Checkout-bound immutable selection/result store and independent pipe-reader primitives integrated with targeted tests; independent raw sinks replace the shared merged format, owner-finality enforcement, exact/partial lookup and joined CLI custody remain planned |
 | [B02](#b02) | in-progress | 59b | Strict native Cargo diagnostic extraction integrated with five targeted tests including actual scratch compilation; nextest population/setup/terminal reconciliation and joined CLI extraction remain |
-| [B03](#b03) | in-progress | 59b | Root/member and delegated payload primitives, original service-main authentication and native readiness/cooperative-task helpers integrated; serialized recovery stays test-only; raw-root delegation opt-in, joined service supervisor/finalizer, original resource/permit settlement and wait/control remain |
+| [B03](#b03) | in-progress | 59b | Root/member and delegated payload primitives, original service-main authentication and native readiness/cooperative-task helpers integrated; serialized recovery stays test-only; joined custody, original settlement, observation fan-out and effect-shaped generation integration remain planned |
 | [B04](#b04) | planned | 59b | `pse run-all` composite runs; `turn-end`/`ready`/`hygiene` bodies migrated; `just run-all` retired |
 | [B05](#b05) | planned | 59b | Session identity; `pse handoff`; Claude context-only PreCompact and SessionStart hooks |
 
@@ -345,11 +426,13 @@ generation-use pin until finalization and actual protected users settle, includi
 **Consumes:** [59a A07](59a-cli-foundation.md#a07) (governing amendments),
 [A03](59a-cli-foundation.md#a03) (identity, output, exit and finality),
 [A04](59a-cli-foundation.md#a04) (store) and A05's generation-use protocol before launching
-children that retain tool paths. Full catalogue federation is not a prerequisite.
+children that retain tool paths; A08 publishes the changed raw-capture/page contracts first.
+Full catalogue federation and all J packages are not prerequisites.
 
 **Delivers:**
-- The invocation directory layout and typed ID resolution: full value, unique prefix and
-  `latest`, with exact optional scientific/observation associations. Cooperating product
+- The independent raw-stream directory layout and selective typed ID resolution: direct full
+  value, unambiguous identity prefix and explicitly covered `latest`/history, with per-record
+  diagnostics and exact optional scientific/observation associations. Cooperating product
   association producers integrate in F01, rather than host inference from log strings.
 - Ledger recording added to `pse run`, which [59a A02](59a-cli-foundation.md#a02) ports. It
   gains `[--kind K]`, uses B03's shared native service owner with piped and teed output, gives a
@@ -360,16 +443,22 @@ children that retain tool paths. Full catalogue federation is not a prerequisite
   there too. Only the `boundary` (pse-env) exec adapter keeps the `exec` pass-through, unrecorded,
   as today.
 - `pse result`, `pse log` and `pse history`.
+- An owner-finalization constructor consumes original process/capture/settlement facts and
+  kind-owned reconciliation before granting terminal publication; A03 serializes that result.
+  Preserve every cleanup failure alongside operation failures and explicit unknown settlement.
 - Independent stdout/stderr drainage, bounded rendering/extractor state and explicit
   disk/oversized-record/slow-consumer policy above; terminal outcomes retain loss/completeness.
-- Retention eligibility from A04. Enable pruning only after A05's all-entry pins and B03's
+- Retention eligibility from A04. Enable pruning only after A05's selected effect-shaped protection and B03's
   uncertain-settlement/finalizer protections are available; never prune active owner evidence.
 
-**Deletes:** nothing beyond A02's port.
+**Deletes:** merged raw `LogChunk` encoding/reconstruction, shared sink-lock capture and their
+mechanism tests with migrated log/extractor/F03 consumers; history-wide exact resolution and
+generic-envelope terminal admission are replaced with their callers/tests. Preserve raw exec
+adapter grammar/exit behavior and opaque protocol evidence.
 
 **Acceptance:**
 - A foreground run of a command that writes to both streams and exits 3 yields `result.json`
-  with `child_exit: 3`, exit 3 for the exec-adapter `run`, and a complete `output.log`.
+  with `child_exit: 3`, exit 3 for the exec-adapter `run`, and byte-exact `stdout.raw`/`stderr.raw`.
 - An interrupted foreground run (SIGINT) yields status `interrupted` and exit 130.
 - `latest` resolves per session before per checkout.
 - Slow/broken human or NDJSON readers and oversized lines cannot deadlock child/resource
@@ -377,6 +466,14 @@ children that retain tool paths. Full catalogue federation is not a prerequisite
   incomplete evidence; required verdict loss cannot produce success.
 - Operation failure plus independent cleanup failures all survive in the result. Child reap,
   scientific status, unknown drain and retained fixture disposal remain separate.
+- A blocked stdout sink leaves stderr drainage independent; invalid UTF8, oversize messages,
+  optional subscriber breakage and final-flush failure preserve original offsets and individual
+  incompleteness. Invalid terminal combinations reach and fail the owning constructor.
+- A healthy exact ID remains accessible beside corrupt unrelated metadata; ambiguity remains
+  visible even with an unreadable candidate. Partial history cannot certify global latest.
+- Explain→execute preserves the selected stage; a changed premise refuses, and unavailable
+  fixture/provider explanation performs no preparation. Nested/limited typed pages retain
+  indivisible records, coverage and context-bound continuation without full-result retention.
 
 <a id="b02"></a>
 ### B02 — Failure extraction
@@ -386,13 +483,17 @@ first; nextest reconciled success additionally requires C07's actual resolved se
 C02's setup/terminal contract. This is a contract slice, not a whole-59c barrier.
 
 **Delivers:**
-- The cargo extractor (`Message::parse_stream`, primary-span one-liner, dedup, full rendered
+- The cargo extractor (strict bounded native `Message` decoding, primary-span one-liner, dedup, full rendered
   text kept) and the nextest extractor (libtest-json-plus with format version 0.1, `type` versus
   `reason` split, `NextestExitCode` classification, per-test failure output).
 - Run kinds `cargo-check`, `cargo-build`, `clippy`, `nextest` and `generic`.
 - `pse result --failures` gives the first N unique failures within `--budget`.
 - Typed normalizations preserve source diagnostics and selection identity; opaque retained
   upstream JSON is not treated as a schema-validated semantic model.
+- Exact source stream/byte ranges lead back to independently retained raw bytes. Typed failure
+  pages preserve diagnostic children, source/build identity and required reconciliation while
+  opaque RawValue retains upstream duplicate keys and numeric lexemes. A03's typed Serde/
+  Schemars view describes presentation, not protocol completeness or scientific validity.
 
 **Acceptance:**
 - **cargo fixture.** A fixture crate with one type error yields exactly one deduplicated failure
@@ -400,7 +501,7 @@ C02's setup/terminal contract. This is a contract slice, not a whole-59c barrier
 - **nextest fixture.** A fixture with one failing test yields that test's ID and panic location.
 - **Real pass-through.** A run through the real correctness adapter (`cargo-pse-correctness
   nextest run … --message-format libtest-json-plus`) shows the stream intact.
-- **Fallback.** Missing/truncated stream or terminal evidence yields an exit-class/log-tail
+- **Fallback.** Missing/truncated/oversize stream or terminal evidence yields an exit-class/log-tail
   explanation and incomplete reconciliation, even when child exit is 0.
 - **Selection.** Two binaries sharing a test name, setup failure, zero matches and feature-absence
   controls preserve exact selected outcomes. A full output destination cannot silently erase a
@@ -413,6 +514,8 @@ C02's setup/terminal contract. This is a contract slice, not a whole-59c barrier
 control and generation-use pins, and [A07](59a-cli-foundation.md#a07)'s R3 amendment. Full B02
 test extraction is required for managed test success, not for the first generic detached
 result/wait/cancel journey.
+The affected protection/capture/page amendments additionally consume A08's published slice;
+J01 source navigation and J02 proposals are not prerequisites to this generic journey.
 
 **Delivers:**
 - `manager.rs` gains a detached service start with the property set above.
@@ -426,6 +529,9 @@ result/wait/cancel journey.
 - The hidden subcommands `__supervise` and `__finalize`.
 - `--detach` on `run`, `test`, `check` and bundle verbs.
 - `pse wait` with property-change or pidfd waiting and NDJSON transitions.
+- Extend the native reconciliation owner with typed summary/list and selected `GetAll` detail,
+  original-incarnation fencing and scoped `watch`/optional `broadcast` fan-out. Lag and manager
+  replacement trigger explicit resynchronization rather than fabricating complete history.
 - `pse cancel` reconciles by recorded description and invocation ID and stops under ledger
   authority.
 - Select/version-check a compatible prepared control generation from authenticated tool-root
@@ -435,6 +541,12 @@ result/wait/cancel journey.
   drain and permit release. Unknown/failed recovery stays incomplete; independent fixture
   retention/disposal remains with its actual owner.
 - `Group` readers for `memory.current` and `cpu.stat`.
+- Integrate A05's selected protection protocol before retained child/path/finalizer effects,
+  including durable promotion if that candidate is selected. Conservative durable protection
+  with pruning disabled remains usable while its replacement investigation is unresolved.
+  Unresolved original generation claims stay protected; no PID-absence inference or speculative
+  pruning enables this package. Replace duplicate foreground/detached lifecycle assembly with
+  this shared owner as consumers move, keeping raw adapters/passive reads direct.
 
 **Acceptance:**
 - **Detached completion.** A detached `sleep 2; exit 4` returns `launched`, and `pse wait` then
@@ -452,6 +564,9 @@ result/wait/cancel journey.
   Mismatched unit identity and incompatible/forged generation records refuse safely.
 - **Lifetime.** Ordinary pruning retains an unrecorded long adapter and delayed finalizer;
   cleanup failure preserves all other attempted cleanup results and protected evidence.
+- **Native observation.** Race a unit incarnation replacement, omit an unavailable interface,
+  and lag/disconnect a subscriber: explicit resynchronization/coverage survives and no mixed
+  snapshot is called atomic. Killing a passive observer does not authorize generation disposal.
 
 <a id="b04"></a>
 ### B04 — Composite bundle runs
@@ -526,8 +641,18 @@ surfaces.
 output contracts, and owns product interpretation, follow, study bridge investigation and
 capture/export. Closing a product observer never supplies cancellation authority.
 
-Establish A07/A03/A04/A05's control/pin slice, then one foreground/detached generic invocation
+Publish A08's affected rule amendments alongside the already completed A07 foundation; establish
+A03/A04/A05's required owner-result/control/protection slice, then one foreground/detached generic invocation
 with result/wait/cancel and original settlement. Integrate C07/C02's real test/fixture journey
 and F01/F02's passive product journey before expanding the verb catalogue. Native journey
 acceptance above is planned, not executed by this document revision; no product qualification
 or performance claim follows from authoring these plans.
+
+Each producer→consumer slice uses an actual CLI journey and its distinguishing failure case;
+schema acceptance alone cannot establish finality, exact byte capture or selected population.
+Native observation refactoring can progress on the existing manager owner independently of the
+whole B03 delivery; product checkpoint readers remain independently useful. Bring J03's
+syntax preview and base product observation forward on their narrower slices, adding semantic/
+compiler enrichment as those producers become ready. Pruning/full A06 federation/all J are not
+gates for the basic custody journey. Remove replaced callers/tests/fixtures in the slice that
+migrates them; do not accumulate another qualification ledger or mandatory benchmark.

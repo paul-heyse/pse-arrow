@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, design, libraries, diagnostics, validation]
-review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
 ---
 
 # Compiler investigations
@@ -24,7 +24,8 @@ Source and review baseline: `a569b52e4`, 2026-10-29. The preceding review read b
 compiler documents end to end; they are byte-identical. Their capability evidence and primary
 references are retained here without restarting a general compiler/library review. Core3.4,
 efficiency heuristics1.0, test assessment1.2 and process-simulator1.5 apply through the binding.
-This authoring work does not restart stopped production execution, install compiler components,
+This authoring work leaves the coordinator's paused 2026-10-30 checkpoint intact and does not
+restart production execution, install compiler components,
 change the checker, or qualify numerical/resource behavior.
 
 **Interface-checked:** the existing host correctness adapter, planned C07 selection/B02 result
@@ -54,6 +55,16 @@ AP-07/DP-09/DP-10 favor original evidence reuse and body/pass-scoped extraction 
 compiler database or a full workspace analysis for every question. A small rendered response
 does not establish that a compiler invocation examined little code.
 
+This revision carries the library-integration review's
+[I01](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I01),
+[I07](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I07),
+[I10](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I10),
+[I12](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I12),
+[I13](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I13) and
+[I14](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I14).
+These review-qualified I references are distinct from this companion's I01–I05 packages.
+The coordinator owns the operator's 2026-10-30 RC01–RC04 confirmations and decision routing.
+
 ## Target behavior and boundaries
 
 Start with the least machinery that answers the selected question:
@@ -65,11 +76,33 @@ Start with the least machinery that answers the selected question:
    repeated useful question cannot be served faithfully and proportionately by those routes.
 
 The response answers one question about a selected item/body/type/build context, includes
-relevant source spans and conditions, and offers an optional raw artifact. Use A03's envelope,
-projection and next actions; A04 resolves retained artifacts; A05 identifies/protects actual
-prepared tools. No universal compiler query language or permanent symbol graph is required.
+relevant source spans and conditions, and offers an optional raw artifact. The compiler adapter
+owns query-specific detail/pages: original diagnostic and related spans first, selected body/
+phase facts next, with raw windows or larger neighborhoods only on request. A03 supplies the
+envelope and mechanical projection over those owned views, not recursive truncation of arbitrary
+compiler records. Typed next actions retain arguments/effects; A04 resolves retained artifacts;
+A05 identifies/protects actual prepared tools. Report examined compiler/unit/body/pass scope
+separately from returned size and known omissions/unknown totals. No universal compiler query
+language or permanent symbol graph is required.
 Voluminous debug dumps remain inspectable provider artifacts, not a stable typed protocol
 created by parsing unstable textual output.
+
+Continuations bind original source digest/revision, artifact identity and compiler/backend
+context. Refuse stale/expired continuations or explicitly serve retained immutable source.
+Classify retention by responsibility: sole original diagnostics, dirty source bytes unavailable
+elsewhere and uniquely authored probes require preservation; a derived explanation is regenerable
+only while those inputs/context remain available. Do not persist a whole rebuildable query result
+for every requested page. A04's addressed/ranged/streaming artifact reads can supply selected
+windows without replacing private local publication or imposing one deletion policy on scientific
+records, authored inputs and preparation caches.
+
+Use version-checked typed decoding and checked constructors for source/context/phase applicability.
+Serialize owner-validated results through borrowed typed views and directional Serde/Schemars
+schemas; schema agreement does not establish a compiler fact or a valid domain combination.
+Retain opaque original upstream evidence as `RawValue` when normalization would erase numeric
+lexemes or duplicate keys. Fields used for selection/control are typed rather than reinterpreted
+from generic JSON. Unsupported version/shape, unknown value, failed evaluation and nonfinite
+categories remain explicit; numerical serialization must not silently turn them into null or zero.
 
 Reading retained evidence is separate from generating new evidence. A missing compiler artifact
 returns preparation/generation-required with an explicit next action; it does not start a build,
@@ -110,11 +143,19 @@ probe execution. These are slices, not a dependency on all test fixtures, nextes
 D conveniences or G sessions. Design can proceed against the agreed contracts; assembled
 consumer acceptance requires the named working producers.
 
+New generation actions consume the same C07 resolved/admitted stage as explain and execution;
+explicit artifact production is a later observation stage. Missing preparation is an explicit
+requirement, and changed source/tool/configuration premises refuse or re-resolve before effects.
+
 **Delivers:** selected original diagnostic navigation preserving primary/secondary spans,
 children, suggestions/applicability, macro context, source generation and actual check outcome.
 Use Cargo `CompilerMessage`/rustc JSON already captured by B02; do not re-run compilation or
 write a custom diagnostic emitter merely to retrieve those fields. Preserve full original
 rendered/raw evidence separately when a summary cannot carry every detail.
+Use [J01](59j-source-queries-and-change-proposals.md#j01) for addressed source when available;
+an original location can remain useful without a live semantic session. D01 can compose these
+diagnostic/source/context sections immediately, with unavailable API/semantic/compiler detail
+visible; it does not wait for all G/H/I work or prepare a driver merely to explain a failure.
 
 Explicit artifact generation accepts the selected question and unit/body/pass context, retains
 the command/tool identity and returns the result plus available artifact locations. Use native
@@ -130,6 +171,10 @@ does not compile. A requested body-filtered artifact identifies the actual selec
 missing, unsupported, truncated and failed generation are distinguishable. Verify one real
 selected invocation/probe through the existing correctness route, including original diagnostics
 and actual failure status, rather than accepting JSON shape alone.
+Follow that retained failure through D01 to a selected typed next action without a second
+compilation. Include paged related spans/body detail, unknown totals, failed/stale continuation,
+unknown schema/protocol and invalid source/context construction. Removing a regenerable summary
+must preserve the sole original diagnostic and authored inputs needed for the original question.
 
 **Sources:** review O10/O14; [rustc JSON](https://doc.rust-lang.org/rustc/json.html),
 [MIR debugging](https://rustc-dev-guide.rust-lang.org/mir/debugging.html),

@@ -4,7 +4,8 @@ The [Plan59 library integration and target-design review](plan59-library-integra
 reassesses the paused implemented foundations and remaining A–I scope. Sixteen proposed
 amendments address library delegation, enforced domain/wire contracts, invocation and stream
 ownership, selective queries, source editing, scientific observation and integrated agent journeys.
-It includes the additional Serde/Schemars assessment. Adoption and implementation remain separate.
+It includes the additional Serde/Schemars assessment. The [Plan59 coordinator](../plans/59-agent-cli.md#library-integration-dispositions)
+owns selected recommendation dispositions; authoring and implementation remain separate.
 
 The [Plan59 CLI and observability review](plan59-cli-and-observability-2026-10-29.md)
 assesses the remaining A–E scope and links the new functional opportunities. It recommends

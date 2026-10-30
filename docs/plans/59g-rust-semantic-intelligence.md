@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, design, libraries, environment, diagnostics]
-review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
 ---
 
 # Rust semantic intelligence
@@ -43,7 +43,8 @@ before a cross-invocation analyzer session can rely on it.
 
 ### Questions and presentations
 
-Use `pse code` as the semantic command family within A02's single tree. G01 fixes the supported
+Use `pse code` as a discoverable family with explicit provider authority; [59j](59j-source-queries-and-change-proposals.md)
+owns its server-free source/query/proposal routes. G01 fixes the supported semantic
 subcommands against the pinned backend. The intended operations are `explain`, `symbols`,
 `refs`, `calls`, `implementations`, `macro`, `tests`, `candidates` and `edit`, with explicit
 position/range or qualified-symbol subjects. Session `prepare`, `status` and `stop` belong
@@ -54,7 +55,8 @@ An `explain` response combines available declaration/signature/type presentation
 trait origin and a short source excerpt. A range adds only selected annotations: intermediate
 types, captures, adjustments, argument names or relevant exits. Additional references, calls,
 tests, docs and edits are next actions, not automatic work in every request. A combined response
-aims for approximately 800–1,200 tokens using A03 detail budgeting; this is not a new tokenizer,
+aims for approximately 800–1,200 tokens through producer-owned compact views under A03;
+generic top-level array budgeting alone cannot establish that result. This is not a new tokenizer,
 byte truncation contract or permission to omit required status/context.
 
 The A03 envelope retains provider, selected package/crate-instance/target/features, synchronized
@@ -63,6 +65,12 @@ match, incomplete model, preparation required, unsupported capability, canceled/
 and projected detail. Lists report known shown/omitted counts or an unknown total. Search scope,
 completed examination and displayed subset remain separate. A bounded response can require
 substantial reference search; presentation limits do not establish cheap execution.
+
+Each semantic producer owns an indivisible result/page view, serialized through A03's
+directional typed schema. Continuations bind analysis/source generation and backend context;
+refuse stale cursors or serve explicitly retained immutable inputs. Do not recursively trim
+tuples/tagged records or equate serializer/schema agreement with semantic adequacy. Preserve
+opaque evidence as opaque and keep checked semantic applicability with its actual owner.
 
 CLI file positions use documented one-based line/column input. G03 establishes Unicode column
 semantics and performs explicit conversion to the negotiated LSP encoding and source offsets;
@@ -271,7 +279,7 @@ compilation through the ordinary owner is distinct from candidate generation.
 <a id="g07"></a>
 ## G07 — Semantic edit previews
 
-**Consumes:** G03 and the selected G01 rename/code-action/SSR capabilities. D06 protects
+**Consumes:** G03, J02's working shared proposal contract and the selected G01 rename/code-action/SSR capabilities. D06 protects
 generated-owner paths in presented next actions; G07 itself changes no source.
 
 Deliver O09 action discovery followed by selected multi-file diff generation. Use native
@@ -286,55 +294,16 @@ Preview rename, import/match/trait-member assists and repeated resolved-call rep
 Preserve captured arguments and report changed effect/evaluation-order obligations for review.
 Returned edits are proposals, not an equivalence proof, applied transaction or automatic fix.
 
-**Structural queries and previews.** The operator's October30 library additions expand the
-available realization mechanisms: assess pinned `ast-grep-core` with its Rust grammar for
-code-shaped patterns, named/sequence captures, composed syntax constraints and `TemplateFix`
-replacement previews. Keep this explicitly syntax-derived alongside semantic SSR, with backend,
-grammar/pattern versions, match strictness, source digest and byte spans in each proposal.
-Default `Smart` matching is not exact CST equivalence; select/report strictness deliberately.
-Enumerate nested matches separately from the non-overlapping edit set and report omissions or
-conflicts. Never infer resolved symbol equality from repeated metavariables or matching names.
-The same G08 publication owner applies to any eventual writes; a library's in-memory edit does
-not provide filesystem concurrency or multi-file atomicity. Use fallible constructors and
-verified release APIs: the inspected0.51.0 `before`/`after`/`append`/`prepend` helpers are
-`todo!()`, and `replace_all` intentionally skips nested overlapping matches.
-
-[AST-grep capabilities](../libraries/rust_analyzers/ast-grep-core.md),
-[published0.51.0 source](https://docs.rs/crate/ast-grep-core/0.51.0/source/src/node.rs) and
-[Tree-sitter Rust grammar](https://github.com/tree-sitter/tree-sitter-rust) support this inquiry.
-Tree-sitter Rust supplies AST-grep's syntax layer, not an obligatory third independent parsing
-service. Prefer D03's `ra_ap_syntax` typed AST for Rust declaration reads and native constructors;
-adopt the pattern engine when its capture/rewrite consumer removes bespoke matching logic.
-Neither grammar tags nor source-shaped matches establish cross-file references or types.
-
-The full [Tree-sitter Rust reference](../libraries/rust_analyzers/tree-sitter-rust.md) sharpens
-this composition: grammar0.24.2 and runtime0.27.1 have independent versions/ABI checks; the
-grammar exposes native node metadata and tagging/highlight/injection queries, while the
-runtime owns parsing, query cursors and incremental trees. Reuse compiled native queries for
-an extraction consumer where they remove a custom visitor, and expose range/depth/match-limit
-coverage and parser ERROR/MISSING regions. `TAGS_QUERY` is a useful partial syntax inventory,
-not a complete symbol/reference index; Rust has no bundled `LOCALS_QUERY` in this release.
-Macro token-tree injection is secondary interpretation, not expansion. Retain original source
-because Tree-sitter nodes do not retain whitespace as explicit trivia. Any incremental consumer
-must invalidate from both actual text edits and structural changed ranges: a name change can
-leave tree shape unchanged. Native progress cancellation and immutable copied trees are useful
-to a concrete repeated-query consumer; they do not require a new persistent parsing service or
-replace G02/G03's source/configuration identity. Prefer queries over grammar/scanner forks.
-
-**Generated syntax and replacement fragments.** The full
-[`syn`/`quote`/`prettyplease` capability reference](../libraries/rust_analyzers/syn_quote_prettyplease.md)
-adds a complementary route, already used by the registry generator: pinned `syn`3.0.5,
-`quote`1.0.47 and `prettyplease`0.3.0. Prefer native `Visit`/`VisitMut`/`Fold`,
-`Punctuated`, `Generics::split_for_impl` and token interpolation when generating or transforming
-owned Rust syntax. Use fallible parsing for externally supplied fragments/identifiers and
-preserve unknown modifier/Verbatim boundaries. `ToTokens` is not a source formatter; render
-new complete files with the existing pretty-printer owner. For a local authored-source edit,
-generated fragments may feed the same byte-range proposal while untouched text stays with
-the CST. Do not round-trip a whole authored file through `syn`/`prettyplease`: ordinary
-comments/layout would be lost, and `verbatim` does not guarantee arbitrary opaque syntax is
-printable without panic. Compiler acceptance, macro expansion and semantic identity remain
-separate. No blanket generator rewrite or dependency upgrade follows this capability review;
-the existing generator pins/byte-equivalence route still own intentional changes there.
+**Source-only producer ownership (accepted review RC04,2026-10-30).**
+[59j J03](59j-source-queries-and-change-proposals.md#j03) owns structural pattern/capture queries
+and previews; it consumes J01/J02, not G03. J02 owns the shared source-bound proposal and diff
+contract. Translate semantic source changes into that contract with original context,
+source identities, unsupported regions and unresolved snippets. Do not silently downgrade a
+semantic request to syntax matching. Tree-sitter grammar, ast-grep matching and typed fragment
+qualification live with J03; generated contributor navigation consumes J04/D06 where available.
+This relocation removes the former accidental semantic-session barrier without giving syntax
+queries semantic authority. No standalone parser daemon or whole-file authored-source
+roundtrip through syn/prettyplease is selected.
 
 **Acceptance:** rename changes the intended entity without unrelated names; a scoped SSR
 rule excludes a similarly spelled different function. A chosen assist shows all files and
@@ -344,7 +313,9 @@ generation, compiler check or commit.
 <a id="g08"></a>
 ## G08 — Conditional application decision
 
-**Consumes:** G07 and D06's protected/generated ownership contract. This decision is distinct
+**Consumes:** J02's working proposal contract, an actual J03 or G07 producer and D06's
+protected/generated ownership contract. Syntax application qualification does not consume
+G07/G03; semantic application adds its actual semantic producer. This decision is distinct
 from D09's Git-index transaction: a private Git index does not make source writes atomic.
 
 Investigate an explicit apply action for selected proposals. Compare existing patch/file

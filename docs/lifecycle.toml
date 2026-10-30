@@ -4044,7 +4044,7 @@ kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G08"
-to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G07"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J02"
 kind = "depends-on"
 
 [[relationships]]
@@ -4626,4 +4626,135 @@ kind = "depends-on"
 [[relationships]]
 from = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F06"
 to = "docs/plans/59f-simulation-observability-and-diagnostics.md::package-state::F05"
+kind = "depends-on"
+
+# Plan59 library-integration amendment: native owners retain status.
+[[scope_tables]]
+path = "docs/plans/59-agent-cli.md"
+name = "library-integration-dispositions"
+heading = "Library integration dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision/work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/59j-source-queries-and-change-proposals.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(J[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A08"
+to = "docs/plans/59a-cli-foundation.md::package-state::A07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A03"
+to = "docs/plans/59a-cli-foundation.md::package-state::A08"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A05"
+to = "docs/plans/59a-cli-foundation.md::package-state::A08"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B03"
+to = "docs/plans/59a-cli-foundation.md::package-state::A08"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G07"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J01"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J02"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J02"
+to = "docs/plans/59a-cli-foundation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J03"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J03"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J03"
+to = "docs/plans/59a-cli-foundation.md::package-state::A08"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J04"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J04"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J05"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J05"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J05"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J05"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J05"
+to = "docs/plans/59a-cli-foundation.md::package-state::A06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J05"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D07"
 kind = "depends-on"

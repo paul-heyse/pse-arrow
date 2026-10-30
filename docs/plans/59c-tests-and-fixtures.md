@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, validation]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
 ---
 
 # Tests and fixtures
@@ -14,8 +14,8 @@ Part of [Plan59](59-agent-cli.md). This plan adds intent-level `pse test`, `pse 
 `pse tests` verbs that work out their own features, native capabilities, force-validation,
 fixtures and filters. It replaces caller-assembled fixture inputs with resolution through the
 actual fixture owners, and gives blueprint §24.1's reconciled-pass rule a Rust owner.
-The targets and packages below are **Proposed**; the stopped/reverted implementation state is
-unchanged by this amendment.
+The remaining targets below are **Proposed**; the coordinator's paused 2026-10-30 checkpoint
+and completed evidence below remain unchanged by this documentation amendment.
 
 Sources: [O04](../functional_reviews/rust-agent-cli-2026-10-29.md#O04),
 [O05](../functional_reviews/rust-agent-cli-2026-10-29.md#O05),
@@ -26,6 +26,14 @@ The amendment adopts [new O05–O06](../functional_reviews/agent-cli-and-simulat
 and [I03](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I03),
 [I07](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I07) and
 [I08](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I08).
+
+The 2026-10-30 revision carries the library-integration review's
+[I01](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I01),
+[I13](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I13),
+[I14](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I14) and
+[I15](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I15).
+The coordinator records the operator's 2026-10-30 RC01–RC04 decisions and decision routing;
+this packet changes the remaining selection and consumer targets, not execution status.
 
 Evidence from the review: in one post-retirement morning, agents made 194 inline `PSE_*`
 assignments and chose between eight hand-picked `--native` capability sets. Tests ran through
@@ -104,10 +112,13 @@ those preparation inputs. Neither ledger terminality nor child exit authorizes f
 - **Selection.** Positional `pkg[:target]` targets (combinable with `clap-cargo`'s `-p`), or
   `--workspace [--exclude …]`, or `--changed [--base REF]`. Bare words become `test(word)`
   filters; full filtersets pass through `-E`.
-- **Resolved selection.** C07 resolves package, target kind/name, platform, features/defaults,
-  filters and ignored-test policy once. Required-feature activation follows explicit target
-  intent; grouping only combines compatible selections. Do not union every target's features:
-  that could erase feature-absence and refusal controls already expressed in the justfile.
+- **Staged selection.** C07 normalizes intent against captured declarations, admits compatible
+  package/target roots through correctness, and later binds explicit build/list observations.
+  Explain and execution consume the same value at the stage they can honestly expose.
+  Compatibility permits one Cargo closure for several roots with shared metadata, not one
+  scalar admission per package hidden behind concurrency. Preserve per-root required/default/
+  absent-feature policies, host/target context, filters and ignored policy; split incompatible
+  selections rather than union their features or approximate them with all-features.
 - **Native capabilities.**
   1. Ask the adapter's unit graph which `pse-backend-native` features the selection reaches.
   2. Map them through the single declaration (below).
@@ -133,9 +144,11 @@ those preparation inputs. Neither ledger terminality nor child exit authorizes f
 - **Rerun.** `--rerun-failed` uses recorded package, binary/target identity and exact test ID,
   with the original features/platform/policy. A same-named test in another binary is distinct.
   No ambiguous name-only filter or nextest `-R` substitutes for the captured selection.
-- **Explain.** `--explain` renders the same resolved selection as execution, redacts secrets,
-  and distinguishes known selection from pending preparation without building/listing or
-  starting a fixture. Changed external premises require explicit re-resolution.
+- **Explain.** `--explain` renders the available resolved stage, redacts secrets while retaining
+  captured configuration/value-source provenance, and distinguishes requirements, admission
+  and actual observed population. It never builds/lists, prepares a provider or starts a
+  fixture. Execution checks the captured premises before effects; a change requires explicit
+  re-resolution or refusal rather than silently reinterpreting the request.
 
 `pse check` does the same selection and features for `cargo check --message-format=json`, through
 the adapter with cargo-message extraction.
@@ -260,7 +273,9 @@ Its recipe-retirement documentation edits include the architecture section
   explicit selection group that keeps `--workspace --exclude` and `-p … -E` legal) and
   `PlacementArgs`.
 - Required-feature and capability derivation.
-- The reconciled verdict.
+- The reconciled verdict, constructed by the owning reconciler from actual setup, population,
+  terminal and completeness evidence before A03 renders it. Typed decode and directional
+  schemas do not independently establish a pass or permit invalid outcome combinations.
 - `--rerun-failed`.
 - `--explain`.
 
@@ -274,6 +289,8 @@ Its recipe-retirement documentation edits include the architecture section
 **Acceptance:**
 - `try_parse_from` selection cases.
 - An `--explain` snapshot for `pse-runtime:native_study`.
+- One actual explain→execute journey with unchanged premises and one changed-premise refusal;
+  an unavailable fixture/provider is explained without preparation.
 - Reconciliation cases: nextest exit 0 with a missing selected record is incomplete;
   setup failure and zero-match selection remain explicit; duplicate test names across binaries
   and ignored-policy changes cannot produce an incorrect pass or rerun.
@@ -344,13 +361,17 @@ recipe bodies. Their scenarios become `pse test` invocations.
 is not a prerequisite to listing.
 
 **Delivers:** `pse tests <pattern> [--package P]` over adapter `nextest list --message-format json`
-with derived features, joined with declarations. Results are cached per build identity in the
-store.
+with derived features, joined with declarations. Official nextest filtering/listing remains the
+population authority. Map each listed binary back to its exact package/target root, admitted
+context and immutable build identity, including multi-root groups; a package index or test name
+alone cannot establish that mapping. Results are reusable only under that captured identity.
 
 **Deletes:** the `list-native-contracts` recipe.
 
 **Acceptance:** a pattern matching one integration test returns its package, target, features,
 capabilities, fixtures and a `pse test` command that runs exactly that test.
+Add compatible multi-package discovery with duplicate test names, an incompatible feature
+context and a stale captured binary; matching/rerun must preserve the original binary/context.
 
 <a id="c06"></a>
 ### C06 — Cross-package helper by artifact dependency (deferred)
@@ -380,20 +401,38 @@ targets run without the fixture variable.
 **Consumes:** [59a A02](59a-cli-foundation.md#a02)'s typed command/configuration inputs and
 the existing correctness adapter's selection/force-validation contract.
 
-**Delivers:** one resolved operation value for package IDs, target kind/name, platform,
-features/defaults, filter and ignored-test policy. C01 derives capabilities from this value;
-C02 runs/checks it; C04 resolves its fixture inputs; C05 lists and matches its actual binaries.
-[59a A06](59a-cli-foundation.md#a06)'s test/check explain consumes the same value. Generic
-non-test explain needs only A02/A06's operation-specific resolver, not all of C07 or C04.
-Selection resolution produces preparation requirements; explicit build/list captures exact
-binary identities and immutable tool inputs for execution and reconciliation. B02 consumes
-the actual selected binary/test population and setup policy for its nextest reconciler.
+**Delivers:** staged test/check selection with three distinct responsibilities:
+
+1. Normalize intent once from typed arguments/configuration and captured Cargo declarations:
+   exact package/target roots, platform, features/defaults/absence, filter and ignored policy,
+   provenance and preparation requirements. A missing provider or fixture remains a requirement.
+2. Admit a set of compatible roots through the correctness adapter using shared metadata and
+   selected unit-graph work. Adapt the existing single-package root validation so every admitted
+   root maps to its intended package/target, with no unrelated roots and with each root's
+   feature-absence constraints checked. Cargo's feature unification and actual Arrow closure
+   govern admission. If combined admission would violate one intent, retain separate groups;
+   running scalar calls in parallel does not remove the repeated preparation.
+3. On explicit build/list, bind actual immutable compiler artifacts, binary identities and
+   official nextest test population to that admitted context. C05 owns discovery mapping;
+   B02 consumes the actual selected population and setup policy for reconciliation. Intent or
+   a unit graph never fabricates a built binary or a test ID.
+
+C01 derives capabilities from admitted units; C02 executes/checks the admitted selection;
+C04 resolves declared fixture inputs without changing their owner; C05 discovers actual tests.
+[59a A06](59a-cli-foundation.md#a06)'s explain consumes the same available stage and renders
+later stages as pending. Generic non-test explain uses its own resolver rather than all C07/C04.
+No universal operation registry or eagerly prepared provider set is introduced. Checked owner
+constructors enforce valid stage transitions and selected-root mappings before execution;
+Serde/Schemars views describe those values, not an independent selection interpretation.
 
 **Failure closure and acceptance:** parser cases cover workspace exclusions, explicit targets,
-incompatible required features, feature-absence controls and ignored tests. Explain/execution
-agree for unchanged inputs, with secret redaction and pending preparation visible. A dry explain
-does not build binaries, prepare providers or start services. Independent expected selections
-and duplicate-name binaries challenge normalization rather than deriving the oracle from it.
+incompatible required features, feature-absence controls and ignored tests. Exercise compatible
+multi-root admission, mixed compatible/incompatible groups and host/target roots against independent
+expected selections; retain negative-feature cases after actual Cargo unification. Explain and
+execution agree for unchanged premises and refuse/re-resolve changed ones before effects. Dry
+explain performs no build/list/provider/service preparation. C05's duplicate-name binary journey
+challenges discovery identity independently of normalization. Structural repeated work is removed
+when compatible roots share admission; elapsed-time improvement remains unmeasured.
 
 ## Verification and handoff
 

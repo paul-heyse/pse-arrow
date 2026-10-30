@@ -3,7 +3,7 @@ title: "Plan59f: Simulation observability and diagnostics"
 status: active
 date: 2026-10-29
 adrs: [ADR-0233]
-review_sources: [docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
+review_sources: [docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [architecture, design, libraries, environment, validation]
@@ -22,7 +22,8 @@ conditional interfaces from O08. The coordinator owns all review dispositions; F
 
 Source baseline is review commit `e907d8a1f` and its inspected production baseline
 `890aa07f76fac5739cfc9811a47e823c326be663`. No production implementation is authorized by this
-document amendment. Existing A01/E05 work and the D02 trial are retained; execution remains stopped.
+document amendment. Existing completed evidence is retained; execution remains paused at the
+coordinator's 2026-10-30 checkpoint.
 Core3.4, heuristics1.0, test assessment1.2 and process-simulator1.5 apply through the binding.
 
 The foundation already includes `pse-diagnostics::ObservationHub`, coherent producers, coverage,
@@ -37,6 +38,16 @@ The important gap is consumer composition. A separate CLI process cannot obtain 
 retained canonical progress can be read now; additional live study data requires a deliberate
 publication contract. The target preserves that distinction rather than opening provisional results.
 
+This revision integrates the library-integration review's
+[I07](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I07),
+[I10](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I10),
+[I11](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I11),
+[I12](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I12),
+[I13](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I13) and
+[I14](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I14).
+Their review-qualified identities supplement O01–O04 rather than replacing those dispositions;
+the coordinator owns the operator-confirmed 2026-10-30 RC01–RC04 decision routes.
+
 ## Target and authority boundaries
 
 The lean host owns invocation selection, control and outer output handling. An explicitly prepared
@@ -47,7 +58,11 @@ Basic help, host status and invocation control remain usable without product pre
 
 F01 defines the versioned delegated product protocol and its discovery/schema binding. The host
 forwards selected payload bytes under time/extent bounds and interprets only the agreed transport
-metadata. The product validates requests before effects and issues typed versioned responses.
+metadata. The product decodes into its owned request types and checked domain constructors
+before effects, and emits valid typed results through directional Serde/Schemars views. Input
+schema validity, decode success and scientific/domain validity remain distinct. Unknown versions,
+invalid identity/selection combinations and malformed input refuse at that boundary; host output
+projection cannot establish scientific permission or turn an observation into an accepted result.
 Unknown versions/missing preparation produce actionable unavailability; passive reads do not
 build tools, initialize a database or construct mathematical services. Explicit preparation is
 separate from reading. New-work admission follows A05; existing-work control follows B03.
@@ -67,10 +82,27 @@ Use existing `RunHandle` source references and `invocation::InvocationEvidenceDo
 these facts. Associations are potentially many-to-many and absent associations remain absent.
 The CLI ledger does not become a scientific correlation recorder or a database policy mirror.
 
+Product readers own useful detail modes and pages: selected operation facts/statements first,
+then requested related operations, record windows or numerical detail. Preserve `Statement.kind`
+(`Established`, `Hypothesis`, `Limitation`), original `evidence` and `next` rather than inferring
+strength from prose. Process/unit facts, invocation metadata and scientific observation form
+distinct sections. Preserve units, clock domains, timestamp ages, reset generations, gaps,
+coverage and unknown causal relationships. A finite numerical value, unavailable value and
+nonfinite category use the owner's typed policy; serde_json's conversion of nonfinite numbers
+to null is not a faithful numerical contract.
+
+Page selected records at their semantic boundary; do not recursively truncate arbitrary nested
+records after serialization. Continuations bind source generation/digest and reader context,
+and refuse changed/expired input unless deliberately retained immutable evidence serves the
+original page. Unknown totals and omitted detail remain explicit. Report examined source scope
+separately from returned record count: a small page may require a broader read. A03's generic
+fields/budgets only project these producer-owned results mechanically.
+
 ## Package state
 
 F02/F05 may offer source navigation when original observation/capture identifies an actual
-location/build; D01/G09 compose it without moving scientific interpretation into analysis.
+location/build; [59j J01/J04](59j-source-queries-and-change-proposals.md) supplies addressed
+source/generated navigation, and D01/G09 compose it without moving scientific interpretation into analysis.
 Expose current-source/binary mismatches. Missing scientific-model-to-code mapping stays
 unavailable. F06 includes this composed case when delivered, but base inspection/follow/capture
 does not wait on G–I. Static calls prove neither runtime causal edges, native settlement nor
@@ -99,11 +131,17 @@ references, adding CLI invocation association at cooperating launch/publication 
 
 Separate transport failure from a valid response describing unavailable evidence. Preserve
 original result/reference identities and units. Schema generation uses the product's Serde and
-directional Schemars declarations, not a host-owned copy. Keep opaque payload forwarding opaque.
+directional Schemars declarations, not a host-owned copy. Borrow typed result/page views for
+owned data; preserve `RawValue` for genuinely opaque upstream evidence whose original numeric
+lexemes or duplicate keys matter. Do not normalize that evidence through a generic JSON model
+or generate the same schema twice. Keep opaque payload forwarding opaque.
 
 **Acceptance:** direct and delegated reads agree for the same supplied checkpoint; version/schema
 mismatch refuses before effects; an unprepared product reader leaves host-only help/control
 usable; two observer invocations of one study retain distinct invocation and original scientific IDs.
+Challenge malformed input, unknown protocol/schema versions and invalid domain combinations at
+the owner constructor. A schema-valid response cannot override a failed scientific outcome;
+finite/unknown/nonfinite numerical cases preserve their original distinctions in emitted views.
 Retire any replaced standalone consumer only with its actual caller migration, not by pathname.
 
 <a id="f02"></a>
@@ -115,17 +153,24 @@ wait for the whole invocation-history implementation.
 
 **Delivers:** bounded process/operation discovery, selected inspection, related-operation navigation
 and source-linked explanations rendered from existing `Statement {kind,evidence,next}`. Display
-actual phases, their ages, source availability and coverage. Add owner-published wait facts only
+actual phases, their ages, source availability and coverage, with established facts, hypotheses
+and limitations intact. Add owner-published wait facts only
 where existing phases/relationships cannot distinguish a useful question. Do not derive a hang
 from low CPU, stale checkpoints or silent foreign execution. Inclusive phase time is not additive.
 
 Candidate command families are `pse observe list|inspect`; settle final spelling with A06's actual
-tree, keeping operation semantics here. Snapshot reads carry limits and continuation metadata.
+tree, keeping operation semantics here. Snapshot reads use the product-owned pages above.
+D01 may compose this base answer with available invocation/source/API sections immediately;
+missing enrichments remain explicit and do not require all G/H/I packages to finish. Typed next
+actions declare arguments/effects and never run a capture or check merely to explain a snapshot.
 They never capture, attach a profiler, grant result access or cancel work implicitly.
 
 **Acceptance:** shared producer/waiter observations stay distinct; reused PID/start identity is
 rejected; missing/curtailed/stale evidence is not empty success; a preparation/publication/native
 phase returns the owner's evidence and useful next observation without starting science.
+Include nested related-operation/record pages, unknown totals and a failed/stale continuation;
+mandatory identity, outcome and coverage survive every detail mode. Two readers and an observer
+timeout preserve the original run; publication reset/gap and missing live numerics stay explicit.
 
 <a id="f03"></a>
 ## F03 — Follow and presentation
@@ -168,12 +213,16 @@ already present in published process checkpoints for a cooperating worker. Compa
 facts with an owner-produced bounded latest snapshot and with an event-history stream. Exercise
 one cross-process local/worker consumer, not a full performance campaign. Record coverage,
 identity/sequence, expiry, loss, storage/write burden and what the added bridge makes possible.
+The trigger is an actual unanswered consumer question; checkpoint reuse and explicit missing
+live numerics are the initial delivery, not a provisional commitment to build another bridge.
 
 **Exit decision:** if current checkpoints meet the intended consumer, retain them and close the
 investigation without another bridge. If a bridge is justified, define product-owned publication,
 selection, gaps and retention before scheduling its producer/reader implementation as additional
 F work through the coordinator. Do not open provisional scientific result rows or imply that OTel
 sampling is exact replay. A full remote event-history service is not automatically selected.
+Canonical transitions and long-term study records remain with their existing SurrealDB/product
+owner. An addressed object-store artifact never becomes the canonical scientific state model.
 
 **Acceptance:** a separate CLI reads original retained history and reports unavailable live samples
 honestly; retries retain distinct attempts/cursors. Investigation closes with a reasoned selection
@@ -196,20 +245,40 @@ prepared tool, timeout, output bound, schema interpretation, cancellation and or
 A pure SQL specification alone is not execution qualification. Do not introduce arbitrary SQL or
 rebuild retired generic debugger/campaign controllers to achieve superficial interface parity.
 
+F05 contributes original diagnostic/evidence references, selected statement pages, clocks/coverage
+and typed next observations to D01's incremental investigation packets. Address selected raw
+windows/tails through A04's immutable-artifact resolver and native `object_store::GetOptions`,
+`GetRange` and streaming payloads where applicable. Preserve byte offsets, encoding and validators;
+ETag/version/hash are distinct and local mutable reads do not acquire snapshot isolation. Keep
+private local publication/no-follow/UID protections and canonical publication with their owners.
+Classify retention by role: sole original capture/diagnostic evidence, authored investigation
+inputs and scientific data require their own retention authority; regenerable renderings/query
+pages do not justify persisting a whole result for every read. A query is regenerable only while
+its complete source bytes and context remain available. Explicit remote export remains a separate
+selected capability, with transfer/abort/credential lifecycle established if actually needed.
+
 **Acceptance:** capture failure/partial output leaves scientific outcome unchanged; export reopens
 only supplied finalized members without original paths; absent symbols/tools/clocks remain explicit.
 Compare retained invocations under original applicability conditions without claiming causal speedup.
 At least one actual selected capture→frozen analysis/export consumer journey establishes delivery.
+Add mid-stream failure, changed validator and bounded tail/window cases; retained original evidence
+and authored inputs remain usable after regenerable pages are removed. A failed enrichment leaves
+the already available packet sections readable and does not launch replacement collection.
 
 <a id="f06"></a>
 ## F06 — Integration, conditional adapters and publication
 
-**Consumes:** F01–F05 selected capabilities and E03's per-verb guidance integration.
+**Consumes:** F01–F05 selected capabilities and E03's per-verb guidance integration. D01 packet
+composition consumes each available F producer slice as it ships; full G/H/I readiness is not
+a prerequisite to this base observation/capture journey.
 
 **Delivers:** actual shell-consumer journeys across checkpoint discovery, explanation, follow,
 retained study history and selected investigation, including failure/coverage cases. Update current
 diagnostics/environment guidance with these consumers; preserve original APIs and retire only
-mechanisms demonstrably replaced. The coordinator owns assembled series qualification timing.
+mechanisms demonstrably replaced. Qualify a useful F01→F02 inspection slice and its identity/
+coverage failure case first, then follow/history/capture slices on their actual prerequisites;
+do not defer every assembled CLI journey to F06. The coordinator owns scope-end static and
+assembled series qualification timing.
 
 Record the following conditional dispositions, without requiring adoption for core completion:
 

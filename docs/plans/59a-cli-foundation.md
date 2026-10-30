@@ -1,11 +1,11 @@
 ---
 title: "Plan59a: CLI foundation"
 status: active
-date: 2026-10-29
+date: 2026-10-30
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
 ---
 
 # CLI foundation
@@ -33,6 +33,12 @@ O01/O05/O08 and [improvement review](../plan_improvement_reviews/plan59-cli-and-
 I01–I05/I08/I09/I11 refine these foundations. The coordinator owns their dispositions.
 This revision schedules proposed work only: production execution remains stopped. A01 is
 retained completed rule work; it does not establish implementation of the revised contracts.
+
+The [library-integration review](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md)
+I01–I07/I12–I14 now amend A03–A06's substantive targets. Its RC01–RC04 were accepted by the
+operator on 2026-10-30; [A08](#a08) publishes the affected rules before changed contracts are
+implemented. A07's completed publication remains historical completion of its original scope.
+The new work below is planned; this documentation revision does not resume production work.
 
 ## Baseline
 
@@ -120,6 +126,41 @@ The file ledger is usable without a database or monitoring service. These bounda
 another observing invocation or another product verb without moving scientific policy into
 host handlers (AP-01–AP-06, DP-18, PS-10).
 
+The 2026-10-30 assessment at `09e878957` identifies unfinished foundations to correct, rather
+than assuming the initial reusable helpers already enforce the target. `InvocationStore::resolve`
+currently scans all history before exact lookup; `InvocationDirectory::publish_result` accepts
+a generic envelope whose validation checks identity/version/presentation but not settlement or
+reconciliation. `OutputOptions::emit` and `presentation::write` generate schemas twice, and
+generic array budgeting misses nested producer detail. `GenerationUse::acquire` durably records
+every prepared entry. Existing immutable publication, original-byte artifacts, diagnostic
+structure and raw protocol bypasses remain useful; their prior focused tests establish only
+their named baseline behavior, not the revised targets.
+
+### Staged resolution and producer-owned answers
+
+Keep parsed intent, resolved plan, admitted operation and observed execution distinct (I01).
+Each operation owner resolves policy from captured argv/environment/configuration once for that
+stage; explain and execution consume the same stage value. Explain reports absent preparation
+as a prerequisite without preparing a fixture/provider, discovering an actual unlisted test
+population or eagerly resolving every provider. Bind the relevant source/configuration/tool
+premises; changed premises require explicit re-resolution or refusal before effects. C07 owns
+test selection and product owners retain scientific admission/results. This is composition of
+operation values, not a universal operation registry.
+
+Producers own meaningful detail modes and pageable units (I07/I13). Source answers select
+declarations with enclosing context, failure answers select original diagnostics/spans, and
+product answers select their own observations. They expose typed pages, omitted/unexamined
+sections, known or unknown totals, and continuations bound to input identity and backend
+context. [59j J01](59j-source-queries-and-change-proposals.md#j01) owns addressed source/continuation contracts;
+J02 owns shared edit proposals. A03 carries their wire views without inventing another source
+or edit model. A stale continuation refuses or reads deliberately retained immutable inputs;
+fresh-query and exact-original-source continuations have distinct promises. Dirty source bytes
+and sole diagnostic evidence need their actual retention owner, not a generic rebuildable-cache
+assumption. Reconstructible derived pages do not require retaining a huge full response on
+every limited request. Generic fields/budget project these producer results mechanically and
+preserve indivisible records and mandatory state, identity and coverage; they do not recursively
+truncate tuples/tagged records or implement a JSON query language.
+
 `pse-host` gains a library module tree `cli` (the clap types and handlers) and `envelope` (output
 and diagnostics). Three thin bins call `pse_host::cli::main(BinKind)`:
 
@@ -174,11 +215,12 @@ feature choices are exactly the review's
 | --- | --- | --- | --- |
 | [A01](#a01) | complete | 59a | Rule-change edits R1–R5 landed in their owners (R4's guard change is D06) |
 | [A02](#a02) | complete | 59a | Shared clap tree/three binaries merged; targeted parser/protocol and bootstrap tests pass; broader qualification remains at series end |
-| [A03](#a03) | in-progress | 59a | Native output/diagnostic/schema contracts and existing managed surface integrated; artifact read/continuation and typed source views integrated; run/test/product consumers retain their own pending obligations |
-| [A04](#a04) | in-progress | 59a | Resolver and consumer migration integrated and targeted tests pass; concurrent invocation/history acceptance remains with B01 |
-| [A05](#a05) | in-progress | 59a | Immutable publication, actual entry pins, stale rebuild/reexec and authenticated cold-copy route integrated; genuinely cold copy passed without destination compilation; positive descendant/finalizer claim retirement and pruning remain |
-| [A06](#a06) | in-progress | 59a | Parser-derived command/help/catalog/schema and passive native status integrated; actual configuration provenance, shared resolved explain and owner federation remain |
+| [A03](#a03) | in-progress | 59a | Native output/diagnostic/schema, artifact read/continuation and typed source views integrated; producer-owned pages, typed direct serialization and schema corrections newly planned; run/test/product owner enforcement remains |
+| [A04](#a04) | in-progress | 59a | Resolver/consumer migration integrated with targeted tests; exact lookup isolation, partial-history contract and responsibility-specific retention newly planned; concurrent invocation acceptance remains with B01 |
+| [A05](#a05) | in-progress | 59a | Immutable publication, existing durable entry pins, stale rebuild/reexec and authenticated cold-copy integrated; cold copy passed without destination compilation; effect-shaped promotion investigation and actual descendant/finalizer settlement remain; pruning disabled |
+| [A06](#a06) | in-progress | 59a | Parser-derived command/help/catalog/schema and passive native status integrated; staged shared explain, selective acquisition, actual provenance and owner federation remain planned |
 | [A07](#a07) | complete | 59a | Proposed ADR-0233/blueprint315 published and scoped formal review accepts that target at Proposed strength; proposed ADR-0234/blueprint316 refines nested invocation ownership; runtime obligations remain with consumers |
+| [A08](#a08) | planned | 59a | Publish operator-accepted 2026-10-30 RC01–RC04 amendments before changed generation, capture, page/proposal and syntax dependency contracts; no publication or runtime credit yet |
 
 <a id="a01"></a>
 ### A01 — Land the accepted rule changes
@@ -228,6 +270,35 @@ Any new crate or service proposed by later investigation returns to its scoped d
 their actual readiness. A03's revised contracts, A05/B03 control and F01 product delegation
 cannot be implemented on plan wording alone while their governing amendment is outstanding.
 
+This package's historical completion applies to that published scope and its recorded review
+strength. The 2026-10-30 library-integration amendments are owned by A08, not credited to A07.
+
+<a id="a08"></a>
+### A08 — Publish the accepted library-integration rule amendments
+
+**Consumes:** the library-integration review RC01–RC04, operator-accepted 2026-10-30, and the
+existing decision/review route. The coordinator owns the single series disposition table.
+
+**Delivers:** amend proposed ADR-0233/0234 where their contracts change, and route changed
+blueprint §21.7/§24.1 owners through the required `design:` amendment and revision row.
+Accepted records are not edited. A governance/SHOULD/commit-contract change uses its ADR and
+design-review route; ordinary implementation choices within published contracts need no new
+decision ceremony. Publish only the affected prerequisite slice before its dependent effects:
+
+| Accepted impact | Required publication and consumers |
+| --- | --- |
+| RC01 | Effect-shaped generation protection and conservative promotion investigation in A05/B03/E01/G02 replace the every-entry durable-record target; existing unresolved claims remain protected and pruning stays disabled until actual users are qualified. |
+| RC02 | Independent exact raw streams and optional attributed offset index replace merged retained chunks in A03/A04/B01/B02/B03/F03, preserving adapter protocols and original evidence. |
+| RC03 | Producer-owned pageable wire views and the shared source-bound proposal may change immature shapes. A03/A06 and J01/J02 migrate their D/F/G/H/I consumers and versioned schema associations together, deleting replaced shape handling without a compatibility shim. |
+| RC04 | J03's syntax query/preview route consumes J01/J02 without semantic-session readiness; amend the G07 dependency and affected native lifecycle bindings. G03 remains necessary only for semantic editing. |
+
+**Acceptance:** governing owners and native dependencies agree with the accepted impacts;
+the coordinator records publication readiness and any decision still outstanding. Plan wording
+and operator adoption do not establish ADR acceptance, implemented contracts or qualification.
+Do not gate B01/B03's basic managed custody on all of J: only a consumer's changed source or
+proposal contract waits for the corresponding J01/J02 slice. No production or ADR changes are
+made by this plan-authoring revision.
+
 <a id="a02"></a>
 ### A02 — One clap tree behind three thin bins
 
@@ -274,7 +345,8 @@ the same contracts:
 <a id="a03"></a>
 ### A03 — Output, exit and diagnostic contract
 
-**Consumes:** A02 and A07's governing identity/result/diagnostic contract amendments.
+**Consumes:** A02, A07's published identity/result/diagnostic contract and A08's affected
+page/raw-evidence wire amendments before changing those contracts.
 
 **Delivers.** The [O02](../functional_reviews/rust-agent-cli-2026-10-29.md#O02) contract:
 - **Format and output.**
@@ -285,12 +357,15 @@ the same contracts:
     observation completeness, `failures`, `artifacts` and `next`. Unknown/unavailable facts
     stay explicit. A CLI invocation never certifies a scientific result by itself.
   - `--fields` projects only the payload. Version, identity, state and coverage remain present;
-    omitted/projected detail is explicit and has a matching view schema. `--budget` bounds
-    rendered records/detail, never serialized bytes or mandatory terminal information. Page
-    larger results or return a retained artifact reference.
+    omitted/projected detail is explicit and has a matching typed view schema. `--budget`
+    limits whole producer-defined records/pages, never serialized bytes or indivisible nested
+    domain values. Producers select detail during acquisition where possible. Larger answers
+    expose context-bound continuations or selected original artifacts; a limited query alone
+    does not require serialization/retention of its entire rebuildable result.
   - Compact NDJSON emits one normalized record per line and a final observation summary with
-    explicit terminal/nonterminal subject state. Opaque `RawValue` may contain newlines;
-    retain original bytes separately or normalize before framing, never embed them verbatim.
+    explicit terminal/nonterminal subject state. Opaque `RawValue` retains original duplicate
+    keys/numeric lexemes and may contain newlines: retain exact original bytes separately and
+    encode them safely for single-line transport, never splice multiline bytes into NDJSON.
 - **Exit classes.**
   - Foreground *exec-adapter* verbs (`boundary`, `run`) forward the child's status, or
     128+signal. Detached `run` returns the launch acknowledgement below, since no child result
@@ -328,8 +403,26 @@ the same contracts:
   `SchemaSettings::draft2020_12().for_serialize()`. Workspace `schemars` gains `raw_value` so
   `serde_json::value::RawValue` can carry cargo and nextest records unmodelled. Its schema is
   arbitrary JSON: envelope schema validation establishes no upstream record semantics.
-  Normalized failures/outcomes are typed; B02 independently qualifies the actual extractor
-  streams. Full and projected schemas describe their respective presentations.
+  Normalized failures/outcomes and producer pages are typed; B02 independently qualifies the
+  actual extractor streams. Derive owned serialize/deserialize views from their Serde/Schemars
+  types, distinguishing defaults/skips/custom conversions by direction. Decode domain inputs
+  through checked constructors (`serde(try_from)` where appropriate); schema validity, decode
+  success and valid operation construction remain separate claims. Use native `Schema::pointer`
+  for URI-fragment references, preserving percent decoding. Prefer derived view types and
+  narrow native transforms over a general interpreter for `properties/type/$ref`.
+  Generate a schema once for an emission, and serialize borrowed typed pages directly rather
+  than typed→RawValue→outer-frame conversion. Keep private frame/spool preparation where
+  necessary to avoid emitting a partial record on serialization failure. Retain RawValue for
+  genuinely opaque upstream evidence. The owning numerical producer establishes finite/absence
+  meaning before serialization; nonfinite-to-null is not a validity policy.
+- **Addressed artifact reads (I12).** Keep `object_store` for immutable addressed evidence:
+  native `GetOptions`/`GetRange`, streamed payloads and validators support selected tails,
+  windows and exports with preserved byte offsets/encoding. ETag, version and content hash
+  remain distinct. Local mutable reads retain `atomic_snapshot=false`; unsupported path keys
+  refuse. Preserve private inode/UID/no-follow publication and Git transactions with their
+  existing owners: the pinned local backend rejects `PutMode::Update` and follows symlinks,
+  so generic conditional-write documentation is no local CAS guarantee. No remote transfer or
+  object_store family move is selected by this plan revision.
 - **Existing JSON outputs move into envelopes:**
   - `doctor --json`;
   - `env --explain`, where `--json` becomes the global format;
@@ -349,6 +442,16 @@ the same contracts:
 - A clap usage error yields exit 2 with a structured record.
 - An exec-adapter child exiting 7 yields exit 7. A managed verb whose child exits 7 yields exit 1
   with `child_exit: 7`.
+- Nested outline/batch pages preserve whole declarations, enclosing context, omitted detail and
+  unknown totals under a small budget. Changed-input and failed continuations refuse honestly;
+  no arbitrary tuple/tag truncation is accepted by merely weakening its schema.
+- Directional/custom-serializer schema agreement, percent-encoded schema references, unknown
+  versions and malformed domain input exercise the proper constructor. An invalid terminal
+  outcome combination cannot acquire authority merely by passing generic envelope validation;
+  B01/B03 enforce that boundary before A03 renders the owner result.
+- Artifact tails/windows preserve offsets and incomplete reads; changed validators and
+  mid-stream failure refuse a false full read. Sole original evidence/authored inputs retain
+  their owner-specific protection rather than generic cache disposal.
 - Launch acknowledgement, nonterminal wait expiry, workload timeout, supervisor failure and
   unknown drain have distinct states. `pse run -- child --format json -h` preserves child argv.
 
@@ -366,12 +469,18 @@ the same contracts:
     admission runtime directory.
   - Empty variables are treated as unset uniformly.
 - All ten current resolution sites migrate to it and their local `base()` copies are deleted.
-- There is no separate index. History and `latest` are derived by scanning
-  `invocations/*/meta.json`; the `run` verb remains an invocation launcher. B01 owns exclusive
+- There is no separate writable history index. A full ID validates and opens only its bound
+  directory/record. Prefix lookup enumerates identities to establish ambiguity before opening
+  the chosen metadata; a corrupt competing identity cannot be silently hidden. History/latest
+  are collection queries over `invocations/*/meta.json`, with declared ordering, per-record
+  diagnostics and explicit partial coverage. Incomplete scans never claim global latest;
+  session fallback requires trustworthy coverage. The `run` verb remains an invocation launcher. B01 owns exclusive
   metadata/state publication and supervisor/finalizer races, using temp file, fsync and
   `renameat_with(…, NOREPLACE)` for final files.
-- Retention classifies disposable terminal presentation logs, protected artifacts, probes,
-  scientific data and uncertain fixture evidence separately. Age/count applies only to
+- Retention classifies regenerable preparation, disposable presentation copies, sole original
+  diagnostic evidence, uniquely authored probes, mutable Git intent, scientific data and
+  uncertain fixture evidence separately. Original logs are not disposable merely because the
+  invocation is terminal. Age/count applies only to
   eligible disposable state; active invocations, unresolved settlement, generation users and
   independently retained fixtures are protected. Scratch age alone cannot prove disposal.
   A04 defines eligibility; pruning waits for A05/B03's real lifetime protections. This
@@ -383,11 +492,14 @@ the same contracts:
 - Two worktrees of one repository produce distinct checkout IDs and a shared relation.
 - Two concurrent runs each write their own directory, and both appear in `history`.
 - Retention refuses live/uncertain state and fixture evidence whose actual owner has retained it.
+- Healthy exact access succeeds despite unrelated corrupt history; ambiguous prefixes refuse
+  before selecting a readable candidate. History retains individual failures and partial
+  coverage, and an uncertain latest selection is not labeled complete.
 
 <a id="a05"></a>
 ### A05 — Host-tool lifecycle: fingerprint, pruning, stale rebuild
 
-**Consumes:** A02, A04 and A07's R3/control amendment. Generation-use protection must be
+**Consumes:** A02, A04, A07's R3/control amendment and A08's RC01 publication. Generation-use protection must be
 available to B01/B03 and C's immutable selections before pruning is enabled.
 
 **Delivers.**
@@ -397,14 +509,23 @@ available to B01/B03 and C's immutable selections before pruning is enabled.
   - It stores that path list, plus `Cargo.lock`, the root `Cargo.toml`, `rust-toolchain.toml` and
     `.cargo/config.toml`, with a hash in the generation.
   - A staleness check rehashes only the stored paths. The closure is not declared again in shell.
-- **Generation use and pruning.** A small lease/pin protocol covers every supported entry
-  retaining an executable: foreground and nested launches, unrecorded boundary/compatibility
-  adapters, Cargo's exported `CARGO`/`PSE_CORRECTNESS_EXECUTABLE`, supervisor, finalizer and
-  existing-invocation control. Acquire before handing off paths; release only after actual
-  users/children and required finalization settle. Define crash recovery conservatively from
-  authenticated ownership evidence; ledger absence is insufficient and no global process
-  scanner is introduced. Under `flock`, pruning preserves these users plus current/previous
-  convenience retention. Pinned immutable helper outputs in C/D use the same lifetime premise.
+- **Generation protection and promotion investigation (I04).** Separate temporary passive-read
+  protection from durable obligations for retained effects: foreground/nested children,
+  unrecorded exec adapters, Cargo's exported `CARGO`/`PSE_CORRECTNESS_EXECUTABLE`, analyzer
+  children, supervisor/finalizer and exported executable paths. Investigate a process-held
+  shared generation guard under the same exclusion as publication/pruning, promoted durably
+  before effects/path handoff. Qualify descriptor inheritance, atomic promotion, crash recovery
+  and concurrent pruning before selecting that mechanism; an ephemeral lock alone does not
+  prove descendant settlement. Exit with a selected protocol and its limits or keep conservative
+  protection and pruning disabled. Existing unresolved claims remain protective; vanished PIDs
+  and ledger absence do not authorize removal or retroactively establish their cause.
+  Release durable obligations only after actual users/children and required finalization settle.
+  Under the selected exclusion, pruning must preserve actual users plus current/previous
+  convenience retention. Pinned C/D/J helper outputs share the actual lifetime premise.
+  Distinguish source-equivalence checks, prepared-manifest integrity and live-use protection:
+  reuse immutable integrity only within an explicit trust/mutation boundary, never substitute
+  mtime for content validity or hash the entire repository on every brief query. Replace
+  every-entry durable bookkeeping and its mechanism tests once the chosen consumers migrate.
 - **Copying between worktrees.** `bootstrap-host --from <checkout>` copies a matching generation
   instead of building; [59e E01](59e-environment-and-adoption.md#e01) uses it for worktrees.
 - **Automatic rebuild** (R3; operator decision 2026-10-29).
@@ -447,6 +568,10 @@ available to B01/B03 and C's immutable selections before pruning is enabled.
   read/wait/cancel from another process using its prepared generation with no rebuild. Original
   resources settle; mismatched invocation or incompatible record refuses. A forged executable
   path is never invoked. Pruning cannot remove that control/supervisor/finalizer generation.
+- **Promotion investigation.** Killed passive reads, child/path export, source-copy handoff,
+  promotion interruption and concurrent pruning challenge the chosen guard. Existing unknown
+  claims remain protected in every case; pruning remains disabled while any necessary premise
+  is unresolved. Retain individual original errors rather than infer settlement from process absence.
 - `just family-check` passes with the new row.
 
 <a id="a06"></a>
@@ -496,8 +621,11 @@ spelling. A live status view is not an atomic filesystem snapshot. The library's
 - **Explain and provenance.**
   - `pse explain <verb…>` and a global `--explain` print the resolved plan without effects:
     underlying commands, placement, capabilities, features, fixtures and environment changes.
-  - Explain and execution consume one resolved operation value, including C07's resolved test
-    selection when applicable; changed external premises require explicit re-resolution.
+  - Explain and execution consume the same operation-owned value at the selected semantic stage:
+    parsed intent → resolved plan → admitted operation → observed execution. Capture relevant
+    premises and use C07's resolved test selection where available; actual listing/admission
+    remain later stages. Missing provider/fixture preparation appears as a prerequisite.
+    Changed premises require explicit re-resolution/refusal before effects, not eager setup.
   - `pse env --explain [KEY]` reports repository default, pending local configuration, captured
     caller environment or command line. `ArgMatches::value_source` distinguishes explicit CLI
     input/default/env, not manual export from direnv inheritance. PATH includes contributing
@@ -517,6 +645,10 @@ spelling. A live status view is not an atomic filesystem snapshot. The library's
   - checkout ID, and other worktrees with `--all`.
   - Product observations/canonical links join only through F01/F02's explicit associations,
     retaining source, freshness and unavailable coverage rather than inferring scientific state.
+  - Select acquisition before reads: brief/line request only useful Git/freshness/invocation
+    facts and never decode every historical result to discard them later. Explicit full
+    inspection selects wider sources and retains partial-history diagnostics. Omitted and
+    unexamined sources are visible; small output does not claim a cheap global scan.
 
 **Acceptance:**
 - The catalog lists every non-hidden verb with rendered help.
@@ -529,15 +661,22 @@ spelling. A live status view is not an atomic filesystem snapshot. The library's
   `DefaultValue`.
 - Captured environment, pending local settings, derived PATH, explicit false/empty and secret
   redaction retain honest provenance; explain does not build, source shell or prepare fixtures.
+- Explain→execute agrees at the same stage, explicit-default and implicit-default values retain
+  distinct origins, and a changed source/configuration premise refuses before effects. Brief
+  status does not read every terminal result; malformed unrelated history cannot block exact
+  existing-invocation access. Delete duplicate explain/execution policy interpretation and
+  duplicate schema generation with the migrated callers/tests.
 
 ## Verification and handoff
 
 ### Code-intelligence foundation extension
 
-The coordinator's confirmed RC01–RC05 extend these existing packages for G–I:
+The earlier code-intelligence review's confirmed RC01–RC05 extend these existing packages for
+G–I. The 2026-10-30 library-integration review has separate RC01–RC04 identities and A08 scope:
 
-- **A07:** route changed source/result/proposal and reusable-session contracts through their
-  governing owners before dependent code; new crates/services use the scoped decision route.
+- **A07/A08:** retain A07's delivered scope; A08 routes newly changed source/result/proposal
+  and lifetime contracts through their governing owners before dependent code. New crates/
+  services use the scoped decision route.
 - **A03:** provider/context, analysis generation, availability, source coordinates and typed
   next actions survive projection. Distinguish CLI positions, byte offsets and negotiated LSP
   encoding with Unicode controls. Hover/debug text stays rendered when no typed field exists.
@@ -562,8 +701,12 @@ Per AGENTS.md:
 
 Snapshots use `insta`; executable `trycmd` cases are deferred until help examples stabilize.
 59b, 59c, 59d and 59f consume A03/A04; C07 supplies resolved test selection to A06 and B02.
-59e consumes A05/A06, including live-user protections before worktree removal. Establish A07,
-A03, A04 and A05's control/pin slice before the small B01/B03 invocation journey; complete
-catalogue federation independently of that journey. Product observation depends on F01's own
+59e consumes A05/A06, including live-user protections before worktree removal. A07 is delivered;
+publish A08's affected amendments and establish A03/A04/A05's required owner-result/control/
+protection slice before the small B01/B03 invocation journey. Pruning and full catalogue
+federation are not prerequisites to that journey. J01 supplies source pages, J02 shared
+proposals, J03 server-free query/preview, J04 generated navigation and J05 their integrated
+consumer; A03/A06 participate by the required typed-view/discovery slice rather than treating
+all J as a foundation gate. Product observation depends on F01's own
 prepared owner, not host dependency-ceiling expansion. All acceptance above is planned; this
 documentation amendment runs no product checks and grants no production execution restart.

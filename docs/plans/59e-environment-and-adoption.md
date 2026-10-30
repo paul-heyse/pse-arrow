@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, documentation]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
 ---
 
 # Environment and adoption
@@ -31,8 +31,15 @@ The amendment incorporates [new O07–O08](../functional_reviews/agent-cli-and-s
 [I10](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I10) and the
 incremental adoption of [I06](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I06)
 through [59f](59f-simulation-observability-and-diagnostics.md). These targets remain
-**Proposed**; E05's completed guidance and the stopped/reverted implementation checkpoint are
-unchanged.
+**Proposed**; E04/E05's completed evidence and the coordinator's paused 2026-10-30 checkpoint
+are unchanged.
+
+The library-integration review's
+[I04](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I04)
+revises E01's generation protection, and
+[I14](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I14)
+governs E03's continuing adoption. The coordinator owns the 2026-10-30 RC01–RC04 confirmations
+and the required decision route; this documentation revision authorizes no teardown or pruning.
 
 Operator directions:
 - No direnv changes; the operator's separate environment work owns them.
@@ -74,7 +81,9 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
   2. copies `.envrc.local` with its current behaviour and mode;
   3. prepares host tools with `scripts/bootstrap-host --from <source>`, which copies a
      fingerprint-matching immutable generation ([59a A05](59a-cli-foundation.md#a05)); copying
-     holds a generation-use pin and verifies the destination identity. A nonmatching generation
+     holds the source protection required by A05 until destination identity/custody is established.
+     Retained executable paths, children or finalizers require durable protection before handoff.
+     A nonmatching generation
      uses the explicit bootstrap preparation route and reports any build failure;
   4. relies on the already-shared native provider caches;
   5. registers the checkout in the store ([59a A04](59a-cli-foundation.md#a04));
@@ -91,13 +100,22 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
   - `pse worktree list` shows each worktree's branch, ahead/behind, dirty state, live runs and
     last activity.
   - `pse worktree rm` first checks actual live users and referenced artifacts through A04/A05's
-    invocation and generation-use contracts, including unrecorded adapter/boundary users,
-    supervisor/finalizer pins, warm runs and fixture owners. It refuses while users, unresolved
+    invocation and effect-shaped generation-protection contracts, including process-held readers,
+    unrecorded adapter/boundary users, retained executable paths, supervisor/finalizer obligations,
+    warm runs and fixture owners. It refuses while users, unresolved
     settlement or required artifacts protect the checkout. An explicit stop-and-settle operation
     may precede removal;
     `--force` never overrides that protection. Once safe, `--force` authorizes loss of dirty or
     unmerged work only. Run history remains in the store under A04's typed retention rules;
     fixture evidence, scientific data and protected artifacts do not become disposable logs.
+  - Passive list/status reads use temporary protection under the same exclusion protocol as
+    publication/pruning; they do not automatically publish a permanent use claim. A05 owns
+    the qualified mechanism and any promotion before retained effects. A process-held shared
+    guard is a candidate requiring inheritance/promotion/race evidence, not a selected lock
+    implementation here. Retain current conservative protection until that contract is working.
+    Existing unknown claims remain protected: a missing PID, terminal ledger row or newly
+    introduced ephemeral guard does not prove old descendants/finalizers have settled. Keep
+    pruning disabled where that premise remains unresolved; no retrospective cleanup is implied.
 - **Claude orientation.**
   - The session-start context hook from [59b B05](59b-runs-and-continuity.md#b05) returns
     `pse status --brief` (HEAD, dirty count, active plan, live runs, stale host) and one line
@@ -121,6 +139,10 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
   - Recipes for covered work delegate to `pse` or are retired with their replacement (59c and
     59d own the retirements).
   - Envelope `next` hints and diagnostic remedies already use `pse` forms ([59a A03](59a-cli-foundation.md#a03)).
+  - Deliver guidance alongside each usable producer→consumer slice, including source queries/
+    previews and base observation before full semantic/compiler enrichment. D01 packets expose
+    available sections and explicit missing producers; agents can follow typed next actions
+    without automatic builds, captures or probe execution.
 - **Plan index.** `docs/plans/README.md` becomes a short current-work pointer: active plans, one
   line each, with status owned by their tables. The narrative history moves to the plans' own
   Outcomes or retires to Git history (ADR-0096).
@@ -145,7 +167,9 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 **Consumes:**
 - [59a A04](59a-cli-foundation.md#a04) (store, checkout ID) and [A05](59a-cli-foundation.md#a05)
   (`bootstrap-host --from`, immutable fingerprinted generations and use pins covering every
-  supported retaining route, not only live ledger entries).
+  supported retaining route, not only live ledger entries). Consume A05's revised effect-shaped
+  protection only after the accepted RC01 decision route and actual guard/promotion protocol
+  are available; until then preserve conservative claims and disabled pruning.
 - [59b B03](59b-runs-and-continuity.md#b03) for `--warm`; until it lands, `--warm` is absent.
 - B's independent stop/settlement evidence and C04's actual fixture ownership contract before
   removal of a checkout with those users. A terminal invocation alone does not clear a fixture's
@@ -170,6 +194,12 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
   After an explicitly requested stop
   and demonstrated owner settlement/release, ordinary removal succeeds. Pruning presentation
   logs cannot erase finalizer generations, fixture decisions or scientific artifacts.
+- Kill a passive reader under the selected temporary-protection protocol, then exercise
+  concurrent publication/pruning and source-generation copy handoff. A reader's death may
+  release only its temporary guard. Exported paths, children, reusable sessions, finalizers
+  and unresolved historical claims continue to protect their actual generation/checkout.
+  Demonstrate promotion before effects and required descriptor inheritance at the owning
+  OS boundary; a missing original PID never supplies an old claim's retirement authority.
 
 <a id="e02"></a>
 ### E02 — Claude session-start brief and status line
@@ -258,14 +288,16 @@ stay valid.
 
 ### Code-intelligence adoption and live users
 
-**E03** adds task routes as G/H/I verbs actually ship, including explain/references, candidate
+**E03** adds task routes as G/H/I/J verbs actually ship, including explain/references, candidate
 tests/completion, API/examples, previews and explicit compiler investigations. No hook starts
 analysis, generates rustdoc or compiles automatically. **E01** lists reusable sessions as actual
 checkout users and refuses removal while they, their children or required generations remain
 live/unsettled; explicit stop-and-settle precedes safe removal. Query completion or absence
 from scientific run lists is not drain evidence. Each checkout retains independent analysis
 context/build state. **E02** may show existing readiness without scans/priming on render;
-**E04** links coordinator-owned G–I scope rather than duplicating status.
+**E04** links coordinator-owned G–J scope rather than duplicating status. Per-slice actual CLI
+journeys and their distinguishing failure cases precede replaced-caller retirement; scope-end
+static/integrated qualification keeps its existing timing and does not block discrete adoption.
 
 Acceptance adds two checkouts, active-analysis removal refusal and successful removal after
 actual settlement. Codex/editor/MCP/direnv exclusions and ordinary host capacity remain intact.

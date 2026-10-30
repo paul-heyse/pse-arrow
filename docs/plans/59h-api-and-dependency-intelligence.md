@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, design, libraries, environment, validation]
-review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
 ---
 
 # API and dependency intelligence
@@ -27,7 +27,8 @@ their dispositions; this document owns H01–H06 package state. Baseline is revi
 efficiency heuristics1.0, test assessment1.2 and process-simulator1.5 apply through the binding.
 
 The operator accepted RC01–RC05 during preparation, including explicit effects and retained
-test/build/scientific authority. Plan59 production execution remains stopped. This authoring
+test/build/scientific authority. Plan59 production execution remains paused at the coordinator's
+2026-10-30 checkpoint. This authoring
 does not install tools, change dependencies, generate JSON, run probes or revive rustdoc-mcp.
 
 The current host already depends on `cargo_metadata`; the actual proposed `pse dep`, `api` and
@@ -43,6 +44,17 @@ arbitrary trait applicability. Cargo package reach is conservative; it does not 
 actual compiler units or tests. Those boundaries shape the target rather than being repaired
 through custom inference in CLI handlers.
 
+The 2026-10-30 library-integration review supplies
+[I01](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I01),
+[I07](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I07),
+[I10](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I10),
+[I12](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I12),
+[I13](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I13),
+[I14](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I14) and
+[I15](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I15)
+for these remaining targets. The coordinator owns the operator's 2026-10-30 RC01–RC04
+confirmations/decision routes; the original O identities and all package states remain intact.
+
 ## Target and shared contracts
 
 Keep `pse api` and `pse dep` as the existing task surfaces, extended with selected query modes.
@@ -53,11 +65,30 @@ Dependency inspection supports selected why/features/users expansions. API compa
 example expansion are explicit operations; neither performs an update or executes code.
 
 Return one compact answer: useful signatures or dependency paths, relevant constraints,
-source/public-path pointers, acquisition context and a few next actions. Detailed impl groups,
-docs, examples, paths and raw artifacts expand on demand. Reuse A03's envelope, fields and
-detail budget; small output does not imply a narrow underlying scan. Report known omissions,
-unknown totals, absent matches and incomplete/unavailable acquisition distinctly. Batch
-related items against one addressed artifact rather than regenerate per item.
+source/public-path pointers, acquisition context and a few typed next actions declaring their
+arguments/effects. The API/dependency producer selects useful detail modes and page units:
+candidates/signatures first, then requested impl groups, docs, examples or paths. Push selection
+into addressed acquisition where sound; batch related items against one artifact rather than
+regenerate per item. Preserve mandatory identity, status, bounds and coverage in every page.
+A03's envelope/fields/budgets provide mechanical projection, not recursive cuts inside arbitrary
+declarations/tuples. Report examined artifact/graph scope separately from returned size, with
+known omissions, unknown totals, absent matches and unavailable acquisition distinct.
+
+Continuations bind artifact/source digest or revision and extraction/backend context. Refuse a
+stale cursor or serve the deliberately retained immutable source; silently switching to current
+source would change the question. Do not serialize/retain an entire rebuildable result merely
+to display a page. A result is regenerable only while all inputs remain available; dirty source
+bytes and uniquely authored probe inputs cannot be treated as disposable preparation. Keep
+original compiler/probe diagnostics separately from their regenerable summaries. A04 addresses
+artifacts without imposing a common deletion rule; canonical scientific data and Git intent
+retain their existing owners.
+
+The owning adapter decodes version-checked inputs into typed checked values before decisions;
+owned result/page views serialize directly through directional Serde/Schemars declarations.
+Schema validity, decode success and domain validity are separate. Unknown format/protocol versions,
+invalid item/context combinations and malformed inputs refuse at the relevant constructor.
+Opaque upstream evidence can retain `RawValue` lexical fidelity; it is not the generic domain
+model. Do not turn unavailable/nonfinite numerical facts into a null/zero success through JSON.
 
 | Meaning | Owning contract and consumed behavior |
 | --- | --- |
@@ -67,6 +98,7 @@ related items against one addressed artifact rather than regenerate per item.
 | Query result and evidence | A03 presents declared API structure, candidate ranking, compatibility diagnostics, planned units and observed compiler results as distinct facts. No rendered docs string becomes an inferred semantic authority. |
 | Compiler/test selection | C07 owns the selected command context; existing correctness admission governs actual probes/checks. Unit graphs are plans; captured compiler artifacts and test listing are observations. |
 | Source-use enrichment | G's references may be requested when available. Basic API/dependency work has no G session prerequisite; missing semantic enrichment stays explicit. |
+| Source navigation and composed answer | J01 addresses exact source/revision; D01 joins each available H page with original diagnostics/source and optional G/I facts. Missing enrichment never blocks the base answer or runs a probe/check implicitly. |
 
 Use `rustdoc_types::Crate.index`, `paths`, `external_crates`, `Use`, `Type`, `Generics`,
 `WherePredicate`, `Trait`, `Impl`, structured attributes and documentation links for the
@@ -113,6 +145,9 @@ conditional below. Useful unknowns survive rather than becoming rejected or fabr
 required import; two versions/sources remain distinct; a stripped declaration is incomplete
 rather than empty; an item present only in documentation does not acquire a compile-success
 claim. A selected probe can resolve consequential applicability uncertainty through D02.
+Exercise a large nested impl/declaration population and a batch: detail/page limits apply to
+the producer's declared units, with omitted detail and examined scope visible. Unknown totals,
+changed source and a failed continuation cannot become a complete empty answer.
 
 <a id="h02"></a>
 ### H02 — Retrieve an actionable example
@@ -149,6 +184,12 @@ Use `cargo_metadata` package/dependency/resolve facts as structure, with native
 `cargo tree -e features -i` available as an explanatory expansion. Do not parse pretty tree
 output into the authoritative dependency graph.
 
+For selected unit-context queries, consume C07's compatible multi-root admission and shared
+metadata rather than resolving each package separately. Preserve root→unit identity, host/
+target context and negative/default-feature policies; incompatible roots remain separate.
+Cargo metadata is a package view, C07 a selected/admitted unit view, and actual nextest listing
+the test-population view. Neither a feature union nor a dependency path replaces those owners.
+
 Keep declaration, lock resolution, selected features, planned compiler units and captured
 artifacts separate. C07's nightly `--unit-graph` can explain host/target/mode/profile/unit
 features without compilation; `CompilerArtifact`, `CompilerMessage` and `BuildScriptExecuted`
@@ -159,6 +200,8 @@ behavioral impact or test sufficiency. License metadata is descriptive, never re
 a feature inclusion path and the selected unit context separately; distinguish duplicate
 versions from repeated compilation; an unavailable graph is not an empty successful result.
 No dependency/feature changes, provider preparation or Cargo check are implicit in the read.
+Add mixed compatible/incompatible roots and a feature-negative control; a compact inclusion
+page still identifies the actual graph/context examined and never claims listed test coverage.
 
 Sources: [Cargo metadata](https://doc.rust-lang.org/cargo/commands/cargo-metadata.html),
 [unit graphs](https://doc.rust-lang.org/cargo/reference/unstable.html#unit-graph),
@@ -222,9 +265,15 @@ Source: [rustdoc lints](https://doc.rust-lang.org/rustdoc/lints.html).
 <a id="h06"></a>
 ### H06 — Integrate the agent journey and settle conditional mechanisms
 
-**Consumes:** H01–H05 working selected behaviors; D01's brief composition for packet handoff;
+**Consumes:** H01–H05 working selected behaviors for this companion's integrated acceptance;
+D01's brief composition for packet handoff;
 D07/A06 discovery/reference and E03 continuing adoption. Optional G enrichment is tested only
 if selected and available, never substituted for the independent API path.
+
+Each working H01/H03 page can feed D01 earlier, without waiting for H06, full G/H/I completion,
+or compiler-private preparation. Availability is explicit at each section; a failed enrichment
+leaves original diagnostic/source sections useful. D01 owns packet composition, while H retains
+query meaning and detail/paging decisions.
 
 **Delivers:** an agent discovers an unfamiliar operation, selects its public path and example,
 inspects a dependency/migration question and follows a consequential uncertainty to an explicit
@@ -241,6 +290,8 @@ capability was implemented. Future triggers remain with the coordinator's dispos
 and example expansions retain context/evidence boundaries; budgets preserve necessary bounds
 and status while paging optional detail. The assembled journey uses actual CLI artifacts and
 tools, not only response snapshots. Report performance benefit only if explicitly measured.
+Include an original-failure→API-constraint→selected next-action packet without recompiling merely
+to explain it; edited source is an explicit mismatch. No packet rendering silently runs a probe.
 
 ## Conditional mechanisms and non-adoption
 

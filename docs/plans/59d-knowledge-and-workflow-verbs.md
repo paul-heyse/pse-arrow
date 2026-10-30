@@ -5,7 +5,7 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
 ---
 
 # Knowledge and workflow verbs
@@ -184,10 +184,25 @@ Git-ignore implementation is needed. D08 may use native object/index/ref primiti
 they preserve D09's selected publication and staging semantics; a reference transaction alone
 does not make shared-index reconciliation atomic. Its existing adversarial acceptance remains.
 
+Select diff/hunk, rename and bounded history navigation under review I09. State direct-base
+versus merge-base semantics; pass revision/index/working source locators to J01 without a
+checkout. Selected-range blame is a conditional expansion when a concrete attribution question
+needs it, not invented attribution for uncommitted lines. Converted diffs must retain their
+attribute/configuration context; reproducible syntax reading uses raw addressed blob bytes.
+
 **Consumes:** [59a A03–A04](59a-cli-foundation.md), and the D06 map for generated-path flags.
 Until the map exists, use the guard's current prefixes.
 
-**Delivers:** `pse changes` and `pse brief` as described above. Briefs link authoritative plan
+**Delivers:** `pse changes` and `pse brief` as described above. D01 owns incremental investigation
+composition under review I09/I10: original B02 failures and command context, J01 addressed
+source excerpts, H API constraints, G semantic enrichment, I compiler artifacts and F owner
+statements are selected sections, not prerequisites to the base brief. Missing enrichments
+remain visible without erasing useful evidence. Reading a packet never runs a check/probe,
+prepares analysis or captures science. Next actions retain argv/effects rather than reconstructed
+shell strings. A source edit is reported as a mismatch against original diagnostic evidence.
+Use producer-owned bounded views under A03; small output does not imply a cheap underlying scan.
+Retire duplicated status/brief assembly when actual consumers move, not useful distinct commands.
+Briefs link authoritative plan
 state and immutable B invocation evidence, selected failures and pending authored intent. Once
 F01 correlation exists they carry its exact product locators; that is incremental integration,
 not a prerequisite for the initial source/dependency brief.
@@ -196,6 +211,10 @@ not a prerequisite for the initial source/dependency brief.
 - A tree with one Rust change, one generated-path change and one document change yields three
   groups: the generated path flagged with its verb, and the document flagged with its rule files.
 - `pse brief --libraries clap,tokio` lists the exact pins, features and overview paths.
+- An original failure leads to selected context/source and an explicit targeted-check action
+  without re-running compilation; absent semantic preparation leaves the base packet usable.
+- Staged and unstaged hunks in one file, a rename, linked worktree and selected history lead
+  to their exact source kinds. A concurrent index change is detected rather than overwritten.
 
 <a id="d02"></a>
 ### D02 — Dependency facts, API lookup and probes
@@ -263,9 +282,15 @@ an actionable diagnostic rather than a guessed item or implicit language-server 
 Implementation references: [syntax capabilities](../libraries/rust_analyzers/ra_ap_syntax.md), published
 [0.0.360 source](https://docs.rs/crate/ra_ap_syntax/0.0.360/source/src/lib.rs) and
 [typed AST](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/). Local constructors,
-precedence helpers and `SyntaxEditor` can serve selected syntax-edit proposals under G07/G08;
+precedence helpers and `SyntaxEditor` can serve selected syntax-edit proposals under J02/J03;
 incremental reparsing is useful only when the consumer already retains a source snapshot.
 Do not start a persistent analyzer or implement a separate parser cache for one-file reads.
+
+**Extension ownership:** [59j J01](59j-source-queries-and-change-proposals.md#j01) owns the
+review I07/I09 extensions: positional addressed working/index/blob reads, operation-owned
+pages and source-bound continuations. D03's completion records only the implemented reader
+basis; it does not establish those new outcomes. J02/J03 own shared proposals and structural
+previews, G07 semantic production, G08 conditional application and D08 Git publication.
 
 Multiple outline operands use one coarse `tokio-rayon` submission and the existing shared
 Rayon pool's indexed parallel iteration. Parsing/extraction remain together inside workers;
@@ -331,6 +356,9 @@ native metadata-block options exclude YAML/TOML frontmatter while preserving sou
 **Delivers:**
 - The generated-outputs map emitted by `just codegen`, with drift check.
 - `pse owner`.
+- Reuse declared `SourceRelationship` contributor identities with the output/regeneration map;
+  J04 consumes this routing for generated-source drill-through. Missing source locations stay
+  unknown; matching names never establish lineage. No parallel provenance index is introduced.
 - The guard rewritten to read the map, block generated and VCS/build paths with the owner and
   verb, and allow documents with `additionalContext`.
 
@@ -373,6 +401,15 @@ effect of help/status.
 
 <a id="d08"></a>
 ### D08 — Shared-tree commits
+
+**Supported-mode qualification (review I09):** before publication, declare the selected Git
+hook/filter/attribute policy and qualify it with D09's transaction mechanism. Do not claim
+blanket commit-hook execution or clean/smudge support from a gix or private-index API. Compare
+the actual supported mode with native Git, preserving staged intent and path bytes; refuse
+unsupported configured modes before creating a commit. If a configured hook/filter is supported,
+its effects and failures belong to the operation's declared custody. Test supported conversion
+and explicit refusal in disposable repositories. D09's completed research is not evidence that
+every such mode already works; no new compatibility framework is required.
 
 **Consumes:** [59a A01](59a-cli-foundation.md#a01) (R5 landed), D01 (hunk IDs), D06 (map), and
 D09's decided transaction strategy with counterexample evidence. D09 gates implementation and
