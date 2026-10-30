@@ -435,16 +435,75 @@ fn publish(
 /// Explicit construction transaction invoked only by the cold seed script. No caller
 /// may hold the update lock across this call; it acquires its own exclusive exclusion.
 pub fn bootstrap(root: &Path) -> Result<i32, HostError> {
-    bootstrap_from(root, None)
+    bootstrap_from(root, None, BootstrapMode::CopyOrBuild).map(|outcome| outcome.exit_code)
+}
+
+/// Private seed result: this destination requires construction by its fresh local helper.
+pub const LOCAL_SEED_REQUIRED: i32 = 79;
+/// Whether this process owns the destination's current construction policy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BootstrapMode {
+    /// A freshly compiled local seed can build on a copy mismatch.
+    CopyOrBuild,
+    /// A source helper can copy a match; it must not build different destination code.
+    CopyOnly,
+}
+
+/// Interpret a cold seed's expected-source constraint against actual entry ownership.
+/// The environment value never grants prepared identity or construction authority.
+pub fn bootstrap_mode(entry: &EntryGuard, from: Option<&Path>) -> Result<BootstrapMode, HostError> {
+    source_mode(
+        entry,
+        from,
+        std::env::var_os("PSE_BOOTSTRAP_SOURCE_HELPER").as_deref(),
+    )
+}
+fn source_mode(
+    entry: &EntryGuard,
+    from: Option<&Path>,
+    expected: Option<&OsStr>,
+) -> Result<BootstrapMode, HostError> {
+    let Some(expected) = expected else {
+        return Ok(if entry.prepared().is_some() {
+            BootstrapMode::CopyOnly
+        } else {
+            BootstrapMode::CopyOrBuild
+        });
+    };
+    let expected = PathBuf::from(expected).canonicalize()?;
+    let selected = from
+        .ok_or_else(|| invalid("source helper requires its explicitly selected source checkout"))?
+        .canonicalize()?;
+    if expected != selected || entry.checkout().as_ref() != Some(&expected) {
+        return Err(invalid(
+            "source helper does not own the expected authenticated prepared checkout",
+        ));
+    }
+    Ok(BootstrapMode::CopyOnly)
+}
+
+/// Performing-owner preparation result, separate from whether the command succeeded.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BootstrapOutcome {
+    /// Original construction status; nonzero never publishes a failed build's selector.
+    pub exit_code: i32,
+    /// A copy's read/probe/file obligations were closed; a build's descendant scope remains
+    /// unresolved until its original physical owner supplies actual settlement evidence.
+    pub settlement: EntrySettlement,
 }
 
 /// Explicit preparation with an optional matching immutable source checkout. Only a
 /// source/build identity match copies; a mismatch takes the ordinary construction path.
-pub fn bootstrap_from(root: &Path, from: Option<&Path>) -> Result<i32, HostError> {
+pub fn bootstrap_from(
+    root: &Path,
+    from: Option<&Path>,
+    mode: BootstrapMode,
+) -> Result<BootstrapOutcome, HostError> {
     construct(
         root,
         &build_environment(&std::env::vars_os().collect())?,
         from,
+        mode,
     )
 }
 
@@ -489,11 +548,24 @@ fn construct(
     root: &Path,
     environment: &Environment,
     from: Option<&Path>,
-) -> Result<i32, HostError> {
+    mode: BootstrapMode,
+) -> Result<BootstrapOutcome, HostError> {
     // Acquire source use before destination exclusion. A<--B and B<--A concurrent
     // preparations therefore never hold opposite exclusive update locks.
-    let source = from.map(CopySource::acquire).transpose()?;
-    let operation = construct_selected(root, environment, source.as_ref());
+    let source = match from.map(CopySource::acquire).transpose() {
+        Ok(source) => source,
+        Err(error) => {
+            if mode == BootstrapMode::CopyOnly {
+                return Err(error);
+            }
+            writeln!(
+                std::io::stderr(),
+                "bootstrap-host: source generation unavailable or incompatible ({error}); building locally"
+            )?;
+            None
+        }
+    };
+    let operation = construct_selected(root, environment, source.as_ref(), mode);
     // This owner only retained source file paths; every copy descriptor is now closed.
     // A probe, if any, executed the destination's private copy, never the source path.
     let released = source.map_or(Ok(()), |source| source.usage.settle());
@@ -503,8 +575,11 @@ fn construct(
             operation: Box::new(operation),
             cleanup: Box::new(cleanup),
         }),
-        (Ok(code), Err(cleanup)) => Err(HostError::Settlement {
-            operation: Box::new(invalid(format!("construction returned {code}"))),
+        (Ok(outcome), Err(cleanup)) => Err(HostError::Settlement {
+            operation: Box::new(invalid(format!(
+                "construction returned {}",
+                outcome.exit_code
+            ))),
             cleanup: Box::new(cleanup),
         }),
     }
@@ -514,7 +589,8 @@ fn construct_selected(
     root: &Path,
     environment: &Environment,
     source: Option<&CopySource>,
-) -> Result<i32, HostError> {
+    mode: BootstrapMode,
+) -> Result<BootstrapOutcome, HostError> {
     let root = root.canonicalize()?;
     let tools = root.join("target/host-tools");
     prepare_root(&tools)?;
@@ -544,7 +620,26 @@ fn construct_selected(
             &after,
             observe,
         )?;
-        return Ok(0);
+        return Ok(BootstrapOutcome {
+            exit_code: 0,
+            settlement: EntrySettlement::ResourcesSettled,
+        });
+    }
+    if mode == BootstrapMode::CopyOnly {
+        writeln!(
+            std::io::stderr(),
+            "bootstrap-host: source generation does not match destination inputs; a fresh local seed is required"
+        )?;
+        return Ok(BootstrapOutcome {
+            exit_code: LOCAL_SEED_REQUIRED,
+            settlement: EntrySettlement::ResourcesSettled,
+        });
+    }
+    if source.is_some() {
+        writeln!(
+            std::io::stderr(),
+            "bootstrap-host: source generation does not match destination source/build inputs; building locally"
+        )?;
     }
     let result = Command::new("cargo")
         .args(["build", "--locked", "--package", "pse-host", "--bins"])
@@ -553,7 +648,10 @@ fn construct_selected(
         .envs(environment)
         .status()?;
     if !result.success() {
-        return Ok(result.code().unwrap_or(125));
+        return Ok(BootstrapOutcome {
+            exit_code: result.code().unwrap_or(125),
+            settlement: EntrySettlement::Unresolved,
+        });
     }
     let after = observe()?;
     publish(
@@ -564,7 +662,10 @@ fn construct_selected(
         &after,
         observe,
     )?;
-    Ok(0)
+    Ok(BootstrapOutcome {
+        exit_code: 0,
+        settlement: EntrySettlement::Unresolved,
+    })
 }
 
 #[cfg(test)]

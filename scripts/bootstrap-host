@@ -5,11 +5,46 @@
 set -eu
 umask 077
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-cd "$root"
+for bootstrap_arg in "$@"; do
+    case "$bootstrap_arg" in
+        --help|-h)
+            printf 'Usage: scripts/bootstrap-host [--from CHECKOUT]\nPrepare native tools, or copy a matching prepared source generation.\n'
+            exit 0 ;;
+    esac
+done
 if [ -n "${CARGO_TARGET_DIR-}" ] || [ -n "${CARGO_BUILD_TARGET_DIR-}" ] || [ -n "${CARGO_BUILD_TARGET-}" ]; then
     echo "bootstrap-host: remove target-directory/target-triple overrides; this seed installs only checkout-local Cargo output" >&2
     exit 125
 fi
+# A cold destination can use the explicitly selected source's fixed published
+# native entry. That helper authenticates its own generation and destination
+# inputs; this seed never reads a ledger executable path or sources config.
+source_checkout=
+if [ "$#" -eq 2 ] && [ "$1" = --from ]; then
+    source_checkout=$2
+elif [ "$#" -eq 1 ]; then
+    case "$1" in --from=*) source_checkout=${1#--from=} ;; esac
+fi
+if [ -n "$source_checkout" ]; then
+    case "$source_checkout" in /*) ;; *) source_checkout="$(pwd)/$source_checkout" ;; esac
+    set -- --from "$source_checkout"
+    source_helper="$source_checkout/target/host-tools/current/pse-host"
+    if [ -x "$source_helper" ]; then
+        set +e
+        PSE_BOOTSTRAP_SOURCE_HELPER="$source_checkout" "$source_helper" -C "$root" __host-generation-bootstrap --from "$source_checkout"
+        source_status=$?
+        set -e
+        case "$source_status" in
+            0) exit 0 ;;
+            79) printf 'bootstrap-host: source inputs do not match; building a fresh local seed\n' >&2 ;;
+            2|126|127) printf 'bootstrap-host: source helper unavailable or incompatible (status %s); building a local seed\n' "$source_status" >&2 ;;
+            *) exit "$source_status" ;;
+        esac
+    else
+        printf 'bootstrap-host: source helper unavailable; building a local seed\n' >&2
+    fi
+fi
+cd "$root"
 # A cold checkout must not enter the retiring interpreter compiler wrappers.
 unset RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER CARGO_BUILD_RUSTC_WRAPPER CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER
 selected="$root/target/host-tools"
@@ -21,4 +56,4 @@ flock 9
 cargo build --locked --package pse-host --bins 9>&-
 # The freshly built seed establishes source coherence around the authoritative
 # construction and publishes its manifest. It reacquires exclusion itself.
-exec "$root/target/debug/pse-host" __host-generation-bootstrap 9>&-
+exec "$root/target/debug/pse-host" __host-generation-bootstrap "$@" 9>&-

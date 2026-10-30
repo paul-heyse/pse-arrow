@@ -100,3 +100,142 @@ fn foreign_target_cannot_publish_or_enter_construction() {
     assert!(!root.path().join("entered-construction").exists());
     unchanged(root.path());
 }
+
+fn source_checkout(body: &str) -> tempfile::TempDir {
+    let source = tempfile::Builder::new()
+        .prefix("copy source ")
+        .tempdir()
+        .unwrap();
+    let tools = source.path().join("target/host-tools");
+    fs::create_dir_all(tools.join("generation.fixture")).unwrap();
+    executable(&tools.join("generation.fixture/pse-host"), body);
+    std::os::unix::fs::symlink("generation.fixture", tools.join("current")).unwrap();
+    source
+}
+
+#[test]
+fn cold_from_uses_fixed_source_entry_and_preserves_literal_checkout_arguments_without_compiling() {
+    let root = checkout();
+    let source = source_checkout(
+        "#!/bin/sh\n[ \"$#\" = 5 ] && [ \"$1\" = -C ] && [ \"$3\" = __host-generation-bootstrap ] && [ \"$4\" = --from ] || exit 93\n[ \"$PSE_BOOTSTRAP_SOURCE_HELPER\" = \"$5\" ] || exit 96\nprintf '%s\\0' \"$@\" > \"$2/source-call\"\n",
+    );
+    executable(
+        &root.path().join("bin/cargo"),
+        "#!/bin/sh\ntouch \"$CARGO_PROBE\"\nexit 94\n",
+    );
+    let result = seed(root.path())
+        .args([std::ffi::OsStr::new("--from"), source.path().as_os_str()])
+        .env("CARGO_PROBE", root.path().join("cargo-used"))
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert!(!root.path().join("cargo-used").exists());
+    let values = fs::read(root.path().join("source-call")).unwrap();
+    let parts: Vec<_> = values.split(|byte| *byte == 0).collect();
+    use std::os::unix::ffi::OsStrExt;
+    assert_eq!(
+        parts,
+        vec![
+            b"-C".as_slice(),
+            root.path().as_os_str().as_bytes(),
+            b"__host-generation-bootstrap".as_slice(),
+            b"--from".as_slice(),
+            source.path().as_os_str().as_bytes(),
+            b"".as_slice()
+        ]
+    );
+}
+
+#[test]
+fn incompatible_source_helper_falls_back_with_reason_and_forwards_from_to_local_seed() {
+    let root = checkout();
+    let source = source_checkout("#!/bin/sh\nexit 2\n");
+    executable(
+        &root.path().join("bin/cargo"),
+        "#!/bin/sh\ntouch \"$CARGO_PROBE\"\n",
+    );
+    executable(
+        &root.path().join("target/debug/pse-host"),
+        "#!/bin/sh\n[ \"$#\" = 3 ] && [ \"$1\" = __host-generation-bootstrap ] && [ \"$2\" = --from ] || exit 95\n",
+    );
+    let result = seed(root.path())
+        .arg(format!("--from={}", source.path().display()))
+        .env("CARGO_PROBE", root.path().join("cargo-used"))
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    assert!(root.path().join("cargo-used").exists());
+    assert!(
+        String::from_utf8_lossy(&result.stderr).contains(
+            "source helper unavailable or incompatible (status 2); building a local seed"
+        )
+    );
+}
+
+#[test]
+fn source_build_or_validation_failure_is_not_retried_or_accepted_as_a_copy() {
+    for status in [101, 125] {
+        let root = checkout();
+        let source = source_checkout(&format!("#!/bin/sh\nexit {status}\n"));
+        executable(
+            &root.path().join("bin/cargo"),
+            "#!/bin/sh\ntouch \"$CARGO_PROBE\"\n",
+        );
+        let result = seed(root.path())
+            .arg("--from")
+            .arg(source.path())
+            .env("CARGO_PROBE", root.path().join("cargo-used"))
+            .output()
+            .unwrap();
+        assert_eq!(result.status.code(), Some(status));
+        assert!(!root.path().join("cargo-used").exists());
+        unchanged(root.path());
+    }
+}
+
+#[test]
+fn copy_only_mismatch_builds_fresh_local_seed_with_clear_reason() {
+    let root = checkout();
+    let source = source_checkout("#!/bin/sh\nexit 79\n");
+    executable(
+        &root.path().join("bin/cargo"),
+        "#!/bin/sh\ntouch \"$CARGO_PROBE\"\n",
+    );
+    executable(
+        &root.path().join("target/debug/pse-host"),
+        "#!/bin/sh\n[ -z \"${PSE_BOOTSTRAP_SOURCE_HELPER+x}\" ] || exit 97\nexit 0\n",
+    );
+    let result = seed(root.path())
+        .arg("--from")
+        .arg(source.path())
+        .env("CARGO_PROBE", root.path().join("cargo-used"))
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    assert!(root.path().join("cargo-used").exists());
+    assert!(
+        String::from_utf8_lossy(&result.stderr)
+            .contains("source inputs do not match; building a fresh local seed")
+    );
+}
+
+#[test]
+fn bootstrap_help_never_enters_copy_or_compilation() {
+    let root = checkout();
+    let source = source_checkout("#!/bin/sh\nexit 99\n");
+    executable(&root.path().join("bin/cargo"), "#!/bin/sh\nexit 98\n");
+    let result = seed(root.path())
+        .arg("--from")
+        .arg(source.path())
+        .arg("--help")
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    assert!(String::from_utf8_lossy(&result.stdout).starts_with("Usage: scripts/bootstrap-host"));
+    assert!(!root.path().join("target/host-tools/.update.lock").exists());
+    unchanged(root.path());
+}

@@ -65,7 +65,15 @@ fn native_construction_publishes_authenticated_bytes_and_passive_staleness() {
         .status()
         .unwrap();
     assert!(lock.success());
-    assert_eq!(construct(fixture.path(), &environment, None).unwrap(), 0);
+    let built = construct(
+        fixture.path(),
+        &environment,
+        None,
+        BootstrapMode::CopyOrBuild,
+    )
+    .unwrap();
+    assert_eq!(built.exit_code, 0);
+    assert_eq!(built.settlement, EntrySettlement::Unresolved);
     let prepared = prepared(fixture.path()).unwrap().unwrap();
     assert_eq!(prepared.protocol, 1);
     assert_eq!(prepared.manifest_digest.len(), 64);
@@ -105,7 +113,17 @@ fn native_construction_publishes_authenticated_bytes_and_passive_staleness() {
         "cannot compile this source\n",
     )
     .unwrap();
-    assert_ne!(construct(fixture.path(), &environment, None).unwrap(), 0);
+    assert_ne!(
+        construct(
+            fixture.path(),
+            &environment,
+            None,
+            BootstrapMode::CopyOrBuild
+        )
+        .unwrap()
+        .exit_code,
+        0
+    );
     assert_eq!(
         fs::read_link(fixture.path().join("target/host-tools/current")).unwrap(),
         prior
@@ -255,12 +273,27 @@ fn matching_copy_has_exact_bytes_without_destination_build_and_releases_source_u
     let environment = environment();
     lock_fixture(source.path(), &environment);
     lock_fixture(destination.path(), &environment);
-    assert_eq!(construct(source.path(), &environment, None).unwrap(), 0);
-    let source_reference = prepared(source.path()).unwrap().unwrap();
     assert_eq!(
-        construct(destination.path(), &environment, Some(source.path())).unwrap(),
+        construct(
+            source.path(),
+            &environment,
+            None,
+            BootstrapMode::CopyOrBuild
+        )
+        .unwrap()
+        .exit_code,
         0
     );
+    let source_reference = prepared(source.path()).unwrap().unwrap();
+    let outcome = construct(
+        destination.path(),
+        &environment,
+        Some(source.path()),
+        BootstrapMode::CopyOnly,
+    )
+    .unwrap();
+    assert_eq!(outcome.exit_code, 0);
+    assert_eq!(outcome.settlement, EntrySettlement::ResourcesSettled);
     assert!(
         !destination.path().join("target/debug").exists(),
         "matching copy must not invoke the compiler"
@@ -308,16 +341,31 @@ fn mismatch_builds_destination_and_build_failure_preserves_its_previous_selector
     let environment = environment();
     lock_fixture(source.path(), &environment);
     lock_fixture(destination.path(), &environment);
-    assert_eq!(construct(source.path(), &environment, None).unwrap(), 0);
+    assert_eq!(
+        construct(
+            source.path(),
+            &environment,
+            None,
+            BootstrapMode::CopyOrBuild
+        )
+        .unwrap()
+        .exit_code,
+        0
+    );
     fs::write(
         destination.path().join("host/src/bin/pse.rs"),
         "fn main() { println!(\"destination source\"); }\n",
     )
     .unwrap();
-    assert_eq!(
-        construct(destination.path(), &environment, Some(source.path())).unwrap(),
-        0
-    );
+    let outcome = construct(
+        destination.path(),
+        &environment,
+        Some(source.path()),
+        BootstrapMode::CopyOrBuild,
+    )
+    .unwrap();
+    assert_eq!(outcome.exit_code, 0);
+    assert_eq!(outcome.settlement, EntrySettlement::Unresolved);
     assert!(destination.path().join("target/debug/pse").is_file());
     let prior = prepared(destination.path()).unwrap().unwrap();
     let original = prepared(source.path()).unwrap().unwrap();
@@ -331,7 +379,14 @@ fn mismatch_builds_destination_and_build_failure_preserves_its_previous_selector
     )
     .unwrap();
     assert_ne!(
-        construct(destination.path(), &environment, Some(source.path())).unwrap(),
+        construct(
+            destination.path(),
+            &environment,
+            Some(source.path()),
+            BootstrapMode::CopyOrBuild
+        )
+        .unwrap()
+        .exit_code,
         0
     );
     assert_eq!(prepared(destination.path()).unwrap().unwrap(), prior);
@@ -352,9 +407,26 @@ fn copy_owner_keeps_source_pinned_and_rejects_changed_bytes_before_probe_or_publ
     let environment = environment();
     lock_fixture(source.path(), &environment);
     lock_fixture(destination.path(), &environment);
-    assert_eq!(construct(source.path(), &environment, None).unwrap(), 0);
     assert_eq!(
-        construct(destination.path(), &environment, None).unwrap(),
+        construct(
+            source.path(),
+            &environment,
+            None,
+            BootstrapMode::CopyOrBuild
+        )
+        .unwrap()
+        .exit_code,
+        0
+    );
+    assert_eq!(
+        construct(
+            destination.path(),
+            &environment,
+            None,
+            BootstrapMode::CopyOrBuild
+        )
+        .unwrap()
+        .exit_code,
         0
     );
     let prior = prepared(destination.path()).unwrap().unwrap();
@@ -372,7 +444,13 @@ fn copy_owner_keeps_source_pinned_and_rejects_changed_bytes_before_probe_or_publ
         b"corrupt executable bytes which must never reach the probe",
     )
     .unwrap();
-    let error = construct_selected(destination.path(), &environment, Some(&copy)).unwrap_err();
+    let error = construct_selected(
+        destination.path(),
+        &environment,
+        Some(&copy),
+        BootstrapMode::CopyOrBuild,
+    )
+    .unwrap_err();
     assert!(
         error
             .to_string()
@@ -389,4 +467,85 @@ fn copy_owner_keeps_source_pinned_and_rejects_changed_bytes_before_probe_or_publ
         GenerationUse::inspect(&source.path().join("target/host-tools"), generation).unwrap(),
         GenerationUseState::Available
     );
+}
+
+#[test]
+fn source_helper_mismatch_requests_fresh_local_seed_without_compiling_destination() {
+    let source = checkout();
+    let destination = checkout();
+    let environment = environment();
+    lock_fixture(source.path(), &environment);
+    lock_fixture(destination.path(), &environment);
+    assert_eq!(
+        construct(
+            source.path(),
+            &environment,
+            None,
+            BootstrapMode::CopyOrBuild
+        )
+        .unwrap()
+        .exit_code,
+        0
+    );
+    fs::write(
+        destination.path().join("host/src/bin/pse.rs"),
+        "new target code the old helper must not build\n",
+    )
+    .unwrap();
+    let outcome = construct(
+        destination.path(),
+        &environment,
+        Some(source.path()),
+        BootstrapMode::CopyOnly,
+    )
+    .unwrap();
+    assert_eq!(outcome.exit_code, LOCAL_SEED_REQUIRED);
+    assert_eq!(outcome.settlement, EntrySettlement::ResourcesSettled);
+    assert!(!destination.path().join("target/debug").exists());
+    assert!(prepared(destination.path()).unwrap().is_none());
+    let reference = prepared(source.path()).unwrap().unwrap();
+    assert_eq!(
+        GenerationUse::inspect(
+            &source.path().join("target/host-tools"),
+            &reference.generation
+        )
+        .unwrap(),
+        GenerationUseState::Available
+    );
+}
+
+#[test]
+fn source_helper_assertion_requires_actual_prepared_checkout_identity() {
+    let (_fixture, tools) = crate::generation::tests::installed_fixture();
+    let root = tools.parent().unwrap().parent().unwrap();
+    let usage = GenerationUse::acquire(&tools, "generation.fixture").unwrap();
+    let reference = PreparedGeneration {
+        generation: "generation.fixture".into(),
+        protocol: usage.manifest().control_protocol(),
+        manifest_digest: usage.manifest().digest().unwrap(),
+    };
+    let entry = EntryGuard {
+        usage: Some(usage),
+        reference: Some(reference),
+    };
+    assert_eq!(
+        source_mode(&entry, Some(root), Some(root.as_os_str())).unwrap(),
+        BootstrapMode::CopyOnly
+    );
+    assert_eq!(
+        source_mode(&entry, Some(root), None).unwrap(),
+        BootstrapMode::CopyOnly
+    );
+    assert!(source_mode(&entry, None, Some(root.as_os_str())).is_err());
+    assert!(source_mode(&entry, Some(root), Some(tools.as_os_str())).is_err());
+    let seed = EntryGuard {
+        usage: None,
+        reference: None,
+    };
+    assert!(source_mode(&seed, Some(root), Some(root.as_os_str())).is_err());
+    assert_eq!(
+        source_mode(&seed, Some(root), None).unwrap(),
+        BootstrapMode::CopyOrBuild
+    );
+    entry.complete(EntrySettlement::NoEffects).unwrap();
 }

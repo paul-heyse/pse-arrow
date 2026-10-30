@@ -82,6 +82,15 @@ impl EntryGuard {
     pub fn prepared(&self) -> Option<&PreparedGeneration> {
         self.reference.as_ref()
     }
+    /// Physical checkout owning this authenticated entry, independent of `-C` selection.
+    /// Mutable source-built images have no prepared checkout identity.
+    pub fn checkout(&self) -> Option<PathBuf> {
+        let tools = self.usage.as_ref()?.record.parent()?.parent()?.parent()?;
+        let target = tools
+            .parent()
+            .filter(|path| path.file_name().is_some_and(|name| name == "target"))?;
+        Some(target.parent()?.to_owned())
+    }
 
     /// Release only an explicit performing-owner settlement report. Drop, process loss,
     /// timeout, success/failure status and missing ledger rows establish no such report.
