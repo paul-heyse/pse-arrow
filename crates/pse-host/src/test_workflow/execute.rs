@@ -5,7 +5,7 @@ pub(crate) mod phase;
 mod report;
 mod runner;
 pub use report::{
-    Action, Bounds, Input, Outcome, Pending, Phase, PhaseKind, Report, ReportReference,
-    TerminalRecord,
+    Action, Bounds, FixturePending, Input, Outcome, Pending, Phase, PhaseKind, Report,
+    ReportReference, TerminalRecord,
 };
 pub use runner::run;

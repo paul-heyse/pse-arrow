@@ -128,12 +128,14 @@ pub(crate) fn encode_path(path: &std::path::Path) -> String {
         .collect()
 }
 pub(crate) fn decode_path(value: &str) -> Result<PathBuf, HostError> {
-    if value.is_empty() || value.len() % 2 != 0 {
+    if value.is_empty() || !value.len().is_multiple_of(2) {
         return Err(invalid("invalid encoded native path"));
     }
     let bytes = value
         .as_bytes()
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|pair| {
             let text =
                 std::str::from_utf8(pair).map_err(|_| invalid("invalid encoded native path"))?;

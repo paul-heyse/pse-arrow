@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! The fixed helper's native operations; placement and descendant settlement remain outside.
 use super::{
-    Action, Input, Outcome, Pending, Phase, PhaseKind, Report, phase, report::GroupObservation,
+    Action, FixturePending, Input, Outcome, Pending, Phase, PhaseKind, Report, phase,
+    report::GroupObservation,
 };
 use crate::{
     envelope::RedactionPolicy,
@@ -289,13 +290,15 @@ async fn perform(
                 }
             }
             if applies {
-                report.pending.push(Pending::Fixture {
-                    requirement: requirement.clone(),
-                    readiness: crate::fixtures::readiness(
-                        requirement,
-                        &crate::fixtures::Sources::default(),
-                    )?,
-                });
+                report
+                    .pending
+                    .push(Pending::Fixture(Box::new(FixturePending {
+                        requirement: requirement.clone(),
+                        readiness: crate::fixtures::readiness(
+                            requirement,
+                            &crate::fixtures::Sources::default(),
+                        )?,
+                    })));
             }
         }
         if !report.pending.is_empty() {

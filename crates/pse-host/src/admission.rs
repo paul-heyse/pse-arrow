@@ -1746,8 +1746,8 @@ impl Permit {
             ));
         }
         let original = state.finite.get(&record.nonce);
-        if let Some(row) = original {
-            if row.manager != manager.identity_key()
+        if let Some(row) = original
+            && (row.manager != manager.identity_key()
                 || row.boot != manager.boot_id()
                 || row.caller != *controller_process
                 || row.profile != record.profile
@@ -1764,10 +1764,9 @@ impl Permit {
                 || !row.units.iter().any(|unit| {
                     unit.intent == record.allocation
                         && unit.binding.as_ref() == Some(&record.binding)
-                })
-            {
-                return Err(invalid("original reservation journal binding changed"));
-            }
+                }))
+        {
+            return Err(invalid("original reservation journal binding changed"));
         }
         let allocation = manager
             .recorded_original(

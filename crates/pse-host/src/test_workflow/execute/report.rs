@@ -54,7 +54,7 @@ pub struct Bounds {
     pub record_bytes: usize,
     /// Optional duplicate-grouping cache entries.
     pub grouping_capacity: usize,
-    /// Whole compiler-failure records in the projected report.
+    /// Whole failure-reference records in the projected report.
     pub failure_records: usize,
 }
 /// Private operation input authenticated by the fixed helper's actual managed owner.
@@ -116,17 +116,20 @@ pub enum Pending {
         capabilities: std::collections::BTreeSet<String>,
     },
     /// Exact selected fixture still requires its original lifecycle owner.
-    Fixture {
-        /// Original applied declaration.
-        requirement: crate::fixtures::Requirement,
-        /// Passive original input-owner account.
-        readiness: crate::fixtures::Readiness,
-    },
+    Fixture(Box<FixturePending>),
     /// Independent nextest instances cannot prove shared named-group exclusion.
     CrossRunnerGroups {
         /// Captured contexts selecting native named-group members.
         groups: Vec<usize>,
     },
+}
+/// Original fixture declaration and its passive readiness form one pending-owner account.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct FixturePending {
+    /// Original applied declaration.
+    pub requirement: crate::fixtures::Requirement,
+    /// Passive original input-owner account.
+    pub readiness: crate::fixtures::Readiness,
 }
 /// Native phase, with no second process/native-budget owner.
 #[derive(Clone, Copy, Debug, Serialize, JsonSchema)]

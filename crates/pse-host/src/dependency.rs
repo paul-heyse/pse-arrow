@@ -84,7 +84,7 @@ pub enum Selection {
     /// One exact package was selected.
     Exact {
         /// Facts for the selected source-qualified package.
-        facts: PackageFacts,
+        facts: Box<PackageFacts>,
     },
     /// Select a source-qualified ID or an unambiguous name@version.
     Ambiguous {
@@ -134,7 +134,7 @@ pub fn inspect(snapshot: &MetadataSnapshot, query: &str, source: &str) -> Envelo
     let selected = match candidates.as_slice() {
         [] => Selection::NoMatch,
         [package] => Selection::Exact {
-            facts: facts(metadata, package),
+            facts: Box::new(facts(metadata, package)),
         },
         _ => Selection::Ambiguous {
             candidates: candidates.into_iter().map(PackageIdentity::from).collect(),

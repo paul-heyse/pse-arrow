@@ -126,7 +126,7 @@ fn stale_digest_wrong_path_and_missing_evidence_refuse() {
         Err(ProposalError::StaleSource(_))
     ));
     assert!(matches!(
-        checked.validate_sources(&[wrong.clone()]),
+        checked.validate_sources(std::slice::from_ref(&wrong)),
         Err(ProposalError::MissingSource(_))
     ));
     checked

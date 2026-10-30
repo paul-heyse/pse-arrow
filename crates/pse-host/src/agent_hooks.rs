@@ -138,31 +138,30 @@ pub fn route(root: &Path, path: &Path) -> Result<EditRoute, HostError> {
     if relative.starts_with("docs/authoritative_design") {
         context.push("Architecture changes require the decision/design workflow and a corresponding blueprint revision row; use docs/README.md and the owning architecture section before editing.".into());
     }
-    if let Some(name) = relative.to_str() {
-        if let Some(filename) = name.strip_prefix("docs/adr/")
-            && filename
-                .as_bytes()
-                .get(..4)
-                .is_some_and(|prefix| prefix.iter().all(u8::is_ascii_digit))
-            && filename.as_bytes().get(4) == Some(&b'-')
-            && filename.ends_with(".md")
-            && !filename.contains('/')
-            && target.is_file()
-        {
-            let text = fs::read_to_string(target)?;
-            let front = text
-                .strip_prefix("---\n")
-                .and_then(|text| text.split_once("---"))
-                .map_or("", |(front, _)| front);
-            let status = front
-                .lines()
-                .find_map(|line| line.strip_prefix("status:"))
-                .and_then(|value| value.split_whitespace().next());
-            if status != Some("proposed") {
-                context.push("Accepted ADRs remain immutable. Use the ADR supersession workflow and amend the owning architecture with its revision row; this advisory does not authorize changing the accepted record.".into());
-            } else {
-                context.push("Proposed ADR edits retain the ADR authoring/review workflow; acceptance remains a separate decision.".into());
-            }
+    if let Some(name) = relative.to_str()
+        && let Some(filename) = name.strip_prefix("docs/adr/")
+        && filename
+            .as_bytes()
+            .get(..4)
+            .is_some_and(|prefix| prefix.iter().all(u8::is_ascii_digit))
+        && filename.as_bytes().get(4) == Some(&b'-')
+        && filename.ends_with(".md")
+        && !filename.contains('/')
+        && target.is_file()
+    {
+        let text = fs::read_to_string(target)?;
+        let front = text
+            .strip_prefix("---\n")
+            .and_then(|text| text.split_once("---"))
+            .map_or("", |(front, _)| front);
+        let status = front
+            .lines()
+            .find_map(|line| line.strip_prefix("status:"))
+            .and_then(|value| value.split_whitespace().next());
+        if status != Some("proposed") {
+            context.push("Accepted ADRs remain immutable. Use the ADR supersession workflow and amend the owning architecture with its revision row; this advisory does not authorize changing the accepted record.".into());
+        } else {
+            context.push("Proposed ADR edits retain the ADR authoring/review workflow; acceptance remains a separate decision.".into());
         }
     }
     Ok(EditRoute::Allowed {
