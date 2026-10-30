@@ -100,10 +100,22 @@ Outcome, PR descriptions and ADRs (prime directives 4 and 7).
 ## Start here
 
 ```bash
+scripts/pse --help           # native command front door; help never prepares work
+scripts/pse commands code   # parser-owned discovery for a selected family
 just --list                 # recipes by cost tier; --usage <recipe> for parameters
 scripts/pse-env --explain   # what environment and placement a command would get
 just bootstrap              # only if `just ready` reports a failure -- idempotent
 ```
+
+For focused investigation, use the [native workflow guide](docs/dev/agent-environment.md):
+
+| Need | Native route |
+| --- | --- |
+| Written source, syntax query or immutable preview | `pse outline`, `show`, `code query`, `code preview`; no semantic session |
+| Resolved references, calls, candidates or semantic edit preview | Explicit `pse code session prepare`, then the selected `code` verb |
+| Exact-context library API or dependency/compiler-unit facts | `pse api`, `pse dep`; acquisition and compatibility execution are explicit |
+| Original compiler failure or selected new compiler artifact | `pse compiler diagnostics`/`diagnostic`; explicit `generate`/`probe` for new evidence |
+| Active calculation inspection and observation | Explicit `pse observe prepare`, then `query`, `discover` or `follow` |
 
 Recipes are shortcuts, not gates: they carry feature flags, profiles, report paths and
 tool paths, so use one when it fits. A composed recipe supports a mode across every stage

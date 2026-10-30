@@ -416,6 +416,7 @@ or updating manifests/locks. Original findings/exit/raw streams and differing ex
 premises are retained. `scripts/pse api pse-ids --check-docs` separately runs scoped native
 rustdoc lints through the shared compiler workflow, retaining original rule/source addresses.
 Ordinary API queries require neither that check nor an analyzer session.
+
 ### Original compiler evidence and explicit investigations
 
 For an original check failure, use `scripts/pse compiler diagnostics INVOCATION` and follow its
@@ -423,6 +424,9 @@ addressed `compiler diagnostic` action. `--source` compares original native snip
 source; `--raw` retains the exact Cargo JSON representation. Related-span pages keep secondary
 locations, child notes, replacements/applicability and macro context. They never compile, and
 matching visible lines does not establish a whole original-source identity.
+When those visible lines match, a returned `code explain` action is separately guarded against
+the newly observed whole-source digest. It requests current semantics from an explicitly
+prepared session; it does not assign that digest or semantic answer to the original compilation.
 
 Explicit new compiler evidence uses `scripts/pse compiler generate PACKAGE --kind mir --body
 FUNCTION --pass ElaborateDrops --question 'remaining field drops'` (library by default, or select
@@ -447,6 +451,37 @@ checks every recorded run against original ledger metadata and requires the orig
 to be drained. A failed calculation can be safely drained; a terminal row or absent PID alone
 does not establish that fact. Unknown legacy captures and missing custody remain protected.
 An authenticated borrowed enclosing owner can keep the probe protected until that root drains.
+
+### Selected Rust semantics and edit previews
+
+Start a reusable native analyzer explicitly with `scripts/pse code session prepare --project
+PATH`; project defaults to this checkout. Select features/defaults/platform there. Restricted
+preparation disables automatic compiler checking, build scripts and proc macros. Add
+`--build-macros` only for explicit correctness-admitted `check --workspace --all-targets`
+preparation of those outputs. Queries never enable checking or refresh those compiled inputs.
+Source-only `outline`, `show`, syntax `code query` and `code preview` remain useful without a
+session; unavailable typed semantics are not silently replaced with text matching.
+
+Use `scripts/pse code explain FILE --line N --column N` for native hover/definition/type
+resolution, then selected `refs`, `calls`, `implementations`, `macro`, `tests`, `candidates`
+or `hints`. CLI coordinates are one-based Unicode scalar columns; provider locations retain
+their actual negotiated encoding. `--if-source SHA` guards a previously observed source.
+Returned lazy candidate/hint/assist actions also bind the original generation and native-record
+fingerprint; an array index alone cannot select a changed candidate. Related tests are candidates:
+their next action goes through `pse tests`/`pse test` selection rather than executing analyzer argv.
+
+`code edit rename`, `assists`/`assist`, `file-rename` and scoped `ssr` produce the same checked
+proposal used by syntax previews. Inspect exact original/replacement regions, file operations,
+placeholders and provider context. These commands apply no edits and make no compile-success or
+multi-file publication claim. Unsupported structured native fields stay explicitly unavailable;
+hover text remains rendered evidence, not an inferred type/capture model.
+
+`code session status` observes original ownership and readiness; `code session stop` settles the
+original service and descendants. Canceling one query leaves the session usable. Changed Cargo,
+toolchain or prepared macro inputs require explicit stop and preparation; passive status/stop
+remain usable even when current host source cannot compile. Source buffers are synchronized only
+for active queries and closed after the last overlapping request; no accumulated source-tree
+rescan or second semantic database is maintained.
 
 ## Explicit host controls
 
