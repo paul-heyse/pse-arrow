@@ -379,13 +379,12 @@ async fn actual_nested_supervisor_crash_recovers_ordinary_and_borrowed_finite_su
                 Err(error) => failures.push(error),
             }
         }
-        if let Some(launcher) = &mut launcher {
-            if let Err(error) = launcher
+        if let Some(launcher) = &mut launcher
+            && let Err(error) = launcher
                 .stop_and_drain(Instant::now() + Duration::from_secs(15))
                 .await
-            {
-                failures.push(error);
-            }
+        {
+            failures.push(error);
         }
         let _ = child.start_kill();
         if let Err(error) = child.wait().await {

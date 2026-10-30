@@ -77,18 +77,18 @@ async fn crash_supervisor_entry() {
         .unwrap()
         .executable(&root, HostTool::Host)
         .unwrap();
-    let _report = payload::run(
+    let _report = payload::run(payload::PayloadRequest {
         directory,
-        intent,
+        controller: intent,
         root,
         command,
         selection,
         trampoline,
         policy,
-        tokio_util::sync::CancellationToken::new(),
-        GenericObserver,
-        None,
-    )
+        cancellation: tokio_util::sync::CancellationToken::new(),
+        observer: GenericObserver,
+        parent: None,
+    })
     .await
     .unwrap();
     panic!("crash fixture must be killed by its original native owner");
@@ -268,10 +268,10 @@ async fn supervisor_crash_recovers_ordinary_and_finite_resources_without_inventi
             if owned.is_none() {
                 owned = manager.reconcile_if_present(&intent, deadline).await?;
             }
-            if let Some(owned) = &mut owned {
-                if !owned.released() {
-                    owned.stop_and_drain(deadline).await?;
-                }
+            if let Some(owned) = &mut owned
+                && !owned.released()
+            {
+                owned.stop_and_drain(deadline).await?;
             }
             Ok::<_, HostError>(())
         }

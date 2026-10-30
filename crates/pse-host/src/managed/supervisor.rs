@@ -471,7 +471,18 @@ pub(super) struct Context {
     pub(super) record: LaunchRecord,
     pub(super) manager: HostManager,
     pub(super) store: InvocationStore,
-    _generation: GenerationUse,
+    _generation: Option<GenerationUse>,
+}
+impl Context {
+    /// Move only this current stop-post process's existing claim; original users remain owned elsewhere.
+    pub(super) async fn take_finalizer_use(&mut self) -> Result<GenerationUse, HostError> {
+        self.manager
+            .authenticate_service_finalizer(&self.record.controller)
+            .await?;
+        self._generation
+            .take()
+            .ok_or_else(|| invalid("current finalizer generation use was already transferred"))
+    }
 }
 pub(super) async fn context(
     root: &std::path::Path,
@@ -504,7 +515,7 @@ pub(super) async fn context(
         record,
         store,
         manager: HostManager::connect_user(None).await?,
-        _generation: generation,
+        _generation: Some(generation),
     })
 }
 
@@ -624,18 +635,18 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
         cancellation,
         shutdown_timeout,
         async move |_owner: &mut tokio_graceful_shutdown::SubsystemHandle<HostError>| {
-            let report = payload::run(
-                owner_directory,
+            let report = payload::run(payload::PayloadRequest {
+                directory: owner_directory,
                 controller,
                 root,
                 command,
                 selection,
                 trampoline,
                 policy,
-                owner_cancel,
+                cancellation: owner_cancel,
                 observer,
                 parent,
-            )
+            })
             .await;
             let _ = send_report.send(report);
             Ok(())
@@ -716,4 +727,4 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
 }
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;

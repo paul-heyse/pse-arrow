@@ -36,18 +36,18 @@ async fn service_payload_entry() {
         .unwrap()
         .executable(&root, HostTool::Host)
         .unwrap();
-    let report = run(
-        directory.clone(),
+    let report = run(PayloadRequest {
+        directory: directory.clone(),
         controller,
         root,
         command,
         selection,
         trampoline,
         policy,
-        CancellationToken::new(),
-        crate::managed::result::GenericObserver,
-        None,
-    )
+        cancellation: CancellationToken::new(),
+        observer: crate::managed::result::GenericObserver,
+        parent: None,
+    })
     .await
     .unwrap();
     assert!(report.operation_error.is_none(), "{report:?}");

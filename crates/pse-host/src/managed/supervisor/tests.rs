@@ -45,10 +45,11 @@ async fn original_origin_pidfd_refuses_reuse_and_observes_actual_exit() {
     }
 }
 
-pub(super) const FRONTEND: &str = "PSE_RECORDED_FRONTEND";
-pub(super) const FRONTEND_ROOT: &str = "PSE_RECORDED_FRONTEND_ROOT";
-pub(super) const FRONTEND_ID: &str = "PSE_RECORDED_FRONTEND_ID";
-pub(super) const FRONTEND_ENTRY: &str = "managed::supervisor::tests::detached_frontend_entry";
+pub(in crate::managed) const FRONTEND: &str = "PSE_RECORDED_FRONTEND";
+pub(in crate::managed) const FRONTEND_ROOT: &str = "PSE_RECORDED_FRONTEND_ROOT";
+pub(in crate::managed) const FRONTEND_ID: &str = "PSE_RECORDED_FRONTEND_ID";
+pub(in crate::managed) const FRONTEND_ENTRY: &str =
+    "managed::supervisor::tests::detached_frontend_entry";
 
 #[tokio::test]
 async fn detached_frontend_entry() {
@@ -243,21 +244,19 @@ async fn detached_launch_survives_original_process_and_recorded_control_waits_an
             {
                 cleanup.push(error);
             }
-        } else if let Ok(mut recovered) = super::recorded(&root, &id, &environment).await {
-            if let Err(error) = recovered
+        } else if let Ok(mut recovered) = super::recorded(&root, &id, &environment).await
+            && let Err(error) = recovered
                 .cancel(Instant::now() + Duration::from_secs(10))
                 .await
-            {
-                cleanup.push(error);
-            }
+        {
+            cleanup.push(error);
         }
-        if let Some(launcher) = &mut launcher_unit {
-            if let Err(error) = launcher
+        if let Some(launcher) = &mut launcher_unit
+            && let Err(error) = launcher
                 .stop_and_drain(Instant::now() + Duration::from_secs(10))
                 .await
-            {
-                cleanup.push(error);
-            }
+        {
+            cleanup.push(error);
         }
         let _ = child.start_kill();
         let reap = child.wait().await;

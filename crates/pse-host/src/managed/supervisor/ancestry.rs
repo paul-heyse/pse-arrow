@@ -214,12 +214,12 @@ async fn ancestors(
                     "recorded nested origin is outside an ancestor payload subgroup",
                 ));
             }
-            if let Some(member) = membership {
-                if !member.contains_original(subgroup) {
-                    return Err(invalid(
-                        "actual caller is outside original parent payload subgroup",
-                    ));
-                }
+            if let Some(member) = membership
+                && !member.contains_original(subgroup)
+            {
+                return Err(invalid(
+                    "actual caller is outside original parent payload subgroup",
+                ));
             }
         } else if custody.version != 2 {
             return Err(invalid("original nested subgroup custody absent"));

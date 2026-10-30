@@ -16,6 +16,7 @@ use std::time::Instant;
 
 #[derive(Debug)]
 pub(super) struct RecoveryReport {
+    binding: RecoveryBinding,
     workload: Result<Option<UnitObservation>, HostError>,
     operation: Result<Option<UnitObservation>, HostError>,
     reservation: Result<Option<bool>, HostError>,
@@ -34,10 +35,72 @@ pub(super) struct RecoveryView {
 }
 #[derive(Debug)]
 pub(super) struct RecoveryCustody {
+    binding: RecoveryBinding,
+    disposition: RecoveryDisposition,
     _workload: Option<crate::manager::RecordedUnit>,
     _operation: Option<crate::manager::RecordedUnit>,
     _reservation: Option<RecoveredPermit>,
     _subgroup: Option<crate::OwnedSubgroup>,
+}
+#[derive(Debug)]
+struct RecoveryBinding {
+    directory: std::path::PathBuf,
+    invocation: crate::envelope::CliInvocationId,
+    manager: String,
+    controller: LaunchIntent,
+    original: crate::manager::UnitBinding,
+    process: pse_diagnostics::process_facts::ProcessIdentity,
+}
+#[derive(Debug)]
+enum RecoveryDisposition {
+    Settled,
+    Unresolved,
+}
+/// Actual original native resource outcomes, owning their retained handles. This says nothing
+/// about original reaping, capture, interpreter completeness or another process's generation use.
+#[derive(Debug)]
+pub(super) struct RecoveredResources {
+    _custody: RecoveryCustody,
+}
+impl RecoveryCustody {
+    pub(super) fn into_settled(self) -> Result<RecoveredResources, Box<Self>> {
+        match self.disposition {
+            RecoveryDisposition::Settled => Ok(RecoveredResources { _custody: self }),
+            RecoveryDisposition::Unresolved => Err(Box::new(self)),
+        }
+    }
+}
+impl RecoveredResources {
+    pub(super) fn finalizer_scope(
+        &self,
+        checkout: &std::path::Path,
+    ) -> Result<crate::generation::FinalizerUseScope, HostError> {
+        let binding = &self._custody.binding;
+        crate::generation::FinalizerUseScope::new(
+            std::fs::canonicalize(checkout)?,
+            binding.directory.clone(),
+            binding.invocation.clone(),
+            binding.manager.clone(),
+            binding.controller.clone(),
+            binding.original.clone(),
+            binding.process.clone(),
+        )
+    }
+    pub(super) fn matches(
+        &self,
+        directory: &InvocationDirectory,
+        manager: &HostManager,
+        controller: &LaunchIntent,
+        original: &ControllerRecord,
+    ) -> bool {
+        let binding = &self._custody.binding;
+        binding.directory == directory.path()
+            && &binding.invocation == directory.id()
+            && binding.manager == manager.identity_key()
+            && &binding.controller == controller
+            && binding.original == original.binding
+            && binding.process == original.process
+    }
 }
 impl RecoveryReport {
     pub(super) fn view(&self, policy: &RedactionPolicy) -> RecoveryView {
@@ -65,6 +128,11 @@ impl RecoveryReport {
         policy: &RedactionPolicy,
     ) -> (RecoveryView, Vec<HostError>, RecoveryCustody) {
         let view = self.view(policy);
+        let disposition = if self.resources_settled() {
+            RecoveryDisposition::Settled
+        } else {
+            RecoveryDisposition::Unresolved
+        };
         let mut failures = Vec::new();
         for result in [self.workload, self.operation] {
             if let Err(error) = result {
@@ -85,6 +153,8 @@ impl RecoveryReport {
             view,
             failures,
             RecoveryCustody {
+                binding: self.binding,
+                disposition,
                 _workload: self._workload,
                 _operation: self._operation,
                 _reservation: self._reservation,
@@ -92,7 +162,6 @@ impl RecoveryReport {
             },
         )
     }
-    #[cfg(test)]
     pub(super) fn resources_settled(&self) -> bool {
         self.workload.is_ok()
             && self.operation.is_ok()
@@ -121,6 +190,14 @@ pub(super) async fn recover(
         .ok_or_else(|| {
             HostError::Ownership("original initialized payload custody absent".into())
         })?;
+    let recovery_binding = RecoveryBinding {
+        directory: directory.path().to_owned(),
+        invocation: directory.id().clone(),
+        manager: manager.identity_key(),
+        controller: controller.clone(),
+        original: original.binding.clone(),
+        process: original.process.clone(),
+    };
     if intent.version == 2 && custody.version == 3 {
         if intent.controller != *controller
             || custody.manager != manager.identity_key()
@@ -158,6 +235,7 @@ pub(super) async fn recover(
             None => None,
         };
         return Ok(RecoveryReport {
+            binding: recovery_binding,
             workload: Ok(None),
             operation: Ok(None),
             reservation: Ok(None),
@@ -243,6 +321,7 @@ pub(super) async fn recover(
         None => Ok(None),
     };
     Ok(RecoveryReport {
+        binding: recovery_binding,
         workload: workload_result,
         operation: operation_result,
         reservation: reservation_result,

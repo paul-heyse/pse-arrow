@@ -99,16 +99,21 @@ pub(in crate::managed) async fn settle(
     }
 }
 pub(super) async fn run<O: ChunkObserver>(
-    directory: Arc<InvocationDirectory>,
-    controller: LaunchIntent,
-    root: PathBuf,
-    mut command: PayloadCommand,
-    trampoline: PathBuf,
-    policy: PayloadPolicy,
-    cancellation: CancellationToken,
-    observer: O,
+    request: PayloadRequest<O>,
     mut parent: ManagedParent,
 ) -> Result<PayloadReport<O>, HostError> {
+    let PayloadRequest {
+        directory,
+        controller,
+        root,
+        mut command,
+        trampoline,
+        policy,
+        cancellation,
+        observer,
+        selection: _,
+        parent: _,
+    } = request;
     let startup_deadline = deadline(policy.startup)?;
     let manager = HostManager::connect_user(None).await?;
     let (original, _, _) = manager.managed_service_placement(&controller).await?;

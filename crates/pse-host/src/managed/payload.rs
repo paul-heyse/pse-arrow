@@ -254,32 +254,36 @@ async fn captured_child<O: ChunkObserver>(
 /// Execute one top-level managed payload while keeping the authenticated controller in its
 /// original notify service. A caller must establish origin and parent-launch lifetime first.
 /// Readiness is sent only after original placement, admission and required capture exist.
+pub(crate) struct PayloadRequest<O: ChunkObserver> {
+    pub(crate) directory: Arc<InvocationDirectory>,
+    pub(crate) controller: LaunchIntent,
+    pub(crate) root: PathBuf,
+    pub(crate) command: PayloadCommand,
+    pub(crate) selection: Selection,
+    pub(crate) trampoline: PathBuf,
+    pub(crate) policy: PayloadPolicy,
+    pub(crate) cancellation: CancellationToken,
+    pub(crate) observer: O,
+    pub(crate) parent: Option<super::supervisor::ManagedParent>,
+}
 pub(crate) async fn run<O: ChunkObserver>(
-    directory: Arc<InvocationDirectory>,
-    controller: LaunchIntent,
-    root: PathBuf,
-    mut command: PayloadCommand,
-    selection: Selection,
-    trampoline: PathBuf,
-    policy: PayloadPolicy,
-    cancellation: CancellationToken,
-    observer: O,
-    parent: Option<super::supervisor::ManagedParent>,
+    mut request: PayloadRequest<O>,
 ) -> Result<PayloadReport<O>, HostError> {
-    if let Some(parent) = parent {
-        return nested::run(
-            directory,
-            controller,
-            root,
-            command,
-            trampoline,
-            policy,
-            cancellation,
-            observer,
-            parent,
-        )
-        .await;
+    if let Some(parent) = request.parent.take() {
+        return nested::run(request, parent).await;
     }
+    let PayloadRequest {
+        directory,
+        controller,
+        root,
+        mut command,
+        selection,
+        trampoline,
+        policy,
+        cancellation,
+        observer,
+        parent: _,
+    } = request;
     let startup_deadline = deadline(policy.startup)?;
     let manager = HostManager::connect_user(None).await?;
     let (original, slice, slice_group) = manager.managed_service_placement(&controller).await?;
