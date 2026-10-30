@@ -133,7 +133,7 @@ authenticated recovery evidence is separately attributed by the actual settlemen
 
 | Mode | Mechanism | Lifetime | Use |
 | --- | --- | --- | --- |
-| Foreground (default) | The existing `run_owned` scopes. `pse` pipes the child's stdout/stderr through an in-process tee into `output.log`, feeds the extractor, and prints a bounded live summary. | Bound to the caller: harness timeouts and kills still stop heavy builds. | Every verb by default. An explicit workload deadline bounds execution; `pse wait --timeout` bounds observation only. |
+| Foreground (default) | The same B03 service supervisor/finalizer as detached execution; `pse` observes its attributed output/result. Establish the authenticated origin pidfd/start-identity lease before payload release. | Bound to origin life: its disappearance cancels the owned invocation, including escaped descendants. | Managed executing verbs by default. Passive/help/source reads remain direct. An explicit workload deadline bounds execution; `pse wait --timeout` bounds observation only. |
 | Detached (`--detach`) | A transient **user service** whose main process, `__supervise`, owns the child placement/admission/settlement path with piped output. B03 first makes and verifies that path from an authenticated service context. Returns `launched` plus the invocation ID. | Outlives the caller. Supervisor lifetime is bounded by completion, `RuntimeMaxUSec` or `pse cancel`; actual workload settlement is recorded separately. | Long builds and tests, delegated workers, bundles. |
 
 **Detached property set.** It does not reuse `start_service_inner`, because `RemainAfterExit=true`
@@ -153,6 +153,13 @@ would leave the unit active(exited) and the finalizer would never run.
   only scopes and `native_workload` authenticates scope relationships; service entry is not an
   existing passing path. B03 must implement the required authenticated service placement and
   prove full admission/settlement before detached delivery is usable.
+- Follow [ADR-0234](../adr/0234-managed-invocation-subtree-ownership.md)'s proposed shared
+  supervisor realization for both managed modes. Keep the service controller in its service
+  cgroup, immutable original root distinct from actual membership, and nested payload groups
+  beneath their enclosing invocation. Core-only delegation retains original aggregate limits;
+  per-invocation memory readings may consequently be unavailable. A borrowed reservation is
+  never released by the nested owner. Close parent launch authority before recursive drain,
+  and qualify the origin-death lease and explicit finalizer cleanup of external payload groups.
 - Holds its own handles with `kill_on_drop(true)`.
 - Reads both pipes on separate tasks in a `JoinSet` and writes `output.log` and events.
 - Runs the kind-specific extractor.
@@ -324,8 +331,9 @@ children that retain tool paths. Full catalogue federation is not a prerequisite
   `latest`, with exact optional scientific/observation associations. Cooperating product
   association producers integrate in F01, rather than host inference from log strings.
 - Ledger recording added to `pse run`, which [59a A02](59a-cli-foundation.md#a02) ports. It
-  gains `[--kind K]`, runs in the foreground over `run_owned` with piped and teed output, gives a
-  bounded live summary and writes a terminal `result.json`.
+  gains `[--kind K]`, uses B03's shared native service owner with piped and teed output, gives a
+  bounded live summary and writes a terminal `result.json`. The in-process tee is reusable
+  library code inside that supervisor, not a second independently qualified lifetime path.
 - **Nested runs.** Inside an existing workload scope, `run_owned`'s nested path `exec`s the child
   and could not record it. `pse run` and the managed verbs therefore spawn and record the child
   there too. Only the `boundary` (pse-env) exec adapter keeps the `exec` pass-through, unrecorded,
