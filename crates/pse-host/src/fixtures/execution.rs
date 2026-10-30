@@ -378,6 +378,10 @@ fn build(
         .current_dir(root)
         .env_clear()
         .envs(environment);
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(destination)
+        .map_err(HostError::from)?;
     let status =
         discovery::capture::execute_build(command, &resolution, destination, &mut std::io::sink())?;
     if status != 0 {
