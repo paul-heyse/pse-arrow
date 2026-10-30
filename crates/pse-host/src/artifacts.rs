@@ -8,6 +8,8 @@ use schemars::JsonSchema;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::num::NonZeroU64;
+mod descriptor;
+pub use descriptor::{DescriptorIdentity, DescriptorRead, read_descriptor};
 
 /// Explicit selected byte extent. `None` length requests all bytes from the offset.
 #[derive(Clone, Debug)]
@@ -64,6 +66,9 @@ pub struct ArtifactRead {
 /// Native source failures retain their error chains.
 #[derive(Debug, thiserror::Error)]
 pub enum ArtifactError {
+    /// Original descriptor metadata, seek or read failure.
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
     /// Original backend failure, including precondition/partial-stream errors.
     #[error(transparent)]
     Store(#[from] object_store::Error),
@@ -73,6 +78,12 @@ pub enum ArtifactError {
     /// An invalid requested extent is not an empty artifact.
     #[error("artifact byte range is invalid: {0}")]
     Range(String),
+}
+pub(crate) fn content(bytes: &[u8]) -> Content {
+    match std::str::from_utf8(bytes) {
+        Ok(text) => Content::Utf8(text.into()),
+        Err(_) => Content::Base64(STANDARD.encode(bytes)),
+    }
 }
 pse_diagnostics::impl_diagnostic! {
     ArtifactError,
@@ -136,10 +147,7 @@ pub async fn read(
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect();
-    let content = match std::str::from_utf8(&bytes) {
-        Ok(text) => Content::Utf8(text.into()),
-        Err(_) => Content::Base64(STANDARD.encode(&bytes)),
-    };
+    let content = content(&bytes);
     Ok(ArtifactRead {
         object_key: key.to_string(),
         object_bytes: meta.size,

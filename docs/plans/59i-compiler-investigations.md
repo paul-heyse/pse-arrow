@@ -127,10 +127,10 @@ extraction remain explicit instead of becoming empty successful answers.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [I01](#i01) | in-progress | 59i | Original diagnostic reference/detail pages preserve native related spans, suggestions and context; explicit artifact generation follows |
-| [I02](#i02) | planned | 59i | Selected ownership, destruction and async investigations through lighter evidence routes |
-| [I03](#i03) | planned | 59i | Context-bound constant and concrete layout/ABI investigations |
-| [I04](#i04) | planned | 59i | Selected instance and MIR/code-generation investigations |
+| [I01](#i01) | in-progress | 59i | Original B02 detail and explicit native artifact/probe evidence passed worker public journeys; main assembled acceptance remains separate |
+| [I02](#i02) | in-progress | 59i | Native rejected-move detail and selected drop/coroutine MIR/THIR evidence; structured flow facts remain explicitly unsupported |
+| [I03](#i03) | in-progress | 59i | Authored isolated constant/layout evaluation and native encountered type-size output; unresolved substitution retains the actual compiler failure |
+| [I04](#i04) | in-progress | 59i | Native selected-unit mono-items and body/pass-filtered before/after MIR retained as opaque original artifacts |
 | [I05](#i05) | planned | 59i | Pin-specific structured-driver decision and conditional selected implementation |
 
 <a id="i01"></a>
@@ -147,8 +147,46 @@ not retain a full original-source digest or actual rustc version; both remain ex
 even when visible lines match. The original prepared host and admitted selected compiler context
 remain mandatory envelope provenance under projection. A native E0382 fixture already exercises
 the existing correctness admission/adapter and B02 decoder, then changes source before reading
-the retained native diagnostic. Explicit native artifact production and the I02–I04 consumers remain
-the next implementation boundary; no pin-specific driver or implicit replay is selected.
+the retained native diagnostic. No pin-specific driver or implicit replay is selected.
+
+The follow-on native slice exposes explicit `compiler generate`, authored `compiler probe`,
+passive `compiler artifacts` and digest-guarded bounded `compiler file` reads. It consumes the
+shared correctness owner’s selected-cwd `rustc` admission and the original managed foreground
+capture/finalization owner. A unique input context retains actual selected units/features/platforms,
+tool versions, flags, declared root/probe source and copied authored inputs. These source snapshots
+do not prove every transitive byte consumed by rustc. Successful native outputs are copied into
+private retention with file digests before terminal publication; failed/unmatched output retains
+its original child/capture/finalization facts and distinguishes an unpublished index from a
+subsequently missing one. Repeated reads verify original full-file SHA on the same checked
+descriptor before returning only the requested byte extent. That scan cost is explicit; no opaque
+ETag is substituted for a content identity and no file path is reopened after its custody check.
+
+Native dump generation selects `CARGO_INCREMENTAL=0` and `SCCACHE_NO_CACHE=1` locally so repeated
+MIR selections reproduce their side-effect files and THIR does not ask the cache to store an rlib
+it intentionally did not emit. Normal work and authored probe evaluation keep their selected
+cache behavior. MIR uses rustc's body/pass filter grammar; unsupported body filters for THIR,
+layout and mono output refuse instead of implying narrower scope. On the pinned Linux x86-64
+toolchain, the targeted native cases retain partial-move `ElaborateDrops` before/after files,
+saved coroutine-value `StateTransform` output, THIR, a concrete two-String layout, distinct u32/u64
+mono instantiations, an authored constant/layout result and an unresolved generic compiler error.
+These establish original evidence delivery, not a structured flow/ABI/runtime interpretation.
+
+**Tested (worker checkout, Linux x86-64, pinned nightly, 2026-10-30):** public authored layout
+evaluation and filtered MIR generation returned native exit 0 with complete settlement; passive
+index and 16-byte file reads verified original whole-file SHA without compilation. A real B02
+check retained E0382 and the additional original `non_ascii_idents` diagnostic. Its Cargo phase
+exit 101 remained distinct from helper exit 1. After editing the temporary source, addressed
+detail reported `visible_lines_differ`, left whole original-source identity unknown and paged
+to the native `.clone()` suggestion with `MachineApplicable` confidence. The temporary source
+was removed; original native evidence remains outside `target/`. These are local component/public
+journeys, not main-checkout assembled acceptance.
+
+The new compiler-probe consumer also closes D02's exposed lifetime gap through its original
+owner: each run publishes a durable exact invocation binding before launch, and explicit removal
+requires matching original metadata plus actual foreground root drain under the same probe lease.
+Worker public journeys removed both a successful plain probe and a failed E0282 compiler probe
+after complete native settlement, while an unknown legacy capture refused removal. Original
+calculation outcome stays separate from native release; borrowed enclosing roots remain protected.
 
 **Consumes:** A03's output/source-location contract, A04's artifact resolver and A05's prepared
 tool identity; C07's working selected-operation slice for new compiler actions; B02's generic

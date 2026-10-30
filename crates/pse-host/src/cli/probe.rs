@@ -73,14 +73,20 @@ pub(super) fn dispatch(
             ))?)
         }
         Action::Rm { name } => {
-            let path = probe::rm(&store, &name).map_err(error)?;
+            let path = super::runtime()?
+                .block_on(probe::rm(root, &store, &name, &environment))
+                .map_err(error)?;
             Ok(output.emit(Envelope::response(
                 "probe rm",
-                "selected unleased scratch workspace removed",
+                "selected probe removed after original recorded native roots drained",
                 path,
             ))?)
         }
         Action::Run { name, arguments } => {
+            let control=entry.prepared().ok_or_else(||HostError::Ownership("probe run requires explicitly prepared native host tools; run scripts/bootstrap-host".into()))?;
+            let control_checkout = entry.checkout().ok_or_else(|| {
+                HostError::Ownership("original probe control checkout is absent".into())
+            })?;
             let run =
                 probe::prepare_run(root, &store, &name, &environment, &arguments).map_err(error)?;
             let features = run
@@ -132,6 +138,18 @@ pub(super) fn dispatch(
                 location: path.display().to_string(),
                 digest: Some(probe::digest(&bytes)),
             }];
+            run.record_managed(
+                root,
+                &run.environment,
+                probe::ManagedRun {
+                    invocation: output.invocation_id.clone(),
+                    command_name: "probe run".into(),
+                    command: run.command.clone(),
+                    control: control.clone(),
+                    control_checkout,
+                },
+            )
+            .map_err(error)?;
             let status = super::launch_managed_with_artifacts(
                 ManagedCommand {
                     parent: None,

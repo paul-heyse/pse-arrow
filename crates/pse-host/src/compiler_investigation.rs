@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Passive original compiler evidence. Native diagnostics remain compiler facts, not a new check.
+//! Original compiler evidence and explicitly selected native artifact investigations.
+pub mod artifact;
 use crate::{
     HostError,
+    artifacts::{self, Content, DescriptorIdentity},
     correctness::{CompilerUnit, Resolution},
     envelope::{
         ArtifactReference, CliInvocationId, Completeness, Envelope, NextAction, ProviderContext,
@@ -24,13 +26,11 @@ use serde_json::value::RawValue;
 use sha2::{Digest as _, Sha256};
 use std::{
     ffi::OsString,
-    io::{Read as _, Seek as _, SeekFrom},
-    num::NonZeroUsize,
-    os::unix::fs::MetadataExt as _,
+    num::{NonZeroU64, NonZeroUsize},
     path::{Component, Path, PathBuf},
 };
 
-const BACKEND: &str = "cargo_metadata/0.23.1;compiler-evidence-view/v1";
+const BACKEND: &str = "cargo_metadata/0.23.1;compiler-evidence-view/v2";
 
 fn invalid(detail: impl Into<String>) -> HostError {
     HostError::Ownership(format!("compiler evidence: {}", detail.into()))
@@ -306,66 +306,46 @@ pub struct DiagnosticEvidence {
     original_host: PreparedGeneration,
     child_exit: Option<i32>,
     capture_complete: bool,
-    artifact: RecordIdentity,
+    artifact: Record,
     artifact_path: OsString,
     raw: Box<RawValue>,
     native: cargo_metadata::CompilerMessage,
     context_sha256: String,
 }
-/// Observed descriptor identity and selected bytes, without an atomic filesystem claim.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct RecordIdentity {
-    /// Checked original filesystem device.
-    pub device: u64,
-    /// Checked original inode.
-    pub inode: u64,
-    /// Observed complete retained stream extent.
-    pub bytes: u64,
-    /// Observed modification timestamp seconds/nanoseconds.
-    pub modified: (i64, i64),
-    /// Observed change timestamp seconds/nanoseconds.
-    pub changed: (i64, i64),
-    /// Exact addressed JSON record byte digest.
-    pub selected_sha256: String,
+#[derive(Debug)]
+struct Record {
+    identity: DescriptorIdentity,
+    selected_sha256: String,
 }
-fn descriptor_identity(metadata: &std::fs::Metadata) -> RecordIdentity {
-    RecordIdentity {
-        device: metadata.dev(),
-        inode: metadata.ino(),
-        bytes: metadata.len(),
-        modified: (metadata.mtime(), metadata.mtime_nsec()),
-        changed: (metadata.ctime(), metadata.ctime_nsec()),
-        selected_sha256: String::new(),
+fn read_record(path: &Path, origin: &RecordOrigin) -> Result<(Record, Box<RawValue>), HostError> {
+    if origin.byte_length == 0 {
+        return Err(invalid("original compiler record extent is empty"));
     }
-}
-fn read_record(
-    path: &Path,
-    origin: &RecordOrigin,
-) -> Result<(RecordIdentity, Box<RawValue>), HostError> {
-    let mut file = crate::test_inventory::open_private(path)?;
-    let mut identity = descriptor_identity(&file.metadata()?);
+    let file = crate::test_inventory::open_private(path)?;
     let end = origin
         .byte_offset
         .checked_add(origin.byte_length)
         .ok_or_else(|| invalid("compiler record byte extent overflows"))?;
-    if end > identity.bytes {
+    let observed = artifacts::read_descriptor(
+        file,
+        origin.byte_offset,
+        NonZeroU64::new(origin.byte_length),
+        None,
+    )?;
+    if observed.byte_range.end != end {
         return Err(invalid("original raw record is missing or truncated"));
     }
-    file.seek(SeekFrom::Start(origin.byte_offset))?;
-    let mut bytes = Vec::new();
-    (&mut file)
-        .take(origin.byte_length)
-        .read_to_end(&mut bytes)?;
-    if bytes.len() as u64 != origin.byte_length
-        || descriptor_identity(&file.metadata()?) != identity
-    {
-        return Err(invalid(
-            "original retained stream changed or truncated during descriptor-backed observation",
-        ));
-    }
-    identity.selected_sha256 = digest(&bytes);
-    let raw = serde_json::from_slice(&bytes).map_err(std::io::Error::other)?;
-    Ok((identity, raw))
+    let Content::Utf8(text) = observed.content else {
+        return Err(invalid("original Cargo JSON record is not UTF-8"));
+    };
+    let raw = serde_json::from_str(&text).map_err(std::io::Error::other)?;
+    Ok((
+        Record {
+            identity: observed.identity,
+            selected_sha256: observed.selected_sha256,
+        },
+        raw,
+    ))
 }
 /// Read exactly one original JSON record from the existing owner's checked descriptor.
 /// Decoding uses Cargo's native model; unsupported enums/shapes refuse instead of becoming text.
@@ -512,7 +492,7 @@ pub struct DetailCursor {
     /// Exact selected original JSON bytes.
     pub record_sha256: String,
     /// Checked original descriptor metadata and selected-record digest.
-    pub artifact: RecordIdentity,
+    pub artifact: DescriptorIdentity,
     /// Original admitted compiler/prepared-host context.
     pub context_sha256: String,
     /// Whole related-span/note record position.
@@ -895,7 +875,7 @@ impl DiagnosticEvidence {
                 if serde_json::to_vec(&cursor.address).map_err(std::io::Error::other)?
                     == serde_json::to_vec(&self.address).map_err(std::io::Error::other)?
                     && cursor.record_sha256 == self.artifact.selected_sha256
-                    && cursor.artifact == self.artifact
+                    && cursor.artifact == self.artifact.identity
                     && cursor.context_sha256 == self.context_sha256 =>
             {
                 cursor.offset
@@ -937,7 +917,7 @@ impl DiagnosticEvidence {
         let next_cursor = (next < count).then(|| DetailCursor {
             address: self.address.clone(),
             record_sha256: self.artifact.selected_sha256.clone(),
-            artifact: self.artifact.clone(),
+            artifact: self.artifact.identity.clone(),
             context_sha256: self.context_sha256.clone(),
             offset: next,
         });
@@ -1145,12 +1125,14 @@ mod tests {
             },
             child_exit: Some(101),
             capture_complete: true,
-            artifact: RecordIdentity {
-                device: 1,
-                inode: 2,
-                bytes: raw.len() as u64,
-                modified: (0, 0),
-                changed: (0, 0),
+            artifact: Record {
+                identity: DescriptorIdentity {
+                    device: 1,
+                    inode: 2,
+                    bytes: raw.len() as u64,
+                    modified: (0, 0),
+                    changed: (0, 0),
+                },
                 selected_sha256: digest(raw.as_bytes()),
             },
             artifact_path: "/original/stdout".into(),

@@ -172,8 +172,14 @@ destination, every original stage and its recovery route; unselected warm work r
 Git's own repository-local environment list is cleared when selecting another checkout.
 The public `worktree_commands` test exercises original preparation exit 42 and subsequent passive
 inventory; unit tests cover native-byte linked paths, ancestry, dirty state, unchanged local
-configuration, ambient foreign Git selectors and standalone namespace registration. Full successful
-creation/copy qualification remains separate. `rm` is absent while the maintainer selects whether
+configuration, ambient foreign Git selectors and standalone namespace registration.
+**Tested:** on 2026-10-30, the real `pse worktree new` journey from source commit `368b62143`
+completed Git, configuration, host preparation and registration, and the destination's `scripts/pse
+status` immediately succeeded. Independently compared local configuration bytes/mode matched,
+prepared executables existed and destination `target/debug` was absent: the matching completed
+host was copied without destination compilation. The clean test checkout was at the same merged
+commit and was removed with native Git after its commands finished. This does not qualify removal
+protection or warm-run completion. `rm` is absent while the maintainer selects whether
 to defer it or establish a checkout-wide cooperative retirement boundary; a passive inventory and
 terminal history are not deletion authority. The remaining removal acceptance below is unchanged.
 

@@ -17,6 +17,20 @@ use std::{
 /// Scratch ownership/resolution failure, independent of the probe's own exit status.
 #[derive(Debug, thiserror::Error)]
 pub enum ProbeError {
+    /// Original native/ledger/custody refusal, without substituting process-marker authority.
+    #[error(transparent)]
+    Host(Box<crate::HostError>),
+    /// A nonempty original capture has no readable authenticated run binding.
+    #[error(
+        "probe has an unknown legacy or incomplete run capture at {capture:?}; original custody cannot be established: {source}"
+    )]
+    RunCustody {
+        /// Original capture, preserving native path bytes.
+        capture: PathBuf,
+        /// Original read/ownership failure; absence never proves completion.
+        #[source]
+        source: Box<crate::HostError>,
+    },
     /// Original file/process failure.
     #[error("probe I/O: {0}")]
     Io(#[from] std::io::Error),
@@ -36,11 +50,14 @@ pub enum ProbeError {
 pse_diagnostics::impl_diagnostic! {
     ProbeError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::HostOwnership) },
-    forward(this) { match this { Self::Correctness(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Correctness(error) => Some(error),Self::Host(error)=>Some(error.as_ref()),Self::RunCustody {source,..}=>Some(source.as_ref()), _ => None } },
     help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 fn invalid(message: impl Into<String>) -> ProbeError {
     ProbeError::Invalid(message.into())
+}
+fn host(error: crate::HostError) -> ProbeError {
+    ProbeError::Host(Box::new(error))
 }
 pub(crate) fn digest(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
@@ -79,7 +96,7 @@ pub struct Manifest {
     pub dependencies: Vec<Dependency>,
 }
 /// One created or selected authored workspace.
-#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Probe {
     /// Name is a single checked path component.
     pub name: String,
@@ -134,6 +151,8 @@ fn publish(path: &Path, bytes: &[u8]) -> Result<(), ProbeError> {
 #[derive(Debug)]
 pub struct Lease {
     _file: File,
+    store: PathBuf,
+    name: String,
 }
 fn lease(store: &Path, name: &str) -> Result<Lease, ProbeError> {
     name_component(name)?;
@@ -154,7 +173,11 @@ fn lease(store: &Path, name: &str) -> Result<Lease, ProbeError> {
             ))
         },
     )?;
-    Ok(Lease { _file: file })
+    Ok(Lease {
+        _file: file,
+        store: store.to_owned(),
+        name: name.into(),
+    })
 }
 
 /// Create an authored scratch workspace from exact locked packages without changing the checkout.
@@ -331,6 +354,100 @@ pub struct Run {
     /// Keep alive through original native settlement.
     pub lease: Lease,
 }
+/// Original performing selection, published before launch while the existing probe lease is held.
+#[derive(Clone, Debug)]
+pub struct ManagedRun {
+    /// Original B03 identity, never a PID/marker ownership claim.
+    pub invocation: crate::envelope::CliInvocationId,
+    /// Actual original verb, either probe run or compiler probe.
+    pub command_name: String,
+    /// Exact full native performing argv.
+    pub command: Vec<OsString>,
+    /// Actual immutable performing CLI control identity.
+    pub control: crate::generation::PreparedGeneration,
+    /// Original image checkout, independent of selected source cwd.
+    pub control_checkout: PathBuf,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RunReference {
+    version: u32,
+    checkout: OsString,
+    checkout_id: String,
+    repository_id: String,
+    ledger_root: OsString,
+    invocation: crate::envelope::CliInvocationId,
+    command_name: String,
+    command: Vec<OsString>,
+    cwd: OsString,
+    control: crate::generation::PreparedGeneration,
+    control_checkout: OsString,
+    probe_manifest_sha256: String,
+}
+impl Run {
+    /// Publish one durable original-run binding before any native payload launch. Missing or
+    /// incomplete original evidence after a crash subsequently protects this probe from rm.
+    pub fn record_managed(
+        &self,
+        root: &Path,
+        environment: &Environment,
+        selection: ManagedRun,
+    ) -> Result<(), ProbeError> {
+        let root = root.canonicalize()?;
+        if self.lease.name != self.probe.name
+            || self.probe.directory != self.lease.store.join("probes").join(&self.lease.name)
+            || self.resolution_directory.parent()
+                != Some(self.probe.directory.join("runs").as_path())
+        {
+            return Err(invalid(
+                "managed run does not hold this probe's original lease/capture directory",
+            ));
+        }
+        if !matches!(
+            selection.command_name.as_str(),
+            "probe run" | "compiler probe"
+        ) || selection.command.is_empty()
+        {
+            return Err(invalid(
+                "unsupported managed probe verb or empty native argv",
+            ));
+        }
+        let state = crate::paths::CheckoutState::resolve(&root, environment)
+            .map_err(crate::HostError::from)
+            .map_err(host)?;
+        if state.root != self.lease.store {
+            return Err(invalid(
+                "managed probe lease differs from original checkout ledger",
+            ));
+        }
+        let reference = RunReference {
+            version: 1,
+            checkout: root.into_os_string(),
+            checkout_id: state.checkout_id.as_str().into(),
+            repository_id: state.repository_id.as_str().into(),
+            ledger_root: state.root.into_os_string(),
+            invocation: selection.invocation,
+            command_name: selection.command_name,
+            command: selection.command,
+            cwd: self.probe.directory.as_os_str().to_owned(),
+            control: selection.control,
+            control_checkout: selection.control_checkout.into_os_string(),
+            probe_manifest_sha256: digest(&fs::read(self.probe.directory.join("probe.json"))?),
+        };
+        publish(
+            &self.resolution_directory.join("managed-run.json"),
+            &serde_json::to_vec_pretty(&reference)?,
+        )?;
+        for path in [
+            &self.resolution_directory,
+            &self.probe.directory.join("runs"),
+            &self.probe.directory,
+        ] {
+            File::open(path)?.sync_all()?;
+        }
+        Ok(())
+    }
+}
 /// Resolve the scratch graph explicitly, retain its original bytes, then prepare a correctness run.
 /// The caller runs `command` through the existing managed native boundary with scratch cwd.
 pub fn prepare_run(
@@ -338,6 +455,27 @@ pub fn prepare_run(
     store: &Path,
     name: &str,
     environment: &Environment,
+    arguments: &[OsString],
+) -> Result<Run, ProbeError> {
+    prepare_operation(root, store, name, environment, "run", arguments)
+}
+/// Resolve the same authored scratch graph/lease for a selected native compiler artifact stage.
+/// Arguments after `--` are compiler arguments here, rather than arguments to the probe binary.
+pub fn prepare_compiler(
+    root: &Path,
+    store: &Path,
+    name: &str,
+    environment: &Environment,
+    arguments: &[OsString],
+) -> Result<Run, ProbeError> {
+    prepare_operation(root, store, name, environment, "rustc", arguments)
+}
+fn prepare_operation(
+    root: &Path,
+    store: &Path,
+    name: &str,
+    environment: &Environment,
+    operation: &str,
     arguments: &[OsString],
 ) -> Result<Run, ProbeError> {
     let (probe, lease) = open(store, name)?;
@@ -421,7 +559,7 @@ pub fn prepare_run(
         .map_err(|error| invalid(error.to_string()))?;
     let mut command = vec![
         executable.into_os_string(),
-        "run".into(),
+        operation.into(),
         "--config".into(),
         format!("build.build-dir={:?}", probe.target_directory).into(),
         "--bin".into(),
@@ -446,12 +584,133 @@ pub fn prepare_run(
         lease,
     })
 }
-/// Remove only a selected probe with no cooperative owner or observed same-user live process.
-pub fn rm(store: &Path, name: &str) -> Result<PathBuf, ProbeError> {
+#[derive(Deserialize)]
+struct OriginalOperation {
+    command: Vec<OsString>,
+    cwd: OsString,
+}
+fn references(
+    root: &Path,
+    store: &Path,
+    probe: &Probe,
+    environment: &Environment,
+) -> Result<Vec<RunReference>, ProbeError> {
+    let runs = probe.directory.join("runs");
+    let entries = match fs::read_dir(&runs) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+        Err(error) => return Err(error.into()),
+    };
+    let mut result = Vec::new();
+    let root = root.canonicalize()?;
+    for entry in entries {
+        let path = entry?.path();
+        let metadata = fs::symlink_metadata(&path)?;
+        if !metadata.is_dir()
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+            || metadata.mode() & 0o077 != 0
+        {
+            return Err(invalid(
+                "probe run capture is not an owned private directory",
+            ));
+        }
+        if fs::read_dir(&path)?.next().is_none() {
+            continue;
+        }
+        let bytes = crate::test_inventory::read_private(&path.join("managed-run.json")).map_err(
+            |error| ProbeError::RunCustody {
+                capture: path.clone(),
+                source: Box::new(error),
+            },
+        )?;
+        let reference: RunReference = serde_json::from_slice(&bytes)?;
+        if reference.version != 1
+            || Path::new(&reference.checkout) != root
+            || Path::new(&reference.ledger_root) != store
+            || Path::new(&reference.cwd) != probe.directory
+            || reference.probe_manifest_sha256
+                != digest(&fs::read(probe.directory.join("probe.json"))?)
+            || !matches!(
+                reference.command_name.as_str(),
+                "probe run" | "compiler probe"
+            )
+        {
+            return Err(invalid(
+                "probe run reference differs from original checkout/probe selection",
+            ));
+        }
+        let state = crate::paths::CheckoutState::resolve(&root, environment)
+            .map_err(crate::HostError::from)
+            .map_err(host)?;
+        if state.root != store
+            || state.checkout_id.as_str() != reference.checkout_id
+            || state.repository_id.as_str() != reference.repository_id
+        {
+            return Err(invalid(
+                "probe run reference differs from inspected checkout/ledger identity",
+            ));
+        }
+        let original: crate::invocation::InvocationMetadata<OriginalOperation> =
+            crate::invocation::InvocationStore::new(state)
+                .metadata(&reference.invocation)
+                .map_err(host)?;
+        if original.selection.command != reference.command_name
+            || original.selection.operation.cwd != reference.cwd
+            || original.selection.operation.command != reference.command
+            || original.selection.control != reference.control
+        {
+            return Err(invalid(
+                "original invocation metadata does not bind this probe's exact cwd/argv/verb/control",
+            ));
+        }
+        result.push(reference);
+    }
+    Ok(result)
+}
+async fn remove_with<F, Fut>(
+    root: &Path,
+    store: &Path,
+    name: &str,
+    environment: &Environment,
+    observe: F,
+) -> Result<PathBuf, ProbeError>
+where
+    F: FnMut(RunReference) -> Fut,
+    Fut: Future<Output = Result<bool, ProbeError>>,
+{
     let (probe, _lease) = open(store, name)?;
+    let recorded = references(root, store, &probe, environment)?;
+    let observed = futures_util::future::join_all(recorded.into_iter().map(observe)).await;
+    for native in observed {
+        if !native? {
+            return Err(invalid(
+                "an original probe native root remains live or unsettled, including an authenticated borrowed enclosing owner; explicit rm remains protected until that original root drains",
+            ));
+        }
+    }
     refuse_live_processes(&probe.directory)?;
     fs::remove_dir_all(&probe.directory)?;
     Ok(probe.directory)
+}
+/// Remove a named probe only after the same lease excludes new supported runs and every
+/// durable original run matches its ledger selection and authenticated native root drain.
+/// Failed calculations can be drained; missing/legacy/unknown custody never grants deletion.
+pub async fn rm(
+    root: &Path,
+    store: &Path,
+    name: &str,
+    environment: &Environment,
+) -> Result<PathBuf, ProbeError> {
+    remove_with(root, store, name, environment, |reference| async move {
+        crate::foreground::observe_recorded_drain(
+            Path::new(&reference.checkout),
+            &reference.invocation,
+            environment,
+        )
+        .await
+        .map_err(host)
+    })
+    .await
 }
 fn refuse_live_processes(path: &Path) -> Result<(), ProbeError> {
     for entry in fs::read_dir("/proc")? {

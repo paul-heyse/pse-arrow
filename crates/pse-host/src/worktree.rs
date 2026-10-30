@@ -17,7 +17,7 @@ use crate::{
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use gix::bstr::ByteSlice as _;
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
     ffi::{OsStr, OsString},
@@ -673,16 +673,15 @@ async fn activity(
                     (false, None)
                 }
             };
-            let native =
-                match crate::managed::supervisor::observe_recorded(root, &id, environment).await {
-                    Ok(observed) if observed.native_drained => NativeUse::Drained,
-                    Ok(_) => NativeUse::Live,
-                    Err(error) => {
-                        let reason = error.to_string();
-                        errors.push(ErrorRecord::from_typed(&error, policy));
-                        NativeUse::Unavailable { reason }
-                    }
-                };
+            let native = match original_native_drained(root, store, &id, environment).await {
+                Ok(true) => NativeUse::Drained,
+                Ok(false) => NativeUse::Live,
+                Err(error) => {
+                    let reason = error.to_string();
+                    errors.push(ErrorRecord::from_typed(&error, policy));
+                    NativeUse::Unavailable { reason }
+                }
+            };
             (
                 InvocationUse {
                     invocation: id,
@@ -703,6 +702,37 @@ async fn activity(
         failures.extend(error);
     }
     Ok((records, failures))
+}
+#[derive(Deserialize)]
+struct CustodyOwner {
+    version: u32,
+}
+async fn original_native_drained(
+    root: &Path,
+    store: &InvocationStore,
+    id: &crate::envelope::CliInvocationId,
+    environment: &Environment,
+) -> Result<bool, HostError> {
+    let directory = store.directory(id)?;
+    let owner: CustodyOwner = directory
+        .evidence(crate::invocation::InvocationEvidence::Custody)?
+        .ok_or_else(|| {
+            HostError::Ownership(
+                "original native custody is absent; terminal metadata does not establish drain"
+                    .into(),
+            )
+        })?;
+    // A routing hint only: each original owner validates its full custody/metadata and
+    // establishes drain from actual manager/kernel facts, never this version or a terminal row.
+    match owner.version {
+        4 => crate::foreground::observe_recorded_drain(root, id, environment).await,
+        5 => crate::managed::supervisor::observe_recorded(root, id, environment)
+            .await
+            .map(|observed| observed.native_drained),
+        version => Err(HostError::Ownership(format!(
+            "unsupported original native custody version {version}; no drain inferred"
+        ))),
+    }
 }
 /// List actual Git/metadata/native facts without host preparation, worktree mutation,
 /// capacity settlement or a declaration that unknown readers/resources do not exist.

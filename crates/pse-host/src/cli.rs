@@ -373,6 +373,7 @@ impl Command {
     fn generation_intent(&self) -> GenerationIntent {
         match self {
             Self::Tools { action } => action.intent(),
+            Self::Compiler { action } => action.intent(),
             Self::Worktree { action } => action.intent(),
             Self::Wait(_) | Self::Cancel(_) => GenerationIntent::ExistingControl,
             Self::Observe { action } => action.intent(),
@@ -398,7 +399,6 @@ impl Command {
             | Self::Owner { .. }
             | Self::Dep { .. }
             | Self::Changes(_)
-            | Self::Compiler { .. }
             | Self::Outline { .. }
             | Self::Show { .. }
             | Self::Artifact { .. }
@@ -826,6 +826,13 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "compiler diagnostic" => {
             envelope::schema::<crate::compiler_investigation::DetailPage<'static>>(command, view)
         }
+        "compiler generate" | "compiler probe" => envelope::schema::<ManagedReply>(command, view),
+        "compiler artifacts" => {
+            envelope::schema::<crate::compiler_investigation::artifact::Observation>(command, view)
+        }
+        "compiler file" => {
+            envelope::schema::<crate::compiler_investigation::artifact::FileRead>(command, view)
+        }
         "worktree new" => envelope::schema::<crate::worktree::NewReport>(command, view),
         "worktree list" => envelope::schema::<crate::worktree::ListReport>(command, view),
         "api prepare" | "api compare" | "api check-docs" | "probe run" => {
@@ -1141,7 +1148,7 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
         Command::Docs(args) => docs::dispatch(args, selected, presentation, entry),
         Command::Api(args) => api::dispatch(args, &checkout_root(selected)?, presentation, entry),
         Command::Code { action } => code::dispatch(action, selected, presentation, entry),
-        Command::Compiler { action } => compiler::dispatch(action, selected, presentation),
+        Command::Compiler { action } => compiler::dispatch(action, selected, presentation, entry),
         Command::Worktree { action } => worktree::dispatch(action, selected, presentation),
         Command::Dep {
             package,
@@ -1917,7 +1924,7 @@ struct OwnerView {
     document:
         crate::catalog::description::Information<crate::ownership::document::DocumentOwnership>,
 }
-fn environment_digest(environment: &Environment) -> String {
+pub(crate) fn environment_digest(environment: &Environment) -> String {
     use sha2::{Digest as _, Sha256};
     let mut digest = Sha256::new();
     for (name, value) in environment {
@@ -2338,7 +2345,10 @@ pub fn main(kind: BinKind) -> ExitCode {
                                     | Command::Show { .. }
                                     | Command::Api(_)
                                     | Command::Code { .. }
-                                    | Command::Compiler { .. }
+                                    | Command::Compiler {
+                                        action: compiler::Action::Diagnostics { .. }
+                                            | compiler::Action::Diagnostic { .. }
+                                    }
                             )
                         )
                         && (cli.fields.is_some() || cli.budget.is_some())

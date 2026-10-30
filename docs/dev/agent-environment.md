@@ -416,6 +416,37 @@ or updating manifests/locks. Original findings/exit/raw streams and differing ex
 premises are retained. `scripts/pse api pse-ids --check-docs` separately runs scoped native
 rustdoc lints through the shared compiler workflow, retaining original rule/source addresses.
 Ordinary API queries require neither that check nor an analyzer session.
+### Original compiler evidence and explicit investigations
+
+For an original check failure, use `scripts/pse compiler diagnostics INVOCATION` and follow its
+addressed `compiler diagnostic` action. `--source` compares original native snippets to current
+source; `--raw` retains the exact Cargo JSON representation. Related-span pages keep secondary
+locations, child notes, replacements/applicability and macro context. They never compile, and
+matching visible lines does not establish a whole original-source identity.
+
+Explicit new compiler evidence uses `scripts/pse compiler generate PACKAGE --kind mir --body
+FUNCTION --pass ElaborateDrops --question 'remaining field drops'` (library by default, or select
+`--bin NAME`). Cargo features and `--target` select the actual admitted unit. THIR, type-size and
+mono-item kinds select unit scope; unsupported body/pass narrowing refuses. Native dump generation
+disables incremental reuse and requests sccache's no-cache mode within that explicit stage, so
+side-effect dumps are produced again. These opaque, pin-specific files are evidence to inspect;
+they are not host-inferred loan/liveness facts, an ABI proof, runtime reach or a speed measurement.
+
+For concrete constants/layouts, first create and edit an authored `pse probe`; then use
+`scripts/pse compiler probe NAME --question 'concrete constant and layout'`. The existing isolated
+probe owner retains its lease, graph, toolchain and authored stdout meaning. Compiler artifact kinds
+can also select that probe explicitly. `compiler artifacts INVOCATION` reads its original context,
+native outcome and file index; `compiler file INVOCATION INDEX --length 4096` verifies the historical
+whole-file SHA on a checked descriptor before returning a bounded range. Digest validation scans
+the complete file and states that cost. Reads never rerun compilation, install components or
+prepare a structured compiler driver. Changed original files refuse their digest guard.
+
+Managed probe runs publish their original checkout/invocation, exact command/cwd and control
+reference before launch while holding the existing probe lease. `probe rm` takes that same lease,
+checks every recorded run against original ledger metadata and requires the original native root
+to be drained. A failed calculation can be safely drained; a terminal row or absent PID alone
+does not establish that fact. Unknown legacy captures and missing custody remain protected.
+An authenticated borrowed enclosing owner can keep the probe protected until that root drains.
 
 ## Explicit host controls
 
