@@ -307,6 +307,20 @@ service. Prefer D03's `ra_ap_syntax` typed AST for Rust declaration reads and na
 adopt the pattern engine when its capture/rewrite consumer removes bespoke matching logic.
 Neither grammar tags nor source-shaped matches establish cross-file references or types.
 
+The full [Tree-sitter Rust reference](../libraries/rust_analyzers/tree-sitter-rust.md) sharpens
+this composition: grammar0.24.2 and runtime0.27.1 have independent versions/ABI checks; the
+grammar exposes native node metadata and tagging/highlight/injection queries, while the
+runtime owns parsing, query cursors and incremental trees. Reuse compiled native queries for
+an extraction consumer where they remove a custom visitor, and expose range/depth/match-limit
+coverage and parser ERROR/MISSING regions. `TAGS_QUERY` is a useful partial syntax inventory,
+not a complete symbol/reference index; Rust has no bundled `LOCALS_QUERY` in this release.
+Macro token-tree injection is secondary interpretation, not expansion. Retain original source
+because Tree-sitter nodes do not retain whitespace as explicit trivia. Any incremental consumer
+must invalidate from both actual text edits and structural changed ranges: a name change can
+leave tree shape unchanged. Native progress cancellation and immutable copied trees are useful
+to a concrete repeated-query consumer; they do not require a new persistent parsing service or
+replace G02/G03's source/configuration identity. Prefer queries over grammar/scanner forks.
+
 **Generated syntax and replacement fragments.** The full
 [`syn`/`quote`/`prettyplease` capability reference](../libraries/rust_analyzers/syn_quote_prettyplease.md)
 adds a complementary route, already used by the registry generator: pinned `syn`3.0.5,
