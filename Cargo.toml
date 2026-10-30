@@ -728,6 +728,19 @@ forbidden = [
   "pse-ipopt*",
 ]
 
+[workspace.metadata.pse.dependency-ceilings.host]
+roots = ["pse-host"]
+forbidden = [
+  "pse-engine",
+  "pse-runtime",
+  "pse-operations",
+  "arrow*",
+  "datafusion*",
+  "parquet",
+  "pse-schema",
+  "surrealdb*",
+]
+
 # ADR-0189: these exact source-qualified owners enforce pure invocation channels.
 # Transitive users receive the same guarded owner; package identity alone is no grant.
 [patch.crates-io]
