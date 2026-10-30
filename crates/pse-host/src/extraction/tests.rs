@@ -418,25 +418,210 @@ fn nextest_ignored_only_retains_native_counter_sentinel_without_misclassifying_p
         NextestExtractor::from_listing(0, &listing, crate::selection::IgnoredPolicy::Default)
             .is_err()
     );
-    let mut extractor =
-        NextestExtractor::from_listing(0, &listing, crate::selection::IgnoredPolicy::Only).unwrap();
-    let mut terminal = suite_end("first", "test", false);
-    terminal["ignored"] = json!(1);
-    terminal["filtered_out"] = json!(u64::MAX);
-    let records = feed_nextest(
-        &mut extractor,
-        &[
-            suite_start("first", "test"),
+    for policy in [
+        crate::selection::IgnoredPolicy::Only,
+        crate::selection::IgnoredPolicy::All,
+    ] {
+        let mut extractor = NextestExtractor::from_listing(0, &listing, policy).unwrap();
+        let mut terminal = suite_end("first", "test", false);
+        terminal["ignored"] = json!(1);
+        terminal["filtered_out"] = json!(u64::MAX);
+        let records = feed_nextest(
+            &mut extractor,
+            &[
+                suite_start("first", "test"),
+                test_event("case::first$same_name", "started"),
+                test_event("case::first$same_name", "ok"),
+                terminal,
+            ],
+        );
+        let NextestRecord::Suite { filtered_out, .. } = &records[3] else {
+            panic!("suite")
+        };
+        assert_eq!(*filtered_out, Some(u64::MAX));
+        let summary = extractor.finish(0);
+        assert_eq!(summary.outcome(), NextestOutcome::Succeeded);
+        assert_eq!(
+            serde_json::to_value(&summary).unwrap()["ignored_policy"],
+            serde_json::to_value(policy).unwrap()
+        );
+    }
+}
+
+fn nextest_ignored_suite_stream(
+    only: bool,
+) -> (nextest_metadata::TestListSummary, Vec<serde_json::Value>) {
+    let mut listing = nextest_listing(&[
+        ("case::first", "first", "lib"),
+        ("case::skipped", "skipped", "test"),
+    ]);
+    let skipped = listing
+        .rust_suites
+        .get_mut(&nextest_metadata::RustBinaryId::new("case::skipped"))
+        .unwrap()
+        .test_cases
+        .values_mut()
+        .next()
+        .unwrap();
+    skipped.ignored = !only;
+    skipped.filter_match = nextest_metadata::FilterMatch::Mismatch {
+        reason: nextest_metadata::MismatchReason::Ignored,
+    };
+    if only {
+        listing
+            .rust_suites
+            .get_mut(&nextest_metadata::RustBinaryId::new("case::first"))
+            .unwrap()
+            .test_cases
+            .values_mut()
+            .next()
+            .unwrap()
+            .ignored = true;
+    }
+    let mut skipped_start = suite_start("skipped", "test");
+    skipped_start["test_count"] = json!(usize::from(!only));
+    let mut skipped_end = suite_end("skipped", "test", false);
+    skipped_end["passed"] = json!(0);
+    skipped_end["ignored"] = json!(usize::from(!only));
+    let mut selected_end = suite_end("first", "lib", false);
+    selected_end["ignored"] = json!(usize::from(only));
+    (
+        listing,
+        vec![
+            skipped_start,
+            test_event("case::skipped$same_name", "started"),
+            suite_start("first", "lib"),
             test_event("case::first$same_name", "started"),
             test_event("case::first$same_name", "ok"),
-            terminal,
+            selected_end,
+            skipped_end,
         ],
+    )
+}
+
+#[test]
+fn nextest_ignored_only_suite_aggregate_does_not_require_an_unflushed_test_terminal() {
+    for only in [false, true] {
+        let (listing, records) = nextest_ignored_suite_stream(only);
+        let mut extractor = NextestExtractor::from_listing(
+            3,
+            &listing,
+            if only {
+                crate::selection::IgnoredPolicy::Only
+            } else {
+                crate::selection::IgnoredPolicy::Default
+            },
+        )
+        .unwrap();
+        feed_nextest(&mut extractor, &records);
+        let summary = extractor.finish(0);
+        assert_eq!(summary.outcome(), NextestOutcome::Succeeded);
+        assert_eq!(summary.setup(), NextestSetup::SucceededByRunner);
+        assert!(summary.complete());
+        assert_eq!(summary.selected(), 1);
+        assert_eq!(summary.completed(), 1);
+    }
+}
+
+#[test]
+fn nextest_ignored_aggregate_never_supplies_missing_selected_result_suite_or_counter() {
+    for remove in [Some(4), Some(6), None] {
+        let (listing, mut records) = nextest_ignored_suite_stream(false);
+        if let Some(index) = remove {
+            records.remove(index);
+        } else {
+            records[6]["ignored"] = json!(0);
+        }
+        let mut extractor = nextest_extractor(&listing);
+        for (ordinal, record) in records.iter().enumerate() {
+            let _result = extractor.consume(
+                &serde_json::to_vec(record).unwrap(),
+                origin(ordinal as u64),
+                &RedactionPolicy::default(),
+            );
+        }
+        let summary = extractor.finish(0);
+        assert_eq!(summary.outcome(), NextestOutcome::Incomplete);
+        assert_eq!(summary.setup(), NextestSetup::Unknown);
+    }
+    let (listing, mut records) = nextest_ignored_suite_stream(false);
+    records[0]["test_count"] = json!(2);
+    let mut extractor = nextest_extractor(&listing);
+    assert!(
+        extractor
+            .consume(
+                &serde_json::to_vec(&records[0]).unwrap(),
+                origin(0),
+                &RedactionPolicy::default()
+            )
+            .is_err()
     );
-    let NextestRecord::Suite { filtered_out, .. } = &records[3] else {
-        panic!("suite")
+    assert_eq!(extractor.finish(0).outcome(), NextestOutcome::Incomplete);
+    assert!(
+        NextestExtractor::from_listing(0, &listing, crate::selection::IgnoredPolicy::All).is_err(),
+        "all policy cannot acquire a fabricated ignored-mismatch aggregate"
+    );
+}
+
+#[test]
+fn nextest_ignored_tail_aggregate_does_not_hide_a_lost_precompletion_record() {
+    let mut listing = nextest_listing(&[("case::first", "first", "lib")]);
+    let mut ignored = listing
+        .rust_suites
+        .values()
+        .next()
+        .unwrap()
+        .test_cases
+        .values()
+        .next()
+        .unwrap()
+        .clone();
+    ignored.ignored = true;
+    ignored.filter_match = nextest_metadata::FilterMatch::Mismatch {
+        reason: nextest_metadata::MismatchReason::Ignored,
     };
-    assert_eq!(*filtered_out, Some(u64::MAX));
-    assert_eq!(extractor.finish(0).outcome(), NextestOutcome::Succeeded);
+    listing
+        .rust_suites
+        .values_mut()
+        .next()
+        .unwrap()
+        .test_cases
+        .insert(nextest_metadata::TestCaseName::new("ignored"), ignored);
+    listing.test_count += 1;
+    let mut start = suite_start("first", "lib");
+    start["test_count"] = json!(2);
+    let mut end = suite_end("first", "lib", false);
+    end["ignored"] = json!(1);
+    for tail in [false, true] {
+        let mut extractor = nextest_extractor(&listing);
+        let records = if tail {
+            vec![
+                start.clone(),
+                test_event("case::first$same_name", "started"),
+                test_event("case::first$same_name", "ok"),
+                test_event("case::first$ignored", "started"),
+                end.clone(),
+            ]
+        } else {
+            vec![
+                start.clone(),
+                test_event("case::first$ignored", "started"),
+                test_event("case::first$same_name", "started"),
+                test_event("case::first$same_name", "ok"),
+                end.clone(),
+            ]
+        };
+        feed_nextest(&mut extractor, &records);
+        let summary = extractor.finish(0);
+        assert_eq!(
+            summary.outcome(),
+            if tail {
+                NextestOutcome::Succeeded
+            } else {
+                NextestOutcome::Incomplete
+            }
+        );
+    }
 }
 
 #[test]

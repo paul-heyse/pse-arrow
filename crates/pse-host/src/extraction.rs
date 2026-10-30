@@ -622,6 +622,10 @@ struct SuiteEvidence {
     last_terminal: Option<u64>,
     last_test: Option<u64>,
     block_records: usize,
+    declared_ignored: u64,
+    expected_test_count: u64,
+    block_start: u64,
+    last_completion: Option<u64>,
 }
 #[derive(Debug)]
 struct CaseEvidence {
@@ -629,8 +633,9 @@ struct CaseEvidence {
     selected: bool,
     ignored: bool,
     expect_ignored: bool,
-    started: bool,
+    started: Option<u64>,
     terminal: Option<NextestTestEvent>,
+    ignored_by_suite: bool,
 }
 /// Reconcile one captured ordinary nextest run/group. Stress and rerun-chain interpretation
 /// are deliberately unsupported; observed extensions or outstanding native status cannot pass.
@@ -708,6 +713,23 @@ impl NextestExtractor {
             let mut selected_suite = false;
             for (name, case) in &suite.test_cases {
                 let selected = case.filter_match.is_match();
+                let expect_ignored = matches!(
+                    case.filter_match,
+                    FilterMatch::Mismatch {
+                        reason: MismatchReason::Ignored
+                    }
+                );
+                let policy_mismatch = match ignored_policy {
+                    crate::selection::IgnoredPolicy::Default => case.ignored,
+                    crate::selection::IgnoredPolicy::Only => !case.ignored,
+                    crate::selection::IgnoredPolicy::All => false,
+                };
+                if expect_ignored && !policy_mismatch {
+                    return Err(ExtractionError::Nextest(
+                        "listed ignore mismatch contradicts its original ignored-test policy"
+                            .into(),
+                    ));
+                }
                 if selected
                     && match ignored_policy {
                         crate::selection::IgnoredPolicy::Default => case.ignored,
@@ -739,14 +761,10 @@ impl NextestExtractor {
                         suite: binary_id.to_string(),
                         selected,
                         ignored: case.ignored,
-                        expect_ignored: matches!(
-                            case.filter_match,
-                            FilterMatch::Mismatch {
-                                reason: MismatchReason::Ignored
-                            }
-                        ),
-                        started: false,
+                        expect_ignored,
+                        started: None,
                         terminal: None,
+                        ignored_by_suite: false,
                     },
                 );
             }
@@ -766,6 +784,18 @@ impl NextestExtractor {
                     last_terminal: None,
                     last_test: None,
                     block_records: 0,
+                    declared_ignored: suite
+                        .test_cases
+                        .values()
+                        .filter(|case| case.ignored)
+                        .count() as u64,
+                    expected_test_count: suite
+                        .test_cases
+                        .values()
+                        .filter(|case| case.ignored || case.filter_match.is_match())
+                        .count() as u64,
+                    block_start: 0,
+                    last_completion: None,
                 },
             );
         }
@@ -841,7 +871,7 @@ impl NextestExtractor {
                 }
                 match record.event.as_str() {
                     "started"
-                        if record.test_count.is_some()
+                        if record.test_count == Some(suite.expected_test_count)
                             && record.passed.is_none()
                             && record.failed.is_none()
                             && record.ignored.is_none()
@@ -852,6 +882,8 @@ impl NextestExtractor {
                     {
                         suite.starts += 1;
                         suite.block_records = 0;
+                        suite.block_start = origin.ordinal;
+                        suite.last_completion = None;
                     }
                     "ok" | "failed"
                         if suite.starts == suite.terminals + 1
@@ -859,7 +891,7 @@ impl NextestExtractor {
                             && record.test_count.is_none()
                             && record.passed.is_some()
                             && record.failed.is_some()
-                            && record.ignored.is_some()
+                            && record.ignored == Some(suite.declared_ignored)
                             && record.measured == Some(0)
                             && record.filtered_out.is_some()
                             && record.exec_time.is_some() =>
@@ -875,6 +907,29 @@ impl NextestExtractor {
                         self.suite_failed |= record.event == "failed";
                         suite.terminals += 1;
                         suite.last_terminal = Some(origin.ordinal);
+                        // Pinned nextest0.9.146 buffers ignored terminals until a later
+                        // TestFinished in this suite, then drops the unflushed tail when
+                        // finalizing. Reconcile only that native aggregate: the exact listed
+                        // ignore-policy mismatch must have started after the last completion.
+                        // Selected test completion always requires its own actual result.
+                        for case in self
+                            .cases
+                            .values_mut()
+                            .filter(|case| case.suite == *binary_id)
+                        {
+                            if !case.selected
+                                && case.expect_ignored
+                                && case.terminal.is_none()
+                                && case.started.is_some_and(|ordinal| {
+                                    ordinal > suite.block_start
+                                        && suite
+                                            .last_completion
+                                            .is_none_or(|completion| ordinal > completion)
+                                })
+                            {
+                                case.ignored_by_suite = true;
+                            }
+                        }
                     }
                     _ => {
                         return Err(ExtractionError::Nextest(
@@ -952,21 +1007,27 @@ impl NextestExtractor {
                     ));
                 }
                 match record.event {
-                    NextestTestEvent::Started if !case.started && case.terminal.is_none() => {
-                        case.started = true;
+                    NextestTestEvent::Started
+                        if case.started.is_none() && case.terminal.is_none() =>
+                    {
+                        case.started = Some(origin.ordinal);
                     }
                     NextestTestEvent::Ignored
-                        if case.started && case.expect_ignored && case.terminal.is_none() =>
+                        if case.started.is_some()
+                            && case.expect_ignored
+                            && case.terminal.is_none()
+                            && !case.ignored_by_suite =>
                     {
                         case.terminal = Some(record.event);
                     }
                     NextestTestEvent::Ok | NextestTestEvent::Failed
-                        if case.started
+                        if case.started.is_some()
                             && case.selected
                             && case.terminal.is_none()
                             && record.exec_time.is_some() =>
                     {
                         case.terminal = Some(record.event);
+                        suite.last_completion = Some(origin.ordinal);
                     }
                     _ => {
                         return Err(ExtractionError::Nextest(
@@ -1019,10 +1080,9 @@ impl NextestExtractor {
         });
         let complete = self.incomplete == 0
             && completed == selected
-            && self
-                .cases
-                .values()
-                .all(|case| !case.started || case.terminal.is_some())
+            && self.cases.values().all(|case| {
+                case.started.is_none() || case.terminal.is_some() || case.ignored_by_suite
+            })
             && self.suites.values().all(|suite| {
                 (!suite.selected && suite.starts == 0)
                     || (suite.terminals > 0

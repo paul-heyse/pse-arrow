@@ -276,6 +276,68 @@ async fn actual_workflow_runs_only_the_original_selected_pure_host_test() {
 }
 
 #[tokio::test]
+async fn actual_package_workflow_reconciles_selected_tests_beside_an_ignored_only_suite() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let evidence = tempfile::tempdir().unwrap();
+    let mut input = input(Action::Test);
+    input.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
+        package: "pse-host".into(),
+        target: None,
+        features: selection::Features {
+            defaults: false,
+            ..selection::Features::default()
+        },
+    }]);
+    input.request.filters.expressions = vec!["test(managed::workflow::tests::)".into()];
+    input.request.filters.ignore_default_filter = true;
+    let destination = evidence.path().join("workflow");
+    let report = run(&input, root, &destination, std::env::vars_os().collect())
+        .await
+        .unwrap();
+    if report.outcome != Outcome::TestsSucceeded {
+        report.publish(&destination).unwrap();
+        let evidence = evidence.keep();
+        panic!(
+            "package-wide workflow {:?}, selected {:?}, failures {:?}; original evidence {}",
+            report.outcome,
+            report.selected_tests,
+            report.failures,
+            evidence.display()
+        );
+    }
+    assert_eq!(report.selected_tests, Some(2));
+    assert!(report.required_capture_complete);
+    let GroupObservation::Test { observation, .. } = &report.observations[0] else {
+        panic!("test observation")
+    };
+    assert_eq!(observation.summary.completed(), 2);
+    assert!(observation.summary.complete());
+    assert_eq!(
+        observation.summary.setup(),
+        crate::extraction::NextestSetup::SucceededByRunner
+    );
+    let inventory: crate::discovery::Inventory =
+        serde_json::from_slice(&fs::read(destination.join("inventory/inventory.json")).unwrap())
+            .unwrap();
+    assert!(
+        inventory.groups[0]
+            .listing
+            .rust_suites
+            .values()
+            .any(|suite| suite.binary.binary_name == "native"
+                && suite
+                    .test_cases
+                    .values()
+                    .any(|case| case.ignored && !case.filter_match.is_match())),
+        "actual package-wide capture includes the original ignored-only integration suite"
+    );
+    assert_eq!(report.publish(&destination).unwrap().helper_exit(), 0);
+}
+
+#[tokio::test]
 async fn actual_check_and_zero_match_listing_keep_distinct_native_outcomes() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
