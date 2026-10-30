@@ -30,11 +30,11 @@ pub(super) struct Engine {
     generation: AtomicU64,
     active: AtomicUsize,
     documents: Mutex<BTreeMap<PathBuf, (String, i32)>>,
-    manifests: BTreeMap<PathBuf, Option<String>>,
+    context: Arc<super::context::Context>,
     encoding: String,
     configuration_exchange: Arc<transport::ConfigurationExchange>,
 }
-fn protocol(error: impl std::fmt::Display) -> Error {
+pub(super) fn protocol(error: impl std::fmt::Display) -> Error {
     Error::Protocol(error.to_string())
 }
 pub(super) async fn request<R: Request>(server: &ServerHandle, params: Value) -> Result<Value> {
@@ -104,6 +104,10 @@ impl Engine {
         configuration: Configuration,
         stderr: std::fs::File,
     ) -> Result<Self> {
+        // Capture effective Cargo inputs and install preparation watches before any analyzer
+        // loading/build effects. Quiescence never discards intervening input changes.
+        let captured_context =
+            Arc::new(super::context::Context::capture(checkout, &configuration)?);
         let version = std::process::Command::new("rust-analyzer")
             .arg("--version")
             .current_dir(checkout)
@@ -176,6 +180,7 @@ impl Engine {
         )?;
         let response_configuration = configuration_exchange.clone();
         let activation_configuration = configuration_exchange.clone();
+        let activation_context = captured_context.clone();
         let client = lspf::Client::builder(capabilities)
             .initialization_options(options)
             .request::<types::ConfigurationRequest, _, _>(move |_, params, _| {
@@ -201,6 +206,7 @@ impl Engine {
             })
             .notification::<NativeServerStatus, _, _>(move |context, params| {
                 let configuration = activation_configuration.clone();
+                let captured_context = activation_context.clone();
                 async move {
                     if params["quiescent"] != true
                         || configuration
@@ -227,6 +233,7 @@ impl Engine {
                         // The adapter observed the actual config response write. This ordered roundtrip
                         // follows RA's synchronous config-response callback, rather than assuming an ack.
                         request::<AnalyzerStatus>(&server, json!({"textDocument":null})).await?;
+                        captured_context.seal()?;
                         configuration.phase.store(3, Ordering::SeqCst);
                         Ok::<(), Error>(())
                     }
@@ -262,41 +269,6 @@ impl Engine {
                 "unimplemented negotiated encoding {encoding}"
             )));
         }
-        let mut manifests = BTreeMap::new();
-        // Cargo metadata is preparation inside the original native service, never a query-side build.
-        let metadata = std::process::Command::new("cargo")
-            .args(["metadata", "--format-version", "1", "--no-deps", "--locked"])
-            .current_dir(&configuration.project)
-            .output()?;
-        if !metadata.status.success() {
-            return Err(Error::Unavailable(format!(
-                "Cargo model preparation failed: {}",
-                String::from_utf8_lossy(&metadata.stderr)
-            )));
-        }
-        let metadata: Value = serde_json::from_slice(&metadata.stdout)?;
-        if let Some(packages) = metadata["packages"].as_array() {
-            for package in packages {
-                if let Some(path) = package["manifest_path"].as_str() {
-                    manifests.insert(PathBuf::from(path), None);
-                }
-            }
-        }
-        for name in [
-            "Cargo.toml",
-            "Cargo.lock",
-            "rust-toolchain.toml",
-            ".cargo/config.toml",
-            "rust-analyzer.toml",
-        ] {
-            manifests.insert(configuration.project.join(name), None);
-        }
-        for name in ["rust-toolchain.toml", ".cargo/config.toml"] {
-            manifests.insert(checkout.join(name), None);
-        }
-        for (path, digest) in &mut manifests {
-            *digest = file_digest(path)?;
-        }
         Ok(Self {
             server,
             evidence,
@@ -307,7 +279,7 @@ impl Engine {
             generation: AtomicU64::new(1),
             active: AtomicUsize::new(0),
             documents: Mutex::new(BTreeMap::new()),
-            manifests,
+            context: captured_context,
             encoding,
             configuration_exchange,
         })
@@ -328,16 +300,11 @@ impl Engine {
             context_current:context.is_ok(),context_issue:context.err().map(|error|error.to_string()),
             automatic_reload_disabled:self.configuration_exchange.phase.load(Ordering::SeqCst)==3,
             preparation_issue:self.configuration_exchange.issue.lock().map_err(protocol)?.clone(),
-            preparation: if self.configuration.build_macros { "explicit macro/build-script preparation through original correctness adapter; automatic checking and build-script rerun-on-save disabled" } else { "restricted: automatic checking, build scripts and proc macros disabled" }.into(),
+            preparation: if self.configuration.build_macros { "explicit check --workspace --all-targets through original correctness adapter; automatic checking and build-script rerun-on-save disabled. Native package-tree and Cargo-declared rerun-input watches fence preparation; any input/watch change requires stop and explicit prepare. Undeclared external build-script/proc-macro I/O is unknown, not exact compiler-input freshness." } else { "restricted: automatic checking, build scripts and proc macros disabled" }.into(),
         })
     }
     fn check_context(&self) -> Result<()> {
-        for (path, original) in &self.manifests {
-            if file_digest(path)? != *original {
-                return Err(Error::Stale);
-            }
-        }
-        Ok(())
+        self.context.check()
     }
     fn synchronize(&self, source: &SourceText) -> Result<u64> {
         self.check_context()?;
@@ -790,7 +757,7 @@ impl Engine {
             limitations: vec![
                 "Analyzer evidence is not Cargo/Clippy/borrow-check acceptance. Macro/build-script preparation is explicit in session context; missing or failed preparation can make answers incomplete.".into(),
                 "The analyzer selects Cargo cfg/test contexts; LSP cannot select an exact compiler-unit/crate instance. Ambiguous same-file contexts remain backend-selected.".into(),
-                "Generation fences selected open documents and captured Cargo manifests; native watchers own other source invalidation. This is not an atomic cross-file filesystem snapshot.".into(),
+                "Generation fences selected open documents and effective Cargo/workspace inputs; macro preparation additionally refuses package-tree or declared rerun-input changes. Undeclared external build-script/proc-macro I/O is unknown. Native watchers own other source invalidation; this is not an atomic cross-file filesystem snapshot.".into(),
                 "Typed captures, adjustments and reference categories are unavailable through the pinned protocol. Macro expansion has invocation fallback, not an exact expansion source map.".into(),
                 "Indirect dispatch, callback/FFI edges and universal trait applicability are not established. Test/completion candidates are non-exhaustive; no analyzer-produced command is executed.".into(),
             ] })
@@ -912,7 +879,7 @@ impl Engine {
         }
     }
 }
-fn file_digest(path: &Path) -> Result<Option<String>> {
+pub(super) fn file_digest(path: &Path) -> Result<Option<String>> {
     match std::fs::read(path) {
         Ok(bytes) => {
             use sha2::Digest as _;

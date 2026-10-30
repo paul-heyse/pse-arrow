@@ -26,7 +26,8 @@ pub(in crate::cli) enum Session {
         no_default_features: bool,
         #[arg(long)]
         target: Option<String>,
-        /// Explicitly prepare build scripts/proc macros through the original correctness adapter.
+        /// Explicitly run check --workspace --all-targets for build scripts/proc macros.
+        /// Package/input changes require stop and explicit preparation; never checks on save.
         #[arg(long)]
         build_macros: bool,
     },
@@ -178,7 +179,7 @@ pub(super) fn session(
                     let status: semantic::SessionStatus = serde_json::from_value(value)
                         .map_err(|e| HostError::Ownership(e.to_string()))?;
                     if !status.context_current {
-                        return Err(HostError::Ownership("captured semantic Cargo/toolchain context changed; stop it explicitly before preparing its replacement".into()));
+                        return Err(HostError::Ownership("captured semantic Cargo/toolchain or preparation inputs changed; stop it explicitly before preparing its replacement".into()));
                     }
                     return Ok(output.emit(Envelope::response(
                         "code session prepare",

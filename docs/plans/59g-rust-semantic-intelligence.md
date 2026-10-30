@@ -471,7 +471,7 @@ sequential-edit semantics refuse. There is no source application or second seman
 `scripts/pse test pse-host --lib -E 'test(semantic::) | test(cli::control::)'` exercises the real
 analyzer, Unicode/CRLF, same-spelled methods, stale source/configuration, cancellation/reuse,
 original native CLI lifecycle, socket spoof refusal, proposal effects/snippets and shared original
-owner settlement composition. The targeted set contains eight semantic tests and three existing
+owner settlement composition. The original targeted set contained eight semantic tests and three existing
 control tests; unselected tests are not qualification. `scripts/pse check pse-host --all-targets`
 passed for the implementation closure. These are pure host correctness closures; no Arrow leaf
 or scientific execution is selected.
@@ -488,6 +488,29 @@ original test owner successfully enumerated. Enumeration is not execution or aff
 The manifest-effect witness changes default features after explicit macro preparation: native
 status observes a blocked reload, the query refuses stale context, and the build-script execution
 count remains one. The retained native lifecycle test exercises that effect boundary.
+
+**Implemented and Tested — context-freshness correction, Linux, 2026-10-30.** Effective Cargo
+workspace manifests/locks and discovered ancestor Cargo/toolchain configuration are captured
+before analyzer launch, including a member selected below a virtual workspace root. Native
+metadata is confirmed against that capture; fixed configuration watches retain transient
+edit/restore and absent-path creation, including in restricted sessions. Explicit
+macro preparation runs `check --workspace --all-targets`. A fixed native watch set covers the
+metadata-selected package trees and extends once at preparation with declared rerun inputs from
+the pinned Cargo's native `build_directory` outputs. Cargo target/intermediate output trees and
+VCS metadata are excluded. Any watched input/topology change, overflow or lost watch refuses
+status currency, query delivery and preparation reuse until original stop/drain and explicit
+preparation; even ordinary Rust edits conservatively invalidate a macro-prepared session.
+Preparation never clears intervening source changes merely because the backend is quiescent.
+Queries drain native events without source-tree rescans or implicit compilation. Undeclared
+external build-script/proc-macro I/O remains unknown; this is a bounded freshness claim, not
+exact compiler-input custody. The targeted semantic tests exercise actual member-project root
+manifest/lock edits, authored build-script cfg, compiled proc-macro source and Cargo-declared
+external inputs, refusal without changed compiler outputs, fresh expansions after explicit
+preparation, and original native drain. Focused watch tests cover preparation-time edits,
+separate native output directories and overlapping missing/directory rerun inputs.
+`scripts/pse test pse-host --lib -E 'test(semantic::)'` passed all thirteen selected semantic
+tests against a zero failure baseline; `scripts/pse check pse-host --all-targets` passed for this
+correction. Unselected product/scientific scope remains unqualified by these focused checks.
 
 **Outcome and handoff.** The initial `cargo.autoreload: false` choice prevented the pinned
 backend from activating its workspace; actual resolution tests caught this. Auto-reload is now

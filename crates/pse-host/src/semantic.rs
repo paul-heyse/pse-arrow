@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Fixed semantic operations over a reusable, originally owned rust-analyzer session.
+mod context;
 mod edit;
 mod engine;
 mod service;
