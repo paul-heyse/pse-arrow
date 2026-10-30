@@ -20,6 +20,26 @@ build = "build.rs"
 [package.metadata.cargo-shear]
 ignored = ["sha2"]
 
+# The one declaration of which prepared native providers each feature needs (Plan59 C01).
+# `pse-host` joins it with a selection's unit graph and closes it with the provider
+# implications; build.rs stays keyed on CARGO_FEATURE_*. Every feature but `default` is
+# declared, `[]` meaning none: HiGHS builds its bundled source with the ambient toolchain,
+# POUNCE is pure Rust and `native-solvers` only enables the others.
+[package.metadata.pse.native-capabilities]
+ipopt = ["solver"]
+uno = ["uno"]
+petsc = ["petsc"]
+highs = []
+pounce = []
+kinsol = ["klu"]
+root-isolation = ["isolation"]
+sdp = ["solver"]
+clarabel-pardiso = ["solver"]
+diffsol = ["klu"]
+idas = ["klu"]
+scip = ["solver"]
+native-solvers = []
+
 [lints]
 workspace = true
 
