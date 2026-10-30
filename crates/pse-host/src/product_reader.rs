@@ -46,6 +46,15 @@ pub enum ProductReaderError {
     /// Original checkout resolver failure.
     #[error(transparent)]
     Environment(#[from] crate::environment::EnvironmentError),
+    /// Required original compiler capture was absent or invalid after a successful build.
+    #[error("required source-build capture at {path} is unavailable: {source}")]
+    BuildEvidence {
+        /// Exact retained capture path, independent of a mutable Cargo target.
+        path: PathBuf,
+        /// Original file/decoding cause.
+        #[source]
+        source: Box<ProductReaderError>,
+    },
     /// Original synchronous native child supervision failure.
     #[error(transparent)]
     Supervision(#[from] SupervisionError),
@@ -86,7 +95,7 @@ pub enum ProductReaderError {
 pse_diagnostics::impl_diagnostic! {
     ProductReaderError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(this) { match this { Self::Correctness(error)=>Some(error), Self::Host(error)=>Some(error), Self::Environment(error)=>Some(error), Self::Supervision(error)=>Some(error), _=>None } },
+    forward(this) { match this { Self::BuildEvidence{source,..}=>Some(source.as_ref()), Self::Correctness(error)=>Some(error), Self::Host(error)=>Some(error), Self::Environment(error)=>Some(error), Self::Supervision(error)=>Some(error), _=>None } },
     help(_this) { None }, related(this) { match this { Self::Execution {failures,..}=>Some(Box::new(failures.iter().map(|error| {let error:&dyn pse_diagnostics::TypedDiagnostic=error;error}))), Self::Settlement {operation,settlement}=>{ let errors:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),settlement];Some(Box::new(errors.into_iter())) }, _=>None } }, source(_this) { None }
 }
 fn invalid(message: impl Into<String>) -> ProductReaderError {
@@ -746,6 +755,44 @@ fn source(
     .with_additional_files(checkout, extras)?)
 }
 
+fn source_build_command(
+    control: &Executable,
+    checkout: &Path,
+    environment: &Environment,
+) -> Command {
+    let mut command = Command::new(&control.captured);
+    command
+        .current_dir(checkout)
+        .env_clear()
+        .envs(environment)
+        .env("PSE_CORRECTNESS_ADAPTER", "1")
+        .env("PSE_CORRECTNESS_EXECUTABLE", &control.captured)
+        .args([
+            "build",
+            "--locked",
+            "-p",
+            "pse-runtime",
+            "--bin",
+            "pse-project",
+            "--features",
+            "product-reader",
+            "--message-format=json",
+        ]);
+    command
+}
+fn build_evidence(directory: &Path) -> Result<(Vec<u8>, BuildCapture), ProductReaderError> {
+    let path = directory.join("build.json");
+    let result = (|| {
+        let bytes = read_file(&path, RESPONSE_BYTES)?;
+        let build = serde_json::from_slice(&bytes)?;
+        Ok((bytes, build))
+    })();
+    result.map_err(|source| ProductReaderError::BuildEvidence {
+        path,
+        source: Box::new(source),
+    })
+}
+
 /// Explicit source-build/capture preparation. The caller owns new-work admission; passive
 /// open/read never enters this route. Failed preparation evidence is retained at its minted ID.
 pub fn prepare(
@@ -808,22 +855,7 @@ pub fn prepare(
             build_directory.clone().into_os_string(),
         );
         correctness.verify()?;
-        let mut command = Command::new(&correctness.captured);
-        command
-            .current_dir(&checkout)
-            .env_clear()
-            .envs(&environment)
-            .args([
-                "build",
-                "--locked",
-                "-p",
-                "pse-runtime",
-                "--bin",
-                "pse-project",
-                "--features",
-                "product-reader",
-                "--message-format=json",
-            ]);
+        let command = source_build_command(&correctness, &checkout, &environment);
         let output = execute(command, Vec::new(), STDERR_BYTES, None)?;
         if output.status != 0 {
             return Err(transport(
@@ -835,8 +867,7 @@ pub fn prepare(
                 output,
             ));
         }
-        let build_bytes = read_file(&build_directory.join("build.json"), RESPONSE_BYTES)?;
-        let build: BuildCapture = serde_json::from_slice(&build_bytes)?;
+        let (build_bytes, build) = build_evidence(&build_directory)?;
         let executable = select_executable(&build, &directory)?.clone();
         executable.verify()?;
         // The manifest is published only after all three native responses were obtained from

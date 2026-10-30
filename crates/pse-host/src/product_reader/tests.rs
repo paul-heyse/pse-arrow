@@ -269,3 +269,96 @@ fn captured_directional_schema_and_discovery_require_native_transport_associatio
     discovery_document(&discovery).unwrap();
     assert!(discovery_document(&discovery.replace_bytes(b"v1:request", b"v2:request")).is_err());
 }
+
+#[test]
+fn actual_captured_adapter_build_retains_original_product_artifact() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    fs::create_dir(scratch.path().join("src")).unwrap();
+    fs::write(scratch.path().join("Cargo.toml"),"[package]\nname='pse-runtime'\nversion='0.0.1'\nedition='2024'\n[features]\nproduct-reader=[]\n[[bin]]\nname='pse-project'\npath='src/main.rs'\n").unwrap();
+    fs::write(scratch.path().join("src/main.rs"), "fn main() {}\n").unwrap();
+    fs::copy(
+        root.join("rust-toolchain.toml"),
+        scratch.path().join("rust-toolchain.toml"),
+    )
+    .unwrap();
+    let mut environment =
+        correctness::standalone_adapter_environment(&std::env::vars_os().collect()).unwrap();
+    let cargo = correctness::real_cargo_in(&environment).unwrap();
+    let generated = Command::new(&cargo)
+        .args(["generate-lockfile", "--offline"])
+        .current_dir(scratch.path())
+        .env_clear()
+        .envs(&environment)
+        .output()
+        .unwrap();
+    assert!(
+        generated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&generated.stderr)
+    );
+    let build_directory = scratch.path().join("build");
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&build_directory)
+        .unwrap();
+    let generation = crate::generation::prepared(root).unwrap().unwrap();
+    let tools = root.join("target/host-tools");
+    let usage = crate::generation::GenerationUse::acquire(&tools, &generation.generation).unwrap();
+    let control = crate::discovery::capture::executable(
+        &tools
+            .join(&generation.generation)
+            .join("cargo-pse-correctness"),
+        &scratch.path().join("cargo-pse-correctness"),
+    )
+    .unwrap();
+    usage.settle().unwrap();
+    environment.insert(
+        "PSE_CORRECTNESS_BUILD_CAPTURE".into(),
+        build_directory.clone().into_os_string(),
+    );
+    let output = execute(
+        source_build_command(&control, scratch.path(), &environment),
+        Vec::new(),
+        STDERR_BYTES,
+        None,
+    )
+    .unwrap();
+    assert_eq!(
+        output.status,
+        0,
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let (_, build) = build_evidence(&build_directory).unwrap();
+    let executable = select_executable(&build, scratch.path()).unwrap();
+    assert_eq!(build.cargo_exit, 0);
+    assert!(build.incomplete.is_empty());
+    assert!(build.resolution.native_capabilities.is_empty());
+    executable.verify().unwrap();
+    fs::write(&executable.original, b"replaced mutable target").unwrap();
+    executable.verify().unwrap();
+    assert!(
+        fs::metadata(build_directory.join("cargo-artifacts.jsonl"))
+            .unwrap()
+            .len()
+            > 0
+    );
+}
+
+#[test]
+fn missing_build_capture_reports_its_original_path_and_io_cause() {
+    let root = tempfile::tempdir().unwrap();
+    let error = build_evidence(root.path()).unwrap_err();
+    let ProductReaderError::BuildEvidence { path, source } = &error else {
+        panic!("capture path context")
+    };
+    assert_eq!(path, &root.path().join("build.json"));
+    assert!(
+        matches!(source.as_ref(),ProductReaderError::Io(error) if error.kind()==std::io::ErrorKind::NotFound)
+    );
+    assert!(error.to_string().contains(path.to_str().unwrap()));
+}
