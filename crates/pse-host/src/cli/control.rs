@@ -115,14 +115,65 @@ pub(super) fn dispatch(
     } else if response.payload.result.is_none() {
         response.subject_state = envelope::SubjectState::Unknown;
         response.outcome = envelope::CommandOutcome::BoundaryFailure;
+    } else {
+        project_terminal_owner(&mut response, cancel);
     }
-    // A wait/cancel response concerns the observer/control operation. Original child status
-    // remains nested and is never reinterpreted as a new scientific verdict.
     Ok(output.emit(response)?)
+}
+
+fn project_terminal_owner(response: &mut Envelope<ControlView>, cancel: bool) {
+    if let Some(original) = &response.payload.result {
+        // A native stop acknowledgement cannot promote missing original reconciliation.
+        response.settlement = original.settlement;
+        response.observation.completeness = original.observation.completeness;
+        if !cancel {
+            // Finished wait returns the original managed verdict, rather than success merely
+            // because the observing command read a valid response. Exact evidence stays nested.
+            response.outcome = original.outcome;
+            response.subject_state = original.subject_state;
+            response.child_exit = original.child_exit;
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn finished_wait_preserves_managed_failure_while_cancel_requires_reconciliation() {
+        use super::*;
+        use serde_json::value::RawValue;
+        let mut original = Envelope::response(
+            "run",
+            "original failure",
+            RawValue::from_string("{}".into()).unwrap(),
+        );
+        original.outcome = envelope::CommandOutcome::Failure;
+        original.subject_state = envelope::SubjectState::Failed;
+        original.child_exit = Some(3);
+        original.settlement = envelope::Settlement::Complete;
+        let mut response = Envelope::response(
+            "wait",
+            "observed",
+            ControlView {
+                original_invocation: original.invocation_id.clone(),
+                service: None,
+                service_gone: true,
+                result: Some(original),
+            },
+        );
+        project_terminal_owner(&mut response, false);
+        assert_eq!(response.exit_code(), 1);
+        assert_eq!(response.child_exit, Some(3));
+        assert_eq!(response.subject_state, envelope::SubjectState::Failed);
+        response.outcome = envelope::CommandOutcome::Success;
+        response.subject_state = envelope::SubjectState::NotApplicable;
+        response.child_exit = None;
+        project_terminal_owner(&mut response, true);
+        assert_eq!(response.exit_code(), 0);
+        response.payload.result.as_mut().unwrap().settlement = envelope::Settlement::Unknown;
+        project_terminal_owner(&mut response, true);
+        assert_eq!(response.exit_code(), 1);
+    }
     #[test]
     fn control_selects_existing_work_and_never_new_work() {
         use clap::Parser;
