@@ -436,8 +436,14 @@ fn select_executable<'a>(
         ));
     };
     let features: BTreeSet<_> = artifact.cargo.features.iter().cloned().collect();
+    let original =
+        artifact.cargo.executable.as_ref().ok_or_else(|| {
+            invalid("selected xtask compiler artifact has no original executable")
+        })?;
     if features != BTreeSet::from(["force-validate".into()])
-        || artifact.executable.captured != directory.join("build").join(format!("artifact-{index}"))
+        || artifact.executable.original != original.as_std_path()
+        || artifact.executable.captured
+            != capture::artifact_path(&directory.join("build"), *index, original.as_std_path())?
         || artifact.cargo.target.src_path.as_std_path() != checkout.join("xtask/src/main.rs")
     {
         return Err(invalid(

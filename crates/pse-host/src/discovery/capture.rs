@@ -133,6 +133,18 @@ pub(crate) fn executable(
     })
 }
 
+/// Canonical private compiler-artifact association, preserving Cargo's original basename.
+pub(crate) fn artifact_path(
+    directory: &Path,
+    index: usize,
+    original: &Path,
+) -> Result<PathBuf, CorrectnessError> {
+    let name = original
+        .file_name()
+        .ok_or_else(|| invalid("Cargo executable has no basename"))?;
+    Ok(directory.join(format!("artifact-{index}")).join(name))
+}
+
 /// An actual Cargo compiler-artifact record and its captured executable.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BuiltArtifact {
@@ -239,12 +251,12 @@ fn record(
                 // Preserve Cargo's basename/argv[0] contract inside a distinct private
                 // directory; native owners may legitimately require their program name.
                 let captured = (|| {
-                    let name = path
-                        .file_name()
-                        .ok_or_else(|| invalid("Cargo executable has no basename"))?;
-                    let directory = directory.join(format!("artifact-{}", artifacts.len()));
-                    fs::DirBuilder::new().mode(0o700).create(&directory)?;
-                    executable(path.as_std_path(), &directory.join(name))
+                    let captured = artifact_path(directory, artifacts.len(), path.as_std_path())?;
+                    let parent = captured
+                        .parent()
+                        .ok_or_else(|| invalid("Cargo artifact capture parent is absent"))?;
+                    fs::DirBuilder::new().mode(0o700).create(parent)?;
+                    executable(path.as_std_path(), &captured)
                 })();
                 match captured {
                     Ok(executable) => artifacts.push(BuiltArtifact {

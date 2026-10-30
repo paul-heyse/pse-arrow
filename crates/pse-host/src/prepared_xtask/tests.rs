@@ -11,8 +11,8 @@ use std::{
     os::unix::{ffi::OsStringExt as _, fs::PermissionsExt as _},
 };
 
-fn build(checkout: &Path, directory: &Path, executable: Executable) -> BuildCapture {
-    let cargo:cargo_metadata::Artifact=serde_json::from_value(json!({"package_id":"xtask-id","manifest_path":checkout.join("xtask/Cargo.toml"),"target":{"name":"xtask","kind":["bin"],"crate_types":["bin"],"src_path":checkout.join("xtask/src/main.rs"),"edition":"2024"},"profile":{"opt_level":"0","debuginfo":0,"debug_assertions":true,"overflow_checks":true,"test":false},"features":["force-validate"],"filenames":[directory.join("mutable-target")],"executable":directory.join("mutable-target"),"fresh":false})).unwrap();
+fn build(checkout: &Path, executable: Executable) -> BuildCapture {
+    let cargo:cargo_metadata::Artifact=serde_json::from_value(json!({"package_id":"xtask-id","manifest_path":checkout.join("xtask/Cargo.toml"),"target":{"name":"xtask","kind":["bin"],"crate_types":["bin"],"src_path":checkout.join("xtask/src/main.rs"),"edition":"2024"},"profile":{"opt_level":"0","debuginfo":0,"debug_assertions":true,"overflow_checks":true,"test":false},"features":["force-validate"],"filenames":[executable.original],"executable":executable.original,"fresh":false})).unwrap();
     BuildCapture {
         version: 1,
         resolution: correctness::Resolution {
@@ -107,9 +107,11 @@ fn fixture() -> (tempfile::TempDir, Environment, PreparedXtask) {
     )
     .unwrap();
     fs::set_permissions(&original, fs::Permissions::from_mode(0o700)).unwrap();
-    let executable = capture::executable(&original, &directory.join("build/artifact-0")).unwrap();
+    let captured = capture::artifact_path(&directory.join("build"), 0, &original).unwrap();
+    fs::create_dir(captured.parent().unwrap()).unwrap();
+    let executable = capture::executable(&original, &captured).unwrap();
     let control = capture::executable(&original, &directory.join("cargo-pse-correctness")).unwrap();
-    let build = build(root.path(), &directory, executable.clone());
+    let build = build(root.path(), executable.clone());
     let bytes = serde_json::to_vec(&build).unwrap();
     publish(&directory.join("build/build.json"), &bytes).unwrap();
     let command = clap::Command::new("cargo xtask")
@@ -252,7 +254,7 @@ fn original_manifest_evidence_and_executable_cannot_redirect_or_silently_change(
         "commands.json",
         "owner-schema.json",
         "build/build.json",
-        "build/artifact-0",
+        "build/artifact-0/tool",
         "cargo-pse-correctness",
     ] {
         let (root, environment, selected) = fixture();
@@ -290,6 +292,18 @@ fn zero_exit_is_not_artifact_capture_and_unit_source_feature_identity_must_match
     let bytes = read(&selected.directory.join("build/build.json"), MAX_DOCUMENT).unwrap();
     let mut build: BuildCapture = serde_json::from_slice(&bytes).unwrap();
     select_executable(&build, &selected.directory, root.path()).unwrap();
+    let exact = build.artifacts[0].executable.clone();
+    for captured in [
+        selected.directory.join("build/artifact-0"),
+        exact.captured.with_file_name("renamed-xtask"),
+    ] {
+        build.artifacts[0].executable.captured = captured;
+        assert!(select_executable(&build, &selected.directory, root.path()).is_err());
+    }
+    build.artifacts[0].executable = exact.clone();
+    build.artifacts[0].executable.original = exact.original.with_file_name("different-source");
+    assert!(select_executable(&build, &selected.directory, root.path()).is_err());
+    build.artifacts[0].executable = exact;
     let admitted = build.resolution.clone();
     require_same_compiler_context(&admitted, &build.resolution).unwrap();
     let mut changed_context = admitted.clone();

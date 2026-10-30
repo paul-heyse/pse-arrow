@@ -170,8 +170,8 @@ fn reader_prefix_drains_every_byte_and_keeps_original_partial_read_error() {
 fn artifact(path: &Path) -> cargo_metadata::Artifact {
     serde_json::from_value(serde_json::json!({"package_id":"path+file:///workspace/runtime#pse-runtime@0.0.1","manifest_path":"/workspace/runtime/Cargo.toml","target":{"name":"pse-project","kind":["bin"],"crate_types":["bin"],"src_path":"/workspace/runtime/main.rs","edition":"2024"},"profile":{"opt_level":"0","debuginfo":0,"debug_assertions":true,"overflow_checks":true,"test":false},"features":["product-reader"],"filenames":[path],"executable":path,"fresh":false})).unwrap()
 }
-fn build(directory: &Path, executable: Executable) -> BuildCapture {
-    let cargo = artifact(&directory.join("mutable-target"));
+fn build(executable: Executable) -> BuildCapture {
+    let cargo = artifact(&executable.original);
     BuildCapture {
         version: 1,
         resolution: correctness::Resolution {
@@ -203,11 +203,24 @@ fn recorded_executable_path_and_package_identity_cannot_redirect_selection() {
     let source = directory.join("native");
     fs::write(&source, b"#!/bin/sh\nexit 0\n").unwrap();
     fs::set_permissions(&source, fs::Permissions::from_mode(0o700)).unwrap();
-    let executable =
-        crate::discovery::capture::executable(&source, &directory.join("build/artifact-0"))
-            .unwrap();
-    let mut build = build(directory, executable);
+    let captured =
+        crate::discovery::capture::artifact_path(&directory.join("build"), 0, &source).unwrap();
+    fs::create_dir(captured.parent().unwrap()).unwrap();
+    let executable = crate::discovery::capture::executable(&source, &captured).unwrap();
+    let mut build = build(executable);
     select_executable(&build, directory).unwrap();
+    let exact = build.artifacts[0].executable.clone();
+    for captured in [
+        directory.join("build/artifact-0"),
+        exact.captured.with_file_name("renamed-reader"),
+    ] {
+        build.artifacts[0].executable.captured = captured;
+        assert!(select_executable(&build, directory).is_err());
+    }
+    build.artifacts[0].executable = exact.clone();
+    build.artifacts[0].executable.original = exact.original.with_file_name("different-source");
+    assert!(select_executable(&build, directory).is_err());
+    build.artifacts[0].executable = exact;
     build.resolution.units[0].package_id = "different source identity".into();
     assert!(select_executable(&build, directory).is_err());
     build.resolution.units[0].package_id = build.artifacts[0].cargo.package_id.repr.clone();

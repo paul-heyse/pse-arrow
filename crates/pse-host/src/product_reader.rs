@@ -604,7 +604,18 @@ fn select_executable<'a>(
         ));
     }
     let (index, artifact) = matches[0];
-    if artifact.executable.captured != directory.join("build").join(format!("artifact-{index}")) {
+    let original =
+        artifact.cargo.executable.as_ref().ok_or_else(|| {
+            invalid("selected product compiler artifact has no original executable")
+        })?;
+    if artifact.executable.original != original.as_std_path()
+        || artifact.executable.captured
+            != crate::discovery::capture::artifact_path(
+                &directory.join("build"),
+                index,
+                original.as_std_path(),
+            )?
+    {
         return Err(invalid(
             "recorded product executable is outside its fixed capture association",
         ));
