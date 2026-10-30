@@ -421,6 +421,16 @@ Schemars and Serde library references have been reviewed for that implementation
 Next integrate A03 and A05's working run prerequisites, then deliver B01's foreground ledger
 journey. Full-series functional scope and scope-end qualification remain outstanding.
 
+B01's exclusive ledger foundation is now integrated: complete selection publication precedes
+launch, terminal responses retain the shared outcome types, and resolution verifies checkout
+bindings. Ten targeted tests pass after correcting directory creation under a group-writable
+umask. C01's actual graph join and C07's normalized selection foundations are integrated;
+explicit binary inventory and CLI execution remain separate consumers. The operator-added gix
+reference was read end to end. Its pinned native observation owner now replaces common-directory
+subprocess parsing and supplies typed byte-preserving status facts; nine targeted repository/path
+tests pass. D09's tested publication strategy is retained, with library primitives eligible
+where their actual transaction boundaries preserve it. No CLI status/changes delivery is implied.
+
 ### Code-intelligence planning checkpoint — 2026-10-29
 
 **Proposed:** G–I and the affected A–F slices schedule the code-intelligence review. RC01–RC05,

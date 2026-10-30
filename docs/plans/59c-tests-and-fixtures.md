@@ -215,7 +215,7 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [C01](#c01) | in-progress | 59c | Capability declaration and pure reader integrated (build.rs unchanged); actual unit-graph join remains with C07 |
+| [C01](#c01) | complete | 59c | Declaration and actual reached-unit capability derivation integrated; targeted real no-build Cargo graphs cover every mapped feature and pure/full runtime; no provider preparation or solver build |
 | [C02](#c02) | planned | 59c | `pse test` and `pse check` with selection, features, capabilities, force-validation, reconciled verdict, explain and rerun; replaced recipes retired |
 | [C03](#c03) | planned | 59c | `affected` in `pse-host`; `pse test --changed`; xtask `affected` and its recipe retired |
 | [C04](#c04) | planned | 59c | Fixture declarations and immutable inputs for both real service ownership modes; `pse fixture`; replaced fixture recipes retired |

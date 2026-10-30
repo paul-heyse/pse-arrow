@@ -176,6 +176,14 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 <a id="d01"></a>
 ### D01 — Orientation and delegation briefs
 
+**Git mechanism refinement (2026-10-30).** Reuse A06's `gix` observation owner for HEAD,
+staged, unstaged and untracked paths. Use Gitoxide tree/revision/pathspec facilities when
+base-relative changes or historical content are required; retain byte identities and keep
+rename inference distinct from changed-path facts. No hand-maintained porcelain parser or
+Git-ignore implementation is needed. D08 may use native object/index/ref primitives where
+they preserve D09's selected publication and staging semantics; a reference transaction alone
+does not make shared-index reconciliation atomic. Its existing adversarial acceptance remains.
+
 **Consumes:** [59a A03–A04](59a-cli-foundation.md), and the D06 map for generated-path flags.
 Until the map exists, use the guard's current prefixes.
 

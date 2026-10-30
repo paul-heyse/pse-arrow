@@ -177,7 +177,7 @@ feature choices are exactly the review's
 | [A03](#a03) | in-progress | 59a | Output/diagnostic/schema implementation underway after A07 scoped target acceptance |
 | [A04](#a04) | in-progress | 59a | Resolver and consumer migration integrated and targeted tests pass; concurrent invocation/history acceptance remains with B01 |
 | [A05](#a05) | in-progress | 59a | Fingerprint/manifest/use-claim foundations integrated; bootstrap, all-entry pinning, stale rebuild and safe pruning remain |
-| [A06](#a06) | planned | 59a | Derived catalog with `valid_values`, `explain`, `env --explain` provenance and `status` |
+| [A06](#a06) | in-progress | 59a | Native Git observation foundation integrated; derived catalog, explain/provenance and CLI status consumers remain |
 | [A07](#a07) | complete | 59a | Proposed ADR-0233/blueprint315 published; scoped formal review accepts corrected target at Proposed strength; runtime obligations remain with consumers |
 
 <a id="a01"></a>
@@ -453,6 +453,15 @@ available to B01/B03 and C's immutable selections before pruning is enabled.
 ### A06 — Derived catalog, explain, provenance and status
 
 **Consumes:** A03, A04.
+
+**Git mechanism refinement (2026-10-30).** Use pinned `gix` for typed repository inspection,
+sharing the native observation owner with D01/C03/E01. Read HEAD, staging and tracked/untracked
+working-tree changes as separate facts; preserve byte paths and sort parallel status events.
+Include individual untracked files rather than using `is_dirty()`, which excludes them.
+Do not publish index refreshes during observation. Linked-worktree common-directory discovery
+already uses isolated Gitoxide opening at the explicit checkout and preserves existing identity
+spelling. A live status view is not an atomic filesystem snapshot. The library's complete
+[capability overview](../libraries/gix.md) and exact-release APIs guide subsequent consumers.
 
 **Delivers.**
 - **Catalog.**
