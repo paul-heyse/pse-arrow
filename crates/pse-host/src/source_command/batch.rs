@@ -55,6 +55,7 @@ pub struct Report {
 pub struct BatchTask {
     completion: Option<tokio_rayon::AsyncRayonHandle<Envelope<Report>>>,
     cancellation: CancellationToken,
+    redaction: RedactionPolicy,
 }
 impl BatchTask {
     /// Request that not-yet-started files be skipped; an in-progress parse finishes normally.
@@ -70,7 +71,17 @@ impl BatchTask {
             .ok_or(SourceCommandError::AlreadySettled)?;
         let result = std::panic::AssertUnwindSafe(handle).catch_unwind().await;
         self.completion = None;
-        result.map_err(|_| SourceCommandError::WorkerPanic)
+        result.map_err(|payload| {
+            if let Some(message) = payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .or_else(|| payload.downcast_ref::<&'static str>().copied())
+            {
+                SourceCommandError::WorkerPanic(self.redaction.redact(message))
+            } else {
+                SourceCommandError::OpaqueWorkerPanic
+            }
+        })
     }
 }
 impl Drop for BatchTask {
@@ -87,6 +98,7 @@ where
     let cancellation = cancellation.child_token();
     let worker_token = cancellation.clone();
     let policy = RedactionPolicy::from_environment();
+    let redaction = policy.clone();
     let completion = tokio_rayon::spawn(move || {
         // Vec's indexed iterator preserves request order while executing independently.
         // ASTs never cross this boundary: read/parse/extract all stay inside each worker.
@@ -150,6 +162,7 @@ where
     BatchTask {
         completion: Some(completion),
         cancellation,
+        redaction,
     }
 }
 /// Eagerly submit selected files to the existing shared Rayon pool, without a new pool or cap.

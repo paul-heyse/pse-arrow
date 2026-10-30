@@ -72,12 +72,17 @@ pub enum SourceCommandError {
     #[error("source batch completion was already consumed")]
     AlreadySettled,
     /// The bridge propagated an unwinding CPU task panic after its tasks returned.
-    #[error("source batch CPU task panicked; no complete source reading is available")]
-    WorkerPanic,
+    #[error("source batch CPU task panicked: {0}; this message is not a native error chain")]
+    WorkerPanic(String),
+    /// A panic carried an opaque non-string payload rather than a diagnostic message.
+    #[error(
+        "source batch CPU task panicked with an opaque non-string payload; no native error chain is available"
+    )]
+    OpaqueWorkerPanic,
 }
 pse_diagnostics::impl_diagnostic! {
     SourceCommandError,
-    code(this) { match this {Self::Selection(error)=>pse_diagnostics::TypedDiagnostic::diagnostic_code(error), Self::Read{..}=>Some(pse_diagnostics::DiagnosticCode::HostIo), Self::WorkerPanic=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),_=>Some(pse_diagnostics::DiagnosticCode::HostOwnership)} },
+    code(this) { match this {Self::Selection(error)=>pse_diagnostics::TypedDiagnostic::diagnostic_code(error), Self::Read{..}=>Some(pse_diagnostics::DiagnosticCode::HostIo), Self::WorkerPanic(_)|Self::OpaqueWorkerPanic=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),_=>Some(pse_diagnostics::DiagnosticCode::HostOwnership)} },
     forward(this) {match this {Self::Selection(error)=>Some(error),_=>None}},
     help(_this) {None}, related(_this) {None},source(_this) {None}
 }

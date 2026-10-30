@@ -148,3 +148,30 @@ async fn independent_files_execute_on_distinct_shared_workers_without_blocking_t
         observed.expect("both independent CPU jobs should start before either is released");
     assert_ne!(first, second);
 }
+
+#[tokio::test]
+async fn worker_panics_keep_redacted_string_messages_and_explicit_opaque_payloads() {
+    for kind in 0..3 {
+        let mut task = submit(
+            vec!["panic.rs".into()],
+            CancellationToken::new(),
+            move |_| match kind {
+                0 => std::panic::panic_any(String::from("hidden-string")),
+                1 => std::panic::panic_any("hidden-static"),
+                _ => std::panic::panic_any(7u8),
+            },
+        );
+        task.redaction = RedactionPolicy::new([("TOKEN".into(), "hidden".into())]);
+        let failure = task.settle().await.unwrap_err();
+        match (kind, failure) {
+            (0, SourceCommandError::WorkerPanic(message)) => {
+                assert_eq!(message, "<redacted:TOKEN>-string")
+            }
+            (1, SourceCommandError::WorkerPanic(message)) => {
+                assert_eq!(message, "<redacted:TOKEN>-static")
+            }
+            (2, SourceCommandError::OpaqueWorkerPanic) => {}
+            (_, other) => panic!("unexpected payload interpretation {other:?}"),
+        }
+    }
+}
