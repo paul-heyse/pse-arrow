@@ -10,7 +10,7 @@ companions plan:
 - worktree and Claude orientation surfaces.
 
 The operator accepted rule changes R1–R5. Direnv and Codex configuration are out of scope.
-Execution is not yet authorized.
+Execution of the full scope was authorized on 2026-10-29.
 
 [Plan58: Rust-owned system](58-rust-owned-system.md) owns the Rust-first functional,
 hard-cutover and SurrealDB-boundary reviews. The authorized A–G functional implementation
@@ -23,7 +23,7 @@ acceptance limits. Each companion owns its package completion and Outcome.
 full scientific/reference/performance campaigns, global feature powersets and later persistent
 production recovery qualification are excluded from the completed selection. No full-series
 completion or speed/memory benefit is claimed. Conditional RMCP/PyO3, new storage/reactive
-mechanisms and F06 remain deferred until their actual consumer triggers. CLIs remain optional.
+mechanisms and F06 remain deferred until their actual consumer triggers. [Plan59](59-agent-cli.md) makes `pse` the strongly recommended agent interface (R1).
 
 The [dependency structure](58-rust-owned-system.md#dependencies-migration-and-completion)
 and [host execution dependencies](58b-bootstrap-and-host-control.md#execution-dependencies)

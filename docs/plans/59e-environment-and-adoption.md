@@ -1,6 +1,6 @@
 ---
 title: "Plan59e: Environment and adoption"
-status: draft
+status: active
 date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
@@ -111,7 +111,7 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 | [E02](#e02) | planned | 59e | Claude session-start status brief content and `statusLine` |
 | [E03](#e03) | planned | 59e (continuing) | AGENTS.md task-to-verb entries pointing to `pse commands`, guide routes, roles/skills mentions and retired-recipe routes, updated as each verb ships |
 | [E04](#e04) | planned | 59e | Slim `docs/plans/README.md` current-work pointer |
-| [E05](#e05) | planned | 59e | Edit guidance in AGENTS.md and `.claude/rules/tooling.md` |
+| [E05](#e05) | complete | 59e | Edit guidance in AGENTS.md and `.claude/rules/tooling.md` |
 
 <a id="e01"></a>
 ### E01 — Worktrees ready on creation

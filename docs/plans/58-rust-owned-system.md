@@ -27,7 +27,7 @@ Initial document amendments were authorized on 2026-10-28; subsequent selected e
 is recorded below. The operator authorized the database-boundary document amendment on
 2026-10-29; that amendment grants no additional production execution.
 
-The latest operator instruction overrides both the review's mandatory-CLI recommendation and the earlier planning answer: **CLIs are optional conveniences**, not completion requirements. No broad command framework, universal operation catalogue or agent execution engine is selected. RMCP remains conditional. PyO3 gets a future interface seam; implementation is deferred. Production robustness and simplicity outrank peripheral interface parity.
+The latest operator instruction overrides both the review's mandatory-CLI recommendation and the earlier planning answer: **CLIs are optional conveniences**, not completion requirements. No broad command framework, universal operation catalogue or agent execution engine is selected. **Amended 2026-10-29 by [Plan59](59-agent-cli.md#rule-changes) R1:** `pse` becomes the strongly recommended agent interface. Its catalog is derived from the clap parser rather than authored, so it is not a universal operation catalogue; adoption comes from ease and communication, not enforcement. RMCP remains conditional. PyO3 gets a future interface seam; implementation is deferred. Production robustness and simplicity outrank peripheral interface parity.
 
 ## Target and integral foundation assessment
 
@@ -68,7 +68,7 @@ Library research informs rather than follows the interfaces. The review's full o
 | Canonical data model governs durable work | Explicitly selected; local pure computation remains direct | T01/D03: affected execution/schema authority through ADR/design route before dependent implementation. |
 | Durable migration infrastructure now; development reconstruction instead of exhaustive recovery gates | Explicit balanced durability direction; no existing-data reset | T01/D05/H: supported predecessor/successor, write fences and representative migration now; persistent-production release qualification later. |
 | Typed fixture construction and ownership replace global permission/terminal protocols | Selected simplification in the authorized amendment target | T01/B/C/F: revise fixture/resource instructions and affected contracts; retain real physical release and shared-service uncertainty. |
-| Bespoke build observation and derivative signals retire | Explicitly selected; scientific calculation observation retained | T01/B/F: amend observation/consumer requirements, remove build alerts/queries with producers. |
+| Bespoke build observation and derivative signals retire | Explicitly selected; scientific calculation observation retained. Supervising runs that agents start (ledger, wait, result, cancel) is allowed ([Plan59](59-agent-cli.md#rule-changes) R2); build-stage telemetry and alerts stay retired. | T01/B/F: amend observation/consumer requirements, remove build alerts/queries with producers. |
 | Cache-service death alone does not invalidate a valid compiler result | Explicit answer: “Keep compiler result”, 2026-10-28 | T01/B/F: replace continuity requirement and its watcher/tests; preserve compiler failures, actual inputs and owned-process cleanup; reconcile Plan54/current environment contracts. |
 | New host root and library choices | Proposed technical realization within authorized plan creation | T01: crate addition/dependency direction review before code; ordinary exact dependency changes need no separate dependency ADR. |
 

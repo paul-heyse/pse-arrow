@@ -39,12 +39,17 @@ keep it accurate when you change them.
   acceptance and remaining Plan58 obligations.
   Native scopes and original kernel population establish physical ownership/release. Nested
   commands reuse actual authenticated native containment, never an environment marker alone.
-  `scripts/bootstrap-host` explicitly publishes the completed immutable native tool pair;
-  reads/help/launch never rebuild it. See the environment guide for supported host premises.
+  `scripts/bootstrap-host` explicitly publishes the completed immutable native tool set;
+  read/help/explain verbs never rebuild it, and top-level effectful `pse` verbs rebuild a stale
+  host and fail if that rebuild fails (Plan59 R3). See the environment guide for supported host premises.
 - **Status meanings.** `125` is the boundary's own failure, with a `pse-env:` line naming the
   fix; keep a command's own exit status and signals intact.
 - **Hooks.** `scripts/pse-host agent-hook` owns edit guarding and session activation
   (`just lint-agents` checks the wiring). Prepare the native host explicitly before use.
   End-of-turn automation stays removed (ADR-0161).
+- **Edits.** Prefer `apply_patch`/`Edit`. Repeated structural Rust rewrites use ast-grep, for
+  example `ast-grep run -l rust --pattern 'checkout_root()' --rewrite 'ctx.root()' --update-all
+  crates/pse-host/src`. A scripted replacement asserts its count first:
+  `assert s.count(old) == 1, s.count(old)`.
 - **Checks.** Exercise a changed capability once, in its revealing case; the script tests run
   with `just setup-test`, `just native-setup-unit` and `just surreal-test`. Do not add lints.

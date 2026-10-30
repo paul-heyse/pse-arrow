@@ -263,6 +263,10 @@ own membership never substitutes for the selected unit. Old invocation-watch cur
 pressure/watch CLI flags are retired. Use an explicitly chosen external observer for additional
 host pressure measurements and retain its identity and interval.
 
+Supervising runs that an agent starts is a separate, allowed responsibility
+([Plan59](../plans/59-agent-cli.md#rule-changes) R2): a run ledger with wait, result and cancel
+([59b](../plans/59b-runs-and-continuity.md)). Build-stage telemetry and alerts stay retired.
+
 ## Hooks and permissions
 
 `scripts/pse-host agent-hook` owns edit guarding and session activation. Protected paths and the

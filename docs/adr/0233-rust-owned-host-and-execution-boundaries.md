@@ -61,7 +61,9 @@ Retain heavy development operations under their actual owners, not inside the ho
 ### Responsibilities and interfaces
 
 `pse-host` owns environment selection, user-manager unit operations and physical process/cgroup
-facts. Owned unit capabilities permit stop; borrowed observations do not. Their constructors
+facts. Owned unit capabilities permit stop; borrowed observations do not. For a detached run started
+through `pse`, the run ledger's recorded unit description and invocation ID are the stop
+authority; a mismatch refuses. Their constructors
 bind boot/process/unit/invocation/cgroup identity. Unknown ownership refuses destructive action.
 A successful job reply or leader exit alone cannot establish empty descendants. Observe original
 unit state and cgroup population before release. Reconnect resolves uncertain launch identity;
@@ -74,8 +76,11 @@ No sd-notify, hierarchical shutdown library or new daemon is required absent an 
 
 A shell seed explicitly builds the locked host package with the pinned toolchain, bypassing
 Python compiler wrappers for that invocation. It privately copies a completed executable and
-atomically replaces checkout-local selection. Ordinary help/read/explain never rebuilds or
-rescans source. Running processes retain their executable. Host errors use concrete thiserror
+atomically replaces checkout-local selection. Help, read and explain verbs never rebuild or
+rescan source. A top-level effectful `pse` verb that finds the host stale rebuilds it through the
+same seed and re-executes the new generation; a failed rebuild fails the verb with the build error
+and never runs an older generation. Correctness adapter mode, hooks, internal subcommands and
+calls nested inside a workload scope never rebuild. Running processes retain their executable. Host errors use concrete thiserror
 and miette diagnostics; original child exits/signals remain separate from boundary failure.
 
 Environment precedence stays command, caller, personal local selection, repository defaults.
@@ -201,6 +206,18 @@ Failed or repeated reconciliation adds no references. Unknown creation retains t
 intent and client lifetime and never replays launch or reference acquisition. Targeted
 implementation tests cover repeated reconciliation followed by a single release.
 
+
+### Agent CLI narrowings — 2026-10-29
+
+**Proposed:** the operator accepted [Plan59](../plans/59-agent-cli.md#rule-changes) R3. One clap
+command grammar in the `pse-host` library, exposed as `pse`, `pse-host` and `cargo-pse-correctness`,
+and a per-run supervisor for agent-started runs are selected. This narrows the earlier "no second
+CLI grammar" and "optional CLIs" wording; its catalog is derived from the parser, not an authored
+universal operation catalogue. A detached run is a transient user service whose supervisor hosts
+the existing foreground ownership path; the run ledger, not the launching bus client, is its stop
+authority. Read-only verbs never build; top-level effectful verbs rebuild a stale host and fail on
+a failed rebuild. Concurrent agents use separate worktrees, each with its own host tools. Build-stage
+telemetry stays retired. This grants no formal ADR acceptance.
 
 ### Remaining native development and product retirement target — 2026-10-29
 

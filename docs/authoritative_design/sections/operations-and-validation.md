@@ -738,7 +738,7 @@ availability; metadata references are not current protection grants.
 | Conformance | `tests/conformance` | selected scientific acceptance journeys; native value/IEEE framing and Arrow admission properties remain in their owning crates |
 | Lifecycle | `tests/lifecycle` | guarded canonical admission, interruption, exact retained reads and result memory budgets |
 | Native application | `crates/pse-runtime/tests/native_*.rs` and workflow tests | actual typed scientific/local/durable callers, protected data, original completion and resource settlement |
-| Developer tools | `xtask` and `pse-host` tests | native source/doc/governance/evidence owners, exact command/environment selection and authenticated independent operator effects |
+| Developer tools | `xtask` and `pse-host` tests | native source/doc/governance/evidence owners, exact command/environment selection, the `pse` agent verbs and their run ledger, and authenticated independent operator effects |
 | Independent references | native exchange tests and isolated `tests/reference/oracles` | the IDAES 2.13.0 environment and selected scientific reference comparisons (proposed [ADR-0097](../../adr/0097-modeling-scope-and-parity.md)) |
 
 Structural algorithms are tested in their owning production crates; no empty structural

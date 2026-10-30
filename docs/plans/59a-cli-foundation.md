@@ -1,6 +1,6 @@
 ---
 title: "Plan59a: CLI foundation"
-status: draft
+status: active
 date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
@@ -146,7 +146,7 @@ feature choices are exactly the review's
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [A01](#a01) | planned | 59a | Rule-change edits R1–R5 landed in their owners |
+| [A01](#a01) | complete | 59a | Rule-change edits R1–R5 landed in their owners (R4's guard change is D06) |
 | [A02](#a02) | planned | 59a | clap tree in the library; three thin bins; every existing verb ported and old parsers deleted |
 | [A03](#a03) | planned | 59a | Envelope, exit classes, diagnostics and `pse schema` |
 | [A04](#a04) | planned | 59a | One state resolver; checkout store; consumers migrated |

@@ -143,6 +143,9 @@ exit and containment remain meaningful. `SCCACHE_NO_DAEMON` is not a never-start
 selected logging/distribution modes need exact-source qualification before integration.
 
 Retire bespoke build observation and its live build-stage/wait/freshness consumers and alerts.
+Supervision of runs an agent starts (a run ledger with wait, result and cancel) is a different
+responsibility and is allowed ([Plan59](59-agent-cli.md#rule-changes) R2); it adds no
+build-stage telemetry or alert.
 Retain scientific calculation/progress and useful diagnostics. Implement the useful native
 `OTEL_*`/local settings resolver below scientific dependencies: existing Rust
 `Host::from_environment` consumes serialized settings and is not that resolver. Optional telemetry

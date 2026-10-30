@@ -77,8 +77,9 @@ publication and shared-resource use. Give reviewers concrete acceptance criteria
 and relevant failure cases. Review or test a stable revision or identified tree; re-evaluate affected evidence after integration changes it.
 Keep a single writer for the final plan, shared status and finding disposition unless ownership is
 explicitly partitioned. Existing plans own scheduled work; do not create a second task ledger.
-The coordinator also owns the shared index and follows AGENTS.md's regular discrete-commit
-policy; workers hand off coherent changes without waiting for whole-plan completion.
+Any agent may commit its own paths under AGENTS.md's regular discrete-commit policy; workers
+hand off coherent changes without waiting for whole-plan completion, and the coordinator
+integrates them.
 
 Read decisive evidence and reconcile results rather than accepting a worker's completion message
 as verification. Resolve architectural contradictions through the existing decision and review

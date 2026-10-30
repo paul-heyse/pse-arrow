@@ -1,6 +1,6 @@
 ---
 title: "Plan59: Agent-first pse CLI"
-status: draft
+status: active
 date: 2026-10-29
 adrs: [ADR-0233]
 review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md]
@@ -50,7 +50,7 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
 - Baseline: `68e075493`, inspected 2026-10-29.
 - Standard: core 3.4, efficient-architecture heuristics 1.0, test assessment 1.2 and
   process-simulator 1.5, under the pse-arrow binding.
-- Status: **Proposed.** Authoring this series authorizes no implementation.
+- Status: **Active.** The operator authorized execution of the full scope on 2026-10-29.
 
 **Reading route.**
 1. This coordinator: target, shared decisions, rule changes, dependencies, completion.
@@ -225,6 +225,7 @@ required.
 
 ## Current state and next step
 
-Authored 2026-10-29. No package has started. The next executable step is
-[59a A01](59a-cli-foundation.md#a01), the rule-change edits. It needs operator authorization
-to begin execution.
+**2026-10-29 — execution authorized for the full scope.** The rule changes (A01) and the edit
+guidance (E05) have landed. A02 (clap tree), C01 (capability declaration) and the D02 trial and
+D03 outline library are in progress. Next: A03 and A04 in order after A02, then the A05/A06
+foundation, before the 59b, 59c and 59d tracks fan out.

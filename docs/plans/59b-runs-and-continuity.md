@@ -1,6 +1,6 @@
 ---
 title: "Plan59b: Runs and continuity"
-status: draft
+status: active
 date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md

@@ -62,7 +62,8 @@ after a failure and list what failed:
 
 None of these is a commit, push or merge prerequisite. Formatting and lint fixes mid-work
 rewrite lines you did not author, so every agent would have to re-assess changes that are not
-theirs.
+theirs. The exception is the files you commit whole: format them at commit (`pse commit` does
+this once it lands, Plan59 D08), because those lines are yours.
 
 **While implementing a plan** — compile checks and targeted tests only:
 
@@ -220,6 +221,11 @@ and a family major needs an ADR. Holds go in `[workspace.metadata.pse.pins]` wit
 
 Each of these is a real incident, not a hypothetical.
 
+- **Script edits that silently match nothing.** Edit with `apply_patch`/`Edit` by default. For
+  a repeated structural Rust change use `ast-grep run --pattern … --rewrite … --update-all`. An
+  unavoidable script edit asserts its expected match count before writing
+  (`.claude/rules/tooling.md`).
+
 - **Pinning the umbrella crate does not pin the family.** `arrow = "=59.3.0"` binds one
   direct dependency; `arrow-schema`, `arrow-array` and friends can still resolve to a
   different version through a transitive path, and `cargo tree -d` cannot see it.
@@ -328,9 +334,9 @@ Commit an integrated item when it has a clear purpose and reviewable boundary; d
 for the entire plan, scope-end qualification or the end of the conversation. Include its
 necessary declarations, generated outputs, consumers and deletions together, and describe
 the verification actually performed and any material remaining obligations. A commit does
-not establish plan completion or authorize a push. The coordinator owns the shared index
-and commits unless it explicitly delegates that responsibility. Stage only owned paths or
-hunks, preserving unrelated and concurrent work.
+not establish plan completion or authorize a push. Any agent may commit its own paths or
+hunks, preserving unrelated and concurrent work; `pse commit` (Plan59 D08) builds the commit
+from a private index so concurrent staging cannot leak into it.
 
 ## Agent coordination and workflow skills
 

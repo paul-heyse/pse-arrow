@@ -211,7 +211,7 @@ existing runtime binary targets.
 | `pse-tests-engine` | Engine and catalog inspection, pushdown truthfulness and unified sources |
 | `pse-tests-conformance` | Canonical encoding properties and scientific/native boundary journeys; independent integrity mechanisms live with their production owners |
 | `pse-tests-lifecycle` | Canonical lifecycle and memory-budget behavior |
-| `pse-host` | Independent developer/operator host: environment and command selection, authenticated OS process/service/cgroup effects and passive observations; no scientific, Arrow/DataFusion, database-client or product-schema closure |
+| `pse-host` | Independent developer/operator host: the agent-facing `pse` command tree (one clap grammar with a derived catalog), environment and command selection, owned-run ledger and supervision, authenticated OS process/service/cgroup effects and passive observations; no scientific, Arrow/DataFusion, database-client or product-schema closure |
 | `xtask` | Heavy native developer composition, code generation, documentation/lifecycle/site interpretation, governance, typed fixtures and source/evidence/knowledge consumers |
 | `pse-benches` | Criterion groups for native cache, consolidation, process cases and modeling preparation |
 

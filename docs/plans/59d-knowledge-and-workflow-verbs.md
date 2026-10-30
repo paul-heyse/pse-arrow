@@ -1,6 +1,6 @@
 ---
 title: "Plan59d: Knowledge and workflow verbs"
-status: draft
+status: active
 date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
