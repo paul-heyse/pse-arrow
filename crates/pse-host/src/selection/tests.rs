@@ -182,6 +182,7 @@ fn explain_and_execution_retain_platform_filters_ignored_and_pending_listing() {
     let mut input = request(vec![intent(None)]);
     input.platform = Some("x86_64-unknown-linux-gnu".into());
     input.filters = Filters {
+        ignore_default_filter: true,
         words: vec!["duplicate".into()],
         expressions: vec!["package(alpha) & test(duplicate)".into()],
     };
@@ -198,6 +199,7 @@ fn explain_and_execution_retain_platform_filters_ignored_and_pending_listing() {
     assert_eq!(resolved.plan(), &expected);
     assert_eq!(resolved.plan().ignored(), IgnoredPolicy::Only);
     assert_eq!(resolved.plan().filters().words, ["duplicate"]);
+    assert!(resolved.plan().filters().ignore_default_filter);
     assert_eq!(
         resolved.admitted()[0].arguments,
         expected.groups()[0]
@@ -244,6 +246,13 @@ fn empty_unknown_and_check_test_policy_conflicts_refuse() {
     check.operation = Operation::Check;
     check.ignored = IgnoredPolicy::All;
     assert!(plan(&metadata(), check).is_err());
+    let mut check = request(vec![intent(None)]);
+    check.operation = Operation::Check;
+    check.filters.ignore_default_filter = true;
+    assert!(
+        plan(&metadata(), check).is_err(),
+        "native test policy never becomes a compiler-check option"
+    );
 }
 
 fn named_intent(name: &str) -> PackageIntent {

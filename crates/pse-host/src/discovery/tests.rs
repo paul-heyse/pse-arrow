@@ -147,8 +147,8 @@ fn metadata_cannot_invent_a_built_artifact_or_change_the_embedded_binary_id() {
     );
 }
 
-#[test]
-fn explicit_real_host_listing_captures_actual_inventory_without_setup_or_providers() {
+#[tokio::test]
+async fn explicit_real_host_listing_captures_actual_inventory_without_setup_or_providers() {
     let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(2)
@@ -170,6 +170,7 @@ fn explicit_real_host_listing_captures_actual_inventory_without_setup_or_provide
         }]),
         platform: None,
         filters: selection::Filters {
+            ignore_default_filter: false,
             words: vec!["source_symlinks_and_existing_capture_destinations_refuse".into()],
             expressions: vec![],
         },
@@ -192,7 +193,13 @@ fn explicit_real_host_listing_captures_actual_inventory_without_setup_or_provide
         &root.path().join("inventory"),
         "local",
         &std::env::vars_os().collect(),
+        crate::managed::payload::PayloadPolicy {
+            startup: std::time::Duration::from_secs(30),
+            drain: std::time::Duration::from_secs(30),
+            write: std::time::Duration::from_secs(30),
+        },
     )
+    .await
     .unwrap();
     assert_eq!(inventory.setup, SetupObservation::NotRunByListing);
     assert_eq!(inventory.runner_profile, "local");
@@ -200,10 +207,27 @@ fn explicit_real_host_listing_captures_actual_inventory_without_setup_or_provide
         inventory.physical_scope,
         PhysicalScopeObservation::NotEstablishedByDiscovery
     );
-    assert!(
-        inventory.generation_use.is_some(),
-        "original pin custody remains with the physical owner"
-    );
+    #[derive(serde::Deserialize)]
+    struct Claim {
+        owner: pse_diagnostics::process_facts::ProcessIdentity,
+    }
+    let claims = checkout
+        .join("target/host-tools/.uses")
+        .join(&inventory.host_generation.generation);
+    for claim in fs::read_dir(claims).unwrap() {
+        let path = claim.unwrap().path();
+        let bytes = match fs::read(path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => panic!("{error}"),
+        };
+        let claim: Claim = serde_json::from_slice(&bytes).unwrap();
+        assert_ne!(
+            claim.owner.pid,
+            std::process::id(),
+            "this listing released its original generation before children; other agents retain their independent claims"
+        );
+    }
     assert!(inventory.all_suites_listed());
     assert_eq!(inventory.selected_tests().len(), 1);
     assert!(

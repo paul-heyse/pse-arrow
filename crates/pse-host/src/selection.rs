@@ -39,6 +39,9 @@ pub enum IgnoredPolicy {
 /// Literal filter inputs. The test runner owns filter grammar and matching.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Filters {
+    /// Explicit native nextest default-filter bypass; preserved independently of bare words.
+    #[serde(default)]
+    pub ignore_default_filter: bool,
     /// Bare test-name words, retained independently of full filtersets.
     pub words: Vec<String>,
     /// Explicit nextest filtersets.
@@ -89,7 +92,7 @@ pub struct PackageIntent {
 }
 
 /// Package scope before normalization.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum Scope {
     /// Explicit package/target intentions, each preserving its feature context.
     Packages(Vec<PackageIntent>),
@@ -108,7 +111,7 @@ pub enum Scope {
 }
 
 /// Parser-independent request. CLI adapters do not own selection normalization.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Request {
     /// Selected compiler action.
     pub operation: Operation,

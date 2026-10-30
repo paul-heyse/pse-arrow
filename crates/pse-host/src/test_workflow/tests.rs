@@ -45,6 +45,7 @@ fn intent() -> (tempfile::TempDir, Intent) {
         }]),
         platform: None,
         filters: selection::Filters {
+            ignore_default_filter: true,
             words: vec!["same_name".into()],
             expressions: vec!["test(same_name)".into()],
         },
@@ -58,6 +59,38 @@ fn intent() -> (tempfile::TempDir, Intent) {
     )
     .unwrap();
     (root, intent)
+}
+
+#[test]
+fn inventory_ready_requires_each_original_phase_and_refuses_unsupported_or_missing_capture() {
+    let (_root, intent) = intent();
+    let mut listed = listed(intent);
+    assert!(listed.inventory.capture_complete());
+    let complete = serde_json::to_value(&listed.inventory).unwrap();
+    let mut old = complete.clone();
+    old["version"] = 1.into();
+    let old: Inventory = serde_json::from_value(old).unwrap();
+    assert!(old.verify_executables().is_err());
+    let mut missing = complete;
+    missing
+        .as_object_mut()
+        .unwrap()
+        .remove("required_capture_complete");
+    assert!(serde_json::from_value::<Inventory>(missing).is_err());
+    listed.inventory.capture[1].stdout.complete = false;
+    assert!(!listed.inventory.capture_complete());
+    assert!(
+        listed
+            .observer(
+                0,
+                NonZeroUsize::new(4096).unwrap(),
+                RedactionPolicy::default()
+            )
+            .is_err()
+    );
+    listed.inventory.capture[1].stdout.complete = true;
+    listed.inventory.capture.pop();
+    assert!(!listed.inventory.capture_complete());
 }
 fn listed(intent: Intent) -> Listed {
     let resolved = intent
@@ -146,7 +179,27 @@ fn listed(intent: Intent) -> Listed {
     })
     .collect();
     let inventory = Inventory {
-        version: 1,
+        version: 2,
+        required_capture_complete: true,
+        capture: [("version", None), ("build", Some(0)), ("list", Some(0))]
+            .into_iter()
+            .map(|(stage, group)| {
+                let stream = crate::managed::result::StreamSummary {
+                    bytes_read: 0,
+                    bytes_retained: 0,
+                    eof: true,
+                    complete: true,
+                    io_unresolved: false,
+                };
+                discovery::PhaseCapture {
+                    stage: stage.into(),
+                    group,
+                    child_exit: 0,
+                    stdout: stream.clone(),
+                    stderr: stream,
+                }
+            })
+            .collect(),
         selection: resolved.plan().clone(),
         host_generation: crate::generation::PreparedGeneration {
             generation: "fixture".into(),
@@ -175,7 +228,6 @@ fn listed(intent: Intent) -> Listed {
         setup: discovery::SetupObservation::NotRunByListing,
         runtime_inputs: discovery::RuntimeInputObservation::NotCapturedByDiscovery,
         physical_scope: discovery::PhysicalScopeObservation::NotEstablishedByDiscovery,
-        generation_use: None,
     };
     Listed {
         context: intent.context,
@@ -319,6 +371,11 @@ fn listed_commands_preserve_context_profile_policy_and_refuse_changed_capture() 
         .iter()
         .map(|arg| arg.to_str().unwrap())
         .collect();
+    assert!(args.contains(&"--ignore-default-filter"));
+    assert!(
+        !args.contains(&"--cargo-message-format"),
+        "native reused binaries reject compiler build options"
+    );
     assert!(
         args.windows(2)
             .any(|pair| pair == ["--profile", "selected-profile"])

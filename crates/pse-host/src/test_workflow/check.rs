@@ -71,6 +71,9 @@ pub struct AdmittedCheck {
     resolved: Resolved,
 }
 impl AdmittedCheck {
+    pub(super) fn select_native(&mut self) -> Result<(), WorkflowError> {
+        self.context.select_native(&self.resolved)
+    }
     /// Original correctness-owned admission, with no invented test IDs or binaries.
     pub fn resolved(&self) -> &Resolved {
         &self.resolved
@@ -118,41 +121,30 @@ impl AdmittedCheck {
                 resolved: self.resolved,
                 control,
                 generation: prepared,
-                generation_use: None,
             })
         })();
-        match result {
-            Ok(mut ready) => {
-                ready.generation_use = Some(usage);
-                Ok(ready)
-            }
-            Err(operation) => match usage.settle() {
-                Ok(()) => Err(operation),
-                Err(settlement) => Err(WorkflowError::Settlement {
-                    operation: Box::new(operation),
-                    settlement,
-                }),
-            },
+        match (result, usage.settle()) {
+            (result, Ok(())) => result,
+            (Ok(_), Err(error)) => Err(error.into()),
+            (Err(operation), Err(settlement)) => Err(WorkflowError::Settlement {
+                operation: Box::new(operation),
+                settlement,
+            }),
         }
     }
 }
-/// Captured original correctness control, retaining its independent generation custody.
+/// Captured original correctness control, independent of the original generation's lifetime.
 #[derive(Debug)]
 pub struct PreparedCheck {
     context: Context,
     resolved: Resolved,
     control: discovery::Executable,
     generation: PreparedGeneration,
-    generation_use: Option<GenerationUse>,
 }
 impl PreparedCheck {
     /// Provenance only, not manager mutation authority or a child-settlement assertion.
     pub fn generation(&self) -> &PreparedGeneration {
         &self.generation
-    }
-    /// Transfer existing custody to the actual physical owner without releasing it.
-    pub fn take_generation_use(&mut self) -> Option<GenerationUse> {
-        self.generation_use.take()
     }
     /// Construct one exact admitted check command. The native correctness adapter remains
     /// force-validation authority; provider requirements remain pending their actual owner.
@@ -164,12 +156,21 @@ impl PreparedCheck {
             .admitted()
             .get(group)
             .ok_or_else(|| WorkflowError::Invalid("admitted check group is absent".into()))?;
-        if !admitted.native_capabilities.is_empty() {
+        if !admitted
+            .native_capabilities
+            .is_subset(&self.context.selected_native)
+        {
             return Err(WorkflowError::NativePending(
                 admitted.native_capabilities.clone(),
             ));
         }
-        let environment = correctness::standalone_adapter_environment(&self.context.environment)?;
+        let mut environment =
+            correctness::standalone_adapter_environment(&self.context.environment)?;
+        environment.insert("PSE_CORRECTNESS_ADAPTER".into(), "1".into());
+        environment.insert(
+            "PSE_CORRECTNESS_EXECUTABLE".into(),
+            self.control.captured.as_os_str().to_owned(),
+        );
         let mut arguments = admitted.arguments.clone();
         arguments.push("--message-format=json".into());
         Ok(GroupCommand {
@@ -531,7 +532,6 @@ mod tests {
             resolved: admitted.resolved,
             control,
             generation,
-            generation_use: None,
         };
         for key in [
             "CARGO_HACK_CARGO_SRC",

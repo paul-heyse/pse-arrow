@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Test selection stages, immutable listed commands and required observation, without launch.
 mod check;
+pub mod execute;
 mod observation;
 use crate::{
     catalog::description::Information,
@@ -33,6 +34,28 @@ pub enum WorkflowError {
     /// Original filesystem failure.
     #[error("test workflow I/O: {0}")]
     Io(#[from] std::io::Error),
+    /// Child status was not established; the enclosing managed scope still owns its descendants.
+    #[error("workflow phase could not wait for child {pid:?}: {source}")]
+    ChildWait {
+        /// Original spawned leader, diagnostic only.
+        pid: Option<u32>,
+        /// Original native wait cause.
+        source: std::io::Error,
+    },
+    /// A native phase returned its original nonzero waited status.
+    #[error("workflow {phase} exited {exit}; original output remains in phase evidence")]
+    PhaseExit {
+        /// Fixed operation phase.
+        phase: &'static str,
+        /// Original waited child exit, preserving signal encoding.
+        exit: i32,
+    },
+    /// Original selected-test record attribution and required protocol cause.
+    #[error(transparent)]
+    TestObservation(#[from] ObservationError),
+    /// Original compiler record attribution and required protocol cause.
+    #[error(transparent)]
+    CompilerObservation(#[from] CompilerObservationError),
     /// Original native host/custody failure.
     #[error(transparent)]
     Host(#[from] crate::HostError),
@@ -65,6 +88,9 @@ pub enum WorkflowError {
     /// Native capability preparation/readiness remains with its original owner.
     #[error("test execution requires native-owner readiness for {0:?}")]
     NativePending(BTreeSet<String>),
+    /// Original native provider selection refused; no preparation was attempted.
+    #[error("native workflow readiness: {0}")]
+    NativeReadiness(#[source] crate::HostError),
     /// Listing never creates fixtures or proves their execution-owner readiness.
     #[error("test execution requires fixture-owner readiness for selected group {0}")]
     FixturePending(usize),
@@ -72,7 +98,7 @@ pub enum WorkflowError {
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(this) { match this { Self::Host(error) => Some(error), Self::Correctness(error) => Some(error), Self::Discovery(error) => Some(error), Self::Fixture(error) => Some(error), Self::Extraction(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Host(error)|Self::NativeReadiness(error) => Some(error), Self::Correctness(error) => Some(error), Self::Discovery(error) => Some(error), Self::Fixture(error) => Some(error), Self::Extraction(error) => Some(error),Self::TestObservation(error)=>Some(error),Self::CompilerObservation(error)=>Some(error), _ => None } },
     help(_this) { None }, related(this) { match this { Self::Settlement { operation, settlement } => { let errors: [&dyn pse_diagnostics::TypedDiagnostic; 2] = [operation.as_ref(), settlement]; Some(Box::new(errors.into_iter())) }, _ => None } }, source(_this) { None }
 }
 #[derive(Debug)]
@@ -93,6 +119,7 @@ struct Context {
     profile: String,
     environment: Environment,
     inputs: Vec<Input>,
+    selected_native: BTreeSet<String>,
 }
 impl std::fmt::Debug for Context {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -147,6 +174,7 @@ impl Context {
             profile,
             environment,
             inputs,
+            selected_native: BTreeSet::new(),
         })
     }
     fn admit(&self, plan: Plan) -> Result<Resolved, WorkflowError> {
@@ -167,6 +195,44 @@ impl Context {
                 return Err(WorkflowError::Changed(input.path.clone()));
             }
         }
+        Ok(())
+    }
+    fn select_native(&mut self, resolved: &Resolved) -> Result<(), WorkflowError> {
+        let capabilities = resolved.native_capabilities();
+        if capabilities.is_empty() {
+            return Ok(());
+        }
+        self.verify()?;
+        let environment = crate::native::select_capabilities(
+            &self.checkout,
+            &self.environment,
+            &capabilities.iter().cloned().collect::<Vec<_>>().join(","),
+        )
+        .map_err(WorkflowError::NativeReadiness)?;
+        let previous = std::mem::replace(&mut self.environment, environment);
+        let checked = self.admit(resolved.plan().clone());
+        let same = checked.as_ref().is_ok_and(|checked| {
+            checked.plan() == resolved.plan()
+                && checked.admitted().len() == resolved.admitted().len()
+                && checked
+                    .admitted()
+                    .iter()
+                    .zip(resolved.admitted())
+                    .all(|(left, right)| {
+                        left.arguments == right.arguments
+                            && left.native_capabilities == right.native_capabilities
+                            && left.units.len() == right.units.len()
+                            && left.units.iter().all(|unit| right.units.contains(unit))
+                    })
+        });
+        if !same {
+            self.environment = previous;
+            checked?;
+            return Err(WorkflowError::Invalid(
+                "compiler context changed after native selection; explicitly re-resolve".into(),
+            ));
+        }
+        self.selected_native = capabilities;
         Ok(())
     }
 }
@@ -361,7 +427,12 @@ impl Admitted {
         }
     }
     /// Explicit source build/list; no service or native-provider preparation is performed.
-    pub fn list(self, nextest: &Path, destination: &Path) -> Result<Listed, WorkflowError> {
+    pub async fn list(
+        self,
+        nextest: &Path,
+        destination: &Path,
+        policy: crate::managed::payload::PayloadPolicy,
+    ) -> Result<Listed, WorkflowError> {
         self.context.verify()?;
         let inventory = discovery::list(
             &self.resolved,
@@ -370,7 +441,9 @@ impl Admitted {
             destination,
             &self.context.profile,
             &self.context.environment,
-        )?;
+            policy,
+        )
+        .await?;
         self.context.verify()?;
         let mut paths = vec![destination.join("nextest.toml")];
         for group in 0..inventory.groups.len() {
@@ -461,13 +534,9 @@ pub struct TestPage<'a> {
     pub source_basis: &'static str,
 }
 impl Listed {
-    /// Original owner inventory; physical custody must be transferred, never inferred released.
+    /// Original immutable owner inventory; generation provenance is independent of run custody.
     pub fn inventory(&self) -> &Inventory {
         &self.inventory
-    }
-    /// Transfer existing live generation custody to the physical owner, without releasing it.
-    pub fn take_generation_use(&mut self) -> Option<crate::generation::GenerationUse> {
-        self.inventory.generation_use.take()
     }
     /// Project the already observed population without rebuilding/relisting it.
     pub fn page(&self, offset: usize, limit: usize) -> Result<TestPage<'_>, WorkflowError> {
@@ -546,7 +615,12 @@ impl Listed {
             .groups
             .get(group)
             .ok_or_else(|| WorkflowError::Invalid("captured group is absent".into()))?;
-        if !listed.build.resolution.native_capabilities.is_empty() {
+        if !listed
+            .build
+            .resolution
+            .native_capabilities
+            .is_subset(&self.context.selected_native)
+        {
             return Err(WorkflowError::NativePending(
                 listed.build.resolution.native_capabilities.clone(),
             ));
@@ -585,8 +659,6 @@ impl Listed {
                 "libtest-json-plus",
                 "--message-format-version",
                 "0.1",
-                "--cargo-message-format",
-                "json",
                 "--profile",
                 &self.inventory.runner_profile,
             ])

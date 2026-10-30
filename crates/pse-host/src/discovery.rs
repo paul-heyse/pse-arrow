@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
     fs,
-    os::unix::fs::{DirBuilderExt, OpenOptionsExt},
+    os::unix::fs::DirBuilderExt,
     path::{Path, PathBuf},
     process::{Command, Output},
 };
@@ -50,20 +50,6 @@ pub enum DiscoveryError {
         /// Private retained phase directory.
         evidence: PathBuf,
     },
-    /// Waiting failed without proving the original listing child exited; protection remains.
-    #[error(
-        "test discovery {stage} cannot establish child {pid} exit: {detail}; evidence at {evidence}"
-    )]
-    Unsettled {
-        /// Original phase.
-        stage: &'static str,
-        /// Original child identity for operator diagnosis, not permission to kill a reused PID.
-        pid: u32,
-        /// Original wait failure.
-        detail: String,
-        /// Retained original streams.
-        evidence: PathBuf,
-    },
     /// Original discovery failure and independent generation settlement failure.
     #[error("test discovery failed: {operation}; generation settlement also failed: {settlement}")]
     Settlement {
@@ -72,11 +58,21 @@ pub enum DiscoveryError {
         /// Independent failure to release the original host generation use.
         settlement: HostError,
     },
+    /// Original phase child/required raw-capture failures, without dropping independent causes.
+    #[error("test discovery {stage} has incomplete raw capture at {evidence}")]
+    Capture {
+        /// Fixed native phase.
+        stage: &'static str,
+        /// Original retained evidence location.
+        evidence: PathBuf,
+        /// Original independent failures.
+        failures: Vec<crate::test_workflow::WorkflowError>,
+    },
 }
 pse_diagnostics::impl_diagnostic! {
     DiscoveryError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+    forward(_this) { None }, help(_this) { None }, related(this) { match this {Self::Capture{failures,..}=>Some(Box::new(failures.iter().map(|error|{let error:&dyn pse_diagnostics::TypedDiagnostic=error;error}))),_=>None} }, source(_this) { None }
 }
 fn invalid(message: impl Into<String>) -> DiscoveryError {
     DiscoveryError::Invalid(message.into())
@@ -104,6 +100,21 @@ pub struct ListedGroup {
     pub binaries: BinaryListSummary,
     /// Actual public nextest enumeration and filter-match results.
     pub listing: TestListSummary,
+}
+
+/// Original required phase custody, retained before native I/O errors are projected.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PhaseCapture {
+    /// Fixed performing phase: version, build or list.
+    pub stage: String,
+    /// Original compiler context, absent for the version probe.
+    pub group: Option<usize>,
+    /// Original waited exit.
+    pub child_exit: i32,
+    /// Required original stdout retention.
+    pub stdout: crate::managed::result::StreamSummary,
+    /// Required original stderr retention.
+    pub stderr: crate::managed::result::StreamSummary,
 }
 
 /// Listing observes no setup-script execution or outcome.
@@ -145,6 +156,10 @@ pub struct CapturedTest<'a> {
 pub struct Inventory {
     /// Host-owned inventory envelope version.
     pub version: u32,
+    /// Every required version/build/list phase retained complete original raw output.
+    pub required_capture_complete: bool,
+    /// Actual version/build/list required stream facts, rather than child-zero inference.
+    pub capture: Vec<PhaseCapture>,
     /// Caller intent remains distinct from the actual listed population.
     pub selection: selection::Plan,
     /// Original prepared host identity, used and settled during this listing.
@@ -167,11 +182,33 @@ pub struct Inventory {
     pub runtime_inputs: RuntimeInputObservation,
     /// Independent physical settlement obligation, never inferred from Cargo/nextest exit.
     pub physical_scope: PhysicalScopeObservation,
-    /// Live custody for the enclosing physical owner; serialized inventory grants no release.
-    #[serde(skip)]
-    pub generation_use: Option<generation::GenerationUse>,
 }
 impl Inventory {
+    /// Required version/build/list raw custody must all be known, independently of child exit.
+    pub fn capture_complete(&self) -> bool {
+        let stream = |value: &crate::managed::result::StreamSummary| {
+            value.complete
+                && value.eof
+                && !value.io_unresolved
+                && value.bytes_read == value.bytes_retained
+        };
+        let phase = |stage: &str, group: Option<usize>| {
+            self.capture
+                .iter()
+                .filter(|capture| capture.stage == stage && capture.group == group)
+                .count()
+                == 1
+        };
+        self.version == 2
+            && self.required_capture_complete
+            && self.capture.len() == 1 + self.groups.len() * 2
+            && phase("version", None)
+            && (0..self.groups.len())
+                .all(|group| phase("build", Some(group)) && phase("list", Some(group)))
+            && self.capture.iter().all(|capture| {
+                capture.child_exit == 0 && stream(&capture.stdout) && stream(&capture.stderr)
+            })
+    }
     /// Actual selected tests; duplicate names in different binaries remain distinct.
     pub fn selected_tests(&self) -> Vec<TestIdentity> {
         self.selected_tests_iter().collect()
@@ -209,6 +246,11 @@ impl Inventory {
     }
     /// Verify captured binaries before another owner reuses them.
     pub fn verify_executables(&self) -> Result<(), DiscoveryError> {
+        if !self.capture_complete() {
+            return Err(invalid(
+                "inventory lacks supported complete discovery capture",
+            ));
+        }
         self.nextest.verify()?;
         self.correctness.verify()?;
         for group in &self.groups {
@@ -257,34 +299,39 @@ fn directory(path: &Path) -> Result<(), DiscoveryError> {
     capture::private_directory(path)?;
     Ok(())
 }
-fn output(
-    mut command: Command,
+async fn output(
+    command: Command,
     directory: &Path,
     stage: &'static str,
-    child_started: Option<&mut bool>,
+    policy: crate::managed::payload::PayloadPolicy,
+    group: Option<usize>,
+    phases: &mut Vec<PhaseCapture>,
 ) -> Result<Output, DiscoveryError> {
     let stdout = directory.join(format!("{stage}.stdout"));
     let stderr = directory.join(format!("{stage}.stderr"));
-    let stdout_file = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o400)
-        .open(&stdout)?;
-    let stderr_file = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o400)
-        .open(&stderr)?;
-    let mut child = command.stdout(stdout_file).stderr(stderr_file).spawn()?;
-    if let Some(started) = child_started {
-        *started = true;
-    }
-    let status = child.wait().map_err(|error| DiscoveryError::Unsettled {
+    let capture = crate::test_workflow::execute::phase::run(
+        command,
+        &stdout,
+        &stderr,
+        crate::managed::result::GenericObserver,
+        policy,
+    )
+    .await
+    .map_err(|error| DiscoveryError::Capture {
         stage,
-        pid: child.id(),
-        detail: error.to_string(),
         evidence: directory.into(),
+        failures: vec![error],
     })?;
+    if !capture.capture_complete || !capture.failures.is_empty() || capture.child_exit.is_none() {
+        return Err(DiscoveryError::Capture {
+            stage,
+            evidence: directory.into(),
+            failures: capture.failures,
+        });
+    }
+    let status = capture
+        .status
+        .ok_or_else(|| invalid("captured phase child status missing"))?;
     let result = Output {
         status,
         stdout: fs::read(stdout)?,
@@ -301,19 +348,33 @@ fn output(
             evidence: directory.into(),
         });
     }
+    phases.push(PhaseCapture {
+        stage: stage.into(),
+        group,
+        child_exit: capture
+            .child_exit
+            .ok_or_else(|| invalid("captured phase exit missing"))?,
+        stdout: capture
+            .stdout
+            .ok_or_else(|| invalid("captured phase stdout missing"))?,
+        stderr: capture
+            .stderr
+            .ok_or_else(|| invalid("captured phase stderr missing"))?,
+    });
     Ok(result)
 }
 
 /// Explicitly build and list selected tests, retaining immutable executable copies.
 /// The destination must be a new absolute directory under the caller's retained owner.
 /// No native provider preparation or fixture/service creation occurs here.
-pub fn list(
+pub async fn list(
     resolved: &selection::Resolved,
     checkout: &Path,
     nextest: &Path,
     destination: &Path,
     runner_profile: &str,
     environment: &crate::environment::Environment,
+    policy: crate::managed::payload::PayloadPolicy,
 ) -> Result<Inventory, DiscoveryError> {
     if resolved.plan().operation() != Operation::Test {
         return Err(invalid("only test selections have a nextest inventory"));
@@ -326,17 +387,39 @@ pub fn list(
         .ok_or_else(|| invalid("native host is unprepared; run scripts/bootstrap-host"))?;
     let tools = checkout.join("target/host-tools");
     let generation_use = generation::GenerationUse::acquire(&tools, &prepared.generation)?;
-    let mut source_child_started = false;
-    let result = (|| {
+    let copies = (|| {
         directory(destination)?;
         let nextest = capture::executable(nextest, &destination.join("cargo-nextest"))?;
+        let correctness = capture::executable(
+            &tools
+                .join(&prepared.generation)
+                .join("cargo-pse-correctness"),
+            &destination.join("cargo-pse-correctness"),
+        )?;
+        Ok((nextest, correctness))
+    })();
+    let (nextest, captured_correctness) = match (copies, generation_use.settle()) {
+        (Ok(value), Ok(())) => value,
+        (Err(error), Ok(())) => return Err(error),
+        (Ok(_), Err(error)) => return Err(error.into()),
+        (Err(operation), Err(settlement)) => {
+            return Err(DiscoveryError::Settlement {
+                operation: Box::new(operation),
+                settlement,
+            });
+        }
+    };
+    // Every child uses captured controls. The original host generation is provenance only
+    // and can be retired independently after its copy has been authenticated and settled.
+    async {
+        let mut phases=Vec::new();
         let mut version = Command::new(&nextest.captured);
         version
             .arg("--version")
             .env_clear()
             .envs(environment)
             .current_dir(&checkout);
-        let version = output(version, destination, "version", None)?;
+        let version = output(version, destination, "version",policy,None,&mut phases).await?;
         let version = String::from_utf8(version.stdout)
             .map_err(|_| invalid("nextest version is not UTF-8"))?;
         let declared: toml::Value = toml::from_str(&fs::read_to_string(
@@ -353,11 +436,6 @@ pub fn list(
                 "nextest executable differs from the checkout's declared version",
             ));
         }
-        let correctness = tools
-            .join(&prepared.generation)
-            .join("cargo-pse-correctness");
-        let captured_correctness =
-            capture::executable(&correctness, &destination.join("cargo-pse-correctness"))?;
         let cargo = crate::correctness::real_cargo_in(environment)?;
         let nextest_configuration = fs::read(checkout.join(".config/nextest.toml"))?;
         let configuration = destination.join("nextest.toml");
@@ -384,19 +462,22 @@ pub fn list(
                 .arg("--config-file")
                 .arg(&configuration)
                 .args(&group.arguments()[1..])
-                .env("CARGO", &correctness)
+                .env("CARGO", &captured_correctness.captured)
                 .env("PSE_CORRECTNESS_ADAPTER", "1")
                 .env("PSE_CORRECTNESS_REAL_CARGO", &cargo)
                 .env("PSE_FIXTURE_CARGO_METADATA_CAPTURE", &cargo_metadata)
                 .env("PSE_CORRECTNESS_BUILD_CAPTURE", &build_directory)
-                .env("PSE_CORRECTNESS_EXECUTABLE", &correctness)
+                .env("PSE_CORRECTNESS_EXECUTABLE", &captured_correctness.captured)
                 .env_remove("NEXTEST_TEST_PHASE");
+            if resolved.plan().filters().ignore_default_filter {build.arg("--ignore-default-filter");}
             let binary_output = output(
                 build,
                 &group_directory,
                 "build",
-                Some(&mut source_child_started),
-            )?;
+                policy,
+                Some(index),
+                &mut phases,
+            ).await?;
             let mut binaries: BinaryListSummary = serde_json::from_slice(&binary_output.stdout)?;
             let captured: BuildCapture =
                 serde_json::from_slice(&fs::read(build_directory.join("build.json"))?)?;
@@ -440,7 +521,7 @@ pub fn list(
                 .env_remove("NEXTEST_TEST_PHASE");
             enumerate.args(["--profile", runner_profile]);
             add_filters(&mut enumerate, resolved.plan());
-            let listing_output = output(enumerate, &group_directory, "list", None)?;
+            let listing_output = output(enumerate, &group_directory, "list",policy,Some(index),&mut phases).await?;
             let listing: TestListSummary = serde_json::from_slice(&listing_output.stdout)?;
             validate_listing(&binaries, &listing, resolved.plan().ignored())?;
             groups.push(ListedGroup {
@@ -450,7 +531,9 @@ pub fn list(
             });
         }
         let inventory = Inventory {
-            version: 1,
+            version: 2,
+            required_capture_complete: true,
+            capture:phases,
             selection: resolved.plan().clone(),
             host_generation: prepared,
             nextest,
@@ -462,29 +545,16 @@ pub fn list(
             setup: SetupObservation::NotRunByListing,
             runtime_inputs: RuntimeInputObservation::NotCapturedByDiscovery,
             physical_scope: PhysicalScopeObservation::NotEstablishedByDiscovery,
-            generation_use: None,
         };
         capture::write_json(&destination.join("inventory.json"), &inventory)?;
         Ok(inventory)
-    })();
-    if source_child_started {
-        return result.map(|mut inventory| {
-            inventory.generation_use = Some(generation_use);
-            inventory
-        });
-    }
-    match (result, generation_use.settle()) {
-        (Ok(value), Ok(())) => Ok(value),
-        (Err(error), Ok(())) => Err(error),
-        (Ok(_), Err(error)) => Err(error.into()),
-        (Err(operation), Err(settlement)) => Err(DiscoveryError::Settlement {
-            operation: Box::new(operation),
-            settlement,
-        }),
-    }
+    }.await
 }
 
 pub(crate) fn add_filters(command: &mut Command, plan: &selection::Plan) {
+    if plan.filters().ignore_default_filter {
+        command.arg("--ignore-default-filter");
+    }
     command.args([
         "--run-ignored",
         match plan.ignored() {

@@ -654,6 +654,11 @@ impl NextestExtractor {
         inventory: &crate::discovery::Inventory,
         group: usize,
     ) -> Result<Self, ExtractionError> {
+        if !inventory.capture_complete() {
+            return Err(ExtractionError::Nextest(
+                "inventory lacks supported complete discovery capture".into(),
+            ));
+        }
         if inventory
             .nextest_version
             .split_whitespace()

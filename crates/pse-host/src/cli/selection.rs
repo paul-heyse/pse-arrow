@@ -94,6 +94,9 @@ impl SelectionArgs {
 pub(super) struct TestArgs {
     #[command(flatten)]
     pub(super) selection: SelectionArgs,
+    /// Bypass the selected nextest profile's default filter.
+    #[arg(long)]
+    ignore_default_filter: bool,
     /// Native nextest filtersets; nextest owns their grammar.
     #[arg(short = 'E', long = "filterset")]
     expressions: Vec<String>,
@@ -110,6 +113,7 @@ impl TestArgs {
     pub(super) fn request(&self) -> Result<Request, CorrectnessError> {
         let mut request = self.selection.request(Operation::Test)?;
         request.filters = selection::Filters {
+            ignore_default_filter: self.ignore_default_filter,
             words: self.words.clone(),
             expressions: self.expressions.clone(),
         };
@@ -183,11 +187,13 @@ mod tests {
             "target-triple",
             "--ignored",
             "all",
+            "--ignore-default-filter",
         ])
         .unwrap();
         let request = parsed.tests.request().unwrap();
         assert_eq!(request.platform.as_deref(), Some("target-triple"));
         assert_eq!(request.ignored, selection::IgnoredPolicy::All);
+        assert!(request.filters.ignore_default_filter);
         let Scope::Packages(packages) = request.scope else {
             panic!("explicit target lost")
         };
