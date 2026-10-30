@@ -54,7 +54,9 @@ pub use bootstrap::{
     bootstrap_from, bootstrap_mode, freshness, prepared,
 };
 mod entry;
-pub use entry::{EntryGuard, EntrySettlement, NewWorkDecision, new_work_decision};
+pub use entry::{
+    EntryGuard, EntrySettlement, GenerationReadGuard, NewWorkDecision, new_work_decision,
+};
 mod transfer;
 pub use transfer::rebuild_and_reexec;
 

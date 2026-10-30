@@ -455,9 +455,15 @@ fn copy_owner_keeps_source_pinned_and_rejects_changed_bytes_before_probe_or_publ
     );
     let prior = prepared(destination.path()).unwrap().unwrap();
     let copy = CopySource::acquire(source.path()).unwrap();
-    let generation = copy.directory.file_name().unwrap().to_str().unwrap();
+    let generation = copy
+        .directory
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_owned();
     assert_eq!(
-        GenerationUse::inspect(&source.path().join("target/host-tools"), generation).unwrap(),
+        GenerationUse::inspect(&source.path().join("target/host-tools"), &generation).unwrap(),
         GenerationUseState::Active
     );
     use std::os::unix::fs::PermissionsExt;
@@ -483,12 +489,12 @@ fn copy_owner_keeps_source_pinned_and_rejects_changed_bytes_before_probe_or_publ
     );
     assert_eq!(prepared(destination.path()).unwrap().unwrap(), prior);
     assert_eq!(
-        GenerationUse::inspect(&source.path().join("target/host-tools"), generation).unwrap(),
+        GenerationUse::inspect(&source.path().join("target/host-tools"), &generation).unwrap(),
         GenerationUseState::Active
     );
-    copy.usage.settle().unwrap();
+    drop(copy);
     assert_eq!(
-        GenerationUse::inspect(&source.path().join("target/host-tools"), generation).unwrap(),
+        GenerationUse::inspect(&source.path().join("target/host-tools"), &generation).unwrap(),
         GenerationUseState::Available
     );
 }
@@ -549,6 +555,7 @@ fn source_helper_assertion_requires_actual_prepared_checkout_identity() {
         manifest_digest: usage.manifest().digest().unwrap(),
     };
     let entry = EntryGuard {
+        passive: None,
         usage: Some(usage),
         reference: Some(reference),
     };
@@ -563,6 +570,7 @@ fn source_helper_assertion_requires_actual_prepared_checkout_identity() {
     assert!(source_mode(&entry, None, Some(root.as_os_str())).is_err());
     assert!(source_mode(&entry, Some(root), Some(tools.as_os_str())).is_err());
     let seed = EntryGuard {
+        passive: None,
         usage: None,
         reference: None,
     };

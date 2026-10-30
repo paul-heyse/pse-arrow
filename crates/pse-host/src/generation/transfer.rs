@@ -328,6 +328,7 @@ pub fn rebuild_and_reexec(
     entry: &mut EntryGuard,
 ) -> Result<i32, HostError> {
     let root = root.canonicalize()?;
+    entry.promote()?;
     let stderr = rustix::io::dup(std::io::stderr()).map_err(std::io::Error::from)?;
     let result = Command::new(root.join("scripts/bootstrap-host"))
         .current_dir(&root)

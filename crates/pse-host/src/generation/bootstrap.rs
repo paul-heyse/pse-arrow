@@ -503,17 +503,18 @@ pub fn bootstrap_from(
 
 struct CopySource {
     directory: PathBuf,
-    usage: GenerationUse,
+    guard: GenerationReadGuard,
 }
 impl CopySource {
     fn acquire(root: &Path) -> Result<Self, HostError> {
         let root = root.canonicalize()?;
         let reference = prepared(&root)?
             .ok_or_else(|| invalid("source checkout has no prepared generation"))?;
-        let usage = GenerationUse::acquire(&root.join("target/host-tools"), &reference.generation)?;
-        let verified = usage.manifest().digest().and_then(|digest| {
+        let guard =
+            GenerationReadGuard::acquire(&root.join("target/host-tools"), &reference.generation)?;
+        let verified = guard.manifest().digest().and_then(|digest| {
             if digest == reference.manifest_digest
-                && usage.manifest().control_protocol() == reference.protocol
+                && guard.manifest().control_protocol() == reference.protocol
             {
                 Ok(())
             } else {
@@ -522,18 +523,10 @@ impl CopySource {
                 ))
             }
         });
-        if let Err(operation) = verified {
-            return Err(match usage.settle() {
-                Ok(()) => operation,
-                Err(cleanup) => HostError::Settlement {
-                    operation: Box::new(operation),
-                    cleanup: Box::new(cleanup),
-                },
-            });
-        }
+        verified?;
         Ok(Self {
             directory: root.join("target/host-tools").join(reference.generation),
-            usage,
+            guard,
         })
     }
 }
@@ -562,21 +555,8 @@ fn construct(
     let operation = construct_selected(root, environment, source.as_ref(), mode);
     // This owner only retained source file paths; every copy descriptor is now closed.
     // A probe, if any, executed the destination's private copy, never the source path.
-    let released = source.map_or(Ok(()), |source| source.usage.settle());
-    match (operation, released) {
-        (result, Ok(())) => result,
-        (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
-            operation: Box::new(operation),
-            cleanup: Box::new(cleanup),
-        }),
-        (Ok(outcome), Err(cleanup)) => Err(HostError::Settlement {
-            operation: Box::new(invalid(format!(
-                "construction returned {}",
-                outcome.exit_code
-            ))),
-            cleanup: Box::new(cleanup),
-        }),
-    }
+    drop(source);
+    operation
 }
 
 fn construct_selected(
@@ -619,13 +599,13 @@ fn construct_selected(
         )
     };
     let before = observe()?;
-    if let Some(source) = source.filter(|source| source.usage.manifest().source() == &before) {
+    if let Some(source) = source.filter(|source| source.guard.manifest().source() == &before) {
         let after = observe()?;
         let _publication = publication_lock(&tools)?;
         publish(
             &root,
             &source.directory,
-            Some(&source.usage.manifest().binaries),
+            Some(&source.guard.manifest().binaries),
             before,
             &after,
             observe,

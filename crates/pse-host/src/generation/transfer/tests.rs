@@ -16,6 +16,7 @@ fn reference(tools: &Path, generation: &str) -> PreparedGeneration {
 }
 fn entry(tools: &Path, generation: &str) -> EntryGuard {
     EntryGuard {
+        passive: None,
         usage: Some(GenerationUse::acquire(tools, generation).unwrap()),
         reference: Some(reference(tools, generation)),
     }
@@ -30,7 +31,8 @@ fn handoff_child() {
     let tools = executable.parent().unwrap().parent().unwrap();
     let source_image = executable.parent().unwrap().file_name().unwrap() == "generation.source";
     if mode == "prepare" || (mode == "prepare_future" && source_image) {
-        let source = EntryGuard::acquire_current().unwrap();
+        let mut source = EntryGuard::acquire_current().unwrap();
+        source.promote().unwrap();
         if mode == "prepare_future" {
             let root = tools.parent().unwrap().parent().unwrap();
             let source_manifest =

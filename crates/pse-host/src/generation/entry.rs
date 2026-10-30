@@ -3,6 +3,8 @@
 //! Entry protection and authenticated new-work classification, separate from parsing.
 use super::*;
 use std::time::{Duration, Instant};
+mod read;
+pub use read::GenerationReadGuard;
 
 /// An explicit report by the performing owner; never inferred from an exit code.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -18,6 +20,7 @@ pub enum EntrySettlement {
 /// Actual executable generation protection, including entries with no invocation ledger row.
 #[derive(Debug)]
 pub struct EntryGuard {
+    pub(super) passive: Option<GenerationReadGuard>,
     pub(super) usage: Option<GenerationUse>,
     pub(super) reference: Option<PreparedGeneration>,
 }
@@ -40,6 +43,7 @@ impl EntryGuard {
         handoff: Option<&OsStr>,
     ) -> Result<Self, HostError> {
         let empty = || Self {
+            passive: None,
             usage: None,
             reference: None,
         };
@@ -63,17 +67,23 @@ impl EntryGuard {
             .and_then(OsStr::to_str)
             .filter(|name| component(name) && name.starts_with("generation."))
             .ok_or_else(|| invalid("entry executable is outside a fixed generation"))?;
-        let usage = match transfer::adopt(tools, generation, handoff)? {
-            Some(usage) => usage,
-            None => GenerationUse::acquire(tools, generation)?,
+        let (passive, usage) = match transfer::adopt(tools, generation, handoff)? {
+            Some(usage) => (None, Some(usage)),
+            None => (Some(GenerationReadGuard::acquire(tools, generation)?), None),
         };
+        let manifest = usage
+            .as_ref()
+            .map(GenerationUse::manifest)
+            .or_else(|| passive.as_ref().map(GenerationReadGuard::manifest))
+            .ok_or_else(|| invalid("entry has no generation guard"))?;
         let reference = PreparedGeneration {
             generation: generation.into(),
-            protocol: usage.manifest().control_protocol(),
-            manifest_digest: usage.manifest().digest()?,
+            protocol: manifest.control_protocol(),
+            manifest_digest: manifest.digest()?,
         };
         Ok(Self {
-            usage: Some(usage),
+            passive,
+            usage,
             reference: Some(reference),
         })
     }
@@ -82,10 +92,25 @@ impl EntryGuard {
     pub fn prepared(&self) -> Option<&PreparedGeneration> {
         self.reference.as_ref()
     }
+    /// Promote before creating a child, retaining/exporting an executable path or handing
+    /// off finalization. Already promoted and mutable seed entries need no extra claim.
+    /// A failed promotion keeps passive protection and authorizes no effect.
+    pub fn promote(&mut self) -> Result<(), HostError> {
+        if self.usage.is_none()
+            && let Some(passive) = &self.passive
+        {
+            self.usage = Some(passive.promote()?);
+            self.passive = None;
+        }
+        Ok(())
+    }
     /// Physical checkout owning this authenticated entry, independent of `-C` selection.
     /// Mutable source-built images have no prepared checkout identity.
     pub fn checkout(&self) -> Option<PathBuf> {
-        let tools = self.usage.as_ref()?.record.parent()?.parent()?.parent()?;
+        let tools = match &self.passive {
+            Some(passive) => passive.tools.as_path(),
+            None => self.usage.as_ref()?.record.parent()?.parent()?.parent()?,
+        };
         let target = tools
             .parent()
             .filter(|path| path.file_name().is_some_and(|name| name == "target"))?;
@@ -94,6 +119,8 @@ impl EntryGuard {
 
     /// Release only an explicit performing-owner settlement report. Drop, process loss,
     /// timeout, success/failure status and missing ledger rows establish no such report.
+    /// Passive entries have no retained obligations and only close their process-held lock;
+    /// an unresolved report never substitutes for promotion before effects.
     pub fn complete(self, settlement: EntrySettlement) -> Result<(), HostError> {
         if settlement != EntrySettlement::Unresolved
             && let Some(usage) = self.usage
@@ -172,10 +199,16 @@ mod tests {
             GenerationUse::inspect(&tools, &identity.generation).unwrap(),
             GenerationUseState::Available
         );
-        EntryGuard::acquire_executable(&executable)
-            .unwrap()
-            .complete(EntrySettlement::Unresolved)
-            .unwrap();
+        let mut effectful = EntryGuard::acquire_executable(&executable).unwrap();
+        effectful.promote().unwrap();
+        effectful.promote().unwrap();
+        assert_eq!(
+            fs::read_dir(tools.join(".uses/generation.fixture"))
+                .unwrap()
+                .count(),
+            1
+        );
+        effectful.complete(EntrySettlement::Unresolved).unwrap();
         assert_eq!(
             GenerationUse::inspect(&tools, &identity.generation).unwrap(),
             GenerationUseState::Unsettled
