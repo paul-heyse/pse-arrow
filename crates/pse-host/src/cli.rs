@@ -19,6 +19,7 @@ mod affected;
 mod control;
 mod product;
 mod selection;
+mod tools;
 
 /// Selects the fixed executable protocol, never inferred from an executable filename.
 #[derive(Clone, Copy, Debug)]
@@ -64,6 +65,11 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Explicit captured development-tool preparation, discovery and managed native forwarding.
+    Tools {
+        #[command(subcommand)]
+        action: tools::Action,
+    },
     /// Preview conservative changed-source reach through Gitoxide and captured Cargo declarations.
     Affected(affected::Selection),
     /// Observe one original managed invocation; an observation timeout leaves it running.
@@ -96,6 +102,9 @@ enum Command {
         /// Existing captured Cargo metadata enables exact source-package ownership.
         #[arg(long)]
         metadata: Option<PathBuf>,
+        /// Explicit prepared native document interpreter; no read implicitly builds it.
+        #[arg(long)]
+        xtask_selection: Option<String>,
     },
     /// Inspect exact locked dependency identities, features and direct workspace consumers.
     Dep {
@@ -236,6 +245,7 @@ enum Command {
 impl Command {
     fn raw_protocol(&self) -> bool {
         match self {
+            Self::Tools { action } => action.raw_protocol(),
             Self::Boundary(options) => options.print || !options.explain,
             Self::AgentHook { .. }
             | Self::Supervise(_)
@@ -253,6 +263,7 @@ impl Command {
     // from its presentation protocol. Control and internal entries never auto-rebuild.
     fn generation_intent(&self) -> GenerationIntent {
         match self {
+            Self::Tools { action } => action.intent(),
             Self::Wait(_) | Self::Cancel(_) => GenerationIntent::ExistingControl,
             Self::Observe { action } => action.intent(),
             Self::HostGenerationBootstrap { .. } | Self::Supervise(_) | Self::Finalize(_) => {
@@ -649,6 +660,10 @@ struct ServerSelection {
 }
 pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
     match command {
+        "tools prepare" => envelope::schema::<tools::PreparedTool>(command, view),
+        "tools catalog" => envelope::schema::<
+            crate::catalog::description::Page<crate::catalog::description::Description>,
+        >(command, view),
         "wait" | "cancel" => envelope::schema::<control::ControlView>(command, view),
         "observe prepare" => envelope::schema::<product::PreparedReader>(command, view),
         "observe query" | "observe discover" => {
@@ -721,6 +736,9 @@ fn dispatch(
         return Ok(0);
     };
     match command {
+        Command::Tools { action } => {
+            tools::dispatch(action, selected, presentation, entry, settlement)
+        }
         Command::Affected(args) => affected::dispatch(args, selected, presentation, settlement),
         Command::Wait(args) => control::dispatch(args, false, selected, presentation, settlement),
         Command::Cancel(args) => control::dispatch(args, true, selected, presentation, settlement),
@@ -784,7 +802,11 @@ fn dispatch(
                 }
             }
         }
-        Command::Owner { path, metadata } => {
+        Command::Owner {
+            path,
+            metadata,
+            xtask_selection,
+        } => {
             let root = checkout_root(selected)?;
             let metadata = metadata
                 .map(|path| {
@@ -795,6 +817,18 @@ fn dispatch(
                 .transpose()?;
             let source = crate::ownership::source_owner(&root, &path, metadata.as_ref())?;
             let mut failures = Vec::new();
+            let mut document_failure = None;
+            let document = match xtask_selection {
+                Some(id) => {
+                    *settlement = EntrySettlement::Unresolved;
+                    let inputs = std::env::vars_os().collect();
+                    match crate::prepared_xtask::PreparedXtask::open(&root, &inputs, &id).and_then(|tool| tool.document_owner(&path, &inputs)) {
+                        Ok(document) => crate::catalog::description::Information::Available(document),
+                        Err(error) => { let reason = error.to_string(); document_failure = Some(error); crate::catalog::description::Information::Unavailable { reason } },
+                    }
+                }
+                None => crate::catalog::description::Information::Unavailable { reason: "no prepared native document interpreter selected; use tools prepare xtask, then --xtask-selection ID".into() },
+            };
             let generated = match crate::ownership::query(&root, &path) {
                 Ok(mut query) => {
                     failures.append(&mut query.failures);
@@ -809,11 +843,20 @@ fn dispatch(
             let mut response = Envelope::response(
                 "owner",
                 "source and generated-output ownership observed independently",
-                OwnerView { source, generated },
+                OwnerView {
+                    source,
+                    generated,
+                    document,
+                },
             );
             response.observation.scope = "source_package_and_generated_output_routing".into();
             response.observation.limitations = response.payload.source.coverage_limits.clone();
             let policy = RedactionPolicy::from_environment();
+            if let Some(error) = document_failure {
+                response
+                    .failures
+                    .push(ErrorRecord::from_typed(&error, &policy));
+            }
             response.failures.extend(
                 failures
                     .iter()
@@ -1201,92 +1244,143 @@ fn dispatch(
         } => {
             let root = checkout_root(selected)?;
             let environment: Environment = std::env::vars_os().collect();
-            let cwd = match selected {
-                Some(_) => root.clone(),
-                None => std::env::current_dir()?,
+            let cwd = if selected.is_some() {
+                root.clone()
+            } else {
+                std::env::current_dir()?
             };
-            let control = entry.prepared().cloned().ok_or_else(|| HostError::Ownership("managed run requires an explicitly prepared native generation; run scripts/bootstrap-host".into()))?;
-            let selection = crate::admission::Selection::load(
-                &root,
-                &environment,
-                resource_class.as_deref(),
-                None,
-            )?;
-            let environment_digest = environment_digest(&environment);
-            let state = crate::paths::CheckoutState::resolve(&root, &environment)?;
-            let store = crate::invocation::InvocationStore::new(state);
-            let directory =
-                std::sync::Arc::new(store.begin(crate::invocation::InvocationSpec {
-                    invocation_id: presentation.invocation_id.clone(),
-                    command: "run".into(),
-                    session,
-                    parent: None,
-                    operation: RunSelection {
-                        command: command.clone(),
-                        cwd: cwd.as_os_str().to_owned(),
-                        detached: detach,
-                    },
-                    control,
-                    environment_digest,
-                    scientific: Vec::new(),
-                })?);
-            let mut arguments = command.into_iter();
-            let program = arguments
-                .next()
-                .ok_or_else(|| HostError::Ownership("empty managed payload".into()))?;
-            let runtime = runtime()?;
-            let launched = runtime.block_on(crate::managed::supervisor::launch_generic(
-                crate::managed::supervisor::ManagedRequest {
+            launch_managed(
+                ManagedCommand {
                     root,
-                    directory,
-                    command: crate::managed::payload::PayloadCommand {
-                        program: program.into(),
-                        arguments: arguments.collect(),
-                        cwd,
-                        environment,
-                    },
-                    selection,
-                    policy: crate::managed::payload::PayloadPolicy {
-                        startup: Duration::from_secs(30),
-                        drain: Duration::from_secs(30),
-                        write: Duration::from_secs(5),
-                    },
-                    mode: if detach {
-                        crate::managed::supervisor::LaunchMode::Detached
-                    } else {
-                        crate::managed::supervisor::LaunchMode::Foreground
-                    },
+                    cwd,
+                    environment,
+                    command,
+                    detach,
+                    session,
+                    resource_class,
+                    verb: "run",
+                    tool: None,
                 },
-            ))?;
-            if detach {
-                let mut response = Envelope::response(
-                    "run",
-                    "original service launch acknowledged; completion remains unobserved",
-                    launched.observation,
-                );
-                response.subject_state = envelope::SubjectState::Launched;
-                response.settlement = envelope::Settlement::Unknown;
-                // Launch acknowledgement intentionally does not require terminal settlement.
-                response.outcome = CommandOutcome::Success;
-                response.observation.required = false;
-                response.observation.scope = "native_launch_acknowledgement".into();
-                presentation.emit(response)?;
-                return Ok(0);
-            }
-            runtime.block_on(observe_launched(launched, store, presentation))
+                entry,
+                presentation,
+            )
         }
     }
+}
+struct ManagedCommand {
+    root: PathBuf,
+    cwd: PathBuf,
+    environment: Environment,
+    command: Vec<OsString>,
+    detach: bool,
+    session: Option<String>,
+    resource_class: Option<String>,
+    verb: &'static str,
+    tool: Option<NativeToolSelection>,
+}
+#[derive(serde::Serialize)]
+struct NativeToolSelection {
+    kind: &'static str,
+    selection: String,
+    source_identity: String,
+    executable_sha256: String,
+}
+fn launch_managed(
+    request: ManagedCommand,
+    entry: &EntryGuard,
+    presentation: &OutputOptions,
+) -> Result<i32, HostError> {
+    let ManagedCommand {
+        root,
+        cwd,
+        environment,
+        command,
+        detach,
+        session,
+        resource_class,
+        verb,
+        tool,
+    } = request;
+    let control = entry.prepared().cloned().ok_or_else(|| HostError::Ownership("managed run requires an explicitly prepared native generation; run scripts/bootstrap-host".into()))?;
+    let selection =
+        crate::admission::Selection::load(&root, &environment, resource_class.as_deref(), None)?;
+    let environment_digest = environment_digest(&environment);
+    let state = crate::paths::CheckoutState::resolve(&root, &environment)?;
+    let store = crate::invocation::InvocationStore::new(state);
+    let directory = std::sync::Arc::new(store.begin(crate::invocation::InvocationSpec {
+        invocation_id: presentation.invocation_id.clone(),
+        command: verb.into(),
+        session,
+        parent: None,
+        operation: RunSelection {
+            command: command.clone(),
+            cwd: cwd.as_os_str().to_owned(),
+            detached: detach,
+            tool,
+        },
+        control,
+        environment_digest,
+        scientific: Vec::new(),
+    })?);
+    let mut arguments = command.into_iter();
+    let program = arguments
+        .next()
+        .ok_or_else(|| HostError::Ownership("empty managed payload".into()))?;
+    let runtime = runtime()?;
+    let launched = runtime.block_on(crate::managed::supervisor::launch_generic(
+        crate::managed::supervisor::ManagedRequest {
+            root,
+            directory,
+            command: crate::managed::payload::PayloadCommand {
+                program: program.into(),
+                arguments: arguments.collect(),
+                cwd,
+                environment,
+            },
+            selection,
+            policy: crate::managed::payload::PayloadPolicy {
+                startup: Duration::from_secs(30),
+                drain: Duration::from_secs(30),
+                write: Duration::from_secs(5),
+            },
+            mode: if detach {
+                crate::managed::supervisor::LaunchMode::Detached
+            } else {
+                crate::managed::supervisor::LaunchMode::Foreground
+            },
+        },
+    ))?;
+    if detach {
+        let mut response = Envelope::response(
+            verb,
+            "original service launch acknowledged; completion remains unobserved",
+            launched.observation,
+        );
+        response.subject_state = envelope::SubjectState::Launched;
+        response.settlement = envelope::Settlement::Unknown;
+        // Launch acknowledgement intentionally does not require terminal settlement.
+        response.outcome = CommandOutcome::Success;
+        response.observation.required = false;
+        response.observation.scope = "native_launch_acknowledgement".into();
+        presentation.emit(response)?;
+        return Ok(0);
+    }
+    runtime.block_on(observe_launched(launched, store, presentation))
 }
 #[derive(serde::Serialize)]
 struct RunSelection {
     command: Vec<OsString>,
     cwd: OsString,
     detached: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool: Option<NativeToolSelection>,
 }
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 struct OwnerView {
     source: crate::ownership::SourceOwnerQuery,
     generated: crate::catalog::description::Information<crate::ownership::OwnerQuery>,
+    document:
+        crate::catalog::description::Information<crate::ownership::document::DocumentOwnership>,
 }
 fn environment_digest(environment: &Environment) -> String {
     use sha2::{Digest as _, Sha256};

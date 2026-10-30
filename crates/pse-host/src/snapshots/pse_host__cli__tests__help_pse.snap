@@ -8,6 +8,7 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  tools              Explicit captured development-tool preparation, discovery and managed native forwarding
   affected           Preview conservative changed-source reach through Gitoxide and captured Cargo declarations
   wait               Observe one original managed invocation; an observation timeout leaves it running
   cancel             Stop one authenticated original invocation and inspect its original settlement evidence
@@ -49,6 +50,7 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  tools              Explicit captured development-tool preparation, discovery and managed native forwarding
   affected           Preview conservative changed-source reach through Gitoxide and captured Cargo declarations
   wait               Observe one original managed invocation; an observation timeout leaves it running
   cancel             Stop one authenticated original invocation and inspect its original settlement evidence

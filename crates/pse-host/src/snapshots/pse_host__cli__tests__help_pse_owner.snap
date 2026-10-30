@@ -12,11 +12,19 @@ Arguments:
 
 Options:
   -C <checkout>
-      --metadata <METADATA>  Existing captured Cargo metadata enables exact source-package ownership
-      --format <FORMAT>      Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
-      --fields <FIELDS>      Select comma-separated payload fields while retaining identity, state and coverage
-      --budget <BUDGET>      Limit payload array records; retain complete evidence as an artifact
-  -h, --help                 Print help (see more with '--help')
+
+      --metadata <METADATA>
+          Existing captured Cargo metadata enables exact source-package ownership
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --xtask-selection <XTASK_SELECTION>
+          Explicit prepared native document interpreter; no read implicitly builds it
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+      --budget <BUDGET>
+          Limit payload array records; retain complete evidence as an artifact
+  -h, --help
+          Print help (see more with '--help')
 --help
 Inspect declared generated-output ownership and existing source contributors
 
@@ -44,6 +52,9 @@ Options:
 
           [env: PSE_FORMAT]
           [default: auto]
+
+      --xtask-selection <XTASK_SELECTION>
+          Explicit prepared native document interpreter; no read implicitly builds it
 
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage

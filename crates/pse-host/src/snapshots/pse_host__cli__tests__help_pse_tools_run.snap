@@ -1,0 +1,63 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
+---
+-h
+Run exact arguments through the selected native parser under managed ownership
+
+Usage: pse tools run [OPTIONS] --selection <SELECTION> -- <ARGUMENTS>...
+
+Arguments:
+  <ARGUMENTS>...
+
+Options:
+  -C <checkout>
+      --selection <SELECTION>
+      --detach
+      --format <FORMAT>        Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --fields <FIELDS>        Select comma-separated payload fields while retaining identity, state and coverage
+      --session <SESSION>
+      --budget <BUDGET>        Limit payload array records; retain complete evidence as an artifact
+  -h, --help                   Print help (see more with '--help')
+--help
+Run exact arguments through the selected native parser under managed ownership
+
+Usage: pse tools run [OPTIONS] --selection <SELECTION> -- <ARGUMENTS>...
+
+Arguments:
+  <ARGUMENTS>...
+
+
+Options:
+  -C <checkout>
+
+
+      --selection <SELECTION>
+
+
+      --detach
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --session <SESSION>
+
+
+      --budget <BUDGET>
+          Limit payload array records; retain complete evidence as an artifact
+
+  -h, --help
+          Print help (see a summary with '-h')
