@@ -1,5 +1,17 @@
 # Current work and plans
 
+[Plan59: Agent-first pse CLI](59-agent-cli.md) is a new draft series from the
+[agent-first Rust CLI review](../functional_reviews/rust-agent-cli-2026-10-29.md). Its five
+companions plan:
+- a clap-based `pse` front door in `pse-host`, with a versioned output contract;
+- owned runs with a ledger;
+- intent-level test and fixture verbs;
+- knowledge and workflow verbs;
+- worktree and Claude orientation surfaces.
+
+The operator accepted rule changes R1–R5. Direnv and Codex configuration are out of scope.
+Execution is not yet authorized.
+
 [Plan58: Rust-owned system](58-rust-owned-system.md) is the new owning series for the
 Rust-first functional review and the [hard-cutover improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md). It entirely supersedes Plan57 rather than inheriting its packages.
 Its eight companions develop independently usable native capabilities, small bootstrap/host

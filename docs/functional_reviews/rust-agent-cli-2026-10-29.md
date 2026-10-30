@@ -8,6 +8,11 @@ doc_topics: [environment, libraries, design, current-work]
 
 # An agent-first Rust CLI for pse-arrow
 
+> **Planning disposition.** [Plan59](../plans/59-agent-cli.md) owns the scheduled disposition of
+> O01–O25 and the operator's accepted rule changes. Per operator direction, direnv changes (O09
+> and O23's direnv step) and Codex configuration changes are excluded. This review remains the
+> source rationale and authorizes nothing.
+
 > **Revision (2026-10-29, follow-up).** The first pass ran without a usable clap overview: the
 > file then at `docs/libraries/clap.md` duplicated `futures.md`. That gap should have blocked the
 > design and was noted only as an evidence limit. With the corrected

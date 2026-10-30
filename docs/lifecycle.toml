@@ -3932,3 +3932,93 @@ kind = "depends-on"
 from = "docs/plans/58-rust-owned-system.md::surrealdb-boundary-dispositions::O10"
 to = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D05"
 kind = "depends-on"
+
+# Plan59 owns the agent-first pse CLI review's O01-O25 dispositions; companions own packages.
+[[scope_tables]]
+path = "docs/plans/59-agent-cli.md"
+name = "opportunity-dispositions"
+heading = "Opportunity dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required evidence or trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59-agent-cli.md"
+name = "package-state"
+heading = "Foundation state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(P[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59a-cli-foundation.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59b-runs-and-continuity.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59c-tests-and-fixtures.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59d-knowledge-and-workflow-verbs.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59e-environment-and-adoption.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
