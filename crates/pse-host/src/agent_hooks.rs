@@ -178,7 +178,7 @@ pub fn protected(root: &Path, path: &Path) -> Result<Option<String>, HostError> 
     })
 }
 
-/// Prefer the payload's actual Git checkout for SessionStart, including worktrees.
+/// Prefer the payload's actual Git checkout for native hooks, including worktrees.
 pub fn session_root(default: &Path, payload: &Value) -> Result<PathBuf, HostError> {
     let Some(cwd) = payload
         .get("cwd")
@@ -261,7 +261,7 @@ pub(crate) fn execute(action: crate::cli::HookAction) -> Result<i32, HostError> 
         let payload =
             serde_json::from_str::<Value>(&input).map_err(|error| invalid(error.to_string()))?;
         let paths = edit_paths(&payload)?;
-        let root = default_root()?;
+        let root = session_root(&default_root()?, &payload)?;
         let mut context = Vec::new();
         for path in paths {
             match route(&root, Path::new(&path))? {

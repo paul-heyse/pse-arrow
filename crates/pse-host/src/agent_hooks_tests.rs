@@ -180,6 +180,47 @@ fn session_root_selects_the_payload_checkout_and_rejects_unrelated_git_roots() -
         worktree.path().canonicalize()?
     );
     assert_eq!(session_root(root.path(), &Value::Null)?, root.path());
+    let selected = session_root(root.path(), &payload)?;
+    // A guard must read the selected checkout's map, not its launcher's unrelated root.
+    let protocol = ownership::protocol::OutputMap {
+        schema_version: ownership::protocol::VERSION,
+        comment: "fixture".into(),
+        coverage_limits: vec![],
+        owners: [
+            (
+                "payload-owner",
+                "selected-output",
+                ownership::protocol::ScopeKind::Tree,
+            ),
+            (
+                ownership::protocol::MAP_PRODUCER,
+                ownership::protocol::MAP_PATH,
+                ownership::protocol::ScopeKind::File,
+            ),
+        ]
+        .into_iter()
+        .map(
+            |(producer, path, kind)| ownership::protocol::GeneratorOwner {
+                producer: producer.into(),
+                outputs: vec![ownership::protocol::Scope {
+                    path: path.into(),
+                    kind,
+                }],
+                regenerate: vec!["just".into(), "codegen".into()],
+                inputs: vec![],
+                contributors: None,
+            },
+        )
+        .collect(),
+    };
+    write(
+        worktree.path(),
+        ownership::protocol::MAP_PATH,
+        &serde_json::to_string(&protocol)?,
+    )?;
+    let reason = protected(&selected, Path::new("selected-output/file.rs"))?
+        .ok_or("missing selected checkout protection")?;
+    assert!(reason.contains("payload-owner"));
     Ok(())
 }
 
