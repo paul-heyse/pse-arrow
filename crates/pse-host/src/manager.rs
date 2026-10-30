@@ -25,6 +25,8 @@ use zbus_systemd::systemd1::{ManagerProxy, ScopeProxy, ServiceProxy, SliceProxy,
 static NEXT: AtomicU64 = AtomicU64::new(0);
 const DESTINATION: &str = "org.freedesktop.systemd1";
 
+pub(crate) mod subgroup;
+
 /// Original intent, generated before the effect and retained for uncertain replies.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct LaunchIntent {
@@ -706,6 +708,12 @@ impl HostManager {
     }
     /// Authenticate the current process membership against the same native manager.
     pub async fn current_unit(&self) -> Result<UnitObservation, HostError> {
+        Ok(self.current_membership().await?.root)
+    }
+    /// Observe the immutable unit root separately from the actual current member.
+    pub(crate) async fn current_membership(
+        &self,
+    ) -> Result<subgroup::CurrentMembership, HostError> {
         self.validate_view()?;
         let path = self
             .manager()
@@ -719,12 +727,7 @@ impl HostManager {
             .build()
             .await?;
         let observation = self.observe(&unit.id().await?).await?;
-        if observation.control_group != process_group(std::process::id())? {
-            return Err(HostError::Ownership(
-                "current process and manager membership disagree".into(),
-            ));
-        }
-        Ok(observation)
+        subgroup::CurrentMembership::authenticate(self, observation).await
     }
     /// Resolve explicit workload-only placement without starting, configuring or
     /// stopping another unit. Existing target limits are intentionally inherited.
@@ -994,6 +997,61 @@ impl HostManager {
         stop_timeout: Duration,
         controls: &ResourceControls,
     ) -> Result<OwnedUnit, HostError> {
+        self.start_scope_inner(
+            intent,
+            pidfd,
+            binds_to,
+            slice,
+            deadline,
+            stop_timeout,
+            controls,
+            false,
+        )
+        .await
+    }
+    /// Create an original core-only delegated root, retaining all selected root controls.
+    /// Descendant groups do not receive controllers or an independent allocation.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Original scope creation binds process, parent, timing, controls and explicit delegation"
+    )]
+    pub async fn start_scope_delegated(
+        &self,
+        intent: &LaunchIntent,
+        pidfd: std::os::fd::OwnedFd,
+        binds_to: &str,
+        slice: &str,
+        deadline: Instant,
+        stop_timeout: Duration,
+        controls: &ResourceControls,
+    ) -> Result<OwnedUnit, HostError> {
+        self.start_scope_inner(
+            intent,
+            pidfd,
+            binds_to,
+            slice,
+            deadline,
+            stop_timeout,
+            controls,
+            true,
+        )
+        .await
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "One scope implementation preserves existing raw and explicit managed creation semantics"
+    )]
+    async fn start_scope_inner(
+        &self,
+        intent: &LaunchIntent,
+        pidfd: std::os::fd::OwnedFd,
+        binds_to: &str,
+        slice: &str,
+        deadline: Instant,
+        stop_timeout: Duration,
+        controls: &ResourceControls,
+        delegated: bool,
+    ) -> Result<OwnedUnit, HostError> {
         if Instant::now() >= deadline {
             return Err(HostError::Deadline(
                 "scope launch expired before dispatch".into(),
@@ -1020,6 +1078,10 @@ impl HostManager {
                 property("BindsTo", vec![binds_to.to_owned()])?,
                 property("After", vec![binds_to.to_owned()])?,
             ];
+            if delegated {
+                // An additional Delegate=true would replace this exact empty controller set.
+                properties.push(property("DelegateControllers", Vec::<String>::new())?);
+            }
             properties.extend(controls.properties()?);
             let result = launch_job(
                 intent,
@@ -2594,7 +2656,9 @@ impl Group {
             }
             Err(error) => return Err(io::Error::from(error).into()),
         };
-        let directory = File::from(descriptor);
+        Self::from_directory(File::from(descriptor), path)
+    }
+    fn from_directory(directory: File, path: PathBuf) -> Result<Self, HostError> {
         // Linux uapi/linux/magic.h: CGROUP2_SUPER_MAGIC. The pinned fd must be
         // actual cgroup-v2 before mandatory-file disappearance proves removal.
         let filesystem = rustix::fs::fstatfs(&directory).map_err(io::Error::from)?;

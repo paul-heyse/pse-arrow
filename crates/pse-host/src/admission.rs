@@ -1421,9 +1421,10 @@ impl Coordinator {
         let Some(marker) = value(environment, MARKER)? else {
             return Ok(None);
         };
-        let actual = tokio::time::timeout_at(deadline.into(), manager.current_unit())
+        let membership = tokio::time::timeout_at(deadline.into(), manager.current_membership())
             .await
             .map_err(|_| HostError::Deadline("inherited finite identity".into()))??;
+        let actual = &membership.root;
         if actual.unit != current.unit
             || actual.invocation != current.invocation
             || actual.control_group != current.control_group
@@ -1495,7 +1496,7 @@ impl Coordinator {
                     "nested memory request exceeds its admitted reservation",
                 ));
             }
-            enclosing_ceiling(&actual.control_group, requested)?;
+            membership.require_memory_ceiling(manager, requested)?;
         }
         let requested = row
             .units
@@ -1718,44 +1719,6 @@ impl Permit {
         Ok(released)
     }
 }
-fn enclosing_ceiling(group: &str, requested: u64) -> Result<(), HostError> {
-    let relative = group
-        .strip_prefix('/')
-        .filter(|group| !group.is_empty())
-        .ok_or_else(|| invalid("enclosing finite cgroup is unavailable"))?;
-    if Path::new(relative)
-        .components()
-        .any(|component| !matches!(component, Component::Normal(_)))
-    {
-        return Err(invalid("invalid enclosing finite cgroup"));
-    }
-    let mut path = Path::new("/sys/fs/cgroup").join(relative);
-    loop {
-        if path == Path::new("/sys/fs/cgroup") {
-            break;
-        }
-        let value = fs::read_to_string(path.join("memory.max"))?;
-        if value.trim() != "max"
-            && value
-                .trim()
-                .parse::<u64>()
-                .ok()
-                .is_none_or(|limit| limit < requested)
-        {
-            return Err(invalid(
-                "nested demand exceeds its actual enclosing role or ancestor ceiling",
-            ));
-        }
-        if path == Path::new("/sys/fs/cgroup") {
-            break;
-        }
-        if !path.pop() {
-            return Err(invalid("enclosing finite hierarchy root absent"));
-        }
-    }
-    Ok(())
-}
-
 fn private_directory(path: &Path, create: bool) -> Result<(), HostError> {
     if path
         .components()
