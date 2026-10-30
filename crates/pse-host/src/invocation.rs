@@ -258,7 +258,8 @@ impl InvocationStore {
     }
 
     /// Select an exact ID, a unique prefix or latest within session, falling back to checkout.
-    /// Missing state is an empty observation. Malformed evidence remains an error.
+    /// Exact/prefix access validates only the chosen record; latest requires valid full history.
+    /// Missing state is an empty observation. Malformed chosen evidence remains an error.
     pub fn resolve(
         &self,
         selector: &str,
@@ -274,8 +275,8 @@ impl InvocationStore {
                 "selector must be latest, an invocation ID or its literal prefix",
             ));
         }
-        let records = self.history::<Box<serde_json::value::RawValue>>()?;
         if selector == "latest" {
+            let records = self.history::<Box<serde_json::value::RawValue>>()?;
             let latest = |session_only: bool| {
                 records
                     .iter()
@@ -292,16 +293,45 @@ impl InvocationStore {
             };
             return Ok(session.and_then(|_| latest(true)).or_else(|| latest(false)));
         }
-        let mut matches = records.into_iter().filter(|record| {
-            record
-                .selection
-                .invocation_id
-                .as_str()
-                .starts_with(selector)
-        });
-        let selected = matches.next().map(|record| record.selection.invocation_id);
-        if matches.next().is_some() {
-            return Err(invalid("invocation prefix is ambiguous"));
+        match fs::symlink_metadata(self.state.invocations()) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error.into()),
+            Ok(_) => {}
+        }
+        directory(&self.state.root, false)?;
+        directory(&self.state.invocations(), false)?;
+        let selected = if let Ok(id) = CliInvocationId::try_from(selector.to_owned()) {
+            // A full ID does not depend on any other invocation's name or evidence.
+            match fs::symlink_metadata(self.state.invocations().join(id.as_str())) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+                Err(error) => return Err(error.into()),
+                Ok(_) => Some(id),
+            }
+        } else {
+            let mut selected = None;
+            for entry in fs::read_dir(self.state.invocations())? {
+                let name = entry?
+                    .file_name()
+                    .into_string()
+                    .map_err(|_| invalid("invalid invocation directory name"))?;
+                if name.starts_with(".prepare-") {
+                    continue;
+                }
+                let id = CliInvocationId::try_from(name)
+                    .map_err(|_| invalid("invalid invocation directory identity"))?;
+                if id.as_str().starts_with(selector) {
+                    if selected.is_some() {
+                        return Err(invalid("invocation prefix is ambiguous"));
+                    }
+                    selected = Some(id);
+                }
+            }
+            selected
+        };
+        if let Some(id) = &selected {
+            // Establish prefix ambiguity from identities before opening any candidate.
+            // Missing or malformed metadata in the chosen directory remains an error.
+            self.metadata::<Box<serde_json::value::RawValue>>(id)?;
         }
         Ok(selected)
     }

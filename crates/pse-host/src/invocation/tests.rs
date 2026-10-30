@@ -168,6 +168,103 @@ fn latest_prefers_session_and_prefixes_refuse_ambiguity() {
 }
 
 #[test]
+fn exact_and_unique_prefix_ignore_unrelated_corrupt_history() {
+    let (_temporary, store) = store();
+    let mut healthy = spec(Some("healthy-session"));
+    healthy.invocation_id =
+        CliInvocationId::try_from("01800000-0000-7000-8000-000000000001".to_owned()).expect("id");
+    let healthy = store.begin(healthy).expect("healthy invocation");
+    let mut corrupt = spec(Some("other-session"));
+    corrupt.invocation_id =
+        CliInvocationId::try_from("02800000-0000-7000-8000-000000000001".to_owned()).expect("id");
+    let corrupt = store.begin(corrupt).expect("other invocation");
+    fs::write(corrupt.path().join("meta.json"), b"invalid JSON").expect("corrupt fixture");
+
+    assert_eq!(
+        store
+            .resolve(healthy.id().as_str(), None)
+            .expect("exact ID"),
+        Some(healthy.id().clone())
+    );
+    assert_eq!(
+        store.resolve("01800000", None).expect("unique prefix"),
+        Some(healthy.id().clone())
+    );
+    assert!(store.history::<String>().is_err());
+    assert!(store.resolve("latest", None).is_err());
+    assert!(store.resolve("latest", Some("healthy-session")).is_err());
+    assert!(store.resolve("latest", Some("absent-session")).is_err());
+}
+
+#[test]
+fn prefix_ambiguity_is_established_before_candidate_metadata_is_decoded() {
+    let (_temporary, store) = store();
+    for suffix in ["1", "2"] {
+        let mut selection = spec(None);
+        selection.invocation_id =
+            CliInvocationId::try_from(format!("01800000-0000-7000-8000-00000000000{suffix}"))
+                .expect("id");
+        let directory = store.begin(selection).expect("candidate");
+        if suffix == "2" {
+            fs::write(directory.path().join("meta.json"), b"invalid JSON")
+                .expect("corrupt candidate");
+        }
+    }
+    let error = store
+        .resolve("01800000", None)
+        .expect_err("ambiguous prefix");
+    assert!(error.to_string().contains("invocation prefix is ambiguous"));
+}
+
+#[test]
+fn missing_id_is_an_empty_passive_observation_even_with_corrupt_history() {
+    let (_temporary, store) = store();
+    let missing = "01800000-0000-7000-8000-000000000001";
+    assert!(
+        store
+            .resolve(missing, None)
+            .expect("absent store")
+            .is_none()
+    );
+    assert!(!store.state.root.exists());
+
+    let mut selection = spec(None);
+    selection.invocation_id =
+        CliInvocationId::try_from("02800000-0000-7000-8000-000000000001".to_owned()).expect("id");
+    let directory = store.begin(selection).expect("unrelated invocation");
+    fs::write(directory.path().join("meta.json"), b"invalid JSON").expect("corrupt fixture");
+    assert!(store.resolve(missing, None).expect("missing ID").is_none());
+    assert!(
+        store
+            .resolve("01800000", None)
+            .expect("missing prefix")
+            .is_none()
+    );
+    assert!(!store.state.invocations().join(missing).exists());
+}
+
+#[test]
+fn malformed_or_missing_chosen_metadata_remains_an_error() {
+    let (_temporary, store) = store();
+    let mut selection = spec(None);
+    selection.invocation_id =
+        CliInvocationId::try_from("01800000-0000-7000-8000-000000000001".to_owned()).expect("id");
+    let directory = store.begin(selection).expect("chosen invocation");
+    let metadata = directory.path().join("meta.json");
+    fs::write(&metadata, b"invalid JSON").expect("corrupt fixture");
+    for selector in [directory.id().as_str(), "01800000"] {
+        let error = store
+            .resolve(selector, None)
+            .expect_err("malformed selection");
+        assert!(error.to_string().contains("invalid selection metadata"));
+    }
+    fs::remove_file(metadata).expect("missing metadata fixture");
+    for selector in [directory.id().as_str(), "01800000"] {
+        assert!(store.resolve(selector, None).is_err());
+    }
+}
+
+#[test]
 fn wrong_checkout_or_version_is_reported_instead_of_empty_history() {
     let (_temporary, store) = store();
     let directory = store.begin(spec(None)).expect("begin");
@@ -177,6 +274,7 @@ fn wrong_checkout_or_version_is_reported_instead_of_empty_history() {
     value["checkout_id"] = "another-checkout".into();
     fs::write(&path, serde_json::to_vec(&value).expect("encode")).expect("tamper fixture");
     assert!(store.history::<String>().is_err());
+    assert!(store.resolve(directory.id().as_str(), None).is_err());
     value["checkout_id"] = store.state.checkout_id.as_str().into();
     value["version"] = 9000.into();
     fs::write(&path, serde_json::to_vec(&value).expect("encode")).expect("tamper fixture");
@@ -192,12 +290,14 @@ fn symlinked_evidence_and_invocation_directories_are_refused() {
     fs::rename(&metadata, &copied).expect("move fixture");
     symlink("copied.json", &metadata).expect("symlink fixture");
     assert!(store.metadata::<String>(directory.id()).is_err());
+    assert!(store.resolve(directory.id().as_str(), None).is_err());
     fs::remove_file(&metadata).expect("remove fixture symlink");
     fs::rename(&copied, &metadata).expect("restore fixture");
     let original = directory.path().with_extension("other");
     fs::rename(directory.path(), &original).expect("move directory");
     symlink(&original, directory.path()).expect("directory symlink fixture");
     assert!(store.metadata::<String>(directory.id()).is_err());
+    assert!(store.resolve(directory.id().as_str(), None).is_err());
 }
 
 #[test]
