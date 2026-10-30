@@ -1,5 +1,11 @@
 # Plan improvement reviews
 
+The [Plan59 CLI and observability review](plan59-cli-and-observability-2026-10-29.md)
+assesses the remaining A–E scope and links the new functional opportunities. It recommends
+independent existing-work control, precise identity/result/diagnostic contracts, actual
+fixture integration, safe artifact lifetime and product-owned simulation inspection.
+Eleven proposed amendments leave Plan59 and formal decision statuses unchanged.
+
 Reviews here assess the remaining change footprint of an implementation plan or coordinated
 plan series. Use `plan-improvement-review` (source: `.codex/skills/plan-improvement-review/SKILL.md`)
 to identify design-principle alignment improvements, general enhancements and better execution

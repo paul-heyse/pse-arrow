@@ -1,5 +1,11 @@
 # Functional opportunity reviews
 
+The [agent CLI and simulation-observability review](agent-cli-and-simulation-observability-2026-10-29.md)
+develops eight capabilities over existing native inspection, invocation, scientific and
+diagnostic owners. End-to-end research of nine library overviews and exact-source follow-up
+inform the target. Its linked Plan59 improvement review identifies necessary contract and
+lifecycle amendments. Both are proposals; Plan59's stopped execution status is unchanged.
+
 The [agent-first Rust CLI review](rust-agent-cli-2026-10-29.md) responds to the retirement of
 the Python CLI, MCP and `pse-py` boundary. It mines one day of deduplicated Codex sessions
 (the [probe](probes/rust-agent-cli-log-miner-2026-10-29.py) reproduces every count). It proposes
