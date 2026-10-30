@@ -136,7 +136,7 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 | [E01](#e01) | planned | 59e | `pse worktree new\|list\|rm`; `just worktree` retired; environment guide §Worktrees updated (direnv wording unchanged) |
 | [E02](#e02) | planned | 59e | Claude session-start status brief content and `statusLine` |
 | [E03](#e03) | planned | 59e (continuing) | AGENTS.md task-to-verb entries pointing to `pse commands`, guide routes, roles/skills mentions and retired-recipe routes, updated as each verb ships |
-| [E04](#e04) | planned | 59e | Slim `docs/plans/README.md` current-work pointer |
+| [E04](#e04) | complete | 59e | Current-work pointer links native status owners; lifecycle validate passed with zero errors |
 | [E05](#e05) | complete | 59e | Edit guidance in AGENTS.md and `.claude/rules/tooling.md` |
 
 <a id="e01"></a>

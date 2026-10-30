@@ -54,8 +54,8 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
 - Amendment basis: the [observability review](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md)
   and [Plan59 improvement review](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md),
   published at `e907d8a1f`, inspecting `890aa07f76fac5739cfc9811a47e823c326be663`.
-- Status: **Active planning.** Earlier execution was stopped/reverted; the maintainer authorized
-  this document amendment, not restarting production implementation. See the current checkpoint.
+- Status: **Execution resumed by the operator.** The earlier stopped/reverted state remains
+  historical evidence; the latest checkpoint owns actual progress and acceptance limits.
 
 **Reading route.**
 1. This coordinator: target, shared decisions, rule changes, dependencies, completion.
@@ -392,6 +392,20 @@ fixture modes, feature-absence/duplicate test identities, output pressure, diagn
 concurrent Git operations. Local snapshots alone cannot qualify physical or scientific lifetimes.
 
 ## Current state and next step
+
+### Authorized entire-series execution — 2026-10-29
+
+The operator authorized the prepared full Plan59 execution approach. A02 and A04 are being
+implemented in isolated worktrees, and D09 is exercising actual Git publication/staging races
+in disposable repositories. A07's Proposed target amendments are published in ADR-0233 and
+blueprint315; independent integration assessment remains pending. No A02/A04 runtime capability
+is accepted from unmerged work. Existing A01/E05 completion and the D02 trial are preserved.
+
+E04 is complete: the index is a compact current-work route, with status retained at its owning
+plans. **Tested (documents only):** `scripts/pse-env -- target/debug/xtask lifecycle validate`
+reported 1,698 scope items and zero errors after the index change. No scientific campaign,
+provider rebuild, new datastore or measured benefit is established. Next integrate the tested
+CLI/resolver contributions and establish A03/A05's minimal run prerequisites.
 
 ### Code-intelligence planning checkpoint — 2026-10-29
 

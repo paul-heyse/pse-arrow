@@ -1693,6 +1693,19 @@ scientific permission. No NumPy product adapter is currently selected.
 
 ### 21.7 First-party host and future foreign adapters
 
+> Decision: ADR-0233 (proposed; operator-confirmed Plan59 A07 target).
+
+The agent CLI delegates scientific decoding, response schemas and interpretation to an explicitly
+prepared product owner. The host forwards selected bytes and interprets transport metadata without
+importing scientific/Arrow/database policy. CLI invocation, scientific run/attempt, process and
+observation identities remain separate; supplied associations never imply cancellation authority.
+Code intelligence retains provider/configuration/source-generation scope: candidate tests are not
+actual selected tests, static calls are not executed causal edges, and watcher updates do not
+establish an atomic filesystem snapshot. Owned reusable analysis sessions protect tools and original
+children until settlement; canceling a query does not terminate the session, while revision changes
+may cancel old snapshots. Probes, generation, compiler preparation and semantic application remain
+explicit effects, independently usable from passive source reading and existing-work control.
+
 The independent native host owns developer environment selection, authentic OS process/service
 ownership and operator effects, without scientific preparation, Arrow/DataFusion, database clients
 or generated product schemas. Heavy native developer composition stays in xtask. Canonical SurrealDB

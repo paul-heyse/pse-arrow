@@ -173,12 +173,12 @@ feature choices are exactly the review's
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [A01](#a01) | complete | 59a | Rule-change edits R1–R5 landed in their owners (R4's guard change is D06) |
-| [A02](#a02) | planned | 59a | clap tree in the library; three thin bins; every existing verb ported and old parsers deleted |
+| [A02](#a02) | in-progress | 59a | CLI port in isolated worktree; integration and targeted acceptance pending |
 | [A03](#a03) | planned | 59a | Envelope, exit classes, diagnostics and `pse schema` |
-| [A04](#a04) | planned | 59a | One state resolver; checkout store; consumers migrated |
+| [A04](#a04) | in-progress | 59a | Captured-environment resolver and consumer migration in isolated worktree; targeted acceptance pending |
 | [A05](#a05) | planned | 59a | Host-tool fingerprint, pruning and stale-host rebuild; `host` dependency ceiling |
 | [A06](#a06) | planned | 59a | Derived catalog with `valid_values`, `explain`, `env --explain` provenance and `status` |
-| [A07](#a07) | planned | 59a | Route the confirmed R3 exception and revised identity/result/product contracts through their decision and architecture owners before dependent implementation |
+| [A07](#a07) | in-progress | 59a | Proposed ADR-0233 and blueprint315 target published; scoped integration assessment/readiness remains pending |
 
 <a id="a01"></a>
 ### A01 — Land the accepted rule changes

@@ -78,8 +78,10 @@ A shell seed explicitly builds the locked host package with the pinned toolchain
 Python compiler wrappers for that invocation. It privately copies a completed executable and
 atomically replaces checkout-local selection. Help, read and explain verbs never rebuild or
 rescan source. A top-level effectful `pse` verb that finds the host stale rebuilds it through the
-same seed and re-executes the new generation; a failed rebuild fails the verb with the build error
-and never runs an older generation. Correctness adapter mode, hooks, internal subcommands and
+same seed and re-executes the new generation; a failed rebuild refuses new work. Existing-invocation
+read/wait/cancel instead authenticate the compatible recorded prepared control generation and
+original unit identity without rebuilding current sources. Unknown protocols and forged tool
+paths refuse; recorded metadata never grants arbitrary executable authority. Correctness adapter mode, hooks, internal subcommands and
 calls nested inside a workload scope never rebuild. Running processes retain their executable. Host errors use concrete thiserror
 and miette diagnostics; original child exits/signals remain separate from boundary failure.
 
@@ -137,6 +139,28 @@ B01–B05 supply implementation evidence; D05 and H retain their separate accept
 This proposed ADR changes no accepted-record status; the prescribed ADR PR route owns that.
 
 ## Pros and cons
+
+### Plan59 control and evidence amendment
+
+**Proposed; operator-confirmed R3/R6 and RC01–RC05.** CLI invocation, scientific run/attempt,
+process and observation identities are distinct with explicit, possibly missing associations.
+Launch acknowledgement and bounded observation wait may succeed while the subject is running;
+a completed correctness pass requires actual selection/setup, required records and terminal
+reconciliation. Child outcome, original physical settlement, fixture disposal and scientific
+acceptance remain separate. Compatible existing-work control does not depend on current sources.
+
+The host presents an outer envelope; prepared product owners retain their request parsing,
+schema and scientific interpretation. Native diagnostic causes/facts, Unicode locations and
+independent cleanup failures survive projection. Optional observation loss stays visible;
+missing required verdict evidence cannot become a pass or be repaired by schema validation.
+
+Reusable owned analyzer sessions serve a concrete developer consumer without a second database
+or general coordination platform. They retain configuration/source-generation scope and protect
+tools/children until actual settlement. Query cancellation does not stop a shared session;
+input changes can cancel older snapshots. Watchers alone establish no atomic filesystem capture.
+Source reads need no compiler-private preparation. Generation, probes and edit application are
+explicit effects; preview is not a multi-file publication transaction. Plan59 owns implementation
+and qualification; formal ADR status remains proposed.
 
 Native ownership removes interpreter crossings and duplicate operational models. The new root
 adds a crate and requires integrated caller migration. Unit/cgroup uncertainty remains, and a

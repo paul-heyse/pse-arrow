@@ -415,6 +415,14 @@ Optional Perfetto capture emits actual MONOTONIC/BOOTTIME relationships before e
 
 ### 23.2 Failure taxonomy
 
+> Decision: ADR-0233 (proposed; Plan59 A07 CLI projection target).
+
+CLI projection retains native typed facts, ordered diagnostic children and ordinary causes,
+related source identity/Unicode locations, and independent operation/cleanup failures. Mandatory
+identity, status and coverage survive detail budgets. Opaque upstream records are not qualified
+by envelope schemas; IDE diagnostics, compiler outcomes and scientific evidence keep their original
+providers. Optional observation loss is explicit; required verdict loss makes reconciliation incomplete.
+
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 
 An absent original-space feasibility assessment is an explicit refusal distinct from evaluated infeasibility. Completion-owned projections preserve cancellation, precise limits/resource exhaustion, numerical failures, validation causes and contradiction witnesses; adapter-owned native classification remains retained evidence. Registry/Rust declarations own new generated vocabulary and transport, and recorded contracts retain historical interpretation.
@@ -807,7 +815,7 @@ drain, creation borrowers, references or unknown external effects. The selected 
 retains sole outcome authority. Plan50 C05 owns implementation and race/recovery qualification
 of this maintainer-selected extension to proposed ADR-0174.
 
-**Accepted target — Plan53 P00 (operator-confirmed 2026-10-23).** Managed correctness
+**Accepted target — Plan53 P00 (operator-confirmed 2026-10-23), refined by Plan59 R6.** Managed correctness
 commands will return zero if and only if the selected terminal composer establishes a
 complete reconciled Pass. Raw child return (`workload_exit`), cancellation and cleanup
 remain separately observable. A zero-exit child with selected but missing reports cannot
@@ -815,7 +823,13 @@ produce a zero managed correctness exit. Cleanup after terminal publication cann
 the frozen assurance verdict. This changes the managed command's assurance interface, not
 `scripts/pse-env` signal/exit forwarding or read-only result-reader success semantics.
 Plan53 C04 owns implementation and caller/self-test migration; publication establishes no
-implemented exit behavior.
+implemented exit behavior. Operator-confirmed Plan59 R6 allows successful launch acknowledgement
+or expired bounded observation wait to return zero with an explicit launched/running subject,
+never a completed pass. Workload timeout, observation timeout and unknown settlement are distinct.
+Existing-invocation read/wait/cancel authenticate compatible recorded prepared controls without
+rebuilding broken current sources; failed rebuild still refuses new work. Generation pruning
+protects actual adapter, supervisor/finalizer, fixture and analyzer users until original settlement
+and independent disposal permit release. No ledger-only inference establishes physical drain.
 
 The same accepted target gives actual selected effect/resource requirements one semantic
 owner across managed affected/native/setup routes. Tool catalogs remain selection
