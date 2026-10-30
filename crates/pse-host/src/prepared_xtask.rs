@@ -495,7 +495,7 @@ fn successful(
 fn source(
     checkout: &Path,
     environment: &Environment,
-) -> Result<(SourceFingerprint, BuildContext), PreparedXtaskError> {
+) -> Result<(SourceFingerprint, BuildContext, correctness::Resolution), PreparedXtaskError> {
     let cargo = correctness::real_cargo_in(environment)?;
     let observed = |program: &OsStr| -> Result<String, PreparedXtaskError> {
         let mut command = Command::new(program);
@@ -539,10 +539,31 @@ fn source(
         checkout,
         environment,
     )?)?;
+    let arguments: Vec<OsString> = source_build_arguments()
+        .iter()
+        .map(OsString::from)
+        .collect();
+    let resolution = correctness::resolve_with(&arguments, |arguments| {
+        correctness::capture_at(&cargo, arguments, checkout, environment)
+    })?;
     let source =
-        SourceFingerprint::from_metadata_for(checkout, &metadata, context.clone(), "xtask")?
+        SourceFingerprint::from_resolution(checkout, &metadata, context.clone(), &resolution)?
             .with_additional_files(checkout, SHARED_INPUTS.iter().map(PathBuf::from))?;
-    Ok((source, context))
+    Ok((source, context, resolution))
+}
+fn source_build_arguments() -> &'static [&'static str] {
+    &[
+        "build",
+        "--locked",
+        "-p",
+        "xtask",
+        "--bin",
+        "xtask",
+        "--no-default-features",
+        "--features",
+        "force-validate",
+        "--message-format=json",
+    ]
 }
 fn source_build_command(
     control: &Executable,
@@ -556,19 +577,24 @@ fn source_build_command(
         .envs(environment)
         .env("PSE_CORRECTNESS_ADAPTER", "1")
         .env("PSE_CORRECTNESS_EXECUTABLE", &control.captured)
-        .args([
-            "build",
-            "--locked",
-            "-p",
-            "xtask",
-            "--bin",
-            "xtask",
-            "--no-default-features",
-            "--features",
-            "force-validate",
-            "--message-format=json",
-        ]);
+        .args(source_build_arguments());
     command
+}
+fn require_same_compiler_context(
+    before: &correctness::Resolution,
+    after: &correctness::Resolution,
+) -> Result<(), PreparedXtaskError> {
+    if before.arguments != after.arguments
+        || before.packages != after.packages
+        || before.native_capabilities != after.native_capabilities
+        || before.units.len() != after.units.len()
+        || before.units.iter().any(|unit| !after.units.contains(unit))
+    {
+        return Err(invalid(
+            "xtask compiler-unit selection changed during construction; explicitly re-resolve",
+        ));
+    }
+    Ok(())
 }
 fn build_evidence(directory: &Path) -> Result<(Vec<u8>, BuildCapture), PreparedXtaskError> {
     let path = directory.join("build.json");
@@ -626,7 +652,7 @@ pub fn prepare(
         }
     };
     let mut environment = correctness::standalone_adapter_environment(environment)?;
-    let (before, context) = source(&checkout, &environment)?;
+    let (before, context, admission) = source(&checkout, &environment)?;
     environment.insert(
         "PSE_CORRECTNESS_BUILD_CAPTURE".into(),
         build_dir.clone().into_os_string(),
@@ -635,6 +661,7 @@ pub fn prepare(
     let command = source_build_command(&control, &checkout, &environment);
     successful(process::run(command, 65536, None)?, "source-build", false)?;
     let (build_bytes, build) = build_evidence(&build_dir)?;
+    require_same_compiler_context(&admission, &build.resolution)?;
     let executable = select_executable(&build, &selected_dir, &checkout)?.clone();
     executable.verify()?;
     environment.remove(OsStr::new("PSE_CORRECTNESS_BUILD_CAPTURE"));
@@ -658,7 +685,8 @@ pub fn prepare(
     catalog_document(&catalog)?;
     let schema = query(&["owner", "--schema"], "owner-schema.json", "owner-schema")?;
     schema_document(&schema)?;
-    let (after, _) = source(&checkout, &environment)?;
+    let (after, _, admission_after) = source(&checkout, &environment)?;
+    require_same_compiler_context(&build.resolution, &admission_after)?;
     before.require_unchanged(&after)?;
     let selected = PreparedXtask {
         checkout,

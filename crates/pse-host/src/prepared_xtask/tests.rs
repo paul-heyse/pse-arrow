@@ -134,11 +134,11 @@ fn fixture() -> (tempfile::TempDir, Environment, PreparedXtask) {
         BTreeSet::from(["xtask/force-validate".into()]),
         &environment,
     );
-    let source = SourceFingerprint::from_metadata_for(
+    let source = SourceFingerprint::from_resolution(
         root.path(),
         &metadata(root.path()),
         context.clone(),
-        "xtask",
+        &build.resolution,
     )
     .unwrap();
     let selected = PreparedXtask {
@@ -290,6 +290,16 @@ fn zero_exit_is_not_artifact_capture_and_unit_source_feature_identity_must_match
     let bytes = read(&selected.directory.join("build/build.json"), MAX_DOCUMENT).unwrap();
     let mut build: BuildCapture = serde_json::from_slice(&bytes).unwrap();
     select_executable(&build, &selected.directory, root.path()).unwrap();
+    let admitted = build.resolution.clone();
+    require_same_compiler_context(&admitted, &build.resolution).unwrap();
+    let mut changed_context = admitted.clone();
+    changed_context.units[0].platform = Some("different-target".into());
+    assert!(require_same_compiler_context(&admitted, &changed_context).is_err());
+    changed_context = admitted.clone();
+    changed_context.units[0]
+        .features
+        .insert("newly-activated-feature".into());
+    assert!(require_same_compiler_context(&admitted, &changed_context).is_err());
     build.resolution.units[0].package_id = "different-source".into();
     assert!(select_executable(&build, &selected.directory, root.path()).is_err());
     build.resolution.units[0].package_id = "xtask-id".into();
@@ -487,6 +497,10 @@ fn actual_prepared_xtask_exports_same_image_parser_schema_and_document_owner() {
         state.path().join("state").into_os_string(),
     );
     let selected = prepare(root, &environment).unwrap();
+    let footprint = serde_json::to_value(&selected.manifest.source).unwrap();
+    let roots = footprint["package_roots"].as_array().unwrap();
+    assert!(!roots.contains(&json!("crates/pse-runtime")));
+    assert!(!roots.contains(&json!("crates/pse-host")));
     let opened = PreparedXtask::open(root, &environment, selected.id()).unwrap();
     let catalog = opened.catalog().unwrap();
     assert_eq!(

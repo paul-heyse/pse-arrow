@@ -88,6 +88,242 @@ impl Fixture {
     }
 }
 
+fn admitted_units(
+    fixture: &Fixture,
+    names: &[(&str, bool, Option<&str>, &str)],
+) -> crate::correctness::Resolution {
+    crate::correctness::Resolution {
+        arguments: vec!["build".into(), "-p".into(), "pse-host".into()],
+        packages: vec!["pse-host".into()],
+        native_capabilities: BTreeSet::new(),
+        units: names
+            .iter()
+            .map(|(name, root, platform, mode)| {
+                let package = fixture
+                    .metadata
+                    .packages
+                    .iter()
+                    .find(|package| package.name == *name)
+                    .unwrap();
+                crate::correctness::CompilerUnit {
+                    package_id: package.id.to_string(),
+                    package_name: (*name).into(),
+                    target_name: (*name).into(),
+                    target_kinds: vec![
+                        if *mode == "run-custom-build" {
+                            "custom-build"
+                        } else {
+                            "lib"
+                        }
+                        .into(),
+                    ],
+                    source_path: package
+                        .manifest_path
+                        .parent()
+                        .unwrap()
+                        .join("src/lib.rs")
+                        .to_string(),
+                    features: BTreeSet::new(),
+                    platform: platform.map(str::to_owned),
+                    mode: (*mode).into(),
+                    root: *root,
+                }
+            })
+            .collect(),
+    }
+}
+
+#[test]
+fn admitted_source_closure_ignores_optional_metadata_edges_but_tracks_actual_dependencies() {
+    let fixture = Fixture::new();
+    let mut metadata = fixture.metadata.clone();
+    // Simulate the broader metadata feature universe: the unrelated package now has a
+    // normal metadata edge, while no actual admitted compiler unit reaches it.
+    let host_id = metadata
+        .packages
+        .iter()
+        .find(|package| package.name == "pse-host")
+        .unwrap()
+        .id
+        .clone();
+    for edge in &mut metadata
+        .resolve
+        .as_mut()
+        .unwrap()
+        .nodes
+        .iter_mut()
+        .find(|node| node.id == host_id)
+        .unwrap()
+        .deps
+    {
+        for kind in &mut edge.dep_kinds {
+            kind.kind = DependencyKind::Normal;
+        }
+    }
+    let resolution = admitted_units(
+        &fixture,
+        &[
+            ("pse-host", true, Some("target-context"), "build"),
+            ("pse-support", false, None, "build"),
+        ],
+    );
+    let before = SourceFingerprint::from_resolution(
+        &fixture.root,
+        &metadata,
+        fixture.context.clone(),
+        &resolution,
+    )
+    .unwrap();
+    assert_eq!(
+        before.package_roots,
+        BTreeSet::from([PathBuf::from("host"), PathBuf::from("support")])
+    );
+    fs::write(
+        fixture.root.join("unrelated/src/lib.rs"),
+        "unrelated optional source changed\n",
+    )
+    .unwrap();
+    assert!(
+        before
+            .matches_sources(&fixture.root, &fixture.context)
+            .unwrap()
+    );
+    let after = SourceFingerprint::from_resolution(
+        &fixture.root,
+        &metadata,
+        fixture.context.clone(),
+        &resolution,
+    )
+    .unwrap();
+    before.require_unchanged(&after).unwrap();
+    fs::write(
+        fixture.root.join("support/src/lib.rs"),
+        "actual reached dependency changed\n",
+    )
+    .unwrap();
+    assert!(
+        !before
+            .matches_sources(&fixture.root, &fixture.context)
+            .unwrap()
+    );
+    let after = SourceFingerprint::from_resolution(
+        &fixture.root,
+        &metadata,
+        fixture.context.clone(),
+        &resolution,
+    )
+    .unwrap();
+    assert!(before.require_unchanged(&after).is_err());
+}
+
+#[test]
+fn admitted_source_closure_keeps_host_build_new_membership_and_external_target_path_inputs() {
+    let fixture = Fixture::new();
+    let resolution = admitted_units(
+        &fixture,
+        &[
+            ("pse-host", true, Some("target-context"), "build"),
+            ("pse-support", false, None, "run-custom-build"),
+        ],
+    );
+    fs::create_dir(fixture.root.join("shared")).unwrap();
+    fs::write(
+        fixture.root.join("shared/entry.rs"),
+        "outside manifest actual target\n",
+    )
+    .unwrap();
+    fs::write(
+        fixture.root.join("shared/include.txt"),
+        "declared include input\n",
+    )
+    .unwrap();
+    let mut selected = resolution.clone();
+    selected.units[0].source_path = fixture
+        .root
+        .join("shared/entry.rs")
+        .to_str()
+        .unwrap()
+        .into();
+    let before = SourceFingerprint::from_resolution(
+        &fixture.root,
+        &fixture.metadata,
+        fixture.context.clone(),
+        &selected,
+    )
+    .unwrap()
+    .with_additional_files(&fixture.root, [PathBuf::from("shared/include.txt")])
+    .unwrap();
+    assert!(before.files.contains_key(Path::new("support/src/lib.rs")));
+    assert!(before.files.contains_key(Path::new("shared/entry.rs")));
+    fs::write(
+        fixture.root.join("shared/include.txt"),
+        "changed include input\n",
+    )
+    .unwrap();
+    assert!(
+        !before
+            .matches_sources(&fixture.root, &fixture.context)
+            .unwrap()
+    );
+    fs::write(
+        fixture.root.join("shared/include.txt"),
+        "declared include input\n",
+    )
+    .unwrap();
+    fs::write(
+        fixture.root.join("shared/entry.rs"),
+        "changed external entry\n",
+    )
+    .unwrap();
+    assert!(
+        !before
+            .matches_sources(&fixture.root, &fixture.context)
+            .unwrap()
+    );
+    let before = SourceFingerprint::from_resolution(
+        &fixture.root,
+        &fixture.metadata,
+        fixture.context.clone(),
+        &resolution,
+    )
+    .unwrap();
+    let mut after_units = resolution.clone();
+    after_units
+        .units
+        .extend(admitted_units(&fixture, &[("pse-unrelated", false, None, "build")]).units);
+    let after = SourceFingerprint::from_resolution(
+        &fixture.root,
+        &fixture.metadata,
+        fixture.context.clone(),
+        &after_units,
+    )
+    .unwrap();
+    assert!(after.package_roots.contains(Path::new("unrelated")));
+    assert!(before.require_unchanged(&after).is_err());
+    let mut missing = resolution.clone();
+    missing.units[1].package_id = "unknown-source-identity".into();
+    assert!(
+        SourceFingerprint::from_resolution(
+            &fixture.root,
+            &fixture.metadata,
+            fixture.context.clone(),
+            &missing
+        )
+        .is_err()
+    );
+    let mut wrong_source = resolution.clone();
+    wrong_source.units[1].source_path = "/outside-checkout/entry.rs".into();
+    assert!(
+        SourceFingerprint::from_resolution(
+            &fixture.root,
+            &fixture.metadata,
+            fixture.context.clone(),
+            &wrong_source
+        )
+        .is_err()
+    );
+}
+
 pub(super) fn installed_fixture() -> (tempfile::TempDir, PathBuf) {
     let fixture = Fixture::new();
     fixture.generation();

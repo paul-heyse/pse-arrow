@@ -379,6 +379,80 @@ impl SourceFingerprint {
         Ok(result)
     }
 
+    /// Observe exactly the local packages reached by an admitted compiler-unit graph.
+    /// Metadata supplies source-qualified package/manifest identity, not dependency reach:
+    /// its optional feature universe can be broader than this actual compiler selection.
+    /// All reached contexts participate, including host proc-macro and build-script units.
+    /// The caller retains the unit graph and checks the same context at build publication.
+    pub fn from_resolution(
+        root: &Path,
+        metadata: &Metadata,
+        context: BuildContext,
+        resolution: &crate::correctness::Resolution,
+    ) -> Result<Self, HostError> {
+        if !metadata.workspace_root.is_absolute()
+            || metadata.workspace_root.as_std_path() != root
+            || resolution.units.is_empty()
+            || !resolution.units.iter().any(|unit| unit.root)
+        {
+            return Err(invalid(
+                "compiler source selection has no bound checkout/root units",
+            ));
+        }
+        let mut packages = BTreeMap::new();
+        for package in &metadata.packages {
+            if packages.insert(package.id.repr.as_str(), package).is_some() {
+                return Err(invalid("source metadata repeats a package identity"));
+            }
+        }
+        let mut package_roots = BTreeSet::new();
+        let mut additional_files = BTreeSet::new();
+        for unit in &resolution.units {
+            let package = packages
+                .get(unit.package_id.as_str())
+                .ok_or_else(|| invalid("admitted compiler package has no source declaration"))?;
+            if package.name.as_str() != unit.package_name {
+                return Err(invalid("admitted compiler package identity/name disagree"));
+            }
+            if package.source.is_some() {
+                continue;
+            }
+            let directory = package
+                .manifest_path
+                .parent()
+                .ok_or_else(|| invalid("admitted package manifest has no parent"))?
+                .as_std_path();
+            let selected = directory
+                .strip_prefix(root)
+                .map_err(|_| invalid("admitted local dependency lies outside checkout"))?;
+            if !relative(selected) {
+                return Err(invalid("admitted package root is not checkout-relative"));
+            }
+            package_roots.insert(selected.to_owned());
+            // Cargo permits an explicitly declared target source outside its manifest's
+            // directory. Keep that actual reached input rather than pruning it with roots.
+            let source = Path::new(&unit.source_path);
+            if !source.starts_with(directory) {
+                let selected = source
+                    .strip_prefix(root)
+                    .map_err(|_| invalid("admitted local compiler source lies outside checkout"))?;
+                if !relative(selected) {
+                    return Err(invalid("admitted compiler source is not checkout-relative"));
+                }
+                additional_files.insert(selected.to_owned());
+            }
+        }
+        let mut result = Self {
+            version: VERSION,
+            package_roots,
+            additional_files,
+            files: BTreeMap::new(),
+            context,
+        };
+        result.files = result.observe_files(root)?;
+        Ok(result)
+    }
+
     /// Bind declared compile-time inputs outside package roots, such as `include_str!`
     /// files. The builder must supply the same set to both construction observations.
     pub fn with_additional_files(
