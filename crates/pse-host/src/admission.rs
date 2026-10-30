@@ -12,10 +12,13 @@ use pse_diagnostics::process_facts::{ProcessIdentity, ProcessRead, ProcessReader
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     fs::{self, File, OpenOptions},
     io::{self, Write},
-    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
+    os::unix::{
+        ffi::{OsStrExt, OsStringExt},
+        fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
+    },
     path::{Component, Path, PathBuf},
     time::{Duration, Instant},
 };
@@ -967,6 +970,12 @@ impl Coordinator {
         }
     }
     fn read(&self) -> Result<Journal, HostError> {
+        self.read_journal(false)
+    }
+    fn read_existing(&self) -> Result<Journal, HostError> {
+        self.read_journal(true)
+    }
+    fn read_journal(&self, required: bool) -> Result<Journal, HostError> {
         let path = self.directory.join("finite.json");
         let file = match OpenOptions::new()
             .read(true)
@@ -974,7 +983,9 @@ impl Coordinator {
             .open(path)
         {
             Ok(file) => file,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Journal::default()),
+            Err(error) if !required && error.kind() == io::ErrorKind::NotFound => {
+                return Ok(Journal::default());
+            }
             Err(error) => return Err(error.into()),
         };
         private_file(&file)?;
@@ -1532,7 +1543,144 @@ pub struct Permit {
     slice_owner: Option<OwnedUnit>,
     borrowed: bool,
 }
+/// Protected original reservation coordinates, minted by the performing permit after binding.
+/// Decoding this snapshot is not capacity admission or proof of release.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PermitRecovery {
+    version: u32,
+    directory: Vec<u8>,
+    nonce: String,
+    profile: Profile,
+    allocation: LaunchIntent,
+    binding: UnitBinding,
+    minimum_revision: u64,
+}
+#[derive(Debug)]
+pub(crate) struct RecoveredPermit {
+    permit: Permit,
+    allocation: Option<crate::manager::RecordedUnit>,
+}
+impl RecoveredPermit {
+    pub(crate) async fn release(
+        &mut self,
+        manager: &HostManager,
+        deadline: Instant,
+    ) -> Result<bool, HostError> {
+        if let Some(allocation) = &mut self.allocation {
+            allocation.stop_and_drain(deadline).await?;
+            self.allocation = None;
+        }
+        self.permit.retire_charge(manager, deadline).await
+    }
+}
 impl Permit {
+    pub(crate) async fn recovery(&self) -> Result<Option<PermitRecovery>, HostError> {
+        if self.borrowed {
+            return Err(invalid("borrowed reservation cannot mint release custody"));
+        }
+        let Some(nonce) = &self.nonce else {
+            return Ok(None);
+        };
+        let allocation = self
+            .slice
+            .as_ref()
+            .ok_or_else(|| invalid("original allocation intent missing"))?;
+        let binding = self
+            .slice_owner
+            .as_ref()
+            .ok_or_else(|| invalid("original allocation custody missing"))?
+            .binding()
+            .await?;
+        let state = self.coordinator.read_existing()?;
+        if !state.finite.contains_key(nonce) {
+            return Err(invalid("original bound reservation absent before handoff"));
+        }
+        Ok(Some(PermitRecovery {
+            version: 1,
+            directory: self.coordinator.directory.as_os_str().as_bytes().to_vec(),
+            nonce: nonce.clone(),
+            profile: self.profile.clone(),
+            allocation: allocation.clone(),
+            binding,
+            minimum_revision: state.revision,
+        }))
+    }
+    pub(crate) async fn recover(
+        record: &PermitRecovery,
+        manager: &HostManager,
+        controller: &LaunchIntent,
+        controller_binding: &UnitBinding,
+        controller_process: &ProcessIdentity,
+        workload: &LaunchIntent,
+        workload_binding: &UnitBinding,
+    ) -> Result<RecoveredPermit, HostError> {
+        let directory = PathBuf::from(OsString::from_vec(record.directory.clone()));
+        if record.version != 1
+            || directory.file_name() != Some(OsStr::new("pse-host-admission"))
+            || record.nonce != workload.unit()
+        {
+            return Err(invalid(
+                "unsupported original reservation recovery identity",
+            ));
+        }
+        private_directory(&directory, false)?;
+        let coordinator = Coordinator {
+            directory,
+            declared_parent: PathBuf::new(),
+            legacy_state: None,
+        };
+        let state = coordinator.read_existing()?;
+        if state.revision < record.minimum_revision {
+            return Err(invalid(
+                "original reservation journal revision moved backwards",
+            ));
+        }
+        let original = state.finite.get(&record.nonce);
+        if let Some(row) = original {
+            if row.manager != manager.identity_key()
+                || row.boot != manager.boot_id()
+                || row.caller != *controller_process
+                || row.profile != record.profile
+                || !row.units.iter().any(|unit| {
+                    unit.controller
+                        && unit.intent == *controller
+                        && unit.binding.as_ref() == Some(controller_binding)
+                })
+                || !row.units.iter().any(|unit| {
+                    !unit.controller
+                        && unit.intent == *workload
+                        && unit.binding.as_ref() == Some(workload_binding)
+                })
+                || !row.units.iter().any(|unit| {
+                    unit.intent == record.allocation
+                        && unit.binding.as_ref() == Some(&record.binding)
+                })
+            {
+                return Err(invalid("original reservation journal binding changed"));
+            }
+        }
+        let allocation = manager
+            .recorded_original(
+                &record.allocation,
+                &manager.identity_key(),
+                &record.binding,
+                None,
+            )
+            .await?;
+        Ok(RecoveredPermit {
+            permit: Permit {
+                coordinator,
+                selection: None,
+                profile: record.profile.clone(),
+                nonce: original.map(|_| record.nonce.clone()),
+                slice: Some(record.allocation.clone()),
+                slice_owner: None,
+                borrowed: false,
+            },
+            allocation,
+        })
+    }
     /// Whether this request reused an existing physically authenticated allocation.
     pub fn borrowed(&self) -> bool {
         self.borrowed
@@ -1725,13 +1873,23 @@ impl Permit {
             slice.stop_and_drain(deadline).await?;
             self.slice_owner = None;
         }
+        self.retire_charge(manager, deadline).await
+    }
+    async fn retire_charge(
+        &mut self,
+        manager: &HostManager,
+        deadline: Instant,
+    ) -> Result<bool, HostError> {
+        if self.nonce.is_none() {
+            return Ok(true);
+        }
         let nonce = self
             .nonce
             .as_ref()
             .ok_or_else(|| invalid("finite release identity absent"))?;
         {
             let _guard = self.coordinator.lock("admission.lock", deadline).await?;
-            let mut state = self.coordinator.read()?;
+            let mut state = self.coordinator.read_existing()?;
             let Some(row) = state.finite.get_mut(nonce) else {
                 self.nonce = None;
                 return Ok(true);
@@ -1864,6 +2022,47 @@ mod tests {
             selected(Some("light"), None, "unbounded").requested_ordinary_target(),
             None
         );
+    }
+    #[tokio::test]
+    async fn managed_recovery_refuses_missing_or_recreated_reservation_journal() {
+        let (_runtime, _environment, coordinator) = fixture();
+        let manager = HostManager::connect_user(None).await.unwrap();
+        let controller = LaunchIntent::fresh().unwrap();
+        let workload = LaunchIntent::fresh_scope().unwrap();
+        let process = caller_identity().unwrap();
+        let binding = UnitBinding {
+            invocation: vec![1; 16],
+            group: "/original/unopened-recovery-fixture".into(),
+            device: 1,
+            inode: 1,
+        };
+        let record = PermitRecovery {
+            version: 1,
+            directory: coordinator.directory.as_os_str().as_bytes().to_vec(),
+            nonce: workload.unit().to_owned(),
+            profile: selected(Some("light"), None, "bounded").profile,
+            allocation: LaunchIntent::fresh_allocation("pse.slice").unwrap(),
+            binding: binding.clone(),
+            minimum_revision: 5,
+        };
+        assert!(
+            matches!(Permit::recover(&record, &manager, &controller, &binding,
+            &process, &workload, &binding).await, Err(HostError::Io(error))
+            if error.kind() == io::ErrorKind::NotFound)
+        );
+        coordinator.write(&Journal::default()).unwrap();
+        let error = Permit::recover(
+            &record,
+            &manager,
+            &controller,
+            &binding,
+            &process,
+            &workload,
+            &binding,
+        )
+        .await
+        .unwrap_err();
+        assert!(error.to_string().contains("revision moved backwards"));
     }
     #[test]
     fn borrowed_resident_requires_original_metadata_identity_and_actual_resource_bounds() {

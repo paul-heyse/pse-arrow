@@ -5,6 +5,7 @@ pub mod finalizer;
 pub mod lifecycle;
 pub mod payload;
 pub mod readiness;
+mod recovery;
 mod request;
 pub(crate) use request::decode_path as decode_checkout;
 pub mod result;

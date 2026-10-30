@@ -2359,7 +2359,10 @@ impl HostManager {
             authority: UnitAuthority::ProtectedLedger,
         };
         core.observe_bound(true).await?;
-        Ok(Some(RecordedUnit { core }))
+        Ok(Some(RecordedUnit {
+            core,
+            binding: binding.clone(),
+        }))
     }
 }
 
@@ -2806,6 +2809,7 @@ enum UnitAuthority {
 #[derive(Debug)]
 pub(crate) struct RecordedUnit {
     core: OwnedUnit,
+    binding: UnitBinding,
 }
 impl RecordedUnit {
     pub(crate) async fn wait(
@@ -2817,8 +2821,34 @@ impl RecordedUnit {
     pub(crate) async fn stop_and_drain(
         &mut self,
         deadline: Instant,
-    ) -> Result<UnitObservation, HostError> {
-        self.core.stop_and_drain(deadline).await
+    ) -> Result<Option<UnitObservation>, HostError> {
+        match self.core.stop_and_drain(deadline).await {
+            Ok(observed) => Ok(Some(observed)),
+            Err(error)
+                if matches!(&error, HostError::Manager(zbus::Error::MethodError(name, _, _))
+                if name.as_str() == "org.freedesktop.systemd1.NoSuchUnit") =>
+            {
+                match self
+                    .core
+                    .manager
+                    .recorded_original(
+                        &self.core.intent,
+                        &self.core.manager.identity_key(),
+                        &self.binding,
+                        self.core.process.as_ref(),
+                    )
+                    .await
+                {
+                    Ok(None) => Ok(None),
+                    Ok(Some(_)) => Err(error),
+                    Err(cleanup) => Err(HostError::Settlement {
+                        operation: Box::new(error),
+                        cleanup: Box::new(cleanup),
+                    }),
+                }
+            }
+            Err(error) => Err(error),
+        }
     }
     pub(crate) async fn observe(&self) -> Result<UnitObservation, HostError> {
         self.core.observe_bound(true).await

@@ -60,6 +60,16 @@ pub(crate) struct PayloadIntent {
     pub workload: LaunchIntent,
     pub operation: Option<LaunchIntent>,
 }
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct PayloadCustody {
+    pub(super) version: u32,
+    pub(super) manager: String,
+    pub(super) workload: crate::manager::UnitBinding,
+    pub(super) child: pse_diagnostics::process_facts::ProcessIdentity,
+    pub(super) operation: Option<crate::manager::UnitBinding>,
+    pub(super) reservation: Option<crate::admission::PermitRecovery>,
+}
 
 /// Original physical resource results. Only the settling owner constructs this value.
 pub struct PayloadReport<O: ChunkObserver> {
@@ -356,7 +366,34 @@ pub(crate) async fn run<O: ChunkObserver>(
                 "managed workload escaped selected allocation".into(),
             ));
         }
-        directory.publish_evidence(InvocationEvidence::Custody, &unit.binding().await?)?;
+        let child =
+            match pse_diagnostics::process_facts::ProcessReader::default().process(child_pid) {
+                pse_diagnostics::process_facts::ProcessRead::Present(facts) => facts.identity,
+                _ => {
+                    return Err(HostError::Ownership(
+                        "gated original child identity unavailable before handoff".into(),
+                    ));
+                }
+            };
+        let operation_binding = match &operation {
+            Some(operation) => Some(operation.binding().await?),
+            None => None,
+        };
+        let reservation = match &permit {
+            Some(permit) => permit.recovery().await?,
+            None => None,
+        };
+        directory.publish_evidence(
+            InvocationEvidence::Custody,
+            &PayloadCustody {
+                version: 2,
+                manager: manager.identity_key(),
+                workload: unit.binding().await?,
+                child,
+                operation: operation_binding,
+                reservation,
+            },
+        )?;
         let notifier =
             super::readiness::SupervisorNotifier::authenticate(&manager, &controller).await?;
         let current = manager.managed_service_placement(&controller).await?.0;

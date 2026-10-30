@@ -187,10 +187,14 @@ impl RecordedInvocation {
             return Ok(RecordedObservation::Gone);
         };
         match unit.stop_and_drain(deadline).await {
-            Ok(service) => {
+            Ok(Some(service)) => {
                 let completion = RecordedObservation::Observed { service };
                 self.completion = Some(completion.clone());
                 Ok(completion)
+            }
+            Ok(None) => {
+                self.completion = Some(RecordedObservation::Gone);
+                Ok(RecordedObservation::Gone)
             }
             Err(error) => {
                 if let Err(cleanup) = self.resync().await {

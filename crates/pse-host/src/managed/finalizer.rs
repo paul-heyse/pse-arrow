@@ -27,6 +27,7 @@ struct Finalization {
     request_removed: Option<bool>,
     launch_closed: Option<bool>,
     payload_result_observed: bool,
+    recovery: Option<super::recovery::RecoveryView>,
     failures: Vec<ErrorRecord>,
 }
 async fn close(directory: &InvocationDirectory, deadline: Instant) -> Result<(), HostError> {
@@ -55,10 +56,10 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
         .manager
         .authenticate_service_finalizer(&context.record.controller)
         .await?;
-    if let Some(controller) = context
+    let controller = context
         .directory
-        .evidence::<supervisor::ControllerRecord>(InvocationEvidence::Controller)?
-    {
+        .evidence::<supervisor::ControllerRecord>(InvocationEvidence::Controller)?;
+    if let Some(controller) = &controller {
         if controller.version != 1
             || controller.manager != context.manager.identity_key()
             || controller.binding.invocation != service.invocation
@@ -118,10 +119,39 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
         }
     };
     let policy = RedactionPolicy::from_environment();
-    context.directory.publish_evidence(
+    let mut recovered_custody = None;
+    let recovery = match &controller {
+        Some(controller) if launch_closed == Some(true) => match super::recovery::recover(
+            &context.directory,
+            &context.manager,
+            &context.record.controller,
+            controller,
+            deadline,
+        )
+        .await
+        {
+            Ok(report) => {
+                let (view, errors, custody) = report.finish(&policy);
+                failures.extend(errors);
+                recovered_custody = Some(custody);
+                Some(view)
+            }
+            Err(error) => {
+                failures.push(error);
+                None
+            }
+        },
+        _ => {
+            failures.push(HostError::Ownership(
+                "original controller or launch cutoff unavailable for payload recovery".into(),
+            ));
+            None
+        }
+    };
+    let finalization = context.directory.publish_evidence(
         InvocationEvidence::Finalization,
         &Finalization {
-            version: 1,
+            version: 2,
             invocation: id.clone(),
             service,
             finalizer: process,
@@ -129,12 +159,27 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
             request_removed,
             launch_closed,
             payload_result_observed: prior,
+            recovery,
             failures: failures
                 .iter()
                 .map(|error| ErrorRecord::from_typed(error, &policy))
                 .collect(),
         },
-    )?;
+    );
+    let finalization_failed = finalization.is_err();
+    if prior {
+        return finalization.map_err(|publication| {
+            failures
+                .into_iter()
+                .fold(publication, |cleanup, operation| HostError::Settlement {
+                    operation: Box::new(operation),
+                    cleanup: Box::new(cleanup),
+                })
+        });
+    }
+    if let Err(error) = finalization {
+        failures.push(error);
+    }
     if !prior {
         failures.push(HostError::Ownership(
             "original supervisor payload settlement/capture evidence is unavailable; service exit does not establish it".into()));
@@ -149,18 +194,31 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
             Ok(()) => {}
             Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::AlreadyExists => {
                 // Only a complete binding-checked original response establishes a competing winner.
-                context
+                let winner = context
                     .store
-                    .result::<Box<serde_json::value::RawValue>, ManagedSummary>(&id)?
-                    .ok_or_else(|| {
-                        HostError::Ownership(
-                            "competing terminal publication is not readable original evidence"
-                                .into(),
-                        )
-                    })?;
+                    .result::<Box<serde_json::value::RawValue>, ManagedSummary>(&id)
+                    .and_then(|result| {
+                        result.ok_or_else(|| {
+                            HostError::Ownership(
+                                "competing terminal publication is not readable original evidence"
+                                    .into(),
+                            )
+                        })
+                    });
+                if let Err(cleanup) = winner {
+                    return Err(terminal.publication_failed(HostError::Settlement {
+                        operation: Box::new(HostError::Io(error)),
+                        cleanup: Box::new(cleanup),
+                    }));
+                }
             }
-            Err(error) => return Err(error),
+            Err(error) => return Err(terminal.publication_failed(error)),
+        }
+        if finalization_failed {
+            return Err(terminal.publication_failed(HostError::Ownership(
+                "required original finalization publication failed; terminal evidence records its original causes".into())));
         }
     }
+    drop(recovered_custody);
     Ok(())
 }

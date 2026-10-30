@@ -84,6 +84,15 @@ impl<T> TerminalResult<T> {
     pub(crate) fn evidence(&self) -> &Envelope<T> {
         &self.response
     }
+    /// Preserve original native owner failures if their terminal evidence cannot be published.
+    pub(crate) fn publication_failed(self, publication: HostError) -> HostError {
+        self._failures
+            .into_iter()
+            .fold(publication, |cleanup, operation| HostError::Settlement {
+                operation: Box::new(operation),
+                cleanup: Box::new(cleanup),
+            })
+    }
 }
 impl TerminalResult<ManagedSummary> {
     pub(crate) fn from_generic(
