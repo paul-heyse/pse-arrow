@@ -215,13 +215,13 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [C01](#c01) | planned | 59c | Capability declaration on `pse-backend-native` (build.rs unchanged); unit-graph capability derivation |
+| [C01](#c01) | in-progress | 59c | Capability declaration and pure reader integrated (build.rs unchanged); actual unit-graph join remains with C07 |
 | [C02](#c02) | planned | 59c | `pse test` and `pse check` with selection, features, capabilities, force-validation, reconciled verdict, explain and rerun; replaced recipes retired |
 | [C03](#c03) | planned | 59c | `affected` in `pse-host`; `pse test --changed`; xtask `affected` and its recipe retired |
 | [C04](#c04) | planned | 59c | Fixture declarations and immutable inputs for both real service ownership modes; `pse fixture`; replaced fixture recipes retired |
 | [C05](#c05) | planned | 59c | `pse tests <pattern>` discovery; `list-native-contracts` retired |
 | [C06](#c06) | deferred | 59c | Bindeps for the cross-package service helper; trigger below |
-| [C07](#c07) | planned | 59c | Shared resolved test/check selection; explain/preparation boundary and exact binary identities |
+| [C07](#c07) | in-progress | 59c | Shared resolved selection owner and correctness graph integration underway; exact built/listed identities remain a separate explicit preparation stage |
 
 <a id="c01"></a>
 ### C01 — One capability declaration

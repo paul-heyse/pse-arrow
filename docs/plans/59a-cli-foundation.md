@@ -175,8 +175,8 @@ feature choices are exactly the review's
 | [A01](#a01) | complete | 59a | Rule-change edits R1–R5 landed in their owners (R4's guard change is D06) |
 | [A02](#a02) | complete | 59a | Shared clap tree/three binaries merged; targeted parser/protocol and bootstrap tests pass; broader qualification remains at series end |
 | [A03](#a03) | in-progress | 59a | Output/diagnostic/schema implementation underway after A07 scoped target acceptance |
-| [A04](#a04) | in-progress | 59a | Captured-environment resolver and consumer migration in isolated worktree; targeted acceptance pending |
-| [A05](#a05) | planned | 59a | Host-tool fingerprint, pruning and stale-host rebuild; `host` dependency ceiling |
+| [A04](#a04) | in-progress | 59a | Resolver and consumer migration integrated and targeted tests pass; concurrent invocation/history acceptance remains with B01 |
+| [A05](#a05) | in-progress | 59a | Fingerprint/manifest/use-claim foundations integrated; bootstrap, all-entry pinning, stale rebuild and safe pruning remain |
 | [A06](#a06) | planned | 59a | Derived catalog with `valid_values`, `explain`, `env --explain` provenance and `status` |
 | [A07](#a07) | complete | 59a | Proposed ADR-0233/blueprint315 published; scoped formal review accepts corrected target at Proposed strength; runtime obligations remain with consumers |
 

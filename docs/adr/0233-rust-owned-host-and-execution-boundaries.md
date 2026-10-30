@@ -12,8 +12,7 @@ evidence: Proposed
 supersedes: []
 superseded-by: null
 revisit: A named retained workload cannot preserve original physical ownership or canonical admission through the selected native interfaces.
-verification: Plan58 B01–B05 targeted cold-bootstrap, actual systemd255 user-manager ownership/drain, environment and native compiler controls; D05 separately establishes transactional migration fencing.
-plan59_verification: A07 scoped contract review accepts Proposed design only; A03 verifies typed outcomes/diagnostics, A05/B03 verify authenticated recorded-generation control and actual drain, G verifies analysis context and session lifetime.
+verification: Plan58 B01–B05 targeted cold-bootstrap, actual systemd255 user-manager ownership/drain, environment and native compiler controls; D05 separately establishes transactional migration fencing. Plan59 A07 scoped contract review accepts Proposed design only; A03 verifies typed outcomes/diagnostics, A05/B03 verify authenticated recorded-generation control and actual drain, G verifies analysis context and session lifetime.
 standard: {core: "3.4", process-simulator: "1.5"}
 scenarios: [docs/plans/58b-bootstrap-and-host-control.md, docs/plans/58d-canonical-control-and-connectivity.md, docs/plans/59a-cli-foundation.md, docs/plans/59b-runs-and-continuity.md, docs/plans/59g-rust-semantic-intelligence.md]
 ---

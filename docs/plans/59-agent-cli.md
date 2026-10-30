@@ -395,17 +395,31 @@ concurrent Git operations. Local snapshots alone cannot qualify physical or scie
 
 ### Authorized entire-series execution — 2026-10-29
 
-The operator authorized the prepared full Plan59 execution approach. A02 and A04 are being
-implemented in isolated worktrees, and D09 is exercising actual Git publication/staging races
-in disposable repositories. A07's Proposed target amendments are published in ADR-0233 and
-blueprint315; independent integration assessment remains pending. No A02/A04 runtime capability
-is accepted from unmerged work. Existing A01/E05 completion and the D02 trial are preserved.
+The operator authorized the prepared full Plan59 execution approach. A02's shared clap tree
+and three binaries are integrated and their targeted parser/protocol and bootstrap tests pass.
+A04's captured-environment path resolver and existing consumer migration are integrated;
+invocation-history acceptance remains with B01. A07's target amendments are published in
+proposed ADR-0233 and blueprint315, with independent scoped acceptance at Proposed strength.
+D09 selected the Git publication strategy after eleven disposable-repository probes; D08 is
+still implementation work. Existing A01/E05 completion and the D02 trial are preserved.
 
 E04 is complete: the index is a compact current-work route, with status retained at its owning
 plans. **Tested (documents only):** `scripts/pse-env -- target/debug/xtask lifecycle validate`
 reported 1,698 scope items and zero errors after the index change. No scientific campaign,
-provider rebuild, new datastore or measured benefit is established. Next integrate the tested
-CLI/resolver contributions and establish A03/A05's minimal run prerequisites.
+provider rebuild, new datastore or measured benefit is established.
+
+### Foundation integration checkpoint — 2026-10-30
+
+A05's coherent source/build fingerprints, immutable manifest checks and conservative scoped
+generation-use claims are integrated. Its eleven targeted generation tests pass in the main
+checkout, with zero failures. Bootstrap publication, stale rebuilding, all-entry pinning and
+pruning remain in progress; generation deletion is not enabled. C01's capability declaration
+and pure reader are integrated; C07 now develops the normalized selection and actual graph
+join. A03 is implementing typed output, diagnostics and directional schemas. Both complete
+Schemars and Serde library references have been reviewed for that implementation.
+
+Next integrate A03 and A05's working run prerequisites, then deliver B01's foreground ledger
+journey. Full-series functional scope and scope-end qualification remain outstanding.
 
 ### Code-intelligence planning checkpoint — 2026-10-29
 
