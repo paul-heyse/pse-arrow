@@ -4,7 +4,7 @@
 use super::{
     payload::{self, PayloadCommand, PayloadPolicy},
     request::{self, PrivateRequest},
-    result::{GenericObserver, ManagedSummary, TerminalResult},
+    result::{ManagedSummary, TerminalResult},
 };
 use crate::{
     HostError, HostManager, LaunchIntent, OwnedUnit, ServiceFinalizer, ServiceSpec,
@@ -569,6 +569,7 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
         return Err(invalid("private input differs from captured launch"));
     }
     let (command, selection, policy) = private.into_parts()?;
+    let observer = super::workflow::Observer::for_payload(&context, &root, &command)?;
     let parent = match context.record.parent.clone() {
         Some(parent) => Some(ManagedParent::reopen(parent, &context.manager, &selection).await?),
         None => None,
@@ -632,7 +633,7 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
                 trampoline,
                 policy,
                 owner_cancel,
-                GenericObserver,
+                observer,
                 parent,
             )
             .await;
@@ -665,8 +666,35 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<(), HostErr
     );
     let policy = redaction;
     let terminal: TerminalResult<ManagedSummary> = match receive_report.try_recv() {
-        Ok(Ok(report)) => {
-            TerminalResult::from_generic(&id, &context.record.command, report, &policy)
+        Ok(Ok(mut report)) => {
+            let child_exit = report.child_exit();
+            let validation = match &mut report.capture {
+                Ok(capture) => match capture.observer.take() {
+                    Some(observer) => match observer.finish() {
+                        Ok(Some(terminal)) => super::workflow::validate_report(
+                            context.directory.clone(),
+                            terminal,
+                            child_exit,
+                        )
+                        .await
+                        .map(Some),
+                        Ok(None) => Ok(None),
+                        Err(error) => Err(error),
+                    },
+                    None => Err(invalid("original required interpreter is unavailable")),
+                },
+                Err(_)
+                    if crate::test_workflow::execute::Action::from_command(
+                        &context.record.command,
+                    )
+                    .is_some() =>
+                {
+                    Err(invalid("original required workflow capture is unavailable"))
+                }
+                Err(_) => Ok(None),
+            };
+            TerminalResult::from_payload(&id, &context.record.command, report, &policy)
+                .with_workflow(validation, &policy)
                 .with_owner_failures(failures, &policy)
         }
         report => {

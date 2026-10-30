@@ -79,6 +79,8 @@ pub struct InvocationDirectory {
 /// Fixed immutable resource-owner records; none is a terminal admission or mutation grant.
 #[derive(Clone, Copy, Debug)]
 pub enum InvocationEvidence {
+    /// Fixed native workflow input, bound by the original operation's byte digest.
+    WorkflowInput,
     /// Original service launch selection and intent.
     Launch,
     /// Original service main identity and opened controller hierarchy before payload effects.
@@ -95,6 +97,7 @@ pub enum InvocationEvidence {
 impl InvocationEvidence {
     fn filename(self) -> &'static str {
         match self {
+            Self::WorkflowInput => "workflow-input.json",
             Self::Launch => "launch.json",
             Self::Controller => "controller.json",
             Self::PayloadIntent => "payload-intent.json",

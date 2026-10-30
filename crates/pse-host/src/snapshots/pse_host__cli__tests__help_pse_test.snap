@@ -1,0 +1,114 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
+---
+-h
+Build, execute and reconcile the actual selected native tests
+
+Usage: pse test [OPTIONS] [PACKAGE[:TARGET]]... [-- <WORDS>...]
+
+Arguments:
+  [PACKAGE[:TARGET]]...  Workspace package names, optionally followed by :TARGET. Use -p for opaque package IDs
+  [WORDS]...             Bare test-name filters after --; these are not package or target names
+
+Options:
+  -C <checkout>
+  -p, --package <SPEC>             Package to process (see `cargo help pkgid`)
+      --format <FORMAT>            Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --workspace                  Process all packages in the workspace
+      --fields <FIELDS>            Select comma-separated payload fields while retaining identity, state and coverage
+      --budget <BUDGET>            Limit payload array records; retain complete evidence as an artifact
+      --exclude <SPEC>             Exclude packages from being processed
+      --all-features               Activate all available features
+      --no-default-features        Do not activate the `default` feature
+  -F, --features <FEATURES>        Space-separated list of features to activate
+      --without-feature <ABSENT>   Features that the actual selected compiler roots must keep absent
+      --target <PLATFORM>          Explicit Cargo target platform; host dependency contexts remain independent
+      --target-kind <TARGET_KIND>  Disambiguate duplicate target names by their Cargo kind, for example test or bin
+      --ignore-default-filter      Bypass the selected nextest profile's default filter
+  -E, --filterset <EXPRESSIONS>    Native nextest filtersets; nextest owns their grammar
+      --ignored <IGNORED>          [default: default] [possible values: default, only, all]
+      --profile <PROFILE>          Selected nextest policy profile, without running its setup during explain [default: default]
+  -h, --help                       Print help (see more with '--help')
+--help
+Build, execute and reconcile the actual selected native tests
+
+Usage: pse test [OPTIONS] [PACKAGE[:TARGET]]... [-- <WORDS>...]
+
+Arguments:
+  [PACKAGE[:TARGET]]...
+          Workspace package names, optionally followed by :TARGET. Use -p for opaque package IDs
+
+  [WORDS]...
+          Bare test-name filters after --; these are not package or target names
+
+Options:
+  -C <checkout>
+
+
+  -p, --package <SPEC>
+          Package to process (see `cargo help pkgid`)
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --workspace
+          Process all packages in the workspace
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit payload array records; retain complete evidence as an artifact
+
+      --exclude <SPEC>
+          Exclude packages from being processed
+
+      --all-features
+          Activate all available features
+
+      --no-default-features
+          Do not activate the `default` feature
+
+  -F, --features <FEATURES>
+          Space-separated list of features to activate
+
+      --without-feature <ABSENT>
+          Features that the actual selected compiler roots must keep absent
+
+      --target <PLATFORM>
+          Explicit Cargo target platform; host dependency contexts remain independent
+
+      --target-kind <TARGET_KIND>
+          Disambiguate duplicate target names by their Cargo kind, for example test or bin
+
+      --ignore-default-filter
+          Bypass the selected nextest profile's default filter
+
+  -E, --filterset <EXPRESSIONS>
+          Native nextest filtersets; nextest owns their grammar
+
+      --ignored <IGNORED>
+          Possible values:
+          - default: Run ordinary tests only
+          - only:    Run ignored tests only
+          - all:     Run ordinary and ignored tests
+
+          [default: default]
+
+      --profile <PROFILE>
+          Selected nextest policy profile, without running its setup during explain
+
+          [default: default]
+
+  -h, --help
+          Print help (see a summary with '-h')

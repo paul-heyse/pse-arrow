@@ -145,6 +145,7 @@ pub(super) fn dispatch(
                     resource_class: None,
                     verb: "tools run",
                     tool: Some(evidence),
+                    workflow: None,
                 },
                 entry,
                 output,

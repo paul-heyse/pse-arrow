@@ -56,6 +56,8 @@ impl<W: super::streams::LogSink> From<&StreamReport<W>> for StreamSummary {
 /// Generic managed process/capture result; no scientific acceptance or test population is inferred.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ManagedSummary {
+    /// Authenticated fixed workflow transport, absent for generic commands or unknown recovery.
+    pub workflow: Option<WorkflowSummary>,
     /// Original payload child status only after an actual wait.
     pub child_exit: Option<i32>,
     /// Original stdout facts; absent for an uncertain finalizer.
@@ -66,6 +68,14 @@ pub struct ManagedSummary {
     pub borrowed_reservation: bool,
     /// Actual systemd finalizer result, diagnostic only.
     pub service_result: Option<String>,
+}
+/// The helper owns compiler/test meaning; the original complete report remains addressed data.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct WorkflowSummary {
+    /// Original validated helper terminal, not a deserialized native verdict capability.
+    pub terminal: crate::test_workflow::execute::TerminalRecord,
+    /// Exact native artifact path, including platform bytes unavailable in a text-only link.
+    pub report: std::ffi::OsString,
 }
 
 /// Terminal publication capability. Deserializing an envelope cannot construct this type.
@@ -95,10 +105,10 @@ impl<T> TerminalResult<T> {
     }
 }
 impl TerminalResult<ManagedSummary> {
-    pub(crate) fn from_generic(
+    pub(crate) fn from_payload<O: super::streams::ChunkObserver<Error = HostError>>(
         id: &CliInvocationId,
         command: &str,
-        report: PayloadReport<GenericObserver>,
+        report: PayloadReport<O>,
         policy: &RedactionPolicy,
     ) -> Self {
         let resources_settled = report.resources_settled();
@@ -112,6 +122,7 @@ impl TerminalResult<ManagedSummary> {
             .map_or(true, |capture| capture.io_unresolved());
         let child_exit = report.child_exit();
         let summary = ManagedSummary {
+            workflow: None,
             child_exit,
             stdout: report
                 .capture
@@ -222,7 +233,9 @@ impl TerminalResult<ManagedSummary> {
         policy: &RedactionPolicy,
     ) -> Self {
         if !errors.is_empty() {
-            self.response.outcome = CommandOutcome::Failure;
+            if self.response.outcome != CommandOutcome::BoundaryFailure {
+                self.response.outcome = CommandOutcome::Failure;
+            }
             self.response.observation.completeness = Completeness::Partial;
             self.response.failures.extend(
                 errors
@@ -232,6 +245,72 @@ impl TerminalResult<ManagedSummary> {
             self._failures.extend(errors);
         }
         self
+    }
+
+    pub(super) fn with_workflow(
+        mut self,
+        validation: Result<Option<super::workflow::Validated>, HostError>,
+        policy: &RedactionPolicy,
+    ) -> Self {
+        use crate::test_workflow::execute::Outcome;
+        match validation {
+            Ok(None) => self,
+            Err(error) => {
+                self = self.with_owner_failures(vec![error], policy);
+                self.response.outcome = CommandOutcome::BoundaryFailure;
+                self.response.subject_state = SubjectState::Unknown;
+                self
+            }
+            Ok(Some(validated)) => {
+                let (terminal, path) = validated.into_parts();
+                self.response.summary = match terminal.outcome {
+                    Outcome::Listed => "actual selected native test population listed",
+                    Outcome::CheckSucceeded => "native compiler check reconciled",
+                    Outcome::TestsSucceeded => "selected native test execution reconciled",
+                    Outcome::Failed => "native workflow reported failure",
+                    Outcome::ZeroMatch => "native selection matched no tests",
+                    Outcome::Pending => "native workflow requires prerequisite-owner readiness",
+                    Outcome::Incomplete => "native workflow required observation is incomplete",
+                }
+                .into();
+                if terminal.outcome == Outcome::Listed
+                    && self.response.outcome == CommandOutcome::Success
+                {
+                    self.response.subject_state = SubjectState::Available;
+                }
+                if let Some(location) = path.to_str() {
+                    self.response
+                        .artifacts
+                        .push(crate::envelope::ArtifactReference {
+                            kind: "workflow_report".into(),
+                            location: location.into(),
+                            digest: Some(terminal.report.sha256.clone()),
+                        });
+                }
+                if !terminal.outcome.successful(terminal.action) {
+                    (self.response.outcome, self.response.subject_state) = match terminal.outcome {
+                        Outcome::Pending => {
+                            (CommandOutcome::BoundaryFailure, SubjectState::Unprepared)
+                        }
+                        Outcome::Incomplete => {
+                            (CommandOutcome::BoundaryFailure, SubjectState::Unknown)
+                        }
+                        Outcome::ZeroMatch => (CommandOutcome::Failure, SubjectState::NoMatch),
+                        _ => (CommandOutcome::Failure, SubjectState::Failed),
+                    };
+                }
+                if !terminal.required_capture_complete {
+                    self.response.observation.completeness = Completeness::Partial;
+                }
+                self.response.observation.scope =
+                    "fixed_workflow_protocol_and_managed_payload_owner".into();
+                self.response.payload.workflow = Some(WorkflowSummary {
+                    terminal,
+                    report: path.into_os_string(),
+                });
+                self
+            }
+        }
     }
     pub(crate) fn supervisor_unknown(
         id: &CliInvocationId,
@@ -260,6 +339,7 @@ impl TerminalResult<ManagedSummary> {
             command,
             "supervisor ended without complete owner settlement evidence",
             ManagedSummary {
+                workflow: None,
                 child_exit: None,
                 stdout: None,
                 stderr: None,

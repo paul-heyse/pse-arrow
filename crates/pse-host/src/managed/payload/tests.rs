@@ -54,7 +54,7 @@ async fn service_payload_entry() {
     assert!(report.resources_settled(), "{report:?}");
     assert!(report.capture.as_ref().unwrap().log_complete());
     assert_eq!(report.child_exit(), Some(3), "{report:?}");
-    let terminal = crate::managed::result::TerminalResult::from_generic(
+    let terminal = crate::managed::result::TerminalResult::from_payload(
         &id,
         "run",
         report,

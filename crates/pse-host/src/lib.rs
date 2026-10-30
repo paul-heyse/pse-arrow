@@ -77,6 +77,9 @@ pub enum HostError {
     /// A staged compiler/test operation's original concrete refusal.
     #[error(transparent)]
     Workflow(Box<test_workflow::WorkflowError>),
+    /// Fixed helper input, required terminal protocol or original report association failed.
+    #[error(transparent)]
+    WorkflowOwner(Box<managed::workflow::WorkflowOwnerError>),
     /// Captured product-reader transport retains its original native failure.
     #[error(transparent)]
     ProductReader(Box<product_reader::ProductReaderError>),
@@ -147,6 +150,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Task(_) => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
         Self::Subsystem(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::Workflow(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
+        Self::WorkflowOwner(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::ProductReader(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::PreparedXtask(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::Affected(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
@@ -163,7 +167,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Artifact(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::SourceOwnership(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
     }) },
-    forward(this) { match this { Self::Subsystem(error) => Some(error.as_ref()), Self::Workflow(error) => Some(error.as_ref()), Self::ProductReader(error) => Some(error.as_ref()), Self::PreparedXtask(error) => Some(error.as_ref()), Self::Affected(error) => Some(error), Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::Artifact(error) => Some(error), Self::SourceOwnership(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Subsystem(error) => Some(error.as_ref()), Self::Workflow(error) => Some(error.as_ref()), Self::WorkflowOwner(error) => Some(error.as_ref()), Self::ProductReader(error) => Some(error.as_ref()), Self::PreparedXtask(error) => Some(error.as_ref()), Self::Affected(error) => Some(error), Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::Artifact(error) => Some(error), Self::SourceOwnership(error) => Some(error), _ => None } },
     help(_this) { None },
     related(this) { match this {
         Self::Settlement {operation,cleanup} => { let children:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()]; Some(Box::new(children.into_iter())) },

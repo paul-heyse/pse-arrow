@@ -23,6 +23,7 @@ Options:
       --without-feature <ABSENT>   Features that the actual selected compiler roots must keep absent
       --target <PLATFORM>          Explicit Cargo target platform; host dependency contexts remain independent
       --target-kind <TARGET_KIND>  Disambiguate duplicate target names by their Cargo kind, for example test or bin
+      --ignore-default-filter      Bypass the selected nextest profile's default filter
   -E, --filterset <EXPRESSIONS>    Native nextest filtersets; nextest owns their grammar
       --ignored <IGNORED>          [default: default] [possible values: default, only, all]
       --profile <PROFILE>          Selected nextest policy profile, without running its setup during explain [default: default]
@@ -85,6 +86,9 @@ Options:
 
       --target-kind <TARGET_KIND>
           Disambiguate duplicate target names by their Cargo kind, for example test or bin
+
+      --ignore-default-filter
+          Bypass the selected nextest profile's default filter
 
   -E, --filterset <EXPRESSIONS>
           Native nextest filtersets; nextest owns their grammar

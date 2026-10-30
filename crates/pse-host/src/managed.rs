@@ -11,3 +11,4 @@ pub(crate) use request::decode_path as decode_checkout;
 pub mod result;
 pub mod streams;
 pub mod supervisor;
+pub(crate) mod workflow;

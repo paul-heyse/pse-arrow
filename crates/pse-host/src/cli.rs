@@ -19,6 +19,7 @@ mod affected;
 mod control;
 mod product;
 mod selection;
+mod testing;
 mod tools;
 
 /// Selects the fixed executable protocol, never inferred from an executable filename.
@@ -65,6 +66,14 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Explicitly build/list the actual selected native test population.
+    Tests(selection::TestArgs),
+    /// Build, execute and reconcile the actual selected native tests.
+    Test(selection::TestArgs),
+    /// Check the selected source through the correctness and compiler observation owners.
+    Check(selection::SelectionArgs),
+    #[command(name = "__workflow", hide = true)]
+    Workflow(ManagedEntryArgs),
     /// Explicit captured development-tool preparation, discovery and managed native forwarding.
     Tools {
         #[command(subcommand)]
@@ -248,6 +257,7 @@ impl Command {
             Self::Tools { action } => action.raw_protocol(),
             Self::Boundary(options) => options.print || !options.explain,
             Self::AgentHook { .. }
+            | Self::Workflow(_)
             | Self::Supervise(_)
             | Self::Finalize(_)
             | Self::HostGenerationBootstrap { .. }
@@ -266,9 +276,10 @@ impl Command {
             Self::Tools { action } => action.intent(),
             Self::Wait(_) | Self::Cancel(_) => GenerationIntent::ExistingControl,
             Self::Observe { action } => action.intent(),
-            Self::HostGenerationBootstrap { .. } | Self::Supervise(_) | Self::Finalize(_) => {
-                GenerationIntent::Internal
-            }
+            Self::HostGenerationBootstrap { .. }
+            | Self::Supervise(_)
+            | Self::Finalize(_)
+            | Self::Workflow(_) => GenerationIntent::Internal,
             Self::Boundary(options)
                 if !options.print && !options.explain && !options.command.is_empty() =>
             {
@@ -310,6 +321,9 @@ impl Command {
                 action: TelemetryAction::Stop(_) | TelemetryAction::RecoverConfiguration(_),
             } => GenerationIntent::ExistingControl,
             Self::Run { .. }
+            | Self::Tests(_)
+            | Self::Test(_)
+            | Self::Check(_)
             | Self::Native { .. }
             | Self::DiagnosticTools {
                 action: ToolAction::Install { .. },
@@ -660,6 +674,9 @@ struct ServerSelection {
 }
 pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
     match command {
+        "test" | "tests" | "check" => {
+            envelope::schema::<crate::managed::result::ManagedSummary>(command, view)
+        }
         "tools prepare" => envelope::schema::<tools::PreparedTool>(command, view),
         "tools catalog" => envelope::schema::<
             crate::catalog::description::Page<crate::catalog::description::Description>,
@@ -736,6 +753,34 @@ fn dispatch(
         return Ok(0);
     };
     match command {
+        Command::Workflow(args) => runtime()?.block_on(crate::managed::workflow::run(
+            crate::managed::decode_checkout(&args.checkout_bytes)?,
+            args.invocation,
+        )),
+        Command::Tests(args) => testing::start(
+            crate::test_workflow::execute::Action::List,
+            args.request()?,
+            args.profile,
+            selected,
+            entry,
+            presentation,
+        ),
+        Command::Test(args) => testing::start(
+            crate::test_workflow::execute::Action::Test,
+            args.request()?,
+            args.profile,
+            selected,
+            entry,
+            presentation,
+        ),
+        Command::Check(args) => testing::start(
+            crate::test_workflow::execute::Action::Check,
+            args.request(crate::selection::Operation::Check)?,
+            "default".into(),
+            selected,
+            entry,
+            presentation,
+        ),
         Command::Tools { action } => {
             tools::dispatch(action, selected, presentation, entry, settlement)
         }
@@ -1260,6 +1305,7 @@ fn dispatch(
                     resource_class,
                     verb: "run",
                     tool: None,
+                    workflow: None,
                 },
                 entry,
                 presentation,
@@ -1277,6 +1323,10 @@ struct ManagedCommand {
     resource_class: Option<String>,
     verb: &'static str,
     tool: Option<NativeToolSelection>,
+    workflow: Option<(
+        crate::managed::workflow::InputBinding,
+        Box<serde_json::value::RawValue>,
+    )>,
 }
 #[derive(serde::Serialize)]
 struct NativeToolSelection {
@@ -1300,6 +1350,7 @@ fn launch_managed(
         resource_class,
         verb,
         tool,
+        workflow,
     } = request;
     let control = entry.prepared().cloned().ok_or_else(|| HostError::Ownership("managed run requires an explicitly prepared native generation; run scripts/bootstrap-host".into()))?;
     let selection =
@@ -1323,11 +1374,15 @@ fn launch_managed(
             cwd: cwd.as_os_str().to_owned(),
             detached: detach,
             tool,
+            workflow: workflow.as_ref().map(|(binding, _)| binding.clone()),
         },
         control,
         environment_digest,
         scientific: Vec::new(),
     })?);
+    if let Some((_, input)) = workflow {
+        directory.publish_evidence(crate::invocation::InvocationEvidence::WorkflowInput, &input)?;
+    }
     let mut arguments = command.into_iter();
     let program = arguments
         .next()
@@ -1380,6 +1435,8 @@ struct RunSelection {
     detached: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     tool: Option<NativeToolSelection>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    workflow: Option<crate::managed::workflow::InputBinding>,
 }
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 struct OwnerView {
@@ -1422,7 +1479,13 @@ async fn observe_launched(
     }
     let result = store.result::<serde::de::IgnoredAny, Box<serde_json::value::RawValue>>(&launched.invocation_id)?
         .ok_or_else(|| HostError::Ownership("original service stopped without readable owner result; inspect finalization evidence".into()))?;
-    let status = run_status(cancellation, &result);
+    let status = if let Some(interrupted) = cancellation {
+        interrupted
+    } else if crate::test_workflow::execute::Action::from_command(&result.command).is_some() {
+        result.exit_code()
+    } else {
+        run_status(None, &result)
+    };
     let response = crate::invocation_view::result(&store, launched.invocation_id.as_str(), None)?;
     presentation.emit(response)?;
     Ok(status)
