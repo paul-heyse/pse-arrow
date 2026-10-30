@@ -2,7 +2,7 @@
 title: "Plan59: Agent-first pse CLI"
 status: active
 date: 2026-10-29
-adrs: [ADR-0233]
+adrs: [ADR-0233, ADR-0234]
 review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md]
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
@@ -393,6 +393,10 @@ concurrent Git operations. Local snapshots alone cannot qualify physical or scie
 
 ## Current state and next step
 
+Execution is **paused at the operator's request** after the 2026-10-30 closeout below.
+The series remains incomplete. Resume with the joined invocation-owner journey; do not treat
+the implemented library foundations or targeted checks as an assembled managed-run result.
+
 ### Authorized entire-series execution — 2026-10-29
 
 The operator authorized the prepared full Plan59 execution approach. A02's shared clap tree
@@ -408,46 +412,77 @@ plans. **Tested (documents only):** `scripts/pse-env -- target/debug/xtask lifec
 reported 1,698 scope items and zero errors after the index change. No scientific campaign,
 provider rebuild, new datastore or measured benefit is established.
 
-### Foundation integration checkpoint — 2026-10-30
+### Paused integration checkpoint — 2026-10-30
 
-A05's coherent source/build fingerprints, immutable manifest checks and conservative scoped
-generation-use claims are integrated. Its eleven targeted generation tests pass in the main
-checkout, with zero failures. Bootstrap publication, stale rebuilding, all-entry pinning and
-pruning remain in progress; generation deletion is not enabled. C01's capability declaration
-and pure reader are integrated; C07 now develops the normalized selection and actual graph
-join. A03 is implementing typed output, diagnostics and directional schemas. Both complete
-Schemars and Serde library references have been reviewed for that implementation.
+**Implemented:** all handed-off worker changes are integrated in the main checkout. A03 has
+typed envelopes, native diagnostic causes, directional schemas and bounded projections that
+retain full artifacts. A06 now exposes parser-derived command/help/catalog/schema and passive
+status composition through the public CLI. Native `gix` observation supplies byte-preserving
+Git facts without rewriting the index. Configuration provenance, shared resolved explain and
+owner federation remain unfinished. An unexported, uncompiled provenance draft is preserved
+locally at `.local/plan59-handoff/provenance-parser-draft.rs`; it is not delivered functionality.
 
-Next integrate A03 and A05's working run prerequisites, then deliver B01's foreground ledger
-journey. Full-series functional scope and scope-end qualification remain outstanding.
+A05 has immutable three-binary publication, source/build fingerprints, actual entry pins,
+eligible stale top-level rebuild/re-exec and authenticated matching-generation cold copy.
+The fixed source helper copies without destination Cargo; a source mismatch requires the
+destination's own seed rather than letting an old helper build changed target policy. The
+genuinely absent-target parent failure is fixed. Main host preparation also repaired the
+legacy tool-directory permissions through the validating bootstrap owner. Positive
+descendant/finalizer-based retirement of unresolved generation claims and pruning remain
+pending; generation deletion is not enabled.
 
-B01's exclusive ledger foundation is now integrated: complete selection publication precedes
-launch, terminal responses retain the shared outcome types, and resolution verifies checkout
-bindings. Ten targeted tests pass after correcting directory creation under a group-writable
-umask. C01's actual graph join and C07's normalized selection foundations are integrated;
-explicit binary inventory and CLI execution remain separate consumers. The operator-added gix
-reference was read end to end. Its pinned native observation owner now replaces common-directory
-subprocess parsing and supplies typed byte-preserving status facts; nine targeted repository/path
-tests pass. D09's tested publication strategy is retained, with library primitives eligible
-where their actual transaction boundaries preserve it. No CLI status/changes delivery is implied.
+B01's immutable checkout-bound selection/result ledger and independently drained stdout/stderr
+tee are integrated. B02's strict native Cargo-message extraction retains original diagnostic
+spans, byte origins and completeness independently of child status. C01's actual unit-graph
+capability join, C07's resolved selection foundations and C05's source-built immutable binary/test
+inventory are integrated. Listing is not execution or setup; nextest population/setup/terminal
+reconciliation and the joined run/test CLI consumers remain unfinished.
 
-A03's envelope is now integrated with the existing managed command surface, and A06's passive
-status composition/catalog cores are integrated; their remaining public command wiring stays
-with A06. A05 now authenticates/pins actual executable generations, handles eligible top-level
-stale rebuild/re-exec and can copy a matching prepared generation under a source use pin.
-Cold-copy entry wiring, positive descendant-based claim retirement and pruning remain pending.
-C05's immutable binary/inventory capture, bounded framing and source-owned selection schemas
-are integrated; this does not establish execution/setup or physical settlement. B02's strict
-native Cargo-message extraction preserves original diagnostic attribution and independent
-completeness. B01's tee and the nested managed-run physical owner are the next joined consumers.
-The latter must retain the original aggregate allocation; moving a nested run to a sibling
-scope or observing leader exit would not establish its required descendant settlement.
+B03 has actual root/member separation, delegated controller-free payload subgroup capabilities,
+authenticated service-main readiness notifications and cooperative task supervision. Native
+fixtures exercise gated child attachment, nested/escaped descendants, original inode cleanup
+and finite allocation inheritance. Serialized subgroup recovery remains test-only until a
+protected production ledger owns adoption. The existing raw foreground root has not yet opted
+into the delegated creation path. Proposed ADR-0234 and blueprint316 describe the shared
+foreground/detached service supervisor and finalizer target; the actual supervisor, origin
+lease, launch cutoff, original resource/permit settlement and wait/cancel controls remain pending.
+Cooperative task completion and leader exit do not establish external descendant settlement.
 
-The operator-added syntax, AST-grep and `syn`/`quote`/`prettyplease` references were read end to
-end. D03 now selects native lossless/error-tolerant `ra_ap_syntax` for source reads; G07 records
-distinct syntax-pattern previews, typed fragment generation and resolved semantic refactorings.
-Tree-sitter Rust is the candidate pattern engine's grammar, not a required independent parsing
-service. These choices do not imply G07/G08 delivery or weaken their source-concurrency contract.
+D03 is complete within its selected scope: native `outline`/`show` and the shared `lib-outline`
+route use lossless error-tolerant Rust syntax and CommonMark section structure, preserve exact
+source ranges and ambiguity, and expose typed schemas. Batch reads use shared Rayon through
+`tokio-rayon`, retain order and task ownership through cancellation, and preserve redacted
+panic causes. `artifact read` uses the existing `object_store` local backend for bounded
+continuations and native conditions, preserves opaque bytes, and does not claim an atomic
+local snapshot. G07/G08 semantic editing remains planned; the reviewed AST-grep, tree-sitter
+and typed fragment libraries are mechanism candidates, not implemented refactoring services.
+
+**Tested:** `just unit-package pse-host 'all()'` ran 351 host library tests with 351 passing,
+zero failures and zero skips in the default native correctness route, including the repaired
+real inventory listing and native subgroup cleanup fixtures. `just test-package pse-host
+--test catalog --test cli_output --test source_commands --test artifact_commands` ran 19
+public CLI tests with 19 passing and zero failures/skips. `scripts/bootstrap-host` prepared
+and probed all three main-checkout binaries. An actual disposable checkout then passed
+`scripts/bootstrap-host --from <prepared-source>` from an absent target directory: no
+destination `target/debug`, all copied binaries executable, byte-identical manifest and clean
+Git state. The disposable checkout was removed. `just clippy` passed both workspace/all-target
+`--keep-going --locked` modes (default and `--no-default-features`, each `-D warnings`) with
+zero warnings/errors. `just family-check`, `just turn-end` and
+`just adr-frontmatter-check adr-index-check` passed. All failure baselines are zero. These
+are host/CLI and static checks, not full product/scientific qualification.
+
+All workers have stopped; no owned test/build sessions, native services or finalizers remain.
+The three integrated worker checkouts (`pse-plan59-clap`, `pse-plan59-selection`,
+`pse-plan59-state` under the local cache) retain protected generation-use records. They are
+preserved rather than removed: absent original PIDs and clean Git trees do not prove actual
+descendant settlement. Their branches and the local draft remain available for handoff.
+No generation pruning or push was performed during this closeout.
+
+Next authorized implementation should join B01/B03 into one actual foreground invocation
+under the shared service owner, then add detached/control journeys and B02's reconciled test
+consumer. Complete A05 claim retirement only with that real lifetime evidence. Other A–I
+packages and full-series integration/scientific/performance qualification remain outstanding;
+no measured performance benefit is claimed by this checkpoint.
 
 ### Code-intelligence planning checkpoint — 2026-10-29
 

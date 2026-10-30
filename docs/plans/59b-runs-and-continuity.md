@@ -333,9 +333,9 @@ generation-use pin until finalization and actual protected users settle, includi
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [B01](#b01) | in-progress | 59b | Checkout-bound immutable selection/result store integrated and ten targeted tests pass; foreground tee, owner settlement and result/log/history CLI consumers remain |
+| [B01](#b01) | in-progress | 59b | Checkout-bound immutable selection/result store and independent stdout/stderr tee integrated with targeted tests; joined foreground owner settlement and result/log/history CLI consumers remain |
 | [B02](#b02) | in-progress | 59b | Strict native Cargo diagnostic extraction integrated with five targeted tests including actual scratch compilation; nextest population/setup/terminal reconciliation and joined CLI extraction remain |
-| [B03](#b03) | in-progress | 59b | Root/member and delegated payload primitives, original service-main authentication and native readiness/cooperative-task helpers integrated; joined service supervisor/finalizer, original resource/permit settlement and wait/control remain |
+| [B03](#b03) | in-progress | 59b | Root/member and delegated payload primitives, original service-main authentication and native readiness/cooperative-task helpers integrated; serialized recovery stays test-only; raw-root delegation opt-in, joined service supervisor/finalizer, original resource/permit settlement and wait/control remain |
 | [B04](#b04) | planned | 59b | `pse run-all` composite runs; `turn-end`/`ready`/`hygiene` bodies migrated; `just run-all` retired |
 | [B05](#b05) | planned | 59b | Session identity; `pse handoff`; Claude context-only PreCompact and SessionStart hooks |
 
