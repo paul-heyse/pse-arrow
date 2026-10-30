@@ -110,8 +110,8 @@ memory release; no build telemetry or automatic semantic enrichment is introduce
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [F01](#f01) | planned | 59f | Product delegation/schema binding and existing-identity association |
-| [F02](#f02) | planned | 59f | Passive process/operation inspection and evidence-based explanations |
+| [F01](#f01) | in-progress | 59f | Product owns passive protocol and directional schemas; corrected native capture passes10 controls, actual prepared discovery/schema/delegation matches direct product evidence and preserves refusal. Broader identity integration remains |
+| [F02](#f02) | in-progress | 59f | Checkpoint catalogue, exact inspection and source-bound pages pass7 controls with original outcome/coverage; actual prepared CLI inspection agrees with direct native output. Broader composed views remain |
 | [F03](#f03) | planned | 59f | Bounded follow with truthful continuity and optional human progress |
 | [F04](#f04) | planned | 59f | Canonical study/history consumer and gated cross-process live-publication decision |
 | [F05](#f05) | planned | 59f | Explicit capture, frozen analysis/query and selected evidence export |

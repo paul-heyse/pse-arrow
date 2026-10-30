@@ -10,7 +10,17 @@ focused passing control does not qualify the whole native system or the H campai
 Construct/update the independent native host explicitly with `scripts/bootstrap-host`.
 It builds locked host executables, validates the completed pair and atomically selects an
 immutable generation under `target/host-tools/current`. Failed publication preserves the
-previous selection. Help, activation, reads and launch never rebuild a missing executable.
+previous selection. Help, activation and reads never rebuild. A missing host requires explicit
+preparation; an effectful new-work command refreshes an existing stale host before admission.
+Existing invocation wait/cancel uses its recorded identities without a current-source rebuild.
+
+`scripts/pse` is the agent-facing native command. `scripts/pse commands` and
+`scripts/pse help COMMAND` describe its actual parser. Current invocation commands include
+`run [--detach] -- COMMAND`, `wait INVOCATION [--timeout SECONDS]`, `cancel INVOCATION`,
+`history`, `result INVOCATION` and bounded `log INVOCATION`. A selector can be an exact ID,
+a unique prefix or `latest`, optionally scoped by `--session`. A timed-out wait ends that
+observation and leaves the subject running. The original child, payload settlement and service
+finalization remain separate facts; a successful control response does not rewrite the child.
 
 `just bootstrap` prepares development tools. The checkout's Python environment contains
 independent reference and third-party tools only: `pyproject.toml` is the private virtual

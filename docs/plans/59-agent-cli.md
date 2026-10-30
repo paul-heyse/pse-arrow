@@ -469,8 +469,9 @@ concurrent Git operations. Local snapshots alone cannot qualify physical or scie
 Execution is **active by the operator's subsequent instruction** for remaining A–I. The
 operator selected the minimal J01/J02 prerequisite exception; J03–J05 remain outside this
 execution scope. Historical paused checkpoints and their evidence remain below.
-The series remains incomplete. Continue with the joined invocation-owner journey; do not treat
-the implemented library foundations or targeted checks as an assembled managed-run result.
+The series remains incomplete. The first prepared generic managed-run journey works; continue
+existing-work control, product delegation and test/check integration without promoting that
+bounded result to whole-series acceptance.
 
 ### Native consumer integration checkpoint — 2026-10-30
 
@@ -497,11 +498,59 @@ were also exercised. The original native cleanup failure exposed a departed-main
 premature test-directory disposal; both were corrected, and that exact failed unit/cgroup is
 confirmed absent. Its failed attempt remains failed evidence.
 
-Actual service-owned placement/admission, shared supervisor/finalizer, original terminal
-construction, nested custody and managed test execution remain in progress. Source-audited
-fixture declarations and explicit-checkout/environment staged test consumers are being joined;
-no assembled run, test, product or semantic journey is claimed. Scope-end static and integrated
-qualification remain pending while functional scope is open. Execution remains active.
+Actual original notify-service payload placement now passes an ordinary and finite-admission
+component journey: byte-exact capture, child status3, resource drain/release and opaque terminal
+publication. The first attempt exposed a notify readiness/After ordering cycle; the service
+bootstrap now retains BindsTo and its closed payload gate without that cycle. Existing scope
+ordering is preserved. Generic envelopes can no longer publish terminal evidence; private
+request transport and diagnostics preserve platform bytes and original native error causes.
+
+Source-audited fixture declarations and explicit-checkout/environment test/check stages are
+integrated. Compiler observation retains original diagnostic addresses, while the producer owns
+its non-deserializable verdict. Default CLI explain selects actual roots and capability closure;
+explicit full detail retains the reached graph. Aggregate regeneration publishes the output
+ownership map, and generated-owner reads/guard routing use it. Source/document federation remains
+in progress. The edit guard's accepted advisory design/ADR target is implemented; governing
+revision and immutability requirements still apply.
+
+Concurrent first generation users now tolerate another reader creating the same private
+directory, and construction exclusion is separate from publication exclusion so passive entry
+protection remains available during a cold build. Existing claims remain protected; pruning is
+disabled. Revealing concurrency/parser/envelope controls passed31 with zero failures.
+
+The prepared generic CLI now launches the original supervisor/finalizer, returns child status3,
+retains byte-exact stdout/stderr and records payload settlement plus independently attributed
+finalization without failures. An initial default-state namespace mode refusal occurred before
+payload effects; explicit initialization now establishes private permissions on that owned
+namespace while passive readers remain unchanged. Ledger controls passed18 against zero.
+Independent recorded service control also passes9 native controls, including a launching
+process exiting after detach, bounded observation that leaves work running, and cancellation
+of an escaped session descendant. It grants no original-client reference authority. The
+record-validation generation claim is released before native observation; it does not release
+the original performing owner's claim.
+
+The affected-source backend uses Gitoxide for base/HEAD/index/worktree reach and captured
+Cargo declarations for conservative consumer selection. Missing consumers widen explicitly;
+native integration targets retain their own required-feature admission. Six focused controls
+pass; the prepared CLI preview also works and replaced xtask code, tests and recipe are
+deleted. Changed-source test/check execution remains open. Native product
+reader and transport controls pass7 and9 respectively, and the existing product-operators
+binary still compiles. CLI parser/schema/help/delegation controls pass15. The published CLI
+detach→bounded wait→independent cancel journey retains original child143 and complete payload
+settlement with separate finalization and exact raw bytes. Waiting on the earlier completed
+invocation also reads its original child3 without rebuilding. Product preparation's first actual
+attempt exposed missing capture-mode admission: the compiler exited0 but no original artifact
+manifest was produced, so preparation refused publication. The corrected capture invocation
+passes10 focused controls, including a real captured-adapter build. Published preparation,
+discovery, both directional schemas and delegated checkpoint inspection now work; direct and
+delegated product payloads agree, original checkpoint bytes remain unchanged, and an unknown
+product operation returns its native refusal with exit2. Finished `wait` now also returns the
+original managed failure code1 for the retained child3, rather than treating readable evidence
+as success. Dependency readiness completed successfully after the existing pinned strum edge
+was added for producer-owned operation discovery. These results do not
+qualify canonical study reads, live publication, capture/export, semantic intelligence or the
+whole CLI. Nested custody, crash recovery, original generation release and managed test/check
+execution remain open. Scope-end qualification has not run; execution remains active.
 
 ### Foundation execution checkpoint — 2026-10-30
 

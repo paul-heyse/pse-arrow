@@ -85,10 +85,28 @@ not the whole database.
 
 ## Standalone reads and the CLI
 
-There is no Python diagnostics facade, `just diagnostics`, generic inspection CLI or active
-debugger proxy. Rust callers use the typed APIs directly. Native process observation is
+The native product reader is available through `scripts/pse observe`. Explicitly prepare it
+with `scripts/pse observe prepare` and retain the returned reader selection ID. Preparation
+captures the source-built product executable, original compiler evidence and its actual
+directional schemas; passive commands never perform this build.
+
+Use `scripts/pse observe discover --reader ID` to discover that captured image, and
+`scripts/pse observe schema --reader ID request` (or `response`) for its original schema.
+`scripts/pse observe query --reader ID --request FILE` accepts the inner `request` field of
+the product input schema. The host supplies transport version and a fresh observer correlation.
+For example, a request file can contain
+`{"operation":"processes","directory":"/absolute/checkpoint/directory","limit":16,"cursor":null}`.
+The product also accepts exact checkpoint inspection and source-bound related/coherent record
+pages; its schema owns those selections. The host forwards the original lexical payload,
+preserving statements, units, nonfinite categories, scientific outcomes and source coverage.
+An earlier captured reader remains explicit captured evidence rather than a claim about later
+source edits. Missing preparation refuses without constructing a runtime or database.
+
+Rust callers can also use the typed APIs directly. Native process observation is
 `just activity [UNIT]`; optional installed-service inspection is `just telemetry inspect`.
-Help and passive reads do not build tools or initialize a scientific/canonical context.
+No Python diagnostics facade, `just diagnostics` or active debugger proxy is required.
+Canonical study/history, live follow and capture/export CLI integration remain with Plan59f;
+their existing Rust APIs below retain their own contracts.
 
 Generated JSON schemas describe standalone native documents; bounded versioned decoding refuses
 unknown/incompatible versions, malformed inputs and exceeded extents. `tooling::frozen_inspection`

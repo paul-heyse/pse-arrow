@@ -416,7 +416,7 @@ activation/fdstore remain conditional capabilities, not finalizer shortcuts or a
 | --- | --- | --- | --- |
 | [B01](#b01) | in-progress | 59b | Protected immutable store, independent raw capture, exact/partial lookup and passive history/result/log commands integrated with targeted tests; owner-finality enforcement and joined managed CLI custody remain |
 | [B02](#b02) | in-progress | 59b | Strict Cargo extraction and captured-population nextest reconciliation integrated, including actual pinned retry/failure/setup cases; managed CLI observation, original-failure views and rerun consumers remain |
-| [B03](#b03) | in-progress | 59b | Original-main notify readiness, stop-post and unknown-ack whole-unit drain tested through the real user manager; original placement/admission, shared supervisor/finalizer, nested custody, observation fan-out and generation settlement integration remain |
+| [B03](#b03) | in-progress | 59b | Prepared generic CLI and detach→bounded wait→independent cancel journeys work with exact child/raw/finalization evidence; recorded native control passes9 controls without original-client reference authority. Nested custody, crash recovery, fan-out and original generation settlement remain |
 | [B04](#b04) | planned | 59b | `pse run-all` composite runs; `turn-end`/`ready`/`hygiene` bodies migrated; `just run-all` retired |
 | [B05](#b05) | planned | 59b | Session identity; `pse handoff`; Claude context-only PreCompact and SessionStart hooks |
 
