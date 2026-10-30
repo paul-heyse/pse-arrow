@@ -1,0 +1,303 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+
+use super::*;
+use crate::correctness::CompilerUnit;
+use serde_json::{Value, json};
+
+fn metadata() -> Metadata {
+    let target = |name: &str, kind: &str, required: &[&str]| {
+        json!({
+            "name": name, "kind": [kind], "crate_types": ["bin"],
+            "src_path": format!("/workspace/alpha/{kind}/{name}.rs"),
+            "required-features": required, "edition": "2024"
+        })
+    };
+    let package = |name: &str, targets: Vec<Value>| {
+        json!({
+            "name": name, "version":"0.1.0", "id": format!("path+file:///workspace/{name}#0.1.0"),
+            "source":null, "manifest_path":format!("/workspace/{name}/Cargo.toml"),
+            "dependencies":[], "targets":targets,
+            "features":{"default":[], "native":[], "canonical":[], "negative":[]}
+        })
+    };
+    serde_json::from_value(json!({
+        "packages":[package("alpha",vec![target("alpha","lib",&[]), target("same","test",&["native"]),target("same","bin",&["canonical"])]),package("beta",vec![target("beta","lib",&[])])],
+        "workspace_members":["path+file:///workspace/alpha#0.1.0","path+file:///workspace/beta#0.1.0"],
+        "workspace_default_members":["path+file:///workspace/alpha#0.1.0"],
+        "workspace_root":"/workspace", "target_directory":"/workspace/target", "version":1
+    })).expect("independent metadata fixture")
+}
+fn intent(target: Option<(&str, Option<&str>)>) -> PackageIntent {
+    PackageIntent {
+        package: "alpha".into(),
+        features: Features::default(),
+        target: target.map(|(name, kind)| TargetIntent {
+            name: name.into(),
+            kind: kind.map(str::to_owned),
+        }),
+    }
+}
+fn request(intents: Vec<PackageIntent>) -> Request {
+    Request {
+        operation: Operation::Test,
+        scope: Scope::Packages(intents),
+        platform: None,
+        filters: Filters::default(),
+        ignored: IgnoredPolicy::Default,
+    }
+}
+
+#[test]
+fn workspace_exclusions_and_default_members_keep_exact_package_ids() {
+    let data = metadata();
+    let mut input = request(vec![]);
+    input.scope = Scope::Workspace {
+        exclude: vec!["alpha".into()],
+        features: Features::default(),
+    };
+    let actual = plan(&data, input).unwrap();
+    assert_eq!(actual.groups().len(), 1);
+    assert_eq!(
+        actual.groups()[0].package_id(),
+        "path+file:///workspace/beta#0.1.0"
+    );
+    assert_eq!(
+        actual.groups()[0].arguments(),
+        &[
+            "test",
+            "--locked",
+            "-p",
+            "path+file:///workspace/beta#0.1.0"
+        ]
+    );
+    let mut input = request(vec![]);
+    input.scope = Scope::DefaultMembers {
+        features: Features::default(),
+    };
+    assert_eq!(
+        plan(&data, input).unwrap().groups()[0].package_name(),
+        "alpha"
+    );
+}
+
+#[test]
+fn explicit_target_activates_only_its_requirements_and_ambiguous_names_refuse() {
+    let data = metadata();
+    assert!(plan(&data, request(vec![intent(Some(("same", None)))])).is_err());
+    let actual = plan(&data, request(vec![intent(Some(("same", Some("test"))))])).unwrap();
+    assert_eq!(
+        actual.groups()[0].features().enabled,
+        BTreeSet::from(["native".into()])
+    );
+    assert_eq!(
+        actual.groups()[0].arguments(),
+        &[
+            "test",
+            "--locked",
+            "-p",
+            "path+file:///workspace/alpha#0.1.0",
+            "--test",
+            "same",
+            "--features",
+            "alpha/native"
+        ]
+    );
+    assert!(
+        plan(&data, request(vec![intent(None)])).unwrap().groups()[0]
+            .features()
+            .enabled
+            .is_empty()
+    );
+    let mut prohibited = intent(Some(("same", Some("test"))));
+    prohibited.features.absent.insert("native".into());
+    assert!(plan(&data, request(vec![prohibited])).is_err());
+}
+
+#[test]
+fn independent_feature_absence_and_defaults_never_become_a_union() {
+    let mut positive = intent(Some(("same", Some("test"))));
+    positive.features.defaults = false;
+    let mut negative = intent(None);
+    negative.features.defaults = false;
+    negative.features.absent.insert("native".into());
+    let actual = plan(
+        &metadata(),
+        request(vec![positive.clone(), negative, positive]),
+    )
+    .unwrap();
+    assert_eq!(actual.groups().len(), 2);
+    assert_eq!(
+        actual.groups()[0].features().enabled,
+        BTreeSet::from(["native".into()])
+    );
+    assert!(actual.groups()[1].features().enabled.is_empty());
+    assert_eq!(
+        actual.groups()[1].features().absent,
+        BTreeSet::from(["native".into()])
+    );
+    assert!(
+        actual
+            .groups()
+            .iter()
+            .all(|group| group.arguments().contains(&"--no-default-features".into()))
+    );
+}
+
+fn admitted(arguments: &[OsString], features: &[&str]) -> correctness::Resolution {
+    correctness::Resolution {
+        arguments: arguments.to_vec(),
+        packages: vec!["alpha".into()],
+        native_capabilities: BTreeSet::new(),
+        units: vec![CompilerUnit {
+            package_id: "path+file:///workspace/alpha#0.1.0".into(),
+            package_name: "alpha".into(),
+            target_name: "alpha".into(),
+            target_kinds: vec!["lib".into()],
+            source_path: "/workspace/alpha/lib/alpha.rs".into(),
+            features: features.iter().map(|name| String::from(*name)).collect(),
+            platform: None,
+            mode: "test".into(),
+            root: true,
+        }],
+    }
+}
+
+#[test]
+fn actual_feature_absence_is_checked_after_cargo_admission() {
+    let mut negative = intent(None);
+    negative.features.absent.insert("native".into());
+    let planned = plan(&metadata(), request(vec![negative])).unwrap();
+    assert!(
+        planned
+            .clone()
+            .resolve_with(|args| Ok(admitted(args, &["native"])))
+            .is_err()
+    );
+    assert!(planned.resolve_with(|args| Ok(admitted(args, &[]))).is_ok());
+}
+
+#[test]
+fn explain_and_execution_retain_platform_filters_ignored_and_pending_listing() {
+    let mut input = request(vec![intent(None)]);
+    input.platform = Some("x86_64-unknown-linux-gnu".into());
+    input.filters = Filters {
+        words: vec!["duplicate".into()],
+        expressions: vec!["package(alpha) & test(duplicate)".into()],
+    };
+    input.ignored = IgnoredPolicy::Only;
+    let planned = plan(&metadata(), input).unwrap();
+    let expected = planned.clone();
+    let resolved = planned
+        .resolve_with(|args| Ok(admitted(args, &[])))
+        .unwrap();
+    assert_eq!(resolved.plan(), &expected);
+    assert_eq!(resolved.plan().ignored(), IgnoredPolicy::Only);
+    assert_eq!(resolved.plan().filters().words, ["duplicate"]);
+    assert_eq!(
+        resolved.admitted()[0].arguments,
+        expected.groups()[0]
+            .arguments
+            .iter()
+            .map(OsString::from)
+            .collect::<Vec<_>>()
+    );
+    assert!(resolved.needs_binary_listing());
+    assert!(resolved.native_capabilities().is_empty());
+}
+
+#[test]
+fn admission_cannot_substitute_a_same_named_target_in_another_package_or_kind() {
+    let planned = plan(
+        &metadata(),
+        request(vec![intent(Some(("same", Some("test"))))]),
+    )
+    .unwrap();
+    assert!(
+        planned
+            .resolve_with(|args| Ok(admitted(args, &["native"])))
+            .is_err()
+    );
+    let planned = plan(&metadata(), request(vec![intent(None)])).unwrap();
+    assert!(
+        planned
+            .resolve_with(|args| {
+                let mut actual = admitted(args, &[]);
+                actual.units[0].package_id = "another-source#alpha@0.1.0".into();
+                Ok(actual)
+            })
+            .is_err()
+    );
+}
+
+#[test]
+fn empty_unknown_and_check_test_policy_conflicts_refuse() {
+    assert!(plan(&metadata(), request(vec![])).is_err());
+    let mut unknown = intent(None);
+    unknown.package = "missing".into();
+    assert!(plan(&metadata(), request(vec![unknown])).is_err());
+    let mut check = request(vec![intent(None)]);
+    check.operation = Operation::Check;
+    check.ignored = IgnoredPolicy::All;
+    assert!(plan(&metadata(), check).is_err());
+}
+
+#[test]
+fn real_host_selection_admits_no_arrow_or_provider_and_builds_no_binary() {
+    let data = cargo_metadata::MetadataCommand::new()
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .no_deps()
+        .exec()
+        .unwrap();
+    let mut host = intent(None);
+    host.package = "pse-host".into();
+    host.target = Some(TargetIntent {
+        name: "pse_host".into(),
+        kind: Some("lib".into()),
+    });
+    let resolved = plan(&data, request(vec![host])).unwrap().resolve().unwrap();
+    assert!(resolved.native_capabilities().is_empty());
+    assert!(
+        resolved.admitted()[0]
+            .units
+            .iter()
+            .all(|unit| !unit.package_name.starts_with("arrow"))
+    );
+    assert!(
+        resolved.admitted()[0]
+            .arguments
+            .iter()
+            .all(|argument| !argument.to_string_lossy().contains("force-validate"))
+    );
+    assert!(resolved.needs_binary_listing());
+}
+
+#[test]
+fn real_native_study_explain_derives_its_target_features_without_preparation() {
+    let data = cargo_metadata::MetadataCommand::new()
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .no_deps()
+        .exec()
+        .unwrap();
+    let mut selected = intent(Some(("native_study", Some("test"))));
+    selected.package = "pse-runtime".into();
+    selected.features.defaults = false;
+    let planned = plan(&data, request(vec![selected])).unwrap();
+    assert_eq!(
+        planned.groups()[0].target().unwrap().required_features,
+        BTreeSet::from(["native-study-tests".into(), "solver-kinsol".into()])
+    );
+    let before = serde_json::to_value(&planned).unwrap();
+    let resolved = planned.resolve().unwrap();
+    assert_eq!(serde_json::to_value(resolved.plan()).unwrap(), before);
+    assert_eq!(
+        resolved.native_capabilities(),
+        BTreeSet::from(["compiler".into(), "klu".into()])
+    );
+    assert!(resolved.admitted()[0].arguments.iter().any(|argument| {
+        argument
+            .to_string_lossy()
+            .contains("pse-runtime/force-validate")
+    }));
+    assert!(resolved.needs_binary_listing());
+}

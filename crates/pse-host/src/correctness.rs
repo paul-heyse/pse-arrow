@@ -51,6 +51,8 @@ struct Package {
     features: BTreeMap<String, Vec<String>>,
     #[serde(default)]
     manifest_path: Option<PathBuf>,
+    #[serde(default)]
+    metadata: serde_json::Value,
 }
 #[derive(Debug, Deserialize)]
 struct Metadata {
@@ -141,6 +143,34 @@ pub struct Resolution {
     pub arguments: Vec<OsString>,
     /// Selected root package names, not a test inventory.
     pub packages: Vec<String>,
+    /// Reached compiler units after Arrow admission, including host/build contexts.
+    /// These are planned compiler actions, never evidence of built test binaries.
+    pub units: Vec<CompilerUnit>,
+    /// Prepared provider capabilities required by the actual reached backend units.
+    pub native_capabilities: BTreeSet<String>,
+}
+
+/// Cargo's selected compiler-unit context, retained without collapsing host/target instances.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct CompilerUnit {
+    /// Cargo package identity; names alone cannot join versions or sources.
+    pub package_id: String,
+    /// Cargo package name for presentation and feature qualification.
+    pub package_name: String,
+    /// Actual target name.
+    pub target_name: String,
+    /// Cargo target kinds, including unknown future kinds verbatim.
+    pub target_kinds: Vec<String>,
+    /// Source identity distinguishes similarly named targets.
+    pub source_path: String,
+    /// Cargo's resolved feature set for this compiler unit.
+    pub features: BTreeSet<String>,
+    /// Explicit compilation platform; `None` retains Cargo's host context.
+    pub platform: Option<String>,
+    /// Cargo compiler mode, for example build, test or check.
+    pub mode: String,
+    /// Whether Cargo selected this unit as a root.
+    pub root: bool,
 }
 fn mode_position(arguments: &[OsString]) -> Result<usize, CorrectnessError> {
     let mut index = 0;
@@ -626,8 +656,9 @@ where
         }
         graph
     };
-    for index in validated.reached(&packages, &validated.roots)? {
-        let unit = &validated.units[index];
+    let reached = validated.reached(&packages, &validated.roots)?;
+    for index in &reached {
+        let unit = &validated.units[*index];
         let package = &packages[&unit.pkg_id];
         if arrow(package)
             && package.features.contains_key("force_validate")
@@ -642,10 +673,44 @@ where
             )));
         }
     }
+    let mut native_capabilities = BTreeSet::new();
+    let mut units = Vec::with_capacity(reached.len());
+    for index in reached {
+        let unit = &validated.units[index];
+        let package = &packages[&unit.pkg_id];
+        if package.name == "pse-backend-native" {
+            native_capabilities.extend(
+                crate::native::requirements_from_backend_features(
+                    &package.metadata,
+                    &unit.features,
+                )
+                .map_err(|error| invalid(error.to_string()))?,
+            );
+        }
+        units.push(CompilerUnit {
+            package_id: unit.pkg_id.clone(),
+            package_name: package.name.clone(),
+            target_name: unit.target.name.clone(),
+            target_kinds: unit.target.kind.clone(),
+            source_path: unit.target.src_path.clone(),
+            features: unit.features.iter().cloned().collect(),
+            platform: unit.platform.clone(),
+            mode: unit.mode.clone(),
+            root: validated.roots.contains(&index),
+        });
+    }
     Ok(Resolution {
         arguments: selected,
         packages: names.into_iter().collect(),
+        units,
+        native_capabilities,
     })
+}
+
+/// Resolve real Cargo compiler actions without building, preparing providers or starting services.
+pub fn resolve(arguments: &[OsString]) -> Result<Resolution, CorrectnessError> {
+    let cargo = real_cargo()?;
+    resolve_with(arguments, |arguments| capture(&cargo, arguments))
 }
 fn native_command(cargo: &OsStr, arguments: &[OsString]) -> Command {
     native_command_with_rustflags(
@@ -1054,6 +1119,38 @@ mod tests {
     }
     fn arrow_metadata() -> Value {
         json!({"packages":[package("root","root",json!({"force-validate":[]})),package("arrow-array","arrow-array",json!({"force_validate":[]}))]})
+    }
+    #[test]
+    fn reached_backend_contexts_join_metadata_by_id_and_preserve_host_target_units() {
+        let mut backend = package("backend-id", "pse-backend-native", json!({}));
+        backend["metadata"] =
+            json!({"pse":{"native-capabilities":{"uno":["uno"],"idas":["klu"],"scip":["solver"]}}});
+        let metadata = json!({"packages":[package("root", "root", json!({})), backend]});
+        let graph = graph(vec![
+            unit("root", &[], &[1, 2], Some("target-triple"), "check"),
+            unit("backend-id", &["uno"], &[], None, "build"),
+            unit("backend-id", &["idas"], &[], Some("target-triple"), "check"),
+            unit("backend-id", &["scip"], &[], None, "build"),
+        ]);
+        let (actual, _) = resolve(&args(&["check", "-p", "root"]), vec![metadata, graph]).unwrap();
+        assert_eq!(
+            actual.native_capabilities,
+            ["compiler", "solver", "klu", "uno"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
+        );
+        assert_eq!(
+            actual.units.len(),
+            3,
+            "unreached units do not enter selection"
+        );
+        assert_eq!(actual.units[1].package_id, "backend-id");
+        assert_eq!(actual.units[1].platform, None);
+        assert_eq!(actual.units[1].features, BTreeSet::from(["uno".into()]));
+        assert_eq!(actual.units[2].platform.as_deref(), Some("target-triple"));
+        assert_eq!(actual.units[2].features, BTreeSet::from(["idas".into()]));
+        assert!(!actual.units[1].root);
     }
     #[test]
     fn cargo_hack_discovery_preserves_literal_requests_and_native_failure_without_compiler_bypass()

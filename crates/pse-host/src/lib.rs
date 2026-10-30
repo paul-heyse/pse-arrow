@@ -17,6 +17,7 @@ pub mod generation;
 mod manager;
 pub mod native;
 pub mod paths;
+pub mod selection;
 pub mod server;
 pub mod study_module;
 pub use manager::{

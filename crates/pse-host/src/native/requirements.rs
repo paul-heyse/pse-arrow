@@ -125,4 +125,81 @@ mod tests {
             assert!(requirements_from_backend_features(&data, &["feature".into()]).is_err());
         }
     }
+
+    #[test]
+    fn actual_cargo_units_derive_each_backend_capability_without_building() {
+        for (feature, expected) in [
+            ("ipopt", "solver"),
+            ("scip", "solver"),
+            ("sdp", "solver"),
+            ("clarabel-pardiso", "solver"),
+            ("kinsol", "compiler,klu"),
+            ("idas", "compiler,klu"),
+            ("diffsol", "compiler,klu"),
+            ("root-isolation", "compiler,isolation"),
+            ("uno", "compiler,solver,uno"),
+            ("petsc", "compiler,petsc,solver"),
+        ] {
+            let qualified = format!("pse-backend-native/{feature}");
+            let arguments: Vec<_> = [
+                "check",
+                "--locked",
+                "-p",
+                "pse-backend-native",
+                "--lib",
+                "--no-default-features",
+                "--features",
+                &qualified,
+            ]
+            .into_iter()
+            .map(std::ffi::OsString::from)
+            .collect();
+            let actual =
+                crate::correctness::resolve(&arguments).expect("actual no-build Cargo graph");
+            assert_eq!(
+                actual.native_capabilities,
+                expected.split(',').map(str::to_owned).collect(),
+                "{feature}"
+            );
+        }
+    }
+
+    #[test]
+    fn actual_runtime_solver_and_pure_units_preserve_arrow_admission() {
+        let base: Vec<_> = [
+            "check",
+            "--locked",
+            "-p",
+            "pse-runtime",
+            "--lib",
+            "--no-default-features",
+        ]
+        .into_iter()
+        .map(std::ffi::OsString::from)
+        .collect();
+        let pure = crate::correctness::resolve(&base).expect("pure runtime graph");
+        assert!(pure.native_capabilities.is_empty());
+        let leaves: Vec<_> = pure
+            .units
+            .iter()
+            .filter(|unit| unit.package_name == "arrow-array")
+            .collect();
+        assert!(!leaves.is_empty(), "the real selection consumes Arrow");
+        assert!(
+            leaves
+                .iter()
+                .all(|unit| unit.features.contains("force_validate"))
+        );
+        let mut solver = base;
+        solver.extend(["--features".into(), "pse-runtime/native-solvers".into()]);
+        assert_eq!(
+            crate::correctness::resolve(&solver)
+                .expect("full native graph")
+                .native_capabilities,
+            ["compiler", "solver", "klu", "isolation", "uno", "petsc"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
+        );
+    }
 }
