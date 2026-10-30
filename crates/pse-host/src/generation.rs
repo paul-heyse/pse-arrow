@@ -48,7 +48,9 @@ const BUILD_VARIABLES: &[&str] = &[
 ];
 
 mod bootstrap;
-pub use bootstrap::{Freshness, PreparedGeneration, bootstrap, freshness, prepared};
+pub use bootstrap::{Freshness, HostTool, PreparedGeneration, bootstrap, freshness, prepared};
+mod entry;
+pub use entry::{EntryGuard, EntrySettlement, NewWorkDecision, new_work_decision};
 
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(format!("host generation: {}", message.into()))
@@ -404,7 +406,14 @@ impl SourceFingerprint {
     /// Rehash only recorded package roots and required inputs; no Cargo invocation.
     /// Directory membership is re-read so added/deleted files invalidate reuse too.
     pub fn matches_sources(&self, root: &Path, context: &BuildContext) -> Result<bool, HostError> {
-        Ok(&self.context == context && self.files == self.observe_files(root)?)
+        if &self.context != context {
+            return Ok(false);
+        }
+        match self.observe_files(root) {
+            Ok(files) => Ok(self.files == files),
+            Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(error),
+        }
     }
     /// Compare fresh pre/post construction observations, including a newly resolved closure.
     pub fn require_unchanged(&self, after: &Self) -> Result<(), HostError> {
@@ -528,6 +537,7 @@ struct UseRecord {
 pub struct GenerationUse {
     lock: File,
     record: PathBuf,
+    manifest: GenerationManifest,
 }
 
 /// Exact scoped inspection, never an instruction to remove a generation.
@@ -567,7 +577,7 @@ impl GenerationUse {
             return Err(invalid("generation name is not a path component"));
         }
         let _update = update_lock(root)?;
-        GenerationManifest::load(&root.join(generation))?;
+        let manifest = GenerationManifest::load(&root.join(generation))?;
         let (lock, records) = use_paths(root, generation)?;
         let lock = owned_file(&lock, true)?;
         rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockShared)
@@ -594,7 +604,15 @@ impl GenerationUse {
         })?)?;
         file.sync_all()?;
         File::open(&records)?.sync_all()?;
-        Ok(Self { lock, record })
+        Ok(Self {
+            lock,
+            record,
+            manifest,
+        })
+    }
+    /// Authenticated bytes protected by this actual-use owner.
+    pub fn manifest(&self) -> &GenerationManifest {
+        &self.manifest
     }
     /// Release only after the actual owner has established settlement, never on observation timeout.
     /// Dropping without this call intentionally leaves protective unsettled evidence.

@@ -88,6 +88,15 @@ impl Fixture {
     }
 }
 
+pub(super) fn installed_fixture() -> (tempfile::TempDir, PathBuf) {
+    let fixture = Fixture::new();
+    fixture.generation();
+    fs::create_dir(fixture.root.join("target")).unwrap();
+    let tools = fixture.root.join("target/host-tools");
+    fs::rename(&fixture.tools, &tools).unwrap();
+    (fixture._directory, tools)
+}
+
 #[test]
 fn local_closure_membership_and_content_invalidate_without_unrelated_crate_scan() {
     let fixture = Fixture::new();
@@ -174,6 +183,12 @@ fn fingerprint_is_checkout_relative_and_roundtrips_with_recorded_inputs() {
     context.rustc = "another rustc".into();
     assert!(!original.matches_sources(&fixture.root, &context).unwrap());
     assert!(!original.files.keys().any(|path| path.is_absolute()));
+    fs::remove_file(fixture.root.join("Cargo.lock")).unwrap();
+    assert!(
+        !original
+            .matches_sources(&fixture.root, &fixture.context)
+            .unwrap()
+    );
 }
 
 #[test]

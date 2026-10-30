@@ -34,6 +34,54 @@ pub struct PreparedGeneration {
     pub manifest_digest: String,
 }
 
+/// Fixed executable names supported by a prepared host tool set.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HostTool {
+    /// Agent-facing entry point.
+    Pse,
+    /// Native host/internal entry point.
+    Host,
+    /// Cargo's force-validation adapter.
+    Correctness,
+}
+impl HostTool {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Pse => "pse",
+            Self::Host => "pse-host",
+            Self::Correctness => "cargo-pse-correctness",
+        }
+    }
+}
+impl PreparedGeneration {
+    /// Authenticate a recorded component/protocol/manifest under the fixed checkout tool
+    /// root, then select a fixed executable. Recorded arbitrary paths are never accepted.
+    pub fn executable(&self, root: &Path, tool: HostTool) -> Result<PathBuf, HostError> {
+        if self.protocol != 1
+            || !component(&self.generation)
+            || !self.generation.starts_with("generation.")
+        {
+            return Err(invalid("unsupported or invalid prepared control reference"));
+        }
+        let tools = root.join("target/host-tools");
+        private_directory(&tools, false)?;
+        let directory = tools.join(&self.generation);
+        let manifest = GenerationManifest::load(&directory)?;
+        if manifest.control_protocol() != self.protocol
+            || manifest.digest()? != self.manifest_digest
+        {
+            return Err(invalid(
+                "prepared control reference differs from authenticated generation",
+            ));
+        }
+        let name = tool.name();
+        if !manifest.binaries.contains_key(name) {
+            return Err(invalid("prepared control tool is absent from its manifest"));
+        }
+        Ok(directory.join(name))
+    }
+}
+
 /// Authenticate selected control identity without source reads or builds.
 pub fn prepared(root: &Path) -> Result<Option<PreparedGeneration>, HostError> {
     let Some(directory) = selected(root)? else {
@@ -242,6 +290,7 @@ fn publish(
         }
         fs::copy(source, stage.path().join(tool))?;
         fs::set_permissions(stage.path().join(tool), fs::Permissions::from_mode(0o500))?;
+        File::open(stage.path().join(tool))?.sync_all()?;
         let result = Command::new(stage.path().join(tool))
             .arg("--version")
             .status()?;

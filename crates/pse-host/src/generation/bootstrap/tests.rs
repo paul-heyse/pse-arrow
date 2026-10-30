@@ -70,6 +70,23 @@ fn native_construction_publishes_authenticated_bytes_and_passive_staleness() {
     assert_eq!(prepared.protocol, 1);
     assert_eq!(prepared.manifest_digest.len(), 64);
     assert_eq!(
+        prepared
+            .executable(fixture.path(), HostTool::Host)
+            .unwrap()
+            .file_name()
+            .unwrap(),
+        "pse-host"
+    );
+    let mut forged = prepared.clone();
+    forged.generation = "../arbitrary".into();
+    assert!(forged.executable(fixture.path(), HostTool::Pse).is_err());
+    forged = prepared.clone();
+    forged.manifest_digest = "forged".into();
+    assert!(forged.executable(fixture.path(), HostTool::Pse).is_err());
+    forged = prepared.clone();
+    forged.protocol = 999;
+    assert!(forged.executable(fixture.path(), HostTool::Pse).is_err());
+    assert_eq!(
         freshness(fixture.path(), &environment).unwrap(),
         Freshness::Current
     );
