@@ -103,6 +103,26 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
     assert_eq!(native["accounting"]["state"], "available", "{native}");
     assert_eq!(native["accounting"]["facts"]["atomic_snapshot"], false);
     assert!(native["accounting"]["facts"]["service_result"].is_string());
+    let native_invocation: String = native["observation"]["service"]["invocation"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|byte| format!("{:02x}", byte.as_u64().unwrap()))
+        .collect();
+    assert!(
+        delegated["next"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|action| action["argv"]
+                == json!(["pse", "activity", native["observation"]["service"]["unit"]]))
+    );
+    assert!(delegated["next"].as_array().unwrap().iter().any(|action| {
+        action["argv"].as_array().is_some_and(|argv| {
+            argv.iter()
+                .any(|argument| argument == &format!("_SYSTEMD_INVOCATION_ID={native_invocation}"))
+        })
+    }));
     let first_observer = delegated["invocation_id"].clone();
     let environment: Environment = std::env::vars_os().collect();
     let selected = ProductReaderSelection::open(&root(), &environment, &reader).unwrap();

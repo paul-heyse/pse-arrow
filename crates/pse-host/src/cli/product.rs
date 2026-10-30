@@ -271,6 +271,7 @@ pub(super) fn dispatch(
             )
         }
     };
+    let next = native.next_actions();
     let mut response = Envelope::response(
         command,
         "selected native product response observed",
@@ -283,6 +284,7 @@ pub(super) fn dispatch(
         },
     );
     response.observation.scope = "captured_product_reader_transport".into();
+    response.next.extend(next);
     response.observation.limitations.push("Scientific identities, outcome, source coverage and validity remain in the original product payload.".into());
     response.observation.limitations.push("Native unit accounting includes its descendants, is independent of process/scientific facts, and is not an atomic snapshot.".into());
     if category == "refused" {
@@ -335,6 +337,7 @@ fn follow(
                     refused.set(refused.get() || reply.category() == product_reader::Category::Refused);
                     stderr.write(reply.stderr()).await?;
                     let native = product_reader::native::inspect(root, environment, reply.managed_invocation()).await;
+                    let next = native.next_actions();
                     let mut response = Envelope::response(
                         "observe follow", "whole product follow sample", FollowView {
                             reader: reader.id(), observer_state: "observing", sample: count.get() + 1,
@@ -343,6 +346,7 @@ fn follow(
                         },
                     );
                     response.observation.scope = "captured_product_reader_transport".into();
+                    response.next.extend(next);
                     response.observation.limitations.push("Native unit accounting includes its descendants and is independent of scientific process facts; the combined read is not atomic.".into());
                     if refused.get() { response.outcome = envelope::CommandOutcome::Usage; }
                     let (_, frame) = output.encode_frame(response)?;

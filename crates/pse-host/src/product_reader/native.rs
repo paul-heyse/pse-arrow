@@ -30,6 +30,32 @@ pub enum Association {
         facts: supervisor::PassiveRecordedObservation,
     },
 }
+impl Association {
+    /// Passive native follow-ups preserve literal argv and the observed manager incarnation.
+    pub fn next_actions(&self) -> Vec<crate::envelope::NextAction> {
+        let Self::Observed { facts, .. } = self else {
+            return Vec::new();
+        };
+        let supervisor::RecordedObservation::Observed { service } = &facts.observation else {
+            return Vec::new();
+        };
+        let invocation: String = service
+            .invocation
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        vec![
+            crate::envelope::NextAction::Command {
+                argv: vec!["pse".into(), "activity".into(), service.unit.clone()],
+                reason: "Passively read current native unit facts; compare the returned manager InvocationID with this observation.".into(),
+            },
+            crate::envelope::NextAction::Command {
+                argv: vec!["journalctl".into(), "--user".into(), "--no-pager".into(), "--lines".into(), "100".into(), format!("_SYSTEMD_INVOCATION_ID={invocation}"), "+".into(), format!("USER_INVOCATION_ID={invocation}")],
+                reason: "Passively read available original process and user-manager journal entries for the observed native incarnation; journal delivery/completeness remains independent.".into(),
+            },
+        ]
+    }
+}
 /// Observe exactly the original candidate; this acquires no native or scientific stop capability.
 pub async fn inspect(
     root: &Path,

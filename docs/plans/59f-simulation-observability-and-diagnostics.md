@@ -427,7 +427,9 @@ their unit aggregate scope and native unavailable values. Service `Result` is re
 service. Original `ActiveState`/`SubState`, applicable `MainPID` and manager `InvocationID` remain
 separate from capture completeness and scientific outcome. Accounting failures retain original
 diagnostics alongside the readable base unit observation. These independent reads are explicitly
-non-atomic.
+non-atomic. Proven associations offer passive native activity and journal follow-ups with literal
+arguments and the original manager incarnation; suggestions do not run those external facilities
+or establish journal delivery/completeness.
 
 **Implemented:** follow rendering awaits one owned descriptor without a background writer or
 optional queue. Pipes and terminals use an independently reopened nonblocking description;
