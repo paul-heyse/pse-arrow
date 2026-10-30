@@ -144,7 +144,7 @@ async fn actual_subgroup_inherits_root_reservation_without_releasing_its_owner()
         let parent = root.as_ref().unwrap().payload_parent().await.unwrap();
         let intent = parent.creation_intent("borrowed-member").unwrap();
         match parent.create(&intent).await {
-            CreationOutcome::Created(group) => groups.push(group),
+            CreationOutcome::Created(group) => groups.push(*group),
             outcome => panic!("{outcome:?}"),
         }
         let mut child = tokio::process::Command::new("/bin/sh")
@@ -223,13 +223,12 @@ async fn actual_subgroup_inherits_root_reservation_without_releasing_its_owner()
             ));
         }
     }
-    if let Some(root) = root.as_mut() {
-        if let Err(error) = root
+    if let Some(root) = root.as_mut()
+        && let Err(error) = root
             .stop_and_drain(Instant::now() + Duration::from_secs(10))
             .await
-        {
-            failures.push(format!("root {error:?}"));
-        }
+    {
+        failures.push(format!("root {error:?}"));
     }
     let reaps = futures_util::future::join_all(children.iter_mut().map(|child| async move {
         let kill = child.start_kill();
@@ -259,13 +258,12 @@ async fn actual_subgroup_inherits_root_reservation_without_releasing_its_owner()
             Err(error) => failures.push(format!("original allocation reconciliation {error:?}")),
         }
     }
-    if let Some(allocation) = allocation.as_mut() {
-        if let Err(error) = allocation
+    if let Some(allocation) = allocation.as_mut()
+        && let Err(error) = allocation
             .stop_and_drain(Instant::now() + Duration::from_secs(10))
             .await
-        {
-            failures.push(format!("allocation {error:?}"));
-        }
+    {
+        failures.push(format!("allocation {error:?}"));
     }
     if let Err(panic) = body {
         eprintln!("owned cleanup failures: {failures:?}");

@@ -95,10 +95,10 @@ impl EntryGuard {
     /// Release only an explicit performing-owner settlement report. Drop, process loss,
     /// timeout, success/failure status and missing ledger rows establish no such report.
     pub fn complete(self, settlement: EntrySettlement) -> Result<(), HostError> {
-        if settlement != EntrySettlement::Unresolved {
-            if let Some(usage) = self.usage {
-                usage.settle()?;
-            }
+        if settlement != EntrySettlement::Unresolved
+            && let Some(usage) = self.usage
+        {
+            usage.settle()?;
         }
         Ok(())
     }

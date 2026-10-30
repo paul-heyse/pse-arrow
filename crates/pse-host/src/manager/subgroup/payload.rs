@@ -388,10 +388,10 @@ impl PayloadParent {
             removed: false,
         };
         match subgroup.validate().await {
-            Ok(()) => CreationOutcome::Created(subgroup),
+            Ok(()) => CreationOutcome::Created(Box::new(subgroup)),
             Err(cause) => CreationOutcome::CreatedButUnbound {
                 intent: intent.clone(),
-                opened: Some(OpenedSubgroupCustody { group: subgroup }),
+                opened: Some(Box::new(OpenedSubgroupCustody { group: subgroup })),
                 cause,
             },
         }
@@ -415,13 +415,13 @@ pub enum CreationOutcome {
     /// The subgroup was not created by this attempt.
     NoEffect(HostError),
     /// The fresh subgroup is fully bound to its original parent and inode.
-    Created(OwnedSubgroup),
+    Created(Box<OwnedSubgroup>),
     /// Creation committed but complete authentication did not finish. No payload gate opened.
     CreatedButUnbound {
         /// Persisted pre-effect identity and parent snapshot.
         intent: SubgroupCreationIntent,
         /// Actual fresh inode custody, when opening succeeded, never reconstructed from data.
-        opened: Option<OpenedSubgroupCustody>,
+        opened: Option<Box<OpenedSubgroupCustody>>,
         /// Original authentication/opening error.
         cause: HostError,
     },

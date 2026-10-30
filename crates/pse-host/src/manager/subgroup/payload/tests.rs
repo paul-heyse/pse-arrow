@@ -68,7 +68,7 @@ async fn fixture_bound(native_parent: bool) -> Fixture {
 async fn create(parent: &PayloadParent, name: &str) -> OwnedSubgroup {
     let intent = parent.creation_intent(name).unwrap();
     match parent.create(&intent).await {
-        CreationOutcome::Created(group) => group,
+        CreationOutcome::Created(group) => *group,
         CreationOutcome::NoEffect(cause) => panic!("creation refused before effect: {cause:?}"),
         CreationOutcome::CreatedButUnbound {
             intent,
@@ -76,7 +76,7 @@ async fn create(parent: &PayloadParent, name: &str) -> OwnedSubgroup {
             cause,
         } => panic!(
             "creation committed but unbound: {intent:?}; opened={:?}; cause={cause:?}",
-            opened.as_ref().map(OpenedSubgroupCustody::binding)
+            opened.as_deref().map(OpenedSubgroupCustody::binding)
         ),
     }
 }

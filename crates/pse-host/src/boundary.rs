@@ -77,18 +77,20 @@ fn parse(arguments: &[OsString]) -> Result<Options, HostError> {
     options(args.options)
 }
 fn options(args: crate::cli::BoundaryArgs) -> Result<Options, HostError> {
-    let mut result = Options::default();
-    result.docs = args.docs;
-    result.read = args.print || args.explain;
-    result.no_scope = args.no_scope;
-    result.class = args.resource_class.map(OsString::from);
-    result.recipe_class = args.recipe_default_class.map(OsString::from);
-    result.cache = args.cache.into();
-    result.command = args.command;
-    result.native_default = args.native.as_ref().is_some_and(Option::is_none);
-    result.native = args
-        .native
-        .map(|value| value.unwrap_or_else(|| DEFAULT_NATIVE_CAPABILITIES.into()));
+    let mut result = Options {
+        docs: args.docs,
+        read: args.print || args.explain,
+        no_scope: args.no_scope,
+        class: args.resource_class.map(OsString::from),
+        recipe_class: args.recipe_default_class.map(OsString::from),
+        cache: args.cache.into(),
+        command: args.command,
+        native_default: args.native.as_ref().is_some_and(Option::is_none),
+        native: args
+            .native
+            .map(|value| value.unwrap_or_else(|| DEFAULT_NATIVE_CAPABILITIES.into())),
+        ..Options::default()
+    };
     if let Some(native) = &result.native {
         crate::native::validate_capabilities(native)?;
     }

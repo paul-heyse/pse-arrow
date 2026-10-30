@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Passive artifact continuation through the authoritative CLI and native backend.
+#![cfg(test)]
 use base64::Engine as _;
 use std::{path::Path, process::Command};
 fn pse(root: &Path) -> Command {

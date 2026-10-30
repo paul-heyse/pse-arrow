@@ -554,7 +554,7 @@ fn validate_listing(
         ));
     }
     for (id, suite) in &listing.rust_suites {
-        if &suite.binary != &binaries.rust_binaries[id] {
+        if suite.binary != binaries.rust_binaries[id] {
             return Err(invalid(
                 "enumerated binary differs from the captured source-built binary",
             ));

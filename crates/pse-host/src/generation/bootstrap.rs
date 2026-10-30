@@ -399,12 +399,12 @@ fn publish(
         fs::copy(source, stage.path().join(tool))?;
         fs::set_permissions(stage.path().join(tool), fs::Permissions::from_mode(0o500))?;
         File::open(stage.path().join(tool))?.sync_all()?;
-        if let Some(expected) = expected {
-            if expected.get(*tool) != Some(&hash_file(&stage.path().join(tool))?) {
-                return Err(invalid(
-                    "copied binary differs from the pinned source manifest",
-                ));
-            }
+        if let Some(expected) = expected
+            && expected.get(*tool) != Some(&hash_file(&stage.path().join(tool))?)
+        {
+            return Err(invalid(
+                "copied binary differs from the pinned source manifest",
+            ));
         }
         let result = Command::new(stage.path().join(tool))
             .arg("--version")

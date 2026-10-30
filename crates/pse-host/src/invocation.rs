@@ -308,7 +308,7 @@ impl InvocationStore {
 
     /// Full source records, sorted by creation time and exact ID; callers own presentation pages.
     pub fn history<O: DeserializeOwned>(&self) -> Result<Vec<InvocationMetadata<O>>, HostError> {
-        match fs::symlink_metadata(&self.state.invocations()) {
+        match fs::symlink_metadata(self.state.invocations()) {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
             Err(error) => return Err(error.into()),
             Ok(_) => {}

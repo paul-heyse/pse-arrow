@@ -824,7 +824,7 @@ pub(crate) fn execute(
             }
             Ok::<(), HostError>(())
         })?;
-    let prepared = prepare_capabilities(&root, &std::env::vars_os().collect(), capabilities)?;
+    let prepared = prepare_capabilities(root, &std::env::vars_os().collect(), capabilities)?;
     Ok(prepared.into_iter().collect())
 }
 

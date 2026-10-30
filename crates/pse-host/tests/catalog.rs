@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Public discovery/status routes remain useful with absent richer preparation.
+#![cfg(test)]
 use std::{path::Path, process::Command};
 fn pse(root: &Path) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_pse"));

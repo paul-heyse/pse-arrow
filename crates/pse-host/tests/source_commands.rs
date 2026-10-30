@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Same-snapshot structural reading through the actual public parser and binary.
+#![cfg(test)]
 use std::{ffi::OsString, os::unix::ffi::OsStringExt as _, path::Path, process::Command};
 fn pse(root: &Path) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_pse"));

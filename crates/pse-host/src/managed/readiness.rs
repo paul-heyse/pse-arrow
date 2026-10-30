@@ -152,7 +152,7 @@ mod tests {
                 "unavailable" => {
                     command.env("NOTIFY_SOCKET", directory.path().join("missing.sock"));
                 }
-                _ => unreachable!(),
+                _ => panic!("unsupported notification fixture mode: {case}"),
             }
             let output = command.output().unwrap();
             assert!(output.status.success(), "case {case}: {:?}", output);

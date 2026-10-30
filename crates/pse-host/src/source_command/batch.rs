@@ -27,7 +27,7 @@ pub enum Record {
         /// Exact original native operand.
         file: OsString,
         /// Owned diagnostic from the native source reader.
-        failure: ErrorRecord,
+        failure: Box<ErrorRecord>,
     },
     /// Cancellation was observed before this file began reading/parsing.
     Cancelled {
@@ -114,7 +114,7 @@ where
                     Ok(reading) => Record::Read { reading },
                     Err(error) => Record::Failed {
                         file: file.into_os_string(),
-                        failure: ErrorRecord::from_typed(&error, &policy),
+                        failure: Box::new(ErrorRecord::from_typed(&error, &policy)),
                     },
                 }
             })
@@ -141,7 +141,7 @@ where
                 Record::Read { reading } => {
                     parse_issues |= !reading.outline.parse_issues.is_empty()
                 }
-                Record::Failed { failure, .. } => response.failures.push(failure.clone()),
+                Record::Failed { failure, .. } => response.failures.push(failure.as_ref().clone()),
                 Record::Cancelled { .. } => skipped = true,
             }
         }
