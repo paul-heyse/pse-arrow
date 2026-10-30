@@ -42,9 +42,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    3u8, 42u8, 209u8, 218u8, 62u8, 122u8, 63u8, 157u8, 141u8, 0u8, 105u8, 143u8, 230u8,
-    250u8, 180u8, 236u8, 103u8, 148u8, 254u8, 113u8, 120u8, 81u8, 161u8, 109u8, 91u8,
-    121u8, 70u8, 68u8, 140u8, 193u8, 165u8, 165u8,
+    99u8, 195u8, 220u8, 232u8, 79u8, 36u8, 137u8, 60u8, 193u8, 127u8, 104u8, 203u8,
+    124u8, 94u8, 187u8, 236u8, 117u8, 205u8, 56u8, 61u8, 58u8, 30u8, 105u8, 15u8, 201u8,
+    237u8, 230u8, 34u8, 180u8, 242u8, 23u8, 49u8,
 ]);
 impl crate::columnar::ArrowValue
 for RuntimeSolveStrategyEventsFieldPathEventsItemLocalization {

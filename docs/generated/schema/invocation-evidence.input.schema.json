@@ -627,6 +627,18 @@
     },
     "DiagnosticCode": {
       "enum": [
+        "host.io",
+        "host.manager",
+        "host.ownership",
+        "host.deadline",
+        "host.unknown_launch",
+        "host.settlement",
+        "host.environment",
+        "host.stale_tools",
+        "fixture.unprepared",
+        "correctness.graph",
+        "correctness.admission",
+        "correctness.io",
         "authoring.parse",
         "authoring.parse.ambiguous_unary_power",
         "authoring.parse.budget",

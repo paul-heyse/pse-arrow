@@ -536,6 +536,18 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
+| `host.io` | `` | false |
+| `host.manager` | `` | false |
+| `host.ownership` | `` | false |
+| `host.deadline` | `` | false |
+| `host.unknown_launch` | `` | false |
+| `host.settlement` | `` | false |
+| `host.environment` | `` | false |
+| `host.stale_tools` | `` | false |
+| `fixture.unprepared` | `` | false |
+| `correctness.graph` | `` | false |
+| `correctness.admission` | `` | false |
+| `correctness.io` | `` | false |
 | `authoring.parse` | `` | false |
 | `authoring.parse.ambiguous_unary_power` | `` | false |
 | `authoring.parse.budget` | `` | false |
