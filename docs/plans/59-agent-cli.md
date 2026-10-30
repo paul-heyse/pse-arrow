@@ -54,8 +54,8 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
 - Amendment basis: the [observability review](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md)
   and [Plan59 improvement review](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md),
   published at `e907d8a1f`, inspecting `890aa07f76fac5739cfc9811a47e823c326be663`.
-- Status: **Execution paused at the operator's request.** The latest checkpoint owns actual
-  progress and acceptance limits; this document amendment does not resume implementation.
+- Status: **Execution resumed by the operator for remaining A–I**, with only the necessary
+  J01/J02 shared-contract exception. The latest checkpoint owns actual progress and limits.
 
 **Reading route.**
 1. This coordinator: target, shared decisions, rule changes, dependencies, completion.
@@ -466,11 +466,39 @@ concurrent Git operations. Local snapshots alone cannot qualify physical or scie
 
 ## Current state and next step
 
-Execution is **paused at the operator's request** after the 2026-10-30 closeout below.
-The subsequent library-integration amendment schedules A08/J01–J05 and revises existing work;
-it neither resumes execution nor changes historical runtime evidence.
-The series remains incomplete. Resume with the joined invocation-owner journey; do not treat
+Execution is **active by the operator's subsequent instruction** for remaining A–I. The
+operator selected the minimal J01/J02 prerequisite exception; J03–J05 remain outside this
+execution scope. Historical paused checkpoints and their evidence remain below.
+The series remains incomplete. Continue with the joined invocation-owner journey; do not treat
 the implemented library foundations or targeted checks as an assembled managed-run result.
+
+### Foundation execution checkpoint — 2026-10-30
+
+A08 has published the accepted Proposed amendments in ADR-0233/0234 and blueprint317.
+Independent focused governing-target advice found no required correction; it is not a formal
+Accept verdict and does not extend A07's earlier review footprint. Formal ADR status is unchanged.
+
+**Implemented:** exact invocation lookup bypasses unrelated history, prefix ambiguity precedes
+chosen-record decoding, and collection reads retain typed row failures. Global latest refuses
+incomplete history with original diagnostic children. Brief status skips retained results;
+full reads avoid allocating opaque payloads. Candidate providers preserve partial coverage.
+Response schema preparation is reused once while remaining before artifact retention; native
+Schemars reference decoding and raw lexical fidelity are preserved.
+
+Independent raw capture replaces the merged codec, with confirmed per-stream prefixes and
+separate write/flush/sync uncertainty. The minimal replacement-only source/proposal contract
+retains immutable working text, checked Unicode ranges, candidate/selected distinctions and
+stale/overlap refusal. It performs no application and does not complete full J01/J02 or G07.
+
+**Tested:** `just unit-package pse-host 'test(cli::tests) | test(invocation::tests) |
+test(status::tests) | test(catalog::tests) | test(source_proposal) |
+test(managed::streams::tests)'` passed61 selected tests with zero failures against baseline zero
+(312 unselected) on the integrated tree. ADR lint passed162 records. Scope-end static checks
+and assembled managed/product/semantic journeys have not run; their packages remain open.
+
+Next connect actual notify-service/finalizer custody to B01/B03, complete C07 compatible-root
+admission and B02 nextest reconciliation, then migrate their CLI consumers. Current producer
+tests are not evidence of a joined run/test journey or physical resource settlement.
 
 ### Library integration authoring checkpoint — 2026-10-30
 

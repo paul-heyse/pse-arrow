@@ -69,8 +69,8 @@ Generated fragments cannot silently consume additional effects or alter evaluati
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [J01](#j01) | planned | 59j | Addressed source, positional reading, bounded pages and coherent continuations |
-| [J02](#j02) | planned | 59j | Shared source-bound proposal construction and validation |
+| [J01](#j01) | in-progress | 59j | Minimal working-source identity/text prerequisite implemented/tested; Git sources, positional reading, bounded pages and continuation extensions remain |
+| [J02](#j02) | in-progress | 59j | Replacement-only immutable proposal validation implemented/tested; complete semantic/file-operation producer integration remains |
 | [J03](#j03) | planned | 59j | Explicit syntax queries and structural replacement previews |
 | [J04](#j04) | planned | 59j | Generated hit to declared contributor and regeneration navigation |
 | [J05](#j05) | planned | 59j | Actual server-free source/query/preview consumer journey |
