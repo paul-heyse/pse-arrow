@@ -752,6 +752,36 @@ fn compare_source(root: &Path, value: &DiagnosticSpan) -> SourceComparison {
         original_byte_coordinates_match,
     }
 }
+// This explicitly observes current code. Matching retained lines cannot establish the original
+// compilation's whole-source generation, so neither the old hash nor an implicit preparation is
+// supplied. Reacquisition also prevents converting a concurrently changed candidate into argv.
+fn fresh_semantic_action(root: &Path, comparison: &SourceComparison) -> Option<NextAction> {
+    let SourceComparison::VisibleLinesMatch {
+        current_locator: Some(locator),
+        ..
+    } = comparison
+    else {
+        return None;
+    };
+    let source = (SourceRequest::Working {
+        path: locator.source.path().to_owned(),
+    })
+    .acquire()
+    .ok()?;
+    locator.select(&source).ok()?;
+    let prefix = source.text().get(..locator.range.byte_start)?;
+    let column = prefix.rsplit('\n').next()?.chars().count() + 1;
+    Some(NextAction::Command {
+        argv: vec![
+            "pse".into(), "-C".into(), root.to_str()?.into(), "code".into(),
+            "explain".into(), source.identity().path().to_str()?.into(),
+            "--line".into(), locator.range.line_start.to_string(),
+            "--column".into(), column.to_string(), "--if-source".into(),
+            source.identity().source_sha256().into(),
+        ],
+        reason: "request a separate semantic observation of this guarded current-source candidate; requires explicit session preparation and does not establish the original compilation's source generation".into(),
+    })
+}
 /// Selected admitted compiler context; unrelated workspace units stay in the original report.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct AdmittedContext<'a> {
@@ -958,6 +988,18 @@ impl DiagnosticEvidence {
             "one_original_rustc_diagnostic_and_selected_related_spans".into();
         response.observation.limitations.push("Original native snippets, spans and suggestion confidence are compiler evidence. B02 retained no full original-source digest or actual rustc version; matching visible lines does not prove an unchanged whole file. Relative source names are inspected as current candidates beneath the selected checkout root; remapped/other compiler cwd remains unestablished.".into());
         response.providers.push(ProviderContext {provider:BACKEND.into(),context:Some(serde_json::to_string(&(&self.address,&response.payload.admitted,&self.original_host,serde_json::json!({"original_full_source_identity":"unknown","original_rustc_version":"unknown","artifact":self.artifact_path}))).map_err(std::io::Error::other)?),analysis_generation:Some(self.context_sha256.clone()),availability:SubjectState::Available,coordinates:self.native.message.spans.iter().map(|span|SourceCoordinates::Utf8Bytes {source:span.file_name.clone(),revision:None,start:span.byte_start as usize,end:span.byte_end as usize}).collect()});
+        let mut semantic_actions = std::collections::BTreeSet::new();
+        for row in &response.payload.records {
+            if let Some(NextAction::Command { argv, reason }) = row
+                .source
+                .as_ref()
+                .and_then(|source| fresh_semantic_action(root, source))
+            {
+                if semantic_actions.insert(argv.clone()) {
+                    response.next.push(NextAction::Command { argv, reason });
+                }
+            }
+        }
         if let Some(root) = root.to_str() {
             let mut argv = vec![
                 "pse".into(),
@@ -1020,6 +1062,41 @@ mod tests {
     use std::{fs, os::unix::fs::PermissionsExt as _, process::Command};
     fn allowance(value: usize) -> NonZeroUsize {
         NonZeroUsize::new(value).unwrap()
+    }
+    #[test]
+    fn original_diagnostic_offers_only_guarded_current_semantics_and_preserves_bom_columns() {
+        let directory = tempfile::tempdir().unwrap();
+        fs::create_dir(directory.path().join("src")).unwrap();
+        let file = directory.path().join("src/lib.rs");
+        fs::write(&file, "\u{feff}α!\r\n").unwrap();
+        let mut native: DiagnosticSpan = serde_json::from_value(native_span()).unwrap();
+        native.line_start = 1;
+        native.line_end = 1;
+        let comparison = compare_source(directory.path(), &native);
+        let NextAction::Command { argv, reason } =
+            fresh_semantic_action(directory.path(), &comparison).unwrap()
+        else {
+            panic!("current semantic candidate")
+        };
+        assert_eq!(&argv[3..5], ["code", "explain"]);
+        assert_eq!(argv[7], "1");
+        assert_eq!(argv[9], "2"); // CLI scalars include the original BOM; compiler lines do not.
+        assert_eq!(
+            argv[11],
+            (SourceRequest::Working { path: file.clone() })
+                .acquire()
+                .unwrap()
+                .identity()
+                .source_sha256()
+        );
+        assert!(reason.contains("current-source candidate"));
+        assert!(reason.contains("does not establish"));
+        fs::write(&file, "β!\r\n").unwrap();
+        assert!(fresh_semantic_action(directory.path(), &comparison).is_none());
+        assert!(
+            fresh_semantic_action(directory.path(), &compare_source(directory.path(), &native))
+                .is_none()
+        );
     }
     fn native_span() -> serde_json::Value {
         json!({"file_name":"src/lib.rs","byte_start":4,"byte_end":6,"line_start":2,"line_end":2,"column_start":1,"column_end":2,"is_primary":true,"text":[{"text":"α!","highlight_start":1,"highlight_end":2}],"label":"original borrow","suggested_replacement":"β","suggestion_applicability":"MachineApplicable","expansion":null})
