@@ -1,0 +1,118 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
+---
+-h
+Read exact-context Rust APIs, or explicitly prepare their documentation artifacts
+
+Usage: pse api [OPTIONS] <CRATE_QUERY> [PATH]
+
+Arguments:
+  <CRATE_QUERY>  Exact locked dependency name, name@version or source-qualified Cargo package ID
+  [PATH]         Public crate-relative item path; omission lists candidates
+
+Options:
+  -C <checkout>
+      --search <SEARCH>            Case-insensitive name/documentation search
+      --format <FORMAT>            Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --prepare                    Explicitly compile documentation in an isolated context; ordinary lookup never generates it
+      --fields <FIELDS>            Select comma-separated payload fields while retaining identity, state and coverage
+      --target <TARGET>            Explicit target triple; default is the pinned rustc's observed host
+      --budget <BUDGET>            Limit payload array records; retain complete evidence as an artifact
+      --kind <KIND>                [possible values: function, struct, enum, union, trait, type-alias, constant, static, module, macro, other]
+      --input <INPUT>
+      --output-type <OUTPUT_TYPE>
+      --trait-name <TRAIT_NAME>
+      --unsafe-only
+      --async-only
+      --const-only
+      --docs                       Expand authored documentation for returned candidates
+      --examples                   Expand authored Rust examples and hidden setup; never execute them
+      --cursor <CURSOR>            Continue the same immutable artifact/query page; stale contexts refuse
+  -h, --help                       Print help (see more with '--help')
+--help
+Read exact-context Rust APIs, or explicitly prepare their documentation artifacts
+
+Usage: pse api [OPTIONS] <CRATE_QUERY> [PATH]
+
+Arguments:
+  <CRATE_QUERY>
+          Exact locked dependency name, name@version or source-qualified Cargo package ID
+
+  [PATH]
+          Public crate-relative item path; omission lists candidates
+
+Options:
+  -C <checkout>
+
+
+      --search <SEARCH>
+          Case-insensitive name/documentation search
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --prepare
+          Explicitly compile documentation in an isolated context; ordinary lookup never generates it
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --target <TARGET>
+          Explicit target triple; default is the pinned rustc's observed host
+
+      --budget <BUDGET>
+          Limit payload array records; retain complete evidence as an artifact
+
+      --kind <KIND>
+          Possible values:
+          - function:   A free or associated function
+          - struct:     A struct declaration
+          - enum:       An enum declaration
+          - union:      A union declaration
+          - trait:      A trait or trait alias
+          - type-alias: A type alias
+          - constant:   A constant or associated constant
+          - static:     A static declaration
+          - module:     A module declaration
+          - macro:      A declarative or procedural macro
+          - other:      Another rustdoc declaration, retained without guessing its kind
+
+      --input <INPUT>
+
+
+      --output-type <OUTPUT_TYPE>
+
+
+      --trait-name <TRAIT_NAME>
+
+
+      --unsafe-only
+
+
+      --async-only
+
+
+      --const-only
+
+
+      --docs
+          Expand authored documentation for returned candidates
+
+      --examples
+          Expand authored Rust examples and hidden setup; never execute them
+
+      --cursor <CURSOR>
+          Continue the same immutable artifact/query page; stale contexts refuse
+
+  -h, --help
+          Print help (see a summary with '-h')

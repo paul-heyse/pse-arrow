@@ -126,7 +126,7 @@ The review checked development interfaces; exact pinned extension/native signatu
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [G01](#g01) | planned | 59g | Pinned protocol coverage, concrete query/result design and native-gap decisions |
+| [G01](#g01) | in-progress | 59g | Exact pinned protocol/source mapping and client selection inspected; working session/request qualification remains |
 | [G02](#g02) | planned | 59g | Explicit preparation and reusable authenticated analysis session ownership |
 | [G03](#g03) | planned | 59g | Selected context, source synchronization, positions and stale-result handling |
 | [G04](#g04) | planned | 59g | Resolution, discovery and selected implicit-semantic explanations |
@@ -160,6 +160,39 @@ silently erase the selected opportunity or cause raw-string semantic parsing.
 unsupported/conditional fields and the affected consumer route. Probes, if needed, distinguish
 an inspected signature from a working invocation. The default LSP route and any native branch
 have explicit decision outcomes; no performance or whole-workspace completeness claim follows.
+
+**Pinned integration selection — 2026-10-30.** The installed analyzer identifies as
+`1.101.0-nightly (c1070d6, 2026-09-28)`. Exact source inspection selects standard definition,
+type-definition, hover, signature, inlay/resolve, references, call hierarchy, implementation,
+completion/resolve and rename/code-action routes. Selected Rust extensions supply related tests,
+runnables, macro expansion, predicate evaluation and semantic SSR. Capture/adjustment annotations
+are rendered hints, reference categories are discarded by the LSP handler, and macro expansion
+has no exact source map: those typed fields remain unsupported rather than parsed from text.
+Native IDE/HIR integration is not selected initially; its existing material-gap trigger remains.
+
+Use `lspf =1.0.3` as the proposed client/stdio integration: its exact published source uses
+`gen-lsp-types =0.11.0`, matching the inspected analyzer protocol family, owns request correlation,
+abandoned-request cancellation, EOF failures and its child. The host retains original native
+containment/settlement. `async-lsp 0.2.4` would require additional cancellation/correlation
+machinery; inspected `async-lsp-client 0.2.3` has unsuitable clone-ID/child ownership behavior.
+These are source-based choices, not a working-session claim. Qualify the actual client spawn,
+initialize, concurrent requests, cancellation and shutdown before dependent consumers.
+
+Further exact-source inspection found that `lspf 1.0.3`'s convenient client initialization
+discards `InitializeResult` and its spawn builder supplies neither root URI nor workspace
+folders. That convenience route therefore does not satisfy the selected capability/position/
+workspace contract. No client dependency has been pinned. Compare a different maintained client
+with a narrow adapter over the library's public generic transport and established framing;
+retain the actual initialization evidence and original child owner. This qualification replaces
+any assumption above that the convenient spawn route alone is sufficient.
+
+The pinned configuration uses `checkOnSave: false`; `check.enable` is not a supported setting.
+Build-script override and proc-macro preparation must use the actual pinned configuration and
+existing admission route. Preserve analyzer-context ambiguity where LSP cannot choose a crate
+instance rather than claiming exact compiler-unit selection. Source leads are the
+[pinned analyzer source](https://github.com/rust-lang/rust/tree/c1070d6/src/tools/rust-analyzer),
+its `lsp/ext.rs`, `handlers/request.rs` and `config.rs`, and the
+[client adoption contract](https://lspf.dev/guides/client-adoption).
 
 <a id="g02"></a>
 ## G02 — Preparation and reusable sessions

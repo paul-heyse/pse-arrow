@@ -48,6 +48,35 @@ expression: "serde_json::to_string_pretty(&response).unwrap()"
         115
       ]
     },
+    "locator": {
+      "source": {
+        "path": {
+          "Unix": [
+            47,
+            102,
+            105,
+            120,
+            116,
+            117,
+            114,
+            101,
+            46,
+            114,
+            115
+          ]
+        },
+        "source_sha256": "a21b6b760599d5c6108093484b90d1826ba939123626359495f4f535bb29bd2b",
+        "origin": {
+          "kind": "working"
+        }
+      },
+      "range": {
+        "byte_start": 0,
+        "byte_end": 28,
+        "line_start": 1,
+        "line_end": 2
+      }
+    },
     "backend": "ra_ap_syntax/0.0.360",
     "rust_edition": "E2024",
     "parse_issues": [],

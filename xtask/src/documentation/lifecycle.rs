@@ -382,9 +382,18 @@ pub fn reference_with_reader(
                 reader,
             )?
         })?;
-        let mut anchors: BTreeSet<String> = Regex::new(r#"<a\s+[^>]*id=["']([^"']+)"#)?
-            .captures_iter(&text)
-            .map(|captures| captures[1].to_owned())
+        let anchor = Regex::new(r#"<a\s+[^>]*id=["']([^"']+)"#)?;
+        let mut anchors: BTreeSet<String> = Parser::new(&text)
+            .filter_map(|event| match event {
+                Event::Html(html) | Event::InlineHtml(html) => Some(html),
+                _ => None,
+            })
+            .flat_map(|html| {
+                anchor
+                    .captures_iter(&html)
+                    .map(|captures| captures[1].to_owned())
+                    .collect::<Vec<_>>()
+            })
             .collect();
         let section = Regex::new(r"^#{2,4}\s+(?:([0-9]+(?:\.[0-9]+)*)|([A-Z][0-9]+))\.?\s")?;
         for heading in markdown_headings(&text) {

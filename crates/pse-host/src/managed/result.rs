@@ -185,6 +185,44 @@ pub struct TerminalResult<T> {
     _failures: Vec<HostError>,
 }
 impl<T> TerminalResult<T> {
+    /// Preserve original producer acquisition context across result projection and history.
+    pub(crate) fn with_providers(
+        mut self,
+        providers: Vec<crate::envelope::ProviderContext>,
+    ) -> Self {
+        self.response.providers.extend(providers);
+        self
+    }
+    /// Retain producer-owned acquisition context in the original terminal/history record.
+    pub(crate) fn with_artifacts(
+        mut self,
+        artifacts: Vec<crate::envelope::ArtifactReference>,
+    ) -> Self {
+        self.response.artifacts.extend(artifacts);
+        self
+    }
+    /// Navigate exact retained native-owner streams without interpreting their domain format.
+    pub(crate) fn with_native_streams(
+        mut self,
+        directory: &crate::invocation::InvocationDirectory,
+    ) -> Self {
+        for stream in ["stdout", "stderr"] {
+            let location = directory
+                .path()
+                .join(format!("{stream}.raw"))
+                .display()
+                .to_string();
+            self.response
+                .artifacts
+                .push(crate::envelope::ArtifactReference {
+                    kind: format!("native_owner_{stream}"),
+                    location: location.clone(),
+                    digest: None,
+                });
+            self.response.next.push(crate::envelope::NextAction::ReadArtifact {location,reason:format!("read the original native owner's {stream}; enclosing capture facts establish whether the retained stream is complete")});
+        }
+        self
+    }
     /// Immutable presentation source; projections never replace retained evidence.
     pub fn response(&self) -> &Envelope<T> {
         &self.response

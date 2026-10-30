@@ -21,6 +21,11 @@ Commands:
   explain            Resolve test/check intent without building binaries or preparing runtime inputs
   owner              Inspect declared generated-output ownership and existing source contributors
   dep                Inspect exact locked dependency identities, features and direct workspace consumers
+  changes            Inspect changed Git layers, declared source owners and conservative test reach
+  docs               Forward documentation operations to the explicitly prepared native owner
+  api                Read exact-context Rust APIs, or explicitly prepare their documentation artifacts
+  code               Query Rust syntax and inspect source-bound change proposals
+  probe              Create and run an explicitly isolated authored Rust experiment
   artifact           Read an explicit retained file without interpreting its content as a protocol
   outline            Read one Rust file's written declarations or a Markdown document's headings
   show               Read exact original source at FILE::ITEM[::ITEM], preserving ambiguity
@@ -68,6 +73,11 @@ Commands:
   explain            Resolve test/check intent without building binaries or preparing runtime inputs
   owner              Inspect declared generated-output ownership and existing source contributors
   dep                Inspect exact locked dependency identities, features and direct workspace consumers
+  changes            Inspect changed Git layers, declared source owners and conservative test reach
+  docs               Forward documentation operations to the explicitly prepared native owner
+  api                Read exact-context Rust APIs, or explicitly prepare their documentation artifacts
+  code               Query Rust syntax and inspect source-bound change proposals
+  probe              Create and run an explicitly isolated authored Rust experiment
   artifact           Read an explicit retained file without interpreting its content as a protocol
   outline            Read one Rust file's written declarations or a Markdown document's headings
   show               Read exact original source at FILE::ITEM[::ITEM], preserving ambiguity

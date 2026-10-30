@@ -16,8 +16,13 @@ use std::{
     time::{Duration, Instant},
 };
 mod affected;
+mod api;
 pub mod bundle;
+mod changes;
+mod code;
 mod control;
+mod docs;
+mod probe;
 mod product;
 mod selection;
 mod testing;
@@ -134,6 +139,22 @@ enum Command {
         #[arg(long)]
         metadata: Option<PathBuf>,
     },
+    /// Inspect changed Git layers, declared source owners and conservative test reach.
+    Changes(changes::Selection),
+    /// Forward documentation operations to the explicitly prepared native owner.
+    Docs(docs::Args),
+    /// Read exact-context Rust APIs, or explicitly prepare their documentation artifacts.
+    Api(api::Arguments),
+    /// Query Rust syntax and inspect source-bound change proposals.
+    Code {
+        #[command(subcommand)]
+        action: code::Action,
+    },
+    /// Create and run an explicitly isolated authored Rust experiment.
+    Probe {
+        #[command(subcommand)]
+        action: probe::Action,
+    },
     /// Read an explicit retained file without interpreting its content as a protocol.
     Artifact {
         #[command(subcommand)]
@@ -143,6 +164,9 @@ enum Command {
     Outline {
         #[arg(required=true,num_args=1..)]
         files: Vec<PathBuf>,
+        /// Continue an exact-source declaration page; select one file.
+        #[arg(long)]
+        cursor: Option<String>,
         #[command(flatten)]
         parsing: SourceParsing,
     },
@@ -155,6 +179,16 @@ enum Command {
         /// Disambiguate duplicate paths using an original UTF-8 byte position.
         #[arg(long)]
         at_byte: Option<usize>,
+        /// One-based line and Unicode scalar column of an enclosing declaration.
+        #[arg(long, requires = "at_column", conflicts_with_all = ["at_byte", "range_start"])]
+        at_line: Option<usize>,
+        #[arg(long, requires = "at_line")]
+        at_column: Option<usize>,
+        /// Exact half-open UTF-8 byte range.
+        #[arg(long, requires = "range_end", conflicts_with_all = ["at_byte", "at_line", "item"])]
+        range_start: Option<usize>,
+        #[arg(long, requires = "range_start")]
+        range_end: Option<usize>,
         #[command(flatten)]
         parsing: SourceParsing,
     },
@@ -287,6 +321,7 @@ impl Command {
     fn raw_protocol(&self) -> bool {
         match self {
             Self::Tools { action } => action.raw_protocol(),
+            Self::Docs(_) => true,
             Self::Boundary(options) => options.print || !options.explain,
             Self::AgentHook { .. }
             | Self::Workflow(_)
@@ -309,6 +344,9 @@ impl Command {
             Self::Tools { action } => action.intent(),
             Self::Wait(_) | Self::Cancel(_) => GenerationIntent::ExistingControl,
             Self::Observe { action } => action.intent(),
+            Self::Probe { action } => action.intent(),
+            Self::Api(args) => args.intent(),
+            Self::Docs(args) => args.intent(),
             Self::HostGenerationBootstrap { .. }
             | Self::Supervise(_)
             | Self::Finalize(_)
@@ -325,6 +363,8 @@ impl Command {
             | Self::Explain { .. }
             | Self::Owner { .. }
             | Self::Dep { .. }
+            | Self::Changes(_)
+            | Self::Code { .. }
             | Self::Outline { .. }
             | Self::Show { .. }
             | Self::Artifact { .. }
@@ -401,6 +441,9 @@ struct CatalogArgs {
     path: Vec<String>,
     #[arg(long)]
     json: bool,
+    /// Publish Markdown directly from the owning parser, without candidate acquisition.
+    #[arg(long,conflicts_with_all=["json","argument","metadata","prefix","offset","limit"])]
+    markdown: bool,
     /// Query candidates for this argument ID or long option, rather than command descriptions.
     #[arg(long)]
     argument: Option<String>,
@@ -416,6 +459,12 @@ struct CatalogArgs {
 }
 #[derive(Debug, Args)]
 struct SourceParsing {
+    /// Read the raw staging-index blob rather than working bytes.
+    #[arg(long, conflicts_with = "revision")]
+    index: bool,
+    /// Read a committed blob; resolve the revision before returning its identity.
+    #[arg(long)]
+    revision: Option<String>,
     /// Override the .rs/.md/.markdown filename inference.
     #[arg(long, value_enum)]
     language: Option<crate::source_command::Language>,
@@ -723,11 +772,21 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         >(command, view),
         "wait" | "cancel" => envelope::schema::<control::ControlView>(command, view),
         "observe prepare" => envelope::schema::<product::PreparedReader>(command, view),
-        "observe query" | "observe discover" => {
+        "observe query" | "observe discover" | "observe investigate" => {
             envelope::schema::<product::ProductView<'static>>(command, view)
         }
+        "observe follow" => envelope::schema::<product::FollowView<'static>>(command, view),
         "artifact read" => envelope::schema::<crate::artifacts::ArtifactRead>(command, view),
         "outline" => envelope::schema::<crate::source_command::FileOutline>(command, view),
+        "changes" => envelope::schema::<changes::Report>(command, view),
+        "docs" => envelope::schema::<ManagedReply>(command, view),
+        "api" => envelope::schema::<crate::api::query::Report>(command, view),
+        "code query" => envelope::schema::<crate::source_query::QueryReport>(command, view),
+        "code preview" => envelope::schema::<crate::source_query::PreviewReport>(command, view),
+        "code origin" => envelope::schema::<crate::source_command::GeneratedOrigin>(command, view),
+        "api prepare" | "probe run" => envelope::schema::<ManagedReply>(command, view),
+        "probe new" => envelope::schema::<crate::probe::Probe>(command, view),
+        "probe rm" => envelope::schema::<PathBuf>(command, view),
         "outline batch" => envelope::schema::<crate::source_command::batch::Report>(command, view),
         "show" => envelope::schema::<crate::source_command::FileSelection>(command, view),
         "commands" | "help" => envelope::schema::<
@@ -1017,6 +1076,13 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             }
             Ok(presentation.emit(response)?)
         }
+        Command::Probe { action } => {
+            probe::dispatch(action, &checkout_root(selected)?, presentation, entry)
+        }
+        Command::Changes(args) => changes::dispatch(args, selected, presentation),
+        Command::Docs(args) => docs::dispatch(args, selected, presentation, entry),
+        Command::Api(args) => api::dispatch(args, &checkout_root(selected)?, presentation, entry),
+        Command::Code { action } => code::dispatch(action, selected, presentation),
         Command::Dep { package, metadata } => {
             let snapshot = if let Some(path) = metadata.as_ref() {
                 crate::catalog::MetadataSnapshot::read(&source_path(selected, path.clone())?)?
@@ -1079,6 +1145,7 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                     )
                 })?;
                 let mut argv = vec![
+                    "pse".into(),
                     "artifact".into(),
                     "read".into(),
                     "--offset".into(),
@@ -1097,18 +1164,38 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             }
             source_emit(presentation, response, artifact_text)
         }
-        Command::Outline { files, parsing } => {
+        Command::Outline {
+            files,
+            cursor,
+            parsing,
+        } => {
+            if cursor.is_some() && files.len() != 1 {
+                return Err(HostError::Ownership(
+                    "an outline continuation selects exactly one file".into(),
+                ));
+            }
             let mut files = files
                 .into_iter()
-                .map(|file| source_path(selected, file))
+                .map(|file| {
+                    selected.map_or_else(
+                        || Ok(file.clone()),
+                        |root| std::path::absolute(root.join(&file)),
+                    )
+                })
                 .collect::<Result<Vec<_>, _>>()?;
             if files.len() > 1 {
+                if parsing.index || parsing.revision.is_some() {
+                    return Err(HostError::Ownership(
+                        "select one index/blob source per addressed outline".into(),
+                    ));
+                }
                 let response = runtime()?.block_on(async {
-                    let mut task = crate::source_command::batch::start(
+                    let mut task = crate::source_command::batch::start_page(
                         files,
                         parsing.language,
                         parsing.edition,
                         tokio_util::sync::CancellationToken::new(),
+                        presentation.presentation.budget,
                     );
                     tokio::select! {
                         response=task.settle()=>response.map_err(HostError::from),
@@ -1120,7 +1207,26 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                         },
                     }
                 })?;
-                return source_emit(presentation, response, crate::source_command::batch::text);
+                let omitted_records = response
+                    .payload
+                    .records
+                    .iter()
+                    .map(|record| match record {
+                        crate::source_command::batch::Record::Read { reading } => {
+                            reading.page.omitted_records
+                        }
+                        _ => 0,
+                    })
+                    .sum();
+                return Ok(presentation.emit_page(
+                    response,
+                    envelope::DetailView {
+                        budget: presentation.presentation.budget,
+                        omitted_records,
+                        truncated: omitted_records > 0,
+                        ..envelope::DetailView::default()
+                    },
+                )?);
             }
             let file = files.pop().ok_or_else(|| {
                 io::Error::new(
@@ -1128,22 +1234,71 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                     "select at least one source file",
                 )
             })?;
-            let response =
-                crate::source_command::outline(&file, parsing.language, parsing.edition)?;
-            source_emit(presentation, response, crate::source_command::outline_text)
+            let request = source_request(selected, file, &parsing)?;
+            let response = crate::source_command::outline_page(
+                &request,
+                parsing.language,
+                parsing.edition,
+                crate::source_read::PageRequest {
+                    max_records: presentation.presentation.budget,
+                    cursor,
+                },
+            )?;
+            let detail = envelope::DetailView {
+                budget: presentation.presentation.budget,
+                omitted_records: response.payload.page.omitted_records,
+                truncated: response.payload.page.omitted_records > 0,
+                ..envelope::DetailView::default()
+            };
+            Ok(presentation.emit_page(response, detail)?)
         }
         Command::Show {
             source,
             item,
             at_byte,
+            at_line,
+            at_column,
+            range_start,
+            range_end,
             parsing,
         } => {
-            let (file, items) = crate::source_command::selector(&source, item)?;
-            let file = source_path(selected, file)?;
-            let response = crate::source_command::show(
-                &file,
+            let positional = at_byte.is_some() || at_line.is_some() || range_start.is_some();
+            let (file, items) = if positional
+                && item.is_empty()
+                && !source
+                    .as_encoded_bytes()
+                    .windows(2)
+                    .any(|part| part == b"::")
+            {
+                (PathBuf::from(source), Vec::new())
+            } else {
+                crate::source_command::selector(&source, item)?
+            };
+            let file = selected.map_or_else(
+                || Ok(file.clone()),
+                |root| std::path::absolute(root.join(&file)),
+            )?;
+            let position = if let Some(start) = range_start {
+                crate::source_read::PositionSelector::Range {
+                    start,
+                    end: range_end
+                        .ok_or_else(|| HostError::Ownership("range end is required".into()))?,
+                }
+            } else if let Some(line) = at_line {
+                crate::source_read::PositionSelector::LineColumn {
+                    line,
+                    column: at_column
+                        .ok_or_else(|| HostError::Ownership("column is required".into()))?,
+                }
+            } else if let Some(offset) = at_byte {
+                crate::source_read::PositionSelector::Byte { offset }
+            } else {
+                crate::source_read::PositionSelector::Path
+            };
+            let response = crate::source_command::show_addressed(
+                &source_request(selected, file, &parsing)?,
                 &items,
-                at_byte,
+                &position,
                 parsing.language,
                 parsing.edition,
             )?;
@@ -1485,6 +1640,26 @@ fn launch_managed(
     entry: &EntryGuard,
     presentation: &OutputOptions,
 ) -> Result<i32, HostError> {
+    launch_managed_with_artifacts(request, entry, presentation, Vec::new())
+}
+fn launch_managed_with_artifacts(
+    request: ManagedCommand,
+    entry: &EntryGuard,
+    presentation: &OutputOptions,
+    artifacts: Vec<envelope::ArtifactReference>,
+) -> Result<i32, HostError> {
+    launch_managed_finalize(request, entry, presentation, artifacts, Vec::new(), || {
+        Ok(Vec::new())
+    })
+}
+fn launch_managed_finalize(
+    request: ManagedCommand,
+    entry: &EntryGuard,
+    presentation: &OutputOptions,
+    mut artifacts: Vec<envelope::ArtifactReference>,
+    providers: Vec<envelope::ProviderContext>,
+    finalize: impl FnOnce() -> Result<Vec<envelope::ArtifactReference>, HostError>,
+) -> Result<i32, HostError> {
     let ManagedCommand {
         parent,
         root,
@@ -1504,6 +1679,7 @@ fn launch_managed(
         crate::admission::Selection::load(&root, &environment, resource_class.as_deref(), None)?;
     let runtime = runtime()?;
     let environment_digest = environment_digest(&environment);
+    let native_owner_output = tool.is_some();
     let state = crate::paths::CheckoutState::resolve(&root, &environment)?;
     let store = crate::invocation::InvocationStore::new(state);
     let directory = std::sync::Arc::new(store.begin(crate::invocation::InvocationSpec {
@@ -1566,14 +1742,32 @@ fn launch_managed(
             child_exit,
             required,
         ));
-        let terminal = crate::managed::result::TerminalResult::from_foreground(
+        let finalization_errors =
+            if child_exit == Some(0) && report.operation.is_ok() && report.capture.is_ok() {
+                match finalize() {
+                    Ok(published) => {
+                        artifacts.extend(published);
+                        Vec::new()
+                    }
+                    Err(error) => vec![error],
+                }
+            } else {
+                Vec::new()
+            };
+        let mut terminal = crate::managed::result::TerminalResult::from_foreground(
             directory.id(),
             verb,
             report,
             &policy,
         )
         .with_workflow(validation, &policy)
-        .with_bundle(&directory, &policy);
+        .with_bundle(&directory, &policy)
+        .with_owner_failures(finalization_errors, &policy)
+        .with_providers(providers)
+        .with_artifacts(artifacts);
+        if native_owner_output {
+            terminal = terminal.with_native_streams(&directory);
+        }
         directory.publish_evidence(
             crate::invocation::InvocationEvidence::Settlement,
             terminal.response(),
@@ -1618,6 +1812,8 @@ fn launch_managed(
     response.settlement = envelope::Settlement::Unknown;
     // Launch acknowledgement intentionally does not require terminal settlement.
     response.outcome = CommandOutcome::Success;
+    response.artifacts.extend(artifacts);
+    response.providers.extend(providers);
     response.observation.required = false;
     response.observation.scope = "native_launch_acknowledgement".into();
     presentation.emit(response)?;
@@ -1717,6 +1913,45 @@ fn artifact_text(view: &crate::artifacts::ArtifactRead) -> String {
         view.atomic_snapshot
     )
 }
+fn source_request(
+    selected: Option<&Path>,
+    file: PathBuf,
+    parsing: &SourceParsing,
+) -> Result<crate::source_read::SourceRequest, HostError> {
+    if !parsing.index && parsing.revision.is_none() {
+        return Ok(crate::source_read::SourceRequest::Working { path: file });
+    }
+    let directory =
+        selected.map_or_else(std::env::current_dir, |root| std::path::absolute(root))?;
+    let repository = crate::repository::source::root(&directory)
+        .map_err(crate::source_read::SourceReadError::from)
+        .map_err(crate::source_command::SourceCommandError::from)?;
+    let file = std::path::absolute(file)?;
+    // Git tree/index paths use lexical repository coordinates even when the working file is
+    // absent. Do not canonicalize the file or resolve worktree symlinks to address raw blobs.
+    let mut normalized = PathBuf::new();
+    for component in file.components() {
+        match component {
+            std::path::Component::ParentDir => {
+                normalized.pop();
+            }
+            other => normalized.push(other.as_os_str()),
+        }
+    }
+    let path = normalized
+        .strip_prefix(&repository)
+        .map_err(|_| HostError::Ownership("Git source path is outside repository".into()))?
+        .to_path_buf();
+    Ok(if let Some(revision) = &parsing.revision {
+        crate::source_read::SourceRequest::Blob {
+            repository,
+            revision: revision.clone(),
+            path,
+        }
+    } else {
+        crate::source_read::SourceRequest::Index { repository, path }
+    })
+}
 fn source_emit<T: serde::Serialize + schemars::JsonSchema>(
     presentation: &OutputOptions,
     mut response: Envelope<T>,
@@ -1742,7 +1977,9 @@ fn source_emit<T: serde::Serialize + schemars::JsonSchema>(
         io::stdout().lock().write_all(frame.as_bytes())?;
         Ok(response.exit_code())
     } else {
-        Ok(presentation.emit(response)?)
+        let mut detail = response.view.clone();
+        detail.budget = presentation.presentation.budget;
+        Ok(presentation.emit_page(response, detail)?)
     }
 }
 fn catalog_envelope<T: serde::Serialize + schemars::JsonSchema>(
@@ -1793,6 +2030,12 @@ fn catalog_dispatch(
     selected: Option<&Path>,
     presentation: &OutputOptions,
 ) -> Result<i32, HostError> {
+    if args.markdown {
+        io::stdout()
+            .lock()
+            .write_all(catalog::markdown::render(&args.path)?.as_bytes())?;
+        return Ok(0);
+    }
     use crate::catalog::{
         self,
         description::{self, Window},
@@ -2013,7 +2256,16 @@ pub fn main(kind: BinKind) -> ExitCode {
                         }
                     }
                     if !raw_protocol
-                        && !matches!(cli.command.as_ref(), Some(Command::Schema { .. }))
+                        && !matches!(
+                            cli.command.as_ref(),
+                            Some(
+                                Command::Schema { .. }
+                                    | Command::Outline { .. }
+                                    | Command::Show { .. }
+                                    | Command::Api(_)
+                                    | Command::Code { .. }
+                            )
+                        )
                         && (cli.fields.is_some() || cli.budget.is_some())
                     {
                         let root = checkout_root(cli.root.as_deref())?;
@@ -2515,10 +2767,24 @@ mod tests {
         let outline = crate::source_read::rust(source, crate::source_read::RustEdition::E2024);
         let selection =
             crate::source_read::show(source, &outline, &["observed".into()], None).unwrap();
+        let source_identity =
+            crate::source_read::SourceText::new(PathBuf::from("/fixture.rs"), source.into())
+                .unwrap()
+                .identity()
+                .clone();
+        let page = || crate::source_read::PageState {
+            total_records: outline.entries.len(),
+            offset: 0,
+            returned_records: outline.entries.len(),
+            omitted_records: 0,
+            next_cursor: None,
+        };
         snapshot(
             "outline",
             crate::source_command::FileOutline {
                 file: "fixture.rs".into(),
+                source: source_identity.clone(),
+                page: page(),
                 outline: outline.clone(),
             },
         );
@@ -2526,6 +2792,10 @@ mod tests {
             "show",
             crate::source_command::FileSelection {
                 file: "fixture.rs".into(),
+                locator: crate::source_read::SourceLocator {
+                    source: source_identity.clone(),
+                    range: selection.range.clone(),
+                },
                 backend: outline.backend,
                 rust_edition: outline.rust_edition,
                 parse_issues: outline.parse_issues,
@@ -2538,6 +2808,14 @@ mod tests {
                 records: vec![crate::source_command::batch::Record::Read {
                     reading: crate::source_command::FileOutline {
                         file: "fixture.rs".into(),
+                        source: source_identity.clone(),
+                        page: crate::source_read::PageState {
+                            total_records: 1,
+                            offset: 0,
+                            returned_records: 1,
+                            omitted_records: 0,
+                            next_cursor: None,
+                        },
                         outline: crate::source_read::rust(
                             source,
                             crate::source_read::RustEdition::E2024,

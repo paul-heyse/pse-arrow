@@ -3,6 +3,7 @@
 
 //! Responsibility-owned Markdown and strict document metadata interpretation.
 pub mod adr;
+pub mod check;
 pub mod headings;
 pub mod lifecycle;
 pub mod metadata;
@@ -11,3 +12,5 @@ mod metadata_tests;
 pub mod ownership;
 pub mod register;
 pub mod site;
+/// The actual native documentation grammar and its existing execution owner.
+pub use site::{SiteCommand as DocsCommand, execute};

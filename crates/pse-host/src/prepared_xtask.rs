@@ -98,6 +98,17 @@ pub enum PreparedXtaskError {
         /// Original read/decoding cause.
         source: Box<PreparedXtaskError>,
     },
+    /// Passive current-selection failure retains the original pointer/open cause.
+    #[error(
+        "current xtask selection at {path} is unavailable; explicitly run pse tools prepare xtask: {source}"
+    )]
+    CurrentSelection {
+        /// Fixed checkout-private current selector, never an arbitrary executable path.
+        path: PathBuf,
+        /// Original source/manifest/association failure.
+        #[source]
+        source: Box<PreparedXtaskError>,
+    },
     /// Missing, stale or inconsistent evidence refuses use without repair.
     #[error("prepared xtask: {0}")]
     Invalid(String),
@@ -105,7 +116,7 @@ pub enum PreparedXtaskError {
 pse_diagnostics::impl_diagnostic! {
     PreparedXtaskError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::HostOwnership) },
-    forward(this) { match this { Self::Host(error) => Some(error), Self::Environment(error) => Some(error), Self::Correctness(error) => Some(error), Self::Supervision(error) => Some(error), Self::BuildEvidence { source, .. } => Some(source.as_ref()), _ => None } },
+    forward(this) { match this { Self::Host(error) => Some(error), Self::Environment(error) => Some(error), Self::Correctness(error) => Some(error), Self::Supervision(error) => Some(error), Self::BuildEvidence { source, .. } | Self::CurrentSelection {source,..} => Some(source.as_ref()), _ => None } },
     help(_this) { None }, related(this) { match this { Self::Execution { failures, .. } => Some(Box::new(failures.iter().map(|error| { let error: &dyn pse_diagnostics::TypedDiagnostic = error; error }))), _ => None } }, source(_this) { None }
 }
 fn invalid(message: impl Into<String>) -> PreparedXtaskError {
@@ -194,6 +205,13 @@ struct Manifest {
     catalog: Evidence,
     owner_schema: Evidence,
 }
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CurrentSelection {
+    version: u32,
+    checkout_id: String,
+    selection_id: String,
+}
 
 /// Authenticated retained executable plus its original compiler/parser/schema evidence.
 #[derive(Debug)]
@@ -202,7 +220,110 @@ pub struct PreparedXtask {
     directory: PathBuf,
     manifest: Manifest,
 }
+/// Complete original native read streams after the exact helper and all readers settled.
+#[derive(Debug)]
+pub(crate) struct NativeRead {
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
+    pub status: i32,
+}
+/// Recognize explicit standard owner read flags only before a literal argument tail.
+pub(crate) fn passive_read(arguments: &[OsString]) -> bool {
+    arguments
+        .iter()
+        .take_while(|argument| argument.as_os_str() != "--")
+        .any(|argument| argument == "--schema" || argument == "--help" || argument == "-h")
+}
 impl PreparedXtask {
+    /// Run a known passive native docs read without source preparation or a managed wrapper.
+    pub(crate) fn read_passive_docs(
+        &self,
+        arguments: Vec<OsString>,
+        environment: &Environment,
+    ) -> Result<NativeRead, PreparedXtaskError> {
+        if arguments.first().is_none_or(|argument| argument != "docs") || !passive_read(&arguments)
+        {
+            return Err(invalid(
+                "native passive docs reads require explicit help/schema before a literal argument tail",
+            ));
+        }
+        self.verify()?;
+        // Help/schema describe this captured executable. Source freshness remains a separate
+        // dispatch requirement for work, as it already is for retained parser discovery.
+        let mut command = self.command(environment);
+        command.args(arguments);
+        let output = process::run(command, MAX_DOCUMENT, Some(READ_TIMEOUT))?;
+        if output.stdout_bytes > MAX_DOCUMENT as u64 {
+            return Err(PreparedXtaskError::Extent {
+                phase: "passive-docs",
+                bytes: output.stdout_bytes,
+                stdout: output.stdout,
+                stderr: output.stderr,
+            });
+        }
+        Ok(NativeRead {
+            stdout: output.stdout,
+            stderr: output.stderr,
+            status: output.status,
+        })
+    }
+    /// Read the explicitly prepared current selection without compiling, creating or repairing it.
+    pub fn current(checkout: &Path, environment: &Environment) -> Result<Self, PreparedXtaskError> {
+        let checkout = checkout.canonicalize()?;
+        let state = CheckoutState::resolve(&checkout, environment)?;
+        let path = state.root.join("tools/xtask/current.json");
+        let operation = (|| {
+            private_directory(&state.root, false)?;
+            private_directory(&state.root.join("tools"), false)?;
+            private_directory(&state.root.join("tools/xtask"), false)?;
+            let current: CurrentSelection = serde_json::from_slice(&read(&path, 4096)?)?;
+            if current.version != 1 || current.checkout_id != state.checkout_id.as_str() {
+                return Err(invalid(
+                    "current xtask pointer belongs to another checkout or unsupported version",
+                ));
+            }
+            Self::open(&checkout, environment, &current.selection_id)
+        })();
+        operation.map_err(|source| PreparedXtaskError::CurrentSelection {
+            path,
+            source: Box::new(source),
+        })
+    }
+    fn select_current(&self) -> Result<(), PreparedXtaskError> {
+        self.verify()?;
+        let parent = self
+            .directory
+            .parent()
+            .ok_or_else(|| invalid("xtask selection parent absent"))?;
+        private_directory(parent, false)?;
+        let path = parent.join("current.json");
+        match fs::symlink_metadata(&path) {
+            Ok(metadata)
+                if !metadata.is_file() || metadata.uid() != rustix::process::geteuid().as_raw() =>
+            {
+                return Err(invalid(
+                    "current xtask selector must be a regular owned file",
+                ));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+        let value = CurrentSelection {
+            version: 1,
+            checkout_id: self.manifest.checkout_id.clone(),
+            selection_id: self.id().into(),
+        };
+        let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
+        temporary.write_all(&serde_json::to_vec(&value)?)?;
+        let mut permissions = temporary.as_file().metadata()?.permissions();
+        permissions.set_readonly(true);
+        temporary.as_file().set_permissions(permissions)?;
+        temporary.as_file().sync_all()?;
+        temporary.persist(&path).map_err(|error| error.error)?;
+        fs::File::open(parent)?.sync_all()?;
+        Ok(())
+    }
     /// Immutable checkout-bound selection key, never an arbitrary executable path.
     pub fn id(&self) -> &str {
         &self.manifest.selection_id
@@ -694,6 +815,7 @@ pub fn prepare(
         ));
     }
     publish(&selected.directory.join("xtask.json"), &bytes)?;
+    selected.select_current()?;
     Ok(selected)
 }
 

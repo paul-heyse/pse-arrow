@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Native Git observations. Object/ref/index/worktree facts retain separate meanings.
 
+/// Raw selected source objects, without worktree attribute conversion.
+pub mod source;
+
 use gix::bstr::ByteSlice;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

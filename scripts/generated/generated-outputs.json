@@ -68,6 +68,18 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-host/src",
+          "kind": "tree"
+        },
+        {
+          "path": "crates/pse-host/src/catalog/markdown.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/cli.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-ids/src/derive.rs",
           "kind": "file"
         },
@@ -110,6 +122,10 @@
         {
           "path": "packages/reference/physical",
           "kind": "tree"
+        },
+        {
+          "path": "scripts/cli-catalog.rs",
+          "kind": "file"
         },
         {
           "path": "scripts/generated-outputs.rs",
@@ -196,12 +212,28 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-host/src",
+          "kind": "tree"
+        },
+        {
+          "path": "crates/pse-host/src/catalog/markdown.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/cli.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-ids/src/derive.rs",
           "kind": "file"
         },
         {
           "path": "crates/pse-schema/src",
           "kind": "tree"
+        },
+        {
+          "path": "scripts/cli-catalog.rs",
+          "kind": "file"
         },
         {
           "path": "scripts/generated-outputs.rs",
@@ -236,8 +268,16 @@
           "kind": "tree"
         },
         {
+          "path": "crates/pse-host/src",
+          "kind": "tree"
+        },
+        {
           "path": "crates/pse-schema/src",
           "kind": "tree"
+        },
+        {
+          "path": "scripts/cli-catalog.rs",
+          "kind": "file"
         },
         {
           "path": "scripts/generated-outputs.rs",

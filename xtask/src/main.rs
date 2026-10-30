@@ -129,10 +129,10 @@ enum Cmd {
         #[command(flatten)]
         query: xtask::documentation::ownership::Query,
     },
-    /// Build, serve or explicitly install the selected documentation tools.
+    /// Scoped native documentation checks and explicit publication operations.
     Docs {
-        #[arg(value_enum)]
-        command: xtask::documentation::site::SiteCommand,
+        #[command(subcommand)]
+        command: xtask::documentation::DocsCommand,
     },
     /// Execute an admitted manifest's native or pure conformance runs without Python.
     #[cfg(feature = "package-fixtures")]
@@ -652,7 +652,7 @@ fn main() -> Result<()> {
         }
         Cmd::Adr { command } => xtask::documentation::adr::execute(&root, command),
         Cmd::Lifecycle { query } => xtask::documentation::lifecycle::execute(&root, query),
-        Cmd::Docs { command } => xtask::documentation::site::execute(&root, command),
+        Cmd::Docs { command } => xtask::documentation::execute(&root, command),
         #[cfg(feature = "package-fixtures")]
         Cmd::Conformance {
             manifest,

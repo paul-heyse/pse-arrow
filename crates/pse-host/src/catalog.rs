@@ -3,6 +3,7 @@
 //! Side-effect-free parser discovery over explicitly supplied metadata/evidence owners.
 #[path = "../../../scripts/cli-catalog.rs"]
 pub mod description;
+pub mod markdown;
 use crate::{
     HostError,
     invocation::{HistoryFailure, InvocationStore},

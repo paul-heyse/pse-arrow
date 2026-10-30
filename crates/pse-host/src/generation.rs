@@ -494,6 +494,12 @@ impl SourceFingerprint {
         }
         Ok(files)
     }
+    /// Original checked source inputs and content identities for exact byte retention.
+    pub(crate) fn inputs(&self) -> impl Iterator<Item = (&Path, &str)> {
+        self.files
+            .iter()
+            .map(|(path, digest)| (path.as_path(), digest.as_str()))
+    }
     /// Stable digest of the complete source/context observation, without checkout-specific IDs.
     pub fn digest(&self) -> Result<String, HostError> {
         Ok(digest(&encoded(self)?))

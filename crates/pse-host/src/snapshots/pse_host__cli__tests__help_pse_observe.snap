@@ -8,10 +8,12 @@ Inspect scientific evidence through an explicitly prepared native product reader
 Usage: pse observe [OPTIONS] <COMMAND>
 
 Commands:
-  prepare   Explicitly build and capture a product reader; never performed by passive reads
-  discover  Discover the operations and schema associations of one captured reader
-  schema    Read a directional schema from the selected product, without reconstructing it
-  query     Delegate a product-owned JSON request; discover/schema describe its accepted grammar
+  prepare      Explicitly build and capture a product reader; never performed by passive reads
+  discover     Discover the operations and schema associations of one captured reader
+  schema       Read a directional schema from the selected product, without reconstructing it
+  query        Delegate a product-owned JSON request; discover/schema describe its accepted grammar
+  investigate  Explicitly admit a product-owned diagnostic capture or selected evidence publication
+  follow       Follow opaque product-issued passive continuations; closing the view only stops observation
 
 Options:
   -C <checkout>
@@ -25,10 +27,12 @@ Inspect scientific evidence through an explicitly prepared native product reader
 Usage: pse observe [OPTIONS] <COMMAND>
 
 Commands:
-  prepare   Explicitly build and capture a product reader; never performed by passive reads
-  discover  Discover the operations and schema associations of one captured reader
-  schema    Read a directional schema from the selected product, without reconstructing it
-  query     Delegate a product-owned JSON request; discover/schema describe its accepted grammar
+  prepare      Explicitly build and capture a product reader; never performed by passive reads
+  discover     Discover the operations and schema associations of one captured reader
+  schema       Read a directional schema from the selected product, without reconstructing it
+  query        Delegate a product-owned JSON request; discover/schema describe its accepted grammar
+  investigate  Explicitly admit a product-owned diagnostic capture or selected evidence publication
+  follow       Follow opaque product-issued passive continuations; closing the view only stops observation
 
 Options:
   -C <checkout>

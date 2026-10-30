@@ -29,6 +29,8 @@ pub enum Tool {
     Collector,
     /// Local OpenObserve backend.
     OpenObserve,
+    /// Offline Markdown/HTML link and fragment checker.
+    Lychee,
 }
 impl Tool {
     /// Stable declaration name.
@@ -40,6 +42,7 @@ impl Tool {
             Self::Sccache => "sccache",
             Self::Collector => "otelcol-contrib",
             Self::OpenObserve => "openobserve",
+            Self::Lychee => "lychee",
         }
     }
     /// Parse only supported declarations, never the unrelated cargo-tools table.
@@ -51,6 +54,7 @@ impl Tool {
             "sccache" => Ok(Self::Sccache),
             "otelcol-contrib" | "collector" => Ok(Self::Collector),
             "openobserve" => Ok(Self::OpenObserve),
+            "lychee" => Ok(Self::Lychee),
             _ => Err(invalid("unknown diagnostic tool")),
         }
     }

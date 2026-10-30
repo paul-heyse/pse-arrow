@@ -338,11 +338,42 @@ cancellation/settlement and canonical write admission independently of an editor
 ### Focused command and source context
 
 Use `just --usage RECIPE`, source search and native `scripts/pse affected` for command/reach questions.
+`scripts/pse commands --markdown` exports the owning parser without preparing a tool;
+`just codegen` publishes its [CLI reference](../generated/agent-cli.md) and checks derive from
+that same parser rather than a second command list.
 The former `just context` Python projections and history scanners are retired.
 `just workspace-sources --selection FILE` supplies bounded source-only knowledge with explicit
 coverage through native xtask. Documentation lifecycle/scope queries use
 [`xtask lifecycle`](documentation.md#metadata-and-aggregate-scope); they derive status from
 native owners rather than create another backlog. Reading a schema or corpus starts no service.
+
+For exact written source, use `scripts/pse outline FILE --budget 20` and pass the returned
+`payload.page.next_cursor` unchanged with `--cursor`. The allowance counts nested declarations,
+including entries inside modules and impls. A continuation refuses changed working bytes.
+`scripts/pse show FILE --at-line 12 --at-column 7` selects the enclosing declaration using
+one-based Unicode scalar coordinates; `--range-start` and `--range-end` select a half-open
+UTF-8 byte range. `--index` reads the raw staged blob and `--revision REF` resolves a committed
+blob without checkout. These reads need neither a prepared analyzer nor a pse-arrow checkout.
+
+Use `scripts/pse code query FILE --mode syntax --pattern 'call($ARG)'` for written structural
+candidates. `code preview` adds `--replacement` and explicit `--select` candidate indices;
+it preserves original source identity and changes no source or Git index. Same-spelled names
+remain syntax candidates, and selected overlaps refuse. Semantic queries require their own
+provider; selecting syntax is explicit. Use `scripts/pse changes` inside the checkout to inspect
+separate changed Git layers, declared source/generated owners and conservative test reach.
+
+`--inside`, `--has` and `--exclude` compose structural context constraints; `--capture NAME`
+extracts selected named or sequence captures. `--strictness` selects the native matching policy.
+Query allowances count nested matches and retain total/omitted counts separately. Every source
+retains its exact generation and parser context in the mandatory `providers` field even when
+`--fields` hides payload detail. Preview candidates remain distinct from explicit selected edits;
+an undefined template capture refuses rather than disappearing from the replacement.
+
+For a hit in a declared generated output, follow the returned `code origin` next action. It
+binds the original byte range and digest, reads the existing contributor sidecar, exposes the
+declared regeneration argv and offers an outline of the known emitter. An unknown authored
+declaration location stays unknown. A changed working source refuses the original-hit action;
+neither preview nor drill-through edits files, regenerates outputs or prepares a semantic session.
 
 ## Explicit host controls
 

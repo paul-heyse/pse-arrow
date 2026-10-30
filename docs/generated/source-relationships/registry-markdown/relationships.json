@@ -206,6 +206,20 @@
     {
       "basis": "declared",
       "contract_sections": [],
+      "declaration_key": "pse-command-tree",
+      "declaration_kind": "cli_parser",
+      "direction": null,
+      "generator_path": "crates/pse-host/src/catalog/markdown.rs",
+      "generator_symbol": "render",
+      "output_path": "docs/generated/agent-cli.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/cli.rs",
+      "source_role": "owning_clap_parser",
+      "source_symbol": "Cli"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "pse_ids::Frame",
       "declaration_kind": "rust_enum",
       "direction": null,

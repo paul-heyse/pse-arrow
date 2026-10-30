@@ -13,11 +13,12 @@ Arguments:
 Options:
   -C <checkout>
       --json
-      --argument <ARGUMENT>  Query candidates for this argument ID or long option, rather than command descriptions
       --format <FORMAT>      Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --markdown             Publish Markdown directly from the owning parser, without candidate acquisition
+      --argument <ARGUMENT>  Query candidates for this argument ID or long option, rather than command descriptions
       --fields <FIELDS>      Select comma-separated payload fields while retaining identity, state and coverage
-      --prefix <PREFIX>      [default: ""]
       --budget <BUDGET>      Limit payload array records; retain complete evidence as an artifact
+      --prefix <PREFIX>      [default: ""]
       --offset <OFFSET>      [default: 0]
       --limit <LIMIT>
       --metadata <METADATA>  Explicit retained Cargo metadata; only a selected metadata provider reads it
@@ -38,9 +39,6 @@ Options:
       --json
 
 
-      --argument <ARGUMENT>
-          Query candidates for this argument ID or long option, rather than command descriptions
-
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
 
@@ -53,14 +51,20 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
+      --markdown
+          Publish Markdown directly from the owning parser, without candidate acquisition
+
+      --argument <ARGUMENT>
+          Query candidates for this argument ID or long option, rather than command descriptions
+
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
 
-      --prefix <PREFIX>
-          [default: ""]
-
       --budget <BUDGET>
           Limit payload array records; retain complete evidence as an artifact
+
+      --prefix <PREFIX>
+          [default: ""]
 
       --offset <OFFSET>
           [default: 0]

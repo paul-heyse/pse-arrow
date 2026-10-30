@@ -480,6 +480,56 @@ applicable native ownership operations. D08 concurrent Git acceptance is deferre
 
 ## Current state and next step
 
+**Remaining-series execution active — 2026-10-30.** The maintainer authorized the
+entire remaining series, including J03–J05. Earlier exclusions below describe the
+completed simplification/testing wave, not the boundary of this new execution.
+D05/D08 remain deferred and E02 superseded; conditional investigations keep their
+recorded adoption criteria. The existing B/C owners remain the runtime/test foundation.
+
+The first integrated slice extends producer-owned output and addressed source/proposals,
+isolated authored probes and exact-format API acquisition, and passive product follow plus
+explicit capture/analysis/export. Typed unprojected output now serializes directly; fixed
+arrays/tuples remain indivisible under record budgets. Source pages and product continuations
+retain their own source/context. API acquisition uses the pinned toolchain's observed
+rustdoc format 61. Semantic sessions, broader API/compiler consumers, worktree commands,
+generated references and remaining source queries are still open. No assembled-series
+completion or performance benefit is claimed by this checkpoint.
+
+Next integrate the actual source/probe/product CLI consumers and targeted controls, then
+advance J03 and the dependent API/semantic/compiler producers on their actual prerequisites.
+Static and assembled qualification remains at functional scope end.
+
+### First remaining-feature integration outcome — 2026-10-30
+
+**Implemented:** addressed source reads, nested pages and continuations; syntax queries,
+immutable previews and declared generated-origin navigation; isolated probes; version-checked
+API acquisition/search with explicit external-reexport preparation; scoped documentation
+checking and captured native forwarding; parser-derived Markdown publication. Provider/source
+context survives payload projection. New exact dependencies are `rustdoc-types =0.61.0`,
+`ast-grep-core =0.51.0` and `tree-sitter-rust =0.24.2`; existing locked package versions did not
+move. The runtime observation slice and its remaining obligations are owned by 59f's Outcome.
+
+**Tested:** the following native-boundary focused command passed 65/65 tests, zero failures
+against the zero baseline, with no compiler warnings:
+
+```sh
+scripts/cargo-bin/cargo-pse-correctness nextest run -p pse-host --lib --test source_addressing --test source_queries -E 'binary(source_addressing) | binary(source_queries) | test(source_read::) | test(source_proposal::) | test(source_command::) | test(source_query::) | test(probe::) | test(api::) | test(cli::changes::) | test(cli::docs::) | test(catalog::markdown::) | test(prepared_xtask::) | test(cli::tests::command_tree_is_consistent) | test(cli::tests::help_snapshots) | test(cli::tests::managed_response_snapshots)' --locked --no-fail-fast
+```
+
+Help/response snapshots were intentionally regenerated and reviewed for the new parser/source
+contracts. `just codegen` published nine schema targets; the documentation-only producer then
+republished its two targets after correcting native help's trailing layout padding in the
+renderer. Generated outputs were never edited by hand. This is functional generation evidence,
+not a scope-end hygiene or assembled-series result.
+
+**Limits and next work:** final captured Docs/API reexport journeys and F05's portable capture
+composition remain open, alongside semantic sessions/consumers, wider API/dependency/compiler
+investigation, worktree integration and remaining foundation/adoption obligations. G01's
+initial convenient client route failed exact initialization-capability inspection; its owning
+package records the comparison rather than treating source signatures as working integration.
+E01's removal/admission tradeoff is with the maintainer; creation/listing proceed independently.
+No whole-series completion or measured performance benefit follows from this slice.
+
 **Implemented and Tested — simplification and testing wave complete, 2026-10-30.**
 The authorized A09/necessary A03–A06 foundations, B01–B05, C02–C09 and required D/E consumer
 and guidance slices are delivered. C01 retains its existing evidence. Unrelated replacement

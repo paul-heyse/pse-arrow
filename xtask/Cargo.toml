@@ -29,7 +29,6 @@ workspace = true
 fuzz-inspection = [
   "dep:libfuzzer-sys",
   "dep:pse-runtime",
-  "dep:pse-diagnostics",
 ]
 force-validate = [
   "arrow-array?/force_validate",
@@ -52,7 +51,6 @@ evidence-tools = [
   "dep:pse-engine",
   "dep:pse-model",
   "dep:pse-relations",
-  "dep:pse-diagnostics",
   "dep:datafusion",
   "dep:surrealdb-types",
   "dep:uuid",
@@ -62,7 +60,6 @@ evidence-tools = [
 ]
 surrealql-tools = ["dep:surrealdb-syn"]
 canonical-tools = [
-  "dep:pse-diagnostics",
   "dep:pse-model",
   "dep:pse-operations",
   "dep:pse-runtime",
@@ -95,7 +92,6 @@ product-schemas = [
   "dep:pse-admission",
   "dep:pse-authoring",
   "dep:pse-engine",
-  "dep:pse-diagnostics",
   "dep:pse-backend-native",
   "dep:pse-runtime",
   "dep:pse-model",
@@ -128,7 +124,7 @@ parquet = { workspace = true, optional = true }
 pse-columnar.workspace = true
 pse-codegen.workspace = true
 pse-engine = { workspace = true, optional = true }
-pse-diagnostics = { workspace = true, optional = true }
+pse-diagnostics.workspace = true
 datafusion = { workspace = true, optional = true }
 url.workspace = true
 bindgen = { workspace = true, optional = true }

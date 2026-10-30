@@ -167,6 +167,79 @@ fn fixture() -> (tempfile::TempDir, Environment, PreparedXtask) {
     .unwrap();
     (root, environment, selected)
 }
+#[test]
+fn explicit_successful_selection_atomically_updates_current_without_a_new_build() {
+    let (root, environment, selected) = fixture();
+    assert!(
+        PreparedXtask::current(root.path(), &environment).is_err(),
+        "immutable capture alone never invents a default"
+    );
+    selected.select_current().unwrap();
+    let current = PreparedXtask::current(root.path(), &environment).unwrap();
+    assert_eq!(current.id(), selected.id());
+    assert_eq!(current.executable(), selected.executable());
+    selected.select_current().unwrap();
+    assert_eq!(
+        PreparedXtask::current(root.path(), &environment)
+            .unwrap()
+            .id(),
+        selected.id()
+    );
+    let pointer = selected.directory.parent().unwrap().join("current.json");
+    assert_eq!(fs::metadata(pointer).unwrap().mode() & 0o777, 0o400);
+}
+#[test]
+fn invalid_capture_or_symlink_cannot_replace_the_authenticated_current_selector() {
+    let (root, environment, mut selected) = fixture();
+    selected.select_current().unwrap();
+    let original = selected.id().to_owned();
+    selected.manifest.catalog.sha256 = "refused-original-evidence".into();
+    assert!(selected.select_current().is_err());
+    assert_eq!(
+        PreparedXtask::current(root.path(), &environment)
+            .unwrap()
+            .id(),
+        original
+    );
+    let pointer = selected.directory.parent().unwrap().join("current.json");
+    fs::remove_file(&pointer).unwrap();
+    let unrelated = root.path().join("unrelated.json");
+    fs::write(&unrelated, b"untouched original bytes").unwrap();
+    std::os::unix::fs::symlink(&unrelated, &pointer).unwrap();
+    assert!(PreparedXtask::current(root.path(), &environment).is_err());
+    assert_eq!(fs::read(unrelated).unwrap(), b"untouched original bytes");
+}
+#[test]
+fn known_passive_docs_reads_preserve_original_exit_and_do_not_require_current_sources() {
+    let (root, environment, selected) = fixture();
+    fs::write(
+        root.path().join("xtask/src/main.rs"),
+        "changed source after explicit capture\n",
+    )
+    .unwrap();
+    for args in [
+        vec!["docs", "install"],
+        vec!["docs", "--", "--schema"],
+        vec!["owner", "--schema"],
+    ] {
+        assert!(
+            selected
+                .read_passive_docs(args.into_iter().map(OsString::from).collect(), &environment)
+                .is_err()
+        );
+    }
+    let original = selected
+        .read_passive_docs(
+            vec!["docs".into(), "check".into(), "--schema".into()],
+            &environment,
+        )
+        .unwrap();
+    assert_eq!(
+        original.status, 9,
+        "fixture executable's original unsupported-operation status is not reclassified"
+    );
+    assert!(original.stdout.is_empty());
+}
 
 #[test]
 fn passive_open_authenticates_source_and_evidence_without_a_compiler_or_build() {

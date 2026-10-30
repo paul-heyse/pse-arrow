@@ -68,6 +68,14 @@ Generated fragments cannot silently consume additional effects or alter evaluati
 
 ## Package state
 
+The maintainer authorized the remaining whole series, including J03–J05, on 2026-10-30.
+The current source implements addressed working/index/blob acquisition, positional/range reads,
+source-bound nested declaration pages, shared proposals with file-operation intent, and explicit
+syntax query/preview producers. Focused actual CLI controls now exercise raw staged/committed
+bytes, Unicode positions, stale continuations and structural previews. Projection-safe provider
+context, generated-hit composition and the remaining integration/adoption work are still open;
+the earlier paused-scope statements describe the previous wave, not current authorization.
+
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [J01](#j01) | in-progress | 59j | Minimal working-source identity/text prerequisite implemented/tested; Git sources, positional reading, bounded pages and continuation extensions remain |

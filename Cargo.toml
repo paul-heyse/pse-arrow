@@ -256,6 +256,8 @@ bytes = "=1.12.1"
 chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 pulldown-cmark = { version = "=0.13.5", default-features = false }
 ra_ap_syntax = "=0.0.360"
+ast-grep-core = "=0.51.0"
+tree-sitter-rust = "=0.24.2"
 serde-saphyr = "=1.3.0"
 toml = { version = "=1.1.6", default-features = false, features = [
   "parse",
@@ -421,6 +423,7 @@ rustix = { version = "=1.1.5", features = [
 ] }
 command-fds = "=0.3.3"
 cargo_metadata = "=0.23.1"
+rustdoc-types = "=0.61.0"
 nextest-metadata = "=0.15.0"
 quick-junit = "=0.8.0"
 gix = { version = "=0.90.0", default-features = false, features = [
@@ -669,6 +672,7 @@ object_store = { version = "0.13.2", crates = ["object_store"] }
 # each with its reason (ADR-0165). Every dependency is exact anyway; one with no entry here
 # may be bumped when the work calls for it. Remove the entry when the reason lapses.
 [workspace.metadata.pse.pins]
+rustdoc-types = "Decodes rustdoc JSON format 61 emitted by nightly-2026-09-29. Revisit together with the pinned toolchain or an observed rustdoc format change; reject unknown formats before typed decoding."
 surrealdb-types = "The bounded canonical client consumes the public but doc-hidden Error::from_wire proto error constructor at 3.3.4. Revisit on a released supported protobuf-error conversion or protocol/server move; preserve typed causes, details, cardinality and substantive-error selection controls."
 symbolica = "Maintained 3.0.1 bounded exact-root APIs and certified proof conversion; Dualizer expansion, C++ export, build-time abort and remaining global root-cache couplings are release-specific. Numerica Rational::to_f64 double rounds some literals; the three general map_coeff paths retain their existing non-RNE numerical realization. Revisit on supplier/API change or a consumer requiring certified rounding, with exact-source and scientific controls. See vendor/symbolica-bounded-roots.md."
 faer = "Maintained nonfused 0.24.4 kernel realization and companion faer-traits source; update and qualify together, revisiting only with complete consumed dispatch and generated-code controls. See vendor/faer-arithmetic.md."

@@ -4,9 +4,15 @@
 
 use ra_ap_syntax::{AstNode, SourceFile, SyntaxKind, SyntaxNode, ast, ast::HasName};
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::ops::Range;
+
+mod acquisition;
+pub use acquisition::{SourceIdentity, SourceOrigin, SourceRequest, SourceText};
+mod navigation;
+pub(crate) use navigation::outline as outline_page;
+pub use navigation::{OutlineCursor, PageRequest, PageState, PositionSelector, SourceLocator};
 
 pub(crate) fn source_digest(source: &str) -> String {
     Sha256::digest(source.as_bytes())
@@ -16,7 +22,9 @@ pub(crate) fn source_digest(source: &str) -> String {
 }
 
 /// Explicit parsing policy; this is never presented as an inferred Cargo configuration.
-#[derive(Clone, Copy, Debug, clap::ValueEnum, Serialize, JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum, Serialize, Deserialize, JsonSchema,
+)]
 pub enum RustEdition {
     /// Rust 2015 syntax.
     #[value(name = "2015")]
@@ -44,7 +52,7 @@ impl RustEdition {
 }
 
 /// Exact half-open UTF-8 byte range and one-based inclusive source lines.
-#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct SourceRange {
     /// First byte in the source snapshot.
     pub byte_start: usize,
@@ -55,7 +63,7 @@ pub struct SourceRange {
     /// Last line containing selected bytes, starting at one.
     pub line_end: usize,
 }
-fn line_starts(source: &str) -> Vec<usize> {
+pub(crate) fn line_starts(source: &str) -> Vec<usize> {
     std::iter::once(0)
         .chain(
             source
@@ -65,7 +73,7 @@ fn line_starts(source: &str) -> Vec<usize> {
         )
         .collect()
 }
-fn location(lines: &[usize], range: Range<usize>) -> SourceRange {
+pub(crate) fn location(lines: &[usize], range: Range<usize>) -> SourceRange {
     let line_at = |offset: usize| lines.partition_point(|&start| start <= offset);
     SourceRange {
         byte_start: range.start,
@@ -138,8 +146,17 @@ fn declaration(node: &SyntaxNode) -> Option<String> {
 
 /// Parse a Rust snapshot losslessly even when some syntax is incomplete.
 pub fn rust(source: &str, edition: RustEdition) -> Outline {
+    rust_bounded(source, edition, 0, usize::MAX).0
+}
+pub(super) fn rust_bounded(
+    source: &str,
+    edition: RustEdition,
+    offset: usize,
+    limit: usize,
+) -> (Outline, usize) {
     let lines = line_starts(source);
     let parsed = SourceFile::parse(source, edition.native());
+    let mut total = 0;
     let entries = parsed
         .tree()
         .syntax()
@@ -175,6 +192,11 @@ pub fn rust(source: &str, edition: RustEdition) -> Outline {
                 signature: source[start..header_end].trim_end().to_owned(),
             })
         })
+        .filter_map(|entry| {
+            let index = total;
+            total += 1;
+            (index >= offset && index - offset < limit).then_some(entry)
+        })
         .collect();
     let parse_issues = parsed
         .errors()
@@ -187,17 +209,23 @@ pub fn rust(source: &str, edition: RustEdition) -> Outline {
             ),
         })
         .collect();
-    Outline {
-        source_sha256: source_digest(source),
-        rust_edition: Some(edition),
-        backend: "ra_ap_syntax/0.0.360".into(),
-        entries,
-        parse_issues,
-    }
+    (
+        Outline {
+            source_sha256: source_digest(source),
+            rust_edition: Some(edition),
+            backend: "ra_ap_syntax/0.0.360".into(),
+            entries,
+            parse_issues,
+        },
+        total,
+    )
 }
 
 /// Parse CommonMark headings, including setext headings and excluding fenced-code pseudo-headings.
 pub fn markdown(source: &str) -> Outline {
+    markdown_bounded(source, 0, usize::MAX).0
+}
+pub(super) fn markdown_bounded(source: &str, offset: usize, limit: usize) -> (Outline, usize) {
     use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
     let lines = line_starts(source);
     let mut headings = Vec::<(usize, String, Range<usize>)>::new();
@@ -250,19 +278,39 @@ pub fn markdown(source: &str) -> Outline {
                 signature: source[range.clone()].trim_end().to_owned(),
             }
         })
+        .enumerate()
+        .filter_map(|(index, entry)| (index >= offset && index - offset < limit).then_some(entry))
         .collect();
-    Outline {
-        source_sha256: source_digest(source),
-        rust_edition: None,
-        backend: "pulldown-cmark/0.13.5".into(),
-        entries,
-        parse_issues: Vec::new(),
-    }
+    (
+        Outline {
+            source_sha256: source_digest(source),
+            rust_edition: None,
+            backend: "pulldown-cmark/0.13.5".into(),
+            entries,
+            parse_issues: Vec::new(),
+        },
+        headings.len(),
+    )
 }
 
 /// A source selection cannot be guessed or reused against a changed snapshot.
 #[derive(Debug, thiserror::Error)]
 pub enum SourceReadError {
+    /// Preserve acquisition failure rather than inventing an empty source.
+    #[error("source input/output: {0}")]
+    Io(#[from] std::io::Error),
+    /// Preserve the repository owner's typed cause.
+    #[error(transparent)]
+    Repository(#[from] crate::repository::RepositoryError),
+    /// Explicit supplied working bytes need an absolute operand.
+    #[error("working source path must be absolute: {0:?}")]
+    RelativePath(std::path::PathBuf),
+    /// An acquisition result was internally inconsistent.
+    #[error("source acquisition did not establish a complete identity")]
+    InvalidIdentity,
+    /// Invalid continuation or pagination request.
+    #[error("invalid source continuation or page allowance")]
+    InvalidCursor,
     /// The supplied source is no longer the outline's source.
     #[error("source changed since the structural reading; read it again")]
     StaleSource,
@@ -278,8 +326,8 @@ pub enum SourceReadError {
 }
 pse_diagnostics::impl_diagnostic! {
     SourceReadError,
-    code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+    code(this) { Some(match this {Self::Io(_)=>pse_diagnostics::DiagnosticCode::HostIo,Self::Repository(error)=>pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),_=>pse_diagnostics::DiagnosticCode::HostOwnership}) },
+    forward(this) { match this {Self::Repository(error)=>Some(error),_=>None} }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 /// Exact original source, with numbering supplied separately from bytes.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -305,15 +353,32 @@ pub fn show(
         .entries
         .iter()
         .filter(|entry| {
-            entry.path == path
+            (path.is_empty() || entry.path == path)
                 && at_byte
                     .is_none_or(|at| entry.range.byte_start <= at && at < entry.range.byte_end)
         })
         .collect();
-    let entry = match matches.as_slice() {
-        [] => return Err(SourceReadError::Missing),
-        [one] => *one,
-        several => return Err(SourceReadError::Ambiguous(several.len())),
+    if path.is_empty() {
+        if let Some(at) = at_byte {
+            if !source.is_char_boundary(at) {
+                return Err(SourceReadError::InvalidRange);
+            }
+        } else {
+            return Err(SourceReadError::Missing);
+        }
+    }
+    let entry = if path.is_empty() {
+        matches
+            .iter()
+            .min_by_key(|entry| entry.range.byte_end - entry.range.byte_start)
+            .copied()
+            .ok_or(SourceReadError::Missing)?
+    } else {
+        match matches.as_slice() {
+            [] => return Err(SourceReadError::Missing),
+            [one] => *one,
+            several => return Err(SourceReadError::Ambiguous(several.len())),
+        }
     };
     let text = source
         .get(entry.range.byte_start..entry.range.byte_end)

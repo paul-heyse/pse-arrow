@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Immutable working-source replacement proposals, without filesystem application.
+//! Immutable source-bound change proposals, without filesystem application.
 //!
 //! Paths identify explicitly supplied operands, not canonical filesystem objects. Each source
 //! retains its exact original text; a collection is not an atomic working-tree snapshot.
 
-use crate::source_read::source_digest;
+pub use crate::source_read::{SourceIdentity, SourceText};
 use schemars::JsonSchema;
 use serde::Serialize;
 use std::{
@@ -14,53 +14,6 @@ use std::{
     ops::Range,
     path::{Path, PathBuf},
 };
-
-/// Exact native working path and digest of the original UTF-8 bytes.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, JsonSchema)]
-pub struct SourceIdentity {
-    path: OsString,
-    source_sha256: String,
-}
-impl SourceIdentity {
-    /// Original absolute operand, retaining non-UTF8 platform bytes.
-    pub fn path(&self) -> &Path {
-        Path::new(&self.path)
-    }
-    /// SHA256 of every original source byte.
-    pub fn source_sha256(&self) -> &str {
-        &self.source_sha256
-    }
-}
-
-/// One immutable original, supplied by the acquisition owner rather than reread here.
-#[derive(Clone, Debug, Serialize, JsonSchema)]
-pub struct WorkingSource {
-    identity: SourceIdentity,
-    text: String,
-}
-impl WorkingSource {
-    /// Bind an explicit absolute path to exact text, without filesystem access or normalization.
-    pub fn new(path: PathBuf, text: String) -> Result<Self, ProposalError> {
-        if !path.is_absolute() {
-            return Err(ProposalError::RelativePath(path));
-        }
-        Ok(Self {
-            identity: SourceIdentity {
-                path: path.into_os_string(),
-                source_sha256: source_digest(&text),
-            },
-            text,
-        })
-    }
-    /// Address of these original bytes.
-    pub fn identity(&self) -> &SourceIdentity {
-        &self.identity
-    }
-    /// Exact original UTF-8 text, including comments and malformed syntax.
-    pub fn text(&self) -> &str {
-        &self.text
-    }
-}
 
 /// Producer provenance; syntax mode has no semantic identity or resolution field.
 ///
@@ -135,14 +88,37 @@ pub struct UnresolvedPlaceholder {
     pub description: String,
 }
 
-/// Checked replacement-only proposal; it grants no write or Git-publication authority.
-///
-/// Create/delete/rename operations are outside this slice and must be refused by producers,
-/// never silently translated into text edits. All candidates and the selected subset differ.
+/// Explicit regular-file effects, retained independently from replacement candidates.
+#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[serde(tag = "operation", rename_all = "snake_case")]
+pub enum FileOperation {
+    /// Proposed new regular file. Absence is an application-time precondition.
+    Create {
+        /// Absolute destination operand; absence remains an application-time precondition.
+        path: OsString,
+        /// Exact proposed UTF-8 contents.
+        text: String,
+    },
+    /// Delete the exact addressed working original.
+    Delete {
+        /// Exact addressed original working file.
+        source: SourceIdentity,
+    },
+    /// Move the exact working original; selected edits still address its original bytes.
+    Rename {
+        /// Exact addressed original working file.
+        source: SourceIdentity,
+        /// Absolute destination operand.
+        destination: OsString,
+    },
+}
+
+/// Checked proposal; it grants no write, compilation or Git-publication authority.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct ChangeProposal {
     producer: ProducerContext,
-    sources: Vec<WorkingSource>,
+    sources: Vec<SourceText>,
+    file_operations: Vec<FileOperation>,
     candidates: Vec<EditCandidate>,
     selected: Vec<usize>,
     conflicts: Vec<CandidateConflict>,
@@ -186,9 +162,30 @@ impl ChangeProposal {
     /// another edit's start/interior, conflict because no ordering has been selected.
     pub fn new(
         producer: ProducerContext,
-        sources: Vec<WorkingSource>,
+        sources: Vec<SourceText>,
         candidates: Vec<EditCandidate>,
         selected: Vec<usize>,
+        limitations: Vec<String>,
+        unresolved_placeholders: Vec<UnresolvedPlaceholder>,
+    ) -> Result<Self, ProposalError> {
+        Self::with_file_operations(
+            producer,
+            sources,
+            candidates,
+            selected,
+            vec![],
+            limitations,
+            unresolved_placeholders,
+        )
+    }
+    /// Validate regular-file effects together with source-bound replacements once.
+    /// No target absence, filesystem permission, application or index mutation is asserted.
+    pub fn with_file_operations(
+        producer: ProducerContext,
+        sources: Vec<SourceText>,
+        candidates: Vec<EditCandidate>,
+        selected: Vec<usize>,
+        file_operations: Vec<FileOperation>,
         limitations: Vec<String>,
         unresolved_placeholders: Vec<UnresolvedPlaceholder>,
     ) -> Result<Self, ProposalError> {
@@ -212,11 +209,11 @@ impl ChangeProposal {
         let mut by_path = BTreeMap::new();
         for (index, source) in sources.iter().enumerate() {
             if by_path
-                .insert(source.identity.path(), (index, Vec::new()))
+                .insert(source.identity().path(), (index, Vec::new()))
                 .is_some()
             {
                 return Err(ProposalError::DuplicateSource(
-                    source.identity.path().into(),
+                    source.identity().path().into(),
                 ));
             }
         }
@@ -225,10 +222,10 @@ impl ChangeProposal {
                 .get_mut(candidate.source.path())
                 .ok_or_else(|| ProposalError::MissingSource(candidate.source.path().into()))?;
             let source = &sources[*source_index];
-            if source.identity != candidate.source {
+            if source.identity() != &candidate.source {
                 return Err(ProposalError::StaleSource(candidate.source.path().into()));
             }
-            if source.text.get(candidate.range.clone()).is_none() {
+            if source.text().get(candidate.range.clone()).is_none() {
                 return Err(ProposalError::InvalidRange(index));
             }
             indices.push(index);
@@ -248,8 +245,46 @@ impl ChangeProposal {
             }
         }
         let mut conflicts = Vec::new();
+        let mut operated = std::collections::BTreeSet::new();
+        let mut destinations = std::collections::BTreeSet::new();
+        for operation in &file_operations {
+            let (original, destination) = match operation {
+                FileOperation::Create { path, .. } => (None, Some(Path::new(path))),
+                FileOperation::Delete { source } => (Some(source), None),
+                FileOperation::Rename {
+                    source,
+                    destination,
+                } => (Some(source), Some(Path::new(destination))),
+            };
+            if let Some(source) = original {
+                if !matches!(source.origin(), crate::source_read::SourceOrigin::Working) {
+                    return Err(ProposalError::UnsupportedFileOperation);
+                }
+                let (index, edits) = by_path
+                    .get(source.path())
+                    .ok_or_else(|| ProposalError::MissingSource(source.path().into()))?;
+                if sources[*index].identity() != source {
+                    return Err(ProposalError::StaleSource(source.path().into()));
+                }
+                if !operated.insert(source.path())
+                    || (matches!(operation, FileOperation::Delete { .. }) && !edits.is_empty())
+                {
+                    return Err(ProposalError::ConflictingFileOperation(
+                        source.path().into(),
+                    ));
+                }
+            }
+            if let Some(path) = destination {
+                if !path.is_absolute() {
+                    return Err(ProposalError::RelativePath(path.into()));
+                }
+                if !destinations.insert(path) || by_path.contains_key(path) {
+                    return Err(ProposalError::ConflictingFileOperation(path.into()));
+                }
+            }
+        }
         for (path, (_, indices)) in &mut by_path {
-            if indices.is_empty() {
+            if indices.is_empty() && !operated.contains(path) {
                 return Err(ProposalError::UnusedSource((*path).into()));
             }
             indices.sort_unstable_by_key(|&index| {
@@ -274,6 +309,7 @@ impl ChangeProposal {
         Ok(Self {
             producer,
             sources,
+            file_operations,
             candidates,
             selected,
             conflicts,
@@ -286,8 +322,12 @@ impl ChangeProposal {
         &self.producer
     }
     /// Only the immutable original inputs actually addressed by candidates.
-    pub fn sources(&self) -> &[WorkingSource] {
+    pub fn sources(&self) -> &[SourceText] {
         &self.sources
+    }
+    /// Explicit file effects, independent of matches and selected replacements.
+    pub fn file_operations(&self) -> &[FileOperation] {
+        &self.file_operations
     }
     /// Complete match/edit candidate collection, including overlapping alternatives.
     pub fn candidates(&self) -> &[EditCandidate] {
@@ -312,21 +352,23 @@ impl ChangeProposal {
 
     /// Compare only addressed inputs with freshly acquired bytes; unrelated sources are ignored.
     /// This is a stale-input check, never concurrency control or application permission.
-    pub fn validate_sources(&self, current: &[WorkingSource]) -> Result<(), ProposalError> {
+    pub fn validate_sources(&self, current: &[SourceText]) -> Result<(), ProposalError> {
         for original in &self.sources {
             let mut same_path = current
                 .iter()
-                .filter(|source| source.identity.path == original.identity.path);
+                .filter(|source| source.identity().same_operand(original.identity()));
             let source = same_path
                 .next()
-                .ok_or_else(|| ProposalError::MissingSource(original.identity.path().into()))?;
+                .ok_or_else(|| ProposalError::MissingSource(original.identity().path().into()))?;
             if same_path.next().is_some() {
                 return Err(ProposalError::DuplicateSource(
-                    original.identity.path().into(),
+                    original.identity().path().into(),
                 ));
             }
-            if source.identity != original.identity {
-                return Err(ProposalError::StaleSource(original.identity.path().into()));
+            if source.identity() != original.identity() {
+                return Err(ProposalError::StaleSource(
+                    original.identity().path().into(),
+                ));
             }
         }
         Ok(())
@@ -339,12 +381,12 @@ impl ChangeProposal {
         let source = self
             .sources
             .iter()
-            .find(|source| source.identity == candidate.source)?;
+            .find(|source| source.identity() == &candidate.source)?;
         Some(EditInspection {
             candidate: candidate_index,
-            source: &source.identity,
+            source: source.identity(),
             range: candidate.range.clone(),
-            original: source.text.get(candidate.range.clone())?,
+            original: source.text().get(candidate.range.clone())?,
             replacement: &candidate.replacement,
         })
     }
@@ -353,6 +395,12 @@ impl ChangeProposal {
 /// Typed construction or stale-input refusal, before an output envelope is created.
 #[derive(Debug, thiserror::Error)]
 pub enum ProposalError {
+    /// Only regular working files have supported create/delete/rename proposal semantics.
+    #[error("file operations require addressed working files")]
+    UnsupportedFileOperation,
+    /// File effects target the same original/destination, or deleting an edited source.
+    #[error("conflicting file operation at {0:?}")]
+    ConflictingFileOperation(PathBuf),
     /// A working operand must bind an explicit absolute path.
     #[error("working source path must be absolute: {0:?}")]
     RelativePath(PathBuf),

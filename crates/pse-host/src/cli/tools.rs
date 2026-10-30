@@ -74,6 +74,54 @@ pub(super) struct PreparedTool {
 fn tool_error(error: prepared_xtask::PreparedXtaskError) -> HostError {
     HostError::PreparedXtask(Box::new(error))
 }
+/// Transport/run controls shared by exact native-owner forwarding adapters.
+#[derive(Debug)]
+pub(super) struct Run {
+    pub selection: String,
+    pub detach: bool,
+    pub session: Option<String>,
+    pub arguments: Vec<OsString>,
+    pub verb: &'static str,
+}
+pub(super) fn run(
+    args: Run,
+    selected: Option<&Path>,
+    output: &OutputOptions,
+    entry: &EntryGuard,
+) -> Result<i32, HostError> {
+    let root = checkout_root(selected)?;
+    let environment = std::env::vars_os().collect();
+    let tool = PreparedXtask::open(&root, &environment, &args.selection).map_err(tool_error)?;
+    let evidence = NativeToolSelection {
+        kind: "xtask",
+        selection: tool.id().into(),
+        source_identity: tool.source_identity().map_err(tool_error)?,
+        executable_sha256: tool.executable().sha256.clone(),
+    };
+    let payload = tool
+        .launch(args.arguments, environment)
+        .map_err(tool_error)?;
+    let command = std::iter::once(payload.program.into_os_string())
+        .chain(payload.arguments)
+        .collect();
+    super::launch_managed(
+        ManagedCommand {
+            parent: None,
+            root,
+            cwd: payload.cwd,
+            environment: payload.environment,
+            command,
+            detach: args.detach,
+            session: args.session,
+            resource_class: None,
+            verb: args.verb,
+            tool: Some(evidence),
+            workflow: None,
+        },
+        entry,
+        output,
+    )
+}
 pub(super) fn dispatch(
     action: Action,
     selected: Option<&Path>,
@@ -120,36 +168,18 @@ pub(super) fn dispatch(
             detach,
             session,
             arguments,
-        } => {
-            let tool = PreparedXtask::open(&root, &environment, &selection).map_err(tool_error)?;
-            let evidence = NativeToolSelection {
-                kind: "xtask",
-                selection: tool.id().into(),
-                source_identity: tool.source_identity().map_err(tool_error)?,
-                executable_sha256: tool.executable().sha256.clone(),
-            };
-            let payload = tool.launch(arguments, environment).map_err(tool_error)?;
-            let command = std::iter::once(payload.program.into_os_string())
-                .chain(payload.arguments)
-                .collect();
-            super::launch_managed(
-                ManagedCommand {
-                    parent: None,
-                    root,
-                    cwd: payload.cwd,
-                    environment: payload.environment,
-                    command,
-                    detach,
-                    session,
-                    resource_class: None,
-                    verb: "tools run",
-                    tool: Some(evidence),
-                    workflow: None,
-                },
-                entry,
-                output,
-            )
-        }
+        } => run(
+            Run {
+                selection,
+                detach,
+                session,
+                arguments,
+                verb: "tools run",
+            },
+            selected,
+            output,
+            entry,
+        ),
     }
 }
 

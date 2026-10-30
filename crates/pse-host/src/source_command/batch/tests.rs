@@ -1,6 +1,42 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
+
+#[tokio::test]
+async fn declaration_budget_applies_across_nested_entries_and_all_operand_outcomes_remain() {
+    let root = tempfile::tempdir().unwrap();
+    let first = root.path().join("first.rs");
+    let last = root.path().join("last.rs");
+    std::fs::write(&first, "mod m { fn one() {} fn two() {} }").unwrap();
+    std::fs::write(&last, "fn last() {}").unwrap();
+    let mut task = start_page(
+        vec![first, root.path().join("missing.rs"), last],
+        None,
+        RustEdition::E2024,
+        CancellationToken::new(),
+        Some(2),
+    );
+    let response = task.settle().await.unwrap();
+    assert_eq!(response.payload.records.len(), 3);
+    let lengths: Vec<_> = response
+        .payload
+        .records
+        .iter()
+        .filter_map(|record| match record {
+            Record::Read { reading } => Some(reading.outline.entries.len()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(lengths, [2, 0]);
+    let Record::Read { reading } = &response.payload.records[0] else {
+        panic!("first read")
+    };
+    assert_eq!(reading.page.total_records, 3);
+    assert_eq!(reading.page.omitted_records, 1);
+    assert!(matches!(response.payload.records[1], Record::Failed { .. }));
+    assert_eq!(response.failures.len(), 1);
+    assert!(response.payload.cpu_work_completed);
+}
 #[tokio::test]
 async fn indexed_batch_retains_file_order_and_all_independent_failures() {
     let root = tempfile::tempdir().unwrap();
@@ -84,6 +120,20 @@ async fn cancelling_a_settle_awaiter_keeps_running_cpu_handle_until_owner_settle
             }
             Ok(FileOutline {
                 file: file.as_os_str().into(),
+                source: crate::source_read::SourceText::new(
+                    std::env::current_dir().unwrap().join(file),
+                    "fixture".into(),
+                )
+                .unwrap()
+                .identity()
+                .clone(),
+                page: crate::source_read::PageState {
+                    total_records: 1,
+                    offset: 0,
+                    returned_records: 1,
+                    omitted_records: 0,
+                    next_cursor: None,
+                },
                 outline: crate::source_read::rust("fn complete() {}", RustEdition::E2024),
             })
         },
@@ -126,6 +176,20 @@ async fn independent_files_execute_on_distinct_shared_workers_without_blocking_t
             }
             Ok(FileOutline {
                 file: file.as_os_str().into(),
+                source: crate::source_read::SourceText::new(
+                    std::env::current_dir().unwrap().join(file),
+                    "fixture".into(),
+                )
+                .unwrap()
+                .identity()
+                .clone(),
+                page: crate::source_read::PageState {
+                    total_records: 1,
+                    offset: 0,
+                    returned_records: 1,
+                    omitted_records: 0,
+                    next_cursor: None,
+                },
                 outline: crate::source_read::rust("fn file() {}", RustEdition::E2024),
             })
         },

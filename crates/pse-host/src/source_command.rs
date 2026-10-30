@@ -5,7 +5,10 @@
 pub mod batch;
 use crate::{
     envelope::{Completeness, Envelope},
-    source_read::{self, Outline, RustEdition, SourceSelection},
+    source_read::{
+        self, Outline, PageRequest, PageState, PositionSelector, RustEdition, SourceIdentity,
+        SourceLocator, SourceRequest, SourceSelection,
+    },
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -28,6 +31,10 @@ pub enum Language {
 pub struct FileOutline {
     /// Native file path; platform bytes are retained by Serde's OsString representation.
     pub file: OsString,
+    /// Exact original source kind, context and content generation.
+    pub source: SourceIdentity,
+    /// Declaration coverage and exact-source continuation.
+    pub page: PageState,
     /// Structure, edition, source digest and parse errors from the same read.
     pub outline: Outline,
 }
@@ -36,6 +43,8 @@ pub struct FileOutline {
 pub struct FileSelection {
     /// Native file operand, including non-UTF8 filename bytes.
     pub file: OsString,
+    /// Reusable exact-source location, without resolved-symbol authority.
+    pub locator: SourceLocator,
     /// Actual selected parser/backend.
     pub backend: String,
     /// Selected parsing edition, never an inferred Cargo configuration.
@@ -48,15 +57,12 @@ pub struct FileSelection {
 /// Source reading refuses unsupported or ambiguous selectors without guessing.
 #[derive(Debug, thiserror::Error)]
 pub enum SourceCommandError {
-    /// File could not be read as UTF-8.
-    #[error("cannot read source {file:?}: {source}")]
-    Read {
-        /// Original selected path, without lossy filename conversion.
-        file: PathBuf,
-        /// Native I/O/UTF-8 cause.
-        #[source]
-        source: std::io::Error,
-    },
+    /// Existing generated ownership evidence remains independently fallible.
+    #[error(transparent)]
+    Ownership(#[from] crate::ownership::OwnershipError),
+    /// Mandatory provenance projection preserves the original serialization cause.
+    #[error("source provenance projection: {0}")]
+    Projection(#[from] serde_json::Error),
     /// Unknown formats need an explicit choice.
     #[error("source format is unknown for {0:?}; select --language rust or markdown")]
     UnknownLanguage(PathBuf),
@@ -80,33 +86,156 @@ pub enum SourceCommandError {
     )]
     OpaqueWorkerPanic,
 }
+/// A generated hit retains its exact source independently from declaration-map evidence.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct GeneratedOrigin {
+    /// Exact byte-safe source and original selected range.
+    pub hit: SourceLocator,
+    /// Exact original selected bytes.
+    pub text: String,
+    /// Existing map/producer sidecar observations, without a second provenance index.
+    pub owner: crate::ownership::OwnerQuery,
+}
+/// Inspect a generated hit through the existing ownership owner; never infer an authored
+/// source location from a declaration name or execute the declared regeneration command.
+pub fn generated_origin(
+    root: &Path,
+    request: &SourceRequest,
+    range: std::ops::Range<usize>,
+    if_source: Option<&str>,
+) -> Result<Envelope<GeneratedOrigin>, SourceCommandError> {
+    let source = request.acquire()?;
+    if if_source.is_some_and(|digest| digest != source.identity().source_sha256()) {
+        return Err(source_read::SourceReadError::StaleSource.into());
+    }
+    let text = source
+        .text()
+        .get(range.clone())
+        .ok_or(source_read::SourceReadError::InvalidRange)?
+        .to_owned();
+    let hit = SourceLocator {
+        source: source.identity().clone(),
+        range: source_read::location(&source_read::line_starts(source.text()), range),
+    };
+    let mut owner = crate::ownership::query(root, request.path())?;
+    let failures = std::mem::take(&mut owner.failures);
+    let mut response = Envelope::response(
+        "code origin",
+        "exact generated hit and independently declared contributor/regeneration routes",
+        GeneratedOrigin { hit, text, owner },
+    );
+    response.providers.push(provider_context(
+        source.identity(),
+        "raw-source-acquisition;generated-output-map/v1",
+        std::slice::from_ref(&response.payload.hit.range),
+    )?);
+    response.observation.scope = "exact_source_hit_and_existing_generator_declarations".into();
+    response.observation.limitations = response.payload.owner.coverage_limits.clone();
+    response.observation.limitations.push("routing/lineage comes from existing producer declarations, independently of the hit's byte generation; unknown authored source locations remain unknown".into());
+    if let crate::ownership::Contributors::Available { records, .. } =
+        &response.payload.owner.contributors
+    {
+        let mut emitters = std::collections::BTreeSet::new();
+        for record in records {
+            if emitters.insert(&record.generator_path) {
+                if let Some(root) = root.to_str() {
+                    response.next.push(crate::envelope::NextAction::Command {
+                        argv: vec![
+                            "pse".into(),
+                            "-C".into(),
+                            root.into(),
+                            "outline".into(),
+                            record.generator_path.clone(),
+                        ],
+                        reason: format!(
+                            "inspect declared emitter {} ({}) without claiming resolved identity",
+                            record.generator_symbol, record.declaration_key
+                        ),
+                    });
+                } else {
+                    response.observation.limitations.push("declared emitter next action cannot encode the non-UTF8 checkout in Unicode argv; exact byte-safe ownership context remains available".into());
+                }
+            }
+        }
+    }
+    let policy = crate::envelope::RedactionPolicy::from_environment();
+    response.failures = failures
+        .iter()
+        .map(|error| crate::envelope::ErrorRecord::from_typed(error, &policy))
+        .collect();
+    if !response.failures.is_empty() {
+        response.observation.completeness = Completeness::Partial;
+    }
+    Ok(response)
+}
+
+/// Project an exact locator into a literal native command only when every argument is
+/// Unicode-representable. The locator itself always retains original native path bytes.
+pub(crate) fn origin_action(
+    root: &Path,
+    locator: &SourceLocator,
+) -> Option<crate::envelope::NextAction> {
+    let mut argv = vec![
+        "pse".into(),
+        "-C".into(),
+        root.to_str()?.into(),
+        "code".into(),
+        "origin".into(),
+        locator.source.path().to_str()?.into(),
+        "--range-start".into(),
+        locator.range.byte_start.to_string(),
+        "--range-end".into(),
+        locator.range.byte_end.to_string(),
+        "--if-source".into(),
+        locator.source.source_sha256().into(),
+    ];
+    match locator.source.origin() {
+        source_read::SourceOrigin::Working => {}
+        source_read::SourceOrigin::Index { .. } => argv.push("--index".into()),
+        source_read::SourceOrigin::Blob { revision, .. } => {
+            argv.extend(["--revision".into(), revision.clone()])
+        }
+    }
+    Some(crate::envelope::NextAction::Command {argv,reason:"inspect the hit through existing generated-output contributors and regeneration declarations".into()})
+}
+/// Project the shared exact source identity into mandatory envelope provenance. This adapter
+/// owns presentation only; it neither acquires sources nor declares a second identity format.
+pub(crate) fn provider_context(
+    source: &SourceIdentity,
+    backend: &str,
+    ranges: &[source_read::SourceRange],
+) -> Result<crate::envelope::ProviderContext, serde_json::Error> {
+    let address = serde_json::to_string(source)?;
+    Ok(crate::envelope::ProviderContext {
+        provider: backend.into(),
+        context: Some(address.clone()),
+        analysis_generation: Some(source.source_sha256().into()),
+        availability: crate::envelope::SubjectState::Available,
+        coordinates: ranges
+            .iter()
+            .map(|range| crate::envelope::SourceCoordinates::Utf8Bytes {
+                source: address.clone(),
+                revision: Some(source.source_sha256().into()),
+                start: range.byte_start,
+                end: range.byte_end,
+            })
+            .collect(),
+    })
+}
 pse_diagnostics::impl_diagnostic! {
     SourceCommandError,
-    code(this) { match this {Self::Selection(error)=>pse_diagnostics::TypedDiagnostic::diagnostic_code(error), Self::Read{..}=>Some(pse_diagnostics::DiagnosticCode::HostIo), Self::WorkerPanic(_)|Self::OpaqueWorkerPanic=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),_=>Some(pse_diagnostics::DiagnosticCode::HostOwnership)} },
+    code(this) { match this {Self::Selection(error)=>pse_diagnostics::TypedDiagnostic::diagnostic_code(error), Self::WorkerPanic(_)|Self::OpaqueWorkerPanic=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),_=>Some(pse_diagnostics::DiagnosticCode::HostOwnership)} },
     forward(this) {match this {Self::Selection(error)=>Some(error),_=>None}},
     help(_this) {None}, related(_this) {None},source(_this) {None}
 }
-fn read(
-    file: &Path,
-    language: Option<Language>,
-    edition: RustEdition,
-) -> Result<(String, Outline), SourceCommandError> {
-    let language = language
+fn language(file: &Path, language: Option<Language>) -> Result<Language, SourceCommandError> {
+    language
         .or_else(|| match file.extension().and_then(OsStr::to_str) {
             Some("rs") => Some(Language::Rust),
             Some("md" | "markdown") => Some(Language::Markdown),
             _ => None,
         })
-        .ok_or_else(|| SourceCommandError::UnknownLanguage(file.into()))?;
-    let source = std::fs::read_to_string(file).map_err(|source| SourceCommandError::Read {
-        file: file.into(),
-        source,
-    })?;
-    let outline = match language {
-        Language::Rust => source_read::rust(&source, edition),
-        Language::Markdown => source_read::markdown(&source),
-    };
-    Ok((source, outline))
+        .ok_or_else(|| SourceCommandError::UnknownLanguage(file.into()))
 }
 fn coverage<T>(response: &mut Envelope<T>, has_issues: bool) {
     response.observation.scope = "one_file_syntactic_reading".into();
@@ -126,7 +255,30 @@ pub fn outline(
     language: Option<Language>,
     edition: RustEdition,
 ) -> Result<Envelope<FileOutline>, SourceCommandError> {
-    let (_, outline) = read(file, language, edition)?;
+    outline_page(
+        &SourceRequest::Working { path: file.into() },
+        language,
+        edition,
+        PageRequest::default(),
+    )
+}
+/// Acquire one addressed source and build only its selected declaration page.
+pub fn outline_page(
+    request: &SourceRequest,
+    selected_language: Option<Language>,
+    edition: RustEdition,
+    page: PageRequest,
+) -> Result<Envelope<FileOutline>, SourceCommandError> {
+    let language = language(request.path(), selected_language)?;
+    let source = request.acquire()?;
+    let (outline, page) = source_read::outline_page(
+        &source,
+        match language {
+            Language::Rust => Some(edition),
+            Language::Markdown => None,
+        },
+        page,
+    )?;
     let mut response = Envelope::response(
         "outline",
         format!(
@@ -135,12 +287,33 @@ pub fn outline(
             outline.parse_issues.len()
         ),
         FileOutline {
-            file: file.as_os_str().to_owned(),
+            file: request.path().as_os_str().to_owned(),
+            source: source.identity().clone(),
+            page,
             outline,
         },
     );
     let has_issues = !response.payload.outline.parse_issues.is_empty();
+    response.providers.push(provider_context(
+        source.identity(),
+        &format!(
+            "{};edition={:?}",
+            response.payload.outline.backend, response.payload.outline.rust_edition
+        ),
+        &[source_read::location(
+            &source_read::line_starts(source.text()),
+            0..source.text().len(),
+        )],
+    )?);
     coverage(&mut response, has_issues);
+    if response.payload.page.omitted_records > 0 {
+        response.observation.completeness = Completeness::Partial;
+        response.observation.required = false;
+        response.observation.limitations.push(
+            "declaration page omitted further entries; continuation binds the same exact source"
+                .into(),
+        );
+    }
     Ok(response)
 }
 /// Split the shorthand at its first separator, or accept an explicit native file operand.
@@ -177,8 +350,35 @@ pub fn show(
     language: Option<Language>,
     edition: RustEdition,
 ) -> Result<Envelope<FileSelection>, SourceCommandError> {
-    let (source, outline) = read(file, language, edition)?;
-    let selection = source_read::show(&source, &outline, items, at_byte)?;
+    show_addressed(
+        &SourceRequest::Working { path: file.into() },
+        items,
+        &at_byte.map_or(PositionSelector::Path, |offset| PositionSelector::Byte {
+            offset,
+        }),
+        language,
+        edition,
+    )
+}
+/// Read a declaration or exact range from working, index or committed source bytes.
+pub fn show_addressed(
+    request: &SourceRequest,
+    items: &[String],
+    position: &PositionSelector,
+    selected_language: Option<Language>,
+    edition: RustEdition,
+) -> Result<Envelope<FileSelection>, SourceCommandError> {
+    let language = language(request.path(), selected_language)?;
+    let source = request.acquire()?;
+    let outline = match language {
+        Language::Rust => source_read::rust(source.text(), edition),
+        Language::Markdown => source_read::markdown(source.text()),
+    };
+    let selection = position.select(source.text(), &outline, items)?;
+    let locator = SourceLocator {
+        source: source.identity().clone(),
+        range: selection.range.clone(),
+    };
     let mut response = Envelope::response(
         "show",
         format!(
@@ -186,7 +386,8 @@ pub fn show(
             selection.range.line_start, selection.range.line_end
         ),
         FileSelection {
-            file: file.as_os_str().to_owned(),
+            file: request.path().as_os_str().to_owned(),
+            locator,
             backend: outline.backend,
             rust_edition: outline.rust_edition,
             parse_issues: outline.parse_issues,
@@ -194,6 +395,14 @@ pub fn show(
         },
     );
     let has_issues = !response.payload.parse_issues.is_empty();
+    response.providers.push(provider_context(
+        source.identity(),
+        &format!(
+            "{};edition={:?}",
+            response.payload.backend, response.payload.rust_edition
+        ),
+        std::slice::from_ref(&response.payload.selection.range),
+    )?);
     coverage(&mut response, has_issues);
     Ok(response)
 }
@@ -213,6 +422,12 @@ pub fn outline_text(view: &FileOutline) -> String {
             entry.range.line_end,
             entry.path.join("::"),
             entry.kind
+        ));
+    }
+    if let Some(cursor) = &view.page.next_cursor {
+        text.push_str(&format!(
+            "{} further declarations; continuation={cursor}\n",
+            view.page.omitted_records
         ));
     }
     text

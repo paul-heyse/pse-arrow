@@ -43,6 +43,10 @@ fn inputs(root: &Path, producer: &str, tree: &GeneratedTree) -> Result<Vec<Scope
             paths.insert(path);
         }
     }
+    if producer.starts_with("registry-markdown") {
+        paths.insert(scope(Path::new("crates/pse-host/src"), ScopeKind::Tree)?);
+        paths.insert(scope(Path::new("scripts/cli-catalog.rs"), ScopeKind::File)?);
+    }
     if producer.starts_with("runtime-catalogue") {
         for path in [
             "crates/pse-runtime/src",

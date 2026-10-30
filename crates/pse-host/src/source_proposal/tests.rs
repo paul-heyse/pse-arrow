@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 
-fn source(path: &str, text: &str) -> WorkingSource {
-    WorkingSource::new(path.into(), text.into()).unwrap()
+fn source(path: &str, text: &str) -> SourceText {
+    SourceText::new(path.into(), text.into()).unwrap()
 }
 fn syntax() -> ProducerContext {
     ProducerContext::Syntax {
@@ -12,7 +12,7 @@ fn syntax() -> ProducerContext {
     }
 }
 fn proposal(
-    sources: Vec<WorkingSource>,
+    sources: Vec<SourceText>,
     candidates: Vec<EditCandidate>,
     selected: Vec<usize>,
 ) -> Result<ChangeProposal, ProposalError> {
@@ -23,7 +23,7 @@ fn proposal(
 fn exact_original_digest_and_native_path_are_bound_without_acquisition() {
     use std::os::unix::ffi::{OsStrExt as _, OsStringExt as _};
     let path = OsString::from_vec(b"/source/opaque-\xff.rs".to_vec());
-    let original = WorkingSource::new(PathBuf::from(&path), "abc".into()).unwrap();
+    let original = SourceText::new(PathBuf::from(&path), "abc".into()).unwrap();
     assert_eq!(
         original.identity().path().as_os_str().as_bytes(),
         path.as_bytes()
@@ -35,8 +35,8 @@ fn exact_original_digest_and_native_path_are_bound_without_acquisition() {
     let encoded = serde_json::to_value(&original).unwrap();
     assert_eq!(encoded["identity"]["path"]["Unix"][15], 255);
     assert!(matches!(
-        WorkingSource::new("relative.rs".into(), "abc".into()),
-        Err(ProposalError::RelativePath(_))
+        SourceText::new("relative.rs".into(), "abc".into()),
+        Err(crate::source_read::SourceReadError::RelativePath(_))
     ));
 }
 
@@ -276,4 +276,136 @@ fn semantic_authority_requires_synchronized_context() {
         ChangeProposal::new(producer, vec![], vec![], vec![], vec![], vec![]),
         Err(ProposalError::MissingProducerContext)
     ));
+}
+
+#[test]
+fn file_effects_share_original_evidence_and_reject_colliding_or_unsupported_targets() {
+    let original = source("/source/old.rs", "fn old() {}\n");
+    let renamed = ChangeProposal::with_file_operations(
+        syntax(),
+        vec![original.clone()],
+        vec![],
+        vec![],
+        vec![
+            FileOperation::Rename {
+                source: original.identity().clone(),
+                destination: "/source/new.rs".into(),
+            },
+            FileOperation::Create {
+                path: "/source/created.rs".into(),
+                text: "fn created() {}\n".into(),
+            },
+        ],
+        vec![],
+        vec![],
+    )
+    .unwrap();
+    assert_eq!(renamed.file_operations().len(), 2);
+    assert!(renamed.inspect(0).is_none());
+    renamed
+        .validate_sources(std::slice::from_ref(&original))
+        .unwrap();
+    let deleted = ChangeProposal::with_file_operations(
+        syntax(),
+        vec![original.clone()],
+        vec![],
+        vec![],
+        vec![FileOperation::Delete {
+            source: original.identity().clone(),
+        }],
+        vec![],
+        vec![],
+    )
+    .unwrap();
+    assert_eq!(deleted.sources()[0].text(), "fn old() {}\n");
+    for operation in [
+        FileOperation::Rename {
+            source: original.identity().clone(),
+            destination: "/source/old.rs".into(),
+        },
+        FileOperation::Create {
+            path: "/source/old.rs".into(),
+            text: "new".into(),
+        },
+    ] {
+        assert!(matches!(
+            ChangeProposal::with_file_operations(
+                syntax(),
+                vec![original.clone()],
+                vec![],
+                vec![],
+                vec![operation],
+                vec![],
+                vec![]
+            ),
+            Err(ProposalError::ConflictingFileOperation(_))
+        ));
+    }
+    let edit = EditCandidate::new(original.identity().clone(), 3..6, "new".into());
+    assert!(matches!(
+        ChangeProposal::with_file_operations(
+            syntax(),
+            vec![original.clone()],
+            vec![edit],
+            vec![0],
+            vec![FileOperation::Delete {
+                source: original.identity().clone()
+            }],
+            vec![],
+            vec![]
+        ),
+        Err(ProposalError::ConflictingFileOperation(_))
+    ));
+    assert!(matches!(
+        ChangeProposal::with_file_operations(
+            syntax(),
+            vec![],
+            vec![],
+            vec![],
+            vec![FileOperation::Create {
+                path: "relative.rs".into(),
+                text: String::new()
+            }],
+            vec![],
+            vec![]
+        ),
+        Err(ProposalError::RelativePath(_))
+    ));
+}
+
+#[test]
+fn file_operation_destinations_preserve_native_nonunicode_path_bytes() {
+    use std::os::unix::ffi::{OsStrExt as _, OsStringExt as _};
+    let original = source("/source/original.rs", "fn original() {}\n");
+    let created = OsString::from_vec(b"/source/created-\xff.rs".to_vec());
+    let renamed = OsString::from_vec(b"/source/renamed-\xfe.rs".to_vec());
+    let proposal = ChangeProposal::with_file_operations(
+        syntax(),
+        vec![original.clone()],
+        vec![],
+        vec![],
+        vec![
+            FileOperation::Create {
+                path: created.clone(),
+                text: "new regular file".into(),
+            },
+            FileOperation::Rename {
+                source: original.identity().clone(),
+                destination: renamed.clone(),
+            },
+        ],
+        vec![],
+        vec![],
+    )
+    .unwrap();
+    let value = serde_json::to_value(&proposal).unwrap();
+    assert_eq!(
+        value["file_operations"][0]["path"],
+        serde_json::json!({"Unix":created.as_bytes()})
+    );
+    assert_eq!(
+        value["file_operations"][1]["destination"],
+        serde_json::json!({"Unix":renamed.as_bytes()})
+    );
+    assert_eq!(proposal.sources()[0].text(), "fn original() {}\n");
 }

@@ -13,7 +13,7 @@ use super::{
     metadata::{self, Value},
 };
 use anyhow::{Context, Result, ensure};
-use clap::ValueEnum;
+use clap::Subcommand;
 use pulldown_cmark::{Event, Options, Parser, Tag};
 use regex::Regex;
 use serde::Deserialize;
@@ -109,8 +109,10 @@ pub struct Page {
     pub status: String,
 }
 /// Third-party publication operations, never ordinary implicit preparation.
-#[derive(Clone, Copy, Debug, ValueEnum)]
+#[derive(Debug, Subcommand)]
 pub enum SiteCommand {
+    /// Check only explicitly named or changed Markdown sources.
+    Check(super::check::Query),
     /// Build and atomically publish the complete site.
     Build,
     /// Build and run Pagefind's server.
@@ -794,6 +796,7 @@ pub fn build(root: &Path) -> Result<PathBuf> {
 /// Tool preparation, build or serving fails.
 pub fn execute(root: &Path, command: SiteCommand) -> Result<()> {
     match command {
+        SiteCommand::Check(query) => return super::check::execute(root, query),
         SiteCommand::ToolSpecs => println!(
             "{}",
             configuration(root)?

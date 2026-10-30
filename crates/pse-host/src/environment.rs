@@ -10,6 +10,21 @@ use std::{
 /// Environment values remain operating-system strings until an external text boundary.
 pub type Environment = BTreeMap<OsString, OsString>;
 
+/// Actual preparation-child inputs, excluding only host/client transport and shell state.
+/// Remove these values from the child itself before deriving a reusable preparation identity.
+pub(crate) fn preparation_inputs(environment: &Environment) -> Environment {
+    let mut selected = environment.clone();
+    for key in [
+        "PSE_HOST_REEXEC",
+        "PSE_HOST_GENERATION_HANDOFF",
+        "CODEX_TOOL_CALL_ID",
+        "_",
+    ] {
+        selected.remove(OsStr::new(key));
+    }
+    selected
+}
+
 /// Explicit compiler-cache intent belongs to the command owner, not another environment knob.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum CacheMode {

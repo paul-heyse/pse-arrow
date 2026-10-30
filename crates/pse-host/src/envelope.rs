@@ -295,7 +295,7 @@ pub struct ArtifactReference {
 pub enum NextAction {
     /// Another CLI query, with literal argument boundaries.
     Command {
-        /// Literal argument vector, excluding the executable name.
+        /// Literal command vector including its executable name; never shell source.
         argv: Vec<String>,
         /// Why the action may be useful.
         reason: String,

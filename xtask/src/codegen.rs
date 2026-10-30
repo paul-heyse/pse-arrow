@@ -128,6 +128,46 @@ fn language_tree(
     if language == Language::Surreal {
         grpc_wire::append(root, &mut tree)?;
     }
+    if language == Language::Markdown {
+        let output = Command::new("cargo")
+            .args([
+                "run",
+                "--locked",
+                "-p",
+                "pse-host",
+                "--bin",
+                "pse",
+                "--",
+                "commands",
+                "--markdown",
+            ])
+            .current_dir(root)
+            .output()
+            .context("running the parser-owned CLI reference export")?;
+        if !output.status.success() {
+            bail!(
+                "CLI reference export failed ({}): {}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        let path = "docs/generated/agent-cli.md";
+        tree.files.insert(path.into(), output.stdout);
+        tree.relationships.push(provenance::SourceRelationship {
+            declaration_key: "pse-command-tree".into(),
+            declaration_kind: "cli_parser".into(),
+            source_path: Some("crates/pse-host/src/cli.rs".into()),
+            source_symbol: Some("Cli".into()),
+            source_role: "owning_clap_parser".into(),
+            source_identity: None,
+            generator_path: "crates/pse-host/src/catalog/markdown.rs".into(),
+            generator_symbol: "render".into(),
+            output_path: path.into(),
+            direction: None,
+            contract_sections: Vec::new(),
+            basis: "declared".into(),
+        });
+    }
     validate_tree(&tree)?;
     Ok(tree)
 }
