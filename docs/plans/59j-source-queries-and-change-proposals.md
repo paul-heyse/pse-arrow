@@ -79,16 +79,17 @@ The current source implements addressed working/index/blob acquisition, position
 source-bound nested declaration pages, shared proposals with file-operation intent, and explicit
 syntax query/preview producers. Focused actual CLI controls now exercise raw staged/committed
 bytes, Unicode positions, stale continuations and structural previews. Projection-safe provider
-context, generated-hit composition and the remaining integration/adoption work are still open;
-the earlier paused-scope statements describe the previous wave, not current authorization.
+context and generated-hit composition are delivered; semantic producers now translate into the
+same proposal contract. The earlier paused-scope statements describe the previous wave, not
+current authorization. Final parser publication and series qualification remain with D07/P01.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [J01](#j01) | in-progress | 59j | Minimal working-source identity/text prerequisite implemented/tested; Git sources, positional reading, bounded pages and continuation extensions remain |
-| [J02](#j02) | in-progress | 59j | Replacement-only immutable proposal validation implemented/tested; complete semantic/file-operation producer integration remains |
-| [J03](#j03) | planned | 59j | Explicit syntax queries and structural replacement previews |
-| [J04](#j04) | planned | 59j | Generated hit to declared contributor and regeneration navigation |
-| [J05](#j05) | planned | 59j | Actual server-free source/query/preview consumer journey |
+| [J01](#j01) | complete | 59j | Working/index/blob acquisition, Unicode positions/ranges, nested bounded pages and exact-source continuations pass actual CLI controls |
+| [J02](#j02) | complete | 59j | Shared checked proposal and compact version2 view serve syntax and native semantic/file-operation producers; stale/overlap/placeholder controls pass |
+| [J03](#j03) | complete | 59j | Native syntax queries, captures/context constraints and explicit immutable previews pass targeted and actual CLI controls |
+| [J04](#j04) | complete | 59j | Actual generated hit follows declared contributor/emitter and regeneration routing; unknown authored location remains unknown |
+| [J05](#j05) | complete | 59j | Actual source-only query→preview→origin→emitter journey passes without semantic preparation or source writes; series qualification remains separate |
 
 <a id="j01"></a>
 ### J01 — Addressed source and bounded reading
@@ -181,7 +182,7 @@ An actual CLI consumer selects a changed location, reads addressed source, narro
 query, inspects a preview and follows generated ownership where applicable. Missing semantic
 preparation must not prevent this journey. Expose selected addressed results directly; G07
 and G08 remain independent semantic-production and conditional-application consumers. J03–J05
-remain outside the paused execution scope; these dependency repairs do not authorize them.
+are included in the maintainer's remaining-series execution authorization.
 
 **Acceptance:** real CLI outputs, matching directional schemas, stale source and unavailable
 provider controls establish the selected path. Schema agreement alone does not establish
@@ -197,8 +198,33 @@ reverse. G08 can qualify application from J02 plus an actual J03 or G07 producer
 syntax application does not require G07. Code sharing does not merge filesystem and Git
 publication guarantees. A08 gates only changed governing contracts, not unrelated inquiry.
 
-**Proposed verification:** targeted compile/unit/parser tests during implementation, followed
-by J05's actual consumer and relevant series-end integration/static checks under AGENTS.md.
-No benchmark, solver/provider build, semantic preparation or full scientific campaign is
-required merely to qualify this source workflow. Benefits remain unmeasured. All packages
-are planned and execution remains paused; this document establishes no runtime completion.
+## Outcome
+
+**Implemented:** J01–J05 and their D03/D06/A03 consumers are integrated. Working bytes, raw
+index blobs and resolved committed blobs keep distinct identities. Nested declaration and query
+pages preserve source/backend/omission context, including when payload fields are hidden.
+The shared proposal retains complete original inputs internally and serializes exact identities
+and selected regions through one version2 view. Syntax and semantic authority remain distinct.
+
+**Tested, 2026-10-30:** the coordinator's first focused65-test command included the actual
+`source_addressing` and `source_queries` targets plus source/proposal/query/owner controls.
+`working_staged_and_committed_unicode_sources_are_selected_without_checkout_preparation`,
+`nested_declaration_pages_retain_coordinates_and_refuse_changed_working_source` and
+`unicode_scalar_positions_ranges_and_batch_budget_use_original_bytes` exercised the addressed
+source consumer. `generated_query_preview_origin_and_emitter_form_an_actual_source_only_consumer`
+followed real CLI query/preview/origin/emitter outputs, validated directional schemas and verified
+unchanged generated bytes. Other actual query controls preserve nested matches, captures,
+malformed regions, unavailable semantics, undefined replacements and overlap refusal. G's native
+rename, assist, file-rename and scoped SSR consumers independently exercise this same proposal.
+Whole-series integration/static qualification remains with P01; no scientific result follows.
+
+**Mistakes corrected:** generic record trimming could separate context from payload detail and
+compact proposal serialization initially exposed complete unrelated source files. Provider context
+now survives projection; one schema/serialization view carries selected regions while checked
+originals stay internal. Nullable collections page without splitting fixed tuples.
+
+**Deliberate limits:** no source application is advertised. G08 records why preflight plus
+ordinary file replacement does not protect concurrent editors across multiple files. Raw Git
+source reads do not apply worktree filters, and syntax candidates never claim resolved identity.
+No performance benefit was measured; no solver/provider preparation or scientific campaign is
+required for this source workflow.
