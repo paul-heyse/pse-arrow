@@ -183,6 +183,111 @@ fn context(rustc: String, cargo: String, environment: &Environment) -> BuildCont
         .with_additional_inputs(&inputs)
 }
 
+fn observed_context(
+    root: &Path,
+    rustc: String,
+    cargo: String,
+    environment: &Environment,
+) -> Result<BuildContext, HostError> {
+    fn file(
+        root: &Path,
+        path: &Path,
+        seen: &mut BTreeSet<PathBuf>,
+        context: &mut BuildContext,
+    ) -> Result<(), HostError> {
+        if !seen.insert(path.to_owned()) {
+            return Ok(());
+        }
+        if seen.len() > 256 {
+            return Err(invalid(
+                "Cargo configuration include closure exceeds its bound",
+            ));
+        }
+        let key = match path.strip_prefix(root) {
+            Ok(relative) => format!(
+                "cargo_checkout_configuration:{}",
+                digest(relative.as_os_str().as_bytes())
+            ),
+            Err(_) => format!(
+                "cargo_external_configuration:{}",
+                digest(path.as_os_str().as_bytes())
+            ),
+        };
+        let bytes = match fs::read(path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                context.environment.insert(key, None);
+                return Ok(());
+            }
+            Err(error) => return Err(error.into()),
+        };
+        context.environment.insert(key, Some(digest(&bytes)));
+        // Invalid configuration still gets a content identity. Cargo owns its diagnostic;
+        // a passive observation can report stale before explicit construction rejects it.
+        let Some(value) = std::str::from_utf8(&bytes)
+            .ok()
+            .and_then(|value| toml::from_str::<toml::Value>(value).ok())
+        else {
+            return Ok(());
+        };
+        if let Some(includes) = value.get("include").and_then(toml::Value::as_array) {
+            for include in includes {
+                let include_path = include
+                    .as_str()
+                    .or_else(|| include.get("path").and_then(toml::Value::as_str));
+                if let Some(include_path) = include_path {
+                    let parent = path
+                        .parent()
+                        .ok_or_else(|| invalid("Cargo configuration has no parent"))?;
+                    file(root, &parent.join(include_path), seen, context)?;
+                }
+            }
+        }
+        Ok(())
+    }
+    fn configs(
+        root: &Path,
+        directory: &Path,
+        seen: &mut BTreeSet<PathBuf>,
+        context: &mut BuildContext,
+    ) -> Result<(), HostError> {
+        let legacy = directory.join("config");
+        let modern = directory.join("config.toml");
+        let selected = if legacy.exists() { legacy } else { modern };
+        // Missing ancestor configs do not make otherwise equivalent worktrees differ.
+        if selected.exists() {
+            file(root, &selected, seen, context)?;
+        }
+        Ok(())
+    }
+    let mut result = context(rustc, cargo, environment);
+    let mut seen = BTreeSet::new();
+    for ancestor in root.ancestors() {
+        configs(root, &ancestor.join(".cargo"), &mut seen, &mut result)?;
+    }
+    let home = environment
+        .get(OsStr::new("CARGO_HOME"))
+        .map(PathBuf::from)
+        .or_else(|| {
+            environment
+                .get(OsStr::new("HOME"))
+                .map(|home| PathBuf::from(home).join(".cargo"))
+        });
+    if let Some(home) = home {
+        configs(
+            root,
+            &if home.is_absolute() {
+                home
+            } else {
+                root.join(home)
+            },
+            &mut seen,
+            &mut result,
+        )?;
+    }
+    Ok(result)
+}
+
 fn version(root: &Path, environment: &Environment, name: &str) -> Result<String, HostError> {
     let output = Command::new(name)
         .arg("-vV")
@@ -263,7 +368,7 @@ pub fn freshness(root: &Path, inputs: &Environment) -> Result<Freshness, HostErr
     let manifest = GenerationManifest::load(&directory)?;
     let environment = build_environment(inputs)?;
     let saved = &manifest.source.context;
-    let current = context(saved.rustc.clone(), saved.cargo.clone(), &environment);
+    let current = observed_context(root, saved.rustc.clone(), saved.cargo.clone(), &environment)?;
     Ok(if manifest.source.matches_sources(root, &current)? {
         Freshness::Current
     } else {
@@ -331,11 +436,12 @@ fn construct(root: &Path, environment: &Environment) -> Result<i32, HostError> {
         capture(
             &root,
             environment,
-            context(
+            observed_context(
+                &root,
                 version(&root, environment, "rustc")?,
                 version(&root, environment, "cargo")?,
                 environment,
-            ),
+            )?,
         )
     };
     let before = observe()?;

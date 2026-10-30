@@ -170,3 +170,42 @@ fn builder_environment_is_explicit_and_private_values_are_digest_only() {
     let override_target = Environment::from([("CARGO_BUILD_TARGET".into(), "other-target".into())]);
     assert!(build_environment(&override_target).is_err());
 }
+
+#[test]
+fn effective_config_includes_are_observed_without_making_equivalent_checkouts_differ() {
+    let first = checkout();
+    let second = checkout();
+    let home = tempfile::tempdir().unwrap();
+    fs::write(
+        home.path().join("config.toml"),
+        "include=[{path='optional.toml',optional=true}]\n",
+    )
+    .unwrap();
+    let environment = Environment::from([("CARGO_HOME".into(), home.path().as_os_str().into())]);
+    let observe = |root: &Path| {
+        observed_context(
+            root,
+            "rustc fixture".into(),
+            "cargo fixture".into(),
+            &environment,
+        )
+        .unwrap()
+    };
+    let original = observe(first.path());
+    assert_eq!(original, observe(second.path()));
+    fs::write(home.path().join("optional.toml"), "[build]\njobs=32\n").unwrap();
+    assert_ne!(original, observe(first.path()));
+    fs::write(home.path().join("config"), "[build]\njobs=32\n").unwrap();
+    let legacy_selected = observe(first.path());
+    fs::write(home.path().join("config.toml"), "[build]\njobs=1\n").unwrap();
+    assert_eq!(legacy_selected, observe(first.path()));
+    fs::write(
+        first.path().join(".cargo/config.toml"),
+        "include=['extra.toml']\n",
+    )
+    .unwrap();
+    fs::write(first.path().join(".cargo/extra.toml"), "[build]\njobs=32\n").unwrap();
+    let before = observe(first.path());
+    fs::write(first.path().join(".cargo/extra.toml"), "[build]\njobs=31\n").unwrap();
+    assert_ne!(before, observe(first.path()));
+}
