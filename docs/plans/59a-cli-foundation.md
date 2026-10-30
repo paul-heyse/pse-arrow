@@ -174,10 +174,10 @@ feature choices are exactly the review's
 | --- | --- | --- | --- |
 | [A01](#a01) | complete | 59a | Rule-change edits R1–R5 landed in their owners (R4's guard change is D06) |
 | [A02](#a02) | complete | 59a | Shared clap tree/three binaries merged; targeted parser/protocol and bootstrap tests pass; broader qualification remains at series end |
-| [A03](#a03) | in-progress | 59a | Output/diagnostic/schema implementation underway after A07 scoped target acceptance |
+| [A03](#a03) | in-progress | 59a | Native output/diagnostic/schema contracts and existing managed surface integrated; artifact read/continuation and typed source views integrated; run/test/product consumers retain their own pending obligations |
 | [A04](#a04) | in-progress | 59a | Resolver and consumer migration integrated and targeted tests pass; concurrent invocation/history acceptance remains with B01 |
-| [A05](#a05) | in-progress | 59a | Fingerprint/manifest/use-claim foundations integrated; bootstrap, all-entry pinning, stale rebuild and safe pruning remain |
-| [A06](#a06) | in-progress | 59a | Native Git observation foundation integrated; derived catalog, explain/provenance and CLI status consumers remain |
+| [A05](#a05) | in-progress | 59a | Immutable publication, actual entry pins, stale rebuild/reexec and authenticated cold-copy route integrated; assembled copy smoke and positive descendant/finalizer claim retirement/pruning remain |
+| [A06](#a06) | in-progress | 59a | Parser-derived command/help/catalog/schema and passive native status integrated; actual configuration provenance, shared resolved explain and owner federation remain |
 | [A07](#a07) | complete | 59a | Proposed ADR-0233/blueprint315 published; scoped formal review accepts corrected target at Proposed strength; runtime obligations remain with consumers |
 
 <a id="a01"></a>

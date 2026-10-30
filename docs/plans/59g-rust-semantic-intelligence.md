@@ -299,7 +299,7 @@ not provide filesystem concurrency or multi-file atomicity. Use fallible constru
 verified release APIs: the inspected0.51.0 `before`/`after`/`append`/`prepend` helpers are
 `todo!()`, and `replace_all` intentionally skips nested overlapping matches.
 
-[AST-grep capabilities](../libraries/ast-grep-core.md),
+[AST-grep capabilities](../libraries/rust_analyzers/ast-grep-core.md),
 [published0.51.0 source](https://docs.rs/crate/ast-grep-core/0.51.0/source/src/node.rs) and
 [Tree-sitter Rust grammar](https://github.com/tree-sitter/tree-sitter-rust) support this inquiry.
 Tree-sitter Rust supplies AST-grep's syntax layer, not an obligatory third independent parsing

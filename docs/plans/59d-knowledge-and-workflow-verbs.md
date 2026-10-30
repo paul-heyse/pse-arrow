@@ -165,7 +165,7 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 | --- | --- | --- | --- |
 | [D01](#d01) | planned | 59d | `pse changes` and `pse brief` |
 | [D02](#d02) | planned | 59d | Trial done (server unusable under the pin; see D02); `pse dep`, `pse probe`, and the full `pse api` with rustdoc JSON cache remain |
-| [D03](#d03) | planned | 59d | `pse outline` and `pse show` |
+| [D03](#d03) | complete | 59d | Native lossless outline/show, exact source selections and shared lib-outline route integrated; batch CPU execution and source/schema/actual CLI tests cover malformed/Unicode/ambiguous/CommonMark reads |
 | [D04](#d04) | planned | 59d | Federated `pse docs check` with pinned lychee |
 | [D05](#d05) | planned | 59d | Federated `pse ref` and `pse new`; `just plan` bash scaffold retired |
 | [D06](#d06) | planned | 59d | Generated-outputs map; `pse owner`; guard informs for documents; `.design-edit`/`PSE_DESIGN_EDIT` retired |
@@ -260,12 +260,20 @@ including associated documentation/attributes, rather than regenerating tokens.
 This is syntactic extraction, not semantic symbol resolution; absent or ambiguous items yield
 an actionable diagnostic rather than a guessed item or implicit language-server startup.
 
-Implementation references: [syntax capabilities](../libraries/ra_ap_syntax.md), published
+Implementation references: [syntax capabilities](../libraries/rust_analyzers/ra_ap_syntax.md), published
 [0.0.360 source](https://docs.rs/crate/ra_ap_syntax/0.0.360/source/src/lib.rs) and
 [typed AST](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/). Local constructors,
 precedence helpers and `SyntaxEditor` can serve selected syntax-edit proposals under G07/G08;
 incremental reparsing is useful only when the consumer already retains a source snapshot.
 Do not start a persistent analyzer or implement a separate parser cache for one-file reads.
+
+Multiple outline operands use one coarse `tokio-rayon` submission and the existing shared
+Rayon pool's indexed parallel iteration. Parsing/extraction remain together inside workers;
+thread-affine AST handles do not cross the async boundary. Every input position retains its
+own read/failed/cancelled outcome. `BatchTask` retains its worker handle across a cancelled
+borrowed wait; cancellation skips not-yet-started files, while actual completion waits for
+all submitted work to return. No additional pool or host CPU cap is selected. CommonMark's
+native metadata-block options exclude YAML/TOML frontmatter while preserving source offsets.
 
 **Acceptance:**
 - `pse show crates/pse-host/src/manager.rs::HostManager::observe` prints exactly that method with
