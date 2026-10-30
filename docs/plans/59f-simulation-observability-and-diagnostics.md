@@ -113,7 +113,7 @@ memory release; no build telemetry or automatic semantic enrichment is introduce
 | [F01](#f01) | in-progress | 59f | Product owns passive protocol and directional schemas; corrected native capture passes10 controls, actual prepared discovery/schema/delegation matches direct product evidence and preserves refusal. Broader identity integration remains |
 | [F02](#f02) | in-progress | 59f | Checkpoint catalogue, exact inspection and source-bound pages pass7 controls with original outcome/coverage; actual prepared CLI inspection agrees with direct native output. Broader composed views remain |
 | [F03](#f03) | planned | 59f | Bounded follow with truthful continuity and optional human progress |
-| [F04](#f04) | planned | 59f | Canonical study/history consumer and gated cross-process live-publication decision |
+| [F04](#f04) | in-progress | 59f | Product-owned canonical study/attempt history and cursors pass17 focused controls and an actual source-built two-attempt canonical fixture test; captured CLI history integration remains. Existing checkpoints selected, no extra live-numerics publisher; unavailable live evidence stays explicit |
 | [F05](#f05) | planned | 59f | Explicit capture, frozen analysis/query and selected evidence export |
 | [F06](#f06) | planned | 59f | Integrated consumer acceptance and conditional backend/interface dispositions |
 

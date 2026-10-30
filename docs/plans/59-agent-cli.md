@@ -475,6 +475,30 @@ bounded result to whole-series acceptance.
 
 ### Native consumer integration checkpoint — 2026-10-30
 
+The current bounded integration includes the fixed managed test/check helper and public
+`tests`, `test` and `check` commands. The helper authenticates its original native payload
+identity and exact protected input before compiler effects. Its required single terminal frame
+is bound to the original invocation/action, waited child status and complete durable report
+bytes; generic commands cannot claim a native reconciled verdict. The actual prepared public
+listing journey completed with complete raw capture and an addressed original inventory.
+Selected test/check execution, detach and richer listing/rerun consumers remain under active
+integration; missing fixture lifecycle readiness and shared named groups across independent
+runner contexts remain explicit pending obligations. Source changes during concurrent host
+preparation can refuse refresh; those interrupted attempts receive no functional credit.
+
+Original nested admission now authenticates the entire live ancestor chain and reuses actual
+parent containment. Native ordinary and finite crash controls verified original subgroup
+retirement while retaining the active parent's charge; lost reaping/capture remains unknown.
+Canonical product history now preserves distinct failed/retry attempts and reconnect cursors,
+including a real source-built canonical fixture test. The newer captured-reader CLI history
+journey is still required. Existing checkpoints suffice for the selected passive consumer;
+no additional live-numerics publisher has been selected and unavailable live data stays explicit.
+
+A05 is integrating process-held passive generation guards and durable promotion before
+retained effects. Original-finalizer claim binding and actual settlement are separate remaining
+work; pruning stays disabled, and old or unknown claims stay protected. None of these bounded
+results closes the series or establishes scope-end qualification.
+
 Compatible multi-root Cargo selection now preserves target and feature policies, splits only
 typed feature-absence conflicts and reuses metadata within the invocation. Native nextest
 reconciliation binds the captured population and exact binary identities; retries, ignored

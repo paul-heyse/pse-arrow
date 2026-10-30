@@ -229,10 +229,10 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [C01](#c01) | complete | 59c | Declaration and actual reached-unit capability derivation integrated; targeted real no-build Cargo graphs cover every mapped feature and pure/full runtime; no provider preparation or solver build |
-| [C02](#c02) | in-progress | 59c | Explicit-input test intent/admission/listing, immutable group construction and framed required observation integrated; CLI test/check execution, fixture/native preparation, verdict/rerun consumers and recipe retirement remain |
+| [C02](#c02) | in-progress | 59c | Fixed authenticated managed helper, complete required raw capture and native reconciliation integrated; actual public listing succeeds. Public test/check execution and detach integration, fixture lifecycle, richer verdict/rerun consumers and recipe retirement remain |
 | [C03](#c03) | in-progress | 59c | Native Gitoxide preview and conservative captured declaration closure pass6 controls; prepared CLI preview works and replaced xtask implementation/tests/recipe are deleted. `pse test --changed` integration remains |
 | [C04](#c04) | in-progress | 59c | Source-audited runtime/operations declarations and passive existing-owner prerequisite selection integrated for both service modes; fixture CLI, immutable helper source-build admission, worker variable migration and actual service journeys remain |
-| [C05](#c05) | in-progress | 59c | Source-build capture and exact native binary/test inventory integrated with bounded framing and retained use custody; CLI discovery and `list-native-contracts` retirement remain |
+| [C05](#c05) | in-progress | 59c | Source-build capture, complete phase custody and exact native binary/test inventory integrated; actual public `tests` journey retains the original inventory. Useful paged discovery/rerun consumers and `list-native-contracts` retirement remain |
 | [C06](#c06) | deferred | 59c | Bindeps for the cross-package service helper; trigger below |
 | [C07](#c07) | in-progress | 59c | Compatible multi-root Cargo groups, per-root absence policies, typed graph-driven splitting and invocation-local metadata reuse tested; staged CLI/list/execution consumers remain separate integration obligations |
 
