@@ -63,6 +63,7 @@ fn record_phase<O: ChunkObserver>(
 ) {
     report.required_capture_complete &= capture.capture_complete;
     report.phases.push(Phase {
+        elapsed_seconds: Some(capture.elapsed_seconds),
         kind,
         group,
         stdout: format!("{prefix}.stdout"),
@@ -267,6 +268,7 @@ async fn perform(
             report.outcome = Outcome::Incomplete;
             return Ok(());
         }
+        test_workflow::source::verify_rerun(&listed.inventory)?;
         if listed.inventory.is_zero_match() {
             report.outcome = Outcome::ZeroMatch;
             return Ok(());
@@ -371,6 +373,7 @@ fn discovery_phases(report: &mut Report, inventory: &crate::discovery::Inventory
             None => format!("inventory/{}", captured.stage),
         };
         report.phases.push(Phase {
+            elapsed_seconds: None,
             kind: PhaseKind::Discovery,
             group: captured.group,
             stdout: format!("{prefix}.stdout"),
@@ -615,6 +618,7 @@ async fn execute_groups_with_policy(
             }
             Ok((group, prefix, Err(error))) => {
                 report.phases.push(Phase {
+                    elapsed_seconds: None,
                     kind,
                     group: Some(group),
                     stdout: format!("{prefix}.stdout"),

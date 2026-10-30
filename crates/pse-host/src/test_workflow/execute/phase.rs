@@ -17,6 +17,7 @@ use std::{
 use tokio::fs::File;
 
 pub(crate) struct Captured<O: ChunkObserver> {
+    pub elapsed_seconds: f64,
     pub status: Option<std::process::ExitStatus>,
     pub child_exit: Option<i32>,
     pub capture_complete: bool,
@@ -34,6 +35,7 @@ pub(crate) async fn run<O: ChunkObserver>(
     observer: O,
     policy: PayloadPolicy,
 ) -> Result<Captured<O>, WorkflowError> {
+    let started = Instant::now();
     let stdout_sink = tokio::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -132,6 +134,7 @@ pub(crate) async fn run<O: ChunkObserver>(
         }
     }
     Ok(Captured {
+        elapsed_seconds: started.elapsed().as_secs_f64(),
         status,
         child_exit,
         capture_complete,

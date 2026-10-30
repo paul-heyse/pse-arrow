@@ -144,6 +144,9 @@ pub enum PhaseKind {
 /// Independent raw-custody and original child facts for a phase.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct Phase {
+    /// Inclusive wall time from phase entry through child wait and required stream drain.
+    /// Absent when the original producer did not capture a duration; never CPU time.
+    pub elapsed_seconds: Option<f64>,
     /// Phase identity.
     pub kind: PhaseKind,
     /// Compiler group when applicable.
