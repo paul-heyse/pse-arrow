@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Disposable evidence and knowledge; original source owners retain authority and custody.
-pub mod affected;
 pub mod audit;
 pub mod catalog;
 pub mod configuration;

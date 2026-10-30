@@ -226,7 +226,8 @@ necessary evidence, using `git worktree remove PATH`.
   `test(word)`. Extra Cargo package selectors and filtersets retain native nextest meaning.
 - `just unit-native-package PACKAGE FEATURES FILTER` selects prepared native providers and
   direct nextest tests. Database consumers use an explicitly owned canonical fixture.
-- `just affected` previews conservative changed-package reach; inspect its exclusions before
+- `scripts/pse affected` previews conservative changed-package reach; inspect its explicit
+  widening and coverage limits before
   treating the selection as coverage. Run-only reporting and fixture ownership remain separate.
 - `just native-test MODULE_RECEIPT ...` builds/lists source tests first, then starts one fresh
   canonical fixture. Put Cargo selectors in repeated `--build-arg` and run filters after `--`;
@@ -290,7 +291,7 @@ cancellation/settlement and canonical write admission independently of an editor
 
 ### Focused command and source context
 
-Use `just --usage RECIPE`, source search and native `just affected` for command/reach questions.
+Use `just --usage RECIPE`, source search and native `scripts/pse affected` for command/reach questions.
 The former `just context` Python projections and history scanners are retired.
 `just workspace-sources --selection FILE` supplies bounded source-only knowledge with explicit
 coverage through native xtask. Documentation lifecycle/scope queries use

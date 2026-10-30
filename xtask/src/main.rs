@@ -95,17 +95,6 @@ enum Cmd {
         #[arg(long)]
         selection: PathBuf,
     },
-    /// Preview source/dependency reach; execute only with --run.
-    Affected {
-        #[arg(long, default_value = "HEAD")]
-        base: String,
-        #[arg(long, default_value = "")]
-        features: String,
-        #[arg(long)]
-        run: bool,
-        #[arg(last = true)]
-        extra: Vec<String>,
-    },
     /// Retain dependency findings separately from tool execution failures.
     Audit {
         #[arg(value_enum)]
@@ -627,25 +616,6 @@ fn main() -> Result<()> {
             let cut = xtask::development::workspace_sources::bounded_source_cut(&root, &selection)?;
             let built = xtask::development::workspace_sources::build_corpus(&cut)?;
             println!("{}", serde_json::to_string_pretty(&built)?);
-            Ok(())
-        }
-        Cmd::Affected {
-            base,
-            features,
-            run,
-            extra,
-        } => {
-            let options = xtask::development::affected::Options {
-                base,
-                features,
-                extra,
-                ..Default::default()
-            };
-            let preview = xtask::development::affected::preview(&root, &options)?;
-            println!("{}", serde_json::to_string_pretty(&preview)?);
-            if run && let Some(status) = xtask::development::affected::run(&root, &preview)? {
-                std::process::exit(status.code().unwrap_or(1));
-            }
             Ok(())
         }
         Cmd::Audit { gate, output } => {

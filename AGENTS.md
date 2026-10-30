@@ -70,7 +70,7 @@ this once it lands, Plan59 D08), because those lines are yours.
 - Compile what you touched: `just check-package <pkg>` (extra `-p` and cargo flags pass
   through), or `just check` for cross-crate work.
 - Run, or write, the targeted unit tests that show the new behaviour:
-  `just unit-package <pkg> <word|filterset>`; `just affected` previews the tests a change can
+  `just unit-package <pkg> <word|filterset>`; `scripts/pse affected` previews the tests a change can
   reach. A new mechanism gets its tests in the same change.
 - Run `just codegen` when a generator or registry declaration changes — regeneration is
   part of the change, not polish. `just hygiene` confirms it at scope end (`codegen-check`).

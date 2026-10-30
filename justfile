@@ -11,7 +11,7 @@
 # Finding a recipe: `just --list --group <tier>`, `just --usage <recipe>` (parameters),
 # `just --show <recipe>` (body), `just --dump --dump-format json` (everything, structured).
 # Selection: `just unit-package <pkg> <word|filterset> [-p other] [nextest args]`,
-# `just affected` (tests a change can reach), PSE_NEXTEST_ACTION=list to preview.
+# `scripts/pse affected` (conservative source reach), PSE_NEXTEST_ACTION=list to preview tests.
 #
 # Recipes are grouped by execution-cost tier:
 #   env         create or inspect the working environment
@@ -1085,12 +1085,6 @@ nrtl-reference:
 [positional-arguments]
 build-uncached +args:
     exec scripts/pse-env --cache off -- just "$@"
-
-[group('local')]
-[doc('Preview the Rust tests a change can reach (rdeps of changed packages) and what that misses; --run runs them')]
-[positional-arguments]
-affected *args:
-    @scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- affected "$@"
 
 [group('discovery')]
 [doc('Read actual current or named systemd scope/service ownership without workload admission or compiler setup')]
