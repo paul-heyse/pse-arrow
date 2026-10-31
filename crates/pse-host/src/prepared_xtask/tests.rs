@@ -494,7 +494,7 @@ fn native_analysis_profile_cannot_accept_an_xtask_or_other_feature_artifact() {
             "--no-default-features",
             "--features",
             "native-hir",
-            "--message-format=json"
+            "--message-format=json-render-diagnostics"
         ]
     );
 }

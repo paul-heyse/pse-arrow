@@ -784,13 +784,19 @@ pub fn resolve_at(
         capture_at(&cargo, arguments, checkout, environment)
     })
 }
-fn native_command(cargo: &OsStr, arguments: &[OsString]) -> Command {
-    native_command_with_rustflags(
+fn native_command(cargo: &OsStr, arguments: &[OsString]) -> Result<Command, CorrectnessError> {
+    let environment =
+        compiler_environment(&std::env::current_dir()?, &std::env::vars_os().collect())?;
+    let mut command = native_command_with_rustflags(
         cargo,
         arguments,
         std::env::var_os("CARGO_ENCODED_RUSTFLAGS"),
         std::env::var_os("RUSTFLAGS"),
-    )
+    );
+    for name in ["RUSTC", "RUSTDOC"] {
+        command.env(name, &environment[OsStr::new(name)]);
+    }
+    Ok(command)
 }
 fn native_command_with_rustflags(
     cargo: &OsStr,
@@ -824,7 +830,7 @@ fn native_command_with_rustflags(
     command
 }
 pub(crate) fn capture(cargo: &OsStr, arguments: &[OsString]) -> Result<Vec<u8>, CorrectnessError> {
-    capture_command(native_command(cargo, arguments))
+    capture_command(native_command(cargo, arguments)?)
 }
 /// Query the same native compiler policy in an explicit checkout/environment, without
 /// changing process-global state or weakening diagnostic Rustflags and adapter isolation.
@@ -834,6 +840,7 @@ pub(crate) fn capture_at(
     checkout: &Path,
     environment: &crate::environment::Environment,
 ) -> Result<Vec<u8>, CorrectnessError> {
+    let environment = compiler_environment(checkout, environment)?;
     let mut command = native_command_with_rustflags(
         cargo,
         arguments,
@@ -846,7 +853,7 @@ pub(crate) fn capture_at(
         .get_envs()
         .map(|(key, value)| (key.to_owned(), value.map(OsStr::to_owned)))
         .collect();
-    command.env_clear().envs(environment).current_dir(checkout);
+    command.env_clear().envs(&environment).current_dir(checkout);
     for (key, value) in overrides {
         if let Some(value) = value {
             command.env(key, value);
@@ -918,8 +925,68 @@ pub(crate) fn standalone_adapter_environment(
     }
     Ok(selected)
 }
+/// Freeze the selected compiler executable before Cargo changes into dependency directories.
+/// Physical Cargo does not inject rustup's toolchain selection into its children.
+pub(crate) fn compiler_environment(
+    checkout: &Path,
+    environment: &crate::environment::Environment,
+) -> Result<crate::environment::Environment, CorrectnessError> {
+    use std::os::unix::fs::MetadataExt as _;
+    let resolve = |name: &OsStr| {
+        crate::server::resolve(name, checkout, environment)
+            .map_err(|error| invalid(format!("compiler executable selection: {error}")))
+    };
+    let rustup = resolve(OsStr::new("rustup"));
+    let mut environment = environment.clone();
+    for (key, name) in [("RUSTC", "rustc"), ("RUSTDOC", "rustdoc")] {
+        let explicit = environment
+            .get(OsStr::new(key))
+            .filter(|value| !value.is_empty());
+        let selected = if let Some(explicit) = explicit {
+            let selected = resolve(explicit)?;
+            let proxy = rustup.as_ref().is_ok_and(|rustup| {
+                let Ok(left) = selected.metadata() else {
+                    return false;
+                };
+                let Ok(right) = rustup.metadata() else {
+                    return false;
+                };
+                left.dev() == right.dev() && left.ino() == right.ino()
+            });
+            if proxy { None } else { Some(selected) }
+        } else {
+            None
+        };
+        let compiler = match selected {
+            Some(selected) => selected,
+            None => {
+                let rustup = rustup
+                    .as_ref()
+                    .map_err(|error| invalid(error.to_string()))?;
+                let output = Command::new(rustup)
+                    .args(["which", name])
+                    .current_dir(checkout)
+                    .env_clear()
+                    .envs(&environment)
+                    .output()?;
+                if !output.status.success() {
+                    return Err(invalid(format!(
+                        "checkout {name} selection failed: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    )));
+                }
+                let path = std::str::from_utf8(&output.stdout)
+                    .map_err(|_| invalid("selected compiler path is not UTF-8"))?
+                    .trim();
+                resolve(OsStr::new(path))?
+            }
+        };
+        environment.insert(key.into(), compiler.into_os_string());
+    }
+    Ok(environment)
+}
 fn execute(cargo: &OsStr, arguments: &[OsString]) -> Result<i32, CorrectnessError> {
-    Ok(exit_status(native_command(cargo, arguments).status()?))
+    Ok(exit_status(native_command(cargo, arguments)?.status()?))
 }
 // Only nextest's actual metadata adapter request publishes this private copy.
 // Compiler graph validation queries must not publish or reuse this capability.
@@ -935,7 +1002,7 @@ fn execute_metadata(
         .create_new(true)
         .mode(0o600)
         .open(destination)?;
-    let output = native_command(cargo, arguments)
+    let output = native_command(cargo, arguments)?
         .stdin(std::process::Stdio::inherit())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::inherit())
@@ -1077,7 +1144,7 @@ fn execute_adapter(
     let resolution = resolve_with(arguments, |args| capture(cargo, args))?;
     if let Some(directory) = std::env::var_os(BUILD_CAPTURE) {
         return crate::discovery::capture::execute_build(
-            native_command(cargo, &resolution.arguments),
+            native_command(cargo, &resolution.arguments)?,
             &resolution,
             Path::new(&directory),
             &mut io::stdout().lock(),
@@ -1159,6 +1226,122 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
 mod tests {
     use super::*;
     use serde_json::{Value, json};
+
+    #[test]
+    fn physical_cargo_preserves_checkout_compiler_across_dependency_directories() {
+        let owner = checkout();
+        let temporary = tempfile::tempdir().unwrap();
+        let project = temporary.path().join("project");
+        let dependency = temporary.path().join("registry-like/dependency");
+        std::fs::create_dir_all(project.join("src")).unwrap();
+        std::fs::create_dir_all(dependency.join("src")).unwrap();
+        std::fs::copy(
+            owner.join("rust-toolchain.toml"),
+            project.join("rust-toolchain.toml"),
+        )
+        .unwrap();
+        std::fs::write(project.join("Cargo.toml"), "[package]\nname='physical-cargo-control'\nversion='0.0.0'\nedition='2024'\n[dependencies]\nindependent={path='../registry-like/dependency'}\n").unwrap();
+        std::fs::write(
+            project.join("src/lib.rs"),
+            "pub fn answer()->u32 { independent::answer() }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dependency.join("Cargo.toml"),
+            "[package]\nname='independent'\nversion='0.0.0'\nedition='2024'\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dependency.join("src/lib.rs"),
+            "pub fn answer()->u32 { 42 }\n",
+        )
+        .unwrap();
+        let mut original: crate::environment::Environment = std::env::vars_os().collect();
+        original.remove(OsStr::new("RUSTUP_TOOLCHAIN"));
+        original.remove(OsStr::new("RUSTC"));
+        original.remove(OsStr::new("RUSTDOC"));
+        let discover = |name: &str| {
+            let output = Command::new("rustup")
+                .args(["which", name])
+                .current_dir(&project)
+                .env_clear()
+                .envs(&original)
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "{output:?}");
+            PathBuf::from(std::str::from_utf8(&output.stdout).unwrap().trim())
+                .canonicalize()
+                .unwrap()
+        };
+        let expected = discover("rustc");
+        let expected_rustdoc = discover("rustdoc");
+        let physical_cargo = discover("cargo");
+        original.insert("CARGO".into(), physical_cargo.as_os_str().to_owned());
+        original.insert(REAL_CARGO.into(), physical_cargo.as_os_str().to_owned());
+        let selected = compiler_environment(&project, &original).unwrap();
+        assert_eq!(
+            selected.get(OsStr::new("RUSTC")),
+            Some(&expected.as_os_str().to_owned())
+        );
+        assert!(!selected.contains_key(OsStr::new("RUSTUP_TOOLCHAIN")));
+        for (key, value) in &original {
+            assert_eq!(selected.get(key), Some(value), "{key:?}");
+        }
+        let observed = |program: &OsStr, directory: &Path| {
+            let output = Command::new(program)
+                .arg("-vV")
+                .current_dir(directory)
+                .env_clear()
+                .envs(&selected)
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "{output:?}");
+            output.stdout
+        };
+        assert_eq!(
+            observed(expected.as_os_str(), &project),
+            observed(&selected[OsStr::new("RUSTC")], &dependency)
+        );
+        let output = Command::new(physical_cargo)
+            .args(["build", "--offline"])
+            .current_dir(&project)
+            .env_clear()
+            .envs(&selected)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        std::fs::write(
+            project.join("src/lib.rs"),
+            "pub fn answer()->u32 { independent::answer() + missing_name }\n",
+        )
+        .unwrap();
+        let output = Command::new(&selected[OsStr::new("CARGO")])
+            .args([
+                "build",
+                "--offline",
+                "--message-format=json-render-diagnostics",
+            ])
+            .current_dir(&project)
+            .env_clear()
+            .envs(&selected)
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "{output:?}");
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(
+            stderr.contains("E0425") && stderr.contains("missing_name"),
+            "{stderr}"
+        );
+        let messages = cargo_metadata::Message::parse_stream(&output.stdout[..])
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert!(messages.iter().any(|message| matches!(message, cargo_metadata::Message::CompilerArtifact(artifact) if artifact.target.name=="independent")));
+        assert!(messages.iter().any(|message| matches!(message, cargo_metadata::Message::BuildFinished(finished) if !finished.success)));
+        let mut explicit = original;
+        explicit.insert("RUSTC".into(), expected.as_os_str().to_owned());
+        explicit.insert("RUSTDOC".into(), expected_rustdoc.into_os_string());
+        assert_eq!(compiler_environment(&project, &explicit).unwrap(), explicit);
+    }
 
     fn checkout() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))

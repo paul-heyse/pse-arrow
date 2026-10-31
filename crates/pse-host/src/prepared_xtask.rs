@@ -869,6 +869,8 @@ fn source_for(
     environment: &Environment,
     target: NativeToolTarget,
 ) -> Result<(SourceFingerprint, BuildContext, correctness::Resolution), PreparedNativeToolError> {
+    let selected_environment = correctness::compiler_environment(checkout, environment)?;
+    let environment = &selected_environment;
     let cargo = correctness::real_cargo_in(environment)?;
     let observed = |program: &OsStr| -> Result<String, PreparedNativeToolError> {
         let mut command = Command::new(program);
@@ -948,7 +950,7 @@ fn source_build_arguments_for(target: NativeToolTarget) -> Vec<String> {
         "--no-default-features",
         "--features",
         &profile.features.join(","),
-        "--message-format=json",
+        "--message-format=json-render-diagnostics",
     ]
     .into_iter()
     .map(String::from)
@@ -1042,7 +1044,10 @@ pub fn prepare_for(
         prepared.executable(&checkout, crate::generation::HostTool::Correctness)?;
     let control =
         capture::executable(&source_control, &selected_dir.join("cargo-pse-correctness"))?;
-    let mut environment = correctness::standalone_adapter_environment(environment)?;
+    let mut environment = correctness::compiler_environment(
+        &checkout,
+        &correctness::standalone_adapter_environment(environment)?,
+    )?;
     let (before, context, admission) = source_for(&checkout, &environment, target)?;
     environment.insert(
         "PSE_CORRECTNESS_BUILD_CAPTURE".into(),

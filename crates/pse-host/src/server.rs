@@ -395,7 +395,11 @@ struct Pointer {
     receipt_sha256: String,
 }
 
-fn resolve(name: &OsStr, root: &Path, environment: &Environment) -> Result<PathBuf, HostError> {
+pub(crate) fn resolve(
+    name: &OsStr,
+    root: &Path,
+    environment: &Environment,
+) -> Result<PathBuf, HostError> {
     let path = Path::new(name);
     let choices = if path.components().count() > 1 {
         vec![if path.is_absolute() {
