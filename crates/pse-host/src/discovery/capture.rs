@@ -58,6 +58,51 @@ impl Executable {
         Ok(())
     }
 }
+fn executable_record(path: &Path) -> Result<PathBuf, CorrectnessError> {
+    let mut name = path
+        .file_name()
+        .ok_or_else(|| invalid("captured executable has no basename"))?
+        .to_os_string();
+    name.push(".capture.json");
+    Ok(path.with_file_name(name))
+}
+
+/// Recover logical source location only from the capture owner's protected, exact-image
+/// association. The original image may already have been replaced or removed.
+pub(crate) fn original_executable(
+    path: &Path,
+    image: &mut impl Read,
+) -> Result<Option<PathBuf>, CorrectnessError> {
+    let record = match read_file(&executable_record(path)?) {
+        Ok(record) => record,
+        Err(CorrectnessError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok(None);
+        }
+        Err(error) => return Err(error),
+    };
+    private_directory(
+        path.parent()
+            .ok_or_else(|| invalid("captured executable has no parent"))?,
+    )?;
+    let metadata = record.metadata()?;
+    if metadata.uid() != rustix::process::geteuid().as_raw() || metadata.mode() & 0o777 != 0o400 {
+        return Err(invalid("captured executable association is not protected"));
+    }
+    let captured: Executable = serde_json::from_reader(record)?;
+    if captured.captured != path || !captured.original.is_absolute() {
+        return Err(invalid(
+            "captured executable association differs from the executing image",
+        ));
+    }
+    captured.verify()?;
+    let (bytes, sha256) = hash_copy(image, &mut io::sink())?;
+    if bytes != captured.bytes || sha256 != captured.sha256 {
+        return Err(invalid(
+            "executing image differs from the captured executable association",
+        ));
+    }
+    Ok(Some(captured.original))
+}
 fn read_file(path: &Path) -> Result<File, CorrectnessError> {
     let file = OpenOptions::new()
         .read(true)
@@ -125,12 +170,16 @@ pub(crate) fn executable(
     {
         return Err(invalid("original executable changed during capture"));
     }
-    Ok(Executable {
+    let captured = Executable {
         original: original.into(),
         captured: destination.into(),
         sha256,
         bytes,
-    })
+    };
+    // Publish the existing byte/origin association before returning a path that can be
+    // lent to a child, including controls needed before the final inventory exists.
+    write_json(&executable_record(destination)?, &captured)?;
+    Ok(captured)
 }
 
 /// Canonical private compiler-artifact association, preserving Cargo's original basename.

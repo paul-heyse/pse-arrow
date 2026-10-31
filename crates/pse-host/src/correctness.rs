@@ -993,6 +993,17 @@ fn reject_reuse(arguments: &[OsString]) -> Result<(), CorrectnessError> {
 }
 fn executable_checkout_root() -> Result<PathBuf, CorrectnessError> {
     let executable = std::env::current_exe()?;
+    // The kernel descriptor retains the actual running inode even if a same-user
+    // writer replaces its pathname and adjacent association after process start.
+    let mut image = std::fs::File::open("/proc/self/exe")?;
+    checkout_root_for_executable(&executable, &mut image)
+}
+fn checkout_root_for_executable(
+    executable: &Path,
+    image: &mut impl io::Read,
+) -> Result<PathBuf, CorrectnessError> {
+    let original = crate::discovery::capture::original_executable(executable, image)?;
+    let executable = original.as_deref().unwrap_or(executable);
     Ok(executable
         .ancestors()
         .find(|path| path.join(".config/diagnostic-tools.toml").is_file())
@@ -1148,6 +1159,41 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
 mod tests {
     use super::*;
     use serde_json::{Value, json};
+
+    fn checkout() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(2)
+            .unwrap()
+            .canonicalize()
+            .unwrap()
+    }
+
+    #[test]
+    fn captured_executable_checkout_uses_verified_origin_and_unknown_copies_refuse() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let root = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(root.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        let checkout = root.path().join("source");
+        std::fs::create_dir_all(checkout.join(".config")).unwrap();
+        std::fs::write(checkout.join(".config/diagnostic-tools.toml"), "").unwrap();
+        let original = checkout.join("cargo-pse-correctness");
+        std::fs::write(&original, b"original executable").unwrap();
+        std::fs::set_permissions(&original, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let copied = root.path().join("cargo-pse-correctness");
+        crate::discovery::capture::executable(&original, &copied).unwrap();
+        std::fs::remove_file(original).unwrap();
+        let check = |path: &Path| {
+            checkout_root_for_executable(path, &mut std::fs::File::open(path).unwrap())
+        };
+        assert_eq!(check(&copied).unwrap(), checkout);
+        std::fs::set_permissions(&copied, std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::fs::write(&copied, b"unrelated copied image").unwrap();
+        assert!(check(&copied).is_err());
+        let unsupported = root.path().join("unassociated");
+        std::fs::write(&unsupported, b"outside any supported checkout").unwrap();
+        assert!(check(&unsupported).is_err());
+    }
 
     #[test]
     fn resolution_schema_preserves_non_utf8_operating_system_arguments() {
@@ -1535,7 +1581,7 @@ mod tests {
         let (resolution, calls) = resolve(
             &original,
             vec![
-                json!({"workspace_root":executable_checkout_root().unwrap(),"packages":[package("pure","pure",json!({}))]}),
+                json!({"workspace_root":checkout(),"packages":[package("pure","pure",json!({}))]}),
                 graph(vec![unit(
                     "pure",
                     &[],
@@ -1662,7 +1708,7 @@ mod tests {
         }
         // Cargo's unit graph also exposes implicit build.target/environment
         // selection, without this owner reading a second configuration file.
-        let metadata = json!({"workspace_root":executable_checkout_root().unwrap(),"packages":[package("root","root",json!({"diagnostic-taskdump":[]}))]});
+        let metadata = json!({"workspace_root":checkout(),"packages":[package("root","root",json!({"diagnostic-taskdump":[]}))]});
         let foreign = graph(vec![unit(
             "root",
             &["diagnostic-taskdump"],
@@ -1787,7 +1833,7 @@ mod tests {
     }
     #[test]
     fn cargo_hack_all_feature_check_and_clippy_isolate_only_actual_reached_taskdump() {
-        let metadata = json!({"workspace_root":executable_checkout_root().unwrap(),"packages":[package("root","root",json!({"diagnostic-taskdump":[]})),package("other","other",json!({"diagnostic-taskdump":[]}))]});
+        let metadata = json!({"workspace_root":checkout(),"packages":[package("root","root",json!({"diagnostic-taskdump":[]})),package("other","other",json!({"diagnostic-taskdump":[]}))]});
         let original_graph = graph(vec![unit(
             "root",
             &["diagnostic-taskdump"],
@@ -1866,7 +1912,7 @@ mod tests {
     }
     #[test]
     fn cargo_hack_resolved_taskdump_refuses_conflicting_profile_or_changed_target_roots() {
-        let metadata = json!({"workspace_root":executable_checkout_root().unwrap(),"packages":[package("root","root",json!({"diagnostic-taskdump":[]}))]});
+        let metadata = json!({"workspace_root":checkout(),"packages":[package("root","root",json!({"diagnostic-taskdump":[]}))]});
         let before = graph(vec![unit(
             "root",
             &["diagnostic-taskdump"],

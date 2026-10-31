@@ -9,10 +9,14 @@ fn executable(path: &Path, contents: &str) {
     fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
 }
 fn adapter(root: &Path) -> Command {
-    let mut command = Command::new(
+    adapter_at(
+        root,
         std::env::var_os("CARGO_BIN_EXE_cargo-pse-correctness")
             .expect("Cargo/nextest supplies the selected runtime correctness executable"),
-    );
+    )
+}
+fn adapter_at(root: &Path, executable: impl AsRef<std::ffi::OsStr>) -> Command {
+    let mut command = Command::new(executable);
     command
         .current_dir(root)
         .env(
@@ -327,4 +331,32 @@ fn native_correctness_foreign_workspace_refuses_before_runner() {
             .contains("foreign workspace")
     );
     assert!(!root.path().join("launched").exists());
+}
+
+#[test]
+fn native_correctness_unassociated_and_corrupt_copies_refuse_before_runner() {
+    let root = tempfile::tempdir().unwrap();
+    fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    pure_cargo(root.path(), 1);
+    executable(
+        &root.path().join("cargo-nextest"),
+        "#!/bin/sh\ntouch launched\n",
+    );
+    let copied = root.path().join("cargo-pse-correctness");
+    fs::copy(adapter(root.path()).get_program(), &copied).unwrap();
+    let refused = || {
+        let result = adapter_at(root.path(), &copied)
+            .env("PATH", format!("{}:/usr/bin:/bin", root.path().display()))
+            .args(["nextest", "run"])
+            .output()
+            .unwrap();
+        assert_eq!(result.status.code(), Some(2));
+        assert!(!root.path().join("launched").exists());
+        String::from_utf8(result.stderr).unwrap()
+    };
+    assert!(refused().contains("outside the supported checkout"));
+    let record = root.path().join("cargo-pse-correctness.capture.json");
+    fs::write(&record, b"invalid capture association").unwrap();
+    fs::set_permissions(record, fs::Permissions::from_mode(0o400)).unwrap();
+    assert!(refused().contains("invalid Cargo graph"));
 }

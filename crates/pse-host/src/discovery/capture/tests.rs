@@ -42,6 +42,54 @@ fn retained_executable_survives_original_replacement_and_detects_own_tampering()
     assert!(captured.verify().is_err());
 }
 #[test]
+fn retained_origin_is_published_before_use_and_survives_original_removal() {
+    let root = tempfile::tempdir().unwrap();
+    fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let source = source(root.path());
+    let captured = executable(&source, &root.path().join("captured")).unwrap();
+    assert_eq!(
+        original_executable(&captured.captured).unwrap(),
+        Some(source.clone())
+    );
+    assert!(
+        super::original_executable(&captured.captured, &mut &b"different executing image"[..])
+            .is_err()
+    );
+    fs::remove_file(&source).unwrap();
+    assert_eq!(
+        original_executable(&captured.captured).unwrap(),
+        Some(source)
+    );
+    fs::set_permissions(&captured.captured, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::write(&captured.captured, b"replacement image").unwrap();
+    assert!(original_executable(&captured.captured).is_err());
+}
+#[test]
+fn captured_origin_refuses_corrupt_redirected_unprotected_and_symlink_records() {
+    let root = tempfile::tempdir().unwrap();
+    fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let source = source(root.path());
+    let mut captured = executable(&source, &root.path().join("captured")).unwrap();
+    let record = executable_record(&captured.captured).unwrap();
+    fs::remove_file(&record).unwrap();
+    assert_eq!(original_executable(&captured.captured).unwrap(), None);
+    fs::write(&record, b"invalid capture").unwrap();
+    fs::set_permissions(&record, fs::Permissions::from_mode(0o400)).unwrap();
+    assert!(original_executable(&captured.captured).is_err());
+    fs::remove_file(&record).unwrap();
+    captured.captured = root.path().join("different-image");
+    write_json(&record, &captured).unwrap();
+    assert!(original_executable(&root.path().join("captured")).is_err());
+    fs::set_permissions(&record, fs::Permissions::from_mode(0o600)).unwrap();
+    assert!(original_executable(&root.path().join("captured")).is_err());
+    fs::remove_file(&record).unwrap();
+    std::os::unix::fs::symlink(&source, &record).unwrap();
+    assert!(original_executable(&root.path().join("captured")).is_err());
+}
+fn original_executable(path: &Path) -> Result<Option<PathBuf>, CorrectnessError> {
+    super::original_executable(path, &mut read_file(path)?)
+}
+#[test]
 fn source_symlinks_and_existing_capture_destinations_refuse() {
     let root = tempfile::tempdir().unwrap();
     let source = source(root.path());
