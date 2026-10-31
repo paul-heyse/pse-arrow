@@ -334,6 +334,7 @@ fn historical(root: &Path, path: &Path, config: Option<&site::Configuration>) ->
         .is_some_and(|scope| scope == "History")
 }
 fn native_checks(root: &Path, files: &[PathBuf], report: &mut Report) -> Result<()> {
+    let pattern = regex::Regex::new(r"^#{1,6}\s+(O[0-9]{2,})\b")?;
     for file in files {
         let bytes = fs::read(root.join(file))?;
         let identity = file.to_string_lossy();
@@ -385,7 +386,6 @@ fn native_checks(root: &Path, files: &[PathBuf], report: &mut Report) -> Result<
             }
         }
         let mut opportunity_ids = BTreeSet::new();
-        let pattern = regex::Regex::new(r"^#{1,6}\s+(O[0-9]{2,})\b")?;
         for heading in super::headings::markdown_headings(text) {
             if let Some(captures) = pattern.captures(heading.source) {
                 let id = &captures[1];
