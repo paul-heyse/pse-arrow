@@ -12,6 +12,8 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  compiler           Read retained native compiler diagnostics without rebuilding
+  worktree           Create prepared sibling worktrees or inspect native checkout users
   run-all            Attempt every independent Just recipe under one native foreground owner
   tests              Explicitly build/list the actual selected native test population
   test               Build, execute and reconcile the actual selected native tests
@@ -71,10 +73,486 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --version
 
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse compiler`
+
+~~~~text
+Read retained native compiler diagnostics without rebuilding
+
+Usage: pse compiler [OPTIONS] <COMMAND>
+
+Commands:
+  generate     Explicitly generate native selected-unit/body artifacts through correctness admission
+  artifacts    Observe the original compiler-artifact context, status and completed file digests
+  probe        Explicitly evaluate an authored probe or generate native artifacts from its isolated unit
+  file         Read one original indexed opaque file after whole-file SHA verification; never compile
+  diagnostics  Page original retained check failures; related native detail is a separate observation
+  diagnostic   Read one addressed original rustc diagnostic, its suggestions and related spans
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse compiler generate`
+
+~~~~text
+Explicitly generate native selected-unit/body artifacts through correctness admission
+
+Usage: pse compiler generate [OPTIONS] --kind <KIND> --question <QUESTION> <PACKAGE>
+
+Arguments:
+  <PACKAGE>
+          One Cargo package; default target is its library unless --bin is selected
+
+Options:
+  -C <checkout>
+
+
+      --kind <KIND>
+          Possible values:
+          - mir:        Body/pass-filtered MIR before/after files
+          - thir:       Selected unit THIR debug text; native rustc has no body filter for this view
+          - type-sizes: Selected unit encountered concrete layouts; no cross-target ABI conclusion
+          - mono-items: Selected unit monomorphization collection, separate from runtime reach
+          - evaluate:   Authored isolated probe evaluation; stdout meaning belongs to its source
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --question <QUESTION>
+          Original investigation question, retained without inferring an answer
+
+      --body <BODY>
+          Native MIR body substring; native filter operators and 'all' are refused
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --pass <PASSES>
+          Native MIR pass substrings; select before/after artifacts at their actual phase
+
+      --bin <BIN>
+
+
+      --lib
+
+
+      --target <TARGET>
+          Explicit Cargo target; no component is installed automatically
+
+      --all-features
+          Activate all available features
+
+      --no-default-features
+          Do not activate the `default` feature
+
+  -F, --features <FEATURES>
+          Space-separated list of features to activate
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse compiler artifacts`
+
+~~~~text
+Observe the original compiler-artifact context, status and completed file digests
+
+Usage: pse compiler artifacts [OPTIONS] <INVOCATION>
+
+Arguments:
+  <INVOCATION>
+
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse compiler probe`
+
+~~~~text
+Explicitly evaluate an authored probe or generate native artifacts from its isolated unit
+
+Usage: pse compiler probe [OPTIONS] --question <QUESTION> <NAME>
+
+Arguments:
+  <NAME>
+
+
+Options:
+  -C <checkout>
+
+
+      --kind <KIND>
+          Possible values:
+          - mir:        Body/pass-filtered MIR before/after files
+          - thir:       Selected unit THIR debug text; native rustc has no body filter for this view
+          - type-sizes: Selected unit encountered concrete layouts; no cross-target ABI conclusion
+          - mono-items: Selected unit monomorphization collection, separate from runtime reach
+          - evaluate:   Authored isolated probe evaluation; stdout meaning belongs to its source
+
+          [default: evaluate]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --question <QUESTION>
+          Original constant/layout/ownership/instance question; authored source owns stdout meaning
+
+      --body <BODY>
+
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --pass <PASSES>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse compiler file`
+
+~~~~text
+Read one original indexed opaque file after whole-file SHA verification; never compile
+
+Usage: pse compiler file [OPTIONS] <INVOCATION> <FILE>
+
+Arguments:
+  <INVOCATION>
+
+
+  <FILE>
+
+
+Options:
+  -C <checkout>
+
+
+      --offset <OFFSET>
+          [default: 0]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --length <LENGTH>
+          [default: 4096]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse compiler diagnostics`
+
+~~~~text
+Page original retained check failures; related native detail is a separate observation
+
+Usage: pse compiler diagnostics [OPTIONS] <INVOCATION>
+
+Arguments:
+  <INVOCATION>
+
+
+Options:
+  -C <checkout>
+
+
+      --session <SESSION>
+
+
+      --cursor <CURSOR>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse compiler diagnostic`
+
+~~~~text
+Read one addressed original rustc diagnostic, its suggestions and related spans
+
+Usage: pse compiler diagnostic [OPTIONS] --address <ADDRESS>
+
+Options:
+      --address <ADDRESS>
+          Opaque original address returned by compiler diagnostics
+
+  -C <checkout>
+
+
+      --cursor <CURSOR>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --raw
+          Include exact original JSON as opaque evidence, preserving original numeric lexemes
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --source
+          Compare retained native source lines to independently acquired current candidates
+
+      --max-record-bytes <MAX_RECORD_BYTES>
+          Whole-record decoding bound; oversized originals stay in their raw artifact
+
+          [default: 4194304]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse worktree`
+
+~~~~text
+Create prepared sibling worktrees or inspect native checkout users
+
+Usage: pse worktree [OPTIONS] <COMMAND>
+
+Commands:
+  new   Create a sibling checkout, copy local configuration and explicitly prepare native tools
+  list  Observe main/linked worktrees, direct ancestry, dirty paths and original native users
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse worktree new`
+
+~~~~text
+Create a sibling checkout, copy local configuration and explicitly prepare native tools
+
+Usage: pse worktree new [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>
+          One sibling directory component; no existing path is overwritten
+
+Options:
+      --base <BASE>
+          [default: HEAD]
+
+  -C <checkout>
+
+
+      --branch <BRANCH>
+          New branch name; default matches the native checkout name
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --warm
+          Submit the existing detached workspace check after preparation succeeds
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse worktree list`
+
+~~~~text
+Observe main/linked worktrees, direct ancestry, dirty paths and original native users
+
+Usage: pse worktree list [OPTIONS]
+
+Options:
+      --base <BASE>
+          Direct ancestry comparison base, resolved before walking worktree commits
+
+          [default: HEAD]
+
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -118,7 +596,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -170,7 +648,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -p, --package <SPEC>
           Package to process (see `cargo help pkgid`)
@@ -289,7 +767,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -p, --package <SPEC>
           Package to process (see `cargo help pkgid`)
@@ -405,7 +883,7 @@ Options:
           Package to process (see `cargo help pkgid`)
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --workspace
           Process all packages in the workspace
@@ -488,7 +966,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -524,7 +1002,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -560,7 +1038,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -600,7 +1078,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -638,7 +1116,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -675,7 +1153,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -712,7 +1190,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -759,7 +1237,7 @@ Options:
 
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -801,7 +1279,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -847,7 +1325,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -893,7 +1371,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -935,7 +1413,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -969,7 +1447,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1006,7 +1484,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1047,7 +1525,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1087,7 +1565,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1127,7 +1605,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1172,7 +1650,7 @@ Options:
           [default: 32]
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --interval-ms <INTERVAL_MS>
           Minimum polling interval; native progress never awaits this renderer
@@ -1226,7 +1704,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1276,7 +1754,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -p, --package <SPEC>
           Package to process (see `cargo help pkgid`)
@@ -1381,7 +1859,7 @@ Options:
           Package to process (see `cargo help pkgid`)
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --workspace
           Process all packages in the workspace
@@ -1461,7 +1939,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1503,7 +1981,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1544,7 +2022,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1594,7 +2072,7 @@ Options:
           Explicit target triple; default is the pinned rustc's observed host
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --kind <KIND>
           Possible values:
@@ -1634,6 +2112,18 @@ Options:
       --examples
           Expand authored Rust examples and hidden setup; never execute them
 
+      --declaration
+          Expand the original format-qualified rustdoc item, including complex bounds/associated data
+
+      --compare-with <COMPARE_WITH>
+          Read structural differences from an explicitly selected acquired document.json; --compatibility separately executes native rules. Neither generates an input
+
+      --compatibility
+          Explicitly execute separately prepared native compatibility rules. Without this flag comparison only reads library-owned structural differences
+
+      --check-docs
+          Explicitly check this workspace library's authored documentation with native rustdoc diagnostics; no API artifact or analyzer session is required
+
       --cursor <CURSOR>
           Continue the same immutable artifact/query page; stale contexts refuse
 
@@ -1650,9 +2140,23 @@ Query Rust syntax and inspect source-bound change proposals
 Usage: pse code [OPTIONS] <COMMAND>
 
 Commands:
-  origin   Follow an exact generated hit to existing declared contributors and regeneration routing
-  query    Enumerate written Rust structural candidates and captures; nested matches remain visible
-  preview  Inspect immutable capture-preserving replacements; selected overlaps refuse and no files change
+  session          Explicit reusable semantic session preparation, passive status and original stop
+  explain          Explain selected code through native hover, definition and type resolution
+  symbols          Semantic document symbols, distinct from server-free outline
+  refs             Native semantic references including declarations
+  calls            One-hop incoming and outgoing semantic calls
+  implementations  Native implementation targets; no universal trait-applicability claim
+  macro            Selected macro expansion text with invocation provenance limits
+  tests            Related test candidates; does not run analyzer-supplied commands
+  candidates       Contextual completion candidates, preserving unresolved editing intent
+  hints            Selected native inlay annotations, without dumping the full file
+  hint             Resolve one source/generation-bound native inlay hint lazily
+  candidate        Resolve one source-bound completion candidate, retaining imports and snippet intent
+  predicate        Ask a native trait predicate question; not-proven remains distinct from contradiction
+  edit             Native source-bound semantic edit previews, without filesystem application
+  origin           Follow an exact generated hit to existing declared contributors and regeneration routing
+  query            Enumerate written Rust structural candidates and captures; nested matches remain visible
+  preview          Inspect immutable capture-preserving replacements; selected overlaps refuse and no files change
 
 Options:
   -C <checkout>
@@ -1674,7 +2178,1296 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code session`
+
+~~~~text
+Explicit reusable semantic session preparation, passive status and original stop
+
+Usage: pse code session [OPTIONS] <COMMAND>
+
+Commands:
+  prepare  Explicitly prepare/reuse a restricted native analyzer model. Never runs check-on-save
+  status   Observe the original native service; never prepares or rebuilds it
+  stop     Stop and prove drain of the original analyzer service and its descendants
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code session prepare`
+
+~~~~text
+Explicitly prepare/reuse a restricted native analyzer model. Never runs check-on-save
+
+Usage: pse code session prepare [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --project <PROJECT>
+          Cargo project root; defaults to the owning checkout
+
+      --features <FEATURES>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --no-default-features
+
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+
+
+      --build-macros
+          Explicitly run check --workspace --all-targets for build scripts/proc macros. Package/input changes require stop and explicit preparation; never checks on save
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code session status`
+
+~~~~text
+Observe the original native service; never prepares or rebuilds it
+
+Usage: pse code session status [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code session stop`
+
+~~~~text
+Stop and prove drain of the original analyzer service and its descendants
+
+Usage: pse code session stop [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code explain`
+
+~~~~text
+Explain selected code through native hover, definition and type resolution
+
+Usage: pse code explain [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code symbols`
+
+~~~~text
+Semantic document symbols, distinct from server-free outline
+
+Usage: pse code symbols [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code refs`
+
+~~~~text
+Native semantic references including declarations
+
+Usage: pse code refs [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code calls`
+
+~~~~text
+One-hop incoming and outgoing semantic calls
+
+Usage: pse code calls [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code implementations`
+
+~~~~text
+Native implementation targets; no universal trait-applicability claim
+
+Usage: pse code implementations [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code macro`
+
+~~~~text
+Selected macro expansion text with invocation provenance limits
+
+Usage: pse code macro [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code tests`
+
+~~~~text
+Related test candidates; does not run analyzer-supplied commands
+
+Usage: pse code tests [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code candidates`
+
+~~~~text
+Contextual completion candidates, preserving unresolved editing intent
+
+Usage: pse code candidates [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code hints`
+
+~~~~text
+Selected native inlay annotations, without dumping the full file
+
+Usage: pse code hints [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code hint`
+
+~~~~text
+Resolve one source/generation-bound native inlay hint lazily
+
+Usage: pse code hint [OPTIONS] --select <SELECT> <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+      --select <SELECT>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code candidate`
+
+~~~~text
+Resolve one source-bound completion candidate, retaining imports and snippet intent
+
+Usage: pse code candidate [OPTIONS] --select <SELECT> <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+      --select <SELECT>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code predicate`
+
+~~~~text
+Ask a native trait predicate question; not-proven remains distinct from contradiction
+
+Usage: pse code predicate [OPTIONS] --text <TEXT> <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+      --text <TEXT>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code edit`
+
+~~~~text
+Native source-bound semantic edit previews, without filesystem application
+
+Usage: pse code edit [OPTIONS] <COMMAND>
+
+Commands:
+  rename       Preview only the selected entity's native semantic rename; no source writes
+  file-rename  Preview native file-rename follow-up edits and the exact filesystem operation
+  assists      Enumerate native assists without eagerly resolving every edit
+  assist       Resolve one source/generation-bound native assist into an immutable proposal
+  ssr          Preview the native semantic SSR rule (PATTERN ==>> REPLACEMENT), scoped to selected lines
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code edit rename`
+
+~~~~text
+Preview only the selected entity's native semantic rename; no source writes
+
+Usage: pse code edit rename [OPTIONS] --name <NAME> <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+      --name <NAME>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code edit file-rename`
+
+~~~~text
+Preview native file-rename follow-up edits and the exact filesystem operation
+
+Usage: pse code edit file-rename [OPTIONS] --to <TO> <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+      --to <TO>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code edit assists`
+
+~~~~text
+Enumerate native assists without eagerly resolving every edit
+
+Usage: pse code edit assists [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code edit assist`
+
+~~~~text
+Resolve one source/generation-bound native assist into an immutable proposal
+
+Usage: pse code edit assist [OPTIONS] --select <SELECT> <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+      --select <SELECT>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse code edit ssr`
+
+~~~~text
+Preview the native semantic SSR rule (PATTERN ==>> REPLACEMENT), scoped to selected lines
+
+Usage: pse code edit ssr [OPTIONS] --rule <RULE> <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+      --rule <RULE>
+
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1721,7 +3514,7 @@ Options:
           Refuse when the hit's original source bytes have changed
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --index
           Read the raw staging-index blob rather than working bytes
@@ -1802,7 +3595,7 @@ Options:
           [default: smart]
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --inside <INSIDE>
           Require an ancestor matching each native pattern
@@ -1895,7 +3688,7 @@ Options:
           [default: smart]
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --inside <INSIDE>
           Require an ancestor matching each native pattern
@@ -1976,7 +3769,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2017,7 +3810,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2058,7 +3851,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2096,7 +3889,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2133,7 +3926,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2180,7 +3973,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --if-match <IF_MATCH>
           Require the opaque native ETag observed previously; this is not a content hash
@@ -2230,7 +4023,7 @@ Options:
           Read a committed blob; resolve the revision before returning its identity
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --language <LANGUAGE>
           Override the .rs/.md/.markdown filename inference
@@ -2298,7 +4091,7 @@ Options:
 
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --range-start <RANGE_START>
           Exact half-open UTF-8 byte range
@@ -2375,7 +4168,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --prefix <PREFIX>
           [default: ""]
@@ -2434,7 +4227,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --prefix <PREFIX>
           [default: ""]
@@ -2489,7 +4282,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2527,7 +4320,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2562,7 +4355,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2598,7 +4391,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2634,7 +4427,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2670,7 +4463,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2706,7 +4499,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2747,7 +4540,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2779,7 +4572,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2820,7 +4613,7 @@ Options:
           [default: default]
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --stream <STREAMS>
 
@@ -2861,7 +4654,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2896,7 +4689,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2931,7 +4724,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2966,7 +4759,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3001,7 +4794,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3037,7 +4830,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3072,7 +4865,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3104,7 +4897,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3140,7 +4933,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3181,7 +4974,7 @@ Options:
 
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3222,7 +5015,7 @@ Options:
 
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3263,7 +5056,7 @@ Options:
 
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --docs
 
@@ -3309,7 +5102,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3352,7 +5145,7 @@ Options:
           [default: 20]
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3397,7 +5190,7 @@ Options:
           Explicit finite workload class; ordinary work keeps the configured host policy
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3432,7 +5225,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3467,7 +5260,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3514,7 +5307,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --failure-cursor <FAILURE_CURSOR>
 
@@ -3575,7 +5368,7 @@ Options:
           [default: 0]
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --length <LENGTH>
           [default: 4096]
@@ -3594,6 +5387,10 @@ Options:
 Inspect exact locked dependency identities, features and direct workspace consumers
 
 Usage: pse dep [OPTIONS] <PACKAGE>
+       pse dep <COMMAND>
+
+Commands:
+  units  Explain dependency instances in actual admitted check contexts without compiling
 
 Arguments:
   <PACKAGE>
@@ -3603,8 +5400,63 @@ Options:
   -C <checkout>
 
 
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
       --metadata <METADATA>
           Read this explicit Cargo metadata snapshot instead of collecting locked offline metadata
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --why
+          Show one shortest package inclusion path per reachable workspace member
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --feature-member <FEATURE_MEMBER>
+          Find exact authored feature-expansion members without activating them
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse dep units`
+
+~~~~text
+Explain dependency instances in actual admitted check contexts without compiling
+
+Usage: pse dep units [OPTIONS] <dependency> [PACKAGE[:TARGET]]...
+
+Arguments:
+  <dependency>
+          Exact locked dependency, distinct from the following selected workspace roots
+
+  [PACKAGE[:TARGET]]...
+          Workspace package names, optionally followed by :TARGET. Use -p for opaque package IDs
+
+Options:
+  -C <checkout>
+
+
+      --changed
+          Conservatively select changed source owners and reverse dependencies
+
+      --base <BASE>
+          Git base for --changed, including observed index/worktree/untracked changes
+
+          [default: HEAD]
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -3621,8 +5473,47 @@ Options:
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
 
+  -p, --package <SPEC>
+          Package to process (see `cargo help pkgid`)
+
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --workspace
+          Process all packages in the workspace
+
+      --exclude <SPEC>
+          Exclude packages from being processed
+
+      --all-features
+          Activate all available features
+
+      --no-default-features
+          Do not activate the `default` feature
+
+  -F, --features <FEATURES>
+          Space-separated list of features to activate
+
+      --lib
+          Select actual library declarations, without guessing their names
+
+      --all-targets
+          Preserve native Cargo all-targets selection without enabling all features
+
+      --test <TEST_TARGET>
+          Select one integration-test target
+
+      --bin <BIN_TARGET>
+          Select one binary target
+
+      --without-feature <ABSENT>
+          Features that the actual selected compiler roots must keep absent
+
+      --target <PLATFORM>
+          Explicit Cargo target platform; host dependency contexts remain independent
+
+      --target-kind <TARGET_KIND>
+          Disambiguate duplicate target names by their Cargo kind, for example test or bin
 
   -h, --help
           Print help (see a summary with '-h')
