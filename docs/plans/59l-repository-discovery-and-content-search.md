@@ -12,7 +12,7 @@ review_sources: [docs/functional_reviews/rust-centered-search-and-investigation-
 
 ## Purpose and assessed foundation
 
-**Proposed:** ordinary discovery, text and adjacent-content investigation through the common
+**Implemented:** ordinary discovery, text and adjacent-content investigation through the common
 query/result contract in [59k](59k-query-and-result-foundations.md). Own review O01/O02/O08/O09
 provider work and supply demand/feedback facts for O06/O14. Baseline `9dd0f472a`; the review's
 native observations remain current-capability evidence, not feature delivery. Core3.4 and
@@ -60,9 +60,9 @@ are outside the initial target; existing artifact/log owners remain usable.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [L01](#l01) | in progress | 59l | Shared enumeration/inspection implemented; latest review corrections and assembled qualification remain |
-| [L02](#l02) | in progress | 59l | Native parallel scanning, bounded publication and cancellation implemented; assembled qualification remains |
-| [L03](#l03) | in progress | 59l | Typed fields and incremental native Git history implemented; final targeted/assembled qualification remains |
+| [L01](#l01) | complete | 59l | Actual-universe selection, source guards and direct inspection have targeted acceptance; assembled P02 remains coordinator-owned |
+| [L02](#l02) | complete | 59l | Native lexical scanning, demand, context and settled cancellation have targeted acceptance; assembled P02 remains coordinator-owned |
+| [L03](#l03) | complete | 59l | Typed structured fields and original native Git history have targeted acceptance; assembled P02 remains coordinator-owned |
 
 <a id="l01"></a>
 ### L01 — Select and inspect the actual universe
@@ -106,11 +106,9 @@ value locations retain known/unknown source ranges, and original input bytes are
 Counterfactual dependency graphs and API meaning stay with H07/H08; this is not a second domain
 interpreter or generalized shell/SQL engine.
 
-## Verification and handoff
+## Outcome and verification — 2026-10-31
 
-### Implementation checkpoint — 2026-10-31
-
-The native providers are connected to the common request/result owner. Ordinary working
+**Implemented:** native providers are connected to the common request/result owner. Ordinary working
 arrival queries use `ignore::WalkParallel` directly; request-owned compiled lexical/native
 selectors are shared while parsers and reader state remain per file. Match context attaches
 to witness rows. A presentation budget suppresses payload construction/publication without
@@ -139,17 +137,30 @@ reduces counts without result payloads, and joins stdout processing, stderr drai
 after cancellation or consumer failure. Unsupported history selection combinations refuse before
 starting Git rather than ignoring selector fields.
 
-**Tested (2026-10-31):**
-`cargo t -p pse-host --lib -E 'test(investigation::providers) or test(api::bridge) or test(prepared_xtask) or test(cli::tools)'`
-passed 46/46 selected tests against a zero failure/warning baseline. This includes the native
-module graph, filename zero-content-read observations, cancellation, actual external dependency
-metadata, incremental history framing and request-budget regressions. Later API bridge context
-changes require their own fresh check and receive no acceptance credit from this snapshot.
-Root owns public source→search→inspect journeys and complete integration/static qualification.
-These packages are not marked complete by implementation or focused passes alone.
+**Tested:** `cargo t -p pse-host --lib --test investigations -E
+'test(investigation::) | binary(investigations)'` passes 84/84 against zero failures. Selected
+provider controls exercise working/index/revision universes, unusual paths, native module routes,
+file-only observations, real dependency widening, matcher sharing, lexical context, structured
+fields and incremental Git output. Public controls independently exercise search→inspection→
+preview without source writes, exact counts beyond display limits, stale continuation, real
+unreadable input with retained readable witnesses, and cancellation of a stalled consumer.
+These establish L01–L03 targeted acceptance. [P02](59-agent-cli.md#p02) owns exact command
+accounting, assembled displacement/adoption and scope-end qualification; its result is
+not implied by these passes.
 
-**Proposed verification:** focused unit/adapter tests plus public source→search→inspect journeys
-at each package. M03/P02 own assembled discovery and displacement evidence; E06 moves skill and
-advice with useful delivery. Do not require native HIR, a compiler-private driver, persistent
-search storage or scientific qualification for lexical completion. No performance benefit is
-Measured by authoring; use a small representative comparison only for claims made at execution.
+**Mistakes corrected:** lexical context was initially published as extra matches, normal quota
+stops were misclassified as unknown scope, raw Rust identifiers leaked into module filenames,
+and a missing module route could poison unrelated simple-name searches. Native witness ranges,
+distinct stop reasons, AST identifier normalization and query-relevant module uncertainty now
+preserve the selected question. Root-package selection also uses authored manifest boundaries
+rather than accidentally including nested packages.
+
+**Deliberate boundaries:** embedded native grep/ignore is the sole ordinary lexical path; no
+second `rg --json` implementation, custom matcher or persistent search index was added. Managed
+Git supplies history operations with its own semantics, including distinct `-S` string counts
+and `-G` changed-line matches; historical bytes never acquire today's semantic identity.
+Structured parsers preserve unknown locations rather than invent byte spans. PCRE2, unsupported
+preprocessing/history combinations, PDFs/OCR, archives and arbitrary binary analysis are not
+silently emulated. Lexical completion requires no analyzer or compiler-private driver, and
+these functional controls establish no Measured performance benefit. This plan remains an active
+coordinator dependency while the series retains independently open scope.

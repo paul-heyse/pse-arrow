@@ -441,6 +441,15 @@ Original compiler/IDE/scientific evidence retains its provider and interpretatio
 views, direct evidence inspection and source hydration. A10 publishes the target; package-owned
 functional controls establish implementation separately.
 
+Compact investigation responses retain the effective request/root even when no result is
+returned, shared native world identity, original native failures and the exact source/API
+witness used before refinement. A successful native identity/importability observation cannot
+turn an unproved documentation-shape predicate into a positive match. A positive existence
+witness can fulfill that demand without erasing unknown alternative coverage; actual independent
+failures and cancellation retain their outcomes. Original preparation failures expose their
+already bounded stream prefixes through redacted typed facts, explicitly identifying lossy text
+projections rather than claiming exact binary reconstruction.
+
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 
 An absent original-space feasibility assessment is an explicit refusal distinct from evaluated infeasibility. Completion-owned projections preserve cancellation, precise limits/resource exhaustion, numerical failures, validation causes and contradiction witnesses; adapter-owned native classification remains retained evidence. Registry/Rust declarations own new generated vocabulary and transport, and recorded contracts retain historical interpretation.
@@ -1001,6 +1010,16 @@ The original typed reproducer and `OriginalFailureReproduced` meaning are unchan
 > maintainer-authorized Plan52c target; implementation and qualification remain at C06.
 
 ### 24.2 Current qualification basis
+
+Plan59's delivered Rust-centered investigation surface has targeted local Linux source,
+native-analysis/API, original-compiler and actual native-agent consumer evidence.
+[Plan59 P02](../../plans/59-agent-cli.md#p02) owns the assembled campaign commands, results,
+corrections and exclusions; package tables retain their own acceptance. These developer-tooling
+checks establish neither new scientific results nor Plan58 H's deployment/reference/performance
+qualification. Actual native CLI use and the advisory endpoint are distinct from live UI hook
+trust/context injection, which remains unverified. Conditional compiler-private extraction,
+addressed native SSR capture search and unselected dependency/example acquisition retain their
+explicit unavailable capabilities and revisit decisions.
 
 The current native source cut implements the first-party callable Rust application and native
 host/developer owners described by ADR-0233. The retired Python product and generated frontend

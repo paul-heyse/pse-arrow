@@ -55,7 +55,7 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
   and [Plan59 improvement review](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md),
   published at `e907d8a1f`, inspecting `890aa07f76fac5739cfc9811a47e823c326be663`.
 - Status: **Prior selected deliveries retain their recorded qualification; the search extension
-  below is planned and E01's removal scope decision remains open.** The current checkpoint and
+  is implemented with scope-end qualification below, and E01's removal scope decision remains open.** The current checkpoint and
   companion Outcomes own evidence, limits and conditional non-adoptions. Prior completion does
   not qualify the new query, provider and migration packages.
 
@@ -90,10 +90,11 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
 
 ## Rust-centered search target — 2026-10-31
 
-**Proposed extension:** integrate the [Rust-centered search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
+**Implemented extension:** integrate the [Rust-centered search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
 published at `9dd0f472a`, following implementation `81c2759d8`. Its O01–O14 references are
 qualified to that review. The source review's capability and current-code assessments supply
-the foundation; this amendment adds no production, ADR, architecture or agent-setting changes.
+the foundation. A10/A11 publish the governing contracts; K–M and their selected consumers
+implement them. Package tables and P02 below own acceptance; the review itself authorizes no work.
 Core3.4 and efficiency heuristics1.0 apply through the repository binding. Existing physical
 and scientific authority remains with its current owners.
 
@@ -148,27 +149,27 @@ or additional service deployment follows merely from this amendment.
 <a id="search-extension-dispositions"></a>
 ## Search extension dispositions
 
-Each row refers only to the 2026-10-31 search review. **Scheduled** selects work or a decision
-investigation; it establishes no implementation, test pass or performance benefit. Companion
+Each row refers only to the 2026-10-31 search review. **Resolved** records delivery or the
+explicit outcome of a selected conditional inquiry. Companion
 package tables own status; this table owns opportunity disposition. Conditional non-adoption
 must describe the lost capability and useful revisit condition rather than claim delivery.
 
 | Opportunity | Disposition | Work owner | Required evidence or trigger |
 | --- | --- | --- | --- |
-| O01 | scheduled | L01 | Shared filesystem/Git/Cargo selection, useful path discovery and direct inspection; ignored/generated/index-only/revision-only cases |
-| O02 | scheduled | L02 | Native literal/regex/context/count/exists search, exact reads and no-match semantics; unsupported regex modes fail explicitly |
-| O03 | scheduled | M01; G10/H07 | Name-first source/workspace/API candidates with qualified identity and contextual inspection; no implicit semantic preparation |
-| O04 | scheduled | J06; M02 | Native Boolean/relational AST rules, reusable captures and scoped composition; same-file is distinct from same-node |
-| O05 | scheduled | K02; J07 | Compact result/provenance/locator views, direct inspection and guarded expansion; Unicode/raw paths and exact evidence |
-| O06 | scheduled | K03; L02/J06/B06 | Demand reaches native producers; first witness, exhaustive no-match, exact counts, cancellation and consumer close remain distinct |
-| O07 | scheduled | G11/G12; M02 | Early native AnalysisHost/HIR/IDE/SSR/snapshot investigation, selected conditional provider and typed relationships; unavailable facts remain unknown |
-| O08 | scheduled | L03; D10 | Historical/change-centered source and ownership drill-through; working, index and revision context never silently coalesce |
-| O09 | scheduled | L03 | Bounded JSON/TOML/YAML field/content queries and mixed-source scope; existing domain owners retain interpretation |
-| O10 | scheduled | H07/H08; M02 | API/dependency/use/importability and selected diagnostic/candidate joins; generic constraints and destination context limits explicit |
-| O11 | scheduled | J07 | Hydrated search-to-proposal flow with native syntax/semantic contracts, exact source and trivia; apply remains separately conditional |
-| O12 | scheduled | I06/I07; M02 | Named ownership/async/dataflow compiler inquiry, conditional pin-specific driver and original-versus-current evidence; explicit probe execution |
-| O13 | scheduled | K01/K02/K03; A10 | One typed flag/JSON/config interpretation, scoped diagnostics, source precedence and directional generated schemas |
-| O14 | scheduled | K03; B06 | Actual work/progress and effective-query explanation on stderr; no invented totals, cancellation acknowledgement or cache/speed claims |
+| O01 | resolved | L01 | Native filesystem/index/revision selection and direct reads pass dirty/generated/ignored, missing-current-path and raw-name controls; P02 journey evidence |
+| O02 | resolved | L02 | Native grep demand/context/count/exists and byte policies pass independent expectations, no-match, unreadable scope and explicit unsupported-engine controls |
+| O03 | resolved | M01; G10/H07 | Actual name-first source/native/API discovery→guarded inspection passes, including namesakes, dependency aliases and selected contexts |
+| O04 | resolved | J06; M02 | Native AST/Tree-sitter capture and Boolean rules feed scoped composition; independent file/node/entity and repeated-capture controls pass |
+| O05 | resolved | K02; J07 | Directional schemas, compact record roundtrips and portable exact-source/evidence references pass Unicode/raw-byte and stale/root controls |
+| O06 | resolved | K03; L02/J06/B06 | First witness/count/exhaustive, unknown alternatives, late failure and actual closed/stalled-consumer settlement pass public/provider controls |
+| O07 | resolved | G11/G12; M02 | Immutable native snapshot selected and implemented; original IDE operations, type/visibility/use-path facts and descendant cancellation tested. SSR accessor branch not adopted; G11/G12 retain lost capability and trigger |
+| O08 | resolved | L03; D10 | Native Git history/pickaxe/blame and generated/historical→authored origin pass with original bytes/revision and current-producer limits retained |
+| O09 | resolved | L03 | Actual JSON/TOML/YAML parser fields, malformed-input failures and mixed-source scope pass; unknown source ranges remain explicit |
+| O10 | resolved | H07/H08; M02 | Actual API/native-use/importability joins preserve original facade/definition, transitive profiles and dependency-byte evidence; missing/unsupported proof remains unknown. H08 records conditional graph/example non-adoption |
+| O11 | resolved | J07 | Search/source/native result→exact hydrated preview passes trivia, capture, overlap and stale/source-context controls; no apply branch selected |
+| O12 | resolved | I06/I07; M02 | Exact-pin borrow/await/partial-move inquiry selects original diagnostic/MIR and explicit probes; no compiler-private driver adopted. Typed loan/initialization-at-location remains unavailable with I06's explicit revisit trigger |
+| O13 | resolved | K01/K02/K03; A10 | Shared typed validation, directional schemas and flag/JSON/saved-config precedence pass, including config-relative paths and implicit-default negatives |
+| O14 | resolved | K03; B06 | Effective-query provenance and actual progress use the native stderr owner; public stream/final coverage and interruption pass. No measured cache/speedup claim |
 
 ## Runtime and test target decisions — 2026-10-30
 
@@ -598,7 +599,7 @@ universal gates. Revisit the affected edges when a feasibility decision selects 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | P01 | in-progress | 59 | Selected feature deliveries and qualification below are complete. E01's removal scope choice remains open; no full-series completion is asserted until that choice and its resulting obligations are settled |
-| [P02](#p02) | planned | 59 | Assembled search-extension consumer acceptance, selected conditional branch outcomes and delivered guidance; prior qualification gives no acceptance credit to new packages |
+| [P02](#p02) | complete | 59 | Entire selected K–M scope and necessary supporting slices implemented, replaced paths deleted, eight public journeys accepted, integrated coverage and affected corrections qualified below. P01/E01 remains separate |
 
 <a id="p02"></a>
 ### P02 — Qualify the integrated search extension
@@ -656,17 +657,19 @@ applicable native ownership operations. D08 concurrent Git acceptance is deferre
 **2026-10-31 search-extension execution:** the maintainer authorized the entire 59k–59m
 scope and its necessary producer/consumer slices. K01/A10 publish the shared interpretation;
 G11/A11 select and publish an explicitly prepared immutable native-analysis snapshot. I06/A12
-retain existing original compiler evidence and select no compiler-private driver. K/L/M and
-affected A–J production work is in progress: native discovery, scoped composition, guarded
-inspection/proposals and passive-route retirement are integrated, with public/native
-acceptance, generated references and P02 scope-end qualification still pending. G12 is now
-a selected prerequisite for its typed M02 enrichment. No focused pass establishes the whole
-extension's completion. Existing Outcomes below retain their original scope.
+retain existing original compiler evidence and select no compiler-private driver. All selected
+K/L/M and affected A–J functionality is complete with public/native acceptance, generated
+references and deletion of the replaced routes. G12 supplies M02's typed immutable native
+enrichment. P02 is complete through the assembled campaign and successful affected reruns
+recorded below, including documentation publication. No selected K–M implementation or
+qualification remains open. Existing Outcomes below retain their original scope; this does
+not close P01/E01 or Plan58 H.
 
 **2026-10-31 adoption amendment:** the `pse-cli` skill, native PATH exposure and shared
 advisory tooling hook are implemented. [59e's adoption outcome](59e-environment-and-adoption.md#cli-adoption-amendment--2026-10-31)
-owns verification and the remaining fresh-client discovery/delivery check, including Codex's
-native hook trust review. This does not settle E01's separate removal choice.
+owns the actual delegated native Codex discovery/refinement evidence and tested advisory
+endpoint. Live UI hook trust/injection remains explicitly unverified; no global trust/configuration
+change is selected. This does not settle E01's separate removal choice.
 
 **Remaining-series implementation and qualification — 2026-10-30.** The maintainer authorized the
 entire remaining series, including J03–J05. Earlier exclusions below describe the
@@ -690,6 +693,86 @@ implied. All independent work selected for that earlier wave and the qualificati
 complete. E01 and its resulting obligations remain independently open under P01; new extension
 execution follows the amendment above. No measured performance benefit
 or full scientific qualification is claimed.
+
+### Search-extension outcome and qualification — 2026-10-31
+
+**Implemented:** the complete selected K–M scope and necessary A–J consumers now share
+`search`/`inspect`/`propose`, typed configuration and directional schemas, guarded portable
+references, native repository/content providers and composed scientific-code investigations.
+Native AnalysisHost/IDE snapshots are explicitly prepared and distinct from live LSP contexts.
+The selected conditional implementation uses original native IDE operations with opt-in
+descendant cancellation over the same immutable-input Salsa world. API joins retain original
+facade/definition artifacts, dependency bytes and transitive compiler profiles, with reusable
+request-owned qualification and a final evidence barrier. Unsupported facts remain unknown.
+
+**Implemented deletions:** displaced passive outline/show/artifact/owner/dependency/result/log/
+explain/affected/changes roots, `code` query/entity/edit branches and passive compiler aliases,
+their callers and 43 obsolete snapshots are removed. Acquisition, explicit preparation/probes,
+tests and controls retain their distinct owners. No compatibility frontends, result database,
+second test runner or source-apply mechanism remain. The skill, agent guidance, narrow native
+advice and parser-generated command reference follow the delivered hierarchy.
+
+**Tested public journeys:** each row retains independent/native expectations and a revealing
+negative case. P02's campaign accounting follows this table; prior source review and unit
+passes do not replace these consumers.
+
+| M03 journey | Actual evidence and negative case |
+| --- | --- |
+| Unfamiliar subsystem → name → declaration → reference | `actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_and_test_selection`: native exact-name discovery, returned reference inspection, actual target relationship; unrelated same-spelled targets remain distinct |
+| Mixed Rust/TOML/Markdown discovery | `investigations` public source pipeline plus structured-provider controls: same native selector includes adjacent source/configuration; malformed input and unavailable providers retain partial/unknown outcomes |
+| Combined syntax and identity refinement | Actual native namesake journey and native component controls: scoped structural witnesses refined by original target; inactive cfg, ambiguous spelling and changed worlds are not false semantic matches |
+| Trait method → impl/callers → preview → actual test selection | Same native public journey exercises snapshot implementations, separately prepared LSP incoming callers, guarded immutable preview and current package selection; stale source/session refuses and no test executes implicitly |
+| Original compiler error → API constraint → explicit probe | Original failure `01a193de-50d8-7362-a187-3fb6377a0b04`, actual acquired bytes API query `01a193df-f884-76f3-a74c-8784f5bc3b2d`, corrected explicit probe `01a193e0-154c-7646-9bed-214e3fe7cfb7`; retained failed source remains original after correction |
+| Generated/historical hit → authored owner | Delegated native Codex journey and origin `01a193e2-d525-715e-bf00-842a8c39fd33`: returned reference → exact bytes → declared documents emitter; historical blob and current declared producer are distinguished, stale guard refuses |
+| Source-bound continuation | `public_stable_pages_continue_original_sources_and_refuse_changed_universe`: guarded deterministic pages retain original universe; changed source refuses; arrival ordering has no cursor |
+| Adverse sources and missing providers | Public unreadable-source/raw-filename/missing-provider/alternative-existence controls retain positive witnesses and unknown/partial coverage. Actual API consumers additionally challenge missing defining artifacts, transitive feature drift, dependency-byte mutations, aliases/privacy and replacement native contexts |
+
+**Qualification (local Linux, pinned toolchain, ordinary unbounded placement; zero failure and
+warning baseline):** independent native-session fixtures use the documented top-level Cargo
+boundary. Fixture-backed tests use their declared owners through `pse test`; no fixture variables
+or alternative runner were invented. Filtered populations below are deliberate command scope.
+
+| Evidence | Command and result |
+| --- | --- |
+| Tested managed partition and affected repair | `scripts/pse test pse-host --all-targets -E 'not binary(composed_investigations)' --format json`: **787 run, 785 passed, 2 failed**, invocation `01a19438-1733-75da-9592-65b13c2fa02f`. Both stripped-PATH fake-Cargo fixtures now declare their actual compiler inputs; `cargo t -p pse-host --test correctness` then passes the entire affected target **14/14**, run `c882f11d-f28c-4688-b30c-371dedfe2815`, preserving refusal/nonlaunch/argv/exit assertions. No known failure remains; this is assembled coverage plus an affected rerun, not a fresh all-green aggregate. Declared product-observation fixtures pass. The one ignored subprocess helper is exercised through its parent; the four independent-session cases are the separate raw partition below |
+| Tested composed native/API consumers | `cargo t -p pse-host --test composed_investigations`: **4/4 passed**, run `c496d45f-73ae-4d46-87e1-60da26646ae1`; original tool/session/source custody, native/LSP distinction and actual stop/drain exercised |
+| Tested authenticated cancellation | `cargo t -p pse-host --lib --features native-hir -E 'test(semantic::tests::native_snapshot_authenticated_cancel_settles_one_request_and_preserves_the_session)'`: **1/1 passed**, run `db079cc5-96d4-4c43-b329-af678c16fb23`; 677 other tests filtered, not an optional-feature full-suite claim |
+| Tested revealing components | Public source/investigation selection **84/84**; source-query/compact native DTO **10/10**; actual API qualification **15/15**; selected native components **3/3**; exact patched Salsa cancellation contracts **3/3**. Companion Outcomes own their names and conditions; these are not additive full-workspace counts |
+| Tested static correctness | `just hygiene` collected all 20 recipes: 14 passed initially; six failed recipes were corrected and their affected owners rerun successfully. `just clippy` passes workspace default and no-default all-target configurations; `scripts/cargo-bin/cargo-pse-correctness clippy --keep-going -p pse-host --all-targets --locked --features native-hir -- -D warnings` passes the native host configuration. No warning baseline or lint suppression was introduced |
+| Tested governance and generated equivalence | `just governance`: codegen/family checks passed; the governance test's new vendor-path mismatch failed, was corrected without weakening its assertion, and `just governance-tests` then passed **26/26**. ADR index/frontmatter, dependency-use and license failure reruns pass; parser/generated output comparison passes |
+| Tested host feature combinations | `scripts/pse-env -- env CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo-bin/cargo-pse-correctness" cargo hack --keep-going check -p pse-host --all-targets --feature-powerset --depth 2 --locked`: both empty/native-hir combinations pass. This is the relevant host powerset, not a new solver-fleet powerset claim |
+| Tested preparation/environment | `scripts/bootstrap-host`, `just ready` and explicit `scripts/pse tools prepare native-analysis --format json` pass; native selection `d8bcf943-1d08-40d3-be0d-2d053a4e9c35`, invocation `01a19438-1732-727b-8e6f-47bb5b2ca51f` |
+| Tested documentation publication | `just docs` passes, publishing 957 chapters with scoped search. Root `just turn-end` passes ADR-index generation and formatting; final status wording records these actual results |
+
+**Mistakes made and corrected:** initial context rows inflated match counts, compact optional
+native DTO fields did not round-trip, and a partial lower-level IDE replacement lost navigation
+and missed cold indexing descendants. The final implementation retains explicit witnesses,
+Serde defaults and original IDE APIs with library-owned cancellation inheritance. Independent
+API review exposed unproved nonlocal package bytes, false negative external descendants and
+repeated graph work; exact original evidence, unknown descendants and request-owned proof reuse
+correct them. Raw Cargo initially omitted declared observation fixtures, and the managed split
+exposed a native skipped-suite classification issue; neither failed campaign receives acceptance
+credit. Final native preparation also exposed physical Cargo invoking a rustup-proxy compiler
+from dependency directories and selecting the default nightly. The correctness owner now binds
+the checkout-selected absolute compiler/rustdoc executables across observation, admission and
+execution, preserving explicit selections, sccache and ownership. Native Cargo rendering keeps
+late compiler errors on captured stderr alongside artifact JSON. Actual offline external-dependency
+and induced-error controls pass. Two deliberately stripped-PATH adapter fixtures also needed
+their actual compiler inputs declared; their whole retained target passes after correction,
+without weakening its assertions. Test execution retains its declared fixture and independent-session
+boundaries; no broad clean, alternate toolchain or test-name exclusion workaround was used.
+
+**Deliberate decisions and limits:** native SSR addressed captures, counterfactual dependency
+graphs/hosted examples and a compiler-private structured driver were investigated and not
+adopted; G11/H08/I06 retain the lost capabilities and observable revisit conditions. Native
+importability proves a naming path, not arbitrary trait applicability or compiler acceptance.
+Cold cancellation tests prove actual request/descendant settlement, not a universal latency or
+precise timing inside one indexing routine. Actual native agent adoption and advice endpoint
+delivery are tested; live Codex/Claude UI hook trust/injection remains unverified. No measured
+speedup, full replacement of specialized tools, scientific/solver/reference qualification or
+other-platform result is claimed. E01/P01 and Plan58 H retain their separate scope. Companion
+plans remain retained because this active coordinator depends on their native status/evidence;
+enduring contracts live in blueprint §21.7/§23.2/§24.2 and proposed ADR-0233/0234.
 
 ### Remaining-series outcome and qualification — 2026-10-30
 

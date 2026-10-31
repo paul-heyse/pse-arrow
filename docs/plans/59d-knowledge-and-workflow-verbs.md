@@ -14,7 +14,7 @@ Part of [Plan59](59-agent-cli.md).
 
 ## Current extension — passive route consolidation, 2026-10-31
 
-**Implemented; assembled acceptance in progress:** [D10](#d10) migrates useful source/dependency/history/owner inspection into the
+**Implemented and Tested:** [D10](#d10) migrates useful source/dependency/history/owner inspection into the
 operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
 target. The [coordinator](59-agent-cli.md) owns the combined target and rule decisions;
 [59k](59k-query-and-result-foundations.md) owns common query/result contracts and
@@ -184,7 +184,7 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 | [D07](#d07) | complete | 59d | Complete parser-derived reference generated and reviewed; full nine-target regeneration and drift check pass. Discovery annotation preserves native positional order |
 | [D08](#d08) | deferred | 59d | Operator-confirmed deferral; D09 investigation retained, no commit CLI implementation required |
 | [D09](#d09) | complete | 59d | Native Git transaction strategy selected with 11 passing disposable-repository probes; D08 runtime acceptance remains outstanding |
-| [D10](#d10) | in-progress | 59d | Passive source/dependency/owner/evidence/API routes consolidated under search/inspect/propose; replaced public parser branches and schemas deleted. Focused exact-byte/native-template/origin controls pass; complete assembled native/history/API acceptance remains |
+| [D10](#d10) | complete | 59d | Passive reads consolidated under search/inspect/propose; old branches, schema aliases and obsolete snapshots deleted. Actual exact-byte, history/origin, native/API and original-compiler journeys pass; P02 owns assembled qualification |
 
 <a id="d10"></a>
 ### D10 — Cut over passive reads without moving their authorities
@@ -205,8 +205,16 @@ working/index/revision/Unicode/native-byte guards, generated→authored navigati
 captures, template trivia and selected-overlap refusal. A malformed-source search explicitly
 retains positive witnesses while reporting recovery/unknown/partial coverage. Shared
 model/config/stream/evidence/catalog intent controls pass; these focused results do not
-qualify the complete new provider/native/backend surface. Remaining assembled journeys and
-scope-end qualification stay with M03/the coordinator.
+qualify unexercised backend behavior. M03's actual native/API consumer controls and delegated
+generated/historical→authored-emitter journey additionally pass; original compiler failure→
+acquired API constraint→explicit corrected probe retains both original and current source.
+[P02](59-agent-cli.md#p02) owns the assembled qualification and its exact limits.
+
+**Correction and deliberate deletion:** the original compiler diagnostic next action still named
+the removed artifact frontend. It now constructs the parser-checked `inspect artifact` action.
+Retired passive parser branches and 43 obsolete snapshots are deleted, with no compatibility
+aliases. API acquisition, explicit probes, analyzer sessions, test execution and controls remain
+effectful owners; a smaller public hierarchy does not make those effects passive.
 
 **Consumes:** [K02](59k-query-and-result-foundations.md#k02)'s working typed query/result and
 explicit-locator contract, [L01](59l-repository-discovery-and-content-search.md#l01)'s source

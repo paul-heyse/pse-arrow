@@ -12,7 +12,7 @@ review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.m
 
 ## Current extension — 2026-10-31
 
-**Proposed:** H07/H08 extend the completed H01–H06 baseline with structural capability
+**Implemented; targeted Tested:** H07/H08 extend the completed H01–H06 baseline with structural capability
 queries, source-use/importability composition and bounded graph/acquisition decisions from
 [O03/O10](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md#O10).
 The maintainer accepted `search`/`inspect`/`propose` hard cutover and compact shared
@@ -21,11 +21,12 @@ passive reads. Earlier `api`/`dep` read-surface target wording records the compl
 the new public consumer migrates through M03 only when its replacement works. Explicit API
 acquisition, documentation checks and probes retain their effect owners. K owns shared query/
 result meaning and A10 its governing publication. Historical completed rows and evidence do
-not qualify these extensions; this revision starts no implementation or acquisition.
+not qualify these extensions; their current targeted functional outcomes are recorded below,
+with scope-end qualification owned by [P02](59-agent-cli.md#p02).
 
-H07 can deliver structural rustdoc/dependency and existing-LSP composition before G12. Only
-typed facts selected by G11 and implemented by conditional G12 may extend that answer later.
-H08 makes a supported adoption or no-adoption decision; library availability alone selects none.
+Basic structural rustdoc/dependency reads remain usable without G12. Selected typed facts
+consume the explicitly prepared G12 context rather than an automatic analyzer or compiler.
+H08 records its supported adoption/no-adoption decisions; library availability alone selects none.
 
 ## Purpose and assessed foundation
 
@@ -140,7 +141,7 @@ the review's source inspection is not an executed pinned-interface probe.
 | [H04](#h04) | complete | 59h | Native structural differences with selected-input losslessness checks and separate explicit compatibility execution delivered; actual native trials retain missing-reference and rule-coverage limits |
 | [H05](#h05) | complete | 59h | Native rustdoc uses the original compiler workflow and diagnostics; actual public check and corrected native broken-link/codeblock controls pass |
 | [H06](#h06) | complete | 59h | Original failure → API constraint → explicit corrected probe demonstrated; conditional non-adoptions below retained. Series-end qualification remains with the coordinator |
-| [H07](#h07) | in-progress | 59h | Structural signature/bound/associated-type filters and artifact-hash-bound inspection implemented; common public join and native-context qualification remains open |
+| [H07](#h07) | complete | 59h | Structural native declaration filters, guarded defining artifacts and public dependency/reexport/use/importability/private/two-context consumers pass; P02 scope-end qualification remains separate |
 | [H08](#h08) | complete | 59h | Existing retained metadata/selected-unit owners selected for actual-context queries; explicit graph, hosted, example and archive non-adoptions with concrete revisit triggers below |
 
 <a id="h01"></a>
@@ -498,7 +499,7 @@ directed reexport paths remain inspectable. Portable local item references carry
 artifact SHA, so replacing an artifact directory cannot reinterpret an old item ID. These are
 declaration/context facts, not a trait solver or destination visibility proof. Source-use and
 importability enrichment stays an explicit semantic operation with unsupported states unknown;
-G12 facts keep their own selected context. Public artifact/source-join acceptance remains open.
+G12 facts keep their own selected context.
 
 The request-owned source bridge now reuses each acquired artifact and its original public
 reexport route across candidates. It compares the retained Cargo documentation-unit identity
@@ -509,7 +510,20 @@ old bridge merely because its requested configuration has the same spelling. Rea
 declaration identity drives use joins, while the native destination module supplies visibility
 and import-path facts for unused items. Unsupported associations, ambiguous contexts and missing
 native facts remain unknown structural candidates. Dependency/reexport/private-destination and
-two-context public qualification is still required before H07 completion.
+two-context public consumers now pass their selected functional controls.
+
+**Tested — targeted functional acceptance:** the selected API query/bridge/acquisition/comparison
+run passes 15/15 against zero failures. Actual acquired-API consumers verify structural
+constraints joined to original native identity/use, unused public destination importability,
+facade aliases with exact/prefix discovery, private destination refusal, independently prepared
+native contexts and transitive dependency-feature mismatches. Missing/unacquired defining
+artifacts retain structural unknowns that later native refinement cannot upgrade into a known
+positive; existing definition artifact byte/context guards refuse replacement. These public
+consumers pass in their respective targeted runs, not an invented combined passing run.
+The coordinator's [P02 record](59-agent-cli.md#p02) owns exact command accounting and the
+scope-end integrated/hygiene qualification. H07's targeted implementation acceptance
+is complete; no trait-solver, compiler-verdict, scientific or quantitative performance claim
+is inferred from these controls.
 
 <a id="h08"></a>
 ### H08 — Conditional graph and acquisition extensions

@@ -9,7 +9,7 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
-| [59: Agent CLI](59-agent-cli.md#current-state-and-next-step) | Rust-centered search extension: [shared queries/results](59k-query-and-result-foundations.md), [repository/content providers](59l-repository-discovery-and-content-search.md) and [composed investigations](59m-composed-rust-investigations.md). The coordinator owns dispositions/dependencies; companion tables own packages. Prior qualification and E01's separate decision retain their recorded scope. |
+| [59: Agent CLI](59-agent-cli.md#current-state-and-next-step) | Delivered Rust-centered search/inspect/propose: [shared queries/results](59k-query-and-result-foundations.md), [repository/content providers](59l-repository-discovery-and-content-search.md) and [composed investigations](59m-composed-rust-investigations.md). [P02](59-agent-cli.md#p02) owns assembled qualification; companion tables own packages. P01/E01's separate worktree-removal decision remains open. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
 | [53: Test architecture](53-test-architecture-target.md) | Test architecture and existing remaining qualification/decision scope. |

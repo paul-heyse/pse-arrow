@@ -30,7 +30,17 @@ path = "src/bin/pse-native-analysis.rs"
 required-features = ["native-hir"]
 
 [features]
-native-hir = ["dep:ra_ap_hir", "dep:ra_ap_ide", "dep:ra_ap_ide_db", "dep:ra_ap_load-cargo", "dep:ra_ap_project_model", "dep:ra_ap_vfs", "dep:native_ra_syntax", "dep:unicode-properties", "dep:unicode-ident"]
+native-hir = [
+  "dep:ra_ap_hir",
+  "dep:ra_ap_ide",
+  "dep:ra_ap_ide_db",
+  "dep:ra_ap_load-cargo",
+  "dep:ra_ap_project_model",
+  "dep:ra_ap_vfs",
+  "dep:native_ra_syntax",
+  "dep:unicode-properties",
+  "dep:unicode-ident",
+]
 
 [lib]
 doctest = false

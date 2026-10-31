@@ -12,19 +12,21 @@ review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.m
 
 ## Current extension — 2026-10-31
 
-**Proposed:** G10–G12 extend the completed G01–G09 baseline with name-first discovery
-and a bounded native IDE/HIR/SSR and snapshot investigation, carrying the
+**Implemented; targeted Tested:** G10–G12 extend the completed G01–G09 baseline with
+name-first discovery and the selected immutable native IDE/HIR snapshot, carrying the
 [search review's O03/O07/O10](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md).
 The maintainer accepted `search`/`inspect`/`propose` hard cutover and compact shared
 provenance/streaming on 2026-10-31, preserving identity, outcome, coverage and every useful
 replaced read. Those decisions supersede earlier public-family and repeated-envelope target
 wording below; completed rows and their evidence retain their original scope. K owns the shared
 query/result contracts, A10 their governing publication and A11 any selected provider decision.
-This revision plans work only; it neither adopts a native backend nor reopens production execution.
+G11 selected the native branch and A11 published it before implementation. The selected
+runtime and component evidence below is distinct from the coordinator's assembled
+[P02 qualification](59-agent-cli.md#p02).
 
-G11 is selected feasibility work without a prior recurrence prerequisite. G12 is conditional
-implementation after G11 selects a useful supported capability and A11 publishes its governing
-decision. Neither package gates ordinary lexical/syntax discovery or G10's existing-LSP route.
+G11's SSR non-adoption and revisit conditions remain explicit; no SSR-search provider is
+fabricated from rewrite output. The selected G12 branch and G10's existing-LSP route retain
+separate prepared contexts. Neither gates ordinary lexical/syntax discovery.
 
 ## Purpose and assessed foundation
 
@@ -152,9 +154,9 @@ The review checked development interfaces; exact pinned extension/native signatu
 | [G07](#g07) | complete | 59g | Source-bound rename, lazy assist, scoped semantic SSR, file-rename and complete supported workspace-effect previews into J02 |
 | [G08](#g08) | complete | 59g | Preview-only decision below; no apply command is advertised |
 | [G09](#g09) | complete | 59g | Native selected CLI/lifecycle journeys and 678-test host run pass; original diagnostics offer guarded, explicitly current-source semantics without inventing original-source identity |
-| [G10](#g10) | in-progress | 59g | Existing-session discovery and exact source/generation/session-bound locators implemented; native public navigation qualification remains open |
+| [G10](#g10) | complete | 59g | Existing-session native name discovery→guarded public inspection and selected source/refinement/navigation consumers pass; P02 scope-end qualification remains separately owned |
 | [G11](#g11) | complete | 59g | Compatible0.0.358 typed/method/reference/Cargo-VFS probes select the A11-published immutable snapshot; SSR non-adoption/revisit recorded below; product acceptance belongs to G12 |
-| [G12](#g12) | in-progress | 59g | Selected immutable native-analysis snapshot after A11/blueprint321 publication; native public query, stale/cancel/lifetime acceptance remains open |
+| [G12](#g12) | complete | 59g | Selected immutable helper, original native IDE/context/type/role consumers and authenticated independent-request cancellation/drain tested; P02 scope-end qualification remains separate |
 
 <a id="g01"></a>
 ## G01 — Pinned capability and integration design
@@ -587,8 +589,20 @@ digests. Portable follow-ups retain original managed-session invocation, source 
 generation. A changed session/source/configuration refuses. Native container labels do not
 prove a full module path or visibility, so unsupported semantic filters refuse; source-only
 selection uses actual AST visibility/module/self-receiver metadata. Fuzzy symbol output remains
-non-exhaustive even below the client allowance, so zero rows do not prove absence. Public
-navigation/stale/cancellation acceptance remains open with the integrated run.
+non-exhaustive even below the client allowance, so zero rows do not prove absence.
+
+**Tested — selected consumers:** the native component filter
+`cargo t -p pse-host --lib --features native-hir -E 'test(semantic::native::tests)'`
+passes three controls against the zero-failure baseline. They include exact qualified native
+module discovery excluding an unrelated same basename, selected dependency/std discovery,
+source/manifest staleness and independent cancellation. The actual public namesake fixture
+`actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_and_test_selection`
+also passes its source-candidate refinement, navigation, relationships and preview controls.
+The current public namesake journey additionally exercises ready-session semantic symbol
+discovery into a source/session/generation-guarded result and public inspection. Compact native
+sections round-trip through their shared DTO with empty handles intentionally omitted; mandatory
+omission counts remain required. G10's targeted implementation acceptance is complete. Exact
+public command accounting and the separate remaining scope-end/static qualification belong to P02.
 
 <a id="g11"></a>
 ### G11 — Native IDE/HIR, SSR and snapshot feasibility
@@ -690,7 +704,7 @@ index, second live database or unselected typed field follows from adopting one 
 Targeted compile/tests establish only selected branches; the coordinator owns scope-end journeys
 and static qualification. No quantitative performance benefit is claimed by this plan.
 
-**Implemented; qualification open — 2026-10-31:** the optional native-analysis helper now uses
+**Implemented — 2026-10-31:** the optional native-analysis helper now uses
 the same prepared-tool custody and semantic-session owner as the live provider, selecting one
 immutable Cargo/VFS/HIR world explicitly. The actual loaded crate graph supplies library source
 roots, package IDs, effective feature sets, target and original source digests; query-time
@@ -701,6 +715,33 @@ workspace and library indexes; the LSP route refuses that widened domain when it
 cannot establish it. Native facts retain inferred/adjusted types, resolved declarations,
 read/write roles and destination visibility/use-path evidence without interpreting display text
 as type identity. A fixed authenticated cancellation control awaits actual CPU settlement and
-preserves independent query/session ownership. Actual helper preparation, public composition,
-source/configuration staleness and cancellation qualification remain open; component or compile
-evidence alone does not close G12.
+preserves independent query/session ownership. Exact published Salsa0.28.5 and
+`ra_ap_ide_db`0.0.358 sources carry a narrow opt-in cancellation-group patch: cloned native IDE
+and scoped Rayon handles share a monotonic request signal while preserving each handle's
+local suppression/reset state and the original shared inputs. Ordinary Salsa clone behavior
+outside that branch is unchanged. Original native IDE methods remain authoritative; the
+temporary lower-level replacement operation module was deleted. Archive checksums, patch scope,
+licenses and reproduction commands live in each vendor's `pse-patch.md`.
+
+**Tested — selected source/runtime outcome:** the native component command above passes
+3/3, covering typed targets/adjustments/roles, actual native visibility/use paths, guarded
+transitive feature profiles and cold-symbol cancellation followed by independent/fresh queries.
+The cold test observes actual coarse CPU ownership; it does not establish the exact internal
+indexing instruction at cancellation or a universal latency bound. Focused library commands
+`cargo test --manifest-path vendor/salsa/Cargo.toml --locked --lib cancellation_group_tests`
+and `cargo test --manifest-path vendor/salsa/Cargo.toml --locked --test parallel cancellation_group`
+pass 2/2 and 1/1 respectively, including barrier-confirmed tracked computations on nested Rayon
+clones and recomputation from an independent request.
+
+The actual authenticated native lifecycle command
+`cargo t -p pse-host --lib --features native-hir -E 'test(semantic::tests::native_snapshot_authenticated_cancel_settles_one_request_and_preserves_the_session)'`
+passes 1/1 against zero failures. Its isolated operational namespace explicitly prepares the
+helper, starts and authenticates the original native session, cancels one active request,
+observes CPU-settled acknowledgement, retains a successful sibling/current reusable session
+and drains the original service. This route uses ordinary raw Cargo because independent
+persistent-session creation inside an enclosing `pse test` workload is intentionally refused;
+no ownership marker or production refusal is removed. Earlier startup/preparation/timeout
+attempts supplied no acceptance credit. Broader API composition and the coordinator's full
+P02/hygiene qualification have their separate result at the coordinator; no scientific or quantitative performance
+qualification follows from these controls. G12's selected targeted implementation acceptance is
+complete; P02 owns the integrated/static result.

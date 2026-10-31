@@ -12,21 +12,20 @@ review_sources: [docs/functional_reviews/rust-centered-search-and-investigation-
 
 ## Purpose and assessed baseline
 
-**Proposed:** one query meaning and result contract for whole-checkout, Rust-centered
+**Implemented:** one query meaning and result contract for whole-checkout, Rust-centered
 investigation. This owns shared semantics for the [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
 O05/O06/O13/O14 and consumes its complete query model. Coordinator dispositions own opportunity
 status; this table owns package status. Baseline `9dd0f472a`; previous implementation is
 recorded at `81c2759d8`. Core3.4, efficient-architecture heuristics1.0 and the repository binding
 apply. This is developer tooling, without new physical/numerical interpretation.
 
-Current `source_read`/`source_query` supply exact source identities and native syntax matching;
-`semantic` supplies an explicitly prepared world; `envelope::OutputOptions::emit_page` supplies
-producer-owned views. Preserve those useful foundations. Current query execution acquires all
-explicit files, counts by analysis and analyzes again for deterministic quotas. Presentation
-limits do not reduce that work. `encode_frame` can retain a complete response before projecting;
-do not inherit that requirement for every lexical first-page operation. Working-file UTF-8
-snapshots are not a universal scanner representation. These focused findings justify new
-contracts and producer integration, not a second generic search service or result database.
+At the assessed baseline, exact source identities, native syntax matching, explicitly prepared
+semantic worlds and producer-owned views were useful foundations. Query execution acquired all
+explicit files, counted by analysis and analyzed again for deterministic quotas; presentation
+limits did not reduce that work. Complete response buffering before projection and working-file
+UTF-8 snapshots were also unsuitable universal scanner requirements. Those findings led to the
+new contracts and producer integration below while preserving the useful owners; they did not
+justify a second generic search service or result database.
 
 ## Target and decisions
 
@@ -83,9 +82,9 @@ stage/file/byte progress on stderr; it does not supply execution ownership, tota
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [K01](#k01) | complete | 59k | Shared semantics/defaults and B/C/F impact settled below; A10 publishes proposed ADR-0233/0234/blueprint320 before K02; no runtime completion claim |
-| [K02](#k02) | in-progress | 59k | Shared validated requests, compact result/locator/event contracts and directional schemas implemented; integrated consumer acceptance and generated references remain |
-| [K03](#k03) | in-progress | 59k | Configuration, whole-record writer and demand-aware providers implemented; budget, presentation and complete public/native acceptance remain in progress |
+| [K01](#k01) | complete | 59k | Shared semantics/defaults and B/C/F impact published through A10 before production cutover |
+| [K02](#k02) | complete | 59k | Typed requests, directional schemas, guarded locators and compact shared provenance have targeted consumer acceptance; assembled P02 remains coordinator-owned |
+| [K03](#k03) | complete | 59k | Layered configuration, bounded record delivery, demand, projection and continuation have targeted acceptance; assembled P02 remains coordinator-owned |
 
 <a id="k01"></a>
 ### K01 — Settle the common contract and physical boundaries
@@ -149,8 +148,8 @@ keep native interpretation; unavailable native fields do not become display-text
 The existing count-then-reparse path is not the mandatory realization for each requested answer.
 
 **Publication boundary:** A10 publishes these decisions through proposed ADR-0233/0234 and
-blueprint320. K01/A10 completion is design/publication only; K02/K03, provider and consumer tests
-and P02 assembled qualification remain open. No new Tested/Measured runtime claim follows.
+blueprint320. K01/A10 completion established the design/publication boundary; implementation and
+targeted evidence are recorded below. Publication itself establishes no runtime or measured claim.
 
 <a id="k02"></a>
 ### K02 — Implement one request and result interpretation
@@ -178,43 +177,42 @@ replacement matcher or planner. **Acceptance:** first witness, exhaustive no-mat
 partial failure, canceled no-match input and closed consumer preserve their distinct outcomes;
 configuration precedence and file-relative paths work without a second environment evaluator.
 
-## Verification and handoff
+## Outcome and verification — 2026-10-31
 
-### Execution checkpoint — 2026-10-31
+**Implemented:** one validated request now serves flags, JSON and Figment-backed saved queries.
+Explicit CLI values override selected requests and configuration without implicit defaults or
+array concatenation changing the question. Configuration-relative paths and their provenance
+remain attached. Request-owned compiled selectors and per-source evaluation contexts reduce
+work before materialization; first results, existence, exact counting and exhaustive examination
+retain separate demands. Presentation budgets, grouping and selected fields do not change
+the examined population or turn context rows into matches.
 
-K01/A10 governing publication is complete. The shared model/configuration/stream and new
-source/evidence adapters have focused passing controls, followed by additional integration
-changes that still require revalidation. Public journeys exposed and corrected context rows
-being counted as matches and a nonportable `u128` locator timestamp representation. Source
-guards now distinguish original roots, lightweight witnessed intervals and exact hydration;
-native candidate guards retain their original session as well as generation. Current work
-integrates output budgets, result projection/grouping and actual progress. This checkpoint
-does not establish full K02/K03, B06, M03 or P02 completion.
+Shared typed source records retain original working/index/revision/evidence identity and actual
+native worlds, including empty or fully filtered answers. Lightweight observations bind their
+original root, witnessed interval/stat or Git blob; exact inspection/proposals hydrate and
+verify the corresponding premises. Native and API references additionally bind their original
+session/generation or artifact/context. Deterministic continuations refuse changed universes;
+arrival output has no cursor. B06's existing owned writer supplies bounded complete-record
+delivery and actual settlement after cancellation, consumer closure or a stalled output pipe.
+Search ends with one coverage summary; non-search output retains its single-envelope contract.
 
-The next integrated implementation boundary adds bounded output delivery through the existing
-native writer, source-to-semantic guards, typed composition and retirement of replaced passive
-routes. Focused public checks include a passing open-but-stalled-reader interruption. Their
-first eight-test run had seven passes and one parser failure for `--explain` after the mode;
-the parser is corrected, with revalidation pending. Optional native-analysis compilation passes;
-its first engine test exposed a build-directory assumption in the shared preparation owner.
-Restricted snapshots now seal source/configuration inputs without discovering disabled build
-outputs; the correction still needs its functional rerun. API/source joins, assembled native
-journeys, generated references and scope-end qualification remain open.
+**Tested:** `cargo t -p pse-host --lib --test investigations -E
+'test(investigation::) | binary(investigations)'` passes 84/84 against zero failures. Revealing
+public controls cover saved-case precedence, live NDJSON finality, exhaustive presentation
+budgets, unchanged-source continuation, byte filenames, partial readable witnesses, unavailable
+providers and interruption with an open stalled reader. Directional schema/compact DTO and
+public native consumers have their selected passing controls. Exact campaign accounting and
+the assembled/static result belong to [P02](59-agent-cli.md#p02), not a duplicate
+qualification ledger here. K01–K03 targeted acceptance is complete; this does not claim P02 pass.
 
-The integrated correction now preserves performed-root/query provenance even for empty counts,
-actual shared native worlds for fully filtered answers, and original native failure records.
-Composed counts, unknown candidates, selected relationship scope, configuration-relative nested
-artifacts and guarded native package/dependency profiles have focused controls. Source-only
-module routing normalizes native raw identifiers and scopes uncertainty to the selected target.
-Readable human witnesses and bounded output support both synchronous and async native providers
-on the admitted producer. The selected native implementation loads installed standard-library
-sources, retains actual package/dependency profiles and supplies native visibility/use-path
-proofs. Public native/API/cancellation journeys and scope-end qualification are still pending;
-the focused controls and all-target compile do not establish their completion.
+**Mistakes corrected:** early context-only rows inflated match counts; locator timestamps used
+a nonportable `u128`; and a late native failure could lose delivered counts. Separate witnesses,
+checked portable timestamps, typed native failures and terminal coverage now preserve the
+actual work and original cause. Optional empty native DTO fields also round-trip with explicit
+Serde defaults while mandatory coverage facts remain mandatory.
 
-**Proposed verification:** targeted unit/parser/schema controls per package, including independent
-expectations and public producer→consumer tests. M03/P02 own assembled coverage and scoped
-performance comparisons; current small read-only observations are not an SLA. Scope-end hygiene
-and integrated checks follow AGENTS.md. No new implementation is established by this document.
-Move enduring contracts through the governing architecture route, regenerate derived outputs
-through their generators, and update E06 guidance with delivered behavior.
+**Deliberate boundaries:** no result database, universal task graph, SQL layer or atomic
+whole-checkout snapshot was introduced. Native interpretation stays with its selected provider;
+unknown never becomes a negative proof. Quantitative latency, memory and answer-size benefit
+are not Measured by these functional controls. Enduring contracts live in blueprint §21.7/§23.2
+and proposed ADR-0233/0234; this active dependency remains retained through coordinator closure.

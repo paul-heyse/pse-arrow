@@ -1805,6 +1805,47 @@ preparation. The live LSP retains its distinct supported context and operations.
 capture/range search is not claimed where the selected public API supplies only matched text.
 G11's isolated evidence establishes feasibility; G12 and P02 own production and assembled acceptance.
 
+**Implemented realization (Plan59 K–M).** Working selection uses the native ignore walker and
+grep matcher/searcher pipeline; index/revision selection retains Git object identity. Native
+AST rules, Tree-sitter queries and written declaration discovery share the selected source
+universe. Structured fields use their actual parsers. Managed Git supplies history operations
+whose semantics are not supplied by the embedded Git owner. Source-only questions start no
+analyzer or implicit dependency acquisition. File-level, node-level and entity-level witnesses
+keep their different meanings through composition.
+
+The native snapshot loads installed standard-library sources and the selected Cargo/VFS world
+once during explicit preparation. Each request forks an opt-in cancellation group over shared
+Salsa storage for that immutable input world. IDE and Rayon descendants inherit that group while retaining
+independent local stacks, cancellation suppression and reset. Other request groups and ordinary
+database clones keep their existing behavior. The exact source patches remain with their library
+provenance. Original IDE definition/reference/implementation/symbol operations own navigation;
+native visibility and use-path queries can prove a naming path at an unused destination. This
+does not establish arbitrary trait applicability or compiler acceptance. Cancellation requests
+the actual group and retains the CPU completion owner through settlement.
+
+API refinement preserves the facade's original public route separately from the acquired
+defining declaration. Original compiler units, target, features, build inputs and dependency
+package bytes govern their association with each other and a prepared native world. Registry
+identity alone cannot establish source-byte equivalence. Missing original byte evidence,
+unexpanded external descendants and unsupported contexts remain unknown. Request-owned proof
+contexts reuse acquired graphs/routes and recheck their original evidence at the final barrier.
+Definition artifact/hash/context and original session/source guards survive portable references.
+
+Typed defaults, repository configuration, selected requests and explicit flags have one merge
+owner; implicit parser defaults do not override authored configuration. Producer demand is
+independent of payload allowance, context, field selection and grouping. A bounded queue feeds
+the native nonblocking output owner; consumer closure cancels admission and retains actual CPU
+and child joins. Existence can be proved by one positive alternative while other coverage stays
+unknown. Exact totals and complete absence require their own sufficient examination. The current
+qualification boundary remains in §24.2; these mechanisms confer no new scientific qualification.
+
+Correctness and prepared-tool construction bind checkout-selected actual compiler/rustdoc
+executables before physical Cargo enters dependency directories. Observation, admission and
+execution consume that same selection, with explicit physical selections and compiler wrappers
+preserved. A rustup proxy evaluated later in a registry directory cannot silently select another
+default compiler. Native source-build diagnostics use Cargo's rendered-stderr mode while artifact
+records retain their JSON protocol and original capture owner.
+
 ### Conditional and fitting owner lifetimes
 
 > Decision: ADR-0166 and ADR-0186 (proposed amendments; maintainer-approved Plan46 execution).

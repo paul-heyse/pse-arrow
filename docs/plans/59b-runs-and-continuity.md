@@ -227,10 +227,26 @@ no configuration or data deletion. Focused result/source links remain independen
 | [B03](#b03) | complete | 59b | One original service contains wrapper/payload/descendants, with finite reservation before birth. Real ordinary/finite exit/cancel/main-crash, allocation-fault/live-gate, byte and detached-test→wait journeys pass; old generic subtree/recovery protocols are deleted |
 | [B04](#b04) | complete | 59b | Synchronous `run-all` preserves original per-child outcomes and parent/session identity in one native unit. Native `--justfile` supports explicit recipe files. Failed/incomplete/successful sibling controls pass; aggregate callers migrated and private recipe deleted |
 | [B05](#b05) | complete | 59b | Explicit/environment/harness precedence, session-local latest, checkout-wide history override and independent exact IDs pass focused, public and integrated controls. Correlation grants no native stop authority; no packet hooks added |
-| [B06](#b06) | in-progress | 59b | K02 frames use bounded delivery through the existing native output writer; producer cancellation waits for actual settlement. Public closed/stalled-consumer and scope-end qualification remain |
+| [B06](#b06) | complete | 59b | Whole-record bounded delivery uses the existing native writer; actual public closed/stalled-reader interruption and demand/cancellation controls pass. P02 owns assembled qualification |
 
 <a id="b06"></a>
 ### B06 — Search record streaming and output settlement
+
+**Implemented and Tested (2026-10-31):** bounded typed events reach the existing nonblocking
+native writer while an admitted coarse Rayon producer executes the request. Consumer closure
+or interruption cancels admission and joins actual producer work; no detached writer, second
+service or task registry remains. Complete Begin/source/result/diagnostic/final records preserve
+query, source and coverage even for empty/count-only answers. The public `investigations`
+controls exercise live NDJSON, closed output and an open stalled reader interrupted by Ctrl-C;
+model/stream/provider controls exercise indivisible records, quotas and unknown/partial coverage.
+The selected `cargo t -p pse-host --lib --test investigations -E 'test(investigation::) | binary(investigations)'`
+run passed 84/84 against zero failures. [P02](59-agent-cli.md#p02) owns final integration.
+
+**Correction and deliberate realization:** native async providers cannot use Tokio
+`blocking_send` from a worker driving their future. The request-owned future now waits through
+the bounded async channel using the existing executor; cancellation and physical join remain
+with the admitted CPU task. Demand and presentation budgets remain separate. Stable ordering
+may retain records; ordinary arrival streaming does not require a hidden complete answer.
 
 **Consumes:** [K02](59k-query-and-result-foundations.md#k02)'s implemented typed event/result
 contract and A10's published governing changes. K02 supplies the records, source/context

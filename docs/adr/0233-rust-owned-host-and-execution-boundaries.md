@@ -282,6 +282,22 @@ generic method, four adjusted expressions, read/write roles and a real restricte
 world. This supports selection, not production qualification. G12 owns actual service, freshness,
 native public-query and cancellation acceptance; A11 leaves this ADR formally Proposed.
 
+**Implemented realization:** native request snapshots use an opt-in cancellation group over
+the original Salsa storage. The exact library source patches propagate the group through IDE
+and Rayon clones while preserving handle-local suppression/reset and ordinary clone behavior.
+This preserves the upstream IDE navigation/reference operations; a partial lower-level
+replacement lost supported navigation and did not reach cold indexing descendants. The existing
+CPU owner signals the group and still waits for physical completion. Independent groups can
+reuse the same memo storage after cancellation. This is a realization of the selected lifetime
+contract, not a second world or a global revision write.
+
+API/source joins retain original facade and definition identities with compiler-unit/profile,
+target, build-input and dependency-byte evidence. Request-owned qualification contexts reuse
+the original graphs/routes and retain a final evidence barrier. Missing older or nonlocal byte
+evidence cannot be repaired by a matching package name, lock identity or successful native
+resolution. Unsupported external descendants remain unknown. Package qualification and formal
+ADR acceptance remain separate from implementation and bounded library controls.
+
 ## More information
 
 [Plan59](../plans/59-agent-cli.md) owns the subsequent A07/A03/A05/B03/G implementation and

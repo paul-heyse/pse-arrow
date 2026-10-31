@@ -12,7 +12,7 @@ review_sources: [docs/plan_improvement_reviews/plan59-library-integration-and-ta
 
 ## Current extension — 2026-10-31
 
-**Proposed:** J06/J07 extend completed J01–J05 with native structural rules/Tree-sitter
+**Implemented; targeted Tested:** J06/J07 extend completed J01–J05 with native structural rules/Tree-sitter
 extraction and result-to-proposal hydration from
 [O04/O11](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md#O04).
 The maintainer accepted `search`/`inspect`/`propose` hard cutover and compact shared
@@ -20,7 +20,8 @@ provenance/streaming on 2026-10-31, preserving identity, outcome, coverage and u
 reads. K owns query/result/locator contracts; A10 publishes their governing changes before
 dependent implementation. M03 owns public migration and retirement of replaced routes. Earlier
 command-family and envelope wording describes the completed baseline; historical completion
-and tests do not establish these extensions. This revision plans no source implementation.
+and tests do not establish these extensions. Current selected producer/consumer evidence is
+recorded below; the coordinator's [P02 qualification](59-agent-cli.md#p02) remains separate.
 
 Proposals remain previews through J02/G07. Hydrating a lightweight result establishes the exact
 source premises needed for a preview; it grants no apply authority and cannot fabricate semantic
@@ -106,8 +107,8 @@ current authorization. Final parser publication and series qualification remain 
 | [J03](#j03) | complete | 59j | Native syntax queries, captures/context constraints and explicit immutable previews pass targeted and actual CLI controls |
 | [J04](#j04) | complete | 59j | Actual generated hit follows declared contributor/emitter and regeneration routing; unknown authored location remains unknown |
 | [J05](#j05) | complete | 59j | Actual source-only query→preview→origin→emitter journey passes without semantic preparation or source writes; series qualification remains separate |
-| [J06](#j06) | in-progress | 59j | Native rules/extraction, request-local compiled selectors and shared per-file parse implemented; selected/public qualification remains open |
-| [J07](#j07) | in-progress | 59j | Exact result guards and capture-aware previews integrated with the shared validator; native/public stale and preview qualification remains open |
+| [J06](#j06) | complete | 59j | Native rules/extraction and shared per-file parse implemented; advanced producer and selected public controls pass; P02 scope-end qualification remains separate |
+| [J07](#j07) | complete | 59j | Exact result hydration/shared preview validation implemented; selected native/public stale and preview controls pass; P02 scope-end qualification remains separate |
 
 <a id="j01"></a>
 ### J01 — Addressed source and bounded reading
@@ -251,7 +252,8 @@ required for this source workflow.
 
 J06/J07 consume the [query/result foundations](59k-query-and-result-foundations.md) and
 feed [composed investigations](59m-composed-rust-investigations.md). Historical completed rows
-and Outcome cover J01–J05 only; all following behavior remains planned.
+and Outcome cover J01–J05 only; the following packages keep their own implementation and
+selected-test outcomes.
 
 <a id="j06"></a>
 ### J06 — Native structural rules and Tree-sitter extraction
@@ -310,8 +312,24 @@ remaining explicit syntax-preview producer. The count-then-reparse path, per-fil
 compilation and manual preview relation loops were deleted. Extraction retains every capture
 range and explicitly rejects unsupported predicates/match-limit failure. Recovery keeps positive
 witnesses while preventing exhaustive negatives. Quota stopping remains separate from provider
-unknown/error, and cancellation retains actual CPU completion ownership. Targeted native cases
-and integrated public output still require the selected run.
+unknown/error, and cancellation retains actual CPU completion ownership.
+
+**Tested — selected producers and consumers:**
+`cargo t -p pse-host --lib -E 'test(source_query::) | test(semantic::tests::compact_native_sections)'`
+passes 10/10 against zero failures, including all nine source-query controls. Native cases cover
+branch-local captures, repeated equality, relation/field/sibling rules, suppression comments,
+Tree-sitter anchors/predicates/quantified capture groups, recovery and cancellation. The
+quantified Rust-argument case explicitly groups each anonymous comma with its following
+identifier and checks all three original captures; repeating identifiers alone is not a
+comma-separated sequence in the selected grammar. Recovery still preserves usable positive
+witnesses without establishing exhaustive absence.
+
+The coordinator's selected actual public investigation run
+`cargo t -p pse-host --lib --test investigations -E 'test(investigation::) | binary(investigations)'`
+passes 84/84 against zero failures, including source/template/preview and partial/stale output
+controls. Exact command/scope-end accounting belongs to P02; these selected passes do not
+establish the remaining full-series hygiene or unexercised scientific behavior. J06's targeted
+implementation acceptance is complete.
 
 <a id="j07"></a>
 ### J07 — Hydrate selected results into checked previews
@@ -361,5 +379,13 @@ original source hash. Capture-template previews re-match the exact range and use
 proposal validator/protected-source owner. Working/index/revision sources keep their acquisition
 identity. Semantic follow-ups preserve session, generation, source and lazy-candidate guards
 through the original native producer; unsupported snapshot transformations do not fall back to
-spelling-based edits. No preview writes source/index. Public stale/multi-source/unsupported
-preview acceptance remains open with the integrated run.
+spelling-based edits. No preview writes source/index.
+
+**Tested — selected preview consumers:** the producer and public commands above exercise
+capture-aware previews and stale/partial-source guards. The actual
+`public_text_discovery_inspection_and_preview_keep_original_bytes` consumer follows discovery
+through original-byte inspection and checked preview. The selected native namesake journey
+also retains its original syntax witness and guarded native identity through inspection and
+proposal/test-selection follow-ups. These establish the exercised preview routes and their
+no-write boundary; full P02 qualification, unrelated transformations and source application are
+not inferred from them. J07's targeted implementation acceptance is complete.

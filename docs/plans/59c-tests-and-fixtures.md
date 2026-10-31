@@ -12,7 +12,7 @@ review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/func
 
 ## Current extension — search-to-test handoff, 2026-10-31
 
-**Implemented, focused acceptance in progress:** [C10](#c10) connects the operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
+**Implemented and Tested:** [C10](#c10) connects the operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
 O07/O10/O11 to the retained inventory and affected-selection owners. The [coordinator](59-agent-cli.md)
 owns the combined target; [59k](59k-query-and-result-foundations.md) owns result locators and
 [59m](59m-composed-rust-investigations.md) owns composed public journeys. Existing C01–C09
@@ -266,7 +266,7 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 | [C07](#c07) | complete | 59c | Native target/feature/absence selection and policy-owned group membership pass focused and integrated tests. Only incompatible contexts sharing an exclusion sequence; other contexts remain concurrent. Future semantic consumers retain their own acceptance |
 | [C08](#c08) | complete | 59c | Named pure reader target, phase/context explanations and native Cargo timing links are delivered and tested. Existing wall durations/native stage attribution survive real concurrent producers. Two-stage cold bootstrap retained by bounded decision; no speedup claim |
 | [C09](#c09) | complete | 59c | assert_cmd wraps actual outputs; semantic JSON/exit/capture assertions and reviewed Clap snapshots pass. Proptest covers arbitrary byte chunks/bounds/EOF independently. Full host 579/579 passes; native ownership remains tested through real kernel/service journeys |
-| [C10](#c10) | in-progress | 59c | Retained evidence locators and guarded source/native-project→current containing-package selection implemented; actual source/proposal/selection and stale/root controls pass. Actual native semantic-candidate and assembled M03 acceptance remain |
+| [C10](#c10) | complete | 59c | Retained evidence and guarded source/native-project→current package selection pass actual source and native semantic result→proposal→selection journeys, including stale/root refusal. P02 owns assembled qualification |
 
 <a id="c10"></a>
 ### C10 — Bridge addressed search results to retained test evidence and selection
@@ -286,7 +286,9 @@ configuration, generation and source guard before resolving the native project's
 containing package. The controlling checkout remains the semantic-session owner; an external
 project does not get reinterpreted as that checkout. The assembled native namesake/trait-method
 journey exercises this handoff together with addressed inspection and an immutable candidate
-preview; its actual native qualification remains pending.
+preview. `actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_and_test_selection`
+passes through the actual prepared native snapshot and current selection owner; no test is run
+implicitly by this navigation.
 
 The actual CLI `investigation_evidence` controls pass for a trait-method source witness→
 guarded immutable proposal→native intent selection, retained-byte reads, foreign/stale root
@@ -296,7 +298,25 @@ the combined focused source-reader run (six tests, zero failures in this target)
 enclosing run's two stale prepared-host failures belong to effectful `cli_output` controls;
 they do not qualify those controls. Original inventory paging also returned the retained
 package/binary/test/features/fixture identities from an earlier captured invocation without
-fresh listing. Full semantic-candidate/M03 and scope-end qualification remain open.
+fresh listing. [P02](59-agent-cli.md#p02) owns final assembled qualification. The two stale
+`cli_output` harness failures were subsequently corrected at their child-environment boundary;
+that target now passes 7/7 with the production ownership and toolchain guards preserved.
+
+**Correction and deliberate boundary:** native result locators preserve the selected external
+project and controlling session separately; current selection must not reinterpret an external
+project as the controller checkout. Related tests remain candidates. Fixture-backed full tests
+use `pse test`; independent persistent semantic-session fixtures run at the documented top-level
+Cargo boundary rather than weakening the production nested-detachment refusal.
+
+**Tested selection correction:** nextest's native `skipped` and `skipped-default-filter`
+statuses mean a binary was excluded before enumeration. They establish an empty selected
+population for that binary, rather than missing capture. Discovery and completed-report
+reconciliation now share that interpretation; unknown statuses, nonempty excluded suites and
+reports attributed to excluded tests still refuse. The selected discovery/completed controls
+pass 14/14, and an actual two-target managed invocation with one binary explicitly excluded
+passes 2/2 (`01a1942f-25e3-77fb-8dcd-8e12f8f57828` and
+`01a1942f-76d2-7127-b219-f70d7151b98b`, zero failure baseline). No second filter evaluator or
+independent test-event proof was introduced.
 
 **Consumes:** [K02](59k-query-and-result-foundations.md#k02)'s implemented locators and source/
 context guards, C05 retained inventories and C07 resolved native selection. Semantic candidate

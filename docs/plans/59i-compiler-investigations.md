@@ -12,21 +12,21 @@ review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.m
 
 ## Current extension — 2026-10-31
 
-**Proposed:** I06/I07 add the bounded ownership/async/dataflow investigation selected from
+**Interface-checked and Tested within the bounded inquiry:** I06 completed the ownership/async/dataflow investigation selected from
 [O12](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md#O12).
 The maintainer explicitly accepted investigation plus conditional implementation on 2026-10-31
 without requiring historical recurrence. I05's completed 2026-10-30 no-driver decision and its
 evidence remain historical; its recurring-question trigger does not govern this new inquiry.
-I06 tests a named unanswered structured question against the current lighter routes; only a
-positive decision and the applicable A12 governing publication permit I07 implementation.
-Neither is an ordinary-search prerequisite, and neither installs a compiler component now.
+I06 assessed exact pinned APIs and actual source cases, selecting the existing original
+diagnostic and explicit MIR/probe routes. I07 is not adopted; its typed location-specific facts
+and revisit trigger remain explicit in the outcome below. No compiler component is installed.
 
 The same accepted `search`/`inspect`/`propose` cutover moves passive original diagnostics and
 artifact reads into common inspection through M03, preserving distinct evidence, context,
 outcome and coverage. Compiler generation/probes retain explicit effectful owners. K owns
 result/locator meaning and A10 its publication; compact shared provenance does not turn current
 source into original compiler evidence. Existing completed rows and outcomes do not qualify
-I06/I07. This document revision plans work only.
+I06/I07. M03/P02 own the actual composed public journey and integrated acceptance.
 
 ## Purpose and assessed foundation
 

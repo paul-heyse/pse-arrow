@@ -14,7 +14,7 @@ Part of [Plan59](59-agent-cli.md).
 
 ## Current extension — delivered search adoption, 2026-10-31
 
-**Implemented, fresh-client acceptance in progress:** [E06](#e06) carries the operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
+**Implemented and Tested within the native-agent boundary:** [E06](#e06) carries the operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
 adoption through actual `search`/`inspect`/`propose` deliveries. The [coordinator](59-agent-cli.md)
 owns the combined target and [59m](59m-composed-rust-investigations.md) owns assembled migration
 slices. E06 follows useful public delivery rather than advertising planned syntax. Completed
@@ -173,7 +173,7 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 | [E03](#e03) | complete | 59e | Native test/runtime/source/product/semantic/API/compiler/worktree guidance and generated reference published; actual implementation and diagnosis use delivered verbs. Deferred commands are not advertised |
 | [E04](#e04) | complete | 59e | Current-work pointer links native status owners; lifecycle validate passed with zero errors |
 | [E05](#e05) | complete | 59e | Edit guidance in AGENTS.md and `.claude/rules/tooling.md` |
-| [E06](#e06) | in-progress | 59e | Delivered guidance exercised by an actual delegated Codex agent through generated/historical search→guarded inspection→declared authored emitter. Final generated reference and scope-end acceptance remain; live UI hook trust/injection is explicitly unverified |
+| [E06](#e06) | complete | 59e | Delivered guidance exercised by a delegated native Codex agent through generated/historical search→guarded inspection→declared authored emitter; parser reference regenerated and advisory endpoint tested. Live UI hook trust/injection remains explicitly unverified; P02 owns assembled qualification |
 
 <a id="e06"></a>
 ### E06 — Adopt delivered search and retire displaced guidance
@@ -210,7 +210,14 @@ document interpreter remained explicitly unknown/unavailable, without implicit p
 This establishes actual native agent CLI adoption, including a useful generated-source
 refinement. Live Codex/Claude UI hook trust or context injection remains **unverified**; invoking
 the advisory endpoint does not establish that attachment. No hook-definition or global runtime
-change is selected. Final generated parser publication and scope-end qualification remain open.
+change is selected. The parser-owned command reference has been regenerated through `just codegen`
+and its comparison passed in scope-end hygiene. [P02](59-agent-cli.md#p02) owns final integration.
+
+**Correction and deliberate limit:** the advisory parser now recognizes literal single-quoted
+Rust search arguments containing `$`, while retaining dynamic double-quoted and mutation
+negative controls. Actual endpoint `PreToolUse.additionalContext` and delegated native CLI use
+are tested; neither is relabelled as live Codex/Claude UI attachment. No global trust/configuration
+change or complete displacement of specialized external tooling is claimed.
 
 **Consumes:** actual public slices delivered through [M03](59m-composed-rust-investigations.md#m03),
 including their parser-owned discovery/schema, useful examples and retired-route list. E06 can

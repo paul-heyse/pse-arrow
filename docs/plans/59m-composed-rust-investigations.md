@@ -12,7 +12,7 @@ review_sources: [docs/functional_reviews/rust-centered-search-and-investigation-
 
 ## Purpose and foundation assessment
 
-**Proposed:** agents start with a name, partial shape, known location or original diagnostic,
+**Implemented:** agents start with a name, partial shape, known location or original diagnostic,
 then refine and inspect the useful result through `search`, `inspect` and `propose`. This owns
 composed public consumers of review O03/O04/O07/O10/O11/O12; G/H/I/J retain their backend and
 proposal contracts. Baseline `9dd0f472a`; existing tested source/semantic/API/compiler features
@@ -58,9 +58,9 @@ require a Git transaction/commit feature or an apply implementation.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [M01](#m01) | in-progress | 59m | Source discovery, workspace symbols, API and direct inspection consumers implemented; complete provider/native public journeys pending |
-| [M02](#m02) | in-progress | 59m | Native structural composition and guarded semantic/API consumers underway; positive G11 feasibility selects G12 immutable native snapshot implementation |
-| [M03](#m03) | in-progress | 59m | Proven source/evidence routes migrating and obsolete public routes retiring; eight assembled journeys, adoption and final qualification remain |
+| [M01](#m01) | complete | 59m | Source/native/API discovery and guarded inspection have targeted public acceptance; assembled P02 remains coordinator-owned |
+| [M02](#m02) | complete | 59m | Scoped composition, resolved identities and guarded API/use/importability joins have targeted public acceptance; selected G12 is implemented |
+| [M03](#m03) | complete | 59m | Consolidated public intents, replaced-route deletion and actual investigation/adoption journeys have targeted acceptance; assembled P02 remains coordinator-owned |
 
 <a id="m01"></a>
 ### M01 — Find an entity without knowing its file
@@ -109,17 +109,79 @@ source-bound continuation; and adverse filenames, parsing, permissions, ambiguit
 and missing providers. Each actual journey has independent/native expectations and a revealing
 failure case. Unit or snapshot passes alone do not establish native lifetime or useful adoption.
 
-## Conditional design and verification
+## Outcome and verification — 2026-10-31
 
-G11 compares LSP extension, native AnalysisHost/HIR and a narrowly extended analyzer server,
-accounting for Cargo/VFS/macro loading and one coherent world. Public SSR range/capture access
-and exact family compatibility remain unresolved. Investigate a named useful question rather
-than presume all capabilities fit or require prior usage. I06 separately checks pinned rustc
-consumer APIs, phase/query timing and structured loans/liveness; neither gate blocks lexical work.
-No prototype becomes a second permanent live semantic database by default.
+**Implemented:** source declarations, explicitly prepared workspace/library symbols and acquired
+API candidates share the validated public request without sharing an invented authority. Name
+policies retain exact/prefix/contains/fuzzy availability, written qualification and provider
+limits. Scoped Boolean evaluation keeps file/node/entity witnesses distinct; bounded directed
+relations retain direction, multiplicity, cycle controls and unknown facts. Resolved identities
+bind the actual declaration to the original session/configuration/generation. Refined rows retain
+their source/API candidate reference separately from native identity and shared world provenance.
 
-**Proposed verification:** packages run focused controls and public consumers; P02 performs
-scope-end assembled qualification with E06 actual fresh-client use. Compare representative
-query latency, preparation and answer bytes only for quantitative claims, reporting conditions
-and uncertainty. Full scientific/reference/performance campaigns stay at their existing owners.
-New plans and examples remain Proposed until code, consumed contracts and named evidence exist.
+API joins preserve original public aliases, defining-artifact evidence and package/context
+guards. A request-owned bridge compares the acquired documentation's actual library-unit and
+transitive feature closure with the same loaded native world, then verifies original source
+bytes before lifting a span. Native visibility and `find_use_path` prove selected destination
+importability; spelling, signature display or a same-feature root package cannot replace that
+proof. Unavailable definitions/context facts retain structural candidates as unknown, without
+counting them as proven positives or upgrading unknown through later conjunctions.
+
+Passive source/dependency/owner/compiler/log/test reads moved to `inspect`; discovery uses
+`search`, and immutable syntax/native edit previews use `propose`. Replaced public parser
+branches, callers, old snapshots and duplicate read interpretations were deleted. Preparation,
+acquisition, compiler probes, test execution and session control remain explicit effects. E06
+guidance/advice and generated references follow that parser; no compatibility aliases or edit
+application path were retained.
+
+**Tested:** the four actual `composed_investigations` consumers each have a targeted passing
+run: namesake target refinement→guarded inspection→relationship→preview→test selection;
+acquired API constraints with native use/importability; aliases/unused imports/privacy across
+two native contexts; and an unchanged root package whose transitive dependency features differ.
+These invoke real explicit artifact/helper/session preparation, not fabricated sidecars. Selected
+`investigations` public controls additionally cover mixed content, continuation, adverse paths,
+partial errors and missing providers. Native component, API, source/template/DTO and layout
+controls establish their bounded producer contracts. Exact commands, counts and actual run
+identities are centralized in [P02](59-agent-cli.md#p02); targeted passes are not an assertion
+that its final assembled campaign has passed.
+
+Actual independent adoption also followed an original compiler failure through API evidence to
+an explicit probe, and a generated/historical hit through its declared authored emitter. Those
+original managed invocations remain addressed evidence under P02 rather than being reproduced
+as a second ledger here. No current semantic result is assigned retroactively to old bytes.
+
+**Mistakes corrected:** an initial native helper launch selected the ordinary host, omitted
+compact section fields failed deserialization, and a root-only API context comparison missed
+transitive feature changes. Actual public journeys exposed those defects; explicit helper
+dispatch, compact DTO defaults and captured transitive profiles corrected the production
+connections. A temporary lower-level semantic realization also lost native IDE behavior and
+missed descendant cancellation; it was removed in favor of original native IDE operations with
+a narrow opt-in request cancellation group. Physical settlement, sibling independence and the
+original session lifetime remain separate from merely dropping a client future.
+
+### Conditional decisions and deliberate limits
+
+[G11/G12](59g-rust-semantic-intelligence.md#g11) selected an explicitly prepared immutable
+Cargo/VFS/HIR snapshot using the exact compatible RA0.0.358 family; source-only syntax0.0.360
+does not cross its AST boundary. The existing custody/preparation owner hosts one selected world,
+loads installed standard-library sources and captures actual effective package/target/source
+facts. Queries run no Cargo and stale inputs require explicit reprepare. The live LSP provider
+remains separately selectable with its actual capabilities. Snapshot cancellation preserves
+original IDE semantics through the documented Salsa/IDE-db patch; component and authenticated
+service tests establish the bounded selected lifecycle, not a universal cancellation latency.
+
+Native SSR search is not adopted because the examined release does not expose addressed match
+ranges/placeholders; syntax captures plus HIR refinement remain available, and semantic SSR
+preview retains its distinct editing purpose. Revisit on usable native addressed-capture access
+or an explicitly selected narrow extension. [H08](59h-api-and-dependency-intelligence.md#h08)
+retains actual metadata/unit owners: counterfactual feature graphs, hosted artifact acquisition,
+scraped examples and archive conversion remain unselected with their named revisit triggers.
+[I06](59i-compiler-investigations.md#i06) retains original diagnostics and explicitly generated
+MIR/probes for the demonstrated conflict/retention question. It does not adopt I07 or fabricate
+typed loans/move-path/liveness facts from text; selecting an exact machine-readable
+location/phase/domain question reopens that branch.
+
+M01–M03 targeted implementation acceptance is complete. P02 owns assembled qualification,
+scope-end hygiene and final adoption accounting; E01's separate safety choice and Plan58 H
+scientific/deployment obligations remain with their owners. No performance benefit is Measured
+by these functional passes. This plan remains retained as an active coordinator dependency.
