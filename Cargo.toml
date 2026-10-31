@@ -44,6 +44,8 @@ exclude = [
   "vendor/faer",
   "vendor/faer-traits",
   "vendor/symbolica",
+  "vendor/salsa",
+  "vendor/ra-ap-ide-db",
   "crates/pse-operations-queries",
   "crates/pse-catalog",
 ]
@@ -796,6 +798,9 @@ forbidden = [
 # ADR-0189: these exact source-qualified owners enforce pure invocation channels.
 # Transitive users receive the same guarded owner; package identity alone is no grant.
 [patch.crates-io]
+# Request-owned cancellation reaches native analysis clones; upstream defaults stay unchanged.
+salsa = { version = "=0.28.5", path = "vendor/salsa" }
+ra_ap_ide_db = { version = "=0.0.358", path = "vendor/ra-ap-ide-db" }
 faer = { version = "=0.24.4", path = "vendor/faer" }
 faer-traits = { version = "=0.24.0", path = "vendor/faer-traits" }
 symbolica = { version = "=3.0.1", path = "vendor/symbolica" }

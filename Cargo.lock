@@ -9269,8 +9269,6 @@ dependencies = [
 [[package]]
 name = "ra_ap_ide_db"
 version = "0.0.358"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f08b0f04a8fecbe4a1b04cd0b03d5b0c8495a2a5de50638c6d66b5c3aba133ac"
 dependencies = [
  "arrayvec",
  "bitflags 2.13.2",
@@ -10484,8 +10482,6 @@ dependencies = [
 [[package]]
 name = "salsa"
 version = "0.28.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27d2e6e19e39591cd99c01ac4141544b4d012cfd0831348629b8187fa9fe6d34"
 dependencies = [
  "boxcar",
  "crossbeam-queue",

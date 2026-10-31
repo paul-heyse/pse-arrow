@@ -12,7 +12,7 @@ use native_ra_syntax::{
 };
 use ra_ap_hir::{HirDisplay as _, Semantics};
 use ra_ap_ide_db::base_db::SourceDatabase as _;
-use ra_ap_ide_db::base_db::salsa::{self, Database as _};
+use ra_ap_ide_db::base_db::salsa;
 use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -28,7 +28,6 @@ use tokio_util::sync::CancellationToken;
 
 const BACKEND: &str = "ra_ap_hir/0.0.358;ra_ap_ide/0.0.358;immutable_snapshot";
 mod importability;
-mod operations;
 
 /// A genuine native type observation; display is presentation, not serialized type identity.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -518,8 +517,10 @@ impl Engine {
             .lock()
             .map_err(super::engine::protocol)
             .map(|world| {
+                let (db, cancellation) = world.db.request_snapshot();
                 (
-                    world.db.clone(),
+                    db,
+                    cancellation,
                     world.files.clone(),
                     world.paths.clone(),
                     world.digests.clone(),
@@ -528,7 +529,7 @@ impl Engine {
         let native_cancel = inputs
             .as_ref()
             .ok()
-            .map(|(db, _, _, _)| db.cancellation_token());
+            .map(|(_, cancellation, _, _, _)| cancellation.clone());
         let context = self.context.clone();
         let session = self.analysis_context();
         let active = self.active.clone();
@@ -545,13 +546,9 @@ impl Engine {
             if token.is_cancelled() {
                 return Err(Error::Cancelled);
             }
-            let (db, files, paths, digests) = inputs?;
+            let (db, _cancellation, files, paths, digests) = inputs?;
             let result = native_result(salsa::Cancelled::catch(std::panic::AssertUnwindSafe(
-                || {
-                    ra_ap_hir::attach_db(&db, || {
-                        query_world(&db, &files, &paths, &digests, session, query, &token)
-                    })
-                },
+                || query_world(&db, &files, &paths, &digests, session, query, &token),
             )))??;
             context.check()?;
             if token.is_cancelled() {
@@ -573,11 +570,14 @@ impl Engine {
             .world
             .lock()
             .map_err(super::engine::protocol)
-            .map(|world| (world.db.clone(), world.paths.clone(), world.digests.clone()));
+            .map(|world| {
+                let (db, cancellation) = world.db.request_snapshot();
+                (db, cancellation, world.paths.clone(), world.digests.clone())
+            });
         let native_cancel = inputs
             .as_ref()
             .ok()
-            .map(|(db, _, _)| db.cancellation_token());
+            .map(|(_, cancellation, _, _)| cancellation.clone());
         let context = self.context.clone();
         let session = self.analysis_context();
         let active = self.active.clone();
@@ -594,13 +594,15 @@ impl Engine {
             if query.if_generation.is_some_and(|value| value != 1) {
                 return Err(Error::Stale);
             }
-            let (db, paths, digests) = inputs?;
+            let (db, _cancellation, paths, digests) = inputs?;
             if token.is_cancelled() {
                 return Err(Error::Cancelled);
             }
-            let mut native = native_result(salsa::Cancelled::catch(std::panic::AssertUnwindSafe(
-                || operations::symbols(&db, symbol_query(&query), query.limit),
-            )))?;
+            let host = ra_ap_ide::AnalysisHost::with_database(db);
+            let mut native = native_result(
+                host.analysis()
+                    .symbol_search(symbol_query(&query), query.limit),
+            )?;
             // The native libs switch replaces the workspace domain. Widening
             // therefore requires both queries against this same immutable DB.
             if query.include_dependencies {
@@ -609,11 +611,9 @@ impl Engine {
                 }
                 let mut libraries = symbol_query(&query);
                 libraries.libs();
-                native.extend(native_result(salsa::Cancelled::catch(
-                    std::panic::AssertUnwindSafe(|| {
-                        operations::symbols(&db, libraries, query.limit)
-                    }),
-                ))?);
+                native.extend(native_result(
+                    host.analysis().symbol_search(libraries, query.limit),
+                )?);
             }
             let mut rows = Vec::new();
             let mut seen = BTreeSet::new();
@@ -797,7 +797,9 @@ fn query_world(
             let enclosing=node.ancestors().find_map(ast::Fn::cast).and_then(|function|sema.to_def(&function));
             // IDE navigation owns plain paths, imports/reexports, type names and
             // local definitions; do not reproduce that resolver from spelling.
-            let definitions=operations::definitions(db,position,token)?;
+            let analysis=ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
+            let mut fixture=ra_ap_ide::RaFixtureConfig::default();fixture.disable_ra_fixture=true;
+            let definitions=native_result(analysis.goto_definition(position,&ra_ap_ide::GotoDefinitionConfig {ra_fixture:fixture}))?.map(|definitions|definitions.info).unwrap_or_default();
             let total=definitions.len();
             let definitions=definitions.into_iter().take(query.limit).filter_map(|definition|location(paths,definition.file_id,definition.full_range).map(|location|TargetFact {relationship:"resolved_definition".into(),name:definition.name.to_string(),location:Some(location),precision:"native_original_range".into()})).collect::<Vec<_>>();
             if target.is_none()&&definitions.len()==1{target=definitions.first().cloned();}
@@ -826,14 +828,27 @@ fn query_world(
             sections.push(Section {category:"importability".into(),evidence:serde_json::to_value(fact)?,omitted:0,handles:Vec::new()});
         },
         Kind::Refs=>{
-            let(results,total)=operations::references(db,position,token,query.limit)?;
-            for result in results{
-                if let Some(location)=location(paths,result.file,result.range){references.push(ReferenceFact {entity:result.entity,location,read:result.category.contains(ra_ap_ide_db::search::ReferenceCategory::READ),write:result.category.contains(ra_ap_ide_db::search::ReferenceCategory::WRITE)});}
+            let analysis=ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
+            let mut fixture=ra_ap_ide::RaFixtureConfig::default();fixture.disable_ra_fixture=true;
+            let config=ra_ap_ide::FindAllRefsConfig {search_scope:None,ra_fixture:fixture,exclude_imports:false,exclude_tests:false};
+            let results=native_result(analysis.find_all_refs(position,&config))?.unwrap_or_default();
+            let mut total=0usize;
+            for(entity,result)in results.into_iter().enumerate(){
+                for(id,usages)in result.references{
+                    for(range,category)in usages{
+                        if token.is_cancelled(){return Err(Error::Cancelled);}
+                        total+=1;
+                        if references.len()>=query.limit{continue;}
+                        if let Some(location)=location(paths,id,range){references.push(ReferenceFact {entity,location,read:category.contains(ra_ap_ide_db::search::ReferenceCategory::READ),write:category.contains(ra_ap_ide_db::search::ReferenceCategory::WRITE)});}
+                    }
+                }
             }
             sections.push(Section {category:"native_reference_roles".into(),evidence:serde_json::to_value(&references)?,omitted:total.saturating_sub(references.len()),handles:Vec::new()});
         }
         Kind::Implementations=>{
-            let native=operations::implementations(db,position,token)?;
+            let analysis=ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
+            let native=native_result(analysis.goto_implementation(&ra_ap_ide::GotoImplementationConfig {filter_adjacent_derive_implementations:false},position))?;
+            let native=native.map(|native|native.info).unwrap_or_default();
             let total=native.len();
             let targets=native.into_iter().take(query.limit).filter_map(|target|{
                 location(paths,target.file_id,target.focus_range.unwrap_or(target.full_range)).map(|location|TargetFact {relationship:"implementation".into(),name:target.name.to_string(),location:Some(location),precision:"native_original_range".into()})
@@ -1028,6 +1043,75 @@ mod tests {
             .await
             .unwrap()
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn cold_ide_symbol_cancellation_settles_and_preserves_the_world() {
+        let (root, configuration, file) = fixture();
+        let engine = Engine::start(root.path(), configuration).unwrap();
+        let mut cold = engine.start_symbols(
+            WorkspaceQuery {
+                query: "Vec".into(),
+                matching: super::super::NativeNameMode::Exact,
+                limit: usize::MAX,
+                include_dependencies: true,
+                if_generation: Some(1),
+            },
+            CancellationToken::new(),
+        );
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
+        while engine.active.load(Ordering::SeqCst) == 0 {
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "actual cold native operation never entered its CPU owner"
+            );
+            tokio::select! {
+                result=cold.settle()=>panic!("cold native operation completed before cancellation could be exercised: {result:?}"),
+                _=tokio::time::sleep(std::time::Duration::from_millis(1))=>{},
+            }
+        }
+        // This proves actual coarse ownership on a cold world, not the precise
+        // internal indexing instruction at which cancellation is delivered.
+        // Barrier-controlled library tests separately prove nested query cancellation.
+        let mut sibling = engine.start_query(
+            query(&file, "original()->", Kind::Explain),
+            CancellationToken::new(),
+        );
+        cold.cancel();
+        let cancelled = tokio::time::timeout(std::time::Duration::from_secs(30), cold.settle())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(cancelled, Err(Error::Cancelled)), "{cancelled:?}");
+        assert!(
+            sibling.settle().await.unwrap().is_ok(),
+            "another native request must remain independent"
+        );
+        let fresh = engine
+            .start_symbols(
+                WorkspaceQuery {
+                    query: "operations".into(),
+                    matching: super::super::NativeNameMode::Exact,
+                    limit: 20,
+                    include_dependencies: false,
+                    if_generation: Some(1),
+                },
+                CancellationToken::new(),
+            )
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            fresh["symbols"]["evidence"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|symbol| symbol["name"] == "operations")
+        );
+        let status = engine.status().unwrap();
+        assert!(status.context_current);
+        assert_eq!(status.active_requests, 0);
     }
 
     #[test]
