@@ -123,7 +123,29 @@ impl Fixture {
         if !features.is_empty() {
             command.args(["--features", &features.join(",")]);
         }
-        let _ = value(command.output().unwrap());
+        let output = command.output().unwrap();
+        if !output.status.success() {
+            let original = pse_host::semantic::load(&self.root, &self.environment());
+            let invocation = original
+                .as_ref()
+                .ok()
+                .and_then(Option::as_ref)
+                .map(|record| record.invocation.as_str());
+            let result = invocation.map(|id| {
+                self.command(false)
+                    .args(["inspect", "invocation", id])
+                    .output()
+            });
+            let stderr = invocation.map(|id| {
+                self.command(false)
+                    .args(["inspect", "log", id, "--stderr", "--length", "32768"])
+                    .output()
+            });
+            panic!(
+                "explicit native preparation failed: {output:?}; original semantic record: {original:?}; original result: {result:?}; original stderr: {stderr:?}"
+            );
+        }
+        let _ = value(output);
     }
     fn prepare_lsp(&self) {
         self.stopped.set(false);

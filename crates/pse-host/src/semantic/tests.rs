@@ -220,14 +220,50 @@ impl Session {
     }
     fn run(&self, arguments: &[&str], exit: i32) -> Value {
         let output = self.command().args(arguments).output().unwrap();
+        let original = if output.status.code() != Some(exit) {
+            self.original_failure()
+        } else {
+            String::new()
+        };
         assert_eq!(
             output.status.code(),
             Some(exit),
-            "argv={arguments:?}; stdout={}; stderr={}",
+            "argv={arguments:?}; stdout={}; stderr={}; original={original}",
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
         serde_json::from_slice(&output.stdout).unwrap()
+    }
+    fn original_failure(&self) -> String {
+        use std::io::Read as _;
+        let mut environment: crate::environment::Environment = std::env::vars_os().collect();
+        environment.remove(std::ffi::OsStr::new("RUSTUP_TOOLCHAIN"));
+        environment.insert(
+            "XDG_STATE_HOME".into(),
+            self.state.path().as_os_str().to_owned(),
+        );
+        let record = match load(&self.root, &environment) {
+            Ok(Some(record)) => record,
+            other => return format!("session_record={other:?}"),
+        };
+        let state = match crate::paths::CheckoutState::resolve(&self.root, &environment) {
+            Ok(state) => state,
+            Err(error) => return format!("invocation={}; state={error}", record.invocation),
+        };
+        let store = crate::invocation::InvocationStore::new(state);
+        let stderr = store
+            .directory(&record.invocation)
+            .and_then(|directory| directory.stream(crate::extraction::OutputStream::Stderr))
+            .and_then(|file| {
+                let mut bytes = Vec::new();
+                file.take(64 * 1024).read_to_end(&mut bytes)?;
+                Ok(String::from_utf8_lossy(&bytes).into_owned())
+            });
+        let terminal = store.result::<Configuration, Value>(&record.invocation);
+        format!(
+            "invocation={}; stderr_first_64k={stderr:?}; original_terminal={terminal:?}",
+            record.invocation
+        )
     }
     fn ready(&self) {
         let deadline = Instant::now() + Duration::from_secs(45);

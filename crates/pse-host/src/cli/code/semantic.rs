@@ -198,19 +198,6 @@ pub(super) fn session(
                     "semantic preparation requires explicitly prepared host tools".into(),
                 )
             })?;
-            let store = crate::invocation::InvocationStore::new(
-                crate::paths::CheckoutState::resolve(&root, &environment)?,
-            );
-            let directory = Arc::new(store.begin(crate::invocation::InvocationSpec {
-                invocation_id: output.invocation_id.clone(),
-                command: "code session prepare".into(),
-                session: None,
-                parent: None,
-                operation: configuration.clone(),
-                control: control.clone(),
-                environment_digest: super::super::environment_digest(&environment),
-                scientific: vec![],
-            })?);
             let record = SessionRecord {
                 version: 1,
                 invocation: output.invocation_id.clone(),
@@ -227,17 +214,44 @@ pub(super) fn session(
                     .map_err(|e| HostError::Ownership(e.to_string()))?
                     .into(),
             ];
+            let command = match record.configuration.backend {
+                semantic::Backend::Lsp => crate::managed::payload::PayloadCommand {
+                    program: control.executable(&root, crate::generation::HostTool::Host)?,
+                    arguments,
+                    cwd: root.clone(),
+                    environment: environment.clone(),
+                },
+                semantic::Backend::NativeSnapshot => {
+                    let helper = crate::prepared_xtask::PreparedNativeTool::current_for(
+                        &root,
+                        &environment,
+                        crate::prepared_xtask::NativeToolTarget::NativeAnalysis,
+                    )
+                    .map_err(|error| HostError::PreparedNativeTool(Box::new(error)))?;
+                    helper
+                        .launch(arguments, environment.clone())
+                        .map_err(|error| HostError::PreparedNativeTool(Box::new(error)))?
+                }
+            };
             let selection = crate::admission::Selection::load(&root, &environment, None, None)?;
+            let store = crate::invocation::InvocationStore::new(
+                crate::paths::CheckoutState::resolve(&root, &environment)?,
+            );
+            let directory = Arc::new(store.begin(crate::invocation::InvocationSpec {
+                invocation_id: output.invocation_id.clone(),
+                command: "code session prepare".into(),
+                session: None,
+                parent: None,
+                operation: record.configuration.clone(),
+                control: control.clone(),
+                environment_digest: super::super::environment_digest(&environment),
+                scientific: vec![],
+            })?);
             let mut launched = runtime.block_on(crate::managed::supervisor::launch_generic(
                 crate::managed::supervisor::ManagedRequest {
                     root: root.clone(),
                     directory,
-                    command: crate::managed::payload::PayloadCommand {
-                        program: control.executable(&root, crate::generation::HostTool::Host)?,
-                        arguments,
-                        cwd: root.clone(),
-                        environment: environment.clone(),
-                    },
+                    command,
                     selection,
                     policy: crate::managed::payload::PayloadPolicy {
                         startup: Duration::from_secs(30),
