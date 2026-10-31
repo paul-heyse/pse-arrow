@@ -3,7 +3,7 @@ title: "Plan59: Agent-first pse CLI"
 status: active
 date: 2026-10-29
 adrs: [ADR-0233, ADR-0234]
-review_sources: [docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
@@ -54,9 +54,10 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
 - Amendment basis: the [observability review](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md)
   and [Plan59 improvement review](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md),
   published at `e907d8a1f`, inspecting `890aa07f76fac5739cfc9811a47e823c326be663`.
-- Status: **Selected remaining-series deliveries and qualification are complete; E01's removal
-  scope decision remains open.** The current checkpoint and companion Outcomes own evidence,
-  limits and conditional non-adoptions.
+- Status: **Prior selected deliveries retain their recorded qualification; the search extension
+  below is planned and E01's removal scope decision remains open.** The current checkpoint and
+  companion Outcomes own evidence, limits and conditional non-adoptions. Prior completion does
+  not qualify the new query, provider and migration packages.
 
 **Reading route.**
 1. This coordinator: target, shared decisions, rule changes, dependencies, completion.
@@ -80,6 +81,94 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
     ownership/async, representation and code-generation investigations.
 11. [59j Source queries and change proposals](59j-source-queries-and-change-proposals.md):
     server-free addressed reads, structural queries, common proposals and contributor navigation.
+12. [59k Query and result foundations](59k-query-and-result-foundations.md): shared source/query
+    meaning, compact addressed answers, demand, configuration and streaming contracts.
+13. [59l Repository discovery and content search](59l-repository-discovery-and-content-search.md):
+    source selection, native text search, structured content and historical inspection.
+14. [59m Composed Rust investigations](59m-composed-rust-investigations.md): name-first discovery,
+    typed refinement, proposal/test handoff and public migration journeys.
+
+## Rust-centered search target — 2026-10-31
+
+**Proposed extension:** integrate the [Rust-centered search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
+published at `9dd0f472a`, following implementation `81c2759d8`. Its O01–O14 references are
+qualified to that review. The source review's capability and current-code assessments supply
+the foundation; this amendment adds no production, ADR, architecture or agent-setting changes.
+Core3.4 and efficiency heuristics1.0 apply through the repository binding. Existing physical
+and scientific authority remains with its current owners.
+
+Agents should be able to start with a partial name, file family, text, syntax shape or original
+diagnostic, obtain a useful bounded answer, inspect the exact source, and refine or propose a
+change. Use three public passive/query intents: `search`, `inspect` and `propose`. Known file,
+range, index/revision, symbol and original-evidence locators can be inspected directly. Keep
+preparation, acquisition, tests, probes, execution and lifecycle control explicit. Consolidation
+must preserve useful capabilities rather than hide missing ones behind a smaller parser.
+
+K owns shared meaning and representation; L owns repository selection and content providers;
+M composes public questions. G/H/I/J keep semantic, API, compiler and syntax/proposal authority.
+B owns actual child/stream settlement; C owns actual test selection; D owns passive workflow
+readers; E owns guidance/adoption. F's impact assessment adds no package unless the settled
+contract actually changes a product-consumed view. Source discovery requires neither analyzer
+preparation nor a database. A future provider extends the shared contracts and its native owner,
+not a parallel query language, orchestration service or result store.
+
+K01 settles source universes, predicate scopes and relationships, answer demand, unknown versus
+false, and result/provenance lifetimes. K02 implements one typed interpretation for Clap and
+JSON with directional Serde/Schemars schemas. K03 and B06 publish complete streamed records and
+terminal coverage; providers honor early-stop demand before unnecessary work. Exact counts may
+require completion, deterministic order may require buffering, and lexical observations require
+exact-source hydration before a guarded preview. Partial examination cannot become a complete
+negative answer. Compact provenance must still identify source, configuration and original facts.
+
+Choose native library mechanisms where they answer the question: ignore/grep crates for source
+selection and text, gix for supported Git semantics, native AST rules and Tree-sitter captures
+for structure, and current LSP/rustdoc/compiler owners for their respective facts. Preserve
+explicit managed rg/Git alternatives where a material capability is better delegated. G11 and
+I06 investigate deeper native HIR/IDE and compiler capabilities early against named useful
+questions; implementation remains conditional on a coherent, maintainable provider choice.
+Do not parse hover/debug strings into authoritative types or treat source spellings as resolved
+identity. Offline snapshots, API dependency graphs and SSR accessors retain explicit feasibility
+decisions. Indexed services, embeddings, automatic preparation and source application are not
+selected defaults. Library rationale, exact API mechanisms, limits and negative controls live
+with the consuming package, linked to the source review.
+
+The maintainer confirmed these rule impacts during plan creation on **2026-10-31**:
+
+| Impact | Confirmed decision and consequence | Publication/work route |
+| --- | --- | --- |
+| S-RC01 | accepted: consolidate search/read/query interactions around search / inspect / propose; migrate capabilities and delete replaced routes/callers after targeted acceptance; retain distinct effectful and control operations | K01 settles the mapping; A10 publishes governing command changes before K02/M cutover; D10/E06 migrate guidance and readers |
+| S-RC02 | accepted: compact shared provenance/results and real streaming may change immature wire shape; preserve identity, outcome, coverage, exact bytes and scientific meaning | K01 → A10 normal decision/architecture route → K02/B06/K03; regenerate schemas/reference outputs through their generators |
+| S-RC03 | accepted: bounded native HIR/IDE/compiler investigations and conditional implementations may explore a concrete valuable question without a recurring-use prerequisite | G11/I06 select or reject branches; A11 and A12 independently publish required governing changes before their respective G12/I07 implementations; no blanket native-family migration |
+
+These confirmations select the planning target. Later architectural changes use the normal
+decision route; plan authoring does not accept or amend ADRs. Deeper library research, pinned
+API checks and bounded prototypes belong to the packages that need them. No upstream contact
+or additional service deployment follows merely from this amendment.
+
+<a id="search-extension-dispositions"></a>
+## Search extension dispositions
+
+Each row refers only to the 2026-10-31 search review. **Scheduled** selects work or a decision
+investigation; it establishes no implementation, test pass or performance benefit. Companion
+package tables own status; this table owns opportunity disposition. Conditional non-adoption
+must describe the lost capability and useful revisit condition rather than claim delivery.
+
+| Opportunity | Disposition | Work owner | Required evidence or trigger |
+| --- | --- | --- | --- |
+| O01 | scheduled | L01 | Shared filesystem/Git/Cargo selection, useful path discovery and direct inspection; ignored/generated/index-only/revision-only cases |
+| O02 | scheduled | L02 | Native literal/regex/context/count/exists search, exact reads and no-match semantics; unsupported regex modes fail explicitly |
+| O03 | scheduled | M01; G10/H07 | Name-first source/workspace/API candidates with qualified identity and contextual inspection; no implicit semantic preparation |
+| O04 | scheduled | J06; M02 | Native Boolean/relational AST rules, reusable captures and scoped composition; same-file is distinct from same-node |
+| O05 | scheduled | K02; J07 | Compact result/provenance/locator views, direct inspection and guarded expansion; Unicode/raw paths and exact evidence |
+| O06 | scheduled | K03; L02/J06/B06 | Demand reaches native producers; first witness, exhaustive no-match, exact counts, cancellation and consumer close remain distinct |
+| O07 | scheduled | G11/G12; M02 | Early native AnalysisHost/HIR/IDE/SSR/snapshot investigation, selected conditional provider and typed relationships; unavailable facts remain unknown |
+| O08 | scheduled | L03; D10 | Historical/change-centered source and ownership drill-through; working, index and revision context never silently coalesce |
+| O09 | scheduled | L03 | Bounded JSON/TOML/YAML field/content queries and mixed-source scope; existing domain owners retain interpretation |
+| O10 | scheduled | H07/H08; M02 | API/dependency/use/importability and selected diagnostic/candidate joins; generic constraints and destination context limits explicit |
+| O11 | scheduled | J07 | Hydrated search-to-proposal flow with native syntax/semantic contracts, exact source and trivia; apply remains separately conditional |
+| O12 | scheduled | I06/I07; M02 | Named ownership/async/dataflow compiler inquiry, conditional pin-specific driver and original-versus-current evidence; explicit probe execution |
+| O13 | scheduled | K01/K02/K03; A10 | One typed flag/JSON/config interpretation, scoped diagnostics, source precedence and directional generated schemas |
+| O14 | scheduled | K03; B06 | Actual work/progress and effective-query explanation on stderr; no invented totals, cancellation acknowledgement or cache/speed claims |
 
 ## Runtime and test target decisions — 2026-10-30
 
@@ -436,11 +525,72 @@ an agreed interface. The native lifecycle bindings mirror these dependencies.
 | J01–J05; G07/G08 | Existing D03 source, A03 addressed views; J02 proposals for edit producers | Entire J scope is authorized in the remaining-series wave. Syntax has no semantic-session or D08 transaction gate. |
 | E01 / E03 | Actual worktree users / each delivered verb | Worktree removal still requires genuine user safety; no generation-GC qualification gate. Guidance and deletions accompany migrated callers. |
 
-The foundation and testing wave is delivered. The remaining-series wave consumes those owners
+The foundation and testing wave is delivered. The earlier remaining-series wave consumed those owners
 for product, source, semantic, API and compiler capabilities; package tables own readiness and
 acceptance. Delete replaced mechanisms with migrated consumers and targeted acceptance; do not
 preserve compatibility paths or port tests for mechanisms deliberately removed. Final assembled
 checks run at scope end.
+
+### Search extension dependencies
+
+The native lifecycle graph records consumer→prerequisite edges. The diagram shows production
+flow in the opposite, prerequisite→consumer direction. An early investigation consumes a settled
+design or existing owner; final integration consumes a working producer. New A10/A11/A12 are
+publication packages, not a second audit or authority to bypass the governing decision route.
+
+```mermaid
+flowchart TD
+  K01["K01: query/result design"] --> A10["A10: governing publication"]
+  A10 --> K02["K02: typed requests/results/locators"]
+  K02 --> B06["B06: stream settlement integration"]
+  B06 --> K03["K03: demand/config/stream publication"]
+  K02 --> L01["L01: repository selection/inspect"]
+  L01 --> L02["L02: text providers"]
+  K03 --> L02
+  L01 --> L03["L03: structured/history providers"]
+  K02 --> G10["G10: workspace/name discovery"]
+  G10 --> H07["H07: API/use composition"]
+  L01 --> M01["M01: public discovery/inspect"]
+  H07 --> M01
+  K01 --> G11["G11: native analyzer feasibility"]
+  G11 --> A11["A11: selected analyzer publication"]
+  A11 -. "if selected" .-> G12["G12: native provider"]
+  I06["I06: named compiler inquiry"] --> A12["A12: selected driver publication"]
+  A12 -. "if selected" .-> I07["I07: compiler driver"]
+  K01 --> H08["H08: graph/acquisition inquiry"]
+  K01 --> J06["J06: native AST rules/queries"]
+  M01 --> M02["M02: composed investigation"]
+  L02 --> M02
+  J06 --> M02
+  G12 -. "selected typed enrichment" .-> M02
+  I07 -. "selected compiler enrichment" .-> M02
+  J06 --> J07["J07: result/proposal hydration"]
+  L01 --> D10["D10: passive reader migration"]
+  K02 --> C10["C10: actual test-selection bridge"]
+  M02 --> M03["M03: journeys/cutover/retirement"]
+  L03 --> M03
+  J07 --> M03
+  D10 --> M03
+  C10 --> M03
+  M03 --> E06["E06: delivered guidance/adoption"]
+  E06 --> P02["P02: assembled extension qualification"]
+  H08 --> P02
+```
+
+| Consumer / delivery | Readiness product | Parallel work and conditional boundary |
+| --- | --- | --- |
+| A10 → K02 | K01 settled shared meaning, then required governing publication | G11/J06 and H08 design research can start from K01; I06 uses existing compiler owners independently |
+| B06 → K03 | Working K02 event contract, then actual stream settlement | Event types precede the writer; K03 must not be a prerequisite of B06 |
+| L01 → L02; L01 → L03 | Shared locators/selection supply text and structured/history providers; L02 also consumes K03 streaming | Direct reads need no semantic session. Exact fields/history reuse their domain owners independently of lexical delivery |
+| G10/H07 → M01 | Existing session/API owners adapted to K02, plus working L01 | Source-only discovery is explicit. G11/G12 never gate this base slice |
+| G12 or I07 | Their independent G11/I06 decision, A11/A12 publication and K02 | Investigate named useful questions early; only selected implementations gate their dependent facts |
+| M02 | Working M01, K03/L02 and J06 | G12/I07 are conditional enrichment, not false AND gates on all composed search |
+| J07/C10/D10 → M03 | Checked proposal hydration, real retained-population/test-selection bridge and passive-reader mapping | M03 retires each replaced branch only after its actual consumer passes; E06 can follow each usable slice |
+| P02 | M03 and final E06; settled G11/H08/I06 decisions; selected conditional branches complete | E01 remains a separate decision. Plan58 H scientific/deployment qualification is not a search prerequisite |
+
+This is not an alphabetic document sequence. Existing A–J package prerequisites remain in
+their owners; native bindings carry the new necessary edges and omit conditional branches as
+universal gates. Revisit the affected edges when a feasibility decision selects a new provider.
 
 <a id="foundation-state"></a>
 ## Foundation state
@@ -448,6 +598,24 @@ checks run at scope end.
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | P01 | in-progress | 59 | Selected feature deliveries and qualification below are complete. E01's removal scope choice remains open; no full-series completion is asserted until that choice and its resulting obligations are settled |
+| [P02](#p02) | planned | 59 | Assembled search-extension consumer acceptance, selected conditional branch outcomes and delivered guidance; prior qualification gives no acceptance credit to new packages |
+
+<a id="p02"></a>
+### P02 — Qualify the integrated search extension
+
+**Consumes:** M03, E06 and K03; G11/H08/I06 decision outcomes and every selected conditional
+implementation's targeted acceptance. Confirm all fourteen source-qualified dispositions and
+the eight M03 journeys through the public CLI, with native/independent expectations and revealing
+negative cases. Confirm passive/effectful separation, original evidence, source/configuration
+guards, demand-driven producer behavior and actual cancellation/drain. Delete replaced routes,
+callers, obsolete fixtures/tests and duplicate interpretation paths with their accepted consumers.
+Update enduring contracts and generated references through their owners; reconcile guidance and
+conditional lost-capability/revisit decisions. Run relevant scope-end hygiene, docs/governance and
+assembled checks once implementation is complete, following AGENTS.md and reporting the zero
+baseline. Focused unit/help/schema passes alone do not establish public usability or native
+lifetime behavior. Quantitative latency/answer-size claims require representative conditions and
+measurements; a mandatory benchmark campaign is not selected. No new scientific qualification
+is claimed. E01's removal decision remains independently owned by P01/59e.
 
 ## Completion and verification
 
@@ -485,6 +653,14 @@ applicable native ownership operations. D08 concurrent Git acceptance is deferre
 
 ## Current state and next step
 
+**2026-10-31 search-extension planning amendment:** K/L/M and affected A–J packages now capture
+all fourteen search-review opportunities, governing publication, parallel native investigations,
+consumer migration and assembled P02 acceptance. All new work remains **Proposed/planned**;
+documentation authoring establishes no new runtime delivery. Next execution can start with K01
+and the independent I06 inquiry, then A10/K02 and the first L01/G10/H07→M01 discovery-to-inspection
+slice. G11 proceeds from K01 alongside ordinary providers; deeper conditional work does not block
+that first useful slice. Existing Outcomes below remain historical evidence for their exact scope.
+
 **2026-10-31 adoption amendment:** the `pse-cli` skill, native PATH exposure and shared
 advisory tooling hook are implemented. [59e's adoption outcome](59e-environment-and-adoption.md#cli-adoption-amendment--2026-10-31)
 owns verification and the remaining fresh-client discovery/delivery check, including Codex's
@@ -508,8 +684,9 @@ E01's worktree creation/listing and guidance are delivered; its removal/admissio
 remains with the maintainer. Safe removal would require a checkout-wide admission barrier across
 readers, runs and retained evidence. The pending question selects between that broader implementation
 and retaining native Git administrative removal. No answer, deletion feature or selected deferral is
-implied. All independent selected work and the qualification below are complete. The next step is
-that E01 decision and its resulting obligations; P01 remains open. No measured performance benefit
+implied. All independent work selected for that earlier wave and the qualification below are
+complete. E01 and its resulting obligations remain independently open under P01; new extension
+execution follows the amendment above. No measured performance benefit
 or full scientific qualification is claimed.
 
 ### Remaining-series outcome and qualification — 2026-10-30

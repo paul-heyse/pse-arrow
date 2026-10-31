@@ -4788,6 +4788,489 @@ from = "docs/plans/59e-environment-and-adoption.md::package-state::E01"
 to = "docs/plans/59a-cli-foundation.md::package-state::A09"
 kind = "depends-on"
 
+# Rust-centered search: native package bindings; source plans retain all state.
+
+[[scope_tables]]
+path = "docs/plans/59k-query-and-result-foundations.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(K[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59l-repository-discovery-and-content-search.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(L[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59m-composed-rust-investigations.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(M[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/59-agent-cli.md"
+name = "search-extension-dispositions"
+heading = "Search extension dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required evidence or trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+# Necessary consumer -> producer readiness. Conditional G12/I07 adoption is
+# described by the owning decision packages; it is not a universal M02 gate.
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A10"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A11"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G11"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59a-cli-foundation.md::package-state::A12"
+to = "docs/plans/59i-compiler-investigations.md::package-state::I06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B06"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59b-runs-and-continuity.md::package-state::B06"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C10"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C10"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59c-tests-and-fixtures.md::package-state::C10"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D10"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D10"
+to = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59e-environment-and-adoption.md::package-state::E06"
+to = "docs/plans/59m-composed-rust-investigations.md::package-state::M03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G10"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G10"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G10"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G11"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G11"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G11"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G12"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G11"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G12"
+to = "docs/plans/59a-cli-foundation.md::package-state::A11"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G12"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H07"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H07"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G10"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H07"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H07"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H08"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H08"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H08"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I06"
+to = "docs/plans/59i-compiler-investigations.md::package-state::I01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I06"
+to = "docs/plans/59i-compiler-investigations.md::package-state::I02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I06"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I07"
+to = "docs/plans/59i-compiler-investigations.md::package-state::I06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I07"
+to = "docs/plans/59a-cli-foundation.md::package-state::A12"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59i-compiler-investigations.md::package-state::I07"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J06"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J06"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J06"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J06"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J06"
+to = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J07"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J07"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J07"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+to = "docs/plans/59a-cli-foundation.md::package-state::A10"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59k-query-and-result-foundations.md::package-state::K03"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59k-query-and-result-foundations.md::package-state::K03"
+to = "docs/plans/59b-runs-and-continuity.md::package-state::B06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L01"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L01"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L01"
+to = "docs/plans/59a-cli-foundation.md::package-state::A04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L02"
+to = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L02"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L03"
+to = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L03"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M01"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M01"
+to = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M01"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G10"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M01"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M02"
+to = "docs/plans/59m-composed-rust-investigations.md::package-state::M01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M02"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M02"
+to = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M02"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M03"
+to = "docs/plans/59m-composed-rust-investigations.md::package-state::M02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M03"
+to = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M03"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M03"
+to = "docs/plans/59c-tests-and-fixtures.md::package-state::C10"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59m-composed-rust-investigations.md::package-state::M03"
+to = "docs/plans/59d-knowledge-and-workflow-verbs.md::package-state::D10"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::package-state::P02"
+to = "docs/plans/59m-composed-rust-investigations.md::package-state::M03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::package-state::P02"
+to = "docs/plans/59e-environment-and-adoption.md::package-state::E06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::package-state::P02"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::package-state::P02"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G11"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::package-state::P02"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H08"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::package-state::P02"
+to = "docs/plans/59i-compiler-investigations.md::package-state::I06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O01"
+to = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O02"
+to = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O03"
+to = "docs/plans/59m-composed-rust-investigations.md::package-state::M01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O04"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O05"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O06"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O07"
+to = "docs/plans/59g-rust-semantic-intelligence.md::package-state::G11"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O08"
+to = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O09"
+to = "docs/plans/59l-repository-discovery-and-content-search.md::package-state::L03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O10"
+to = "docs/plans/59h-api-and-dependency-intelligence.md::package-state::H07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O11"
+to = "docs/plans/59j-source-queries-and-change-proposals.md::package-state::J07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O12"
+to = "docs/plans/59i-compiler-investigations.md::package-state::I06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O13"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::search-extension-dispositions::O14"
+to = "docs/plans/59k-query-and-result-foundations.md::package-state::K03"
+kind = "depends-on"
+
 # CLI/test/runtime opportunities: the coordinator table owns disposition.
 [[scope_tables]]
 path = "docs/plans/59-agent-cli.md"
