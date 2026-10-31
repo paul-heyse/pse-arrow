@@ -290,7 +290,11 @@ metadata, which the CLI maps to the exact same-build captured executable. Embedd
 compile-time `env!("CARGO_BIN_EXE_...")` path would bypass that mapping. Cross-package helper
 inputs remain with their declared fixture owner. Each captured Cargo executable keeps its
 original basename inside a unique private artifact directory, preserving native program-name
-checks. Linked libraries and scientific inputs retain their independent
+checks. Before lending an image, the capture owner publishes its existing executable byte/origin
+record beside it. Captured correctness tools verify that protected record, retained bytes and the
+kernel's executing-image descriptor before recovering the original logical checkout. They do not
+infer it from the caller's cwd or an environment marker. The original mutable output may be gone;
+foreign-workspace/setup fences still apply. Linked libraries and scientific inputs retain their independent
 runtime admission contracts.
 
 ## Selected reproducible experiments

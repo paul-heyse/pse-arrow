@@ -159,7 +159,7 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 | --- | --- | --- | --- |
 | [E01](#e01) | in-progress | 59e | `new`/`list` implemented with stage evidence, native-byte paths and passive original users; removal awaits the selected safety scope. Creation recipe retired; direnv behavior unchanged |
 | [E02](#e02) | superseded | 59e | Generic session brief/status-line target removed by review O01; existing passive status remains |
-| [E03](#e03) | in-progress | 59e (continuing) | Testing/runtime guidance, roles and active recipe consumers migrated with this wave; replaced generic/fixture recipes are deleted. Adoption of remaining feature verbs continues as they ship |
+| [E03](#e03) | complete | 59e | Native test/runtime/source/product/semantic/API/compiler/worktree guidance and generated reference published; actual implementation and diagnosis use delivered verbs. Deferred commands are not advertised |
 | [E04](#e04) | complete | 59e | Current-work pointer links native status owners; lifecycle validate passed with zero errors |
 | [E05](#e05) | complete | 59e | Edit guidance in AGENTS.md and `.claude/rules/tooling.md` |
 

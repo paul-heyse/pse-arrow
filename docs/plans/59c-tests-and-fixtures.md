@@ -697,3 +697,28 @@ describes.
 
 [59e](59e-environment-and-adoption.md) carries the routing and documentation updates for every
 retired recipe in the same change as its retirement.
+
+### Remaining-series capture correction — 2026-10-30
+
+**Implemented:** C04 now preserves logical checkout identity as well as executable bytes and
+basenames. The existing capture owner publishes its typed `Executable` association before
+forwarding/lending a copied program. Correctness verifies the private, no-follow association,
+captured pathname and byte identity, and independently hashes the kernel's executing-image
+descriptor before using the recorded original location for checkout discovery. It never executes
+that original path, which may have been replaced or removed. Manual Cargo and prepared physical
+checkout lookup remain supported; foreign Nextest/diagnostic workspace fences remain intact.
+
+**Mistake corrected:** inference from the current executable's ancestors worked beneath a
+checkout's target directory but failed after immutable source capture moved the image into
+retained state. The first whole-host run exposed seven related correctness/setup/foreign-workspace
+failures. Metadata-only fixtures now use an explicit test checkout, and actual copied adapters
+consume the capture owner's protected origin. No cwd/environment authority, production compile-time
+root or substitute prepared helper was introduced.
+
+**Tested:** source-captured correctness and capture-owner controls passed 51/51 with zero failures;
+ordinary Cargo passed 30 unit plus 14 integration controls. Protected-record corruption, image and
+descriptor substitution, absent association, original-image removal and foreign-workspace cases
+are exercised. The corrected main command `scripts/pse test pse-host --all-targets` completed
+678/678, zero failures, incomplete records or retries, with successful native setup, complete capture
+and settlement in invocation `01a18f5b-9d6a-7158-9440-1f7ba6170bf7`. Other series qualification
+and unchanged scientific exclusions remain with P01 and Plan58 H.

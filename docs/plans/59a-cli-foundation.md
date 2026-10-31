@@ -222,10 +222,10 @@ feature choices are exactly the review's
 | --- | --- | --- | --- |
 | [A01](#a01) | complete | 59a | Rule-change edits R1–R5 landed in their owners (R4's guard change is D06) |
 | [A02](#a02) | complete | 59a | Shared clap tree/three binaries merged; targeted parser/protocol and bootstrap tests pass; broader qualification remains at series end |
-| [A03](#a03) | in-progress | 59a | Native output/diagnostic/schema, artifact windows and typed source views integrated. Original performing outcomes stay at the top level; launch/terminal reply schemas and owned payload projection pass focused controls. Captured test pages preserve whole records and continuation identity; other producer pages/direct serialization and product owner integration remain |
-| [A04](#a04) | in-progress | 59a | Resolver/consumer migration, isolated exact lookup, diagnostic partial history and protected owner-record/request access integrated; responsibility-specific retention and concurrent managed invocation acceptance remain with B01 |
-| [A05](#a05) | in-progress | 59a | Runtime/test foundation is qualified: immutable image/source/protocol auth, stale refresh and copy remain; host GC claims/promotion/transfer/finalizer protocols and callers/tests are deleted. Unknown old files stay untouched. Remaining worktree/analyzer producer integration stays with E01/G02 and their consumers |
-| [A06](#a06) | in-progress | 59a | Parser-derived command/help/catalog/schema, selective passive status, invocation/dependency candidates and pure native xtask discovery integrated; staged execution consumers, actual provenance and generated owner federation remain |
+| [A03](#a03) | complete | 59a | Producer-owned source/API/semantic/compiler/product views, directional schemas, indivisible records and original outcome preservation delivered; actual consumers and 678-test host run pass |
+| [A04](#a04) | complete | 59a | Exact lookup, private original artifact/descriptor reads, responsibility-specific retention and durable probe custody delivered; original evidence survives safe probe removal |
+| [A05](#a05) | complete | 59a | Immutable tools, source-aware copy, reusable authenticated sessions and verified captured-executable origin delivered; automatic collection remains absent and unknown old files stay protected |
+| [A06](#a06) | complete | 59a | Parser-owned discovery/schema/reference, selected native tool federation, dependency contexts and declared source/generated/document ownership delivered; annotated parser consistency and actual consumers pass |
 | [A07](#a07) | complete | 59a | Proposed ADR-0233/blueprint315 published and scoped formal review accepts that target at Proposed strength; proposed ADR-0234/blueprint316 refines nested invocation ownership; runtime obligations remain with consumers |
 | [A08](#a08) | complete | 59a | Proposed ADR-0233/0234 and blueprint317 publish accepted RC01–RC04; independent focused target advice found no required correction, not formal acceptance or runtime qualification |
 | [A09](#a09) | complete | 59a | Proposed ADR-0233/0234 and blueprint318/319 publish the operator-confirmed review target and command adoption. Governing owners/dependencies agree; native runtime evidence is recorded by the wave Outcome, independently of formal ADR acceptance |
@@ -731,5 +731,6 @@ federation are not prerequisites to that journey. J01 supplies source pages, J02
 proposals, J03 server-free query/preview, J04 generated navigation and J05 their integrated
 consumer; A03/A06 participate by the required typed-view/discovery slice rather than treating
 all J as a foundation gate. Product observation depends on F01's own
-prepared owner, not host dependency-ceiling expansion. All acceptance above is planned; this
-documentation amendment runs no product checks and grants no production execution restart.
+prepared owner, not host dependency-ceiling expansion. Package tables and the coordinator's
+current Outcome own delivered acceptance; the original proposed foundation description does
+not itself establish qualification.

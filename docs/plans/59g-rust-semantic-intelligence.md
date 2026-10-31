@@ -135,7 +135,7 @@ The review checked development interfaces; exact pinned extension/native signatu
 | [G06](#g06) | complete | 59g | Related-test/completion producers, lazy resolution and actual test-owner enumeration through a produced next action |
 | [G07](#g07) | complete | 59g | Source-bound rename, lazy assist, scoped semantic SSR, file-rename and complete supported workspace-effect previews into J02 |
 | [G08](#g08) | complete | 59g | Preview-only decision below; no apply command is advertised |
-| [G09](#g09) | in-progress | 59g | Native selected CLI/lifecycle journey passed; coordinator retains adjacent original-diagnostic/discovery composition and assembled series acceptance |
+| [G09](#g09) | complete | 59g | Native selected CLI/lifecycle journeys and 678-test host run pass; original diagnostics offer guarded, explicitly current-source semantics without inventing original-source identity |
 
 <a id="g01"></a>
 ## G01 — Pinned capability and integration design

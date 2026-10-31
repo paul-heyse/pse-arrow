@@ -542,3 +542,13 @@ F01–F06 functional acceptance. No solver execution, broad numerical reference,
 external-query execution, required telemetry backend, MCP adapter or performance benefit is
 claimed. The original failed expanded run remains retained alongside the corrected passing
 results. Coordinator-owned integrated series qualification and document lifecycle remain open.
+
+**Scope-end allocation correction:** strict Clippy exposed the oversized frozen-inspection
+document inside the investigation result. Boxing that one owner document removes both nested
+enum disparities; the outer payload remains unchanged. A direct owner/delegated serialization
+comparison and schema-reference control preserve the wire contract. Force-validating selected
+reader/frozen-inspection units passed 18/18 with zero failures or warnings. The post-integration
+main `scripts/pse test pse-host:product_observation` passed 4/4 in invocation
+`01a18f67-b740-73f4-a6bd-7d6fd84328fd`, with successful native setup, complete capture and
+settlement and no incomplete records or retries. Final default/no-default/native workspace Clippy
+is accounted for by P01; no performance benefit is inferred from this allocation change.

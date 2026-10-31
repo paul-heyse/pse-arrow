@@ -167,10 +167,10 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 | [D01](#d01) | complete | 59d | Native changed Git layers, package grouping, generated owners, authored advisory rules and conservative test handoff pass focused and actual public consumers |
 | [D02](#d02) | complete | 59d | Exact dependency/API and isolated probe consumers delivered; H and I Outcomes record selected units, constraints, comparison, native documentation and safe probe retention/removal |
 | [D03](#d03) | complete | 59d | Native lossless outline/show, exact source selections and shared lib-outline route integrated; batch CPU execution and source/schema/actual CLI tests cover malformed/Unicode/ambiguous/CommonMark reads |
-| [D04](#d04) | in-progress | 59d | Scoped native checker, exact prepared forwarding and passive help/schema delivered with actual broken/clean controls; final generated-discovery acceptance remains |
+| [D04](#d04) | complete | 59d | Scoped native checker, exact prepared forwarding and passive help/schema delivered with actual broken/clean controls and final generated discovery |
 | [D05](#d05) | deferred | 59d | Citation/scaffold wrappers deferred pending demonstrated workflow need; existing native routes remain |
 | [D06](#d06) | complete | 59d | Generated/contributor/guard routes, captured source-package scope and separately prepared native document-owner federation delivered; actual owner read passes and undeclared source-to-plan binding stays unknown |
-| [D07](#d07) | in-progress | 59d | Parser-derived Markdown reference and generator delivered; republish final integrated grammar and scope-end drift check remain |
+| [D07](#d07) | complete | 59d | Complete parser-derived reference generated and reviewed; full nine-target regeneration and drift check pass. Discovery annotation preserves native positional order |
 | [D08](#d08) | deferred | 59d | Operator-confirmed deferral; D09 investigation retained, no commit CLI implementation required |
 | [D09](#d09) | complete | 59d | Native Git transaction strategy selected with 11 passing disposable-repository probes; D08 runtime acceptance remains outstanding |
 
