@@ -12,6 +12,7 @@ use native_ra_syntax::{
 };
 use ra_ap_hir::{HirDisplay as _, Semantics};
 use ra_ap_ide_db::base_db::SourceDatabase as _;
+use ra_ap_ide_db::base_db::salsa::{self, Database as _};
 use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -27,6 +28,7 @@ use tokio_util::sync::CancellationToken;
 
 const BACKEND: &str = "ra_ap_hir/0.0.358;ra_ap_ide/0.0.358;immutable_snapshot";
 mod importability;
+mod operations;
 
 /// A genuine native type observation; display is presentation, not serialized type identity.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -511,11 +513,26 @@ impl Engine {
         query: Query,
         token: CancellationToken,
     ) -> CpuTask<Result<Value>> {
-        let world = self.world.clone();
+        let inputs = self
+            .world
+            .lock()
+            .map_err(super::engine::protocol)
+            .map(|world| {
+                (
+                    world.db.clone(),
+                    world.files.clone(),
+                    world.paths.clone(),
+                    world.digests.clone(),
+                )
+            });
+        let native_cancel = inputs
+            .as_ref()
+            .ok()
+            .map(|(db, _, _, _)| db.cancellation_token());
         let context = self.context.clone();
         let session = self.analysis_context();
         let active = self.active.clone();
-        spawn_cpu(token, move |token| {
+        let task = spawn_cpu(token, move |token| {
             struct Active(Arc<AtomicUsize>);
             impl Drop for Active {
                 fn drop(&mut self) {
@@ -528,33 +545,43 @@ impl Engine {
             if token.is_cancelled() {
                 return Err(Error::Cancelled);
             }
-            let (db, files, paths, digests) = {
-                let world = world.lock().map_err(super::engine::protocol)?;
-                (
-                    world.db.clone(),
-                    world.files.clone(),
-                    world.paths.clone(),
-                    world.digests.clone(),
-                )
-            };
-            let result = query_world(&db, &files, &paths, &digests, session, query, &token)?;
+            let (db, files, paths, digests) = inputs?;
+            let result = native_result(salsa::Cancelled::catch(std::panic::AssertUnwindSafe(
+                || {
+                    ra_ap_hir::attach_db(&db, || {
+                        query_world(&db, &files, &paths, &digests, session, query, &token)
+                    })
+                },
+            )))??;
             context.check()?;
             if token.is_cancelled() {
                 return Err(Error::Cancelled);
             }
             serde_json::to_value(result).map_err(Error::from)
-        })
+        });
+        match native_cancel {
+            Some(cancel) => task.with_cancel_hook(move || cancel.cancel()),
+            None => task,
+        }
     }
     pub(super) fn start_symbols(
         &self,
         query: WorkspaceQuery,
         token: CancellationToken,
     ) -> CpuTask<Result<Value>> {
-        let world = self.world.clone();
+        let inputs = self
+            .world
+            .lock()
+            .map_err(super::engine::protocol)
+            .map(|world| (world.db.clone(), world.paths.clone(), world.digests.clone()));
+        let native_cancel = inputs
+            .as_ref()
+            .ok()
+            .map(|(db, _, _)| db.cancellation_token());
         let context = self.context.clone();
         let session = self.analysis_context();
         let active = self.active.clone();
-        spawn_cpu(token, move |token| {
+        let task = spawn_cpu(token, move |token| {
             struct Active(Arc<AtomicUsize>);
             impl Drop for Active {
                 fn drop(&mut self) {
@@ -567,18 +594,13 @@ impl Engine {
             if query.if_generation.is_some_and(|value| value != 1) {
                 return Err(Error::Stale);
             }
-            let (db, paths, digests) = {
-                let world = world.lock().map_err(super::engine::protocol)?;
-                (world.db.clone(), world.paths.clone(), world.digests.clone())
-            };
+            let (db, paths, digests) = inputs?;
             if token.is_cancelled() {
                 return Err(Error::Cancelled);
             }
-            let host = ra_ap_ide::AnalysisHost::with_database(db);
-            let mut native = host
-                .analysis()
-                .symbol_search(symbol_query(&query), query.limit)
-                .map_err(|_| Error::Cancelled)?;
+            let mut native = native_result(salsa::Cancelled::catch(std::panic::AssertUnwindSafe(
+                || operations::symbols(&db, symbol_query(&query), query.limit),
+            )))?;
             // The native libs switch replaces the workspace domain. Widening
             // therefore requires both queries against this same immutable DB.
             if query.include_dependencies {
@@ -587,11 +609,11 @@ impl Engine {
                 }
                 let mut libraries = symbol_query(&query);
                 libraries.libs();
-                native.extend(
-                    host.analysis()
-                        .symbol_search(libraries, query.limit)
-                        .map_err(|_| Error::Cancelled)?,
-                );
+                native.extend(native_result(salsa::Cancelled::catch(
+                    std::panic::AssertUnwindSafe(|| {
+                        operations::symbols(&db, libraries, query.limit)
+                    }),
+                ))?);
             }
             let mut rows = Vec::new();
             let mut seen = BTreeSet::new();
@@ -617,8 +639,22 @@ impl Engine {
             }
             context.check()?;
             serde_json::to_value(WorkspaceAnswer {session,generation:1,symbols:Section {category:"workspace_symbols".into(),evidence:Value::Array(rows),omitted:0,handles:Vec::new()},limitations:vec!["Immutable native snapshot with explicit source/configuration guards; native fuzzy search is provider-ranked and not an uncapped whole-program proof.".into()]}).map_err(Error::from)
-        })
+        });
+        match native_cancel {
+            Some(cancel) => task.with_cancel_hook(move || cancel.cancel()),
+            None => task,
+        }
     }
+}
+
+fn native_result<T>(result: std::result::Result<T, salsa::Cancelled>) -> Result<T> {
+    result.map_err(|cause| match cause {
+        salsa::Cancelled::Local => Error::Cancelled,
+        salsa::Cancelled::PendingWrite => Error::Stale,
+        _ => Error::Protocol(format!(
+            "native computation failed independently of requested cancellation: {cause:?}"
+        )),
+    })
 }
 
 fn symbol_query(query: &WorkspaceQuery) -> ra_ap_ide::Query {
@@ -761,9 +797,7 @@ fn query_world(
             let enclosing=node.ancestors().find_map(ast::Fn::cast).and_then(|function|sema.to_def(&function));
             // IDE navigation owns plain paths, imports/reexports, type names and
             // local definitions; do not reproduce that resolver from spelling.
-            let analysis=ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
-            let mut fixture=ra_ap_ide::RaFixtureConfig::default();fixture.disable_ra_fixture=true;
-            let definitions=analysis.goto_definition(position,&ra_ap_ide::GotoDefinitionConfig {ra_fixture:fixture}).map_err(|_|Error::Cancelled)?.map(|definitions|definitions.info).unwrap_or_default();
+            let definitions=operations::definitions(db,position,token)?;
             let total=definitions.len();
             let definitions=definitions.into_iter().take(query.limit).filter_map(|definition|location(paths,definition.file_id,definition.full_range).map(|location|TargetFact {relationship:"resolved_definition".into(),name:definition.name.to_string(),location:Some(location),precision:"native_original_range".into()})).collect::<Vec<_>>();
             if target.is_none()&&definitions.len()==1{target=definitions.first().cloned();}
@@ -792,27 +826,14 @@ fn query_world(
             sections.push(Section {category:"importability".into(),evidence:serde_json::to_value(fact)?,omitted:0,handles:Vec::new()});
         },
         Kind::Refs=>{
-            let analysis=ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
-            let mut fixture=ra_ap_ide::RaFixtureConfig::default();fixture.disable_ra_fixture=true;
-            let config=ra_ap_ide::FindAllRefsConfig {search_scope:None,ra_fixture:fixture,exclude_imports:false,exclude_tests:false};
-            let results=analysis.find_all_refs(position,&config).map_err(|_|Error::Cancelled)?.unwrap_or_default();
-            let mut total=0usize;
-            for (entity,result) in results.into_iter().enumerate(){
-                for (id,usages) in result.references{
-                    for (range,category) in usages{
-                        if token.is_cancelled(){return Err(Error::Cancelled);}
-                        total+=1;
-                        if references.len()>=query.limit{continue;}
-                        if let Some(location)=location(paths,id,range){references.push(ReferenceFact {entity,location,read:category.contains(ra_ap_ide_db::search::ReferenceCategory::READ),write:category.contains(ra_ap_ide_db::search::ReferenceCategory::WRITE)});}
-                    }
-                }
+            let(results,total)=operations::references(db,position,token,query.limit)?;
+            for result in results{
+                if let Some(location)=location(paths,result.file,result.range){references.push(ReferenceFact {entity:result.entity,location,read:result.category.contains(ra_ap_ide_db::search::ReferenceCategory::READ),write:result.category.contains(ra_ap_ide_db::search::ReferenceCategory::WRITE)});}
             }
             sections.push(Section {category:"native_reference_roles".into(),evidence:serde_json::to_value(&references)?,omitted:total.saturating_sub(references.len()),handles:Vec::new()});
         }
         Kind::Implementations=>{
-            let analysis=ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
-            let native=analysis.goto_implementation(&ra_ap_ide::GotoImplementationConfig {filter_adjacent_derive_implementations:false},position).map_err(|_|Error::Cancelled)?;
-            let native=native.map(|native|native.info).unwrap_or_default();
+            let native=operations::implementations(db,position,token)?;
             let total=native.len();
             let targets=native.into_iter().take(query.limit).filter_map(|target|{
                 location(paths,target.file_id,target.focus_range.unwrap_or(target.full_range)).map(|location|TargetFact {relationship:"implementation".into(),name:target.name.to_string(),location:Some(location),precision:"native_original_range".into()})
