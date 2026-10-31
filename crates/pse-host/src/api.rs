@@ -9,7 +9,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     ffi::{OsStr, OsString},
     fs::{self, OpenOptions},
     io::Write as _,
@@ -97,6 +97,9 @@ pub struct Context {
     pub manifest: PathBuf,
     /// Selected source bytes, including non-Rust authored files.
     pub package_source_sha256: String,
+    /// Original package-byte evidence for the selected documentation unit's reachable dependencies.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub dependency_sources: BTreeMap<String, PackageSourceEvidence>,
     /// Originating metadata bytes, retaining transitive feature resolution.
     pub metadata_sha256: String,
     /// Metadata's enabled features; host/target compiler-unit applicability stays distinct.
@@ -117,6 +120,21 @@ pub struct Context {
     pub rustdoc_identity: String,
     /// Complete captured environment identity; values remain private and never appear in output.
     pub environment_sha256: String,
+}
+/// Byte evidence captured from an original Cargo package, including registry/git sources.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "availability", rename_all = "snake_case")]
+pub enum PackageSourceEvidence {
+    /// The complete package source membership and bytes were observed.
+    Recorded {
+        /// Original package-relative byte digest using the acquisition source owner.
+        sha256: String,
+    },
+    /// Source bytes could not be captured; later qualification remains unknown.
+    Unavailable {
+        /// Original capture failure, without inventing a source identity.
+        reason: String,
+    },
 }
 impl Context {
     /// Source/feature/target/toolchain/cfg/schema changes cannot alias this key.
@@ -203,6 +221,8 @@ struct DocumentationUnit {
 #[derive(Deserialize)]
 struct DocumentationDependency {
     index: usize,
+    #[serde(default)]
+    extern_crate_name: Option<String>,
 }
 #[derive(Deserialize)]
 struct DocumentationTarget {
@@ -228,10 +248,7 @@ pub(crate) struct DocumentationClosure {
     pub dependencies: BTreeSet<DocumentationLibraryProfile>,
 }
 
-/// Read the actual retained Cargo dependency edges; no resolver or query-time Cargo invocation.
-pub(crate) fn retained_documentation_closure(
-    artifact: &Artifact,
-) -> Result<DocumentationClosure, ApiError> {
+fn retained_documentation_graph(artifact: &Artifact) -> Result<DocumentationGraph, ApiError> {
     let directory = artifact
         .path
         .parent()
@@ -247,6 +264,9 @@ pub(crate) fn retained_documentation_closure(
             "unsupported retained API documentation graph version",
         ));
     }
+    Ok(graph)
+}
+fn documentation_root(graph: &DocumentationGraph, context: &Context) -> Result<usize, ApiError> {
     for index in &graph.roots {
         if *index >= graph.units.len() {
             return Err(invalid("retained API graph root is outside its units"));
@@ -257,10 +277,10 @@ pub(crate) fn retained_documentation_closure(
         .iter()
         .filter(|index| {
             graph.units.get(**index).is_some_and(|unit| {
-                unit.pkg_id == artifact.context.package_id
+                unit.pkg_id == context.package_id
                     && unit.mode == "doc"
-                    && unit.platform.as_deref() == Some(artifact.context.target.as_str())
-                    && unit.features == artifact.context.features
+                    && unit.platform.as_deref() == Some(context.target.as_str())
+                    && unit.features == context.features
             })
         })
         .copied()
@@ -270,10 +290,17 @@ pub(crate) fn retained_documentation_closure(
             "API context has no unique original documentation unit",
         ));
     };
-    let root = documentation_profile(&graph.units[*root_index], &artifact.context.source_root)?;
+    Ok(*root_index)
+}
+fn documentation_closure(
+    graph: &DocumentationGraph,
+    context: &Context,
+) -> Result<DocumentationClosure, ApiError> {
+    let root_index = documentation_root(graph, context)?;
+    let root = documentation_profile(&graph.units[root_index], &context.source_root)?;
     let mut dependencies = BTreeSet::new();
     let mut seen = BTreeSet::new();
-    let mut pending = vec![*root_index];
+    let mut pending = vec![root_index];
     while let Some(index) = pending.pop() {
         if !seen.insert(index) {
             continue;
@@ -282,14 +309,14 @@ pub(crate) fn retained_documentation_closure(
             .units
             .get(index)
             .ok_or_else(|| invalid("retained API dependency edge is outside its units"))?;
-        if index != *root_index {
+        if index != root_index {
             if !matches!(unit.mode.as_str(), "build" | "check") {
                 return Err(invalid(format!(
                     "retained API dependency mode {} has no proved native library profile",
                     unit.mode
                 )));
             }
-            let profile = documentation_profile(unit, &artifact.context.source_root)?;
+            let profile = documentation_profile(unit, &context.source_root)?;
             if profile.role != "lib" {
                 return Err(invalid(
                     "retained API host/proc-macro dependency context is not proved by the native library closure",
@@ -400,6 +427,67 @@ struct Observation {
     files: SourceFiles,
     library: String,
     unit_graph: Vec<u8>,
+}
+fn dependency_source_evidence(
+    snapshot: &MetadataSnapshot,
+    bytes: &[u8],
+    package: &str,
+) -> Result<BTreeMap<String, PackageSourceEvidence>, ApiError> {
+    let graph: DocumentationGraph = serde_json::from_slice(bytes)?;
+    if graph.version != 1 {
+        return Err(invalid("unsupported documentation dependency graph"));
+    }
+    let mut pending = graph.roots.iter().copied().collect::<Vec<_>>();
+    let mut seen = BTreeSet::new();
+    let mut packages = BTreeSet::new();
+    while let Some(index) = pending.pop() {
+        if !seen.insert(index) {
+            continue;
+        }
+        let unit = graph
+            .units
+            .get(index)
+            .ok_or_else(|| invalid("documentation dependency edge invalid"))?;
+        if unit.pkg_id != package {
+            packages.insert(unit.pkg_id.clone());
+        }
+        let edges = unit
+            .dependencies
+            .as_ref()
+            .ok_or_else(|| invalid("documentation dependency edges absent"))?;
+        pending.extend(edges.iter().map(|edge| edge.index));
+    }
+    let mut sources = BTreeMap::new();
+    for package_id in packages {
+        let observed = (|| {
+            let package = snapshot
+                .metadata
+                .packages
+                .iter()
+                .find(|package| package.id.repr == package_id)
+                .ok_or_else(|| {
+                    invalid("documentation package source absent from original metadata")
+                })?;
+            let root = package
+                .manifest_path
+                .parent()
+                .ok_or_else(|| invalid("dependency manifest parent absent"))?
+                .as_std_path();
+            let mut files = Vec::new();
+            source_files(root, Path::new(""), &mut files)?;
+            Ok::<_, ApiError>(source_files_digest(&files))
+        })();
+        sources.insert(
+            package_id,
+            match observed {
+                Ok(sha256) => PackageSourceEvidence::Recorded { sha256 },
+                Err(error) => PackageSourceEvidence::Unavailable {
+                    reason: error.to_string(),
+                },
+            },
+        );
+    }
+    Ok(sources)
 }
 fn extraction_environment(environment: &Environment) -> Result<Environment, ApiError> {
     let mut selected = crate::correctness::standalone_adapter_environment(
@@ -524,6 +612,8 @@ fn observed_context(
     let mut files = Vec::new();
     source_files(package_root, Path::new(""), &mut files)?;
     let package_source_sha256 = source_files_digest(&files);
+    let dependency_sources =
+        dependency_source_evidence(snapshot, &unit_graph, &package.id.to_string())?;
     let rustdoc = environment
         .get(OsStr::new("RUSTDOC"))
         .map_or(OsStr::new("rustdoc"), |value| value.as_os_str());
@@ -542,6 +632,7 @@ fn observed_context(
             package_id: package.id.to_string(),
             manifest: package.manifest_path.as_std_path().to_owned(),
             package_source_sha256,
+            dependency_sources,
             metadata_sha256: snapshot.digest.clone(),
             metadata_features,
             features,

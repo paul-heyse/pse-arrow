@@ -165,6 +165,7 @@ mod tests {
             package_id: "fixture@1.0.0".into(),
             manifest: "/fixture/Cargo.toml".into(),
             package_source_sha256: "original source".into(),
+            dependency_sources: Default::default(),
             metadata_sha256: "original metadata".into(),
             features: BTreeSet::new(),
             metadata_features: BTreeSet::new(),

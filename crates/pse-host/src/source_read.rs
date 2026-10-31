@@ -297,10 +297,7 @@ pub(super) fn rust_bounded(
             let header_start = node
                 .children_with_tokens()
                 .find(|element| {
-                    !matches!(
-                        element.kind(),
-                        SyntaxKind::ATTR | SyntaxKind::COMMENT | SyntaxKind::WHITESPACE
-                    )
+                    !ast::AnyAttr::can_cast(element.kind()) && !element.kind().is_trivia()
                 })
                 .map_or(start, |element| usize::from(element.text_range().start()));
             Some(Entry {

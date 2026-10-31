@@ -6,6 +6,18 @@ use rustdoc_types::{Crate, Id, Item, ItemEnum, Type};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+mod definitions;
+pub use definitions::QualificationContext;
+/// Revalidate an explicit facade-to-definition qualification against its original
+/// acquired dependency edge and source/build inputs; never select a newer artifact.
+pub fn validate_definition(
+    facade: &Artifact,
+    surface_id: &str,
+    evidence: &DefinitionEvidence,
+    definition: &Artifact,
+) -> Result<(), ApiError> {
+    definitions::validate_definition(facade, surface_id, evidence, definition)
+}
 
 /// Structural kind selected without interpreting rendered documentation.
 #[derive(
@@ -429,6 +441,10 @@ pub struct Candidate {
     pub item_id: u32,
     /// Typed declaration kind.
     pub kind: Kind,
+    /// Original defining declaration evidence used for external reexport qualification.
+    pub definition: Option<DefinitionEvidence>,
+    /// Requested structural qualification remains unknown without exact defining evidence.
+    pub qualification_unknown: Option<String>,
     /// Compact declaration presentation, with explicit omissions.
     pub signature: String,
     /// Whether this presentation includes every signature component.
@@ -455,6 +471,22 @@ pub struct Candidate {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(with = "Option<serde_json::Value>")]
     pub declaration: Option<Box<serde_json::value::RawValue>>,
+}
+/// Exact acquired definition, distinct from the facade's artifact-local use declaration.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct DefinitionEvidence {
+    /// Source-qualified defining package.
+    pub package_id: String,
+    /// Original defining artifact context.
+    pub context_key: String,
+    /// Retained defining JSON.
+    pub artifact: std::path::PathBuf,
+    /// Original defining bytes.
+    pub artifact_sha256: String,
+    /// Defining artifact-local item ID.
+    pub item_id: u32,
+    /// Verified public route in that defining artifact.
+    pub public_path: String,
 }
 /// Native rustdoc reexport provenance; these IDs are local to the same retained artifact.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -537,6 +569,10 @@ pub struct Page {
     pub examined_public_paths: usize,
     /// Exact number of matches within this artifact and query policy.
     pub matched_candidates: usize,
+    /// Relevant candidates whose requested declaration qualification could not be proved.
+    pub unknown_candidates: usize,
+    /// External module/glob/associated descendants absent from this document's query universe.
+    pub unexamined_external_routes: Vec<String>,
     /// Matches not returned on this page.
     pub omitted_candidates: usize,
     /// Complete selected candidate units.
@@ -1206,6 +1242,39 @@ fn matches(item: &Item, address: &Address, query: &Query) -> bool {
     }
     true
 }
+fn external_descendants_relevant(
+    document: &Crate,
+    item: &Item,
+    _address: &Address,
+    _query: &Query,
+) -> bool {
+    let ItemEnum::Use(import) = &item.inner else {
+        return false;
+    };
+    if import.id.is_some_and(|id| document.index.contains_key(&id)) {
+        return false;
+    }
+    let module = import
+        .id
+        .and_then(|id| document.paths.get(&id))
+        .is_none_or(|summary| {
+            matches!(
+                summary.kind,
+                rustdoc_types::ItemKind::Module
+                    | rustdoc_types::ItemKind::Struct
+                    | rustdoc_types::ItemKind::Enum
+                    | rustdoc_types::ItemKind::Union
+                    | rustdoc_types::ItemKind::Trait
+                    | rustdoc_types::ItemKind::TraitAlias
+                    | rustdoc_types::ItemKind::TypeAlias
+                    | rustdoc_types::ItemKind::Primitive
+                    | rustdoc_types::ItemKind::ExternType
+            )
+        });
+    // matches() accepts suffix paths as well as exact routes. Any unseen descendant
+    // can therefore satisfy a short or nested suffix beneath an external container.
+    import.is_glob || module
+}
 /// Extract authored Rust fences without rustdoc transformation or code execution.
 pub fn examples(docs: &str) -> Vec<Example> {
     use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
@@ -1307,43 +1376,175 @@ pub fn inspect(
     if limit == 0 {
         return Err(super::invalid("API page limit must be positive"));
     }
-    let query_digest = crate::probe::digest(&serde_json::to_vec(query)?);
+    let addresses = addresses(&artifact.document);
+    let examined_public_paths = addresses.len();
+    let mut definitions = definitions::Definitions::default();
+    let mut selected = Vec::new();
+    let mut unexamined_external_routes = Vec::new();
+    let surface = Query {
+        path: query.path.clone(),
+        search: query.search.clone(),
+        ..Query::default()
+    };
+    let needs_definition = query.kind.is_some()
+        || query.input.is_some()
+        || query.output.is_some()
+        || query.input_shape.is_some()
+        || query.output_shape.is_some()
+        || query.declared_bound.is_some()
+        || query.trait_name.is_some()
+        || query.unsafe_only
+        || query.async_only
+        || query.const_only;
+    for address in addresses {
+        let Some(item) = artifact.document.index.get(&address.id) else {
+            continue;
+        };
+        if external_descendants_relevant(&artifact.document, item, &address, query) {
+            unexamined_external_routes.push(address.path.clone());
+        }
+        // A relevant external use is a real authored surface candidate. Its absent target
+        // cannot establish a negative declaration-shape answer.
+        if matches!(&item.inner, ItemEnum::Use(_)) && matches(item, &address, &surface) {
+            match definitions.resolve(artifact, address.id) {
+                Ok((definition, id, evidence)) => {
+                    let target = definition.document.index.get(&id).ok_or_else(|| {
+                        super::invalid("verified defining declaration disappeared")
+                    })?;
+                    if matches(target, &address, query) {
+                        selected.push((address, Some((definition, id, evidence)), None));
+                    }
+                }
+                Err(error) => {
+                    selected.push((address, None, needs_definition.then(|| error.to_string())))
+                }
+            }
+        } else if matches(item, &address, query) {
+            selected.push((address, None, None));
+        }
+    }
+    // Additional defining evidence is part of the cursor, including missing-to-prepared changes.
+    let evidence = selected
+        .iter()
+        .map(|(address, definition, unknown)| {
+            (
+                &address.path,
+                definition.as_ref().map(|(_, _, proof)| proof),
+                unknown,
+            )
+        })
+        .collect::<Vec<_>>();
+    let query_digest = crate::probe::digest(&serde_json::to_vec(&(
+        query,
+        evidence,
+        &unexamined_external_routes,
+    ))?);
     let offset = if let Some(cursor) = cursor {
         let cursor = read_cursor(cursor)?;
         if cursor.artifact != artifact.sha256 || cursor.query != query_digest {
             return Err(super::invalid(
-                "API continuation source or query changed; select the retained original artifact or restart",
+                "API continuation source, defining evidence or query changed; restart",
             ));
         }
         cursor.offset
     } else {
         0
     };
-    let addresses = addresses(&artifact.document);
-    let examined_public_paths = addresses.len();
-    let selected: Vec<_> = addresses
-        .into_iter()
-        .filter(|address| {
-            artifact
-                .document
-                .index
-                .get(&address.id)
-                .is_some_and(|item| matches(item, address, query))
-        })
-        .collect();
     if offset > selected.len() {
         return Err(super::invalid(
             "API continuation offset is outside its selected artifact",
         ));
     }
     let total = selected.len();
-    let candidates=selected.into_iter().skip(offset).take(limit).filter_map(|address|artifact.document.index.get(&address.id).map(|item|{
-        let (signature,signature_complete)=signature(item);
-        let incomplete_declaration=match &item.inner{ItemEnum::Module(value)=>value.is_stripped,ItemEnum::Struct(value)=>match &value.kind{rustdoc_types::StructKind::Plain{has_stripped_fields,..}=>*has_stripped_fields,rustdoc_types::StructKind::Tuple(fields)=>fields.iter().any(Option::is_none),rustdoc_types::StructKind::Unit=>false},ItemEnum::Union(value)=>value.has_stripped_fields,ItemEnum::Enum(value)=>value.has_stripped_variants,ItemEnum::Use(_)=>true,_=>false};
-        let declaration = query.declaration.then(||serde_json::value::to_raw_value(item)).transpose()?;
-        Ok::<_,serde_json::Error>(Candidate{public_path:address.path,item_id:item.id.0,kind:kind(item),signature,signature_complete,docs:query.docs.then(||item.docs.clone()).flatten(),attributes:item.attrs.iter().map(|attr|format!("{attr:?}")).collect(),deprecation:item.deprecation.as_ref().map(|value|Deprecation{since:value.since.clone(),note:value.note.clone()}),source:item.span.as_ref().map(|span|Location{filename:span.filename.clone(),begin:span.begin,end:span.end}),reexports:address.reexports.into_iter().filter_map(|id|artifact.document.index.get(&id)).map(|reexport|ReexportSource{item_id:reexport.id.0,source:reexport.span.as_ref().map(|span|Location{filename:span.filename.clone(),begin:span.begin,end:span.end})}).collect(),trait_provenance:address.trait_provenance,incomplete_declaration,ordinary_build_availability:"unknown; rustdoc cfg(doc) is a documentation context",examples:if query.examples{item.docs.as_deref().map(examples).unwrap_or_default()}else{Vec::new()},declaration})
-    })).collect::<Result<Vec<_>,_>>()?;
+    let unknown_candidates = selected
+        .iter()
+        .filter(|(_, _, unknown)| unknown.is_some())
+        .count();
+    let candidates = selected
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .map(|(address, definition, qualification_unknown)| {
+            let surface_item = artifact
+                .document
+                .index
+                .get(&address.id)
+                .ok_or_else(|| super::invalid("selected surface item disappeared"))?;
+            let item = if let Some((definition, id, _)) = &definition {
+                definition
+                    .document
+                    .index
+                    .get(id)
+                    .ok_or_else(|| super::invalid("selected defining item disappeared"))?
+            } else {
+                surface_item
+            };
+            let (signature, signature_complete) = signature(item);
+            let incomplete_declaration = match &item.inner {
+                ItemEnum::Module(value) => value.is_stripped,
+                ItemEnum::Struct(value) => match &value.kind {
+                    rustdoc_types::StructKind::Plain {
+                        has_stripped_fields,
+                        ..
+                    } => *has_stripped_fields,
+                    rustdoc_types::StructKind::Tuple(fields) => fields.iter().any(Option::is_none),
+                    rustdoc_types::StructKind::Unit => false,
+                },
+                ItemEnum::Union(value) => value.has_stripped_fields,
+                ItemEnum::Enum(value) => value.has_stripped_variants,
+                ItemEnum::Use(_) => true,
+                _ => false,
+            };
+            let declaration = query
+                .declaration
+                .then(|| serde_json::value::to_raw_value(item))
+                .transpose()?;
+            Ok::<_, ApiError>(Candidate {
+                public_path: address.path,
+                item_id: surface_item.id.0,
+                kind: kind(item),
+                definition: definition.as_ref().map(|(_, _, proof)| proof.clone()),
+                qualification_unknown,
+                signature,
+                signature_complete,
+                docs: query.docs.then(|| item.docs.clone()).flatten(),
+                attributes: item.attrs.iter().map(|attr| format!("{attr:?}")).collect(),
+                deprecation: item.deprecation.as_ref().map(|value| Deprecation {
+                    since: value.since.clone(),
+                    note: value.note.clone(),
+                }),
+                source: item.span.as_ref().map(|span| Location {
+                    filename: span.filename.clone(),
+                    begin: span.begin,
+                    end: span.end,
+                }),
+                reexports: address
+                    .reexports
+                    .into_iter()
+                    .filter_map(|id| artifact.document.index.get(&id))
+                    .map(|reexport| ReexportSource {
+                        item_id: reexport.id.0,
+                        source: reexport.span.as_ref().map(|span| Location {
+                            filename: span.filename.clone(),
+                            begin: span.begin,
+                            end: span.end,
+                        }),
+                    })
+                    .collect(),
+                trait_provenance: address.trait_provenance,
+                incomplete_declaration,
+                ordinary_build_availability: "unknown; rustdoc cfg(doc) is a documentation context",
+                examples: if query.examples {
+                    item.docs.as_deref().map(examples).unwrap_or_default()
+                } else {
+                    Vec::new()
+                },
+                declaration,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     let next = offset + candidates.len();
+    definitions.verify_unchanged()?;
     let request_identity = query
         .request_identity
         .clone()
@@ -1372,7 +1573,9 @@ pub fn inspect(
         rustdoc_format: artifact.context.rustdoc_format,
         examined_items: artifact.document.index.len(),
         examined_public_paths,
-        matched_candidates: total,
+        matched_candidates: total - unknown_candidates,
+        unknown_candidates,
+        unexamined_external_routes,
         omitted_candidates: total.saturating_sub(candidates.len()),
         candidates,
         continuation,

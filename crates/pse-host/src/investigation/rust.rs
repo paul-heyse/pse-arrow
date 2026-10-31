@@ -432,8 +432,10 @@ pub fn evaluate(
                     break;
                 }
             }
-            let known =
-                outline.parse_issues.is_empty() && graph.complete_for(&input.path) && !missing;
+            let route_required = qualified_query || query.matching == NameMatch::Contains;
+            let known = outline.parse_issues.is_empty()
+                && (!route_required || graph.complete_for(&input.path))
+                && !missing;
             let limited = known && limit.is_some_and(|limit| rows.len() >= limit);
             let complete = known && !limited;
             let mut diagnostics = outline
@@ -445,7 +447,9 @@ pub fn evaluate(
                     source: None,
                 })
                 .collect::<Vec<_>>();
-            diagnostics.extend(graph.diagnostics_for(&input.path).cloned());
+            if route_required {
+                diagnostics.extend(graph.diagnostics_for(&input.path).cloned());
+            }
             if missing {
                 diagnostics.push(QueryDiagnostic {code:"search.module_unavailable".into(),message:"selected source has no established authored crate/module route; qualified absence is unknown".into(),source:None});
             }
@@ -1000,6 +1004,12 @@ struct ApiContextKey {
 #[derive(Debug, Default)]
 pub struct ResolutionContext {
     api: Mutex<BTreeMap<ApiContextKey, Arc<crate::api::bridge::SourceBridge>>>,
+    definitions: Mutex<BTreeMap<std::path::PathBuf, Arc<CheckedDefinition>>>,
+}
+#[derive(Debug)]
+struct CheckedDefinition {
+    artifact: crate::api::Artifact,
+    routes: crate::api::query::SourceRoutes,
 }
 impl ResolutionContext {
     async fn api_source(
@@ -1016,11 +1026,34 @@ impl ResolutionContext {
             artifact_sha256,
             context_key,
             public_path,
+            definition,
         } = locator
         else {
             return Err(Error::Invalid(
                 "API source bridge requires an acquired artifact locator".into(),
             ));
+        };
+        let checked_definition = if let Some(definition) = definition {
+            let path = root.join(&definition.artifact);
+            let mut cache = self
+                .definitions
+                .lock()
+                .map_err(|_| Error::Unavailable("API definition proof owner panicked".into()))?;
+            if !cache.contains_key(&path) {
+                let artifact = crate::api::retained(&path).map_err(Error::from)?;
+                let routes = crate::api::query::SourceRoutes::new(&artifact.document);
+                cache.insert(
+                    path.clone(),
+                    Arc::new(CheckedDefinition { artifact, routes }),
+                );
+            }
+            let checked = cache
+                .get(&path)
+                .ok_or_else(|| Error::Unavailable("verified API definition is absent".into()))?;
+            validate_api_definition(&checked.artifact, &checked.routes, definition)?;
+            Some(checked.clone())
+        } else {
+            None
         };
         let key = ApiContextKey {
             artifact: root.join(artifact),
@@ -1039,7 +1072,7 @@ impl ResolutionContext {
         let bridge = if let Some(bridge) = existing {
             bridge
         } else {
-            let artifact = Arc::new(checked_api(root, locator)?);
+            let artifact = Arc::new(checked_api_surface(root, locator)?);
             let value = crate::semantic::client_cancellable(
                 root,
                 environment,
@@ -1069,6 +1102,11 @@ impl ResolutionContext {
                 .insert(key, bridge.clone());
             bridge
         };
+        if let (Some(proof), Some(checked)) = (definition, checked_definition) {
+            bridge
+                .validate_definition(item, proof, &checked.artifact)
+                .map_err(Error::from)?;
+        }
         bridge
             .source(item, public_path.as_deref())
             .map_err(Error::from)
@@ -1082,6 +1120,20 @@ impl ResolutionContext {
         let environment = environment();
         for bridge in cache.values() {
             bridge.verify_unchanged(&environment)?;
+        }
+        let definitions = self
+            .definitions
+            .lock()
+            .map_err(|_| Error::Unavailable("API definition proof owner panicked".into()))?;
+        for (path, checked) in definitions.iter() {
+            let current = crate::api::retained(path).map_err(Error::from)?;
+            if current.sha256 != checked.artifact.sha256
+                || current.context != checked.artifact.context
+            {
+                return Err(Error::Stale(
+                    "defining API evidence changed during refinement".into(),
+                ));
+            }
         }
         Ok(())
     }
@@ -1864,6 +1916,20 @@ pub fn inspect_api(root: &Path, locator: &Locator) -> Result<SearchResult, Error
     })
 }
 fn checked_api(root: &Path, locator: &Locator) -> Result<crate::api::Artifact, Error> {
+    let artifact = checked_api_surface(root, locator)?;
+    if let Locator::Api {
+        item,
+        definition: Some(definition),
+        ..
+    } = locator
+    {
+        let defining = checked_api_definition(root, definition)?;
+        crate::api::query::validate_definition(&artifact, item, definition, &defining)
+            .map_err(Error::from)?;
+    }
+    Ok(artifact)
+}
+fn checked_api_surface(root: &Path, locator: &Locator) -> Result<crate::api::Artifact, Error> {
     let Locator::Api {
         artifact,
         artifact_sha256,
@@ -1894,6 +1960,37 @@ fn checked_api(root: &Path, locator: &Locator) -> Result<crate::api::Artifact, E
         ));
     }
     Ok(artifact)
+}
+fn checked_api_definition(
+    root: &Path,
+    definition: &crate::api::query::DefinitionEvidence,
+) -> Result<crate::api::Artifact, Error> {
+    let artifact = crate::api::retained(&root.join(&definition.artifact)).map_err(Error::from)?;
+    let routes = crate::api::query::SourceRoutes::new(&artifact.document);
+    validate_api_definition(&artifact, &routes, definition)?;
+    Ok(artifact)
+}
+fn validate_api_definition(
+    artifact: &crate::api::Artifact,
+    routes: &crate::api::query::SourceRoutes,
+    definition: &crate::api::query::DefinitionEvidence,
+) -> Result<(), Error> {
+    if artifact.sha256 != definition.artifact_sha256
+        || artifact.context.key().map_err(Error::from)? != definition.context_key
+        || artifact.context.package_id != definition.package_id
+        || !artifact
+            .document
+            .index
+            .contains_key(&rustdoc_types::Id(definition.item_id))
+    {
+        return Err(Error::Stale("the acquired defining declaration no longer matches the original reexport qualification".into()));
+    }
+    routes
+        .validate(
+            rustdoc_types::Id(definition.item_id),
+            Some(&definition.public_path),
+        )
+        .map_err(Error::from)
 }
 fn api_search(
     root: &Path,
@@ -1958,17 +2055,8 @@ fn api_search(
         declared_bound: query.bound.clone(),
         ..crate::api::query::Query::default()
     };
-    let page = crate::api::query::inspect(
-        &artifact,
-        &selected,
-        if symbol.is_some() {
-            usize::MAX
-        } else {
-            limit.max(1)
-        },
-        None,
-    )
-    .map_err(Error::from)?;
+    let page =
+        crate::api::query::inspect(&artifact, &selected, usize::MAX, None).map_err(Error::from)?;
     emit(Event::Source(SourceContext {
         id: "api".into(),
         path: artifact.path.clone().into(),
@@ -1987,19 +2075,24 @@ fn api_search(
         .index
         .get(&artifact.document.root)
         .and_then(|item| item.name.as_deref());
-    let candidates = page
+    let mut candidates = page
         .candidates
         .into_iter()
+        .map(|mut candidate| {
+            if symbol.is_some_and(|symbol| !symbol.kinds.is_empty())
+                && candidate.definition.is_none()
+                && candidate.incomplete_declaration
+                && candidate.kind == crate::api::query::Kind::Other
+            {
+                candidate.qualification_unknown.get_or_insert_with(|| "the retained public reexport does not establish its defining declaration kind".into());
+            }
+            candidate
+        })
         .filter(|candidate| {
             let Some(symbol) = symbol else {
                 return true;
             };
-            let simple = artifact
-                .document
-                .index
-                .get(&rustdoc_types::Id(candidate.item_id))
-                .and_then(|item| item.name.as_deref())
-                .unwrap_or("");
+            let simple = candidate.public_path.rsplit("::").next().unwrap_or("");
             let relative = root_name
                 .and_then(|name| candidate.public_path.strip_prefix(&format!("{name}::")))
                 .unwrap_or(&candidate.public_path);
@@ -2013,7 +2106,8 @@ fn api_search(
             {
                 return false;
             }
-            if !symbol.kinds.is_empty()
+            if candidate.qualification_unknown.is_none()
+                && !symbol.kinds.is_empty()
                 && !symbol.kinds.iter().any(|kind| {
                     native_symbol_kind(&format!("{:?}", candidate.kind)).eq_ignore_ascii_case(kind)
                 })
@@ -2029,13 +2123,56 @@ fn api_search(
             true
         })
         .collect::<Vec<_>>();
-    summary.matches = if symbol.is_some() {
-        candidates.len() as u64
-    } else {
-        page.matched_candidates as u64
-    };
+    if request.answer.kind == AnswerKind::Exists {
+        if let Some(witness) = candidates
+            .iter()
+            .position(|candidate| candidate.qualification_unknown.is_none())
+        {
+            candidates.swap(0, witness);
+        }
+    }
+    summary.matches = candidates
+        .iter()
+        .filter(|candidate| candidate.qualification_unknown.is_none())
+        .count() as u64;
+    summary.unknown = candidates
+        .iter()
+        .filter(|candidate| candidate.qualification_unknown.is_some())
+        .count() as u64;
+    for route in &page.unexamined_external_routes {
+        summary.unknown += 1;
+        emit(Event::Diagnostic {
+            code: "search.api_unexamined_route".into(),
+            message: format!(
+                "external public route {route} may contain matching descendants; this acquired surface does not establish their declarations"
+            ),
+            source: Some("api".into()),
+        })?;
+    }
     let limited = candidates.len() > limit;
     for candidate in candidates.into_iter().take(limit) {
+        let refinement = candidate
+            .qualification_unknown
+            .map(|message| RefinementFact {
+                truth: Truth::Unknown,
+                diagnostic: Some(QueryDiagnostic {
+                    code: "search.api_qualification_unknown".into(),
+                    message,
+                    source: Some("api".into()),
+                }),
+                native: None,
+                evidence: None,
+            });
+        if let Some(diagnostic) = refinement
+            .as_ref()
+            .and_then(|fact| fact.diagnostic.as_ref())
+        {
+            emit(Event::Diagnostic {
+                code: diagnostic.code.clone(),
+                message: diagnostic.message.clone(),
+                source: diagnostic.source.clone(),
+            })?;
+        }
         if request.answer.kind != AnswerKind::Count {
             emit(Event::Result(SearchResult {
                 source: "api".into(),
@@ -2050,18 +2187,23 @@ fn api_search(
                     artifact_sha256: Some(artifact.sha256.clone()),
                     context_key: Some(page.context_key.clone()),
                     public_path: Some(candidate.public_path.clone()),
+                    definition: candidate.definition,
                 })),
                 captures: BTreeMap::new(),
                 entity: None,
                 candidate_reference: None,
-                refinement: None,
+                refinement,
             }))?;
             summary.emitted += 1;
         }
     }
-    summary.count = Count::Exact(summary.matches);
-    summary.complete = page.omitted_candidates == 0 && !limited;
-    if !summary.complete {
+    summary.count = if summary.unknown == 0 {
+        Count::Exact(summary.matches)
+    } else {
+        Count::AtLeast(summary.matches)
+    };
+    summary.complete = page.omitted_candidates == 0 && !limited && summary.unknown == 0;
+    if limited {
         summary.stop = StopReason::Limit;
     }
     Ok(summary)
@@ -2096,7 +2238,7 @@ mod tests {
             &mut context,
         )
         .unwrap();
-        assert!(absent.rows.is_empty() && absent.complete);
+        assert!(absent.rows.is_empty() && absent.complete, "{absent:?}");
         query.signature = Some("bool".into());
         assert_eq!(
             evaluate(

@@ -770,6 +770,9 @@ pub enum Locator {
         /// Original rustdoc-qualified public route, preserving distinct reexports.
         #[serde(default)]
         public_path: Option<String>,
+        /// Exact separately acquired definition used to qualify a public reexport.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        definition: Option<crate::api::query::DefinitionEvidence>,
     },
     /// Original retained evidence.
     Evidence {

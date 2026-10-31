@@ -87,6 +87,45 @@ fn unreadable_source_retains_readable_witness_and_partial_scope() {
 }
 
 #[test]
+fn explicit_alternative_positive_witness_settles_existence_without_hiding_unknown_scope() {
+    let root = tempfile::tempdir().unwrap();
+    assert!(
+        std::process::Command::new("git")
+            .args(["init", "--quiet"])
+            .current_dir(root.path())
+            .status()
+            .unwrap()
+            .success()
+    );
+    std::fs::write(root.path().join("input.rs"), "// needle\n").unwrap();
+    let request = json!({"sources":{"paths":["input.rs"]},"predicate":{"kind":"any","within":"file","clauses":[{"kind":"symbol","provider":"semantic","name":"absent"},{"kind":"text","patterns":["needle"],"literal":true}]},"answer":{"kind":"exists"}});
+    std::fs::write(
+        root.path().join("query.json"),
+        serde_json::to_vec(&request).unwrap(),
+    )
+    .unwrap();
+    let answer = run(root.path(), &["search", "--request", "query.json"]);
+    assert_eq!(answer["subject_state"], "available", "{answer}");
+    assert_eq!(answer["payload"]["summary"]["matches"], 1, "{answer}");
+    assert_eq!(answer["payload"]["summary"]["complete"], false, "{answer}");
+    assert!(
+        answer["payload"]["summary"]["unknown"].as_u64().unwrap() > 0,
+        "{answer}"
+    );
+    assert!(
+        answer["payload"]["results"].as_array().unwrap().is_empty(),
+        "existence returns its witnessed count without retaining match payloads: {answer}"
+    );
+    assert!(
+        !answer["payload"]["diagnostics"]
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "{answer}"
+    );
+}
+
+#[test]
 fn public_text_discovery_inspection_and_preview_keep_original_bytes() {
     let root = tempfile::tempdir().unwrap();
     let text = "// café must remain\nfn retained() { let answer = 17; }\n";

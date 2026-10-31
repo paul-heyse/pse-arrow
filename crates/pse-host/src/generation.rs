@@ -507,6 +507,14 @@ impl SourceFingerprint {
             .iter()
             .map(|(path, digest)| (path.as_path(), digest.as_str()))
     }
+    /// Compare original compiler/build inputs while callers separately compare each
+    /// package's effective feature profile from its native compiler-unit graph.
+    pub(crate) fn recorded_build_inputs_match(&self, other: &Self) -> bool {
+        self.context.rustc == other.context.rustc
+            && self.context.cargo == other.context.cargo
+            && self.context.profile == other.context.profile
+            && self.context.environment == other.context.environment
+    }
     /// Stable digest of the complete source/context observation, without checkout-specific IDs.
     pub fn digest(&self) -> Result<String, HostError> {
         Ok(digest(&encoded(self)?))

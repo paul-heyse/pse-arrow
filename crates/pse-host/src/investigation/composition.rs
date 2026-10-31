@@ -658,13 +658,17 @@ fn retain_unknown(
     };
     let previous = row.refinement.take();
     let evidence = previous.as_ref().and_then(|fact| fact.evidence.clone());
+    let diagnostic = previous
+        .as_ref()
+        .and_then(|fact| fact.diagnostic.clone())
+        .unwrap_or_else(|| original.clone());
     let original_native = error
         .native_refusal()
         .cloned()
         .or_else(|| previous.and_then(|fact| fact.native));
     row.refinement = Some(RefinementFact {
         truth: Truth::Unknown,
-        diagnostic: Some(original.clone()),
+        diagnostic: Some(diagnostic),
         native: original_native,
         evidence,
     });
@@ -782,6 +786,8 @@ fn refine(
                     {
                         return Ok(());
                     }
+                    let producer = row.refinement.take();
+                    let producer_truth = producer.as_ref().map_or(Truth::True, |fact| fact.truth);
                     let mut evidence = None;
                     let outcome = match filter {
                         Refinement::ResolvesTo { .. } | Refinement::UsedAt { .. } => Ok(expected
@@ -818,7 +824,8 @@ fn refine(
                                 token,
                             ))
                             .map(|answer| predicate_truth(&answer)),
-                    };
+                    }
+                    .map(|truth| producer_truth.and(truth));
                     row.entity = Some(resolved.identity);
                     if row.candidate_reference.is_none() {
                         row.candidate_reference = row.reference.take();
@@ -826,9 +833,9 @@ fn refine(
                     row.reference = Some(ResultReference::new(resolved.locator));
                     row.refinement = Some(RefinementFact {
                         truth: Truth::Unknown,
-                        diagnostic: None,
-                        native: None,
-                        evidence,
+                        diagnostic: producer.as_ref().and_then(|fact| fact.diagnostic.clone()),
+                        native: producer.as_ref().and_then(|fact| fact.native.clone()),
+                        evidence: evidence.or_else(|| producer.and_then(|fact| fact.evidence)),
                     });
                     match outcome {
                         Ok(Truth::True) => {

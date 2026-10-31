@@ -702,7 +702,6 @@ fn acquired_dependency_aliases_unused_imports_privacy_and_two_native_contexts_pr
     let source = "#[doc(inline)] pub use composed_api_dependency::increment as renamed;\n#[doc(inline)] pub use composed_api_dependency::increment as secondary;\npub fn use_alias() -> u32 { renamed(5) }\nmod inner { pub fn public_unused() -> u32 { 3 } fn private_unused() -> u32 { 4 } fn increment(value: u32) -> u32 { value + 99 } }\npub mod destination { pub fn anchor() -> u32 { 0 } }\n";
     std::fs::write(fixture.project.path().join("src/lib.rs"), source).unwrap();
     let facade = fixture.acquire_api();
-    let dependency_artifact = fixture.acquire_api_for("composed-api-dependency");
     fixture.prepare(Some(&facade.context.target));
     let use_site = fixture.source("renamed(5)");
     let alias_candidate = Predicate::Api(ApiQuery {
@@ -712,6 +711,57 @@ fn acquired_dependency_aliases_unused_imports_privacy_and_two_native_contexts_pr
         output: Some("u32".into()),
         ..Default::default()
     });
+    let unknown = fixture.search_output(&fixture.request(Predicate::Refine {
+        candidates: Box::new(alias_candidate.clone()),
+        filter: Refinement::UsedAt {
+            destination: use_site.clone(),
+        },
+    }));
+    assert!(
+        !unknown.status.success(),
+        "native identity does not prove an unacquired API signature: {unknown:?}"
+    );
+    let unknown: Value = serde_json::from_slice(&unknown.stdout).unwrap();
+    assert_eq!(
+        unknown["payload"]["results"][0]["refinement"]["truth"], "unknown",
+        "{unknown}"
+    );
+    assert_ne!(unknown["subject_state"], "no_match", "{unknown}");
+    assert_ne!(
+        unknown["payload"]["summary"]["count"]["precision"], "exact",
+        "{unknown}"
+    );
+    let dependency_artifact = fixture.acquire_api_for("composed-api-dependency");
+    let mut structural_request = fixture.request(alias_candidate.clone());
+    structural_request.sources = SourceSelector::default();
+    let structural = fixture.search(&structural_request);
+    assert_eq!(
+        structural["payload"]["results"].as_array().map(Vec::len),
+        Some(1),
+        "actual acquired public alias constraints must independently discover the structural candidate: {structural}"
+    );
+    for (name, matching) in [("renamed", NameMatch::Exact), ("rena", NameMatch::Prefix)] {
+        let mut request = fixture.request(Predicate::Symbol(SymbolQuery {
+            name: name.into(),
+            matching,
+            provider: DiscoveryProvider::Api,
+            artifact: Some(facade.path.clone()),
+            kinds: vec!["function".into()],
+            ..Default::default()
+        }));
+        request.sources = SourceSelector::default();
+        let discovered = fixture.search(&request);
+        assert_eq!(
+            discovered["payload"]["results"].as_array().map(Vec::len),
+            Some(1),
+            "public alias spelling must survive exact/prefix discovery: {discovered}"
+        );
+        assert_eq!(
+            discovered["payload"]["results"][0]["reference"]["locator"]["definition"]["artifact_sha256"],
+            dependency_artifact.sha256,
+            "{discovered}"
+        );
+    }
     let joined = fixture.search(&fixture.request(Predicate::Refine {
         candidates: Box::new(alias_candidate.clone()),
         filter: Refinement::UsedAt {
@@ -720,7 +770,9 @@ fn acquired_dependency_aliases_unused_imports_privacy_and_two_native_contexts_pr
     }));
     let alias = &joined["payload"]["results"][0];
     assert!(
-        alias["name"].as_str().unwrap().ends_with("::renamed"),
+        alias["name"]
+            .as_str()
+            .is_some_and(|name| name.ends_with("::renamed")),
         "{joined}"
     );
     assert!(

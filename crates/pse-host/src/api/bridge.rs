@@ -24,8 +24,22 @@ pub struct SourceBridge {
     routes: super::query::SourceRoutes,
     files: BTreeMap<PathBuf, String>,
     sources: Mutex<BTreeMap<PathBuf, SourceText>>,
+    qualification: Mutex<super::query::QualificationContext>,
+    dependency_sources: BTreeMap<PathBuf, String>,
 }
 impl SourceBridge {
+    /// Check an external declaration against this same original public surface.
+    pub(crate) fn validate_definition(
+        &self,
+        item: &str,
+        evidence: &super::query::DefinitionEvidence,
+        definition: &Artifact,
+    ) -> Result<(), ApiError> {
+        self.qualification
+            .lock()
+            .map_err(|_| invalid("API qualification owner panicked"))?
+            .validate(item, evidence, definition)
+    }
     /// Compare captured Cargo/HIR context from the same loaded native world; never run Cargo.
     pub fn prepare(
         artifact: Arc<Artifact>,
@@ -40,7 +54,8 @@ impl SourceBridge {
         let root = artifact.context.source_root.canonicalize()?;
         let project = configuration.project.canonicalize()?;
         let manifest = artifact.context.manifest.canonicalize()?;
-        let closure = super::retained_documentation_closure(&artifact)?;
+        let qualification = super::query::QualificationContext::new(&artifact)?;
+        let closure = qualification.closure();
         let mut matching = Vec::new();
         for native in native_packages {
             if native.package_id != artifact.context.package_id
@@ -66,7 +81,8 @@ impl SourceBridge {
             ));
         };
         let native = (*native).clone();
-        verify_dependency_profiles(&closure, &native)?;
+        verify_dependency_profiles(closure, &native)?;
+        let dependency_sources = verify_dependency_sources(&artifact.context, &native)?;
         let environment = super::extraction_environment(environment)?;
         if !artifact
             .context
@@ -114,6 +130,8 @@ impl SourceBridge {
             routes,
             files,
             sources: Mutex::new(BTreeMap::new()),
+            qualification: Mutex::new(qualification),
+            dependency_sources,
         })
     }
     /// Nominate only the artifact's original source span; native resolution establishes identity.
@@ -193,6 +211,19 @@ impl SourceBridge {
     }
     /// A late mutation invalidates final coverage after any earlier positive nominations.
     pub fn verify_unchanged(&self, environment: &Environment) -> Result<(), ApiError> {
+        self.qualification
+            .lock()
+            .map_err(|_| invalid("API qualification owner panicked"))?
+            .verify_unchanged()?;
+        for (root, expected) in &self.dependency_sources {
+            let mut files = Vec::new();
+            super::source_files(root, Path::new(""), &mut files)?;
+            if super::source_files_digest(&files) != *expected {
+                return Err(invalid(
+                    "original dependency package bytes changed during native refinement",
+                ));
+            }
+        }
         let artifact = super::retained(&self.artifact.path)?;
         if artifact.sha256 != self.artifact.sha256 || artifact.context != self.artifact.context {
             return Err(invalid("API artifact/context changed during refinement"));
@@ -221,6 +252,42 @@ impl SourceBridge {
         }
         Ok(())
     }
+}
+
+fn verify_dependency_sources(
+    context: &super::Context,
+    native: &NativePackageContext,
+) -> Result<BTreeMap<PathBuf, String>, ApiError> {
+    let mut roots = BTreeMap::new();
+    // Sysroot crates were explicitly excluded by the native Cargo projection; only
+    // actual captured Cargo dependency roots carry these package-byte obligations.
+    for dependency in &native.dependencies {
+        let Some(super::PackageSourceEvidence::Recorded { sha256 }) =
+            context.dependency_sources.get(&dependency.package_id)
+        else {
+            return Err(invalid(
+                "original dependency package bytes were not recorded; native context equivalence remains unknown",
+            ));
+        };
+        let root = dependency.source_root.canonicalize()?;
+        if let Some(previous) = roots.get(&root) {
+            if previous != sha256 {
+                return Err(invalid(
+                    "native dependency root has ambiguous original source evidence",
+                ));
+            }
+            continue;
+        }
+        let mut files = Vec::new();
+        super::source_files(&root, Path::new(""), &mut files)?;
+        if super::source_files_digest(&files) != *sha256 {
+            return Err(invalid(
+                "original documentation dependency bytes differ from the selected native world's source root",
+            ));
+        }
+        roots.insert(root, sha256.clone());
+    }
+    Ok(roots)
 }
 
 fn verify_dependency_profiles(
@@ -339,7 +406,8 @@ mod tests {
             String::from_utf8_lossy(&output.stderr)
         );
         let artifact = super::super::finish(&acquisition, &snapshot).unwrap();
-        let closure = super::super::retained_documentation_closure(&artifact).unwrap();
+        let qualification = super::super::query::QualificationContext::new(&artifact).unwrap();
+        let closure = qualification.closure();
         let id = |name: &str| {
             snapshot
                 .metadata

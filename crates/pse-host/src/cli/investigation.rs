@@ -742,7 +742,12 @@ fn execute(
             summary
         }
     };
-    let failed = summary.failures > 0 || summary.unknown > 0 || summary.cancellation_requested;
+    // One positive witness settles existence without proving every alternative.
+    // Unknown coverage and original provider diagnostics remain in the response.
+    let exists_proven = request.answer.kind == query::AnswerKind::Exists && summary.matches > 0;
+    let failed = summary.failures > 0
+        || (summary.unknown > 0 && !exists_proven)
+        || summary.cancellation_requested;
     let cancelled = summary.cancellation_requested;
     emit(query::Event::Terminal(summary))?;
     drop(emit);
@@ -754,7 +759,7 @@ fn execute(
     let complete = report.summary.complete;
     let subject = if cancelled {
         crate::envelope::SubjectState::Cancelled
-    } else if report.summary.unknown > 0 || report.summary.failures > 0 {
+    } else if report.summary.failures > 0 || (report.summary.unknown > 0 && !exists_proven) {
         crate::envelope::SubjectState::Unknown
     } else if complete && report.summary.matches == 0 {
         crate::envelope::SubjectState::NoMatch
