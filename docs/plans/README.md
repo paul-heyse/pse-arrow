@@ -5,7 +5,7 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
-| [59: Agent CLI](59-agent-cli.md#current-state-and-next-step) | Remaining-series implementation active, including J. Native package tables own feature integration and pending acceptance; the earlier testing-wave checks retain their original scope. |
+| [59: Agent CLI](59-agent-cli.md#current-state-and-next-step) | Selected deliveries and qualification are recorded in the coordinator; E01's worktree-removal scope decision remains open. Companion Outcomes own coverage and conditional non-adoptions. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
 | [53: Test architecture](53-test-architecture-target.md) | Test architecture and existing remaining qualification/decision scope. |

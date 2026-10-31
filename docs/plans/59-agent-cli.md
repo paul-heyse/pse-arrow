@@ -54,8 +54,9 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
 - Amendment basis: the [observability review](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md)
   and [Plan59 improvement review](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md),
   published at `e907d8a1f`, inspecting `890aa07f76fac5739cfc9811a47e823c326be663`.
-- Status: **The simplification and testing wave is complete.** The current checkpoint owns
-  its evidence and limits; remaining feature packages retain their own status and authorization.
+- Status: **Selected remaining-series deliveries and qualification are complete; E01's removal
+  scope decision remains open.** The current checkpoint and companion Outcomes own evidence,
+  limits and conditional non-adoptions.
 
 **Reading route.**
 1. This coordinator: target, shared decisions, rule changes, dependencies, completion.
@@ -122,12 +123,12 @@ blanket adoption or a mandatory measurement campaign.
 | O10 | complete | B01/B03 | Async joined child ownership, independent cleanup failures and actual native startup/stop acknowledgement are tested; no ceremony-only supervisor remains. |
 | O11 | complete | A09/A05/E01 | Host GC-only claim/promotion/transfer/finalizer protocols deleted. Automatic collection remains absent and existing unknown files untouched. |
 | O12 | complete | C08; A05/A06 | Original phase/context/wall durations and mutable native timing links delivered. Two-stage cold bootstrap retained with publication duties; no cache/speedup claim. |
-| O13 | scheduled | F02/F03/F05/F06; B03 | Native ownership facts and installed startup integrity are delivered. Calculation progress, optional rendering and selected diagnostic expansion remain with the broader F packages outside this wave. |
+| O13 | complete | F02/F03/F05/F06; B03 | Selected calculation inspection/follow/history and explicit investigation consumers pass. Optional backends and MCP retain F06's non-adoption triggers. |
 | O14 | complete | C09 | Independent byte/chunk/EOF properties and real CLI/kernel expectations pass. Model/UI/profiling tools remain conditional, not new gates. |
 
 ## Earlier library integration basis — 2026-10-30
 
-**Proposed target; implementation paused.** The [library integration review](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md)
+**Original amendment basis.** The [library integration review](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md)
 published at `0c8c17ebf` assesses production `09e878957`. Its I01–I16/RC01–RC04 references below
 are qualified to that review, not the earlier reviews' similarly named findings. The full
 selected standard and library evidence inform this amendment; no new diagnostic audit or
@@ -166,28 +167,29 @@ D08 is deferred under RT04; D09 retains its original evidence. No proposal mecha
 <a id="library-integration-dispositions"></a>
 ## Library integration dispositions
 
-All findings below are **scheduled**, not resolved by authoring. Companion tables own package
-progress. The review's observed defects, missing obligations and enhancements retain their
-original meaning; scheduling does not turn every opportunity into a defect.
+The adopted targets below are resolved by their companion Outcomes and actual consumers,
+not by authoring this table. Automatic-collection coordination was superseded by RT03;
+unknown historical resources remain protected. E01's additional removal feature remains open
+and is not advertised. Conditional absent capabilities retain their companion-owned triggers.
 
 | Finding reference | Scenario reference | Disposition | Decision/work owner | Evidence or revisit trigger |
 | --- | --- | --- | --- | --- |
-| [I01](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I01) | explain→selected execution with unchanged premises | scheduled | A06/C07; B/D02/F/G–I consumers | Same-stage value; unavailable preparation causes no effects |
-| [I02](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I02) | foreground/detached nested payload settlement | scheduled | B01/B03, A05/C04/G02 | Actual original drain, custody transfer and release |
-| [I03](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I03) | scoped status/follow under reset/lag | scheduled | B03, F02/F03 | Native reconciliation, incarnation fence and gap handling |
-| [I04](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I04) | killed passive read and retained child/path | scheduled | A05/A08, B03/E01/G02 | Actual resource protection retained; collection-specific target superseded by RT03; no old-claim deletion |
-| [I05](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I05) | stalled stream sink and independent extractor | scheduled | B01/B02/B03 | Exact raw files, independent failures and flush/drain |
-| [I06](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I06) | exact healthy ID plus unrelated corrupt history | scheduled | A04/A06, B01/B03 | Direct lookup; prefix ambiguity and incomplete latest/history |
-| [I07](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I07) | nested outline budget and stale continuation | scheduled | A03/A06; J01 and D/F–I producers | Producer pages, indivisible records and source premises |
-| [I08](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I08) | structural and semantic preview without conflation | scheduled | J02/J03, G07/G08 | Shared proposal, explicit authority, no session barrier for syntax |
-| [I09](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I09) | staged/working/blob source navigation | scheduled | J01, D01/D08/D09/E01 | Exact source kinds, paths, supported Git policy |
-| [I10](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I10) | original failure→useful next action | scheduled | B02/F/G09/H06/I producers | Focused next action without implicit compilation/preparation |
-| [I11](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I11) | two observers, failed science, missing live numerics | scheduled | F01–F06 | Original statements/units/clocks, passive detachment |
-| [I12](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I12) | tail/range/export versus protected local writes | scheduled | A03/A04; B/D02/F05/H/I | Backend limits, retention classes, original evidence protection |
-| [I13](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I13) | valid wire view versus invalid domain finality | scheduled | A03; B01/B03 and F/G/H/I adapters | Checked owner construction, directional schemas and raw fidelity |
-| [I14](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I14) | actual producer→consumer journey plus failure | scheduled | coordinator and all companions | Scope-specific targeted evidence and deletion after migration |
-| [I15](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I15) | compatible/incompatible multi-root tests | scheduled | C07/C01/C02/C05, H03 | No repeated compatible graph admission; preserve negative features |
-| [I16](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I16) | generated hit→declared emitter/regeneration | scheduled | J04, D06/G05/D01 | Declared contributor lineage; unknown source stays unknown |
+| [I01](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I01) | explain→selected execution with unchanged premises | resolved | A06/C07; B/D02/F/G–I consumers | Same-stage value; unavailable preparation causes no effects |
+| [I02](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I02) | foreground/detached nested payload settlement | resolved | B01/B03, A05/C04/G02 | Actual original drain, custody transfer and release |
+| [I03](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I03) | scoped status/follow under reset/lag | resolved | B03, F02/F03 | Native reconciliation, incarnation fence and gap handling |
+| [I04](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I04) | killed passive read and retained child/path | resolved | A05/A08, B03/E01/G02 | Actual resource protection retained; collection-specific target superseded by RT03; no old-claim deletion |
+| [I05](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I05) | stalled stream sink and independent extractor | resolved | B01/B02/B03 | Exact raw files, independent failures and flush/drain |
+| [I06](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I06) | exact healthy ID plus unrelated corrupt history | resolved | A04/A06, B01/B03 | Direct lookup; prefix ambiguity and incomplete latest/history |
+| [I07](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I07) | nested outline budget and stale continuation | resolved | A03/A06; J01 and D/F–I producers | Producer pages, indivisible records and source premises |
+| [I08](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I08) | structural and semantic preview without conflation | resolved | J02/J03, G07/G08 | Shared proposal, explicit authority, no session barrier for syntax |
+| [I09](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I09) | staged/working/blob source navigation | resolved | J01, D01/D08/D09/E01 | Exact source kinds, paths, supported Git policy |
+| [I10](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I10) | original failure→useful next action | resolved | B02/F/G09/H06/I producers | Focused next action without implicit compilation/preparation |
+| [I11](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I11) | two observers, failed science, missing live numerics | resolved | F01–F06 | Original statements/units/clocks, passive detachment |
+| [I12](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I12) | tail/range/export versus protected local writes | resolved | A03/A04; B/D02/F05/H/I | Backend limits, retention classes, original evidence protection |
+| [I13](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I13) | valid wire view versus invalid domain finality | resolved | A03; B01/B03 and F/G/H/I adapters | Checked owner construction, directional schemas and raw fidelity |
+| [I14](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I14) | actual producer→consumer journey plus failure | resolved | coordinator and all companions | Scope-specific targeted evidence and deletion after migration |
+| [I15](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I15) | compatible/incompatible multi-root tests | resolved | C07/C01/C02/C05, H03 | No repeated compatible graph admission; preserve negative features |
+| [I16](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I16) | generated hit→declared emitter/regeneration | resolved | J04, D06/G05/D01 | Declared contributor lineage; unknown source stays unknown |
 
 ## Scope decisions
 
@@ -196,8 +198,9 @@ original meaning; scheduling does not turn every opportunity into a defect.
 The [Rust code-intelligence review](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md)
 at `a569b52e4` adds the G–I companions below. Its O01–O16 identities are scoped to that review,
 not the original O01–O25 or observability review. Source assessment and library research remain
-Interface-checked at their recorded limits; every new target is **Proposed**. Production execution
-remains stopped. A01/E05 and the concluded D02 trial keep their original evidence.
+Interface-checked at their recorded limits; new targets were Proposed at that amendment.
+Current package Outcomes own delivered execution and its limits. A01/E05 and the concluded
+D02 trial keep their original evidence.
 
 - [59g semantic intelligence](59g-rust-semantic-intelligence.md): reusable analysis sessions,
   semantic reading/navigation, candidate tests/completion, macros and semantic edit proposals.
@@ -229,26 +232,28 @@ multi-file atomicity promise. No installation or runtime configuration change fo
 ## Code intelligence dispositions
 
 All references in this table address the [code-intelligence review](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md).
-Scheduling is not resolution. Companion package tables own execution state.
+Companion Outcomes resolve the selected deliveries. Unsupported native fields and conditional
+driver/embedding/index/application capabilities remain explicitly unavailable or deferred;
+resolution does not claim those absent capabilities were implemented.
 
 | Opportunity | Disposition | Work owner | Required evidence or trigger |
 | --- | --- | --- | --- |
-| [O01](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O01) | scheduled | G01/G04; D03 | Resolve actual use sites, preserve ambiguity and retain cheap syntax reads. |
-| [O02](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O02) | scheduled | G04 | Selected annotations/types/captures with backend-supported fields and explicit unknowns. |
-| [O03](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O03) | scheduled | G05; D01/C03 | Scoped references plus separately conservative impact selection. |
-| [O04](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O04) | scheduled | G05 | Bounded calls/impl neighborhoods without exhaustive runtime claims. |
-| [O05](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O05) | scheduled | H01; D02 | Usable public paths, constraints and capability search in exact documentation context. |
-| [O06](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O06) | scheduled | H02; D02 | Authored example/setup/mode; explicit probe execution, extraction not execution. |
-| [O07](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O07) | scheduled | G06; C05/C07 | Related-test candidates handed to actual selection/listing owner. |
-| [O08](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O08) | scheduled | G06 | Useful method/import candidates; synthesis conditional on an actual expected-type need. |
-| [O09](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O09) | scheduled | G07/G08 | Revision-bound previews first; conditional apply only after its publication decision. |
-| [O10](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O10) | scheduled | B02; G04/G09; H05 | Original compiler facts, separate IDE diagnostics, scoped rustdoc diagnostics. |
-| [O11](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O11) | scheduled | H03; D02/C07 | Declarations, metadata, unit plans and observed artifacts stay distinct. |
-| [O12](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O12) | scheduled | H04 | Context-matched API evolution using native compatibility tools and selected consumers. |
-| [O13](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O13) | scheduled | G05; D06 | Expansion/origin with honest mapping limits and actual generator ownership. |
-| [O14](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O14) | scheduled | I01/I02/I05 | Selected ownership/async explanations; driver only when I05 establishes its need/fit. |
-| [O15](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O15) | scheduled | I03–I05 | Selected constants/layout/instances; context-bound evidence, no portable ABI/performance proof. |
-| [O16](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O16) | scheduled | B02; G09/H06; F02 | Focused next actions composed from available original sources; no automatic enrichment. |
+| [O01](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O01) | resolved | G01/G04; D03 | Resolve actual use sites, preserve ambiguity and retain cheap syntax reads. |
+| [O02](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O02) | resolved | G04 | Selected annotations/types/captures with backend-supported fields and explicit unknowns. |
+| [O03](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O03) | resolved | G05; D01/C03 | Scoped references plus separately conservative impact selection. |
+| [O04](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O04) | resolved | G05 | Bounded calls/impl neighborhoods without exhaustive runtime claims. |
+| [O05](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O05) | resolved | H01; D02 | Usable public paths, constraints and capability search in exact documentation context. |
+| [O06](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O06) | resolved | H02; D02 | Authored example/setup/mode; explicit probe execution, extraction not execution. |
+| [O07](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O07) | resolved | G06; C05/C07 | Related-test candidates handed to actual selection/listing owner. |
+| [O08](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O08) | resolved | G06 | Useful method/import candidates; synthesis conditional on an actual expected-type need. |
+| [O09](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O09) | resolved | G07/G08 | Revision-bound previews first; conditional apply only after its publication decision. |
+| [O10](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O10) | resolved | B02; G04/G09; H05 | Original compiler facts, separate IDE diagnostics, scoped rustdoc diagnostics. |
+| [O11](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O11) | resolved | H03; D02/C07 | Declarations, metadata, unit plans and observed artifacts stay distinct. |
+| [O12](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O12) | resolved | H04 | Context-matched API evolution using native compatibility tools and selected consumers. |
+| [O13](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O13) | resolved | G05; D06 | Expansion/origin with honest mapping limits and actual generator ownership. |
+| [O14](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O14) | resolved | I01/I02/I05 | Selected ownership/async explanations; driver only when I05 establishes its need/fit. |
+| [O15](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O15) | resolved | I03–I05 | Selected constants/layout/instances; context-bound evidence, no portable ABI/performance proof. |
+| [O16](../functional_reviews/rust-code-intelligence-cli-2026-10-29.md#O16) | resolved | B02; G09/H06; F02 | Focused next actions composed from available original sources; no automatic enrichment. |
 
 Review capability families not selected as ordinary delivery retain their companion-owned
 triggers: static indexes/term search in G, archives/Guppy/scraping in H, driver/Polonius in I.
@@ -285,30 +290,30 @@ it cannot claim the deferred capability was delivered.
 
 | Opportunity | Disposition | Work owner | Required evidence or trigger |
 | --- | --- | --- | --- |
-| O01 | scheduled | [59a](59a-cli-foundation.md) | Agents run the fixture episode and common work through `pse` verbs; one library `Cli` behind thin bins |
-| O02 | scheduled | [59a](59a-cli-foundation.md) | Every verb emits the versioned envelope with the two exit classes; envelopes validate against `pse schema` |
+| O01 | complete | [59a](59a-cli-foundation.md) | Agents run the fixture episode and common work through `pse` verbs; one library `Cli` behind thin bins |
+| O02 | complete | [59a](59a-cli-foundation.md) | Structured surfaces validate against their directional schemas; declared raw/native adapters retain their own byte/exit protocols under A03 |
 | O03 | complete | [59b](59b-runs-and-continuity.md) | Actual detached test→wait, original failure pages and incomplete/crash cases pass; observation cannot manufacture subject success |
 | O04 | complete | [59c](59c-tests-and-fixtures.md) | Native test/check selection, capabilities, filters, completed verdicts and common changed-source integration delivered and tested |
 | O05 | complete | [59c](59c-tests-and-fixtures.md) | Declared fixture owners receive selected inputs; actual integration cases pass without caller fixture variables or temporary receipt selection |
-| O06 | scheduled | [59a](59a-cli-foundation.md) (catalog, explain, provenance); [59d](59d-knowledge-and-workflow-verbs.md) (generated reference) | `pse commands --json` with `valid_values`; `pse explain` matches what runs |
-| O07 | scheduled | D01 | Selected Git/source facts remain; generic `brief` is superseded by runtime O01. |
-| O08 | scheduled | [59d](59d-knowledge-and-workflow-verbs.md) | `pse dep`, `outline` and `show` used in place of registry greps and `sed` ranges. Rust-analyzer MCP for Codex excluded. |
+| O06 | complete | [59a](59a-cli-foundation.md) (catalog, explain, provenance); [59d](59d-knowledge-and-workflow-verbs.md) (generated reference) | `pse commands --json` with `valid_values`; `pse explain` matches what runs |
+| O07 | complete | D01 | Selected Git/source facts remain; generic `brief` is superseded by runtime O01. |
+| O08 | complete | [59d](59d-knowledge-and-workflow-verbs.md) | `pse dep`, `outline` and `show` used in place of registry greps and `sed` ranges. Rust-analyzer MCP for Codex excluded. |
 | O09 | deferred | Operator's environment work | Direnv quieting on hold by operator direction |
 | O10 | superseded (brief portion); retained index delivered | E04 | Current-work index remains; mandatory session brief removed under runtime O01. Codex exclusions remain. |
-| O11 | scheduled | [59c](59c-tests-and-fixtures.md) (fixtures), [59a](59a-cli-foundation.md) (host ceiling), [59e](59e-environment-and-adoption.md) (start routes) | Items land with their owning packages; the clap overview is already corrected. Rust-analyzer MCP for Codex excluded. |
-| O12 | scheduled | [59e](59e-environment-and-adoption.md) | Edit guidance in AGENTS.md and the tooling rule |
-| O13 | scheduled | [59a](59a-cli-foundation.md) | Immutable image/source checks, stale refresh and compatible existing control are delivered. GC-only protection is superseded by RT03; broader producer/worktree integration stays with A05/E01. |
+| O11 | complete | [59c](59c-tests-and-fixtures.md) (fixtures), [59a](59a-cli-foundation.md) (host ceiling), [59e](59e-environment-and-adoption.md) (start routes) | Items land with their owning packages; the clap overview is already corrected. Rust-analyzer MCP for Codex excluded. |
+| O12 | complete | [59e](59e-environment-and-adoption.md) | Edit guidance in AGENTS.md and the tooling rule |
+| O13 | complete | [59a](59a-cli-foundation.md) | Immutable image/source checks, stale refresh and compatible existing control are delivered. GC-only protection is superseded by RT03; broader producer/worktree integration stays with A05/E01. |
 | O14 | deferred | D05 | Revisit citation/scaffold wrappers for a demonstrated repeated navigation/authoring need. Existing native routes remain. |
-| O15 | scheduled | [59d](59d-knowledge-and-workflow-verbs.md) | `pse api` and `pse probe` answer exact pinned-API questions; rustdoc-mcp trialled for Claude only |
-| O16 | scheduled | [59d](59d-knowledge-and-workflow-verbs.md) | `pse owner` and guard context; documents inform instead of block ([R4](#rule-changes)) |
-| O17 | scheduled | [59d](59d-knowledge-and-workflow-verbs.md) | `pse docs check --changed` before document commits |
+| O15 | complete | [59d](59d-knowledge-and-workflow-verbs.md) | `pse api` and `pse probe` answer exact pinned-API questions; rustdoc-mcp trialled for Claude only |
+| O16 | complete | [59d](59d-knowledge-and-workflow-verbs.md) | `pse owner` and guard context; documents inform instead of block ([R4](#rule-changes)) |
+| O17 | complete | [59d](59d-knowledge-and-workflow-verbs.md) | `pse docs check --changed` before document commits |
 | O18 | deferred | D08 | RT04: actual shared-index transaction consumer need; D09 investigation stays complete. |
 | O19 | complete | [59c](59c-tests-and-fixtures.md) | Native inventory exposes actual target/features, capabilities, fixture demand and exact rerun identities; public discovery/page/rerun controls pass |
 | O20 | deferred | B05 | Automatic handoff hooks await a demonstrated context-loss consumer; preserve authored notes and session identity. |
 | O21 | deferred | This coordinator | Adopt soft claims at the first concurrent-edit collision, recorded in the checkout store |
-| O22 | scheduled | [59e](59e-environment-and-adoption.md) (continuing) | Start route, guides, roles/skills and `next` hints point to `pse` as each verb ships |
-| O23 | scheduled (without direnv) | [59e](59e-environment-and-adoption.md) | `pse worktree new` yields a ready checkout whose first build is warm |
-| O24 | scheduled | [59a](59a-cli-foundation.md) (resolver and store), [59b](59b-runs-and-continuity.md) (runs) | One state resolver; per-run directories replace `/tmp` logs |
+| O22 | complete | [59e](59e-environment-and-adoption.md) (continuing) | Start route, guides, roles/skills and `next` hints point to `pse` as each verb ships |
+| O23 | in-progress (without direnv) | [59e](59e-environment-and-adoption.md) | Actual `new`/`list` and source-aware tool copy pass; project warming is explicit. Removal awaits the E01 scope choice; no selected deferral is inferred |
+| O24 | complete | [59a](59a-cli-foundation.md) (resolver and store), [59b](59b-runs-and-continuity.md) (runs) | One state resolver; per-run directories replace `/tmp` logs |
 | O25 | superseded | E02 | Mandatory session-start brief/status line removed under runtime O01; useful passive native status remains. |
 
 ## Simulation observability dispositions
@@ -319,14 +324,14 @@ Conditional portions retain the stated trigger; companions own package progress.
 
 | Opportunity | Disposition | Work owner | Required evidence or trigger |
 | --- | --- | --- | --- |
-| [O01](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O01) | scheduled | A03; B01; F01/F02 | Existing identity associations and cross-checkout copied process/operation discovery; unknown associations stay unknown. |
-| [O02](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O02) | scheduled | F02 | Owner statements, phases and relationships explain actual evidence without invented hang/convergence diagnoses. |
-| [O03](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O03) | scheduled | F03/F04; B output | Bounded follow, gaps/resets and retained history; additional live publication is gated by F04's explicit decision. |
-| [O04](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O04) | scheduled | F05 | Selected actual capture/analysis/export consumer with original identity, coverage and collector settlement. |
-| [O05](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O05) | scheduled | A03/A06; B02 | Original typed facts/causes, honest provenance and shared resolved operation; secrets redacted. |
+| [O01](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O01) | complete | A03; B01; F01/F02 | Existing identity associations and cross-checkout copied process/operation discovery; unknown associations stay unknown. |
+| [O02](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O02) | complete | F02 | Owner statements, phases and relationships explain actual evidence without invented hang/convergence diagnoses. |
+| [O03](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O03) | complete | F03/F04; B output | Bounded follow, gaps/resets and retained history; additional live publication is gated by F04's explicit decision. |
+| [O04](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O04) | complete | F05 | Selected actual capture/analysis/export consumer with original identity, coverage and collector settlement. |
+| [O05](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O05) | complete | A03/A06; B02 | Original typed facts/causes, honest provenance and shared resolved operation; secrets redacted. |
 | [O06](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O06) | complete | C07/C01–C05; A05 | Exact native selection, both fixture modes and immutable named binaries pass actual journeys without manual input assembly. |
-| [O07](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O07) | scheduled | D02/D04/D06/D07; E03 | API/probe and scoped documentation remain; briefing/handoff superseded and specialized commits deferred by runtime O01/RT04. |
-| [O08](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O08) | scheduled | A06; F03/F06 | Human presentation and scoped discovery selected; RMCP deferred until an actual client needs tools/resources/subscriptions beyond shell access. |
+| [O07](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O07) | complete | D02/D04/D06/D07; E03 | API/probe and scoped documentation remain; briefing/handoff superseded and specialized commits deferred by runtime O01/RT04. |
+| [O08](../functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md#O08) | complete | A06; F03/F06 | Human presentation and scoped discovery selected; RMCP deferred until an actual client needs tools/resources/subscriptions beyond shell access. |
 
 ## CLI improvement dispositions
 
@@ -336,17 +341,17 @@ resolves no finding.
 
 | Improvement | Disposition | Work owner | Required evidence or trigger |
 | --- | --- | --- | --- |
-| [I01](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I01) | scheduled | A03/A07; B01; F01 | Distinct invocation/scientific/observation identities, explicit existing-fact associations and independent outcome dimensions. |
-| [I02](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I02) | scheduled | A07/A05; B03 | Control works with broken current sources; new-work rebuild identity remains coherent and fail-closed. |
+| [I01](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I01) | resolved | A03/A07; B01; F01 | Distinct invocation/scientific/observation identities, explicit existing-fact associations and independent outcome dimensions. |
+| [I02](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I02) | resolved | A07/A05; B03 | Control works with broken current sources; new-work rebuild identity remains coherent and fail-closed. |
 | [I03](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I03) | complete | A03/A07; B01–B04; C02 | Actual foreground/detached tests preserve acknowledgement, child outcome, lost evidence and independently observed native settlement. |
-| [I04](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I04) | scheduled | A03; B02; F02 | TypedDiagnostic facts, error causes/related failures, Unicode source locations and settlement leaves preserved. |
-| [I05](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I05) | scheduled | A03; B01/B02; F03 | Typed summaries versus opaque raw records; framed/projection-aware output and independent required result completeness. |
-| [I06](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I06) | scheduled | F01–F06 | Prepared product reader, passive local evidence, retained studies and explicit escalation; conditional bridge/backend choices recorded. |
+| [I04](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I04) | resolved | A03; B02; F02 | TypedDiagnostic facts, error causes/related failures, Unicode source locations and settlement leaves preserved. |
+| [I05](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I05) | resolved | A03; B01/B02; F03 | Typed summaries versus opaque raw records; framed/projection-aware output and independent required result completeness. |
+| [I06](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I06) | resolved | F01–F06 | Prepared product reader, passive local evidence, retained studies and explicit escalation; conditional bridge/backend choices recorded. |
 | [I07](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I07) | complete | C07/C01–C05; A05 | Exact binary/feature/filter and original Cargo provenance, absence controls and both fixture owners are qualified. |
-| [I08](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I08) | scheduled | A04/A05; B03; E01 | Runtime/fixture ownership and partial creation controls are qualified; GC-only generation-use gates are superseded by RT03. Worktree preflight remains E01's scope. |
-| [I09](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I09) | scheduled | A02/A04/A06; D01/D02/D07 | Owning parsers enforce grammar; byte-exact activation preserved; typed Figment subset only if it earns adoption. |
-| [I10](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I10) | scheduled | D02/D04/D06/D07; E03 | API/probe identity and scoped checks remain; Git transaction and handoff portions deferred under RT04/runtime O01. |
-| [I11](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I11) | scheduled | A02/A03/A06; D07 | Scoped candidate discovery, honest incompleteness and early parsing that cannot consume a child argument tail. |
+| [I08](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I08) | in-progress | A04/A05; B03; E01 | Runtime/fixture ownership and partial/successful creation pass; GC-only gates are superseded by RT03. E01 removal remains unavailable pending its scope choice |
+| [I09](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I09) | resolved | A02/A04/A06; D01/D02/D07 | Native parser/owning configuration retained. A separate Figment CLI layer is not adopted without a repeated shared-configuration consumer; no second settings authority |
+| [I10](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I10) | resolved | D02/D04/D06/D07; E03 | API/probe identity and scoped checks remain; Git transaction and handoff portions deferred under RT04/runtime O01. |
+| [I11](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I11) | resolved | A02/A03/A06; D07 | Scoped candidate discovery, honest incompleteness and early parsing that cannot consume a child argument tail. |
 
 <a id="rule-changes"></a>
 ## Rule changes
@@ -442,7 +447,7 @@ checks run at scope end.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| P01 | planned | 59 | Every opportunity row above resolved or deferred with its trigger; agents use the delivered verbs in ordinary work; scope-end `just hygiene` and the AGENTS.md manual checks pass at the zero baseline |
+| P01 | in-progress | 59 | Selected feature deliveries and qualification below are complete. E01's removal scope choice remains open; no full-series completion is asserted until that choice and its resulting obligations are settled |
 
 ## Completion and verification
 
@@ -480,26 +485,79 @@ applicable native ownership operations. D08 concurrent Git acceptance is deferre
 
 ## Current state and next step
 
-**Remaining-series execution active — 2026-10-30.** The maintainer authorized the
+**Remaining-series implementation and qualification — 2026-10-30.** The maintainer authorized the
 entire remaining series, including J03–J05. Earlier exclusions below describe the
 completed simplification/testing wave, not the boundary of this new execution.
 D05/D08 remain deferred and E02 superseded; conditional investigations keep their
 recorded adoption criteria. The existing B/C owners remain the runtime/test foundation.
 
-The selected F product consumers and H API/dependency consumers now pass their actual public
-journeys; their outcomes own exact scope and limitations. J's server-free source/query/preview
-producers and shared version2 proposal are integrated. Worktree creation/listing and original
-compiler diagnostic reads are delivered. The native semantic session implementation is integrated;
-its main-checkout public controls pass11/11. Independent review identified omitted effective
-workspace inputs and stale compiled macro inputs; those preparation fences are being corrected
-before G acceptance. The remaining compiler-artifact/probe-custody contribution is being finished
-in its isolated checkout.
+The F product, G semantic, H API/dependency, I compiler and J source/query/preview consumers are
+integrated and tested within their companion-owned scope. Semantic preparation now fences effective
+workspace/configuration and compiled macro inputs; independent source review found no remaining
+material issue in those corrections. Original compiler diagnostics offer an explicitly fresh-source
+continuation rather than relabelling current source as original evidence. Compiler probes retain
+durable managed-run references, and original compiler files remain readable after safe probe removal.
+Parser-derived references and source-generation declarations have been regenerated.
 
-Next integrate those bounded corrections, join original diagnostics to explicitly fresh source
-observations, publish the final parser-derived references and qualify the assembled series.
-E01's removal/admission scope decision remains with the maintainer; no deletion feature or selected
-deferral is implied by the question. Static and assembled qualification remains at functional scope
-end. No whole-series completion or performance benefit is claimed by this checkpoint.
+E01's worktree creation/listing and guidance are delivered; its removal/admission scope decision
+remains with the maintainer. Safe removal would require a checkout-wide admission barrier across
+readers, runs and retained evidence. The pending question selects between that broader implementation
+and retaining native Git administrative removal. No answer, deletion feature or selected deferral is
+implied. All independent selected work and the qualification below are complete. The next step is
+that E01 decision and its resulting obligations; P01 remains open. No measured performance benefit
+or full scientific qualification is claimed.
+
+### Remaining-series outcome and qualification — 2026-10-30
+
+**Implemented:** callable local product inspection/follow/history and explicit investigation;
+owned native semantic sessions with freshness fences; pinned API/example acquisition and selected
+dependency/compatibility consumers; compiler investigations and retained original artifacts;
+server-free syntax queries and immutable shared proposals; generated-origin navigation;
+worktree creation/listing; and their operating guidance. Companion Outcomes retain conditional
+non-adoptions, exact consumer evidence and limits. D05/D08 remain deferred, E02 superseded,
+semantic apply remains conditional, and no MCP bridge or private compiler driver was introduced.
+
+**Tested**, local Linux, pinned toolchain, zero failure/warning baseline:
+
+| Command or selected journey | Result and limits |
+| --- | --- |
+| `scripts/pse test pse-host --all-targets --format json` | 678/678 passed, zero failures, incomplete test records or retries. Required capture and native settlement complete; invocation `01a18f5b-9d6a-7158-9440-1f7ba6170bf7`. |
+| Public product-reader journeys | Four selected inspection/follow/ownership cases passed; the separate canonical retained-history case passed. After the final private frozen-document allocation change, the four public cases passed again (`01a18f67-b740-73f4-a6bd-7d6fd84328fd`), alongside 18 focused force-validating reader/frozen-document tests. These do not qualify unselected scientific workflows. |
+| Public source/API/compiler consumers | Actual source addressing/query cases, API failure→declaration constraint→corrected probe, retained compiler-file reads and protected probe removal passed. Package G–J Outcomes own exact contexts and negative controls; missing original source identity stays unknown. |
+| `scripts/pse run-all clippy-default clippy-no-default --format json` | Both workspace/all-targets/locked/keep-going modes passed with `-D warnings`; zero warnings/errors. |
+| `just lint-solver-contracts` | Native-feature workspace/all-targets/locked/keep-going Clippy passed with `-D warnings`; zero warnings/errors. Native environment selected solver, KLU, isolation, Uno and PETSc. |
+| `just hygiene` and failing-recipe corrections | Every selected recipe is passing after repair. The initial aggregate failed license coverage, generated drift, Clippy and rustdoc; unaffected recipes passed. License/rustdoc corrections and the final strict Clippy modes passed separately; full generation and drift comparison passed. The original failed aggregate is not reported as a passing run. |
+| `just governance` and generated-drift correction | Governance tests and dependency-family checks passed; the initial aggregate failed generated drift. `just codegen` regenerated all nine targets, then `just codegen-check` passed. The original aggregate retains its failure. |
+| `just ready`; `just docs` | Preparation/doctor passed; documentation publication built 951 chapters with scoped search. No oracle, scientific campaign or deployed-service change is implied. |
+| Final `just turn-end`, `just codegen-check`, `just docs` | All passed after integration. Formatting changed layout only; full generated-output comparison found no drift, and the updated plans published with 951 chapters. |
+| Scoped feature combinations through `cargo hack --keep-going check` and the correctness adapter | Host check passed (the host declares no features). Runtime depth-two selection passed all 19 combinations of `product-reader,product-operators,canonical-tests,native-study-tests,force-validate,diagnostic-taskdump`, including no-default/default runs. This is the changed CLI/reader footprint, not a full workspace powerset. |
+
+The feature commands used `CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo-bin/cargo-pse-correctness"`,
+`--locked --feature-powerset --depth 2`, with `-p pse-host` or `-p pse-runtime` and the runtime
+`--include-features` list above; runtime checks selected the prepared native provider environment.
+The broader `just features-powerset` traversal was deliberately interrupted after expanding into
+untouched solver combinations. Its interruption has no acceptance credit. Full native Clippy
+does not substitute for the unrun solver feature combinations.
+
+**Mistakes made and corrected:** the first assembled host run completed 673 cases with eight
+failures. Seven exposed logical-checkout inference from relocated captured executables; protected
+capture records now validate both retained and actually executing image bytes before resolving
+the original checkout, without cwd/environment authority or weakening foreign-root refusal.
+The eighth test supplied the executable name twice when following a structured next action;
+it now checks the executable and forwards only its argument tail. The corrected 678-case run
+includes the added controls. Parser annotation mutation had also reordered positional arguments;
+ordered argument mutation and full command-tree consistency coverage corrected generated help.
+Strict Clippy findings were fixed structurally, including one private frozen-document allocation
+and a documentation regex compiled once outside its loop; no allowances or warning baseline were added.
+
+**Deliberate boundaries:** selected consumer coverage and scoped feature checking establish the
+delivered CLI surface, not Plan58 H scientific/reference/performance or deployment qualification.
+No benchmark, cache-hit rate, speedup or external collector ingestion claim is made. Unknown
+historical claims remain protected; automatic collection remains absent. This wave's three worker
+checkouts were merged, their conflicts resolved, their owned workloads drained and their retained
+evidence verified outside the checkouts before removal. Three older protected worker checkouts
+were preserved. No push was performed. The series remains active only for E01's unresolved scope
+choice and resulting work; highest-numbered plan retention and native dependency bindings remain.
 
 ### First remaining-feature integration outcome — 2026-10-30
 
@@ -524,7 +582,7 @@ republished its two targets after correcting native help's trailing layout paddi
 renderer. Generated outputs were never edited by hand. This is functional generation evidence,
 not a scope-end hygiene or assembled-series result.
 
-**Limits and next work:** final captured Docs/API reexport journeys and F05's portable capture
+**Limits and next work at this first slice:** final captured Docs/API reexport journeys and F05's portable capture
 composition remain open, alongside semantic sessions/consumers, wider API/dependency/compiler
 investigation, worktree integration and remaining foundation/adoption obligations. G01's
 initial convenient client route failed exact initialization-capability inspection; its owning

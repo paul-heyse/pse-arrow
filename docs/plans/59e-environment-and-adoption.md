@@ -35,9 +35,9 @@ The amendment incorporates [new O07–O08](../functional_reviews/agent-cli-and-s
 [I08](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I08),
 [I10](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I10) and the
 incremental adoption of [I06](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I06)
-through [59f](59f-simulation-observability-and-diagnostics.md). These targets remain
-**Proposed**; E04/E05's completed evidence and the coordinator's paused 2026-10-30 checkpoint
-are unchanged.
+through [59f](59f-simulation-observability-and-diagnostics.md). The package table and current
+Outcomes below own delivered guidance and worktree construction. The removal proposal remains
+open; earlier paused checkpoints retain their historical scope.
 
 The library-integration review's
 [I04](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I04)
