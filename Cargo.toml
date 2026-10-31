@@ -429,7 +429,9 @@ rustix = { version = "=1.1.5", features = [
 command-fds = "=0.3.3"
 cargo_metadata = "=0.23.1"
 rustdoc-types = "=0.61.0"
-public-api = { version = "=0.52.2", default-features = false, features = ["experimental-feature-that-can-be-removed-in-a-patch-release_re-export-rustdoc-types"] }
+public-api = { version = "=0.52.2", default-features = false, features = [
+  "experimental-feature-that-can-be-removed-in-a-patch-release_re-export-rustdoc-types",
+] }
 nextest-metadata = "=0.15.0"
 quick-junit = "=0.8.0"
 gix = { version = "=0.90.0", default-features = false, features = [

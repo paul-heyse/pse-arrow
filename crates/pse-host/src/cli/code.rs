@@ -14,7 +14,8 @@ use tokio_util::sync::CancellationToken;
 mod semantic;
 
 #[derive(Debug, Subcommand)]
-pub(super) enum Action {    /// Explicit reusable semantic session preparation, passive status and original stop.
+pub(super) enum Action {
+    /// Explicit reusable semantic session preparation, passive status and original stop.
     Session {
         #[command(subcommand)]
         action: semantic::Session,
@@ -197,20 +198,49 @@ pub(super) fn dispatch(
     entry: &super::EntryGuard,
 ) -> Result<i32, HostError> {
     match action {
-        Action::Session { action } => semantic::session(action,selected,entry,output),
-        Action::Explain(subject) => semantic::query(crate::semantic::Kind::Explain,subject,selected,output),
-        Action::Symbols(subject) => semantic::query(crate::semantic::Kind::Symbols,subject,selected,output),
-        Action::Refs(subject) => semantic::query(crate::semantic::Kind::Refs,subject,selected,output),
-        Action::Calls(subject) => semantic::query(crate::semantic::Kind::Calls,subject,selected,output),
-        Action::Implementations(subject) => semantic::query(crate::semantic::Kind::Implementations,subject,selected,output),
-        Action::Macro(subject) => semantic::query(crate::semantic::Kind::Macro,subject,selected,output),
-        Action::Tests(subject) => semantic::query(crate::semantic::Kind::Tests,subject,selected,output),
-        Action::Candidates(subject) => semantic::query(crate::semantic::Kind::Candidates,subject,selected,output),
-        Action::Hints(subject) => semantic::hint(subject,None,selected,output),
-        Action::Hint {subject,select} => semantic::hint(subject,Some(select),selected,output),
-        Action::Candidate {subject,select} => semantic::query(crate::semantic::Kind::Candidate{index:select},subject,selected,output),
-        Action::Predicate {subject,text} => semantic::query(crate::semantic::Kind::Predicate{text},subject,selected,output),
-        Action::Edit {action} => semantic::edit(action,selected,output),
+        Action::Session { action } => semantic::session(action, selected, entry, output),
+        Action::Explain(subject) => {
+            semantic::query(crate::semantic::Kind::Explain, subject, selected, output)
+        }
+        Action::Symbols(subject) => {
+            semantic::query(crate::semantic::Kind::Symbols, subject, selected, output)
+        }
+        Action::Refs(subject) => {
+            semantic::query(crate::semantic::Kind::Refs, subject, selected, output)
+        }
+        Action::Calls(subject) => {
+            semantic::query(crate::semantic::Kind::Calls, subject, selected, output)
+        }
+        Action::Implementations(subject) => semantic::query(
+            crate::semantic::Kind::Implementations,
+            subject,
+            selected,
+            output,
+        ),
+        Action::Macro(subject) => {
+            semantic::query(crate::semantic::Kind::Macro, subject, selected, output)
+        }
+        Action::Tests(subject) => {
+            semantic::query(crate::semantic::Kind::Tests, subject, selected, output)
+        }
+        Action::Candidates(subject) => {
+            semantic::query(crate::semantic::Kind::Candidates, subject, selected, output)
+        }
+        Action::Hints(subject) => semantic::hint(subject, None, selected, output),
+        Action::Hint { subject, select } => semantic::hint(subject, Some(select), selected, output),
+        Action::Candidate { subject, select } => semantic::query(
+            crate::semantic::Kind::Candidate { index: select },
+            subject,
+            selected,
+            output,
+        ),
+        Action::Predicate { subject, text } => semantic::query(
+            crate::semantic::Kind::Predicate { text },
+            subject,
+            selected,
+            output,
+        ),
+        Action::Edit { action } => semantic::edit(action, selected, output),
         Action::Origin {
             source,
             range_start,
