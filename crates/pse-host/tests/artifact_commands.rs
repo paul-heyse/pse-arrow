@@ -56,7 +56,8 @@ fn default_prefix_continues_under_the_native_validator_without_writing_state() {
         .iter()
         .map(|arg| arg.as_str().unwrap())
         .collect::<Vec<_>>();
-    let continuation = value(pse(root.path()).args(argv).output().unwrap());
+    assert_eq!(argv.first(), Some(&"pse"));
+    let continuation = value(pse(root.path()).args(&argv[1..]).output().unwrap());
     assert_eq!(continuation["payload"]["content"]["data"], &source[4096..]);
     assert!(continuation["payload"]["next_offset"].is_null());
     assert_eq!(continuation["payload"]["whole_object"], false);
