@@ -507,12 +507,12 @@ fn hydrate(root: &Path, locator: &Locator) -> Result<(SourceText, MatchRange), E
             "a source proposal needs an addressed exact range".into(),
         ));
     };
-    if let Some(original) = guard.as_ref().and_then(|guard| guard.root.as_ref()) {
-        if original.to_path_buf().canonicalize()? != root.canonicalize()? {
-            return Err(Error::Stale(
-                "source reference belongs to a different checkout root".into(),
-            ));
-        }
+    if let Some(original) = guard.as_ref().and_then(|guard| guard.root.as_ref())
+        && original.to_path_buf().canonicalize()? != root.canonicalize()?
+    {
+        return Err(Error::Stale(
+            "source reference belongs to a different checkout root".into(),
+        ));
     }
     let request = source_request(root, &path.to_path_buf(), kind);
     let current = providers::acquire(root, &request)?;
@@ -714,7 +714,7 @@ pub async fn global_search(
                     .await
                     .map_err(Error::from)?;
             let answer: crate::semantic::WorkspaceAnswer = serde_json::from_value(value)?;
-            emit(Event::Source(SourceContext {
+            emit(Event::Source(Box::new(SourceContext {
                 id: "semantic".into(),
                 path: record.configuration.project.clone().into(),
                 origin: Some(SourceKind::Working),
@@ -726,7 +726,7 @@ pub async fn global_search(
                     generation: answer.generation,
                     analysis: answer.session.clone(),
                 }),
-            }))?;
+            })))?;
             let mut summary = Summary::default();
             for symbol in answer.symbols.evidence.as_array().into_iter().flatten() {
                 if token.is_cancelled() {
@@ -781,7 +781,7 @@ pub async fn global_search(
                     symbol,
                 )?;
                 if request.answer.kind != AnswerKind::Count {
-                    emit(Event::Result(SearchResult {
+                    emit(Event::Result(Box::new(SearchResult {
                         source: "semantic".into(),
                         kind: kind.into(),
                         name: Some(name),
@@ -793,7 +793,7 @@ pub async fn global_search(
                         entity: None,
                         candidate_reference: None,
                         refinement: None,
-                    }))?;
+                    })))?;
                     summary.emitted += 1;
                 }
                 summary.matches += 1;
@@ -1188,7 +1188,7 @@ fn semantic_position(
         .next()
         .map_or(1, |line| line.chars().count() + 1);
     Locator::Semantic {
-        project: record.configuration.project.clone().into(),
+        project: record.configuration.project.clone(),
         path: source.identity().path().to_owned().into(),
         line,
         column,
@@ -2057,7 +2057,7 @@ fn api_search(
     };
     let page =
         crate::api::query::inspect(&artifact, &selected, usize::MAX, None).map_err(Error::from)?;
-    emit(Event::Source(SourceContext {
+    emit(Event::Source(Box::new(SourceContext {
         id: "api".into(),
         path: artifact.path.clone().into(),
         origin: None,
@@ -2068,7 +2068,7 @@ fn api_search(
         generation: Some(artifact.sha256.clone()),
         searched_encoding: None,
         native: None,
-    }))?;
+    })))?;
     let mut summary = Summary::default();
     let root_name = artifact
         .document
@@ -2123,13 +2123,12 @@ fn api_search(
             true
         })
         .collect::<Vec<_>>();
-    if request.answer.kind == AnswerKind::Exists {
-        if let Some(witness) = candidates
+    if request.answer.kind == AnswerKind::Exists
+        && let Some(witness) = candidates
             .iter()
             .position(|candidate| candidate.qualification_unknown.is_none())
-        {
-            candidates.swap(0, witness);
-        }
+    {
+        candidates.swap(0, witness);
     }
     summary.matches = candidates
         .iter()
@@ -2174,7 +2173,7 @@ fn api_search(
             })?;
         }
         if request.answer.kind != AnswerKind::Count {
-            emit(Event::Result(SearchResult {
+            emit(Event::Result(Box::new(SearchResult {
                 source: "api".into(),
                 kind: format!("{:?}", candidate.kind),
                 name: Some(candidate.public_path.clone()),
@@ -2193,7 +2192,7 @@ fn api_search(
                 entity: None,
                 candidate_reference: None,
                 refinement,
-            }))?;
+            })))?;
             summary.emitted += 1;
         }
     }

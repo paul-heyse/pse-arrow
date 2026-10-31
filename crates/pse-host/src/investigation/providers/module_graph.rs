@@ -404,28 +404,25 @@ impl Loader<'_> {
                                 .is_some_and(|name| name.text() == "path")
                             {
                                 conditional_path = true;
-                                if let Some(ast::Expr::Literal(literal)) = meta.expr() {
-                                    if let ast::LiteralKind::String(value) = literal.kind() {
-                                        if let Ok(value) = value.value() {
-                                            paths.push(PathBuf::from(value.as_ref()));
-                                            continue;
-                                        }
-                                    }
+                                if let Some(ast::Expr::Literal(literal)) = meta.expr()
+                                    && let ast::LiteralKind::String(value) = literal.kind()
+                                    && let Ok(value) = value.value()
+                                {
+                                    paths.push(PathBuf::from(value.as_ref()));
+                                    continue;
                                 }
                                 unsupported_path = true;
                             }
                         }
                     }
                     Some("path") => {
-                        if let Some(ast::Meta::KeyValueMeta(meta)) = attribute.meta() {
-                            if let Some(ast::Expr::Literal(literal)) = meta.expr() {
-                                if let ast::LiteralKind::String(value) = literal.kind() {
-                                    if let Ok(value) = value.value() {
-                                        paths.push(PathBuf::from(value.as_ref()));
-                                        continue;
-                                    }
-                                }
-                            }
+                        if let Some(ast::Meta::KeyValueMeta(meta)) = attribute.meta()
+                            && let Some(ast::Expr::Literal(literal)) = meta.expr()
+                            && let ast::LiteralKind::String(value) = literal.kind()
+                            && let Ok(value) = value.value()
+                        {
+                            paths.push(PathBuf::from(value.as_ref()));
+                            continue;
                         }
                         unsupported_path = true;
                     }

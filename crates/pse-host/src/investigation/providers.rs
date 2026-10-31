@@ -140,7 +140,7 @@ impl State<'_> {
             return Ok(id);
         }
         if self.sources.insert(id.clone()) {
-            (self.emit)(Event::Source(SourceContext {
+            (self.emit)(Event::Source(Box::new(SourceContext {
                 id: id.clone(),
                 path: NativePath::from(path.to_path_buf()),
                 origin: Some(kind.clone()),
@@ -148,7 +148,7 @@ impl State<'_> {
                 generation: None,
                 searched_encoding,
                 native: None,
-            }))?;
+            })))?;
         }
         Ok(id)
     }
@@ -172,7 +172,7 @@ impl State<'_> {
         if matched {
             self.summary.emitted += 1;
         }
-        if let Err(error) = (self.emit)(Event::Result(result)) {
+        if let Err(error) = (self.emit)(Event::Result(Box::new(result))) {
             self.summary.complete = false;
             self.summary.stop = StopReason::ConsumerClosed;
             self.token.cancel();
@@ -486,10 +486,10 @@ pub fn evaluate(
                     break;
                 }
             }
-            if results.is_empty() {
-                if let Some(error) = unknown {
-                    return Err(error);
-                }
+            if results.is_empty()
+                && let Some(error) = unknown
+            {
+                return Err(error);
             }
             if let Some(n) = limit {
                 results.truncate(n);
@@ -632,16 +632,16 @@ fn stable(root: &Path, request: &Request, state: &mut State<'_>) -> Result<Summa
             ));
         }
         state.summary.examined_files += 1;
-        if let Predicate::Text(query) = &request.predicate {
-            if request.answer.kind == AnswerKind::Count || request.answer.limit.is_none() {
-                lexical::scan_snapshot(&input, query, state)?;
-                (state.emit)(Event::Progress {
-                    examined_files: state.summary.examined_files,
-                    examined_bytes: state.summary.examined_bytes,
-                    matches: state.summary.matches,
-                })?;
-                continue;
-            }
+        if let Predicate::Text(query) = &request.predicate
+            && (request.answer.kind == AnswerKind::Count || request.answer.limit.is_none())
+        {
+            lexical::scan_snapshot(&input, query, state)?;
+            (state.emit)(Event::Progress {
+                examined_files: state.summary.examined_files,
+                examined_bytes: state.summary.examined_bytes,
+                matches: state.summary.matches,
+            })?;
+            continue;
         }
         state.summary.examined_bytes += input.bytes.len() as u64;
         let limit = if request.answer.kind == AnswerKind::Count {

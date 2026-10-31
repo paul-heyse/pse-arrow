@@ -55,7 +55,9 @@ mod tests {
         let reference = render(&[]).unwrap();
         for name in [
             "pse",
-            "pse code query",
+            "pse search syntax",
+            "pse inspect declaration",
+            "pse propose",
             "pse observe follow",
             "pse api",
             "pse probe run",
@@ -63,9 +65,11 @@ mod tests {
             assert!(reference.contains(&format!("## `{name}`")), "{name}");
         }
         assert!(!reference.contains("## `pse __supervise`"));
-        assert!(reference.contains("--pattern"));
-        let scoped = render(&["code".into()]).unwrap();
-        assert!(scoped.contains("## `pse code preview`"));
+        assert!(!reference.contains("## `pse code query`"));
+        assert!(!reference.contains("## `pse code preview`"));
+        assert!(reference.contains("--tree-sitter"));
+        let scoped = render(&["search".into()]).unwrap();
+        assert!(scoped.contains("## `pse search syntax`"));
         assert!(!scoped.contains("## `pse observe"));
         assert!(render(&["nonexistent".into()]).is_err());
     }

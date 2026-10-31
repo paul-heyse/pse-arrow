@@ -37,10 +37,10 @@ pub(crate) fn semantic_anchor(source: &str, range: Range<usize>) -> Option<usize
         .descendants()
         .filter(|node| node.text_range() == selected)
         .last();
-    if let Some(node) = node {
-        if let Some(anchor) = semantic_node_anchor(&node) {
-            return Some(anchor);
-        }
+    if let Some(node) = node
+        && let Some(anchor) = semantic_node_anchor(&node)
+    {
+        return Some(anchor);
     }
     // Rustdoc may exclude attached docs/attrs from an otherwise complete item
     // span. Match that native item and its real name, never a textual prefix.
@@ -53,10 +53,10 @@ pub(crate) fn semantic_anchor(source: &str, range: Range<usize>) -> Option<usize
         })
         .filter_map(|node| semantic_node_anchor(&node))
         .filter(|offset| range.contains(offset));
-    if let Some(anchor) = items.next() {
-        if items.next().is_none() {
-            return Some(anchor);
-        }
+    if let Some(anchor) = items.next()
+        && items.next().is_none()
+    {
+        return Some(anchor);
     }
     let mut names = root.descendants().filter(|node| {
         matches!(node.kind(), SyntaxKind::NAME | SyntaxKind::NAME_REF)
@@ -229,7 +229,7 @@ pub struct Outline {
 /// Logical Rust identifier from an actual parsed name; raw syntax is retained in source bytes.
 pub(crate) fn identifier_name(name: ast::Name) -> String {
     let text = name.text();
-    text.strip_prefix("r#").unwrap_or(&text).to_owned()
+    text.strip_prefix("r#").unwrap_or(text).to_owned()
 }
 fn declaration(node: &SyntaxNode) -> Option<String> {
     if let Some(item) = ast::Item::cast(node.clone()) {

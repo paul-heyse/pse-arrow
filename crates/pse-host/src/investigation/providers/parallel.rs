@@ -235,15 +235,15 @@ pub(super) fn run(
                 operation_token.cancel();
             }
             counted.fetch_add(count, Ordering::Relaxed);
-            if let Err(error) = result {
-                if !local_token.is_cancelled() {
-                    if let Ok(mut original) = failure.lock() {
-                        if original.is_none() {
-                            *original = Some(error);
-                        }
-                    }
-                    stop.store(true, Ordering::Release);
+            if let Err(error) = result
+                && !local_token.is_cancelled()
+            {
+                if let Ok(mut original) = failure.lock()
+                    && original.is_none()
+                {
+                    *original = Some(error);
                 }
+                stop.store(true, Ordering::Release);
             }
             if let Ok(mut total) = summary.lock() {
                 total.examined_files += local.examined_files;
@@ -307,10 +307,10 @@ fn consumer_failed(
     stop: &AtomicBool,
     token: &CancellationToken,
 ) {
-    if let Ok(mut original) = failure.lock() {
-        if original.is_none() {
-            *original = Some(error);
-        }
+    if let Ok(mut original) = failure.lock()
+        && original.is_none()
+    {
+        *original = Some(error);
     }
     stop.store(true, Ordering::Release);
     token.cancel();

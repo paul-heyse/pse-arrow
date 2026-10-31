@@ -68,7 +68,7 @@ impl<W: Write> StreamWriter<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::investigation::{Request, Summary};
+    use crate::investigation::Summary;
     #[test]
     fn complete_records_are_visible_before_terminal_and_cannot_repeat_finality() {
         let token = CancellationToken::new();
@@ -77,7 +77,7 @@ mod tests {
             .emit(&Event::Begin {
                 root: std::path::PathBuf::from("/stream-fixture").into(),
                 invocation_id: "invocation".into(),
-                request: Request::default(),
+                request: Box::default(),
             })
             .unwrap();
         assert!(!stream.completed());
@@ -111,7 +111,7 @@ mod tests {
             stream.emit(&Event::Begin {
                 root: std::path::PathBuf::from("/stream-fixture").into(),
                 invocation_id: "id".into(),
-                request: Request::default()
+                request: Box::default()
             }),
             Err(Error::Io(_))
         ));

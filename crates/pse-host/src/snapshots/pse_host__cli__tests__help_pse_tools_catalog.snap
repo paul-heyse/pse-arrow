@@ -9,8 +9,9 @@ Usage: pse tools catalog [OPTIONS] --selection <SELECTION>
 
 Options:
   -C <checkout>
-      --selection <SELECTION>
+      --tool <TOOL>            [default: xtask] [possible values: xtask, native-analysis]
       --format <FORMAT>        Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --selection <SELECTION>
       --fields <FIELDS>        Select comma-separated payload fields while retaining identity, state and coverage
       --budget <BUDGET>        Limit whole payload records; producer pages retain their omission and continuation facts
   -h, --help                   Print help (see more with '--help')
@@ -23,8 +24,12 @@ Options:
   -C <checkout>
 
 
-      --selection <SELECTION>
+      --tool <TOOL>
+          Possible values:
+          - xtask:           Existing development composition and document owner
+          - native-analysis: Explicitly prepared native HIR/IDE semantic service
 
+          [default: xtask]
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -37,6 +42,9 @@ Options:
 
           [env: PSE_FORMAT]
           [default: auto]
+
+      --selection <SELECTION>
+
 
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage

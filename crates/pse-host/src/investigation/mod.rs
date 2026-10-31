@@ -74,10 +74,10 @@ pub enum FailureDisposition {
 impl Error {
     /// Preserve a genuine remote refusal without manufacturing one from a local error.
     pub fn native_refusal(&self) -> Option<&crate::semantic::Failure> {
-        if let Self::Semantic(error) = self {
-            if let crate::semantic::Error::Refusal(failure) = error.as_ref() {
-                return Some(failure);
-            }
+        if let Self::Semantic(error) = self
+            && let crate::semantic::Error::Refusal(failure) = error.as_ref()
+        {
+            return Some(failure);
         }
         None
     }

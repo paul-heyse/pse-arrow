@@ -3,9 +3,9 @@ source: crates/pse-host/src/cli.rs
 expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 ---
 -h
-Read exact-context Rust APIs, or explicitly prepare their documentation artifacts
+Explicitly acquire Rust API artifacts, run compatibility rules or check documentation
 
-Usage: pse api [OPTIONS] <CRATE_QUERY> [PATH]
+Usage: pse api [OPTIONS] <--prepare|--compatibility|--check-docs> <CRATE_QUERY> [PATH]
 
 Arguments:
   <CRATE_QUERY>  Exact locked dependency name, name@version or source-qualified Cargo package ID
@@ -15,11 +15,10 @@ Options:
   -C <checkout>
       --search <SEARCH>              Case-insensitive name/documentation search
       --format <FORMAT>              Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
-      --prepare                      Explicitly compile documentation in an isolated context; ordinary lookup never generates it
-      --fields <FIELDS>              Select comma-separated payload fields while retaining identity, state and coverage
       --target <TARGET>              Explicit target triple; default is the pinned rustc's observed host
-      --budget <BUDGET>              Limit whole payload records; producer pages retain their omission and continuation facts
+      --fields <FIELDS>              Select comma-separated payload fields while retaining identity, state and coverage
       --kind <KIND>                  [possible values: function, struct, enum, union, trait, type-alias, constant, static, module, macro, other]
+      --budget <BUDGET>              Limit whole payload records; producer pages retain their omission and continuation facts
       --input <INPUT>
       --output-type <OUTPUT_TYPE>
       --trait-name <TRAIT_NAME>
@@ -30,14 +29,15 @@ Options:
       --examples                     Expand authored Rust examples and hidden setup; never execute them
       --declaration                  Expand the original format-qualified rustdoc item, including complex bounds/associated data
       --compare-with <COMPARE_WITH>  Read structural differences from an explicitly selected acquired document.json; --compatibility separately executes native rules. Neither generates an input
-      --compatibility                Explicitly execute separately prepared native compatibility rules. Without this flag comparison only reads library-owned structural differences
-      --check-docs                   Explicitly check this workspace library's authored documentation with native rustdoc diagnostics; no API artifact or analyzer session is required
       --cursor <CURSOR>              Continue the same immutable artifact/query page; stale contexts refuse
+      --prepare                      Explicitly acquire documentation; passive reads use inspect api
+      --compatibility                Explicitly execute separately prepared compatibility rules
+      --check-docs                   Explicitly check workspace library documentation through native rustdoc
   -h, --help                         Print help (see more with '--help')
 --help
-Read exact-context Rust APIs, or explicitly prepare their documentation artifacts
+Explicitly acquire Rust API artifacts, run compatibility rules or check documentation
 
-Usage: pse api [OPTIONS] <CRATE_QUERY> [PATH]
+Usage: pse api [OPTIONS] <--prepare|--compatibility|--check-docs> <CRATE_QUERY> [PATH]
 
 Arguments:
   <CRATE_QUERY>
@@ -65,17 +65,11 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --prepare
-          Explicitly compile documentation in an isolated context; ordinary lookup never generates it
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
       --target <TARGET>
           Explicit target triple; default is the pinned rustc's observed host
 
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
 
       --kind <KIND>
           Possible values:
@@ -90,6 +84,9 @@ Options:
           - module:     A module declaration
           - macro:      A declarative or procedural macro
           - other:      Another rustdoc declaration, retained without guessing its kind
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --input <INPUT>
 
@@ -121,14 +118,17 @@ Options:
       --compare-with <COMPARE_WITH>
           Read structural differences from an explicitly selected acquired document.json; --compatibility separately executes native rules. Neither generates an input
 
-      --compatibility
-          Explicitly execute separately prepared native compatibility rules. Without this flag comparison only reads library-owned structural differences
-
-      --check-docs
-          Explicitly check this workspace library's authored documentation with native rustdoc diagnostics; no API artifact or analyzer session is required
-
       --cursor <CURSOR>
           Continue the same immutable artifact/query page; stale contexts refuse
+
+      --prepare
+          Explicitly acquire documentation; passive reads use inspect api
+
+      --compatibility
+          Explicitly execute separately prepared compatibility rules
+
+      --check-docs
+          Explicitly check workspace library documentation through native rustdoc
 
   -h, --help
           Print help (see a summary with '-h')

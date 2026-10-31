@@ -34,13 +34,12 @@ fn definition(
     offset: TextSize,
 ) -> Option<ModuleDef> {
     for ancestor in node.ancestors() {
-        if let Some(variant) = ast::Variant::cast(ancestor.clone()) {
-            if variant
+        if let Some(variant) = ast::Variant::cast(ancestor.clone())
+            && variant
                 .name()
                 .is_some_and(|name| name.syntax().text_range().contains(offset))
-            {
-                return sema.to_def(&variant).map(ModuleDef::from);
-            }
+        {
+            return sema.to_def(&variant).map(ModuleDef::from);
         }
         let Some(item) = ast::Item::cast(ancestor) else {
             continue;

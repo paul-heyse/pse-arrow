@@ -174,10 +174,10 @@ pub fn run(
     let mut sink_error = None;
     let mut native_failures = BTreeSet::new();
     let mut forward = |event| {
-        if let Event::NativeFailure { failure } = &event {
-            if !native_failures.insert(serde_json::to_string(failure)?) {
-                return Ok(());
-            }
+        if let Event::NativeFailure { failure } = &event
+            && !native_failures.insert(serde_json::to_string(failure)?)
+        {
+            return Ok(());
         }
         match emit(event) {
             Ok(()) => Ok(()),
@@ -287,7 +287,7 @@ fn emit_source(
         .map_err(|_| Error::Unavailable("shared source-context owner panicked".into()))?
         .insert(id.clone())
     {
-        emit(Event::Source(source))?;
+        emit(Event::Source(Box::new(source)))?;
     }
     Ok(id)
 }
@@ -551,7 +551,7 @@ fn file_identity(row: &SearchResult) -> Result<Option<String>, Error> {
 }
 
 fn accepted(
-    row: SearchResult,
+    row: Box<SearchResult>,
     request: &Request,
     summary: &mut Summary,
     emit: &mut (dyn FnMut(Event) -> Result<(), Error> + Send),
@@ -684,7 +684,7 @@ fn same_entity(left: &EntityIdentity, right: &EntityIdentity) -> Truth {
     }
 }
 fn retain_unknown(
-    mut row: SearchResult,
+    mut row: Box<SearchResult>,
     error: &Error,
     request: &Request,
     summary: &mut Summary,
@@ -773,14 +773,10 @@ fn refine(
             .map(Some),
         Refinement::NativePredicate { .. } | Refinement::ImportableAt { .. } => Ok(None),
     };
-    if let Err(error) = &expected {
-        if !unavailable(error) {
-            return Err(match expected {
-                Err(error) => error,
-                Ok(_) => unreachable!(),
-            });
-        }
-    }
+    let expected = match expected {
+        Err(error) if !unavailable(&error) => return Err(error),
+        expected => expected,
+    };
     if let Ok(Some(target)) = &expected {
         resolved_context(target, emit, native)?;
     }
@@ -1507,7 +1503,13 @@ fn related(
                 queue.push_back((reference.locator.clone(), distance + 1));
             }
             if emitted.insert(key.clone()) {
-                accepted(row.clone(), request, &mut summary, emit, &mut counted)?;
+                accepted(
+                    Box::new(row.clone()),
+                    request,
+                    &mut summary,
+                    emit,
+                    &mut counted,
+                )?;
             }
             if limits(request).is_some_and(|limit| summary.matches >= limit as u64) {
                 summary.complete = false;
@@ -1842,10 +1844,16 @@ mod tests {
         };
         let mut summary = Summary::default();
         let mut records = Vec::new();
-        retain_unknown(row, &error, &request, &mut summary, &mut |event| {
-            records.push(event);
-            Ok(())
-        })
+        retain_unknown(
+            Box::new(row),
+            &error,
+            &request,
+            &mut summary,
+            &mut |event| {
+                records.push(event);
+                Ok(())
+            },
+        )
         .unwrap();
         assert_eq!(summary.emitted, 0);
         assert!(records.iter().any(|record|matches!(record,Event::NativeFailure{failure} if failure.backend_code==Some(91)&&failure.backend_data==Some(serde_json::json!({"original":true})))));

@@ -9,6 +9,24 @@ SPDX-PackageSupplier = "Paul Heyse <paul@heyse.io>"
 SPDX-PackageDownloadLocation = "https://github.com/paul-heyse/pse-arrow"
 
 [[annotations]]
+path = ["vendor/salsa/**"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "Salsa contributors (original notices retained)",
+  "2026 Paul Heyse (request cancellation additions)",
+]
+SPDX-License-Identifier = "MIT OR Apache-2.0"
+
+[[annotations]]
+path = ["vendor/ra-ap-ide-db/**"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "rust-analyzer contributors (original notices retained)",
+  "2026 Paul Heyse (request snapshot integration)",
+]
+SPDX-License-Identifier = "MIT OR Apache-2.0"
+
+[[annotations]]
 path = ["vendor/paste/**"]
 precedence = "override"
 SPDX-FileCopyrightText = [

@@ -554,7 +554,7 @@ mod tests {
         let snapshot = crate::dependency::capture(&root, &environment).unwrap();
         let acquire_with = |name: &str, environment: &crate::environment::Environment| {
             let acquisition =
-                crate::api::prepare(&root, &state, &snapshot, name, None, &environment).unwrap();
+                crate::api::prepare(&root, &state, &snapshot, name, None, environment).unwrap();
             let output = Command::new(&acquisition.command[0])
                 .args(&acquisition.command[1..])
                 .current_dir(&acquisition.cwd)

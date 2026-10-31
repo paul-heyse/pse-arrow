@@ -8,7 +8,7 @@ Build/capture the declared native tool; passive queries never invoke this operat
 Usage: pse tools prepare [OPTIONS] <TOOL>
 
 Arguments:
-  <TOOL>  [possible values: xtask]
+  <TOOL>  [possible values: xtask, native-analysis]
 
 Options:
   -C <checkout>
@@ -23,7 +23,9 @@ Usage: pse tools prepare [OPTIONS] <TOOL>
 
 Arguments:
   <TOOL>
-          [possible values: xtask]
+          Possible values:
+          - xtask:           Existing development composition and document owner
+          - native-analysis: Explicitly prepared native HIR/IDE semantic service
 
 Options:
   -C <checkout>

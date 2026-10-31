@@ -12,12 +12,13 @@ Arguments:
 
 Options:
   -C <checkout>
+      --tool <TOOL>            [default: xtask] [possible values: xtask, native-analysis]
+      --format <FORMAT>        Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
       --selection <SELECTION>
       --detach
-      --format <FORMAT>        Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
       --fields <FIELDS>        Select comma-separated payload fields while retaining identity, state and coverage
-      --session <SESSION>
       --budget <BUDGET>        Limit whole payload records; producer pages retain their omission and continuation facts
+      --session <SESSION>
   -h, --help                   Print help (see more with '--help')
 --help
 Run exact arguments through the selected native parser under managed ownership
@@ -32,11 +33,12 @@ Options:
   -C <checkout>
 
 
-      --selection <SELECTION>
+      --tool <TOOL>
+          Possible values:
+          - xtask:           Existing development composition and document owner
+          - native-analysis: Explicitly prepared native HIR/IDE semantic service
 
-
-      --detach
-
+          [default: xtask]
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -50,14 +52,20 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
+      --selection <SELECTION>
+
+
+      --detach
+
+
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
 
-      --session <SESSION>
-
-
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --session <SESSION>
+
 
   -h, --help
           Print help (see a summary with '-h')

@@ -358,7 +358,7 @@ fn request_compiles_compatible_lexical_clauses_once_even_across_file_contexts() 
     let program = Arc::new(rust::CompiledProgram::default());
     let mut prepared = 0;
     let Predicate::Text(query) = text("hit").predicate else {
-        unreachable!()
+        panic!("the authored fixture must construct a text predicate")
     };
     let first = rust::EvaluationContext::new(program.clone())
         .lexical_matcher(&query, || {

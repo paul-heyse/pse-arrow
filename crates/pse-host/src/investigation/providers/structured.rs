@@ -70,12 +70,12 @@ pub fn inspect(root: &Path, locator: &Locator) -> Result<SearchResult, Error> {
             "source inspection requires a source locator".into(),
         ));
     };
-    if let Some(original) = guard.as_ref().and_then(|guard| guard.root.as_ref()) {
-        if root.canonicalize()? != original.to_path_buf() {
-            return Err(Error::Stale(
-                "result reference belongs to another selected root".into(),
-            ));
-        }
+    if let Some(original) = guard.as_ref().and_then(|guard| guard.root.as_ref())
+        && root.canonicalize()? != original.to_path_buf()
+    {
+        return Err(Error::Stale(
+            "result reference belongs to another selected root".into(),
+        ));
     }
     let path = path.to_path_buf();
     let request = match source {
@@ -219,16 +219,16 @@ pub fn history_arguments(
         return Err(Error::Unavailable("history continuation is not a source-page cursor; select an explicit starting revision".into()));
     }
     let limit = super::work_limit(request);
-    if let Some(limit) = limit {
-        if query.operation != HistoryOperation::Blame {
-            args.push(format!("--max-count={limit}").into());
-        }
+    if let Some(limit) = limit
+        && query.operation != HistoryOperation::Blame
+    {
+        args.push(format!("--max-count={limit}").into());
     }
-    if query.operation == HistoryOperation::Blame {
-        if let Some(lines) = &query.query {
-            args.push("-L".into());
-            args.push(lines.into());
-        }
+    if query.operation == HistoryOperation::Blame
+        && let Some(lines) = &query.query
+    {
+        args.push("-L".into());
+        args.push(lines.into());
     }
     if let Some(revision) = &query.revision {
         if revision.starts_with('-') {
@@ -277,13 +277,10 @@ pub async fn history(
         ));
     }
     let mut resolved = query.clone();
-    let selected = query
-        .revision
-        .as_deref()
-        .or_else(|| match &request.sources.kind {
-            SourceKind::Revision { revision } => Some(revision.as_str()),
-            _ => None,
-        });
+    let selected = query.revision.as_deref().or(match &request.sources.kind {
+        SourceKind::Revision { revision } => Some(revision.as_str()),
+        _ => None,
+    });
     let working_blame = query.operation == HistoryOperation::Blame && selected.is_none();
     let working = if working_blame {
         if request.sources.paths.len() != 1 {
@@ -577,9 +574,9 @@ async fn history_records<R: tokio::io::AsyncRead + Unpin>(
         };
         if let Some(row) = row {
             if let Some(source) = source_context.take() {
-                emit(Event::Source(source))?;
+                emit(Event::Source(Box::new(source)))?;
             }
-            emit(Event::Result(row))?;
+            emit(Event::Result(Box::new(row)))?;
             summary.emitted += 1;
         }
         emit(Event::Progress {
@@ -640,8 +637,8 @@ mod tests {
     #[tokio::test]
     async fn history_frames_stream_before_eof_and_preserve_fragments_and_budget() {
         use tokio::io::AsyncWriteExt as _;
-        let first = b"abc\0parent\0author\02026-10-31\0first\0";
-        let second = b"\ndef\0abc\0author\02026-10-31\0second\0";
+        let first = b"abc\0parent\0author\x002026-10-31\0first\0";
+        let second = b"\ndef\0abc\0author\x002026-10-31\0second\0";
         let (reader, mut writer) = tokio::io::duplex(3);
         let (acknowledge, received) = tokio::sync::oneshot::channel();
         let mut acknowledge = Some(acknowledge);
@@ -652,10 +649,10 @@ mod tests {
         let token = CancellationToken::new();
         let mut events = Vec::new();
         let mut emit = |event| {
-            if matches!(event, Event::Result(_)) {
-                if let Some(acknowledge) = acknowledge.take() {
-                    let _ = acknowledge.send(());
-                }
+            if matches!(event, Event::Result(_))
+                && let Some(acknowledge) = acknowledge.take()
+            {
+                let _ = acknowledge.send(());
             }
             events.push(event);
             Ok(())

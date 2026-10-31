@@ -219,13 +219,12 @@ fn reset_changed_alternatives(layers: &mut [&mut Value]) {
                     .and_then(|value| value.get("kind"))
                     .and_then(Value::as_str)
                     .is_some_and(|kind| kind != selected);
-                if differs {
-                    if let Some(parent) = layer
+                if differs
+                    && let Some(parent) = layer
                         .pointer_mut(parent_path)
                         .and_then(Value::as_object_mut)
-                    {
-                        parent.remove(field);
-                    }
+                {
+                    parent.remove(field);
                 }
             }
         }
@@ -272,10 +271,10 @@ fn resolve_paths(layer: &mut Value, root: &Path) -> Result<(), Error> {
             *value = serde_json::to_value(NativePath::from(absolute(root, &path.to_path_buf())))?;
         }
     }
-    if let Some(value) = layer.pointer_mut("/predicate/artifact") {
-        if let Some(path) = value.as_str() {
-            *value = path_value(root, path)?;
-        }
+    if let Some(value) = layer.pointer_mut("/predicate/artifact")
+        && let Some(path) = value.as_str()
+    {
+        *value = path_value(root, path)?;
     }
     if let Some(predicate) = layer.get_mut("predicate") {
         resolve_predicate_paths(predicate, root)?;
@@ -293,10 +292,10 @@ fn path_value(root: &Path, path: &str) -> Result<Value, Error> {
     ))
 }
 fn resolve_predicate_paths(predicate: &mut Value, root: &Path) -> Result<(), Error> {
-    if let Some(value) = predicate.get_mut("artifact") {
-        if let Some(path) = value.as_str() {
-            *value = path_value(root, path)?;
-        }
+    if let Some(value) = predicate.get_mut("artifact")
+        && let Some(path) = value.as_str()
+    {
+        *value = path_value(root, path)?;
     }
     if let Some(clauses) = predicate.get_mut("clauses").and_then(Value::as_array_mut) {
         for clause in clauses {

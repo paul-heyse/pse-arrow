@@ -246,8 +246,8 @@ pub(super) enum View {
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
 pub(super) enum Inspection {
-    Source(query::SearchResult),
-    Semantic(query::rust::SemanticInspection),
+    Source(Box<query::SearchResult>),
+    Semantic(Box<query::rust::SemanticInspection>),
 }
 
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
@@ -657,8 +657,8 @@ fn execute(
             return writer.emit(&event);
         }
         match event {
-            query::Event::Source(source) => report.sources.push(source),
-            query::Event::Result(row) => report.results.push(row),
+            query::Event::Source(source) => report.sources.push(*source),
+            query::Event::Result(row) => report.results.push(*row),
             query::Event::Diagnostic {
                 code,
                 message,
@@ -678,7 +678,7 @@ fn execute(
     emit(query::Event::Begin {
         invocation_id: output.invocation_id.as_str().into(),
         root: root.clone().into(),
-        request: request.clone(),
+        request: Box::new(request.clone()),
     })?;
     let performed = if query::composition::required(&request.predicate) {
         query::composition::run(&root, &request, &token, &mut emit, &handle)
@@ -838,8 +838,8 @@ pub(super) fn inspect(
             guard: None,
         }
     };
-    if selected.is_none() {
-        if let query::Locator::Source {
+    if selected.is_none()
+        && let query::Locator::Source {
             guard:
                 Some(query::SourceGuard {
                     root: Some(original),
@@ -847,9 +847,8 @@ pub(super) fn inspect(
                 }),
             ..
         } = &locator
-        {
-            root = original.to_path_buf();
-        }
+    {
+        root = original.to_path_buf();
     }
     if matches!(locator, query::Locator::Evidence { .. }) {
         return evidence::inspect_locator(&locator, selected, output);
@@ -962,24 +961,23 @@ pub(super) fn inspect(
                 })?,
             },
         };
-        Inspection::Semantic(
+        Inspection::Semantic(Box::new(
             super::runtime()?.block_on(query::rust::semantic_view(&root, &locator, kind))?,
-        )
+        ))
     } else if matches!(locator, query::Locator::Api { .. }) {
-        Inspection::Source(query::rust::inspect_api(&root, &locator)?)
+        Inspection::Source(Box::new(query::rust::inspect_api(&root, &locator)?))
     } else {
-        Inspection::Source(query::providers::inspect(&root, &locator)?)
+        Inspection::Source(Box::new(query::providers::inspect(&root, &locator)?))
     };
     let mut response =
         Envelope::response("inspect", "addressed original source inspection", result);
-    if matches!(options.view, Some(View::Tests)) {
-        if let Inspection::Semantic(answer) = &response.payload {
-            let configuration: crate::semantic::Configuration =
-                serde_json::from_value(answer.native["session"]["configuration"].clone())
-                    .map_err(query::Error::from)?;
-            response.next =
-                super::code::semantic::test_routes(&root, &answer.native, &configuration);
-        }
+    if matches!(options.view, Some(View::Tests))
+        && let Inspection::Semantic(answer) = &response.payload
+    {
+        let configuration: crate::semantic::Configuration =
+            serde_json::from_value(answer.native["session"]["configuration"].clone())
+                .map_err(query::Error::from)?;
+        response.next = super::code::semantic::test_routes(&root, &answer.native, &configuration);
     }
     if output.format == OutputFormat::Human
         && output.presentation.fields.is_none()
@@ -1019,8 +1017,8 @@ pub(super) fn propose(
     let mut reference = query::ResultReference::decode(&options.result.ok_or_else(|| {
         query::Error::Invalid("propose requires --result or a native preview operation".into())
     })?)?;
-    if selected.is_none() {
-        if let query::Locator::Source {
+    if selected.is_none()
+        && let query::Locator::Source {
             guard:
                 Some(query::SourceGuard {
                     root: Some(original),
@@ -1028,9 +1026,8 @@ pub(super) fn propose(
                 }),
             ..
         } = &reference.locator
-        {
-            root = original.to_path_buf();
-        }
+    {
+        root = original.to_path_buf();
     }
     if options.rename.is_some()
         || options.file_rename.is_some()

@@ -1,0 +1,138 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
+---
+-h
+Inspect a known source or an addressed search result without preparation
+
+Usage: pse inspect [OPTIONS] <--result <RESULT>|--source <SOURCE>>
+       pse inspect <COMMAND>
+
+Commands:
+  outline             Read written declarations or document headings without semantic preparation
+  declaration         Read a known declaration, literal item, position or exact original range
+  origin              Inspect the declared authored owner of an exact generated-source hit
+  entity              Inspect a known Rust position through its explicitly prepared native semantic owner
+  api                 Inspect an exact locked API, original docs/examples, reexports or structural differences
+  dependency          Inspect native exact dependency identity, features and inclusion explanations
+  dependency-units    Inspect planned compiler units without building or listing tests
+  owner               Inspect existing source, generated and document ownership independently
+  diagnostic          Read original compiler failures or one addressed original record
+  artifact            Read exact artifact ranges with native validators; this does not decode a protocol
+  compiler-artifact   Read an original native compiler artifact after its existing whole-file verification
+  compiler-artifacts  Inspect the original compiler-generation context, outcome and checked file index
+  tests               Read an already captured original test population or its original failures
+  test-selection      Explain real native test selection; no binary listing or test execution occurs
+  check-selection     Explain selected native check declarations or admitted compiler units without compiling
+  invocation          Read the original managed result without waiting, cancellation or resubmission
+  log                 Read original retained stdout/stderr byte ranges
+  affected            Explain conservative affected-test reach through the existing native owner
+  changes             Inspect native Git layers and source/test ownership without compiling
+
+Options:
+  -C <checkout>
+      --format <FORMAT>            Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --fields <FIELDS>            Select comma-separated payload fields while retaining identity, state and coverage
+      --budget <BUDGET>            Limit whole payload records; producer pages retain their omission and continuation facts
+      --result <RESULT>            Original result reference: returned JSON object or its portable encoded form
+      --source <SOURCE>            Direct known source: no preliminary search is required
+      --index
+      --revision <REVISION>
+      --range-start <RANGE_START>
+      --range-end <RANGE_END>
+      --lines <LINES>
+      --head <HEAD>
+      --tail <TAIL>
+      --view <VIEW>                Expand one selected semantic fact through its original native provider [possible values: declaration, references, calls, implementations, macro, tests, candidates, hints, hint, candidate, predicate]
+      --select <SELECT>
+      --predicate <PREDICATE>
+  -h, --help                       Print help (see more with '--help')
+--help
+Inspect a known source or an addressed search result without preparation
+
+Usage: pse inspect [OPTIONS] <--result <RESULT>|--source <SOURCE>>
+       pse inspect <COMMAND>
+
+Commands:
+  outline             Read written declarations or document headings without semantic preparation
+  declaration         Read a known declaration, literal item, position or exact original range
+  origin              Inspect the declared authored owner of an exact generated-source hit
+  entity              Inspect a known Rust position through its explicitly prepared native semantic owner
+  api                 Inspect an exact locked API, original docs/examples, reexports or structural differences
+  dependency          Inspect native exact dependency identity, features and inclusion explanations
+  dependency-units    Inspect planned compiler units without building or listing tests
+  owner               Inspect existing source, generated and document ownership independently
+  diagnostic          Read original compiler failures or one addressed original record
+  artifact            Read exact artifact ranges with native validators; this does not decode a protocol
+  compiler-artifact   Read an original native compiler artifact after its existing whole-file verification
+  compiler-artifacts  Inspect the original compiler-generation context, outcome and checked file index
+  tests               Read an already captured original test population or its original failures
+  test-selection      Explain real native test selection; no binary listing or test execution occurs
+  check-selection     Explain selected native check declarations or admitted compiler units without compiling
+  invocation          Read the original managed result without waiting, cancellation or resubmission
+  log                 Read original retained stdout/stderr byte ranges
+  affected            Explain conservative affected-test reach through the existing native owner
+  changes             Inspect native Git layers and source/test ownership without compiling
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --result <RESULT>
+          Original result reference: returned JSON object or its portable encoded form
+
+      --source <SOURCE>
+          Direct known source: no preliminary search is required
+
+      --index
+
+
+      --revision <REVISION>
+
+
+      --range-start <RANGE_START>
+
+
+      --range-end <RANGE_END>
+
+
+      --lines <LINES>
+
+
+      --head <HEAD>
+
+
+      --tail <TAIL>
+
+
+      --view <VIEW>
+          Expand one selected semantic fact through its original native provider
+
+          [possible values: declaration, references, calls, implementations, macro, tests, candidates, hints, hint, candidate, predicate]
+
+      --select <SELECT>
+
+
+      --predicate <PREDICATE>
+
+
+  -h, --help
+          Print help (see a summary with '-h')

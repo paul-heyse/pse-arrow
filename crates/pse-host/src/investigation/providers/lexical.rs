@@ -146,10 +146,10 @@ pub(super) fn scan(
         }
     };
     state.summary.examined_bytes += read.load(Ordering::Relaxed);
-    if let Err(error) = result {
-        if !token.is_cancelled() {
-            state.failure(None, error.to_string())?;
-        }
+    if let Err(error) = result
+        && !token.is_cancelled()
+    {
+        state.failure(None, error.to_string())?;
     }
     let mut after = if matches!(request, SourceRequest::Working { .. }) {
         Some(super::selection::guard(&path)?)
@@ -216,10 +216,10 @@ pub(super) fn scan_snapshot(
         )
     };
     state.summary.examined_bytes += read.load(Ordering::Relaxed);
-    if let Err(error) = result {
-        if !token.is_cancelled() {
-            state.failure(None, error.to_string())?;
-        }
+    if let Err(error) = result
+        && !token.is_cancelled()
+    {
+        state.failure(None, error.to_string())?;
     }
     Ok(())
 }
@@ -310,21 +310,19 @@ impl StreamingSink<'_, '_> {
                 String::new()
             },
         );
-        if self.query.encoding.is_none() {
-            if let Some(reference) = &mut result.reference {
-                if let Locator::Source {
-                    guard,
-                    range: Some(location),
-                    ..
-                } = &mut reference.locator
-                {
-                    use sha2::{Digest as _, Sha256};
-                    guard.get_or_insert_with(SourceGuard::default).observed = Some(ObservedGuard {
-                        range: location.clone(),
-                        sha256: super::hex(&Sha256::digest(&bytes[range.clone()])),
-                    });
-                }
-            }
+        if self.query.encoding.is_none()
+            && let Some(reference) = &mut result.reference
+            && let Locator::Source {
+                guard,
+                range: Some(location),
+                ..
+            } = &mut reference.locator
+        {
+            use sha2::{Digest as _, Sha256};
+            guard.get_or_insert_with(SourceGuard::default).observed = Some(ObservedGuard {
+                range: location.clone(),
+                sha256: super::hex(&Sha256::digest(&bytes[range.clone()])),
+            });
         }
         result.source = self.source()?;
         if context_requested && std::str::from_utf8(bytes).is_err() {
@@ -332,10 +330,10 @@ impl StreamingSink<'_, '_> {
         }
         if self.query.encoding.is_some() {
             // Transcoded offsets are never asserted to be original editable byte ranges.
-            if let Some(reference) = &mut result.reference {
-                if let Locator::Source { range, .. } = &mut reference.locator {
-                    *range = None;
-                }
+            if let Some(reference) = &mut result.reference
+                && let Locator::Source { range, .. } = &mut reference.locator
+            {
+                *range = None;
             }
         }
         Ok(result)
@@ -613,14 +611,22 @@ pub(super) fn evaluate_prepared(
             "binary input excluded by the requested text policy".into(),
         ));
     }
-    let mut request = Request::default();
-    request.predicate = Predicate::Text(query.clone());
-    request.answer.limit = limit;
-    request.presentation.context = 0;
+    let request = Request {
+        predicate: Predicate::Text(query.clone()),
+        answer: AnswerDemand {
+            limit,
+            ..Default::default()
+        },
+        presentation: QueryPresentation {
+            context: 0,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
     let mut results = Vec::new();
     let mut emit = |event| {
         if let Event::Result(result) = event {
-            results.push(result);
+            results.push(*result);
         }
         Ok(())
     };

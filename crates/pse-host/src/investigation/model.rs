@@ -849,13 +849,11 @@ impl ResultReference {
         if let Locator::Source {
             range: Some(range), ..
         } = &self.locator
-        {
-            if range.byte_end < range.byte_start
+            && (range.byte_end < range.byte_start
                 || range.line_start == 0
-                || range.line_end < range.line_start
-            {
-                return Err(Error::Invalid("invalid result coordinates".into()));
-            }
+                || range.line_end < range.line_start)
+        {
+            return Err(Error::Invalid("invalid result coordinates".into()));
         }
         if let Locator::Source {
             guard: Some(SourceGuard {
@@ -863,10 +861,9 @@ impl ResultReference {
             }),
             ..
         } = &self.locator
+            && !root.to_path_buf().is_absolute()
         {
-            if !root.to_path_buf().is_absolute() {
-                return Err(Error::Invalid("source guard root must be absolute".into()));
-            }
+            return Err(Error::Invalid("source guard root must be absolute".into()));
         }
         Ok(())
     }
@@ -1067,12 +1064,12 @@ pub enum Event {
         /// CLI invocation, not a scientific run.
         invocation_id: String,
         /// Validated effective query.
-        request: Request,
+        request: Box<Request>,
     },
     /// Declare shared source/provider context before its rows.
-    Source(SourceContext),
+    Source(Box<SourceContext>),
     /// One complete match row.
-    Result(SearchResult),
+    Result(Box<SearchResult>),
     /// An original source/provider refusal.
     Diagnostic {
         /// Typed category.
@@ -1252,7 +1249,7 @@ mod tests {
                         guard.root = Some(PathBuf::from("relative").into());
                     }
                 }
-                _ => unreachable!(),
+                _ => panic!("unexpected invalid reference field"),
             }
             for form in [
                 invalid.encode().unwrap(),
@@ -1288,5 +1285,74 @@ mod tests {
         let schema = Event::output_schema();
         let validator = jsonschema::validator_for(schema.as_value()).unwrap();
         assert!(validator.is_valid(&serde_json::to_value(event).unwrap()));
+    }
+    #[test]
+    fn indirect_event_payloads_preserve_wire_shape_and_original_addresses() {
+        use std::os::unix::ffi::OsStringExt as _;
+        let path: PathBuf = std::ffi::OsString::from_vec(vec![b'f', 255]).into();
+        let source = SourceContext {
+            id: "source".into(),
+            path: path.clone().into(),
+            origin: Some(SourceKind::Working),
+            provider: "original-provider".into(),
+            generation: Some("original-generation".into()),
+            searched_encoding: None,
+            native: None,
+        };
+        let reference = ResultReference::new(Locator::Source {
+            path: path.into(),
+            source: SourceKind::Working,
+            range: None,
+            guard: Some(SourceGuard {
+                root: Some(PathBuf::from("/original-root").into()),
+                sha256: Some("original-digest".into()),
+                ..Default::default()
+            }),
+        });
+        let row = SearchResult {
+            source: source.id.clone(),
+            kind: "text".into(),
+            name: None,
+            range: None,
+            context: "original witness".into(),
+            bytes: Some(vec![255]),
+            reference: Some(reference.clone()),
+            candidate_reference: Some(reference),
+            refinement: None,
+            entity: None,
+            captures: BTreeMap::new(),
+        };
+        let request = Request::default();
+        let root: NativePath = PathBuf::from("/original-root").into();
+        let begin_wire = serde_json::json!({
+            "event": "begin",
+            "root": root,
+            "invocation_id": "original-invocation",
+            "request": request,
+        });
+        let mut source_wire = serde_json::to_value(&source).unwrap();
+        source_wire["event"] = serde_json::json!("source");
+        let mut result_wire = serde_json::to_value(&row).unwrap();
+        result_wire["event"] = serde_json::json!("result");
+        let schema = Event::output_schema();
+        let validator = jsonschema::validator_for(schema.as_value()).unwrap();
+        for (event, expected) in [
+            (
+                Event::Begin {
+                    root,
+                    invocation_id: "original-invocation".into(),
+                    request: Box::new(request),
+                },
+                begin_wire,
+            ),
+            (Event::Source(Box::new(source)), source_wire),
+            (Event::Result(Box::new(row)), result_wire),
+        ] {
+            let actual = serde_json::to_value(&event).unwrap();
+            assert_eq!(actual, expected);
+            assert!(validator.is_valid(&actual), "{actual}");
+            let decoded: Event = serde_json::from_value(actual.clone()).unwrap();
+            assert_eq!(serde_json::to_value(decoded).unwrap(), actual);
+        }
     }
 }

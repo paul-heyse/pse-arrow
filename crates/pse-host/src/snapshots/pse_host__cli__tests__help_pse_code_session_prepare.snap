@@ -10,11 +10,12 @@ Usage: pse code session prepare [OPTIONS]
 Options:
   -C <checkout>
       --project <PROJECT>    Cargo project root; defaults to the owning checkout
-      --features <FEATURES>
+      --backend <BACKEND>    Choose one semantic world owner; native snapshots remain explicitly prepared [default: lsp] [possible values: lsp, native-snapshot]
       --format <FORMAT>      Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --features <FEATURES>
       --fields <FIELDS>      Select comma-separated payload fields while retaining identity, state and coverage
-      --no-default-features
       --budget <BUDGET>      Limit whole payload records; producer pages retain their omission and continuation facts
+      --no-default-features
       --target <TARGET>
       --build-macros         Explicitly run check --workspace --all-targets for build scripts/proc macros. Package/input changes require stop and explicit preparation; never checks on save
   -h, --help                 Print help (see more with '--help')
@@ -30,8 +31,14 @@ Options:
       --project <PROJECT>
           Cargo project root; defaults to the owning checkout
 
-      --features <FEATURES>
+      --backend <BACKEND>
+          Choose one semantic world owner; native snapshots remain explicitly prepared
 
+          Possible values:
+          - lsp:             The explicitly prepared reusable rust-analyzer LSP session
+          - native-snapshot: An explicitly prepared immutable compatible-family HIR/IDE snapshot
+
+          [default: lsp]
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -45,14 +52,17 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
+      --features <FEATURES>
+
+
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
 
-      --no-default-features
-
-
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --no-default-features
+
 
       --target <TARGET>
 

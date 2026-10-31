@@ -12,6 +12,9 @@ const LIMIT: usize = 256 * 1024;
 
 fn literal(node: tree_sitter::Node<'_>, source: &str) -> Option<String> {
     let value = node.utf8_text(source.as_bytes()).ok()?;
+    if node.kind() == "raw_string" {
+        return Some(value.strip_prefix('\'')?.strip_suffix('\'')?.to_owned());
+    }
     if value.contains(['$', '`', '\\']) {
         return None;
     }
@@ -272,6 +275,7 @@ mod tests {
             "rg needle README.md",
             "rg needle .",
             "pse search text needle",
+            "ast-grep run --pattern \"call($A)\" source.rs",
             "ast-grep run --pattern 'call($A)' --update-all source.rs",
         ] {
             assert!(advice(source, Path::new("/repo")).is_none(), "{source}");

@@ -6,6 +6,7 @@ use std::{
     path::Path,
     process::{Command, Output},
 };
+#[cfg(test)]
 fn pse(root: &Path) -> Command {
     let mut command = Command::new(
         std::env::var_os("CARGO_BIN_EXE_pse")
@@ -14,6 +15,7 @@ fn pse(root: &Path) -> Command {
     command.current_dir(root).env("PSE_FORMAT", "json");
     command
 }
+#[cfg(test)]
 fn value(output: Output) -> Value {
     assert!(output.status.success(), "{output:?}");
     serde_json::from_slice(&output.stdout).unwrap()

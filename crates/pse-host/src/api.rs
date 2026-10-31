@@ -437,7 +437,7 @@ fn dependency_source_evidence(
     if graph.version != 1 {
         return Err(invalid("unsupported documentation dependency graph"));
     }
-    let mut pending = graph.roots.iter().copied().collect::<Vec<_>>();
+    let mut pending = graph.roots.to_vec();
     let mut seen = BTreeSet::new();
     let mut packages = BTreeSet::new();
     while let Some(index) = pending.pop() {

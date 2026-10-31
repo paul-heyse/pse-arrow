@@ -478,19 +478,15 @@ impl Selection {
         if self.exclude.is_match(path) || self.types.matched(path, false).is_ignore() {
             return false;
         }
-        if let Some(expected) = selector.tracked {
-            if self
+        if let Some(expected) = selector.tracked
+            && self
                 .tracked
                 .as_ref()
                 .is_none_or(|set| set.contains(path) != expected)
-            {
-                return false;
-            }
-        }
-        if self.changed.as_ref().is_some_and(|set| !set.contains(path)) {
+        {
             return false;
         }
-        true
+        !self.changed.as_ref().is_some_and(|set| !set.contains(path))
     }
     pub(crate) fn descends(&self, path: &Path) -> bool {
         let intersects = |roots: &[PathBuf]| {
@@ -554,10 +550,10 @@ fn visit_selected(
     match &selector.kind {
         SourceKind::Working => {
             for path in &selector.paths {
-                if let Err(error) = fs::symlink_metadata(root.join(path)) {
-                    if !emit(Err(Error::Io(error)))? {
-                        return Ok(());
-                    }
+                if let Err(error) = fs::symlink_metadata(root.join(path))
+                    && !emit(Err(Error::Io(error)))?
+                {
+                    return Ok(());
                 }
             }
             let mut walker = ignore::WalkBuilder::new(root);

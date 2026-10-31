@@ -8,7 +8,10 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
-  compiler           Read retained native compiler diagnostics without rebuilding
+  search             Find source, text, Rust entities and relationships through one typed query
+  inspect            Inspect a known source or an addressed search result without preparation
+  propose            Construct a checked change preview from an exact guarded result
+  compiler           Explicitly generate selected native compiler evidence or run authored compiler probes
   worktree           Create prepared sibling worktrees or inspect native checkout users
   run-all            Attempt every independent Just recipe under one native foreground owner
   tests              Explicitly build/list the actual selected native test population
@@ -16,21 +19,13 @@ Commands:
   check              Check the selected source through the correctness and compiler observation owners
   fixture            Prepare or inspect inputs through the existing native fixture owner
   tools              Explicit captured development-tool preparation, discovery and managed native forwarding
-  affected           Preview conservative changed-source reach through Gitoxide and captured Cargo declarations
   wait               Observe one original managed invocation; an observation timeout leaves it running
   cancel             Stop one authenticated original invocation and inspect its original settlement evidence
   observe            Inspect scientific evidence through an explicitly prepared native product reader
-  explain            Resolve test/check intent without building binaries or preparing runtime inputs
-  owner              Inspect declared generated-output ownership and existing source contributors
-  dep                Inspect exact locked dependency identities, features and direct workspace consumers
-  changes            Inspect changed Git layers, declared source owners and conservative test reach
   docs               Forward documentation operations to the explicitly prepared native owner
-  api                Read exact-context Rust APIs, or explicitly prepare their documentation artifacts
-  code               Query Rust syntax and inspect source-bound change proposals
+  api                Explicitly acquire Rust API artifacts, run compatibility rules or check documentation
+  code               Explicitly prepare, observe or settle a native Rust semantic session
   probe              Create and run an explicitly isolated authored Rust experiment
-  artifact           Read an explicit retained file without interpreting its content as a protocol
-  outline            Read one Rust file's written declarations or a Markdown document's headings
-  show               Read exact original source at FILE::ITEM[::ITEM], preserving ambiguity
   commands           Discover actual command declarations or lazily query one argument's candidates
   help               Inspect one command's native help and public parser metadata
   status             Read independent native checkout, invocation and prepared-tool observations
@@ -45,8 +40,6 @@ Commands:
   env
   activity
   history            Inspect newest invocation metadata without reading historical result payloads
-  result             Read the original immutable result without starting or rebuilding work
-  log                Read a bounded original raw stream with exact byte offsets
   run
 
 Options:
@@ -62,7 +55,10 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
-  compiler           Read retained native compiler diagnostics without rebuilding
+  search             Find source, text, Rust entities and relationships through one typed query
+  inspect            Inspect a known source or an addressed search result without preparation
+  propose            Construct a checked change preview from an exact guarded result
+  compiler           Explicitly generate selected native compiler evidence or run authored compiler probes
   worktree           Create prepared sibling worktrees or inspect native checkout users
   run-all            Attempt every independent Just recipe under one native foreground owner
   tests              Explicitly build/list the actual selected native test population
@@ -70,21 +66,13 @@ Commands:
   check              Check the selected source through the correctness and compiler observation owners
   fixture            Prepare or inspect inputs through the existing native fixture owner
   tools              Explicit captured development-tool preparation, discovery and managed native forwarding
-  affected           Preview conservative changed-source reach through Gitoxide and captured Cargo declarations
   wait               Observe one original managed invocation; an observation timeout leaves it running
   cancel             Stop one authenticated original invocation and inspect its original settlement evidence
   observe            Inspect scientific evidence through an explicitly prepared native product reader
-  explain            Resolve test/check intent without building binaries or preparing runtime inputs
-  owner              Inspect declared generated-output ownership and existing source contributors
-  dep                Inspect exact locked dependency identities, features and direct workspace consumers
-  changes            Inspect changed Git layers, declared source owners and conservative test reach
   docs               Forward documentation operations to the explicitly prepared native owner
-  api                Read exact-context Rust APIs, or explicitly prepare their documentation artifacts
-  code               Query Rust syntax and inspect source-bound change proposals
+  api                Explicitly acquire Rust API artifacts, run compatibility rules or check documentation
+  code               Explicitly prepare, observe or settle a native Rust semantic session
   probe              Create and run an explicitly isolated authored Rust experiment
-  artifact           Read an explicit retained file without interpreting its content as a protocol
-  outline            Read one Rust file's written declarations or a Markdown document's headings
-  show               Read exact original source at FILE::ITEM[::ITEM], preserving ambiguity
   commands           Discover actual command declarations or lazily query one argument's candidates
   help               Inspect one command's native help and public parser metadata
   status             Read independent native checkout, invocation and prepared-tool observations
@@ -99,8 +87,6 @@ Commands:
   env
   activity
   history            Inspect newest invocation metadata without reading historical result payloads
-  result             Read the original immutable result without starting or rebuilding work
-  log                Read a bounded original raw stream with exact byte offsets
   run
 
 Options:

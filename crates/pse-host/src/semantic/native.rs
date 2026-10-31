@@ -488,7 +488,7 @@ impl Engine {
         .map_err(Error::from)
     }
     fn analysis_context(&self) -> AnalysisContext {
-        AnalysisContext {backend:BACKEND.into(),configuration:self.configuration.clone(),position_encoding:"utf-8".into(),backend_status:Some(json!({"quiescent":true,"immutable":true,"actual_target":self.actual_target})),preparation:"explicit immutable Cargo/VFS snapshot; checking/build scripts/proc macros disabled; source/configuration changes require stop and explicit reprepare".into()}
+        AnalysisContext {backend:BACKEND.into(),configuration:self.configuration.clone(),position_encoding:"utf-8".into(),backend_status:Some(json!({"quiescent":true,"immutable":true,"actual_target":self.actual_target,"unicode_identifier_version":unicode_ident::UNICODE_VERSION,"unicode_properties_version":unicode_properties::UNICODE_VERSION})),preparation:"explicit immutable Cargo/VFS snapshot; checking/build scripts/proc macros disabled; source/configuration changes require stop and explicit reprepare".into()}
     }
     pub(super) fn status(&self) -> Result<super::SessionStatus> {
         let current = self.context.check();

@@ -19,6 +19,7 @@ struct Fixture {
     client: PathBuf,
     stopped: std::cell::Cell<bool>,
 }
+#[cfg(test)]
 impl Fixture {
     fn new() -> Self {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -369,6 +370,7 @@ fn acquired_api_requires_the_original_transitive_feature_world_not_only_its_own_
     );
     fixture.stop();
 }
+#[cfg(test)]
 impl Drop for Fixture {
     fn drop(&mut self) {
         if !self.stopped.get() {
@@ -391,6 +393,7 @@ impl Drop for Fixture {
         }
     }
 }
+#[cfg(test)]
 fn value(output: Output) -> Value {
     assert!(output.status.success(), "{output:?}");
     serde_json::from_slice(&output.stdout).unwrap()

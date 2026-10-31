@@ -34,7 +34,12 @@ fn prepared_pse() -> Command {
 }
 fn configured_pse(program: impl AsRef<OsStr>) -> Command {
     let mut command = Command::new(program);
-    command.current_dir(checkout()).env("PSE_FORMAT", "json");
+    // Cargo injects its selected toolchain into tests. Independent child
+    // construction selects the checkout pin; all ownership/placement stays inherited.
+    command
+        .current_dir(checkout())
+        .env("PSE_FORMAT", "json")
+        .env_remove("RUSTUP_TOOLCHAIN");
     command
 }
 fn json(output: &Output) -> serde_json::Value {

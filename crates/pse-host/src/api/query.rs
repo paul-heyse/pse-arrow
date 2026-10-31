@@ -951,10 +951,10 @@ impl SourceRoutes {
                 if import.is_glob || (*use_id != id && import.id != Some(id)) {
                     continue;
                 }
-                if let Some(span) = item.span.as_ref() {
-                    if !spans.contains(&span) {
-                        spans.push(span);
-                    }
+                if let Some(span) = item.span.as_ref()
+                    && !spans.contains(&span)
+                {
+                    spans.push(span);
                 }
             }
         }

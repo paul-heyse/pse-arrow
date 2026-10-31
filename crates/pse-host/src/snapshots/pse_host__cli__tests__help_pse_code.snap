@@ -3,28 +3,12 @@ source: crates/pse-host/src/cli.rs
 expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 ---
 -h
-Query Rust syntax and inspect source-bound change proposals
+Explicitly prepare, observe or settle a native Rust semantic session
 
 Usage: pse code [OPTIONS] <COMMAND>
 
 Commands:
-  session          Explicit reusable semantic session preparation, passive status and original stop
-  explain          Explain selected code through native hover, definition and type resolution
-  symbols          Semantic document symbols, distinct from server-free outline
-  refs             Native semantic references including declarations
-  calls            One-hop incoming and outgoing semantic calls
-  implementations  Native implementation targets; no universal trait-applicability claim
-  macro            Selected macro expansion text with invocation provenance limits
-  tests            Related test candidates; does not run analyzer-supplied commands
-  candidates       Contextual completion candidates, preserving unresolved editing intent
-  hints            Selected native inlay annotations, without dumping the full file
-  hint             Resolve one source/generation-bound native inlay hint lazily
-  candidate        Resolve one source-bound completion candidate, retaining imports and snippet intent
-  predicate        Ask a native trait predicate question; not-proven remains distinct from contradiction
-  edit             Native source-bound semantic edit previews, without filesystem application
-  origin           Follow an exact generated hit to existing declared contributors and regeneration routing
-  query            Enumerate written Rust structural candidates and captures; nested matches remain visible
-  preview          Inspect immutable capture-preserving replacements; selected overlaps refuse and no files change
+  session  Explicit reusable semantic session preparation, passive status and original stop
 
 Options:
   -C <checkout>
@@ -33,28 +17,12 @@ Options:
       --budget <BUDGET>  Limit whole payload records; producer pages retain their omission and continuation facts
   -h, --help             Print help (see more with '--help')
 --help
-Query Rust syntax and inspect source-bound change proposals
+Explicitly prepare, observe or settle a native Rust semantic session
 
 Usage: pse code [OPTIONS] <COMMAND>
 
 Commands:
-  session          Explicit reusable semantic session preparation, passive status and original stop
-  explain          Explain selected code through native hover, definition and type resolution
-  symbols          Semantic document symbols, distinct from server-free outline
-  refs             Native semantic references including declarations
-  calls            One-hop incoming and outgoing semantic calls
-  implementations  Native implementation targets; no universal trait-applicability claim
-  macro            Selected macro expansion text with invocation provenance limits
-  tests            Related test candidates; does not run analyzer-supplied commands
-  candidates       Contextual completion candidates, preserving unresolved editing intent
-  hints            Selected native inlay annotations, without dumping the full file
-  hint             Resolve one source/generation-bound native inlay hint lazily
-  candidate        Resolve one source-bound completion candidate, retaining imports and snippet intent
-  predicate        Ask a native trait predicate question; not-proven remains distinct from contradiction
-  edit             Native source-bound semantic edit previews, without filesystem application
-  origin           Follow an exact generated hit to existing declared contributors and regeneration routing
-  query            Enumerate written Rust structural candidates and captures; nested matches remain visible
-  preview          Inspect immutable capture-preserving replacements; selected overlaps refuse and no files change
+  session  Explicit reusable semantic session preparation, passive status and original stop
 
 Options:
   -C <checkout>

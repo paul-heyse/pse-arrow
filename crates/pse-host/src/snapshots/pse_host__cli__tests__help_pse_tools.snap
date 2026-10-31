@@ -12,6 +12,7 @@ Commands:
   catalog       Read the selected native parser's retained catalogue, with captured-source limits
   owner-schema  Read the actual retained native document-owner response schema
   run           Run exact arguments through the selected native parser under managed ownership
+  protocol      Read the original fixed semantic protocol schemas from a captured helper
 
 Options:
   -C <checkout>
@@ -29,6 +30,7 @@ Commands:
   catalog       Read the selected native parser's retained catalogue, with captured-source limits
   owner-schema  Read the actual retained native document-owner response schema
   run           Run exact arguments through the selected native parser under managed ownership
+  protocol      Read the original fixed semantic protocol schemas from a captured helper
 
 Options:
   -C <checkout>

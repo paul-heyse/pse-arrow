@@ -41,6 +41,7 @@ async fn interrupt_settles_search_while_an_open_stdout_reader_is_stalled() {
     drop(reader);
 }
 
+#[cfg(test)]
 fn run(root: &Path, args: &[&str]) -> Value {
     let output = Command::new(env!("CARGO_BIN_EXE_pse"))
         .current_dir(root)
@@ -61,7 +62,7 @@ fn unreadable_source_retains_readable_witness_and_partial_scope() {
     std::fs::write(root.path().join("readable.txt"), "needle\n").unwrap();
     let denied = root.path().join("denied.txt");
     std::fs::write(&denied, "needle\n").unwrap();
-    std::fs::set_permissions(&denied, std::fs::Permissions::from_mode(0)).unwrap();
+    std::fs::set_permissions(&denied, std::fs::Permissions::from_mode(0o0)).unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_pse"))
         .current_dir(root.path())
         .args(["search", "--all", "text", "needle", "--format", "json"])
