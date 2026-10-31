@@ -3,6 +3,36 @@
 use super::*;
 
 #[tokio::test]
+async fn native_cancel_hook_releases_actual_work_without_cancelling_sibling() {
+    use std::sync::{Arc, Condvar, Mutex};
+    let parent = CancellationToken::new();
+    let sibling = parent.child_token();
+    let release = Arc::new((Mutex::new(false), Condvar::new()));
+    let worker_release = release.clone();
+    let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+    let mut task = spawn_cpu(parent.clone(), move |token| {
+        started_tx.send(()).unwrap();
+        let (flag, ready) = &*worker_release;
+        let mut released = flag.lock().unwrap();
+        while !*released {
+            released = ready.wait(released).unwrap();
+        }
+        token.is_cancelled()
+    })
+    .with_cancel_hook(move || {
+        let (flag, ready) = &*release;
+        *flag.lock().unwrap() = true;
+        ready.notify_all();
+    });
+    started_rx.await.unwrap();
+    assert!(task.settle().now_or_never().is_none());
+    task.cancel();
+    assert!(task.settle().await.unwrap());
+    assert!(!parent.is_cancelled());
+    assert!(!sibling.is_cancelled());
+}
+
+#[tokio::test]
 async fn declaration_budget_applies_across_nested_entries_and_all_operand_outcomes_remain() {
     let root = tempfile::tempdir().unwrap();
     let first = root.path().join("first.rs");

@@ -51,11 +51,21 @@ pub struct Report {
 /// parse and supplies no completion proof. Keep it and await `settle` after cancel
 /// when actual CPU completion is required.
 #[must_use = "retain and settle the CPU operation; dropping an awaiter does not stop Rayon work"]
-#[derive(Debug)]
 pub struct CpuTask<T> {
     completion: Option<tokio_rayon::AsyncRayonHandle<T>>,
     cancellation: CancellationToken,
     redaction: RedactionPolicy,
+    cancel_hook: Option<Box<dyn Fn() + Send + Sync>>,
+}
+impl<T> std::fmt::Debug for CpuTask<T> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("CpuTask")
+            .field("pending", &self.completion.is_some())
+            .field("cancellation", &self.cancellation)
+            .field("has_cancel_hook", &self.cancel_hook.is_some())
+            .finish_non_exhaustive()
+    }
 }
 /// Shared completion owner specialized to addressed outline batches.
 pub type BatchTask = CpuTask<Envelope<Report>>;
@@ -63,6 +73,19 @@ impl<T> CpuTask<T> {
     /// Request that not-yet-started files be skipped; an in-progress parse finishes normally.
     pub fn cancel(&self) {
         self.cancellation.cancel();
+        if let Some(hook) = &self.cancel_hook {
+            hook();
+        }
+    }
+    /// Attach the submitted native operation's cancellation mechanism to this owner.
+    /// The hook must be nonblocking, idempotent and nonpanicking. Cancellation still
+    /// requires `settle` for completion; this does not add a watcher for parent tokens.
+    pub fn with_cancel_hook(mut self, hook: impl Fn() + Send + Sync + 'static) -> Self {
+        if self.cancellation.is_cancelled() {
+            hook();
+        }
+        self.cancel_hook = Some(Box::new(hook));
+        self
     }
     /// Wait for actual completion without moving the worker handle into this future.
     /// Cancelling this borrow leaves the handle available for another settle call.
@@ -106,6 +129,7 @@ where
         completion: Some(tokio_rayon::spawn(move || work(worker_token))),
         cancellation,
         redaction: RedactionPolicy::from_environment(),
+        cancel_hook: None,
     }
 }
 #[cfg(test)]
@@ -183,6 +207,7 @@ where
         completion: Some(completion),
         cancellation,
         redaction,
+        cancel_hook: None,
     }
 }
 /// Eagerly submit selected files to the existing shared Rayon pool, without a new pool or cap.
@@ -350,6 +375,7 @@ pub fn start_page(
         completion: Some(completion),
         cancellation,
         redaction,
+        cancel_hook: None,
     }
 }
 /// Human batch reading retains each failure/skipped position as well as successful structures.

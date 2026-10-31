@@ -1024,7 +1024,7 @@ impl DiagnosticEvidence {
                 location: path.into(),
                 digest: None,
             });
-            response.next.push(NextAction::Command {argv:vec!["pse".into(),"artifact".into(),"read".into(),path.into(),"--offset".into(),self.address.origin.byte_offset.to_string(),"--length".into(),self.address.origin.byte_length.to_string()],reason:"read the original retained JSON bytes; artifact extent and original compilation outcome remain separate".into()});
+            response.next.push(NextAction::Command {argv:vec!["pse".into(),"inspect".into(),"artifact".into(),path.into(),"--offset".into(),self.address.origin.byte_offset.to_string(),"--length".into(),self.address.origin.byte_length.to_string()],reason:"read the original retained JSON bytes; artifact extent and original compilation outcome remain separate".into()});
         }
         if next < count {
             response.observation.completeness = Completeness::Partial;
@@ -1148,6 +1148,16 @@ mod tests {
             .page(Path::new("/fixture"), None, allowance(2), true, false)
             .unwrap();
         assert_eq!(first.exit_code(), 0);
+        for action in &first.next {
+            if let NextAction::Command { argv, .. } = action {
+                use clap::Parser as _;
+                crate::cli::Cli::try_parse_from(argv).unwrap_or_else(|error| {
+                    panic!(
+                        "original diagnostic action must use the current grammar: {argv:?}: {error}"
+                    )
+                });
+            }
+        }
         assert_eq!(first.payload.total_related_records, 4);
         assert!(first.payload.records[0].span.as_ref().unwrap().is_primary);
         assert!(!first.payload.records[1].span.as_ref().unwrap().is_primary);
