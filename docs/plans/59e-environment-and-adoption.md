@@ -1,16 +1,25 @@
 ---
 title: "Plan59e: Environment and adoption"
 status: active
-date: 2026-10-29
+date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, documentation]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
 ---
 
 # Environment and adoption
 
 Part of [Plan59](59-agent-cli.md).
+
+## Current extension — delivered search adoption, 2026-10-31
+
+**Proposed:** [E06](#e06) carries the operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
+adoption through actual `search`/`inspect`/`propose` deliveries. The [coordinator](59-agent-cli.md)
+owns the combined target and [59m](59m-composed-rust-investigations.md) owns assembled migration
+slices. E06 follows useful public delivery rather than advertising planned syntax. Completed
+E03–E05 evidence remains at its original scope; fresh-client search adoption is new acceptance.
+E01 stays in progress with its existing removal safety scope, independent of this extension.
 
 The current target incorporates the [CLI/test/runtime review](../functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md)
 O01/O11. The coordinator owns its dispositions and confirmed rule decisions; historical
@@ -164,6 +173,38 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 | [E03](#e03) | complete | 59e | Native test/runtime/source/product/semantic/API/compiler/worktree guidance and generated reference published; actual implementation and diagnosis use delivered verbs. Deferred commands are not advertised |
 | [E04](#e04) | complete | 59e | Current-work pointer links native status owners; lifecycle validate passed with zero errors |
 | [E05](#e05) | complete | 59e | Edit guidance in AGENTS.md and `.claude/rules/tooling.md` |
+| [E06](#e06) | planned | 59e | Migrate skill/guides/reference/advisory suggestions with actual M03 public slices; demonstrate fresh-client adoption of delivered search |
+
+<a id="e06"></a>
+### E06 — Adopt delivered search and retire displaced guidance
+
+**Consumes:** actual public slices delivered through [M03](59m-composed-rust-investigations.md#m03),
+including their parser-owned discovery/schema, useful examples and retired-route list. E06 can
+ship with each ready slice; M03 does not depend on E06 and is not blocked by later client adoption.
+Final series qualification consumes both delivered behavior and E06 adoption evidence.
+
+**Delivers:** update `pse-cli`, its focused references, the native operating guide, generated
+command reference and relevant role/agent guidance to prefer the delivered intents. Teach direct
+known-file inspection, source/result/evidence locators, modest first answers with useful expansion,
+explicit context and preparation, current versus retained evidence and proposal inspection before
+ordinary edits. Retain intentional external-tool escape hatches until actual journeys establish
+displacement. Preparation/control and test execution remain explicit rather than hidden behind search.
+
+Move repository-local advisory suggestions to useful delivered capabilities in the same slice.
+Do not blanket warn on every `rg` or read, enforce adoption, infer intent from an arbitrary shell
+pipeline or recommend a mode before it exists. Preserve the existing bounded advisory-hook
+contract and native trust/review requirement when hook definitions change. No global Codex,
+MCP or direnv change is selected. New command reference is generated from its parser owner.
+
+**Planned verification and deletion:** a fresh Codex/Claude client discovers and completes an
+unfamiliar-subsystem search→inspect journey and a useful refinement using delivered guidance;
+verify reminder behavior in the actual host where applicable. Preserve any failed or unavailable
+host-attachment evidence rather than treating unit/snapshot checks as client adoption. Remove
+displaced guide examples, skill routes and obsolete advisory suggestions with their replacement;
+do not remove distinct useful external capabilities by instruction. Narrow documentation/agent
+wiring checks establish only their own scope. Quantitative benefit claims need representative
+measurements; this package requires no broad performance campaign. No fresh client/product
+tests are run merely for this plan amendment.
 
 ### CLI adoption amendment — 2026-10-31
 

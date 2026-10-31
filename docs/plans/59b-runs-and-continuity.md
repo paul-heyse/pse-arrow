@@ -1,16 +1,25 @@
 ---
 title: "Plan59b: Runs and continuity"
 status: active
-date: 2026-10-30
+date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
 ---
 
 # Runs and continuity
 
 Part of [Plan59](59-agent-cli.md).
+
+## Current extension — search transport, 2026-10-31
+
+**Proposed:** [B06](#b06) integrates the operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
+O05/O06/O14 with existing physical process/output ownership. The [coordinator](59-agent-cli.md)
+owns the current combined target; [59k](59k-query-and-result-foundations.md) owns the shared
+query/result contract. Completed B01–B05 and their evidence remain complete at their original
+scope. Their native ownership is reused, not reopened or replaced by a generic search supervisor.
+The new package is planned; this amendment changes no production transport or test result.
 
 This plan gives agents owned CLI invocations instead of `/tmp` logs polled with `tail` and `ps`.
 The `run` verb remains the launcher; its invocation identity is distinct from scientific runs,
@@ -218,6 +227,38 @@ no configuration or data deletion. Focused result/source links remain independen
 | [B03](#b03) | complete | 59b | One original service contains wrapper/payload/descendants, with finite reservation before birth. Real ordinary/finite exit/cancel/main-crash, allocation-fault/live-gate, byte and detached-test→wait journeys pass; old generic subtree/recovery protocols are deleted |
 | [B04](#b04) | complete | 59b | Synchronous `run-all` preserves original per-child outcomes and parent/session identity in one native unit. Native `--justfile` supports explicit recipe files. Failed/incomplete/successful sibling controls pass; aggregate callers migrated and private recipe deleted |
 | [B05](#b05) | complete | 59b | Explicit/environment/harness precedence, session-local latest, checkout-wide history override and independent exact IDs pass focused, public and integrated controls. Correlation grants no native stop authority; no packet hooks added |
+| [B06](#b06) | planned | 59b | Integrate K02 typed search events with owned per-record delivery, cancellation and settlement; K03 consumes the working transport |
+
+<a id="b06"></a>
+### B06 — Search record streaming and output settlement
+
+**Consumes:** [K02](59k-query-and-result-foundations.md#k02)'s implemented typed event/result
+contract and A10's published governing changes. K02 supplies the records, source/context
+references, finality/order and coverage meanings; B06 supplies working delivery before
+[K03](59k-query-and-result-foundations.md#k03) assembles configured streaming. This separates
+the event contract from transport integration without a K03/B06 cycle.
+
+**Delivers:** connect demand-driven producers to a whole-record writer using the existing
+Tokio/Rayon cancellation and native ownership paths. Emit useful results as admitted work
+produces them, with pending-reorder/partial/final distinctions and a terminal coverage summary.
+Do not first collect a full result vector or `Value` merely to serialize NDJSON. Buffer the
+current complete record and only the state required by declared ordering. A closed consumer,
+blocked output or cancellation settles admitted workers and owned I/O; dropping a future does
+not prove that blocking scans stopped. Required capture and original outcomes remain separate
+from optional progress on stderr. An interrupted partial frame cannot become a complete result.
+
+Retain B01 foreground and B03 explicit detached-service ownership. Search does not gain
+implicit detachment, a second task registry, a durable result database or mandatory exhaustive
+retention. Independently requested retention uses its existing evidence owner. Reuse the F03
+output lessons without making product observation part of ordinary source-search admission.
+
+**Planned verification and deletion:** targeted producer/writer controls cover early results,
+first-N versus exact totals, no-match input cancellation, oversized indivisible records,
+partial output, full/closed pipes, slow readers and joined cancellation. A public configured
+search proves live records and terminal coverage through K03/M03. Remove replaced collected
+search serialization, queue/task plumbing and its callers/tests in the proving slice. Preserve
+raw invocation evidence and useful existing output owners. Integrated/static qualification is
+at series scope end; no product test is run for this documentation amendment.
 
 <a id="b01"></a>
 ### B01 — Foreground operations and retained results

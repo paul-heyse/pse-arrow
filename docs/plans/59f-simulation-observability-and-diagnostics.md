@@ -1,15 +1,43 @@
 ---
 title: "Plan59f: Simulation observability and diagnostics"
 status: active
-date: 2026-10-29
+date: 2026-10-31
 adrs: [ADR-0233]
-review_sources: [docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
+review_sources: [docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [architecture, design, libraries, environment, validation]
 ---
 
 # Simulation observability and diagnostics
+
+## Search extension impact assessment — 2026-10-31
+
+The [coordinator](59-agent-cli.md) owns the operator-confirmed [search-review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
+extension; [59k](59k-query-and-result-foundations.md) owns the new typed search/result views,
+[B06](59b-runs-and-continuity.md#b06) their stream transport and
+[D10](59d-knowledge-and-workflow-verbs.md#d10) passive evidence-locator integration.
+**Proposed assessment:** no new F package is selected. Search-result compaction and delivery
+can reuse existing source/evidence and output owners without changing F's product-reader
+protocol, scientific context, observation continuation or capture admission. F01–F06 remain
+completed at their recorded acceptance scope; neither new search behavior nor broader
+scientific qualification is inferred from that evidence.
+
+The preserved contract includes original scientific and invocation identity, operation outcome
+separate from observation/delivery success, units and nonfinite/unavailable categories, native
+association limits, retained-history versus current-checkpoint distinctions, source/coverage
+gaps, expiry, explicit investigation effects and observer cancellation without scientific control.
+`inspect` evidence locators do not reconstruct or republish these facts, start a product reader
+implicitly or acquire control. B06 owns search delivery; F03's existing product follow remains
+its tested owner rather than another dependency of ordinary source discovery.
+
+If K01/A10 later select an actual change to a shared view consumed by F, first add a bounded
+F07 with that exact changed contract, governing publication dependency and affected consumers.
+Its acceptance must challenge preserved scientific/observation distinctions and reuse the
+relevant actual product-observation controls; delete only the replaced shared-view plumbing,
+callers and tests in the proving slice. This condition does not reopen F01–F06, authorize
+production changes or introduce a recurrence gate. No F07 or fresh product test is needed for
+this documented impact assessment.
 
 ## Purpose and assessed foundation
 

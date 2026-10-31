@@ -1,14 +1,27 @@
 ---
 title: "Plan59a: CLI foundation"
 status: active
-date: 2026-10-30
+date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
 ---
 
 # CLI foundation
+
+## Current extension — search contracts, 2026-10-31
+
+**Proposed:** the operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
+adds `search`, `inspect` and `propose`, replaces their displaced passive routes, and changes
+the physical result representation while preserving identity, meaning, outcome and coverage.
+The [coordinator](59-agent-cli.md) owns the current combined target and rule decisions;
+[59k](59k-query-and-result-foundations.md) owns the typed query/result implementation.
+A10 publishes the governing changes after K01's design assessment and before K02 implements
+them. A11 and A12 independently publish any native-provider amendments selected by G11 or I06.
+These are new planned packages, not additional completion credit for A01–A09. Earlier targets
+and outcomes below retain their original scope; this section and the added packages govern
+the extension. Plan authoring changes no ADR, architecture, production code or agent instruction.
 
 Part of [Plan59](59-agent-cli.md). This plan establishes the contracts every later verb
 consumes:
@@ -229,6 +242,63 @@ feature choices are exactly the review's
 | [A07](#a07) | complete | 59a | Proposed ADR-0233/blueprint315 published and scoped formal review accepts that target at Proposed strength; proposed ADR-0234/blueprint316 refines nested invocation ownership; runtime obligations remain with consumers |
 | [A08](#a08) | complete | 59a | Proposed ADR-0233/0234 and blueprint317 publish accepted RC01–RC04; independent focused target advice found no required correction, not formal acceptance or runtime qualification |
 | [A09](#a09) | complete | 59a | Proposed ADR-0233/0234 and blueprint318/319 publish the operator-confirmed review target and command adoption. Governing owners/dependencies agree; native runtime evidence is recorded by the wave Outcome, independently of formal ADR acceptance |
+| [A10](#a10) | planned | 59a | Publish search/inspect/propose and compact result/stream governing amendments after K01 design; K02 consumes the published contract |
+| [A11](#a11) | planned, conditional | 59a | Publish only governing amendments required by G11's selected native analyzer path; independent of the compiler investigation |
+| [A12](#a12) | planned, conditional | 59a | Publish only governing amendments required by I06's selected compiler-driver path; independent of the analyzer investigation |
+
+<a id="a10"></a>
+### A10 — Publish the shared query, command and result contracts
+
+**Consumes:** the operator's 2026-10-31 consolidation and compact-wire confirmations,
+search-review O05/O06/O13 and [K01](59k-query-and-result-foundations.md#k01)'s settled design.
+K01 may assess the target before publication; [K02](59k-query-and-result-foundations.md#k02)
+production implementation requires the resulting governing contract.
+
+**Delivers:** use the normal ADR/design-review and architecture-revision routes to publish
+the three public intents, replacement rather than compatibility aliases, typed explicit
+locators and compact addressed results. Preserve blueprint §23.2's identity, command outcome,
+subject outcome, provenance and coverage meaning while permitting shared source/context
+tables and compact records. Publish whole-record streaming with terminal coverage, declared
+ordering/finality and truthful interrupted delivery; a smaller page does not imply exhaustive
+examination. Effectful preparation, compiler probes, execution and control remain explicit.
+Schemas and generated command reference follow their typed owners rather than a second schema.
+
+**Acceptance and retirement:** inspect governing owners for agreement with K01, including
+known-path inspection without search, partial/unknown/no-match distinctions and source-bound
+continuation premises. Replace superseded governing wording through its permitted route;
+do not edit accepted ADRs in place. This package publishes contracts, not a runtime pass.
+K02/K03 and their consumers own the targeted tests and route deletions; no fresh product test
+or comprehensive qualification is required merely to author this plan.
+
+<a id="a11"></a>
+### A11 — Publish a selected native analyzer contract amendment
+
+**Consumes:** [G11](59g-rust-semantic-intelligence.md#g11)'s bounded feasibility decision and
+its selected native analyzer realization, only if it changes a governing contract. It does
+not wait for I06 or A12. The current analyzer owner remains the useful baseline until a
+replacement has its own acceptance.
+
+**Delivers and acceptance:** publish the necessary provider/binding, preparation, context,
+identity and lifecycle changes through the normal decision/design route before dependent
+G12 production. Preserve syntax-only, semantically confirmed and unavailable facts separately.
+If G11 selects the existing path or no governing change, record that disposition and add no
+amendment. A selection is not implementation or a semantic qualification claim. Any replaced
+governing wording retires with its successor; G12 owns old provider/caller/test deletion.
+
+<a id="a12"></a>
+### A12 — Publish a selected compiler-driver contract amendment
+
+**Consumes:** [I06](59i-compiler-investigations.md#i06)'s bounded native-driver
+decision, only if its selected realization changes a governing contract. It does not wait
+for G11 or A11; ordinary search and the existing compiler tools remain independently usable.
+
+**Delivers and acceptance:** publish necessary compiler binding, phase/context, preparation
+and diagnostic/source-identity amendments through the normal ADR/design route before I07
+production depends on them. Preserve original compiler evidence and explicit new experiment
+effects. If no changed governing contract is selected, record that disposition without an
+amendment. Retire replaced governing wording with its successor; I07 owns implementation,
+targeted verification and replaced driver/caller/test removal. Neither investigation creates
+a recurrence threshold or a global release gate for unrelated search delivery.
 
 <a id="a01"></a>
 ### A01 — Land the accepted rule changes

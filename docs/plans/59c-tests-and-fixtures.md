@@ -1,14 +1,23 @@
 ---
 title: "Plan59c: Tests and fixtures"
 status: active
-date: 2026-10-30
+date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, validation]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
 ---
 
 # Tests and fixtures
+
+## Current extension — search-to-test handoff, 2026-10-31
+
+**Proposed:** [C10](#c10) connects the operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
+O07/O10/O11 to the retained inventory and affected-selection owners. The [coordinator](59-agent-cli.md)
+owns the combined target; [59k](59k-query-and-result-foundations.md) owns result locators and
+[59m](59m-composed-rust-investigations.md) owns composed public journeys. Existing C01–C09
+completion and evidence remain at their original scope. The new bridge does not make related
+tests sufficient verification or turn passive inspection into test compilation or execution.
 
 Part of [Plan59](59-agent-cli.md). This plan adds intent-level `pse test`, `pse check` and
 `pse tests` verbs that work out their own features, native capabilities, force-validation,
@@ -257,6 +266,33 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 | [C07](#c07) | complete | 59c | Native target/feature/absence selection and policy-owned group membership pass focused and integrated tests. Only incompatible contexts sharing an exclusion sequence; other contexts remain concurrent. Future semantic consumers retain their own acceptance |
 | [C08](#c08) | complete | 59c | Named pure reader target, phase/context explanations and native Cargo timing links are delivered and tested. Existing wall durations/native stage attribution survive real concurrent producers. Two-stage cold bootstrap retained by bounded decision; no speedup claim |
 | [C09](#c09) | complete | 59c | assert_cmd wraps actual outputs; semantic JSON/exit/capture assertions and reviewed Clap snapshots pass. Proptest covers arbitrary byte chunks/bounds/EOF independently. Full host 579/579 passes; native ownership remains tested through real kernel/service journeys |
+| [C10](#c10) | planned | 59c | Resolve search/test-evidence locators through C05/C07 and conservative affected selection; preserve candidate/listed/selected/executed distinctions |
+
+<a id="c10"></a>
+### C10 — Bridge addressed search results to retained test evidence and selection
+
+**Consumes:** [K02](59k-query-and-result-foundations.md#k02)'s implemented locators and source/
+context guards, C05 retained inventories and C07 resolved native selection. Semantic candidate
+producers can connect when their own delivered contract is ready; lexical/syntax/source handoff
+does not wait for G11/I06. Retained inventory inspection needs no fresh listing or fixture setup.
+
+**Delivers:** inspect original retained populations, test failure records and original compiler/
+invocation evidence through typed `inspect` locators. Bridge a search result, related-test
+candidate or proposed change to C03's conservative affected explanation and C05/C07's real
+package/binary/test/features/platform/ignored-policy identities. A stale or absent test remains
+stale or absent; duplicate names and ambiguous contexts require explicit selection. Candidate,
+retained listing, current listing, selected execution and actual outcome remain different facts.
+Missing semantic relationships cannot establish adequate reduced coverage. Explicit `tests`
+continues to own fresh compilation/listing; `test` owns execution, fixtures and force-validation.
+
+**Planned verification and deletion:** targeted bridge controls challenge stale/foreign
+locators, same-spelled tests in different binaries, cfg/feature changes, retained population
+inspection without compilation and a candidate absent from the current inventory. M03's actual
+trait-method journey must navigate result→proposal→real selection without executing implicitly.
+Delete displaced passive test-evidence parser branches, caller conversion glue and tests when
+their public replacement passes; preserve distinct compilation/listing and execution workflows.
+The bridge adds no second inventory, runner or selection authority. No new product tests are
+performed for this plan-writing revision; assembled qualification remains with the coordinator.
 
 <a id="c01"></a>
 ### C01 — One capability declaration

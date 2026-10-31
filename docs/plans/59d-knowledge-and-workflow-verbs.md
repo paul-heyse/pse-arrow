@@ -1,16 +1,27 @@
 ---
 title: "Plan59d: Knowledge and workflow verbs"
 status: active
-date: 2026-10-29
+date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
-review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
 ---
 
 # Knowledge and workflow verbs
 
 Part of [Plan59](59-agent-cli.md).
+
+## Current extension — passive route consolidation, 2026-10-31
+
+**Proposed:** [D10](#d10) migrates useful source/dependency/history/owner inspection into the
+operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
+target. The [coordinator](59-agent-cli.md) owns the combined target and rule decisions;
+[59k](59k-query-and-result-foundations.md) owns common query/result contracts and
+[59l](59l-repository-discovery-and-content-search.md) owns repository selection and content
+search. Completed D packages keep their evidence and producer responsibilities. New public
+routes replace old ones only when the useful behavior has a working replacement. D05/D08
+remain deferred; search consolidation does not revive citation/scaffold or commit work.
 
 The current target incorporates the [CLI/test/runtime review](../functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md)
 O01/O03. The coordinator owns its dispositions and confirmed rule decisions; historical
@@ -173,6 +184,39 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 | [D07](#d07) | complete | 59d | Complete parser-derived reference generated and reviewed; full nine-target regeneration and drift check pass. Discovery annotation preserves native positional order |
 | [D08](#d08) | deferred | 59d | Operator-confirmed deferral; D09 investigation retained, no commit CLI implementation required |
 | [D09](#d09) | complete | 59d | Native Git transaction strategy selected with 11 passing disposable-repository probes; D08 runtime acceptance remains outstanding |
+| [D10](#d10) | planned | 59d | Move passive source/dependency/history/owner consumers to K02/L01 search and inspect; retire replaced public routes with working replacements |
+
+<a id="d10"></a>
+### D10 — Cut over passive reads without moving their authorities
+
+**Consumes:** [K02](59k-query-and-result-foundations.md#k02)'s working typed query/result and
+explicit-locator contract, [L01](59l-repository-discovery-and-content-search.md#l01)'s source
+universe, and the delivered D01/D02/D03/D06 producers. Source, dependency, Git and document
+owners continue to establish their original facts. Historical and structured search adapters
+arrive through their L packages; their absence does not block an earlier ready source slice.
+
+**Delivers:** route known-path/range/position/declaration reads, working/index/revision source,
+dependency identity/feature/inclusion and selected-unit facts, source-qualified changes, useful
+Git history, generated ownership and authored owner information through `search`/`inspect`.
+Known files do not require a prior search. Original compiler diagnostics, logs/artifacts and
+retained test populations use typed evidence locators, preserving original versus current
+source/context distinctions and private-evidence access controls. Generated hits lead to their
+declared generator or authored owner; undeclared ownership stays unknown. No old revision is
+quietly interpreted using current semantics.
+
+Keep explicit API acquisition, compiler generation/probes, analyzer preparation, documentation
+checks, code generation, test listing/execution and native control with their effectful owners.
+Discovery/help/schema remain adjacent interfaces. Do not migrate a passive name by deleting
+an unmatched capability, or duplicate a source/history/ownership database under the host.
+
+**Planned verification and deletion:** in each delivered slice test direct known-file reads,
+index/revision and changed-working-source guards, generated-to-authored navigation, ambiguous
+dependency contexts and unavailable original evidence. Use actual public commands for the
+generated/historical and compiler-evidence journeys in M03. Move every useful caller, then
+remove its displaced passive route, parser branch, renderer conversion and tests in that same
+proving slice; update E06 guidance with the delivered migration. Retain effectful routes with
+distinct effects. D10 is a consumer migration, not renewed credit for D01–D09 or qualification
+of new providers. No fresh product tests accompany this documentation-only amendment.
 
 <a id="d01"></a>
 ### D01 — Focused changed-path facts
