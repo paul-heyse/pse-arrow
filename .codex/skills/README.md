@@ -13,6 +13,11 @@ aliases expose the same sources to both runtimes. `just agent-config-sync` only 
 aliases on Windows when directory symlinks are unavailable and preserves live library links.
 It never generates or overwrites native agent adapters.
 
+[pse-cli](pse-cli/SKILL.md) is the local capability skill for selecting native investigation,
+correctness and managed-run commands. Its short entrypoint routes to deeper code-intelligence
+guidance only when useful. The existing aliases expose it to both runtimes; it adds no wrapper
+or external library-skill selection.
+
 | Process skill | Use |
 |---|---|
 | [leverage-codebase-audit](leverage-codebase-audit/SKILL.md) | Identify concrete codebase opportunities for library leverage and refresh their living account |

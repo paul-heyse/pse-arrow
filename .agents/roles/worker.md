@@ -46,6 +46,11 @@ explicit force-validation feature on correctness tests. Run ad hoc commands thro
 conformance, parity and linked-Python work): it supplies the checkout environment and a
 supervised scope with the resource policy selected by the environment owner.
 
+Use the [pse-cli skill](../../.codex/skills/pse-cli/SKILL.md) when choosing native investigation,
+correctness or managed-run capabilities. Prefer it where its source identity, actual fixture
+and process ownership or original results help the assignment; raw tools remain available.
+Read the deeper code-intelligence reference only for the question at hand.
+
 **Skills and library documentation.** Load the relevant local process skill before its
 workflow. Native solver work additionally uses the active native-solver-libraries skill.
 Other central library skills are inactive references listed in .codex/skills/README.md; they

@@ -11,6 +11,12 @@ archive/reuse controller and measurement drivers are retired. Required remaining
 belong to [Plan58](../plans/58-rust-owned-system.md), especially H. This guide describes
 commands and evidence limits, not a claim that full qualification has completed.
 
+The local `pse-cli` skill (source: `.codex/skills/pse-cli/SKILL.md`) helps select useful native
+checks, investigations and original-result readers. Prefer those routes when their actual
+correctness selection, fixtures and native process ownership fit the task; raw tools remain
+available under the same environment and force-validation obligations. This guide owns the
+qualification meaning of the resulting evidence.
+
 ## What each command establishes
 
 | Command | Scope established by successful execution | Exclusions |

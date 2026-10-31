@@ -16,6 +16,11 @@ paths:
 The mechanics are in [the agent environment guide](../../docs/dev/agent-environment.md);
 keep it accurate when you change them.
 
+Use the [pse-cli skill](../../.codex/skills/pse-cli/SKILL.md) to choose native capabilities
+for the current question. Prefer `pse` where its correctness, fixture, process and result
+ownership fits; raw tools remain available. Native activation exposes the existing
+`scripts/pse` launcher through the checkout `scripts/` entry on `PATH`.
+
 - **One environment boundary.** Recipes, direnv, the Claude SessionStart hook and the native
   helpers all take their environment from native `pse-host::environment` through
   `scripts/pse-env`. Add defaults there, not in a recipe or a second script, and keep the
@@ -46,6 +51,9 @@ keep it accurate when you change them.
   fix; keep a command's own exit status and signals intact.
 - **Hooks.** `scripts/pse-host agent-hook` owns edit guarding and session activation
   (`just lint-agents` checks the wiring). Prepare the native host explicitly before use.
+  Its shared `tooling-advice` handler adds `additionalContext` for matched Bash commands in
+  Codex and Claude Code, always exits zero, and never blocks or rewrites the command. Codex
+  requires native `/hooks` review/trust of changed definitions; do not bypass that review.
   End-of-turn automation stays removed (ADR-0161).
 - **Edits.** Prefer `apply_patch`/`Edit`. Repeated structural Rust rewrites use ast-grep, for
   example `ast-grep run -l rust --pattern 'checkout_root()' --rewrite 'ctx.root()' --update-all

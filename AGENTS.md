@@ -107,15 +107,12 @@ scripts/pse-env --explain   # what environment and placement a command would get
 just bootstrap              # only if `just ready` reports a failure -- idempotent
 ```
 
-For focused investigation, use the [native workflow guide](docs/dev/agent-environment.md):
-
-| Need | Native route |
-| --- | --- |
-| Written source, syntax query or immutable preview | `pse outline`, `show`, `code query`, `code preview`; no semantic session |
-| Resolved references, calls, candidates or semantic edit preview | Explicit `pse code session prepare`, then the selected `code` verb |
-| Exact-context library API or dependency/compiler-unit facts | `pse api`, `pse dep`; acquisition and compatibility execution are explicit |
-| Original compiler failure or selected new compiler artifact | `pse compiler diagnostics`/`diagnostic`; explicit `generate`/`probe` for new evidence |
-| Active calculation inspection and observation | Explicit `pse observe prepare`, then `query`, `discover` or `follow` |
+Use the [pse-cli skill](.codex/skills/pse-cli/SKILL.md) to select useful native capabilities
+for investigation and implementation. Prefer `pse` when its correctness selection, fixtures,
+process ownership and original results fit the task; bare tools remain first-class. The native
+environment puts `scripts/` on `PATH`, exposing the existing `scripts/pse` launcher as `pse`.
+The [native workflow guide](docs/dev/agent-environment.md) owns detailed command and preparation
+mechanics; help and reads never prepare capabilities implicitly.
 
 Recipes are shortcuts, not gates: they carry feature flags, profiles, report paths and
 tool paths, so use one when it fits. A composed recipe supports a mode across every stage
@@ -334,6 +331,11 @@ receive workflow context rather than a permission marker: record architecture re
 apply. The generated ownership map comes from `just codegen`; if unavailable, generated
 directories and the exact bindings file remain protected. Neither guard is a shell sandbox,
 so follow the same policy for every action.
+
+The shared native `agent-hook tooling-advice` hook adds relevant `pse` guidance to matched Bash
+commands in Codex and Claude Code. It is advisory, returns `additionalContext` and exits zero;
+it does not block or rewrite commands. Changed Codex hook definitions require native `/hooks`
+review/trust before activation. See the environment guide's hooks section.
 
 ## Personal-project checkout workflow
 

@@ -25,6 +25,9 @@ Refresh the current baseline where it affects the next work, especially concurre
 prerequisite availability. Use the current plan, current-work index and active packet checkpoint
 relevant to the task, repository instructions and actual tree to establish what remains.
 Delegated workers use their brief and relevant owners and may follow discovered dependencies.
+Use [pse-cli](../pse-cli/SKILL.md) to select useful native source, semantic, API/compiler,
+correctness and run/result capabilities as implementation questions arise; load only the
+relevant deeper guidance and retain explicit preparation boundaries.
 Preserve concurrent work; distinguish accepted decisions, implemented prerequisites and proposals.
 Prior receipts retain their original date and scope.
 

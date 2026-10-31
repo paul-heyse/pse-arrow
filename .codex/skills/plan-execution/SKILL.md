@@ -25,6 +25,10 @@ exercise independent judgment while contributing to one coherent result.
 Resolve the plan and authorized scope from the conversation and repository context, building
 on the approach the user has supplied. Use `docs/plans/README.md` and the active packet
 checkpoint when relevant to the task.
+Use [pse-cli](../pse-cli/SKILL.md) to choose focused native investigations that can change the
+approach. Its deeper code-intelligence reference is available when source, semantic, API or
+compiler evidence is needed; preparation and execution remain explicit effects within the
+authorized scope.
 Read the relevant packages and receipts, and enough current code and architectural owners to
 establish what exists. Preserve concurrent work and distinguish implemented scope, accepted
 decisions and proposals. The following principles guide attention; they are not required stages

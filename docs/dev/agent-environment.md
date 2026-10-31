@@ -14,7 +14,11 @@ previous selection. Help, activation and reads never rebuild. A missing host req
 preparation; an effectful new-work command refreshes an existing stale host before admission.
 Existing invocation wait/cancel uses its recorded identities without a current-source rebuild.
 
-`scripts/pse` is the agent-facing native command. `scripts/pse commands` and
+`scripts/pse` is the agent-facing native command. The native environment prepends this checkout's
+`scripts/` to `PATH`, exposing that same launcher as `pse` without another wrapper or global
+configuration. Without activation, use `scripts/pse` explicitly. The local `pse-cli` skill
+(source: `.codex/skills/pse-cli/SKILL.md`, shared through the existing runtime aliases) helps
+select capabilities and progressively expand useful detail. `scripts/pse commands` and
 `scripts/pse help COMMAND` describe its actual parser. Current invocation commands include
 `run [--detach] -- COMMAND`, `wait INVOCATION [--timeout SECONDS]`, `cancel INVOCATION`,
 `history`, `result INVOCATION` and bounded `log INVOCATION`. A selector can be an exact ID,
@@ -337,6 +341,14 @@ Codex uses its per-command bridge. Prepare tools explicitly. `just lint-agents` 
 there are no end-of-turn hooks. Remote-mutating recipes retain their explicit invocation and
 confirmation requirements; permissions alone are not instructions to run them.
 
+The shared native `scripts/pse-host agent-hook tooling-advice` handler is wired to matched
+Bash tool calls in `.codex/hooks.json` and `.claude/settings.json`. It offers relevant native
+capability guidance as `hookSpecificOutput.additionalContext` for `PreToolUse`; it always exits
+zero and neither blocks nor rewrites commands. Advice points to the local `pse-cli` skill
+rather than inserting its full capability reference. Raw tools remain available.
+Changed Codex hook definitions require the native `/hooks` review/trust flow before they become
+active; no global configuration, MCP registration or trust bypass is part of this setup.
+
 ## Runtime capabilities
 
 ### Native operations and optional presentation
@@ -348,6 +360,10 @@ The Python product, MCP presentation and debugger proxy are retired. Native requ
 cancellation/settlement and canonical write admission independently of an editor or observer.
 
 ### Focused command and source context
+
+For capability/use-case selection, use the local `pse-cli` skill and read its
+`references/code-intelligence.md` only for the relevant question. This section owns detailed
+mechanics; the skill explains when source, semantic, API or compiler evidence is useful.
 
 Use `just --usage RECIPE`, source search and native `scripts/pse affected` for command/reach questions.
 `scripts/pse commands --markdown` exports the owning parser without preparing a tool;

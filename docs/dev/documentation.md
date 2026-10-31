@@ -3,6 +3,11 @@
 Markdown is the canonical source. Start with the [architecture reading guide](../authoritative_design/sections/reading-guide.md)
 and [current work](../plans/README.md); inspect production source only as needed for the claim.
 
+Use the local `pse-cli` skill (source: `.codex/skills/pse-cli/SKILL.md`) when selecting focused
+source, API or compiler evidence for a documentation claim. Its deeper reference is optional;
+the [environment guide](agent-environment.md) owns command mechanics. A source read, acquired API
+or rendered document establishes only its own scope.
+
 ## Commands
 
 - `just bootstrap-docs` explicitly installs the mdBook and Pagefind versions declared
