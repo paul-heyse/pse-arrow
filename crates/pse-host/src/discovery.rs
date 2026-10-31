@@ -229,14 +229,14 @@ impl Inventory {
     pub fn is_zero_match(&self) -> bool {
         self.selected_tests_iter().next().is_none()
     }
-    /// Whether every reported suite was actually enumerated; skipped suites stay visible.
-    pub fn all_suites_listed(&self) -> bool {
+    /// Whether every suite has a complete native selection result, including binary exclusions.
+    pub fn selected_population_complete(&self) -> bool {
         self.groups.iter().all(|group| {
             group
                 .listing
                 .rust_suites
                 .values()
-                .all(|suite| suite.status == RustTestSuiteStatusSummary::LISTED)
+                .all(suite_selection_complete)
         })
     }
     /// Verify captured binaries before another owner reuses them.
@@ -650,6 +650,15 @@ fn pin_binaries(
     Ok(())
 }
 
+/// Native nextest binary exclusions contain no test records and select no tests.
+/// Unknown statuses cannot establish either enumeration or exclusion.
+pub(crate) fn suite_selection_complete(suite: &nextest_metadata::RustTestSuiteSummary) -> bool {
+    suite.status == RustTestSuiteStatusSummary::LISTED
+        || ((suite.status == RustTestSuiteStatusSummary::SKIPPED
+            || suite.status == RustTestSuiteStatusSummary::SKIPPED_DEFAULT_FILTER)
+            && suite.test_cases.is_empty())
+}
+
 fn validate_listing(
     binaries: &BinaryListSummary,
     listing: &TestListSummary,
@@ -679,8 +688,10 @@ fn validate_listing(
                 "enumerated binary differs from the captured source-built binary",
             ));
         }
-        if suite.status != RustTestSuiteStatusSummary::LISTED && !suite.test_cases.is_empty() {
-            return Err(invalid("unlisted suite contains fabricated test records"));
+        if !suite_selection_complete(suite) {
+            return Err(invalid(
+                "suite has an unknown status or excluded test records",
+            ));
         }
         if suite.test_cases.values().any(|case| {
             case.filter_match.is_match()

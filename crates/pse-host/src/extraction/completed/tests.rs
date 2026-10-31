@@ -24,6 +24,53 @@ fn reconcile(
 const PASS: &str = r#"<testsuites tests="2" failures="0" errors="0"><testsuite name="first" tests="1" failures="0" errors="0"><testcase classname="first" name="same"/></testsuite><testsuite name="second" tests="1" failures="0" errors="0"><testcase classname="second" name="same"/></testsuite></testsuites>"#;
 
 #[test]
+fn native_binary_exclusions_reconcile_only_the_selected_population() {
+    use nextest_metadata::RustTestSuiteStatusSummary;
+    for status in [
+        RustTestSuiteStatusSummary::SKIPPED,
+        RustTestSuiteStatusSummary::SKIPPED_DEFAULT_FILTER,
+    ] {
+        let mut data = listing();
+        let excluded = data
+            .rust_suites
+            .get_mut(&nextest_metadata::RustBinaryId::new("second"))
+            .unwrap();
+        excluded.status = status;
+        excluded.test_cases.clear();
+        data.test_count = 2;
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("junit.xml");
+        std::fs::write(&path, r#"<testsuites tests="1" failures="0" errors="0"><testsuite name="first" tests="1" failures="0" errors="0"><testcase classname="first" name="same"/></testsuite></testsuites>"#).unwrap();
+        let report =
+            CompletedReport::from_listing(&data, 3, path.clone(), IgnoredPolicy::Default).unwrap();
+        let (summary, failures, error) = report.finish(0, true);
+        assert_eq!(summary.selected(), 1);
+        assert_eq!(summary.completed(), 1);
+        assert_eq!(summary.outcome(), NextestOutcome::Succeeded);
+        assert!(failures.is_empty());
+        assert!(error.is_none());
+        std::fs::write(&path, PASS).unwrap();
+        let report = CompletedReport::from_listing(&data, 3, path, IgnoredPolicy::Default).unwrap();
+        assert_eq!(
+            report.finish(0, true).0.outcome(),
+            NextestOutcome::Incomplete
+        );
+    }
+    for status in [
+        RustTestSuiteStatusSummary::new_const("unknown"),
+        RustTestSuiteStatusSummary::SKIPPED,
+        RustTestSuiteStatusSummary::SKIPPED_DEFAULT_FILTER,
+    ] {
+        let mut data = listing();
+        data.rust_suites.values_mut().next().unwrap().status = status;
+        assert!(
+            CompletedReport::from_listing(&data, 3, "unused.xml".into(), IgnoredPolicy::Default)
+                .is_err()
+        );
+    }
+}
+
+#[test]
 fn native_completed_report_preserves_binary_identity_and_actual_capture() {
     let (summary, failures, error) = reconcile(Some(PASS), 0, true);
     assert!(error.is_none());

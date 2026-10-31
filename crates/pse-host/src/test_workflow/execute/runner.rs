@@ -281,7 +281,7 @@ async fn perform(
         report.selected_tests = Some(listed.inventory.selected_tests_iter().count());
         report.required_capture_complete &= listed.inventory.required_capture_complete;
         discovery_phases(report, &listed.inventory);
-        if !listed.inventory.all_suites_listed() {
+        if !listed.inventory.selected_population_complete() {
             report.outcome = Outcome::Incomplete;
             return Ok(());
         }

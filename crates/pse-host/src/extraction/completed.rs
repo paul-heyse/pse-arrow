@@ -87,7 +87,7 @@ impl CompletedReport {
         let mut known = BTreeSet::new();
         for (binary, suite) in &listing.rust_suites {
             if binary != &suite.binary.binary_id
-                || suite.status != nextest_metadata::RustTestSuiteStatusSummary::LISTED
+                || !crate::discovery::suite_selection_complete(suite)
             {
                 return Err(ExtractionError::Nextest(
                     "native suite is not completely listed".into(),

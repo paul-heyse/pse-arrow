@@ -98,6 +98,50 @@ fn zero_match_and_unlisted_suites_are_distinct_from_missing_binary_records() {
 }
 
 #[test]
+fn native_binary_exclusions_complete_selection_without_inventing_test_records() {
+    for status in [
+        RustTestSuiteStatusSummary::SKIPPED,
+        RustTestSuiteStatusSummary::SKIPPED_DEFAULT_FILTER,
+    ] {
+        let mut data = listing();
+        let excluded = data.rust_suites.values_mut().next().unwrap();
+        excluded.status = status;
+        excluded.test_cases.clear();
+        data.test_count = 2;
+        validate_listing(&binaries(), &data, IgnoredPolicy::Default).unwrap();
+        assert!(data.rust_suites.values().all(suite_selection_complete));
+        assert_eq!(
+            data.rust_suites
+                .values()
+                .flat_map(|suite| suite.test_cases.values())
+                .filter(|case| case.filter_match.is_match())
+                .count(),
+            1
+        );
+    }
+    for status in [
+        RustTestSuiteStatusSummary::new_const("unknown"),
+        RustTestSuiteStatusSummary::new_const(""),
+    ] {
+        let mut data = listing();
+        let suite = data.rust_suites.values_mut().next().unwrap();
+        suite.status = status;
+        suite.test_cases.clear();
+        data.test_count = 2;
+        assert!(validate_listing(&binaries(), &data, IgnoredPolicy::Default).is_err());
+        assert!(!data.rust_suites.values().all(suite_selection_complete));
+    }
+    for status in [
+        RustTestSuiteStatusSummary::SKIPPED,
+        RustTestSuiteStatusSummary::SKIPPED_DEFAULT_FILTER,
+    ] {
+        let mut data = listing();
+        data.rust_suites.values_mut().next().unwrap().status = status;
+        assert!(validate_listing(&binaries(), &data, IgnoredPolicy::Default).is_err());
+    }
+}
+
+#[test]
 fn changed_ignored_policy_cannot_reinterpret_original_selected_tests() {
     let data = listing();
     assert!(validate_listing(&binaries(), &data, IgnoredPolicy::Only).is_err());
@@ -319,7 +363,7 @@ async fn explicit_real_host_listing_captures_actual_inventory_without_setup_or_p
         inventory.physical_scope,
         PhysicalScopeObservation::NotEstablishedByDiscovery
     );
-    assert!(inventory.all_suites_listed());
+    assert!(inventory.selected_population_complete());
     assert_eq!(inventory.selected_tests().len(), 1);
     assert!(
         inventory.selected_tests()[0]
