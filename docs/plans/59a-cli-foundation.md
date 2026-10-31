@@ -243,7 +243,7 @@ feature choices are exactly the review's
 | [A08](#a08) | complete | 59a | Proposed ADR-0233/0234 and blueprint317 publish accepted RC01–RC04; independent focused target advice found no required correction, not formal acceptance or runtime qualification |
 | [A09](#a09) | complete | 59a | Proposed ADR-0233/0234 and blueprint318/319 publish the operator-confirmed review target and command adoption. Governing owners/dependencies agree; native runtime evidence is recorded by the wave Outcome, independently of formal ADR acceptance |
 | [A10](#a10) | complete | 59a | Proposed ADR-0233/0234 and blueprint320 publish K01's settled search/inspect/propose, compact context/locators and truthful stream target; K02 consumes publication, not a runtime pass or formal ADR acceptance |
-| [A11](#a11) | planned, conditional | 59a | Publish only governing amendments required by G11's selected native analyzer path; independent of the compiler investigation |
+| [A11](#a11) | complete | 59a | Positive G11 selected immutable native-analysis snapshot; proposed ADR-0233 and blueprint321 publish the binding before G12 production, independently of compiler I06/A12 |
 | [A12](#a12) | planned, conditional | 59a | Publish only governing amendments required by I06's selected compiler-driver path; independent of the analyzer investigation |
 
 <a id="a10"></a>
@@ -290,6 +290,13 @@ G12 production. Preserve syntax-only, semantically confirmed and unavailable fac
 If G11 selects the existing path or no governing change, record that disposition and add no
 amendment. A selection is not implementation or a semantic qualification claim. Any replaced
 governing wording retires with its successor; G12 owns old provider/caller/test deletion.
+
+**Publication — 2026-10-31:** positive isolated G11 typed-operation and real Cargo/VFS evidence
+selects a compatible0.0.358 immutable native snapshot behind the existing semantic/session and
+prepared-tool owners. Proposed ADR-0233 and blueprint321 publish the context/backend, optional
+helper-feature, original session/source guards and explicit unsupported preparation boundaries
+before G12 implementation. This completes publication only; actual G12 native public queries,
+freshness, cancellation and lifecycle acceptance remain open.
 
 <a id="a12"></a>
 ### A12 — Publish a selected compiler-driver contract amendment

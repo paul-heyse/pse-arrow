@@ -1785,6 +1785,26 @@ retention or second task registry follows. Existing non-search envelopes retain 
 product scientific interpretation stays with its prepared owner. K/L/M and their dependencies own
 implementation and verification of this selected target, separate from formal ADR acceptance.
 
+> Decision: ADR-0233 (proposed Plan59 A11 native-analysis snapshot binding).
+
+Typed native HIR/IDE investigation uses an explicitly prepared immutable snapshot context,
+selected through the existing semantic session owner. It never silently supplies a second
+live database for the same project/context. The separately prepared `pse-native-analysis`
+binary and optional `native-hir` feature isolate its compatible 0.0.358 family from ordinary
+host construction and source-only syntax0.0.360; only plain declared requests/results cross.
+The existing prepared-tool and managed-service owners retain executable authentication,
+original invocation custody, socket-peer checks, cancellation/completion and stop/drain.
+
+Selected native facts include resolved method identity, original/adjusted types, read/write
+reference roles and declared generic constraints. Unsupported fields remain unavailable;
+rendered type names do not prove identity, blanket applicability or rustc acceptance. Native
+snapshots refuse changed source/configuration/preparation premises and require explicit reprepare;
+portable locators bind the original session because generation numbers may repeat across sessions.
+Initial native preparation disables build scripts/proc macros and rejects unsupported requested
+preparation. The live LSP retains its distinct supported context and operations. Native SSR
+capture/range search is not claimed where the selected public API supplies only matched text.
+G11's isolated evidence establishes feasibility; G12 and P02 own production and assembled acceptance.
+
 ### Conditional and fitting owner lifetimes
 
 > Decision: ADR-0166 and ADR-0186 (proposed amendments; maintainer-approved Plan46 execution).

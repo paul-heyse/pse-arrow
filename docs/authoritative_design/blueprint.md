@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 320
+revision: 321
 date: 2026-10-31
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 321 | 2026-10-31 | Plan59 A11 selects an explicitly prepared immutable native HIR/IDE snapshot context, optional separately prepared helper, one selected semantic owner and original session/source guards (§21.7). | Positive G11 compatible0.0.358 typed-method/type/reference and Cargo/VFS probes support proposed ADR-0233 target before G12; production acceptance and formal ADR status remain separate. |
 | 320 | 2026-10-31 | Plan59 K01/A10: publish search/inspect/propose, common typed query/locator meaning, compact shared provenance, arrival-order bounded answers and truthful native record-stream delivery (§21.7, §23.2). | Operator-confirmed S-RC01–S-RC03 and fast-arrival default; proposed ADR-0233/0234 amended before K02 implementation. Publication only; production acceptance and formal ADR status remain separate. |
 | 319 | 2026-10-30 | Plan59 A09/C02/B04 adoption: native test/check selection, explicit module preparation, declared fixture ownership and keep-going recipe composition replace generic recipe assembly (§24.1). | Proposed ADR-0233/0234 target; focused implementation evidence remains separate from scientific qualification and formal ADR acceptance. |
 | 318 | 2026-10-30 | Plan59 A09: synchronous foreground, single-service explicit detach, native completed reports and no automatic host-generation collection (§21.7, §24.1/§24.2). | Operator-confirmed RT01–RT04; proposed ADR-0233/0234 amended. Target publication only; implementation/native qualification and formal ADR acceptance remain separate. |

@@ -153,8 +153,8 @@ The review checked development interfaces; exact pinned extension/native signatu
 | [G08](#g08) | complete | 59g | Preview-only decision below; no apply command is advertised |
 | [G09](#g09) | complete | 59g | Native selected CLI/lifecycle journeys and 678-test host run pass; original diagnostics offer guarded, explicitly current-source semantics without inventing original-source identity |
 | [G10](#g10) | planned | 59g | Name-first workspace discovery through the existing owned LSP session and common query/result contracts |
-| [G11](#g11) | planned | 59g | Exact-family native IDE/HIR/SSR and snapshot feasibility with explicit capability/provider and non-adoption decisions |
-| [G12](#g12) | planned | 59g | Conditional: only G11-selected native capabilities after the applicable A11 publication, with one semantic world owner |
+| [G11](#g11) | in-progress | 59g | Positive compatible0.0.358 typed/method/reference/Cargo-VFS probes select immutable native snapshot; SSR public accessor limits and selected context are recorded below, final integration decision/evidence remains with G12 |
+| [G12](#g12) | in-progress | 59g | Selected immutable native-analysis snapshot after A11/blueprint321 publication; native public query, stale/cancel/lifetime acceptance remains open |
 
 <a id="g01"></a>
 ## G01 — Pinned capability and integration design
@@ -624,6 +624,28 @@ SSR branch must demonstrate public addressed ranges/captures; text-only output c
 A snapshot branch must refuse source/configuration mismatch and distinguish live freshness.
 Missing access or preparation is an unresolved/unsupported result, not capability absence.
 Send only selected governing changes to A11; leave ordinary search and G10 independent.
+
+**Selected realization — 2026-10-31:** the isolated exact0.0.360 HIR/IDE resolution failed because
+the registry supplies HIR/IDE0.0.358 while syntax0.0.360 exists. An all0.0.358 native family then
+compiled and ran under the pinned rustc1.101.0-nightly (`c1070d693`), after correcting the
+fresh-resolution Unicode18 properties0.1.5 versus Unicode17 ident1.0.24 compile-time mismatch
+with properties0.1.4. These are failed attempts/corrections, not capability absence. The final
+run demonstrates distinct targets for two same-spelled impl methods, a constrained generic
+method, four inferred/adjusted type observations, native read/write roles (one each), an
+AnalysisHost snapshot and an actual Cargo/VFS-loaded fixture with three resolved methods.
+The fixture deliberately disables build scripts/proc macros; live watching and prepared macro
+integration are not established by it.
+
+Select an explicitly prepared immutable native-analysis snapshot using that compatible family,
+ordinary serialized facts, existing semantic custody/preparation and an optional helper binary.
+The native context is separate from live-LSP freshness and never an independently updated second
+world. A11/blueprint321 publish this selection before G12. Existing source-only syntax0.0.360
+does not cross native AST boundaries. In the examined0.0.358 SSR source, public `matches()` and
+`matched_text()` do not expose addressed `Match` ranges/placeholders; no native SSR-search branch
+is selected. Existing syntax captures plus selected HIR refinement remain useful. Revisit SSR
+when the selected release exposes addressed captures or a separately selected bounded upstream
+extension supplies them; rewrite output is not a search substitute. G12 must qualify the actual
+product context, source/configuration guards, cancellation and public consumers before closure.
 
 <a id="g12"></a>
 ### G12 — Conditional native provider implementation

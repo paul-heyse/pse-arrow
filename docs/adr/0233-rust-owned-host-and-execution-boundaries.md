@@ -240,6 +240,41 @@ Plan59 K01/A10 publish this target before K02. K/L/M and their consumed packages
 migration and qualification. This amendment leaves formal ADR status Proposed and establishes
 no new runtime test, scientific acceptance or measured speedup.
 
+### Plan59 selected native-analysis snapshot — 2026-10-31
+
+**Proposed; G11 positive feasibility and A11 publication before G12.** Select an explicitly
+prepared immutable native-analysis snapshot for typed HIR/IDE questions not faithfully exposed
+by the existing LSP. The native family is isolated behind the existing plain semantic protocol
+and managed service/preparation owner; it is not a second independently updated live database.
+An active session selects its backend/context explicitly. Native snapshots refuse stale source,
+Cargo/toolchain/configuration or supported preparation premises and require explicit reprepare.
+Portable locators bind original session identity as well as source and generation; generation
+numbers alone may repeat after service replacement.
+
+Use a separately prepared `pse-native-analysis` binary in the existing host package under an
+opt-in `native-hir` feature. Ordinary host construction does not compile or link its optional
+HIR/IDE dependency family. Reuse immutable prepared-tool authentication, original invocation
+custody, the authenticated Unix socket, cooperative CPU completion, cancel and native stop/drain.
+The selected compatible native family is 0.0.358; host source syntax0.0.360 remains a distinct
+parser and never passes its AST types into the native world. Unicode-version alignment belongs
+to exact dependency resolution, not an assumption that compatible semver guarantees it.
+
+The bounded native target exposes actually resolved method identity, original versus adjusted
+type information, scoped read/write reference roles and declared generic-constraint facts.
+Extract ordinary serialized facts in the owning native worker; do not send HIR/Salsa handles
+across the boundary or infer type equality from display strings. Original rustc outcomes remain
+separate. Initial snapshot preparation disables build scripts/proc macros; an explicitly requested
+unsupported preparation or operation refuses rather than borrowing current LSP facts. Existing
+LSP capabilities retain their own backend and context. Public SSR match/capture access remains
+unavailable in the selected native release; syntax search plus selected native enrichment remains
+the supported path, without manufacturing matches from rewrites. Native preview/application and
+blanket trait applicability are not implied by the selected typed operations.
+
+The isolated G11 run demonstrated two distinct same-spelled method targets, one constrained
+generic method, four adjusted expressions, read/write roles and a real restricted Cargo/VFS
+world. This supports selection, not production qualification. G12 owns actual service, freshness,
+native public-query and cancellation acceptance; A11 leaves this ADR formally Proposed.
+
 ## More information
 
 [Plan59](../plans/59-agent-cli.md) owns the subsequent A07/A03/A05/B03/G implementation and
