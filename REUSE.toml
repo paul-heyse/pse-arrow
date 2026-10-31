@@ -88,6 +88,7 @@ path = [
   "justfile",
   "rust-toolchain.toml",
   "CODEOWNERS",
+  "Untitled",
   ".github/**",
   ".claude/**",
   ".codex/**",

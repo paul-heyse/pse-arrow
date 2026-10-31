@@ -181,7 +181,7 @@ fn lease(store: &Path, name: &str) -> Result<Lease, ProbeError> {
 }
 
 /// Create an authored scratch workspace from exact locked packages without changing the checkout.
-/// Dependency queries accept source-qualified IDs or an unambiguous name[@version].
+/// Dependency queries accept source-qualified IDs or an unambiguous `name[@version]`.
 pub fn new(
     root: &Path,
     store: &Path,
