@@ -537,6 +537,8 @@ enum GenerationIntent {
 pub(crate) enum HookAction {
     Guard,
     SessionEnv,
+    /// Suggest native tooling routes without changing permission or execution.
+    ToolingAdvice,
 }
 #[derive(Debug, Subcommand)]
 enum FixtureAction {

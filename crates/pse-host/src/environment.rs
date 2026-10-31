@@ -373,6 +373,8 @@ pub fn compose_with_cache(
         );
         prepend(&mut env, "PATH", &prefix.join("bin"))?;
     }
+    // The active checkout's fixed launcher wins over inherited sibling/tool installs.
+    prepend(&mut env, "PATH", &settings.root.join("scripts"))?;
     let inherited = get(&env, "PSE_NEXTEST_DEFAULT_THREADS").map(OsStr::to_owned);
     env.remove(OsStr::new("PSE_NEXTEST_DEFAULT_THREADS"));
     if inherited
@@ -960,6 +962,49 @@ mod tests {
         assert_eq!(get(&plan.values, "X"), Some(OsStr::new("command")));
         assert_eq!(get(&plan.values, "Y"), Some(OsStr::new("local")));
         assert_eq!(get(&plan.values, "RUSTC_WRAPPER"), Some(OsStr::new("")));
+    }
+    #[test]
+    fn active_checkout_launcher_precedes_siblings_and_composition_is_idempotent() {
+        let caller = map(&[
+            ("HOME", "/home/test"),
+            ("PATH", "/sibling/scripts:/usr/bin"),
+        ]);
+        let first = compose(
+            &settings(),
+            &caller,
+            &Environment::new(),
+            &Environment::new(),
+        )
+        .unwrap();
+        let second = compose(
+            &settings(),
+            &first.values,
+            &Environment::new(),
+            &Environment::new(),
+        )
+        .unwrap();
+        assert_eq!(get(&first.values, "PATH"), get(&second.values, "PATH"));
+        assert_eq!(
+            std::env::split_paths(get(&second.values, "PATH").unwrap())
+                .next()
+                .unwrap(),
+            Path::new("/checkout/scripts")
+        );
+        let mut other = settings();
+        other.root = "/other checkout".into();
+        let switched = compose(
+            &other,
+            &first.values,
+            &Environment::new(),
+            &Environment::new(),
+        )
+        .unwrap();
+        assert_eq!(
+            std::env::split_paths(get(&switched.values, "PATH").unwrap())
+                .next()
+                .unwrap(),
+            Path::new("/other checkout/scripts")
+        );
     }
     #[test]
     fn native_cache_has_no_python_wrapper() {

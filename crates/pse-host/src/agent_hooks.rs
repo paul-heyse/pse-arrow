@@ -13,6 +13,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+mod tooling_advice;
 
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(message.into())
@@ -233,6 +234,9 @@ fn default_root() -> Result<PathBuf, HostError> {
 
 /// The lean host hook endpoint. Help remains offline and never reads standard input.
 pub(crate) fn execute(action: crate::cli::HookAction) -> Result<i32, HostError> {
+    if matches!(action, crate::cli::HookAction::ToolingAdvice) {
+        return tooling_advice::execute();
+    }
     let mut input = String::new();
     let read = std::io::stdin().lock().read_to_string(&mut input);
     if matches!(action, crate::cli::HookAction::SessionEnv) {

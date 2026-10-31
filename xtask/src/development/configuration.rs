@@ -454,6 +454,43 @@ fn check_hooks(path: &Path, problems: &mut Vec<String>) -> Result<()> {
     {
         problems.push(format!("{}: missing PreToolUse hook", path.display()));
     }
+    if path
+        .file_name()
+        .is_some_and(|name| name == "hooks.json" || name == "settings.json")
+    {
+        for (action, matcher) in [
+            ("tooling-advice", "^Bash$"),
+            ("guard", "^(Edit|MultiEdit|NotebookEdit|Write)$"),
+        ] {
+            let present = hooks
+                .get("PreToolUse")
+                .and_then(serde_json::Value::as_array)
+                .is_some_and(|groups| {
+                    groups.iter().any(|group| {
+                        group.get("matcher").and_then(serde_json::Value::as_str) == Some(matcher)
+                            && group
+                                .get("hooks")
+                                .and_then(serde_json::Value::as_array)
+                                .is_some_and(|handlers| {
+                                    handlers.iter().any(|handler| {
+                                        handler
+                                            .get("command")
+                                            .and_then(serde_json::Value::as_str)
+                                            .is_some_and(|cmd| {
+                                                cmd.contains(&format!("agent-hook {action}"))
+                                            })
+                                    })
+                                })
+                    })
+                });
+            if !present {
+                problems.push(format!(
+                    "{}: missing native {action} registration",
+                    path.display()
+                ));
+            }
+        }
+    }
     for (event, groups) in hooks {
         for group in groups.as_array().context("hook groups must be arrays")? {
             for hook in group

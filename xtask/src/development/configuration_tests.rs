@@ -207,7 +207,7 @@ fn native_hook_wiring_and_anchored_deny_rules_refuse_foreign_or_ineffective_rule
     fs::write(
         &settings,
         serde_json::to_vec(
-            &serde_json::json!({"hooks": {"PreToolUse": [{"hooks": [{"command": "\"${CLAUDE_PROJECT_DIR}/scripts/pse-host\" agent-hook guard"}]}]}, "permissions": {"deny": ["Edit(/target/**)", "Read(~/private/**)"]}}),
+            &serde_json::json!({"hooks": {"PreToolUse": [{"matcher":"^(Edit|MultiEdit|NotebookEdit|Write)$", "hooks": [{"command": "\"${CLAUDE_PROJECT_DIR}/scripts/pse-host\" agent-hook guard"}]}, {"matcher":"^Bash$", "hooks":[{"command":"\"${CLAUDE_PROJECT_DIR}/scripts/pse-host\" agent-hook tooling-advice"}]}]}, "permissions": {"deny": ["Edit(/target/**)", "Read(~/private/**)"]}}),
         )?,
     )?;
     let mut problems = Vec::new();

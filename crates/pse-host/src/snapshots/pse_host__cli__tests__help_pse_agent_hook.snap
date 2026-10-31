@@ -8,6 +8,7 @@ Usage: pse agent-hook [OPTIONS] <COMMAND>
 Commands:
   guard
   session-env
+  tooling-advice  Suggest native tooling routes without changing permission or execution
 
 Options:
   -C <checkout>
@@ -21,6 +22,7 @@ Usage: pse agent-hook [OPTIONS] <COMMAND>
 Commands:
   guard
   session-env
+  tooling-advice  Suggest native tooling routes without changing permission or execution
 
 Options:
   -C <checkout>

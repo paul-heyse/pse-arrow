@@ -34,11 +34,12 @@ htmlcov/
 lcov.info
 
 # Library capability skills are links to the shared library-skills store.
-# Only the repository-process skills are tracked by rule; any new skill is ignored by default.
+# Repository skills are explicitly tracked; new skills are ignored by default.
 # .config/library-skills.toml selects them; just skills-sync recreates local links.
 # The alias paths are symlinks on Linux, but `just agent-config-sync` copies the tree on
 # Windows, so the same rule covers them.
 /.codex/skills/*
+!/.codex/skills/pse-cli/
 !/.codex/skills/adr/
 !/.codex/skills/design-review/
 !/.codex/skills/design-principle-audit/
@@ -59,6 +60,7 @@ lcov.info
 !/.codex/skills/plan-execution/
 !/.codex/skills/execute-plan/
 /.claude/skills/*
+!/.claude/skills/pse-cli/
 !/.claude/skills/adr/
 !/.claude/skills/design-review/
 !/.claude/skills/design-principle-audit/
@@ -79,6 +81,7 @@ lcov.info
 !/.claude/skills/plan-execution/
 !/.claude/skills/execute-plan/
 /.agents/skills/*
+!/.agents/skills/pse-cli/
 !/.agents/skills/adr/
 !/.agents/skills/design-review/
 !/.agents/skills/design-principle-audit/
