@@ -6,7 +6,7 @@ date: 2026-10-30
 deciders: [paul-heyse]
 level: decision
 principles: [AP-03, AP-04, AP-07, DP-15, DP-19]
-blueprint: [§21.7, §24.1]
+blueprint: [§21.7, §23.2, §24.1]
 review: docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md
 evidence: Proposed
 supersedes: []
@@ -67,6 +67,31 @@ unit/drain observations remain distinct; no complete pass follows missing requir
 Immutable prepared generations are retained without automatic collection. Remove collection-only
 claims/guards after separating executable authentication, provenance and actual resource duties.
 Existing unknown records/artifacts stay untouched; this is not deletion or settlement authority.
+
+### Plan59 search record delivery — 2026-10-31
+
+**Proposed; Plan59 A10/B06/K03 target.** A search producer can deliver complete typed records
+before its computation finishes. Declare invocation/query and source/provider context, publish
+indivisible results/diagnostics, then one terminal coverage and settlement summary. Absence of
+that terminal summary means delivery is incomplete. Existing non-search one-envelope output
+keeps its meaning; search record streaming does not reinterpret collected NDJSON framing as
+live production.
+
+Keep one actual operation owner through admission, native worker completion and required output.
+Demand completion, user cancellation, source error and consumer closure are distinct outcomes.
+First-N or existence may finish successfully without exhaustive examination; exact counts and
+file-level negatives require the relevant complete examination. Native callbacks can stop new
+work, while long no-match input requires cancellation checkpoints independent of match events.
+On a closed or failed consumer stop admission, propagate cancellation and settle admitted work;
+writing less output is not proof that workers stopped. An unavailable terminal writer cannot
+claim successful complete delivery. Independent operation and cleanup failures remain visible.
+
+Search acquires no automatic detached service, secondary task registry, result database or
+exhaustive retention obligation. Explicit original-evidence retention uses its existing owner.
+Terminal rendering/progress lives on stderr and describes actual work; progress completion
+establishes neither source consistency, operation success nor native settlement. B06 owns the
+physical writer integration; K03 and native providers own demand and coverage, with actual
+consumer verification in M03/P02. This publication establishes a target, not a runtime pass.
 
 ### Consequences
 

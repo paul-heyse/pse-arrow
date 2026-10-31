@@ -6,7 +6,7 @@ date: 2026-10-28
 deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-02, AP-03, AP-04, AP-05, AP-06, AP-07, DP-15, DP-19]
-blueprint: [§3.3, §20.6, §21, §24.1, §24.2]
+blueprint: [§3.3, §20.6, §21, §23.2, §24.1, §24.2]
 review: docs/design_review/reviews/design_review_rust-owned-host-and-boundaries_2026-10-28.md
 evidence: Proposed
 supersedes: []
@@ -192,7 +192,53 @@ conflict proposals do not establish resolution, compilation, equivalence or publ
 A08 publishes this bounded clarification within the existing Proposed decision. Focused
 governing-target advice is not a new formal acceptance and does not extend the prior A07
 review's footprint. A newly changed decision boundary still uses the required review route.
-Current execution includes minimal J01/J02 prerequisites only; J03–J05 features remain deferred.
+The A08 publication included minimal J01/J02 prerequisites only; that historical evidence does
+not qualify later J03–J05 delivery or the K/L/M extension, whose owning plans retain acceptance.
+
+### Plan59 search and inspection amendment — 2026-10-31
+
+**Proposed; operator-confirmed S-RC01–S-RC03 and arrival-order selection.** Consolidate passive
+query/read interactions under `search`, `inspect` and immutable `propose` previews. Preserve
+useful capabilities while migrating each replaced route and its callers/tests together.
+Preparation, acquisition, probes, test construction/execution and lifecycle control remain
+explicit effects. Known source/range/position, index/revision and original-evidence locators
+can be inspected directly without a preliminary search or implicit provider preparation.
+
+Use one validated Rust request interpretation for flags, structured JSON and saved queries.
+Source universe, predicate scope, directed relationship, answer demand and display selection
+are separate meanings. Same-line/node/entity conjunction is not same-file conjunction, whose
+witnesses may occupy different nodes. Unavailable or unexamined facts remain unknown; negation
+does not turn them into established absence. Providers retain native context and scientific
+authority. Syntax spelling is not resolution, API documentation is not importability, related
+tests are not an executed population, and current semantic observations are not original
+compiler evidence.
+
+Default bounded search returns at most 20 results in fast arrival order. Stable ordering and
+guarded continuation are explicit choices; arrival-order output offers no reproducible cursor.
+Count units and exact/at-least/unknown counts remain stated. Exact totals or stable ordering
+may require more examination; a short answer does not claim exhaustive work. Native selection,
+matcher stopping and shared parsing should honor demand before unnecessary materialization.
+
+Compact result records reference shared source/provider context rather than repeat it per
+capture. Mandatory invocation identity, command/subject outcome, coverage and original fact
+meaning survive this representation change. Normal UTF-8 paths are readable; unusual names
+retain exact native bytes. Versioned typed result locators carry their addressing and freshness
+premises across CLI invocations without a new result database. Lightweight lexical observations
+do not claim complete immutable source snapshots. Exact inspection/proposal hydration checks
+the recorded premises and either refuses stale selection or explicitly produces a newly
+requested observation; it never silently moves a selection to current bytes.
+
+Directional Serde/Schemars describe accepted requests and emitted views; typed constructors
+still enforce contextual validity. Native structural rule/query representations remain with
+their providers rather than a new application DSL or query service. Configuration combines
+typed defaults, optional repository configuration, request inputs and explicitly supplied
+flags once; predicate arrays replace rather than concatenate implicitly. The native host
+environment owner is unchanged. G11/I06 may investigate named useful native capabilities
+without a historical recurrence threshold; selected governing changes precede G12/I07.
+
+Plan59 K01/A10 publish this target before K02. K/L/M and their consumed packages own production,
+migration and qualification. This amendment leaves formal ADR status Proposed and establishes
+no new runtime test, scientific acceptance or measured speedup.
 
 ## More information
 

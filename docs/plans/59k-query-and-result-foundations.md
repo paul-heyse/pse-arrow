@@ -83,7 +83,7 @@ stage/file/byte progress on stderr; it does not supply execution ownership, tota
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [K01](#k01) | planned | 59k | Settled query/result meaning and native-boundary assessment; no runtime completion claim |
+| [K01](#k01) | complete | 59k | Shared semantics/defaults and B/C/F impact settled below; A10 publishes proposed ADR-0233/0234/blueprint320 before K02; no runtime completion claim |
 | [K02](#k02) | planned | 59k | Shared validated requests, compact result/locator/event contracts and generated schemas |
 | [K03](#k03) | planned | 59k | Configured demand-driven publication, continuations, progress and actual transport integration |
 
@@ -97,6 +97,60 @@ shared envelope evolution; select the least machinery preserving mandatory meani
 which B/C/F consumers actually change. Record contract and early-stop examples plus a negative
 file-level conjunction case. This design product enables A10 and parallel native feasibility;
 it is not a claim that K02 exists. No native-provider decision blocks lexical design.
+
+**Settled execution contract — 2026-10-31:** the maintainer selected fast arrival order for
+ordinary bounded search. Default demand is at most 20 useful results, with short per-result
+witnesses; `limit`, context, selected fields, grouping and output allowance remain separate.
+Stable path/location ordering and continuation are explicit choices. Arrival-order output has
+no reproducible cursor. A deterministic cursor binds the versioned request, selected universe,
+source/provider premises and next ordered position, refusing changed premises rather than
+silently restarting with a different interpretation. Working-file acquisitions remain independent
+observations; there is no atomic checkout snapshot claim.
+
+One validated request separates source selection, scoped predicates, typed directed relationships,
+answer demand and presentation. Flags, JSON and saved requests construct those same values.
+An `all` group within a file can have separate witnesses: one declaration mentioning an endpoint
+and another containing a timeout satisfies file conjunction, but neither satisfies a same-node
+conjunction. Same-entity conjunction binds one resolved entity in one context. Unknown facts
+propagate through composition; absence is established only when the relevant examination permits
+it. First witness/first-N fulfillment, exhaustive no-match, exact counting and ranking are
+different completion demands. Counts state their unit and exact/at-least/unknown status.
+
+Use compact response records and shared source/provider declarations. Versioned typed locators
+carry the minimum source/evidence address and freshness premises for a subsequent CLI invocation;
+they are not unqualified display-name/index identities or keys requiring a new result database.
+Direct known-source/evidence inputs remain supported. A lexical observation preserves its searched
+representation and witnessed location without claiming full-source identity. Before exact
+inspection/proposal, hydrate exact bytes and verify selected premises; stale selection refuses,
+while an explicitly requested new observation is identified as fresh. Guarded proposals retain
+the existing exact source/range/conflict validator.
+
+The stream contract declares invocation/query and source/provider context, complete result and
+diagnostic records, then one terminal coverage/settlement summary. It does not build or retain a
+complete hidden result merely to show a page. Closed/failed output cancels admission and settles
+admitted native work; missing terminal delivery is incomplete. Genuine no-match is successful
+empty output. Provider unavailable, source error, cancellation and unexamined input remain
+distinct. B06 extends the physical writer/settlement route; K03 supplies demand/configuration and
+native providers supply actual stopping facts. Existing non-search one-envelope behavior remains.
+
+Configuration precedence is typed defaults, optional repository configuration, selected request
+and explicit CLI overrides. Arrays/predicate groups replace rather than concatenate implicitly;
+config-relative paths and provenance remain attached to their source. Host environment selection
+is unchanged. Serde and directional Schemars derive the wire views from the declared typed owner;
+constructors enforce semantic preconditions. Progress on stderr reports actual work, never a
+fabricated total, success verdict or settlement proof.
+
+**Foundation impact:** preserve existing source identity/navigation and proposal validation;
+adapt them rather than introduce a second acquisition owner. B06 is the changed physical stream
+consumer. C10 adds passive inventory/evidence locator and existing selection adapters, not a new
+test runner or inventory. F retains its scientific/product schema and observation owners, so no
+F07 is selected unless implementation exposes an actual F-consumed shared-view change. G/H/I/J
+keep native interpretation; unavailable native fields do not become display-text inference.
+The existing count-then-reparse path is not the mandatory realization for each requested answer.
+
+**Publication boundary:** A10 publishes these decisions through proposed ADR-0233/0234 and
+blueprint320. K01/A10 completion is design/publication only; K02/K03, provider and consumer tests
+and P02 assembled qualification remain open. No new Tested/Measured runtime claim follows.
 
 <a id="k02"></a>
 ### K02 — Implement one request and result interpretation

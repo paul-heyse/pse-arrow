@@ -1745,7 +1745,45 @@ Native owners enforce valid terminal facts before presentation. Directional wire
 common source/range/conflict proposals establish neither scientific validity, semantic name
 resolution nor publication. Source-only readiness has no semantic-session prerequisite;
 semantic operations retain their selected context. A08 publishes a Proposed target, not new
-runtime acceptance; execution presently includes only minimal J01/J02 prerequisite contracts.
+runtime acceptance; that publication included only minimal J01/J02 prerequisite contracts.
+Subsequent source/query delivery retains its own package-owned acceptance.
+
+> Decision: ADR-0233/0234 (proposed Plan59 A10 search-contract amendment; operator-confirmed S-RC01–S-RC03).
+
+The selected developer-query target has three public passive intents: `search`, direct `inspect`
+and immutable `propose` previews. Useful read/query capabilities move with their callers; replaced
+routes retire after their replacements pass. Explicit preparation, acquisition, probes, test
+construction/execution and control retain their effects and owners. A known file/range/position,
+index/revision, declaration or original-evidence locator requires no preceding search. Source-only
+discovery works without an analyzer; semantic/API consumers state their actual preparation/context.
+
+Flags, typed JSON requests and saved queries share one validated interpretation. Source selection,
+predicate scope, directed relation, requested answer and display controls are distinct. Native
+providers own matching, syntax, semantic/API/compiler facts and bounded relationship expansion.
+Same-node/entity conjunction requires a common candidate/context; file conjunction can use different
+witnesses. Missing or incompletely examined facts stay unknown, including under negation.
+
+Bounded search defaults to 20 results in fast arrival order. Stable ordering and source/query-guarded
+continuations are explicit; arrival order has no reproducible continuation promise. Counts state
+their unit and exact/at-least/unknown character. A limit can fulfill the requested demand without
+exhaustive examination; deterministic ordering and exact totals can require additional work.
+Native early stop, compatible preparation/parse reuse and cancellation precede unnecessary full
+materialization. Existing native process/CPU completion ownership remains authoritative.
+
+Compact results share verbose source/provider context and carry versioned typed locators usable
+across invocations without a new result service. Normal paths remain readable and native fallback
+bytes preserve unusual names. Source/provider/query premises govern their lifetime. Lightweight
+lexical observations do not imply a full content snapshot; exact-source hydration checks selected
+premises before inspection or preview. Stale selections refuse or require an explicit fresh
+observation. Independent file snapshots never establish an atomic checkout-wide capture.
+
+Typed search records can stream before computation completes: context declarations precede their
+referenced results, complete records remain indivisible, and one terminal summary states coverage
+and actual settlement. Missing terminal delivery remains incomplete. Consumer closure stops new
+admission and settles admitted work, including no-match reads. No automatic detach, full-result
+retention or second task registry follows. Existing non-search envelopes retain their behavior;
+product scientific interpretation stays with its prepared owner. K/L/M and their dependencies own
+implementation and verification of this selected target, separate from formal ADR acceptance.
 
 ### Conditional and fitting owner lifetimes
 

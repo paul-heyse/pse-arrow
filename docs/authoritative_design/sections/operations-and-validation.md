@@ -423,6 +423,24 @@ identity, status and coverage survive detail budgets. Opaque upstream records ar
 by envelope schemas; IDE diagnostics, compiler outcomes and scientific evidence keep their original
 providers. Optional observation loss is explicit; required verdict loss makes reconciliation incomplete.
 
+> Decision: ADR-0233/0234 (proposed Plan59 A10 compact query and record-stream target).
+
+Search may share provenance/context once per referenced source/provider instead of physically
+repeating it in each capture. Invocation identity, command outcome, subject state, original facts,
+coverage and independent operation/cleanup failures remain mandatory meaning. Directional request
+and result schemas describe representation; they do not prove resolution, source freshness,
+scientific validity or exhaustive examination. Count units and exact/at-least/unknown totals stay
+explicit. A useful bounded answer can fulfill its demand without proving absence elsewhere.
+
+Unavailable providers, stale premises, unexamined input and incomplete cancellation/delivery cannot
+be represented as established no-match. Genuine complete no-match is a successful empty query.
+Streaming publishes complete typed records and terminal coverage/settlement; a lost terminal
+summary is incomplete delivery even if a prefix of useful records exists. Progress reports only
+actual stage/files/bytes/preparation facts on stderr and cannot substitute for native completion.
+Original compiler/IDE/scientific evidence retains its provider and interpretation through compact
+views, direct evidence inspection and source hydration. A10 publishes the target; package-owned
+functional controls establish implementation separately.
+
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 
 An absent original-space feasibility assessment is an explicit refusal distinct from evaluated infeasibility. Completion-owned projections preserve cancellation, precise limits/resource exhaustion, numerical failures, validation causes and contradiction witnesses; adapter-owned native classification remains retained evidence. Registry/Rust declarations own new generated vocabulary and transport, and recorded contracts retain historical interpretation.

@@ -242,7 +242,7 @@ feature choices are exactly the review's
 | [A07](#a07) | complete | 59a | Proposed ADR-0233/blueprint315 published and scoped formal review accepts that target at Proposed strength; proposed ADR-0234/blueprint316 refines nested invocation ownership; runtime obligations remain with consumers |
 | [A08](#a08) | complete | 59a | Proposed ADR-0233/0234 and blueprint317 publish accepted RC01–RC04; independent focused target advice found no required correction, not formal acceptance or runtime qualification |
 | [A09](#a09) | complete | 59a | Proposed ADR-0233/0234 and blueprint318/319 publish the operator-confirmed review target and command adoption. Governing owners/dependencies agree; native runtime evidence is recorded by the wave Outcome, independently of formal ADR acceptance |
-| [A10](#a10) | planned | 59a | Publish search/inspect/propose and compact result/stream governing amendments after K01 design; K02 consumes the published contract |
+| [A10](#a10) | complete | 59a | Proposed ADR-0233/0234 and blueprint320 publish K01's settled search/inspect/propose, compact context/locators and truthful stream target; K02 consumes publication, not a runtime pass or formal ADR acceptance |
 | [A11](#a11) | planned, conditional | 59a | Publish only governing amendments required by G11's selected native analyzer path; independent of the compiler investigation |
 | [A12](#a12) | planned, conditional | 59a | Publish only governing amendments required by I06's selected compiler-driver path; independent of the analyzer investigation |
 
@@ -269,6 +269,12 @@ continuation premises. Replace superseded governing wording through its permitte
 do not edit accepted ADRs in place. This package publishes contracts, not a runtime pass.
 K02/K03 and their consumers own the targeted tests and route deletions; no fresh product test
 or comprehensive qualification is required merely to author this plan.
+
+**Publication — 2026-10-31:** K01 settles the shared meaning and the maintainer's selected fast
+arrival-order default. Proposed ADR-0233/0234 and blueprint320 publish the corresponding §21.7/
+§23.2 amendments before K02 production. Non-search envelopes and existing scientific/native
+authorities retain their meaning. This completes governing publication only; runtime delivery,
+consumer migration, generated output and acceptance remain with K02/B06/K03 and their consumers.
 
 <a id="a11"></a>
 ### A11 — Publish a selected native analyzer contract amendment
