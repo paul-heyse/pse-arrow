@@ -5,10 +5,27 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, design, libraries, environment, validation]
-review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
 ---
 
 # API and dependency intelligence
+
+## Current extension — 2026-10-31
+
+**Proposed:** H07/H08 extend the completed H01–H06 baseline with structural capability
+queries, source-use/importability composition and bounded graph/acquisition decisions from
+[O03/O10](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md#O10).
+The maintainer accepted `search`/`inspect`/`propose` hard cutover and compact shared
+provenance/streaming on 2026-10-31 while preserving identity, outcome, coverage and useful
+passive reads. Earlier `api`/`dep` read-surface target wording records the completed baseline;
+the new public consumer migrates through M03 only when its replacement works. Explicit API
+acquisition, documentation checks and probes retain their effect owners. K owns shared query/
+result meaning and A10 its governing publication. Historical completed rows and evidence do
+not qualify these extensions; this revision starts no implementation or acquisition.
+
+H07 can deliver structural rustdoc/dependency and existing-LSP composition before G12. Only
+typed facts selected by G11 and implemented by conditional G12 may extend that answer later.
+H08 makes a supported adoption or no-adoption decision; library availability alone selects none.
 
 ## Purpose and assessed foundation
 
@@ -123,6 +140,8 @@ the review's source inspection is not an executed pinned-interface probe.
 | [H04](#h04) | complete | 59h | Native structural differences with selected-input losslessness checks and separate explicit compatibility execution delivered; actual native trials retain missing-reference and rule-coverage limits |
 | [H05](#h05) | complete | 59h | Native rustdoc uses the original compiler workflow and diagnostics; actual public check and corrected native broken-link/codeblock controls pass |
 | [H06](#h06) | complete | 59h | Original failure → API constraint → explicit corrected probe demonstrated; conditional non-adoptions below retained. Series-end qualification remains with the coordinator |
+| [H07](#h07) | planned | 59h | Structural API/dependency queries joined to source uses and destination importability, with conditional native typed enrichment |
+| [H08](#h08) | planned | 59h | Bounded graph/acquisition extension decisions, explicit non-adoptions and observable revisit triggers |
 
 <a id="h01"></a>
 ### H01 — Discover a capability and a usable public path
@@ -420,3 +439,90 @@ allowing native structural comparison without claiming general rustdoc-format co
 behavioral compatibility proof; source/context differences and missing native item references
 remain visible. No performance benefit was measured. Probe resources with legacy missing custody
 references remain protected rather than being retroactively attributed to a newer owner.
+
+## Planned search extension packages
+
+H07/H08 consume the [query/result foundations](59k-query-and-result-foundations.md) and
+feed [composed investigations](59m-composed-rust-investigations.md). The preceding outcome
+and completed rows concern H01–H06, not this new scope.
+
+<a id="h07"></a>
+### H07 — Structural capability, use and importability composition
+
+**Consumes:** K01's agreed query meaning for design; working K02 requests/results/locators,
+H01/H03's exact acquired API/dependency facts and G10's name-first semantic candidates for
+the early public composition. Existing G03/G05 may supply actual uses. Only selected native
+typed enrichment later consumes G12; basic structural API/dependency delivery does not wait for
+G11/G12. A10 publishes changed governing contracts before dependent implementation.
+
+Replace input/output spelling-containment as the sole capability filter with selected structural
+`rustdoc_types::Type`, generic bounds/`WherePredicate`, trait/impl and reexport-graph predicates.
+Keep name/docs search useful and explicit; a named type occurrence, a structural signature shape
+and a proven applicable trait obligation are different answers. Rustdoc extraction cannot prove
+arbitrary trait applicability or selected-build importability. Retain artifact-local item IDs,
+source-qualified package/version, defining versus public facade path, target/features/cfg and
+documentation-only context. Joining artifacts by numeric ID or rendered type text is invalid.
+
+Join selected API candidates to actual source uses and destination-module importability using
+their existing semantic/context owners. Preserve directed/multiple reexport paths and ambiguity;
+one public documentation path does not establish accessibility from every destination. If the
+available LSP cannot answer the typed join, return the structural candidate plus unavailable
+enrichment, not an invented positive. G12 may later supply selected visibility/import maps,
+resolved types and generic constraints through the same contract. Batch compatible lookups over
+one acquired artifact/model and narrow candidate sets before semantic expansion where sound;
+do not build a second graph, trait solver or per-hit acquisition pipeline.
+
+**Public consumer and acceptance:** `search` finds an operation by a selected signature/bound,
+`inspect` expands its constraints and reexport path, then follows a source use or asks whether
+it is importable into a selected module. Use independent fixtures with identical spellings but
+different type identities, associated types/bounds, a reexported dependency operation, private
+destination visibility, inactive cfg, renamed dependency and two target/feature contexts.
+Malformed/schema-mismatched or missing rustdoc references stay explicit; `cfg(doc)` success
+does not imply ordinary-build availability. A missing session/artifact remains unprepared and
+does not acquire or compile implicitly. Stale result/artifact/context joins refuse. Actual G12
+facts receive their own focused native tests; their absence cannot fail a supported base query.
+
+**Migration/deletion:** move passive API/dependency reads and relevant consumers into M03's
+common search/inspect surface, including inclusion paths, authored feature facts and selected
+units. Preserve direct known dependency/item inspection and distinct structural comparison,
+examples and original diagnostics. Delete replaced parser branches, duplicate spelling-only
+structural filtering, formatters, guidance and tests once the replacement passes. Explicit
+acquisition, compatibility/check execution and probes keep their original owners/effects.
+
+<a id="h08"></a>
+### H08 — Conditional graph and acquisition extensions
+
+**Consumes:** K01's supported question model and current H03/D02 graph/acquisition evidence.
+Use working K02 for any adopted public query integration. This decision does not depend on
+native HIR adoption, full H07 delivery or a new source graph. Earlier conditional-mechanism
+rows remain baseline decisions; this package records their disposition for the selected scope.
+
+Compare current `cargo_metadata`/selected-unit and shortest-path owners with Guppy
+`PackageGraph`/feature-graph support for a named repeated multi-configuration, reverse-feature
+or counterfactual question. Adopt only when it removes a concrete interpretation burden;
+keep simulated feature sets distinct from selected/admitted compiler units. Hakari is not
+selected: feature-declaration unification supplies no required search capability here.
+
+Assess hosted docs.rs JSON only for an explicit external/version-research acquisition that
+local exact locked context cannot supply usefully. Retain addressed version/target/build
+premises, availability and `format_version` checks; hosted artifacts never silently replace
+local selected-build evidence. Reuse D02's explicit acquisition/storage boundary. Native rustdoc
+scraped examples remain conditional on a selected API lacking a useful authored example and
+explicitly generated analyzed targets. Archives/hashing are candidates only for material
+repeated large-artifact access; conversion/invalidation/retention costs count in that decision.
+
+**Decision and acceptance:** state adoption or no-adoption per named question, the consumed
+exact-release mechanism, affected consumer and observable revisit trigger. Current metadata
+remains selected where sufficient; library availability, an overview version or an empty docs
+search is not an adoption criterion. A Guppy branch challenges optional/default/target and
+multi-root host/target contexts against independent expected feature relationships. A hosted
+branch challenges absent artifact, mismatched format/context, differing local versus hosted
+builds and explicit no-fallback behavior. Reading an unavailable artifact never starts generation.
+No performance benefit is claimed without a named comparison under representative conditions.
+
+**Conditional implementation/deletion:** after a positive decision, use the normal dependency
+and applicable decision routes and implement only that bounded producer through K02/D02/H03.
+Remove graph/acquisition interpretation that it actually replaces, including old consumers and
+tests; retain distinct local/hosted provenance and effects. A no-adoption outcome completes the
+inquiry, leaves unsupported queries unavailable and introduces no dependency, daemon or index.
+The coordinator owns scope-end qualification of adopted branches and M03 public retirement.

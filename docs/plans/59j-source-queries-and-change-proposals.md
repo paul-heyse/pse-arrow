@@ -5,10 +5,26 @@ date: 2026-10-30
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, design, libraries, diagnostics, validation]
-review_sources: [docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
+review_sources: [docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
 ---
 
 # Source queries and change proposals
+
+## Current extension — 2026-10-31
+
+**Proposed:** J06/J07 extend completed J01–J05 with native structural rules/Tree-sitter
+extraction and result-to-proposal hydration from
+[O04/O11](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md#O04).
+The maintainer accepted `search`/`inspect`/`propose` hard cutover and compact shared
+provenance/streaming on 2026-10-31, preserving identity, outcome, coverage and useful direct
+reads. K owns query/result/locator contracts; A10 publishes their governing changes before
+dependent implementation. M03 owns public migration and retirement of replaced routes. Earlier
+command-family and envelope wording describes the completed baseline; historical completion
+and tests do not establish these extensions. This revision plans no source implementation.
+
+Proposals remain previews through J02/G07. Hydrating a lightweight result establishes the exact
+source premises needed for a preview; it grants no apply authority and cannot fabricate semantic
+identity. Known-path/range/index/revision inspection remains directly available without search.
 
 ## Purpose, baseline and boundaries
 
@@ -90,6 +106,8 @@ current authorization. Final parser publication and series qualification remain 
 | [J03](#j03) | complete | 59j | Native syntax queries, captures/context constraints and explicit immutable previews pass targeted and actual CLI controls |
 | [J04](#j04) | complete | 59j | Actual generated hit follows declared contributor/emitter and regeneration routing; unknown authored location remains unknown |
 | [J05](#j05) | complete | 59j | Actual source-only query→preview→origin→emitter journey passes without semantic preparation or source writes; series qualification remains separate |
+| [J06](#j06) | planned | 59j | Native AST rule composition and advanced Tree-sitter extraction under exact compatible pins |
+| [J07](#j07) | planned | 59j | Guarded result hydration into existing shared immutable previews; no application |
 
 <a id="j01"></a>
 ### J01 — Addressed source and bounded reading
@@ -228,3 +246,99 @@ ordinary file replacement does not protect concurrent editors across multiple fi
 source reads do not apply worktree filters, and syntax candidates never claim resolved identity.
 No performance benefit was measured; no solver/provider preparation or scientific campaign is
 required for this source workflow.
+
+## Planned search extension packages
+
+J06/J07 consume the [query/result foundations](59k-query-and-result-foundations.md) and
+feed [composed investigations](59m-composed-rust-investigations.md). Historical completed rows
+and Outcome cover J01–J05 only; all following behavior remains planned.
+
+<a id="j06"></a>
+### J06 — Native structural rules and Tree-sitter extraction
+
+**Consumes:** K01's agreed node/file/entity conjunction, answer and coverage semantics and
+existing J01/J03 source/pattern owners. Design and engine qualification need not wait for K02;
+public common-request integration requires working K02 and the applicable A10 publication.
+Repository-wide selection consumes working L01; explicit-source engine tests can proceed
+without it. No semantic session or native HIR implementation is required.
+
+Expose native alternatives/negation, node-kind/field constraints, repeated-capture equality,
+ancestor/descendant/sibling relations and enclosing-declaration filters through the common typed
+request. Prefer the exact-compatible ast-grep config/rule family, with the review's
+`SerializableRuleCore::get_matcher(DeserializeEnv)`/`RuleCore` as integration leads, rather than
+adopting lint/fix `RuleConfig` or building a general structural interpreter. Qualify workspace
+pins and their compatible core/config/grammar/runtime family before selection; the review's
+0.51 lead does not itself bump dependencies. Preserve native binding, strictness, field/relation
+and suppression meaning. `CombinedScan` honors suppression comments and collects matches in
+the examined implementation; use it only for compatible lint-like batches, never as a promised
+unsuppressed streaming ad hoc search engine.
+
+Offer Tree-sitter `Query`/`QueryCursor` for advanced extraction using current compatible grammar/
+runtime and `NODE_TYPES` discovery: fields, negated fields, captures, quantifiers, anchors and
+text predicates. Validate native queries at their provider boundary rather than inventing a
+second syntax language. Report recovery, match-limit, timeout and unsupported predicate outcomes.
+Keep byte ranges/captures attached to the original source and provider/grammar context.
+
+Compile selectors/matchers once, parse each selected file once per compatible batch and evaluate
+native rule trees over that parse where sound. Make existence/first-results stop upstream work;
+exact counts or deterministic global ranking may need complete examination. Do not preserve the
+current count-then-reparse collection path for every answer. Negative file predicates require
+complete relevant examination; truncated/canceled work cannot establish absence. K03 owns typed
+stream framing/terminal coverage, while the engine supplies complete records and actual stopping
+facts. Parser objects remain worker-local through the existing CPU ownership route.
+
+**Public consumer and acceptance:** `search` accepts a reusable typed request and `inspect`
+expands captures/enclosing declarations. Independent snippets distinguish same-node versus
+same-file conjunction, repeated metavariable equality, nested matches, sibling/field constraints,
+failed alternatives that leak no captures and negation over incompletely examined files.
+Tree-sitter controls cover quantifiers/anchors, predicates, recovery and match-limit refusal.
+Include native suppression comments, malformed queries, cfg/macro/edition boundaries and
+stale source; no syntax result claims semantic identity. Existence/first-results/count controls
+verify examined scope rather than merely a short payload. Cancellation settles actual CPU work.
+
+**Deletion:** replace bespoke/duplicated structural composition and count-then-collect work
+where the selected native mechanisms cover it; remove old callers/tests with migration, keeping
+distinct useful answer semantics. M03 removes replaced public query routes/guidance with their
+working replacements. No new parser service, query VM or general DSL follows from this package.
+
+<a id="j07"></a>
+### J07 — Hydrate selected results into checked previews
+
+**Consumes:** working K02 result references/locators and J06 structural candidates, plus existing
+J02 shared proposal validation. Selected semantic transformations consume G07's actual native
+producers; native HIR/SSR extensions add G12 only if selected. L02 lexical observations can
+participate after exact source/range hydration, not by claiming their scan was a full snapshot.
+
+Allow `propose` to consume selected results directly for exact-byte replacements, capture-aware
+syntax rewrites or native rename/assists/SSR/file-operation previews. Resolve lightweight result
+premises into J01/J02 exact source identity and checked ranges; refuse stale identity or explicitly
+ask the existing consumer for a fresh observation according to K02's declared change policy.
+Never silently reinterpret a stale selection at the same path/offset. Preserve source kind,
+revision/configuration, unusual path bytes, semantic applicability and proposal provenance.
+Direct known-source inspection and existing explicit proposal inputs remain useful where their
+behavior is distinct; search is not a mandatory preliminary step.
+
+Use `ra_ap_syntax` edit facilities for lossless authored regions, native ast-grep replacements for
+capture-preserving patterns, and `syn`/`quote`/`prettyplease` for selected newly constructed
+fragments. Do not whole-file regenerate authored code and lose comments/trivia. Maintain all
+candidate matches separately from selected nonoverlapping edits; show overlaps, missing captures,
+unresolved snippets, imports and unsupported file effects. Native SSR searches cannot be
+fabricated from identity rewrite output; G07's existing transformation preview remains its own
+supported operation. Proposal serialization follows K02's compact source/context references,
+retaining checked original inputs where validation requires them rather than repeating whole
+files in every match.
+
+**Public consumer and acceptance:** follow a small search page through declaration/capture
+inspection into a comment-preserving multi-file preview, with no source or index write. Include
+a staged or revision source, non-ASCII coordinates, changed working source, expired result,
+out-of-range UTF-8 boundary, nested overlaps, undefined capture and unsupported file effect.
+Identically spelled syntax candidates cannot pass semantic rename applicability. A native
+semantic preview preserves its generation and refuses stale/missing preparation. Compare
+untouched bytes independently and inspect actual CLI output, not only a schema snapshot.
+
+**Deletion and limits:** move replaced syntax/semantic preview wrappers and parser branches,
+their callers, guidance and tests with the common consumer through M03. Keep one shared proposal
+validator. Preview success is not apply, compile/test success, equivalence or Git publication;
+G08's no-application outcome remains intact. Ordinary explicitly authorized edits and real
+checks can assess a preview's usefulness separately during integrated acceptance. The
+coordinator owns scope-end journeys/static checks; this document establishes no such result.

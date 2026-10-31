@@ -5,10 +5,26 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, design, libraries, environment, diagnostics]
-review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
 ---
 
 # Rust semantic intelligence
+
+## Current extension — 2026-10-31
+
+**Proposed:** G10–G12 extend the completed G01–G09 baseline with name-first discovery
+and a bounded native IDE/HIR/SSR and snapshot investigation, carrying the
+[search review's O03/O07/O10](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md).
+The maintainer accepted `search`/`inspect`/`propose` hard cutover and compact shared
+provenance/streaming on 2026-10-31, preserving identity, outcome, coverage and every useful
+replaced read. Those decisions supersede earlier public-family and repeated-envelope target
+wording below; completed rows and their evidence retain their original scope. K owns the shared
+query/result contracts, A10 their governing publication and A11 any selected provider decision.
+This revision plans work only; it neither adopts a native backend nor reopens production execution.
+
+G11 is selected feasibility work without a prior recurrence prerequisite. G12 is conditional
+implementation after G11 selects a useful supported capability and A11 publishes its governing
+decision. Neither package gates ordinary lexical/syntax discovery or G10's existing-LSP route.
 
 ## Purpose and assessed foundation
 
@@ -136,6 +152,9 @@ The review checked development interfaces; exact pinned extension/native signatu
 | [G07](#g07) | complete | 59g | Source-bound rename, lazy assist, scoped semantic SSR, file-rename and complete supported workspace-effect previews into J02 |
 | [G08](#g08) | complete | 59g | Preview-only decision below; no apply command is advertised |
 | [G09](#g09) | complete | 59g | Native selected CLI/lifecycle journeys and 678-test host run pass; original diagnostics offer guarded, explicitly current-source semantics without inventing original-source identity |
+| [G10](#g10) | planned | 59g | Name-first workspace discovery through the existing owned LSP session and common query/result contracts |
+| [G11](#g11) | planned | 59g | Exact-family native IDE/HIR/SSR and snapshot feasibility with explicit capability/provider and non-adoption decisions |
+| [G12](#g12) | planned | 59g | Conditional: only G11-selected native capabilities after the applicable A11 publication, with one semantic world owner |
 
 <a id="g01"></a>
 ## G01 — Pinned capability and integration design
@@ -524,3 +543,117 @@ fallback. No performance benefit or scientific correctness is claimed. The coord
 G09's adjacent original-diagnostic/discovery composition, integrated review, assembled acceptance
 and scope-end static/manual qualification; this delegated result does not retire the plan or
 claim the complete series accepted.
+
+## Planned search extension packages
+
+These packages consume the [query/result foundations](59k-query-and-result-foundations.md)
+and supply the [composed investigation plan](59m-composed-rust-investigations.md).
+The preceding completion evidence covers G01–G09 only.
+
+<a id="g10"></a>
+### G10 — Name-first discovery through the existing analyzer
+
+**Consumes:** K01's agreed source/predicate/answer model for design; working K02 requests,
+results and locators for public integration; existing G02/G03 session, selection and source
+synchronization. Source-only declaration discovery belongs to M01, not this semantic producer.
+A10 publishes changed governing contracts before dependent implementation.
+
+Expose `workspace/symbol` and selected rust-analyzer workspace-symbol extensions through the
+existing owned LSP process. Check the installed protocol's actual query/kind/scope support;
+retain an honest client-side filter when a requested filter is not native. Resolve a simple or
+qualified name into candidates with package/module/kind, available visibility and source location,
+then allow inspection/references/calls without reconstructing coordinates. Ordinary written
+declarations can still be found without semantic preparation through M01. Do not present
+document symbols as exhaustive workspace discovery or confuse acquired rustdoc identities with
+live semantic entities. Preserve ambiguous ranking and the actual searched Cargo context.
+
+**Public consumer and acceptance:** `search` finds a name shared by unrelated traits, then
+`inspect` selects one declaration and one relevant reference through K02 locators and M01.
+Focused native tests distinguish exact/fuzzy candidates, reexports, a dependency item, inactive
+cfg and same-file multiple crate contexts. Missing preparation returns preparation-required;
+stale generation, unsupported kind/scope and unknown compiler-unit identity stay explicit.
+Changing source/configuration invalidates the result before a follow-up. No search request
+starts Cargo or another analyzer. Test actual public navigation, not only protocol snapshots.
+
+**Migration/deletion:** add this producer to the common model; move existing symbol/navigation
+consumers through M03 and remove their replaced public parser branches, guidance and tests in
+the delivering slice. Keep explicit session control and useful distinct semantic investigations.
+Delete no read merely because a new workspace-symbol request exists.
+
+<a id="g11"></a>
+### G11 — Native IDE/HIR, SSR and snapshot feasibility
+
+**Consumes:** K01's design questions and existing G01/G03 capability/context evidence. This
+inquiry can run before K02 implementation, G10 delivery or any compiler-driver decision.
+
+Select representative questions: a resolved method target rather than same spelling; inferred
+versus adjusted type; a generic trait constraint; and scoped read/write references. Compare
+extending the existing analyzer interface, a narrowly extended upstream server and one embedded
+`AnalysisHost`/HIR owner. Inspect an exact compatible RA family as a unit: overview HIR/IDE
+0.0.358 and current syntax0.0.360 do not establish shared AST compatibility. Compare complete
+Cargo/VFS/build-script/proc-macro loading, change application, snapshots, cancellation, source
+mapping and upgrade obligations. `ra_ap_load_cargo` batch loading is not a live update service.
+Do not maintain two independently updated semantic worlds for the same project/context.
+
+Qualify `Semantics::type_of_expr`/`type_of_pat`, `TypeInfo` original/adjusted types, method/field
+resolution, `could_coerce_to`, owner-aware substitutions and visibility/import maps for the
+selected questions. Include implicit operation leads `resolve_bin_expr`, `resolve_index_expr`,
+`resolve_try_expr` and `resolve_await_to_poll`; `find_all_refs`, `SearchScope` and
+`ReferenceCategory` support scoped role queries where exact public APIs permit. Display strings
+are not type equality; shallow impl enumeration does not settle blanket applicability.
+Extract plain results in the owning worker rather than sharing `Semantics` across threads.
+
+Investigate SSR separately: `MatchFinder::in_context`, `add_search_pattern(SsrPattern)` and
+`matches()` exist, but examined `Match` ranges/nodes/placeholders are private and public
+`matched_text()` is insufficient for addressed captures. Check selected-release accessors or a
+bounded upstream/source-integrated extension against ast-grep candidates plus HIR enrichment.
+Never obtain search identity from identity rewrites or parsed edit output. Ordered rewrite
+precedence is distinct from Boolean alternatives.
+
+For an explicit offline/historical question, compare `ra_ap_ide::StaticIndex` or native
+`rust-analyzer scip` with the existing warm owner. Occurrences, definitions/body ranges,
+monikers and docs may support bounded navigation; an export binds source/configuration and
+explicit preparation. It does not provide automatic freshness, rename-proof identity or current
+semantics for historical bytes. Snapshot support is conditional, not a required index service.
+
+**Decision and acceptance:** record exact-family/interface evidence, question fit, one selected
+provider per supported capability/context, unsupported fields and adoption/no-adoption reasons.
+In the authorized feasibility phase use bounded real cases with same-spelled method targets,
+adjustments, blanket/generic impls, expansion fallback, stale snapshots and cancellation. An
+SSR branch must demonstrate public addressed ranges/captures; text-only output cannot pass.
+A snapshot branch must refuse source/configuration mismatch and distinguish live freshness.
+Missing access or preparation is an unresolved/unsupported result, not capability absence.
+Send only selected governing changes to A11; leave ordinary search and G10 independent.
+
+<a id="g12"></a>
+### G12 — Conditional native provider implementation
+
+**Consumes:** a positive G11 decision naming supported questions, exact compatible family and
+provider ownership; the applicable A11 publication; and working K02 integration contracts.
+There is no dependency on I06/I07/A12. If G11 selects no native branch, record that decision and
+its precise revisit trigger; do not implement a backend to satisfy the package number.
+
+Implement only selected typed HIR/IDE operations and any selected snapshot/SSR capability.
+Use native change/snapshot/Salsa ownership, the existing native process/preparation boundary and
+shared query/result views. Reuse loading/watchers by extending the existing owner where selected;
+if replacing it with an embedded owner, move all affected G consumers and retire the replaced
+world in the same coherent cutover. Keep not-proven, incomplete, unsupported, stale and canceled
+distinct. No hover/debug parsing, implicit compiler work or claim of rustc equivalence is allowed.
+An optionally selected term-construction mode may use `hir::term_search`, `TermSearchConfig` or
+native completion fuel controls; preserve fuel exhaustion, non-exhaustiveness and proposed import
+effects. Native diagnostics remain a separately identified overlay on original compiler evidence.
+
+**Public consumer and acceptance:** a selected syntax/name candidate is refined to an actual
+entity/type/role, inspected and expanded through M02. Independent cases challenge inferred versus
+adjusted types, implicit calls, cfg/crate context, ambiguous/blanket impls and multi-origin macro
+mapping. Exact editable authored ranges differ from invocation-only fallback. Actual source,
+manifest and macro-input changes invalidate old results; cancellation settles owned work and
+leaves surviving queries usable. An adopted snapshot or SSR branch runs its G11 adverse cases
+through public `pse`. Missing preparation leaves ordinary source/API reads usable.
+
+**Deletion and limits:** remove the superseded semantic acquisition/database path and consumers
+when replaced; retain one semantic world owner per project/context. M03 removes replaced public
+read routes with their useful replacements, guidance and tests. No persistent cross-repository
+index, second live database or unselected typed field follows from adopting one native operation.
+Targeted compile/tests establish only selected branches; the coordinator owns scope-end journeys
+and static qualification. No quantitative performance benefit is claimed by this plan.

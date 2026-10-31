@@ -5,10 +5,28 @@ date: 2026-10-29
 doc_role: plan
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, design, libraries, diagnostics, validation]
-review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md]
+review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
 ---
 
 # Compiler investigations
+
+## Current extension — 2026-10-31
+
+**Proposed:** I06/I07 add the bounded ownership/async/dataflow investigation selected from
+[O12](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md#O12).
+The maintainer explicitly accepted investigation plus conditional implementation on 2026-10-31
+without requiring historical recurrence. I05's completed 2026-10-30 no-driver decision and its
+evidence remain historical; its recurring-question trigger does not govern this new inquiry.
+I06 tests a named unanswered structured question against the current lighter routes; only a
+positive decision and the applicable A12 governing publication permit I07 implementation.
+Neither is an ordinary-search prerequisite, and neither installs a compiler component now.
+
+The same accepted `search`/`inspect`/`propose` cutover moves passive original diagnostics and
+artifact reads into common inspection through M03, preserving distinct evidence, context,
+outcome and coverage. Compiler generation/probes retain explicit effectful owners. K owns
+result/locator meaning and A10 its publication; compact shared provenance does not turn current
+source into original compiler evidence. Existing completed rows and outcomes do not qualify
+I06/I07. This document revision plans work only.
 
 ## Purpose and assessed foundation
 
@@ -132,6 +150,8 @@ extraction remain explicit instead of becoming empty successful answers.
 | [I03](#i03) | complete | 59i | Authored isolated constant/layout evaluation and encountered type-size output tested; unresolved substitutions preserve actual compiler failure |
 | [I04](#i04) | complete | 59i | Native selected-unit mono-items and body/pass-filtered before/after MIR retained as opaque original artifacts and tested |
 | [I05](#i05) | complete | 59i | Lighter routes selected; no structured driver adopted without an unanswered recurring question meeting the criteria below |
+| [I06](#i06) | planned | 59i | Named ownership/async/dataflow driver feasibility against I01/I02 and the pinned compiler; no recurrence prerequisite |
+| [I07](#i07) | planned | 59i | Conditional: only I06-selected structured extraction after the applicable A12 publication |
 
 <a id="i01"></a>
 ## I01 — Original evidence and explicit generation foundation
@@ -450,3 +470,82 @@ or legacy custody now refuses deletion rather than assuming that a terminal row 
 neither a structured borrow model, portable ABI, runtime reach nor a performance benefit.
 Arbitrary original full-source identity cannot be reconstructed from snippets; a guarded semantic
 next action is explicitly a separate current-source observation. No performance claim is made.
+
+## Planned search extension packages
+
+I06/I07 feed the [composed investigation plan](59m-composed-rust-investigations.md), using
+the [result/locator foundations](59k-query-and-result-foundations.md) at their public boundary.
+They supersede the recurring-question restriction for this new inquiry only; I01–I05 evidence
+and the historical no-driver outcome are unchanged.
+
+<a id="i06"></a>
+### I06 — Named ownership, async and dataflow feasibility
+
+**Consumes:** working I01 original-evidence/artifact identity, I02's current ownership/async
+scope and C07's selected/admitted compiler context. No G11/G12 or live semantic session is
+required. The maintainer selected this inquiry on 2026-10-31 without a recurrence prerequisite.
+
+Select a concrete structured question: which initialization state and active loans apply at a
+named MIR location, or why a named value remains live/stored across a suspension. Compare the
+actual diagnostic, saved coroutine/drop MIR and explicit probe routes against a pin-specific
+driver; explain the useful relationship the existing opaque artifacts cannot faithfully answer.
+This preserves I05's lighter-route evidence without treating opaque dump availability as typed
+dataflow support. Native analyzer MIR/evaluation is a distinct provider, not rustc borrow facts.
+
+Inspect exact pinned `rustc_driver` callbacks and
+`rustc_borrowck::consumers::get_bodies_with_borrowck_facts`/`ConsumerOptions`, plus native
+`iterate_to_fixpoint` with `ResultsCursor`/`ResultsVisitor`. Keep value liveness, storage liveness, initialization and
+active loans separate; record body, MIR phase, location and may/must interpretation. Inspect
+query timing, copied/stolen MIR, `TyCtxt`/body lifetime and when facts must be requested before
+other consumers take the body. Do not recover borrow facts from source spans or facts generated
+under a different Polonius mode. Check `rustc-dev`, LLVM, target, build-script/proc-macro and
+source-custody prerequisites against this checkout's pinned nightly rather than floating docs.
+
+**Decision and acceptance:** use bounded source cases with independently expected partial-move
+initialization and value/guard retention across await, including a branch where storage and
+value liveness differ. Record exact API/phase evidence, selected relationship, source mappings,
+preparation/lifecycle/upgrade burden, limits and an adoption or no-adoption decision. A positive
+decision must show why the typed answer is useful and feasible; a negative decision names the
+unanswered relationship and observable trigger, such as a compatible extraction API/component
+becoming available. No historical usage count is needed. A feasibility probe is evidence only
+for its named compiler/context, not production implementation or a safety proof.
+
+**Handoff/deletions:** A12 publishes only selected compiler-driver governing changes. This
+inquiry does not gate A11 or ordinary discovery and deletes no original diagnostics/artifacts.
+If lighter routes suffice or exact-pin ownership cannot be qualified, record no adoption and
+leave structured facts explicitly unavailable. The plan revision itself installs no component,
+changes no toolchain and runs no experiment.
+
+<a id="i07"></a>
+### I07 — Conditional structured compiler extraction
+
+**Consumes:** a positive I06 decision with exact selected query/phase/context, the applicable
+A12 governing publication and existing I01/C07 execution/custody owners. Public inspection
+integration requires working K02 result/locator contracts. There is no A11/G11/G12 prerequisite.
+If I06 selects no driver, record the branch as not adopted with its trigger; no driver is built.
+
+Implement only the selected extraction in an explicitly prepared compiler-private component,
+separate from ordinary host initialization. Use driver callbacks and native dataflow/query
+machinery; extract plain typed facts while compiler-local handles are valid. Preserve original
+selected units, compiler/tool identity, flags, phase/body/location, original diagnostics and
+native calculation/capture/settlement outcomes. Generation remains an explicit admitted action;
+passive inspection reuses retained evidence and never installs, compiles or changes checker mode.
+No stable typed protocol is fabricated by parsing MIR debug text.
+
+**Public consumer and acceptance:** explicitly generate a selected ownership/async observation,
+then inspect the source-linked phase/location facts and original evidence without regeneration.
+Challenge partial moves, branch-dependent initialization, storage versus value liveness, active
+loans and suspension captures using independently authored cases. An unsupported phase/query,
+stolen/unavailable body, wrong pinned component, unknown substitutions, source/context mismatch,
+stale locator and unavailable preparation must refuse or report unavailable distinctly from no
+facts. Cancel actual generation and verify native settlement; retained original diagnostics and
+ordinary source/API inspection remain usable. No result establishes general safety, runtime
+reach, actual allocation, callback drain, ABI portability or performance.
+
+**Deletion and limits:** remove only the replaced inspection adapter/duplicate extraction and
+its callers/tests when the selected typed query is proven. Preserve opaque original artifacts
+and useful explicit compiler generation/probe routes. M03 migrates passive diagnostic/artifact
+read parser branches, guidance and tests only with working common replacements. No custom MIR
+pass, replacement borrow checker, whole-workspace database or automatic compiler loop follows.
+Targeted compilation and selected native consumer tests cover the adopted branch; the coordinator
+owns scope-end integration/static qualification. I06 no-adoption evidence cannot claim I07 facts.
