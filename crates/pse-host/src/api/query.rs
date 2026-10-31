@@ -441,6 +441,8 @@ pub struct Candidate {
     pub deprecation: Option<Deprecation>,
     /// Original definition location when supplied by rustdoc.
     pub source: Option<Location>,
+    /// Original artifact-local public reexport declarations traversed to this definition.
+    pub reexports: Vec<ReexportSource>,
     /// Required trait import and implementation facts where known.
     pub trait_provenance: Option<TraitProvenance>,
     /// Whether rustdoc explicitly stripped part of this declaration.
@@ -453,6 +455,14 @@ pub struct Candidate {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(with = "Option<serde_json::Value>")]
     pub declaration: Option<Box<serde_json::value::RawValue>>,
+}
+/// Native rustdoc reexport provenance; these IDs are local to the same retained artifact.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ReexportSource {
+    /// Original use declaration, distinct from the definition reached through it.
+    pub item_id: u32,
+    /// Exact original reexport syntax span when rustdoc retained it.
+    pub source: Option<Location>,
 }
 /// Retained declaration deprecation, independent of its availability in a chosen build.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -589,6 +599,7 @@ struct Address {
     path: String,
     id: Id,
     trait_provenance: Option<TraitProvenance>,
+    reexports: Vec<Id>,
 }
 fn public(item: &Item) -> bool {
     matches!(item.visibility, rustdoc_types::Visibility::Public)
@@ -598,22 +609,27 @@ fn walk(
     id: Id,
     path: String,
     ancestors: &mut BTreeSet<Id>,
-    output: &mut BTreeMap<String, Id>,
+    reexports: &[Id],
+    output: &mut BTreeMap<String, (Id, Vec<Id>)>,
 ) {
     if !ancestors.insert(id) {
         return;
     }
     if let Some(item) = document.index.get(&id) {
         if let ItemEnum::Use(import) = &item.inner {
+            let mut route = reexports.to_vec();
+            route.push(id);
             if let Some(target) = import.id
                 && document.index.contains_key(&target)
             {
-                walk(document, target, path, ancestors, output);
+                walk(document, target, path, ancestors, &route, output);
             } else {
-                output.insert(path, id);
+                output.insert(path, (id, route));
             }
         } else {
-            output.entry(path.clone()).or_insert(id);
+            output
+                .entry(path.clone())
+                .or_insert_with(|| (id, reexports.to_vec()));
             if let ItemEnum::Module(module) = &item.inner {
                 for child in &module.items {
                     let Some(child_item) = document.index.get(child) else {
@@ -627,9 +643,13 @@ fn walk(
                             if let Some(target) = import.id
                                 && document.index.contains_key(&target)
                             {
-                                walk(document, target, path.clone(), ancestors, output);
+                                let mut route = reexports.to_vec();
+                                route.push(*child);
+                                walk(document, target, path.clone(), ancestors, &route, output);
                             } else {
-                                output.insert(format!("{path}::*"), *child);
+                                let mut route = reexports.to_vec();
+                                route.push(*child);
+                                output.insert(format!("{path}::*"), (*child, route));
                             }
                         } else {
                             walk(
@@ -637,6 +657,7 @@ fn walk(
                                 *child,
                                 format!("{path}::{}", import.name),
                                 ancestors,
+                                reexports,
                                 output,
                             );
                         }
@@ -646,6 +667,7 @@ fn walk(
                             *child,
                             format!("{path}::{name}"),
                             ancestors,
+                            reexports,
                             output,
                         );
                     }
@@ -733,14 +755,16 @@ fn addresses(document: &Crate) -> Vec<Address> {
         document.root,
         root,
         &mut BTreeSet::new(),
+        &[],
         &mut paths,
     );
     let mut result = Vec::new();
-    for (path, id) in &paths {
+    for (path, (id, reexports)) in &paths {
         result.push(Address {
             path: path.clone(),
             id: *id,
             trait_provenance: None,
+            reexports: reexports.clone(),
         });
         let Some(item) = document.index.get(id) else {
             continue;
@@ -759,6 +783,7 @@ fn addresses(document: &Crate) -> Vec<Address> {
                             path: format!("{path}::{name}"),
                             id: *associated,
                             trait_provenance: None,
+                            reexports: reexports.clone(),
                         });
                     }
                 }
@@ -777,7 +802,7 @@ fn addresses(document: &Crate) -> Vec<Address> {
             let provenance = implementation.trait_.as_ref().map(|trait_| {
                 let public_path = paths
                     .iter()
-                    .find_map(|(path, id)| (*id == trait_.id).then(|| path.clone()))
+                    .find_map(|(path, (id, _))| (*id == trait_.id).then(|| path.clone()))
                     .or_else(|| {
                         document
                             .paths
@@ -821,6 +846,7 @@ fn addresses(document: &Crate) -> Vec<Address> {
                         path: format!("{path}::{name}"),
                         id: associated_id,
                         trait_provenance: provenance.clone(),
+                        reexports: reexports.clone(),
                     });
                 }
             }
@@ -834,6 +860,76 @@ fn addresses(document: &Crate) -> Vec<Address> {
                 == right.trait_provenance.as_ref().map(|value| &value.path)
     });
     result
+}
+
+/// Request-local original public routes reuse the API owner's native address traversal.
+#[derive(Debug)]
+pub(crate) struct SourceRoutes {
+    routes: BTreeMap<(u32, String), Vec<Id>>,
+}
+impl SourceRoutes {
+    pub(crate) fn new(document: &Crate) -> Self {
+        Self {
+            routes: addresses(document)
+                .into_iter()
+                .map(|address| ((address.id.0, address.path), address.reexports))
+                .collect(),
+        }
+    }
+    pub(crate) fn validate(&self, id: Id, public_path: Option<&str>) -> Result<(), ApiError> {
+        if public_path.is_some_and(|path| !self.routes.contains_key(&(id.0, path.into()))) {
+            return Err(super::invalid(
+                "API public path does not address this declaration in its original artifact",
+            ));
+        }
+        Ok(())
+    }
+    /// A direct, nonglob original use can nominate the same declared target through native lookup.
+    pub(crate) fn reexport_span<'a>(
+        &self,
+        document: &'a Crate,
+        id: Id,
+        public_path: Option<&str>,
+    ) -> Result<Option<&'a rustdoc_types::Span>, ApiError> {
+        let routes = if let Some(path) = public_path {
+            vec![self.routes.get(&(id.0, path.into())).ok_or_else(|| {
+                super::invalid(
+                    "API public path does not address this declaration in its original artifact",
+                )
+            })?]
+        } else {
+            self.routes
+                .iter()
+                .filter_map(|((candidate, _), route)| (*candidate == id.0).then_some(route))
+                .collect::<Vec<_>>()
+        };
+        let mut spans = Vec::new();
+        for route in routes {
+            for use_id in route {
+                let Some(item) = document.index.get(use_id) else {
+                    continue;
+                };
+                let ItemEnum::Use(import) = &item.inner else {
+                    continue;
+                };
+                if import.is_glob || (*use_id != id && import.id != Some(id)) {
+                    continue;
+                }
+                if let Some(span) = item.span.as_ref() {
+                    if !spans.contains(&span) {
+                        spans.push(span);
+                    }
+                }
+            }
+        }
+        match spans.as_slice() {
+            [] => Ok(None),
+            [span] => Ok(Some(*span)),
+            _ => Err(super::invalid(
+                "API declaration has multiple original reexport spans; select its exact public path",
+            )),
+        }
+    }
 }
 #[cfg(test)]
 pub(super) fn test_public_paths(document: &Crate) -> Vec<(String, Option<String>)> {
@@ -1245,7 +1341,7 @@ pub fn inspect(
         let (signature,signature_complete)=signature(item);
         let incomplete_declaration=match &item.inner{ItemEnum::Module(value)=>value.is_stripped,ItemEnum::Struct(value)=>match &value.kind{rustdoc_types::StructKind::Plain{has_stripped_fields,..}=>*has_stripped_fields,rustdoc_types::StructKind::Tuple(fields)=>fields.iter().any(Option::is_none),rustdoc_types::StructKind::Unit=>false},ItemEnum::Union(value)=>value.has_stripped_fields,ItemEnum::Enum(value)=>value.has_stripped_variants,ItemEnum::Use(_)=>true,_=>false};
         let declaration = query.declaration.then(||serde_json::value::to_raw_value(item)).transpose()?;
-        Ok::<_,serde_json::Error>(Candidate{public_path:address.path,item_id:item.id.0,kind:kind(item),signature,signature_complete,docs:query.docs.then(||item.docs.clone()).flatten(),attributes:item.attrs.iter().map(|attr|format!("{attr:?}")).collect(),deprecation:item.deprecation.as_ref().map(|value|Deprecation{since:value.since.clone(),note:value.note.clone()}),source:item.span.as_ref().map(|span|Location{filename:span.filename.clone(),begin:span.begin,end:span.end}),trait_provenance:address.trait_provenance,incomplete_declaration,ordinary_build_availability:"unknown; rustdoc cfg(doc) is a documentation context",examples:if query.examples{item.docs.as_deref().map(examples).unwrap_or_default()}else{Vec::new()},declaration})
+        Ok::<_,serde_json::Error>(Candidate{public_path:address.path,item_id:item.id.0,kind:kind(item),signature,signature_complete,docs:query.docs.then(||item.docs.clone()).flatten(),attributes:item.attrs.iter().map(|attr|format!("{attr:?}")).collect(),deprecation:item.deprecation.as_ref().map(|value|Deprecation{since:value.since.clone(),note:value.note.clone()}),source:item.span.as_ref().map(|span|Location{filename:span.filename.clone(),begin:span.begin,end:span.end}),reexports:address.reexports.into_iter().filter_map(|id|artifact.document.index.get(&id)).map(|reexport|ReexportSource{item_id:reexport.id.0,source:reexport.span.as_ref().map(|span|Location{filename:span.filename.clone(),begin:span.begin,end:span.end})}).collect(),trait_provenance:address.trait_provenance,incomplete_declaration,ordinary_build_availability:"unknown; rustdoc cfg(doc) is a documentation context",examples:if query.examples{item.docs.as_deref().map(examples).unwrap_or_default()}else{Vec::new()},declaration})
     })).collect::<Result<Vec<_>,_>>()?;
     let next = offset + candidates.len();
     let request_identity = query

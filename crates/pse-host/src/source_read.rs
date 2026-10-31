@@ -38,25 +38,24 @@ pub(crate) fn semantic_anchor(source: &str, range: Range<usize>) -> Option<usize
         .filter(|node| node.text_range() == selected)
         .last();
     if let Some(node) = node {
-        if let Some(method) = ast::MethodCallExpr::cast(node.clone()) {
-            return method
-                .name_ref()
-                .map(|name| usize::from(name.syntax().text_range().start()));
+        if let Some(anchor) = semantic_node_anchor(&node) {
+            return Some(anchor);
         }
-        if let Some(call) = ast::CallExpr::cast(node.clone()) {
-            return call
-                .expr()?
-                .syntax()
-                .descendants()
-                .filter(|node| node.kind() == SyntaxKind::NAME_REF)
-                .last()
-                .map(|name| usize::from(name.text_range().start()));
-        }
-        if let Some(name) = node.children().find(|node| node.kind() == SyntaxKind::NAME) {
-            return Some(usize::from(name.text_range().start()));
-        }
-        if matches!(node.kind(), SyntaxKind::NAME | SyntaxKind::NAME_REF) {
-            return Some(usize::from(node.text_range().start()));
+    }
+    // Rustdoc may exclude attached docs/attrs from an otherwise complete item
+    // span. Match that native item and its real name, never a textual prefix.
+    let mut items = root
+        .descendants()
+        .filter(|node| {
+            ast::Item::can_cast(node.kind())
+                && node.text_range().end() == selected.end()
+                && node.text_range().contains_range(selected)
+        })
+        .filter_map(|node| semantic_node_anchor(&node))
+        .filter(|offset| range.contains(offset));
+    if let Some(anchor) = items.next() {
+        if items.next().is_none() {
+            return Some(anchor);
         }
     }
     let mut names = root.descendants().filter(|node| {
@@ -68,6 +67,42 @@ pub(crate) fn semantic_anchor(source: &str, range: Range<usize>) -> Option<usize
         return None;
     }
     Some(usize::from(name.text_range().start()))
+}
+fn semantic_node_anchor(node: &SyntaxNode) -> Option<usize> {
+    if let Some(method) = ast::MethodCallExpr::cast(node.clone()) {
+        return method
+            .name_ref()
+            .map(|name| usize::from(name.syntax().text_range().start()));
+    }
+    if let Some(call) = ast::CallExpr::cast(node.clone()) {
+        return call
+            .expr()?
+            .syntax()
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::NAME_REF)
+            .last()
+            .map(|name| usize::from(name.text_range().start()));
+    }
+    if let Some(use_) = ast::Use::cast(node.clone()) {
+        let tree = use_.use_tree()?;
+        if tree.use_tree_list().is_some() || tree.star_token().is_some() {
+            return None;
+        }
+        return tree
+            .path()?
+            .syntax()
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::NAME_REF)
+            .last()
+            .map(|name| usize::from(name.text_range().start()));
+    }
+    if let Some(name) = node.children().find(|node| node.kind() == SyntaxKind::NAME) {
+        return Some(usize::from(name.text_range().start()));
+    }
+    if matches!(node.kind(), SyntaxKind::NAME | SyntaxKind::NAME_REF) {
+        return Some(usize::from(node.text_range().start()));
+    }
+    None
 }
 
 /// Explicit parsing policy; this is never presented as an inferred Cargo configuration.
@@ -163,6 +198,10 @@ pub struct Entry {
     #[serde(skip)]
     #[schemars(skip)]
     pub(crate) method: bool,
+    /// Native written header after attached docs/attributes, without token regeneration.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub(crate) written_header: Option<SourceRange>,
 }
 /// Parser error; useful recovered entries remain available alongside it.
 #[derive(Clone, Debug, Serialize, JsonSchema)]
@@ -187,21 +226,26 @@ pub struct Outline {
     pub parse_issues: Vec<ParseIssue>,
 }
 
+/// Logical Rust identifier from an actual parsed name; raw syntax is retained in source bytes.
+pub(crate) fn identifier_name(name: ast::Name) -> String {
+    let text = name.text();
+    text.strip_prefix("r#").unwrap_or(&text).to_owned()
+}
 fn declaration(node: &SyntaxNode) -> Option<String> {
     if let Some(item) = ast::Item::cast(node.clone()) {
         use ast::Item;
         return match item {
-            Item::Fn(n) => n.name().map(|x| x.text().to_string()),
-            Item::Struct(n) => n.name().map(|x| x.text().to_string()),
-            Item::Enum(n) => n.name().map(|x| x.text().to_string()),
-            Item::Union(n) => n.name().map(|x| x.text().to_string()),
-            Item::Trait(n) => n.name().map(|x| x.text().to_string()),
-            Item::Module(n) => n.name().map(|x| x.text().to_string()),
-            Item::TypeAlias(n) => n.name().map(|x| x.text().to_string()),
-            Item::Const(n) => n.name().map(|x| x.text().to_string()),
-            Item::Static(n) => n.name().map(|x| x.text().to_string()),
-            Item::MacroRules(n) => n.name().map(|x| x.text().to_string()),
-            Item::MacroDef(n) => n.name().map(|x| x.text().to_string()),
+            Item::Fn(n) => n.name().map(identifier_name),
+            Item::Struct(n) => n.name().map(identifier_name),
+            Item::Enum(n) => n.name().map(identifier_name),
+            Item::Union(n) => n.name().map(identifier_name),
+            Item::Trait(n) => n.name().map(identifier_name),
+            Item::Module(n) => n.name().map(identifier_name),
+            Item::TypeAlias(n) => n.name().map(identifier_name),
+            Item::Const(n) => n.name().map(identifier_name),
+            Item::Static(n) => n.name().map(identifier_name),
+            Item::MacroRules(n) => n.name().map(identifier_name),
+            Item::MacroDef(n) => n.name().map(identifier_name),
             Item::Impl(n) => n.self_ty().map(|x| x.syntax().text().to_string()),
             _ => None,
         };
@@ -250,11 +294,21 @@ pub(super) fn rust_bounded(
                 )
             });
             let header_end = body.map_or(end, |n| usize::from(n.text_range().start()));
+            let header_start = node
+                .children_with_tokens()
+                .find(|element| {
+                    !matches!(
+                        element.kind(),
+                        SyntaxKind::ATTR | SyntaxKind::COMMENT | SyntaxKind::WHITESPACE
+                    )
+                })
+                .map_or(start, |element| usize::from(element.text_range().start()));
             Some(Entry {
                 path,
                 kind: format!("{:?}", node.kind()),
                 range: location(&lines, start..end),
                 signature: source[start..header_end].trim_end().to_owned(),
+                written_header: Some(location(&lines, header_start..header_end)),
                 written_visibility: node
                     .children()
                     .find(|child| child.kind() == SyntaxKind::VISIBILITY)
@@ -264,7 +318,7 @@ pub(super) fn rust_bounded(
                         .ancestors()
                         .skip(1)
                         .filter_map(ast::Module::cast)
-                        .filter_map(|module| module.name().map(|name| name.text().to_string()))
+                        .filter_map(|module| module.name().map(identifier_name))
                         .collect::<Vec<_>>();
                     modules.reverse();
                     modules
@@ -365,6 +419,7 @@ pub(super) fn markdown_bounded(source: &str, offset: usize, limit: usize) -> (Ou
                 modules: Vec::new(),
                 associated: false,
                 method: false,
+                written_header: None,
             }
         })
         .enumerate()

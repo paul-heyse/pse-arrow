@@ -8,6 +8,138 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(feature = "native-hir")]
+#[tokio::test]
+async fn native_snapshot_authenticated_cancel_settles_one_request_and_preserves_the_session() {
+    use tokio_util::sync::CancellationToken;
+    let project = tempfile::tempdir().unwrap();
+    std::fs::create_dir(project.path().join("src")).unwrap();
+    std::fs::write(project.path().join("Cargo.toml"),"[package]\nname='native-cancellation-control'\nversion='0.0.0'\nedition='2024'\n[workspace]\n").unwrap();
+    std::fs::write(
+        project.path().join("Cargo.lock"),
+        "version=4\n[[package]]\nname='native-cancellation-control'\nversion='0.0.0'\n",
+    )
+    .unwrap();
+    std::fs::copy(
+        checkout().join("rust-toolchain.toml"),
+        project.path().join("rust-toolchain.toml"),
+    )
+    .unwrap();
+    let text = format!(
+        "pub fn target()->u32{{7}}\npub fn many(){{let mut n=0u32;{}std::hint::black_box(n);}}\n",
+        "n+=1;".repeat(30_000)
+    );
+    let file = project.path().join("src/lib.rs");
+    std::fs::write(&file, &text).unwrap();
+    let session = Session::new();
+    session.run(&["tools", "prepare", "native-analysis"], 0);
+    session.run(
+        &[
+            "code",
+            "session",
+            "prepare",
+            "--backend",
+            "native-snapshot",
+            "--project",
+            project.path().to_str().unwrap(),
+        ],
+        0,
+    );
+    session.ready();
+    let mut environment: crate::environment::Environment = std::env::vars_os().collect();
+    environment.insert(
+        "XDG_STATE_HOME".into(),
+        session.state.path().as_os_str().to_owned(),
+    );
+    let record = load(&session.root, &environment).unwrap().unwrap();
+    let offset = text.find("n=0u32").unwrap();
+    let prefix = &text[..offset];
+    let query = Query {
+        kind: Kind::Refs,
+        file: file.clone(),
+        line: prefix.bytes().filter(|byte| *byte == b'\n').count() + 1,
+        column: prefix.rsplit('\n').next().unwrap().chars().count() + 1,
+        if_source: Some(crate::source_read::source_digest(&text)),
+        if_generation: Some(1),
+        if_candidate: None,
+        limit: 100_000,
+        end_line: None,
+    };
+    let cancellation = CancellationToken::new();
+    let request = {
+        let root = session.root.clone();
+        let environment = environment.clone();
+        let record = record.clone();
+        let token = cancellation.clone();
+        tokio::spawn(async move {
+            client_cancellable(&root, &environment, &record, &Request::Query(query), &token).await
+        })
+    };
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+    loop {
+        let status = client(&session.root, &environment, &record, &Request::Status {})
+            .await
+            .unwrap();
+        if status["active_requests"].as_u64().unwrap() > 0 {
+            break;
+        }
+        assert!(
+            !request.is_finished(),
+            "long native query finished before actual cancellation could be exercised"
+        );
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "native request never became active"
+        );
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+    let sibling = {
+        let root = session.root.clone();
+        let environment = environment.clone();
+        let record = record.clone();
+        let file = file.clone();
+        tokio::spawn(async move {
+            client(
+                &root,
+                &environment,
+                &record,
+                &Request::Query(Query {
+                    kind: Kind::Explain,
+                    file,
+                    line: 1,
+                    column: 8,
+                    if_source: None,
+                    if_generation: Some(1),
+                    if_candidate: None,
+                    limit: 20,
+                    end_line: None,
+                }),
+            )
+            .await
+        })
+    };
+    cancellation.cancel();
+    let cancelled = tokio::time::timeout(Duration::from_secs(60), request)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap_err();
+    assert!(
+        matches!(cancelled,Error::Refusal(ref failure) if matches!(failure.state,FailureState::Cancelled)&&failure.backend_data.as_ref().is_some_and(|data|data["cpu_work_completed"]==true&&data["session_stopped"]==false)),
+        "{cancelled:?}"
+    );
+    assert!(
+        sibling.await.unwrap().is_ok(),
+        "another native consumer must remain usable"
+    );
+    let status = client(&session.root, &environment, &record, &Request::Status {})
+        .await
+        .unwrap();
+    assert_eq!(status["context_current"], true);
+    assert_eq!(status["active_requests"], 0);
+    session.stop();
+}
+
 fn checkout() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()

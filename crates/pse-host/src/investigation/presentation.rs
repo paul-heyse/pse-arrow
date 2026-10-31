@@ -3,6 +3,29 @@
 //! Result detail selection preserves original addresses and native coverage.
 use super::{QueryPresentation, SearchResult};
 
+/// Query producers own record budgets; shared provenance and coverage cannot be
+/// removed by the generic envelope payload selector. Schema and output use this owner.
+pub fn envelope_view(requested: &crate::envelope::Presentation) -> crate::envelope::Presentation {
+    let mut fields = requested.fields.clone();
+    if let Some(fields) = &mut fields {
+        for mandatory in [
+            "query",
+            "sources",
+            "summary",
+            "diagnostics",
+            "native_failures",
+        ] {
+            if !fields.iter().any(|field| field == mandatory) {
+                fields.push(mandatory.into());
+            }
+        }
+    }
+    crate::envelope::Presentation {
+        fields,
+        budget: None,
+    }
+}
+
 /// Detail omitted by an explicit field selection; identity is never selectable away.
 pub fn omitted(presentation: &QueryPresentation) -> Vec<String> {
     if presentation.fields.is_empty() {
@@ -52,6 +75,7 @@ mod tests {
             bytes: None,
             entity: None,
             candidate_reference: None,
+            refinement: None,
         };
         let presentation = QueryPresentation {
             fields: vec!["context".into()],

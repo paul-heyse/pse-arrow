@@ -89,6 +89,8 @@ pub fn decode(bytes: &[u8]) -> Result<rustdoc_types::Crate, ApiError> {
 pub struct Context {
     /// Checked local context protocol.
     pub version: u32,
+    /// Canonical original acquisition directory for all relative source fingerprints.
+    pub source_root: PathBuf,
     /// Cargo's source-qualified exact package ID.
     pub package_id: String,
     /// Exact locked source address, including local path identity.
@@ -195,11 +197,148 @@ struct DocumentationUnit {
     mode: String,
     platform: Option<String>,
     target: DocumentationTarget,
+    #[serde(default)]
+    dependencies: Option<Vec<DocumentationDependency>>,
+}
+#[derive(Deserialize)]
+struct DocumentationDependency {
+    index: usize,
 }
 #[derive(Deserialize)]
 struct DocumentationTarget {
     name: String,
     src_path: PathBuf,
+    #[serde(default)]
+    kind: Vec<String>,
+}
+
+/// One original Cargo library unit; package spellings never replace its qualified identity.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct DocumentationLibraryProfile {
+    pub package_id: String,
+    pub library_root: PathBuf,
+    pub features: BTreeSet<String>,
+    pub target: String,
+    pub role: String,
+}
+/// Original compiler-plan reachability, not the broader optional metadata feature universe.
+#[derive(Debug)]
+pub(crate) struct DocumentationClosure {
+    pub root: DocumentationLibraryProfile,
+    pub dependencies: BTreeSet<DocumentationLibraryProfile>,
+}
+
+/// Read the actual retained Cargo dependency edges; no resolver or query-time Cargo invocation.
+pub(crate) fn retained_documentation_closure(
+    artifact: &Artifact,
+) -> Result<DocumentationClosure, ApiError> {
+    let directory = artifact
+        .path
+        .parent()
+        .ok_or_else(|| invalid("API artifact directory absent"))?;
+    let bytes = crate::test_inventory::read_private(&directory.join("unit-graph.json"))
+        .map_err(|error| invalid(error.to_string()))?;
+    if probe::digest(&bytes) != artifact.context.unit_graph_sha256 {
+        return Err(invalid("original API documentation unit graph changed"));
+    }
+    let graph: DocumentationGraph = serde_json::from_slice(&bytes)?;
+    if graph.version != 1 {
+        return Err(invalid(
+            "unsupported retained API documentation graph version",
+        ));
+    }
+    for index in &graph.roots {
+        if *index >= graph.units.len() {
+            return Err(invalid("retained API graph root is outside its units"));
+        }
+    }
+    let selected = graph
+        .roots
+        .iter()
+        .filter(|index| {
+            graph.units.get(**index).is_some_and(|unit| {
+                unit.pkg_id == artifact.context.package_id
+                    && unit.mode == "doc"
+                    && unit.platform.as_deref() == Some(artifact.context.target.as_str())
+                    && unit.features == artifact.context.features
+            })
+        })
+        .copied()
+        .collect::<Vec<_>>();
+    let [root_index] = selected.as_slice() else {
+        return Err(invalid(
+            "API context has no unique original documentation unit",
+        ));
+    };
+    let root = documentation_profile(&graph.units[*root_index], &artifact.context.source_root)?;
+    let mut dependencies = BTreeSet::new();
+    let mut seen = BTreeSet::new();
+    let mut pending = vec![*root_index];
+    while let Some(index) = pending.pop() {
+        if !seen.insert(index) {
+            continue;
+        }
+        let unit = graph
+            .units
+            .get(index)
+            .ok_or_else(|| invalid("retained API dependency edge is outside its units"))?;
+        if index != *root_index {
+            if !matches!(unit.mode.as_str(), "build" | "check") {
+                return Err(invalid(format!(
+                    "retained API dependency mode {} has no proved native library profile",
+                    unit.mode
+                )));
+            }
+            let profile = documentation_profile(unit, &artifact.context.source_root)?;
+            if profile.role != "lib" {
+                return Err(invalid(
+                    "retained API host/proc-macro dependency context is not proved by the native library closure",
+                ));
+            }
+            // Cargo may plan the selected library's own compilation before documenting it.
+            // It is the already compared root profile, not an additional semantic dependency.
+            if profile != root {
+                dependencies.insert(profile);
+            }
+        }
+        let edges = unit
+            .dependencies
+            .as_ref()
+            .ok_or_else(|| invalid("retained API graph omitted authoritative dependency edges"))?;
+        pending.extend(edges.iter().map(|edge| edge.index));
+    }
+    Ok(DocumentationClosure { root, dependencies })
+}
+
+fn documentation_profile(
+    unit: &DocumentationUnit,
+    root: &Path,
+) -> Result<DocumentationLibraryProfile, ApiError> {
+    let kinds = &unit.target.kind;
+    let role = if kinds.iter().any(|kind| kind == "proc-macro") {
+        "proc-macro"
+    } else if !kinds.is_empty()
+        && kinds.iter().all(|kind| {
+            matches!(
+                kind.as_str(),
+                "lib" | "rlib" | "dylib" | "cdylib" | "staticlib"
+            )
+        })
+    {
+        "lib"
+    } else {
+        return Err(invalid(
+            "retained API build-only/nonlibrary unit has no native library equivalence",
+        ));
+    };
+    let target=unit.platform.clone().ok_or_else(||invalid("retained API host unit has no explicit target profile; compiler equivalence remains unknown"))?;
+    Ok(DocumentationLibraryProfile {
+        package_id: unit.pkg_id.clone(),
+        library_root: root.join(&unit.target.src_path).canonicalize()?,
+        features: unit.features.clone(),
+        target,
+        role: role.into(),
+    })
 }
 fn documentation_features(
     bytes: &[u8],
@@ -399,6 +538,7 @@ fn observed_context(
     Ok(Observation {
         context: Context {
             version: 1,
+            source_root: root.canonicalize()?,
             package_id: package.id.to_string(),
             manifest: package.manifest_path.as_std_path().to_owned(),
             package_source_sha256,

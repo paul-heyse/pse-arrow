@@ -30,6 +30,7 @@ pub struct WrittenModuleContext {
 pub struct ModuleGraph {
     contexts: BTreeMap<PathBuf, Vec<WrittenModuleContext>>,
     diagnostics: Vec<QueryDiagnostic>,
+    issue_targets: BTreeMap<String, BTreeSet<usize>>,
 }
 impl ModuleGraph {
     /// Derive only actual authored/default target roots and native module declarations.
@@ -194,9 +195,10 @@ impl ModuleGraph {
                         .collect()
                 };
                 if paths.is_empty() {
-                    loader.issue(format!(
-                        "authored bin target {target} has no discoverable source root"
-                    ));
+                    loader.issue(
+                        &format!("{}:bin:{target}", input.path.display()),
+                        format!("authored bin target {target} has no discoverable source root"),
+                    );
                 }
                 for path in paths {
                     targets.insert(
@@ -231,6 +233,24 @@ impl ModuleGraph {
     pub fn complete(&self) -> bool {
         self.diagnostics.is_empty()
     }
+    /// A selected file's written target routes do not inherit unrelated crate failures.
+    pub fn diagnostics_for(&self, path: &Path) -> impl Iterator<Item = &QueryDiagnostic> {
+        let indices = self
+            .contexts(path)
+            .iter()
+            .filter_map(|context| self.issue_targets.get(&context.target))
+            .flatten()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        self.diagnostics
+            .iter()
+            .enumerate()
+            .filter_map(move |(index, diagnostic)| indices.contains(&index).then_some(diagnostic))
+    }
+    /// Completeness of established written routes for this source, without active-cfg claims.
+    pub fn complete_for(&self, path: &Path) -> bool {
+        self.diagnostics_for(path).next().is_none()
+    }
 }
 
 struct Loader<'a> {
@@ -250,7 +270,12 @@ impl Loader<'_> {
             self.available.contains(&path)
         }
     }
-    fn issue(&mut self, message: String) {
+    fn issue(&mut self, target: &str, message: String) {
+        self.graph
+            .issue_targets
+            .entry(target.into())
+            .or_default()
+            .insert(self.graph.diagnostics.len());
         self.graph.diagnostics.push(QueryDiagnostic {
             code: "search.written_module_context".into(),
             message,
@@ -285,7 +310,10 @@ impl Loader<'_> {
             return Err(Error::Cancelled);
         }
         if self.stack.contains(&path) {
-            self.issue(format!("cyclic written module source route at {path:?}"));
+            self.issue(
+                &context.target,
+                format!("cyclic written module source route at {path:?}"),
+            );
             return Ok(());
         }
         let contexts = self.graph.contexts.entry(path.clone()).or_default();
@@ -297,22 +325,29 @@ impl Loader<'_> {
             Ok(input) => input,
             Err(Error::Cancelled) => return Err(Error::Cancelled),
             Err(error) => {
-                self.issue(format!("module source {path:?} unavailable: {error}"));
+                self.issue(
+                    &context.target,
+                    format!("module source {path:?} unavailable: {error}"),
+                );
                 return Ok(());
             }
         };
         let text = match std::str::from_utf8(&input.bytes) {
             Ok(text) => text,
             Err(error) => {
-                self.issue(format!("module source {path:?} is not UTF-8: {error}"));
+                self.issue(
+                    &context.target,
+                    format!("module source {path:?} is not UTF-8: {error}"),
+                );
                 return Ok(());
             }
         };
         let parsed = SourceFile::parse(text, Edition::Edition2024);
         if !parsed.errors().is_empty() {
-            self.issue(format!(
-                "native parser recovered written module source {path:?}"
-            ));
+            self.issue(
+                &context.target,
+                format!("native parser recovered written module source {path:?}"),
+            );
         }
         let parent = path.parent().unwrap_or(Path::new(""));
         let mod_rs = root_file || path.file_name().is_some_and(|name| name == "mod.rs");
@@ -341,8 +376,11 @@ impl Loader<'_> {
             let ast::Item::Module(module) = item else {
                 continue;
             };
-            let Some(name) = module.name().map(|name| name.text().to_string()) else {
-                self.issue("module declaration has no written name".into());
+            let Some(name) = module.name().map(crate::source_read::identifier_name) else {
+                self.issue(
+                    &context.target,
+                    "module declaration has no written name".into(),
+                );
                 continue;
             };
             let mut next = context.clone();
@@ -395,10 +433,13 @@ impl Loader<'_> {
                 }
             }
             if unsupported_path {
-                self.issue(format!(
-                    "conditional/nonliteral module path for {} remains unresolved",
-                    next.modules.join("::")
-                ));
+                self.issue(
+                    &context.target,
+                    format!(
+                        "conditional/nonliteral module path for {} remains unresolved",
+                        next.modules.join("::")
+                    ),
+                );
             }
             if let Some(inline) = module.item_list() {
                 if paths.is_empty() || conditional_path {
@@ -441,11 +482,14 @@ impl Loader<'_> {
                 candidates.sort();
                 candidates.dedup();
                 if candidates.len() != 1 {
-                    self.issue(format!(
-                        "module {} has {} written source candidates",
-                        next.modules.join("::"),
-                        candidates.len()
-                    ));
+                    self.issue(
+                        &context.target,
+                        format!(
+                            "module {} has {} written source candidates",
+                            next.modules.join("::"),
+                            candidates.len()
+                        ),
+                    );
                 }
                 for candidate in candidates {
                     self.file(candidate, next.clone(), false)?;
@@ -476,6 +520,71 @@ fn normalize(path: &Path) -> PathBuf {
 mod tests {
     use super::*;
     use std::{fs, process::Command};
+    #[test]
+    fn raw_module_names_use_real_paths_and_unrelated_targets_do_not_poison_narrow_queries() {
+        let root = tempfile::tempdir().unwrap();
+        for package in ["good", "broken"] {
+            fs::create_dir_all(root.path().join(package).join("src")).unwrap();
+            fs::write(
+                root.path().join(package).join("Cargo.toml"),
+                format!("[package]\nname='{package}'\nversion='0.0.0'\nedition='2024'\n"),
+            )
+            .unwrap();
+        }
+        fs::write(
+            root.path().join("Cargo.toml"),
+            "[workspace]\nmembers=['good','broken']\nresolver='3'\n",
+        )
+        .unwrap();
+        fs::write(
+            root.path().join("good/src/lib.rs"),
+            "mod r#type; pub struct Writer;\n",
+        )
+        .unwrap();
+        fs::write(
+            root.path().join("good/src/type.rs"),
+            "pub fn r#match() {}\n",
+        )
+        .unwrap();
+        fs::write(root.path().join("broken/src/lib.rs"), "mod missing;\n").unwrap();
+        let graph = ModuleGraph::discover(
+            root.path(),
+            &SourceSelector::default(),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        assert!(!graph.complete());
+        assert!(graph.complete_for(Path::new("good/src/type.rs")));
+        assert!(!graph.complete_for(Path::new("broken/src/lib.rs")));
+        assert_eq!(
+            graph.contexts(Path::new("good/src/type.rs"))[0].modules,
+            ["type"]
+        );
+        for (path, name) in [
+            ("good/src/lib.rs", "Writer"),
+            ("good/src/type.rs", "type::match"),
+        ] {
+            let mut request = Request {
+                predicate: Predicate::Symbol(SymbolQuery {
+                    name: name.into(),
+                    matching: NameMatch::Exact,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+            request.sources.paths.push(path.into());
+            let summary = super::super::run(
+                root.path(),
+                &request,
+                &CancellationToken::new(),
+                &mut |_| Ok(()),
+            )
+            .unwrap();
+            assert!(summary.complete, "{summary:?}");
+            assert_eq!(summary.matches, 1);
+            assert_eq!(summary.unknown, 0);
+        }
+    }
     #[test]
     fn written_roots_paths_inline_modules_and_multiple_routes_keep_native_names() {
         let root = tempfile::tempdir().unwrap();

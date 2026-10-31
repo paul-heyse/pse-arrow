@@ -247,8 +247,12 @@ fn collect(
     directory: &Path,
     files: &mut BTreeMap<PathBuf, String>,
 ) -> Result<(), HostError> {
-    let mut entries =
-        fs::read_dir(checked_input(root, directory)?)?.collect::<Result<Vec<_>, _>>()?;
+    let directory_path = if directory.as_os_str().is_empty() {
+        root.to_path_buf()
+    } else {
+        checked_input(root, directory)?
+    };
+    let mut entries = fs::read_dir(directory_path)?.collect::<Result<Vec<_>, _>>()?;
     entries.sort_by_key(fs::DirEntry::file_name);
     for entry in entries {
         if entry.file_name() == "target" || entry.file_name() == ".git" {
@@ -347,7 +351,7 @@ impl SourceFingerprint {
                 let selected = directory
                     .strip_prefix(root)
                     .map_err(|_| invalid("local source dependency lies outside the checkout"))?;
-                if !relative(selected) {
+                if !selected.as_os_str().is_empty() && !relative(selected) {
                     return Err(invalid("local package root is not checkout-relative"));
                 }
                 package_roots.insert(selected.to_owned());
@@ -425,7 +429,7 @@ impl SourceFingerprint {
             let selected = directory
                 .strip_prefix(root)
                 .map_err(|_| invalid("admitted local dependency lies outside checkout"))?;
-            if !relative(selected) {
+            if !selected.as_os_str().is_empty() && !relative(selected) {
                 return Err(invalid("admitted package root is not checkout-relative"));
             }
             package_roots.insert(selected.to_owned());
@@ -472,7 +476,10 @@ impl SourceFingerprint {
 
     fn observe_files(&self, root: &Path) -> Result<BTreeMap<PathBuf, String>, HostError> {
         if self.version != VERSION
-            || self.package_roots.iter().any(|path| !relative(path))
+            || self
+                .package_roots
+                .iter()
+                .any(|path| !path.as_os_str().is_empty() && !relative(path))
             || self.additional_files.iter().any(|path| !relative(path))
         {
             return Err(invalid(

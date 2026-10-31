@@ -384,6 +384,12 @@ impl Engine {
         &self,
         query: super::WorkspaceQuery,
     ) -> Result<super::WorkspaceAnswer> {
+        if query.query.contains("::") {
+            return Err(Error::Unavailable("The selected LSP workspace-symbol protocol does not establish native qualified module-path matching; select an explicit native snapshot for this query.".into()));
+        }
+        if query.include_dependencies {
+            return Err(Error::Unavailable("The selected LSP workspace-symbol protocol does not establish dependency-root search coverage; select a prepared native snapshot for that explicit domain.".into()));
+        }
         struct Active<'a>(&'a Engine);
         impl Drop for Active<'_> {
             fn drop(&mut self) {
@@ -564,6 +570,7 @@ impl Engine {
         let mut proposal = None;
         let limit = query.limit;
         match &query.kind {
+            Kind::Importable {..}=>return Err(Error::Unavailable("the selected live LSP does not expose native visibility/import-path facts; explicitly select a prepared native snapshot".into())),
             Kind::Explain => {
                 let (hover, definition, type_definition) = tokio::join!(
                     request::<types::HoverRequest>(&self.server, params.clone()),

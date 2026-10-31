@@ -133,6 +133,7 @@ impl Context {
     /// Reuse native input fencing for loaded dependency/sysroot sources as well as local roots.
     #[cfg(feature = "native-hir")]
     pub(super) fn bind_snapshot_sources(&mut self, paths: &BTreeSet<PathBuf>) -> Result<()> {
+        self.check()?;
         self.snapshot_sources = Some(Mutex::new(ConfigurationWatch::capture(paths)?));
         self.check()
     }

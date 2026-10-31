@@ -689,3 +689,18 @@ read routes with their useful replacements, guidance and tests. No persistent cr
 index, second live database or unselected typed field follows from adopting one native operation.
 Targeted compile/tests establish only selected branches; the coordinator owns scope-end journeys
 and static qualification. No quantitative performance benefit is claimed by this plan.
+
+**Implemented; qualification open — 2026-10-31:** the optional native-analysis helper now uses
+the same prepared-tool custody and semantic-session owner as the live provider, selecting one
+immutable Cargo/VFS/HIR world explicitly. The actual loaded crate graph supplies library source
+roots, package IDs, effective feature sets, target and original source digests; query-time
+package-context reads run no Cargo. Installed standard-library sources join that same world;
+explicit preparation checks `rust-src` first and supplies its source override, avoiding the
+loader's component-install fallback. Dependency-symbol discovery explicitly searches both native
+workspace and library indexes; the LSP route refuses that widened domain when its protocol
+cannot establish it. Native facts retain inferred/adjusted types, resolved declarations,
+read/write roles and destination visibility/use-path evidence without interpreting display text
+as type identity. A fixed authenticated cancellation control awaits actual CPU settlement and
+preserves independent query/session ownership. Actual helper preparation, public composition,
+source/configuration staleness and cancellation qualification remain open; component or compile
+evidence alone does not close G12.

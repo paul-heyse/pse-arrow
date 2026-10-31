@@ -2,6 +2,54 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 
+#[test]
+fn root_package_source_universe_keeps_membership_guards_without_relaxing_file_paths() {
+    let root = tempfile::tempdir().unwrap();
+    fs::create_dir(root.path().join(".cargo")).unwrap();
+    fs::create_dir(root.path().join("src")).unwrap();
+    fs::write(
+        root.path().join("Cargo.toml"),
+        "[package]\nname='root-package'\nversion='0.1.0'\nedition='2024'\n",
+    )
+    .unwrap();
+    fs::write(root.path().join("src/lib.rs"), "pub fn value() {}\n").unwrap();
+    fs::write(root.path().join(".cargo/config.toml"), "").unwrap();
+    fs::write(
+        root.path().join("rust-toolchain.toml"),
+        include_str!("../../../../rust-toolchain.toml"),
+    )
+    .unwrap();
+    let metadata = MetadataCommand::new()
+        .current_dir(root.path())
+        .other_options(vec!["--offline".into()])
+        .exec()
+        .unwrap();
+    let context = BuildContext::new(
+        "fixture rustc".into(),
+        "fixture cargo".into(),
+        "fixture".into(),
+        BTreeSet::new(),
+        &Environment::new(),
+    );
+    let source = SourceFingerprint::from_metadata_for(
+        root.path(),
+        &metadata,
+        context.clone(),
+        "root-package",
+    )
+    .unwrap();
+    assert!(source.package_roots.contains(Path::new("")));
+    assert!(source.matches_sources(root.path(), &context).unwrap());
+    assert!(
+        source
+            .clone()
+            .with_additional_files(root.path(), [PathBuf::new()])
+            .is_err()
+    );
+    fs::write(root.path().join("src/added.rs"), "pub fn added() {}\n").unwrap();
+    assert!(!source.recorded_sources_match(root.path()).unwrap());
+}
+
 struct Fixture {
     _directory: tempfile::TempDir,
     root: PathBuf,

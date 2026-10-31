@@ -26,6 +26,7 @@ use std::{
 use tokio_util::sync::CancellationToken;
 
 const BACKEND: &str = "ra_ap_hir/0.0.358;ra_ap_ide/0.0.358;immutable_snapshot";
+mod importability;
 
 /// A genuine native type observation; display is presentation, not serialized type identity.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -38,6 +39,87 @@ pub struct TypeFact {
     pub is_mutable_reference: bool,
     /// Native unknown component, preventing an invented proof.
     pub contains_unknown: bool,
+}
+
+fn preparation_target(configuration: &Configuration) -> Result<String> {
+    let explicit_target =
+        configuration.target.is_some() || std::env::var_os("CARGO_BUILD_TARGET").is_some();
+    let target = if let Some(target) = &configuration.target {
+        Some(target.clone())
+    } else if let Some(target) = std::env::var_os("CARGO_BUILD_TARGET") {
+        Some(
+            target
+                .into_string()
+                .map_err(|_| Error::Unavailable("Cargo target environment is not UTF-8".into()))?,
+        )
+    } else {
+        // Ask Cargo for its merged file configuration. This fixed read belongs
+        // only to explicit preparation; no analysis query runs a tool.
+        let output = std::process::Command::new("cargo")
+            .args([
+                "-Z",
+                "unstable-options",
+                "config",
+                "get",
+                "--format",
+                "json",
+            ])
+            .current_dir(&configuration.project)
+            .output()?;
+        if !output.status.success() {
+            return Err(Error::Unavailable(format!(
+                "effective Cargo target observation exited {}",
+                output.status
+            )));
+        }
+        let configuration: Value = serde_json::from_slice(&output.stdout)?;
+        match configuration.pointer("/build/target") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(target)) => Some(target.clone()),
+            Some(Value::Array(targets)) if targets.len() == 1 => Some(
+                targets[0]
+                    .as_str()
+                    .ok_or_else(|| Error::Unavailable("Cargo target entry is not a string".into()))?
+                    .to_owned(),
+            ),
+            _ => return Err(Error::Unavailable(
+                "select one explicit native target for a multi-target/custom Cargo configuration"
+                    .into(),
+            )),
+        }
+    };
+    if let Some(target) = target {
+        if target.is_empty() {
+            return Err(Error::Unavailable("effective Cargo target is empty".into()));
+        }
+        if target.ends_with(".json") {
+            if !explicit_target {
+                return Err(Error::Unavailable("select an explicit custom target JSON path; the merged Cargo view does not preserve its defining-file path origin".into()));
+            }
+            let path = configuration.project.join(target).canonicalize()?;
+            return path
+                .into_os_string()
+                .into_string()
+                .map_err(|_| Error::Unavailable("custom native target path is not UTF-8".into()));
+        }
+        return Ok(target);
+    }
+    let sysroot = ra_ap_project_model::Sysroot::empty();
+    let targets = ra_ap_project_model::toolchain_info::target_tuple::get(
+        ra_ap_project_model::toolchain_info::QueryConfig::Rustc(&sysroot, &configuration.project),
+        None,
+        &Default::default(),
+    )
+    .map_err(super::engine::protocol)?;
+    if targets.len() != 1 {
+        return Err(Error::Unavailable(
+            "native compiler host target is ambiguous".into(),
+        ));
+    }
+    targets
+        .into_iter()
+        .next()
+        .ok_or_else(|| Error::Unavailable("native compiler host target is unavailable".into()))
 }
 /// Source/configuration-qualified target, not a spelling-based symbol identifier.
 #[derive(Clone, Debug, Serialize, JsonSchema)]
@@ -138,6 +220,9 @@ pub(super) struct Engine {
     context: Arc<Context>,
     configuration: Configuration,
     active: Arc<AtomicUsize>,
+    packages: Arc<Vec<super::NativePackageContext>>,
+    package_issue: Option<String>,
+    actual_target: String,
 }
 impl Engine {
     pub(super) fn start(checkout: &Path, configuration: Configuration) -> Result<Self> {
@@ -148,12 +233,18 @@ impl Engine {
             ));
         }
         let mut context = Context::capture(checkout, &configuration)?;
+        let target = preparation_target(&configuration)?;
+        let sysroot_src = installed_sysroot_sources(&configuration)?;
         let cargo = ra_ap_project_model::CargoConfig {
             features: ra_ap_project_model::CargoFeatures::Selected {
                 features: configuration.features.clone(),
                 no_default_features: configuration.no_default_features,
             },
-            target: configuration.target.clone(),
+            target: Some(target.clone()),
+            sysroot: Some(ra_ap_project_model::RustLibSource::Discover),
+            // Discover-with-src-override never invokes the library's rustup
+            // component-install fallback. Preparation only observes installed inputs.
+            sysroot_src: Some(sysroot_src),
             metadata_extra_args: vec!["--locked".into()],
             ..Default::default()
         };
@@ -164,11 +255,64 @@ impl Engine {
             num_worker_threads: std::thread::available_parallelism()?.get(),
             proc_macro_processes: 0,
         };
-        let (db, vfs, _) =
-            ra_ap_load_cargo::load_workspace_at(&configuration.project, &cargo, &loading, &|_| {})
-                .map_err(|error| {
-                    Error::Unavailable(format!("native Cargo/VFS loading: {error:#}"))
-                })?;
+        let native_root =
+            ra_ap_vfs::AbsPathBuf::try_from(configuration.project.to_str().ok_or_else(|| {
+                Error::Unavailable("native Cargo project path must be UTF-8".into())
+            })?)
+            .map_err(|_| Error::Unavailable("native Cargo project path is not absolute".into()))?;
+        let manifest = ra_ap_project_model::ProjectManifest::discover_single(&native_root)
+            .map_err(super::engine::protocol)?;
+        let workspace = ra_ap_project_model::ProjectWorkspace::load(manifest, &cargo, &|_| {})
+            .map_err(super::engine::protocol)?;
+        let mut package_models = Vec::new();
+        let package_issue;
+        if let ra_ap_project_model::ProjectWorkspaceKind::Cargo { cargo, error, .. } =
+            &workspace.kind
+        {
+            package_issue = error.as_ref().map(ToString::to_string);
+            for package in cargo.packages() {
+                let package = &cargo[package];
+                for target_id in &package.targets {
+                    let library = &cargo[*target_id];
+                    let ra_ap_project_model::TargetKind::Lib { is_proc_macro } = library.kind
+                    else {
+                        continue;
+                    };
+                    let manifest = PathBuf::from(package.manifest.as_str());
+                    package_models.push(super::NativePackageContext {
+                        package_id: package.id.to_string(),
+                        source_root: manifest.parent().ok_or(Error::Stale)?.to_owned(),
+                        manifest,
+                        workspace_root: PathBuf::from(cargo.workspace_root().as_str()),
+                        library_root: PathBuf::from(library.root.as_str()),
+                        features: BTreeSet::new(),
+                        target: if is_proc_macro {
+                            None
+                        } else {
+                            Some(target.clone())
+                        },
+                        role: if is_proc_macro { "proc-macro" } else { "lib" }.into(),
+                        source_hashes: BTreeMap::new(),
+                        dependencies: Vec::new(),
+                        dependency_issues: Vec::new(),
+                        dependency_exclusions: BTreeSet::new(),
+                    });
+                }
+            }
+        } else {
+            package_issue = Some("prepared project is not a Cargo workspace".into());
+        }
+        let metadata_inputs = package_models
+            .iter()
+            .map(|package| package.manifest.clone())
+            .collect::<BTreeSet<_>>();
+        let metadata_hashes = metadata_inputs
+            .iter()
+            .map(|path| Ok((path.clone(), super::engine::file_digest(path)?)))
+            .collect::<Result<BTreeMap<_, _>>>()?;
+        context.bind_snapshot_sources(&metadata_inputs)?;
+        let (db, vfs, _) = ra_ap_load_cargo::load_workspace(workspace, &cargo.extra_env, &loading)
+            .map_err(|error| Error::Unavailable(format!("native Cargo/VFS loading: {error:#}")))?;
         let mut files = BTreeMap::new();
         let mut paths = BTreeMap::new();
         let mut digests = BTreeMap::new();
@@ -189,7 +333,117 @@ impl Engine {
             paths.insert(id, path.clone());
             digests.insert(path, digest);
         }
-        context.bind_snapshot_sources(&digests.keys().cloned().collect::<BTreeSet<_>>())?;
+        let crates = ra_ap_hir::Crate::all(&db);
+        let mut packages = Vec::new();
+        for model in package_models {
+            for krate in &crates {
+                if paths
+                    .get(&krate.root_file(&db))
+                    .is_none_or(|root| root != &model.library_root)
+                {
+                    continue;
+                }
+                let mut package = model.clone();
+                package.features = krate
+                    .cfg(&db)
+                    .get_cfg_values("feature")
+                    .map(|value| value.as_str().to_owned())
+                    .collect();
+                if krate
+                    .cfg(&db)
+                    .get_cfg_keys()
+                    .any(|key| key.as_str() == "test")
+                {
+                    package.role = "lib-test".into();
+                }
+                package.source_hashes = digests
+                    .iter()
+                    .filter(|(path, _)| path.starts_with(&package.source_root))
+                    .map(|(path, hash)| (path.clone(), hash.clone()))
+                    .collect();
+                packages.push((*krate, package));
+            }
+        }
+        let mut profiles =
+            std::collections::HashMap::<_, BTreeSet<super::NativeLibraryProfile>>::new();
+        for (krate, package) in &packages {
+            profiles
+                .entry(*krate)
+                .or_default()
+                .insert(super::NativeLibraryProfile {
+                    package_id: package.package_id.clone(),
+                    manifest: package.manifest.clone(),
+                    source_root: package.source_root.clone(),
+                    library_root: package.library_root.clone(),
+                    features: package.features.clone(),
+                    target: package.target.clone(),
+                    role: package.role.clone(),
+                });
+        }
+        for (krate, package) in &mut packages {
+            if profiles
+                .get(krate)
+                .is_none_or(|candidates| candidates.len() != 1)
+            {
+                package.dependency_issues.push(
+                    "selected native root maps to multiple Cargo library package profiles".into(),
+                );
+            }
+            let mut pending = krate
+                .dependencies(&db)
+                .into_iter()
+                .map(|dependency| dependency.krate)
+                .collect::<Vec<_>>();
+            let mut visited = std::collections::HashSet::new();
+            let mut dependencies = BTreeSet::new();
+            while let Some(dependency) = pending.pop() {
+                if !visited.insert(dependency) || dependency == *krate {
+                    continue;
+                }
+                if dependency.is_builtin(&db) {
+                    package
+                        .dependency_exclusions
+                        .insert(super::NativeDependencyExclusion::Sysroot);
+                    continue;
+                }
+                pending.extend(
+                    dependency
+                        .dependencies(&db)
+                        .into_iter()
+                        .map(|dependency| dependency.krate),
+                );
+                if let Some(profile) = profiles
+                    .get(&dependency)
+                    .filter(|profiles| profiles.len() == 1)
+                    .and_then(BTreeSet::first)
+                {
+                    if profile.role != "lib" || profile.target.is_none() {
+                        package.dependency_issues.push(format!(
+                            "native dependency {} has an unsupported host/proc-macro/test profile",
+                            profile.package_id
+                        ));
+                    }
+                    dependencies.insert(profile.clone());
+                } else {
+                    package.dependency_issues.push(format!("non-sysroot native dependency at {:?} has no unique captured Cargo library profile",paths.get(&dependency.root_file(&db))));
+                }
+            }
+            package.dependencies = dependencies.into_iter().collect();
+            package.dependency_issues.sort();
+            package.dependency_issues.dedup();
+        }
+        let packages = packages.into_iter().map(|(_, package)| package).collect();
+        for (path, original) in metadata_hashes {
+            if super::engine::file_digest(&path)? != original {
+                return Err(Error::Stale);
+            }
+        }
+        let mut inputs = digests.keys().cloned().collect::<BTreeSet<_>>();
+        inputs.extend(metadata_inputs);
+        if target.ends_with(".json") {
+            inputs.insert(PathBuf::from(&target));
+        }
+        context.bind_snapshot_sources(&inputs)?;
         context.seal()?;
         context.check()?;
         Ok(Self {
@@ -202,10 +456,38 @@ impl Engine {
             context: Arc::new(context),
             configuration,
             active: Arc::new(AtomicUsize::new(0)),
+            packages: Arc::new(packages),
+            package_issue,
+            actual_target: target,
         })
     }
+    pub(super) fn package_context(&self, package_id: &str) -> Result<Value> {
+        self.context.check()?;
+        if let Some(issue) = &self.package_issue {
+            return Err(Error::Unavailable(format!(
+                "native Cargo package context is incomplete: {issue}"
+            )));
+        }
+        let packages = self
+            .packages
+            .iter()
+            .filter(|package| package.package_id == package_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        if packages.is_empty() {
+            return Err(Error::Unavailable(
+                "requested library package is not part of the prepared native crate graph".into(),
+            ));
+        }
+        serde_json::to_value(super::PackageContextAnswer {
+            session: self.analysis_context(),
+            generation: 1,
+            packages,
+        })
+        .map_err(Error::from)
+    }
     fn analysis_context(&self) -> AnalysisContext {
-        AnalysisContext {backend:BACKEND.into(),configuration:self.configuration.clone(),position_encoding:"utf-8".into(),backend_status:Some(json!({"quiescent":true,"immutable":true})),preparation:"explicit immutable Cargo/VFS snapshot; checking/build scripts/proc macros disabled; source/configuration changes require stop and explicit reprepare".into()}
+        AnalysisContext {backend:BACKEND.into(),configuration:self.configuration.clone(),position_encoding:"utf-8".into(),backend_status:Some(json!({"quiescent":true,"immutable":true,"actual_target":self.actual_target})),preparation:"explicit immutable Cargo/VFS snapshot; checking/build scripts/proc macros disabled; source/configuration changes require stop and explicit reprepare".into()}
     }
     pub(super) fn status(&self) -> Result<super::SessionStatus> {
         let current = self.context.check();
@@ -215,7 +497,7 @@ impl Engine {
             position_encoding: "utf-8".into(),
             generation: 1,
             server_capabilities: json!({"nativeSnapshot":true,"typedFacts":true,"referenceRoles":true,"workspaceSymbolProvider":true,"sourceApplication":false,"procMacros":false}),
-            backend_status: Some(json!({"quiescent":true,"immutable":true})),
+            backend_status: self.analysis_context().backend_status,
             active_requests: self.active.load(Ordering::SeqCst),
             context_current: current.is_ok(),
             context_issue: current.err().map(|error| error.to_string()),
@@ -293,11 +575,26 @@ impl Engine {
                 return Err(Error::Cancelled);
             }
             let host = ra_ap_ide::AnalysisHost::with_database(db);
-            let native = host
+            let mut native = host
                 .analysis()
-                .symbol_search(ra_ap_ide::Query::new(query.query), query.limit)
+                .symbol_search(symbol_query(&query), query.limit)
                 .map_err(|_| Error::Cancelled)?;
+            // The native libs switch replaces the workspace domain. Widening
+            // therefore requires both queries against this same immutable DB.
+            if query.include_dependencies {
+                if token.is_cancelled() {
+                    return Err(Error::Cancelled);
+                }
+                let mut libraries = symbol_query(&query);
+                libraries.libs();
+                native.extend(
+                    host.analysis()
+                        .symbol_search(libraries, query.limit)
+                        .map_err(|_| Error::Cancelled)?,
+                );
+            }
             let mut rows = Vec::new();
+            let mut seen = BTreeSet::new();
             for target in native {
                 if token.is_cancelled() {
                     return Err(Error::Cancelled);
@@ -307,6 +604,13 @@ impl Engine {
                 };
                 let text = std::fs::read_to_string(path)?;
                 let location = target.focus_range.unwrap_or(target.full_range);
+                if !seen.insert((
+                    path.clone(),
+                    u32::from(location.start()),
+                    u32::from(location.end()),
+                )) {
+                    continue;
+                }
                 let start = utf8_position(&text, usize::from(location.start()))?;
                 let end = utf8_position(&text, usize::from(location.end()))?;
                 rows.push(json!({"name":target.name.as_str(),"kind":target.kind.map(|kind|format!("{kind:?}")),"containerName":target.container_name.map(|name|name.to_string()),"source_sha256":digests.get(path),"location":{"uri":super::engine::uri(path)?,"range":{"start":start,"end":end}}}));
@@ -315,6 +619,46 @@ impl Engine {
             serde_json::to_value(WorkspaceAnswer {session,generation:1,symbols:Section {category:"workspace_symbols".into(),evidence:Value::Array(rows),omitted:0,handles:Vec::new()},limitations:vec!["Immutable native snapshot with explicit source/configuration guards; native fuzzy search is provider-ranked and not an uncapped whole-program proof.".into()]}).map_err(Error::from)
         })
     }
+}
+
+fn symbol_query(query: &WorkspaceQuery) -> ra_ap_ide::Query {
+    let mut native = ra_ap_ide::Query::new(query.query.clone());
+    match query.matching {
+        super::NativeNameMode::Fuzzy => native.fuzzy(),
+        super::NativeNameMode::Exact => {
+            native.exact();
+            native.case_sensitive();
+        }
+        super::NativeNameMode::Prefix => {
+            native.prefix();
+            native.case_sensitive();
+        }
+    }
+    native
+}
+
+fn installed_sysroot_sources(configuration: &Configuration) -> Result<ra_ap_vfs::AbsPathBuf> {
+    let output = std::process::Command::new("rustc")
+        .args(["--print", "sysroot"])
+        .current_dir(&configuration.project)
+        .output()?;
+    if !output.status.success() {
+        return Err(Error::Unavailable("could not observe the selected compiler sysroot; prepare the pinned toolchain explicitly".into()));
+    }
+    let root = std::str::from_utf8(&output.stdout)
+        .map_err(super::engine::protocol)?
+        .trim_end_matches(['\n', '\r']);
+    let source = Path::new(root).join("lib/rustlib/src/rust/library");
+    if !source.join("core/src/lib.rs").is_file() {
+        return Err(Error::Unavailable("the selected compiler has no installed rust-src; install that pinned toolchain component explicitly before native analysis preparation".into()));
+    }
+    let source = source.canonicalize()?;
+    ra_ap_vfs::AbsPathBuf::try_from(
+        source
+            .to_str()
+            .ok_or_else(|| Error::Unavailable("installed rust-src path is not UTF-8".into()))?,
+    )
+    .map_err(|_| Error::Unavailable("installed rust-src path is not absolute".into()))
 }
 
 fn utf8_position(text: &str, offset: usize) -> Result<Value> {
@@ -392,12 +736,13 @@ fn query_world(
     match query.kind {
         Kind::Explain=>{
             let sema=Semantics::new(db);
-            if sema.file_to_module_defs(id).take(2).count()!=1{return Err(Error::Unavailable("typed snapshot facts need a unique native module context; this source is inactive or belongs to multiple selected crate/module contexts".into()));}
+            let mut modules=sema.file_to_module_defs(id);
+            let module=modules.next().ok_or_else(||Error::Unavailable("typed snapshot source is inactive in the selected native context".into()))?;
+            if modules.next().is_some(){return Err(Error::Unavailable("typed snapshot facts need a unique native module context; this source belongs to multiple selected crate/module contexts".into()));}
             let parsed=sema.parse(ra_ap_hir::EditionedFileId::current_edition(db,id));
             let node=parsed.syntax().token_at_offset(position.offset).right_biased().and_then(|token|token.parent()).ok_or_else(||Error::Unavailable("no native syntax at selected position".into()))?;
             let expression=node.ancestors().find_map(ast::Expr::cast);
-            let scope=sema.scope(&node).ok_or_else(||Error::Unavailable("native scope is unavailable at selected position".into()))?;
-            let display_target=scope.krate().to_display_target(db);
+            let display_target=module.krate(db).to_display_target(db);
             let types=expression.as_ref().and_then(|expr|sema.type_of_expr(expr));
             let original=types.as_ref().map(|ty|type_fact(db,&ty.original,display_target));
             let adjusted=types.as_ref().and_then(|ty|ty.adjusted.as_ref()).map(|ty|type_fact(db,ty,display_target));
@@ -435,6 +780,17 @@ fn query_world(
             let expression=expression.as_ref().and_then(|expr|sema.original_range_opt(expr.syntax())).and_then(|mapped|location(paths,mapped.file_id.file_id(db),mapped.range));
             facts=Some(TypedFacts {expression,original,adjusted,original_equals_adjusted:equal,original_coerces_to_adjusted:coercion,target,bounds});
         }
+        Kind::Importable {target}=>{
+            let file=target.file.canonicalize()?;
+            let source=crate::source_read::SourceRequest::Working {path:file.clone()}.acquire()?;
+            if digests.get(&file).is_none_or(|hash|hash!=&target.source_sha256)||source.identity().source_sha256()!=target.source_sha256{return Err(Error::Stale);}
+            let anchor=crate::source_read::semantic_anchor(source.text(),target.byte_start..target.byte_end).ok_or_else(||Error::Unavailable("importability target has no unique native declaration name".into()))?;
+            let target_file=*files.get(&file).ok_or_else(||Error::Unavailable("importability target is outside the prepared native VFS".into()))?;
+            let target_position=ra_ap_ide::FilePosition {file_id:target_file,offset:native_ra_syntax::TextSize::from(u32::try_from(anchor).map_err(|_|Error::Unavailable("native importability offset is unsupported".into()))?)};
+            let fact=importability::inspect(db,target_position,position,token)?;
+            linked_paths.insert(file);
+            sections.push(Section {category:"importability".into(),evidence:serde_json::to_value(fact)?,omitted:0,handles:Vec::new()});
+        },
         Kind::Refs=>{
             let analysis=ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
             let mut fixture=ra_ap_ide::RaFixtureConfig::default();fixture.disable_ra_fixture=true;
@@ -470,6 +826,10 @@ fn query_world(
         facts.original.is_some() || facts.target.is_some() || !facts.bounds.is_empty()
     }) || !references.is_empty()
         || sections.iter().any(|section| {
+            if section.category == "importability" {
+                return section.evidence["importable"].is_boolean()
+                    || section.evidence["visibility"].is_boolean();
+            }
             section
                 .evidence
                 .as_array()
@@ -592,7 +952,7 @@ pub fn entry() -> std::process::ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    const SOURCE: &str = "trait Act { fn same(&self)->u32; }\nstruct A;\nstruct B;\nimpl Act for A { fn same(&self)->u32 { 1 } }\nimpl Act for B { fn same(&self)->u32 { 2 } }\nfn generic<T: Act>(value:T) { let _ = value.same(); }\nfn operations() { let mut a=A; let b=B; let _=a.same(); let _=b.same(); let _: &A = &mut a; let mut n=1; n=2; let _=n; }\n";
+    const SOURCE: &str = "trait Act { fn same(&self)->u32; }\nstruct A;\nstruct B;\nimpl Act for A { fn same(&self)->u32 { 1 } }\nimpl Act for B { fn same(&self)->u32 { 2 } }\nfn generic<T: Act>(value:T) { let _ = value.same(); }\nfn operations() { let mut a=A; let b=B; let _=a.same(); let _=b.same(); let _: &A = &mut a; let mut n=1; n=2; let _=n; }\npub fn original()->u32 { 7 }\npub use original as facade;\nfn indirect(){let _=facade();}\nmod api { pub fn unused(){} fn hidden(){} fn internal_destination(){} }\nmod consumer { pub fn destination(){} pub fn unused(){} }\nfn standard(){let values=std::vec::Vec::<u32>::new();let optional=Some(7u32);let _=values.len();let _=optional.is_some();}\n";
 
     fn fixture() -> (tempfile::TempDir, Configuration, PathBuf) {
         let root = tempfile::tempdir().unwrap();
@@ -649,6 +1009,76 @@ mod tests {
             .unwrap()
     }
 
+    #[test]
+    fn captured_package_context_keeps_transitive_effective_features_and_sysroot_projection() {
+        let (root, configuration, _file) = fixture();
+        std::fs::create_dir_all(root.path().join("middle/src")).unwrap();
+        std::fs::create_dir_all(root.path().join("leaf/src")).unwrap();
+        std::fs::write(root.path().join("Cargo.toml"),"[package]\nname='native-analysis-control'\nversion='0.0.0'\nedition='2024'\n[workspace]\n[dependencies]\nprofile-middle={path='middle'}\n").unwrap();
+        std::fs::write(root.path().join("middle/Cargo.toml"),"[package]\nname='profile-middle'\nversion='0.0.0'\nedition='2024'\n[dependencies]\nprofile-leaf={path='../leaf',features=['wide']}\n").unwrap();
+        std::fs::write(
+            root.path().join("middle/src/lib.rs"),
+            "pub use profile_leaf::Value;\n",
+        )
+        .unwrap();
+        std::fs::write(root.path().join("leaf/Cargo.toml"),"[package]\nname='profile-leaf'\nversion='0.0.0'\nedition='2024'\n[features]\nwide=[]\n").unwrap();
+        std::fs::write(root.path().join("leaf/src/lib.rs"),"#[cfg(feature=\"wide\")] pub type Value=u64;\n#[cfg(not(feature=\"wide\"))] pub type Value=u32;\n").unwrap();
+        std::fs::write(root.path().join("Cargo.lock"),"version=4\n[[package]]\nname='native-analysis-control'\nversion='0.0.0'\ndependencies=['profile-middle']\n[[package]]\nname='profile-middle'\nversion='0.0.0'\ndependencies=['profile-leaf']\n[[package]]\nname='profile-leaf'\nversion='0.0.0'\n").unwrap();
+        let engine = Engine::start(root.path(), configuration).unwrap();
+        let package = engine
+            .packages
+            .iter()
+            .find(|package| {
+                package.manifest == root.path().join("Cargo.toml") && package.role == "lib"
+            })
+            .unwrap();
+        assert!(
+            package.features.is_empty(),
+            "the root's own features do not reveal its dependency context"
+        );
+        assert!(
+            package.dependency_issues.is_empty(),
+            "{:?}",
+            package.dependency_issues
+        );
+        assert_eq!(
+            package.dependencies.len(),
+            2,
+            "same-world transitive closure retains middle and leaf"
+        );
+        let leaf = package
+            .dependencies
+            .iter()
+            .find(|profile| profile.manifest == root.path().join("leaf/Cargo.toml"))
+            .unwrap();
+        assert_eq!(leaf.features, BTreeSet::from(["wide".into()]));
+        assert_eq!(leaf.role, "lib");
+        assert_eq!(leaf.target.as_deref(), Some(engine.actual_target.as_str()));
+        assert!(
+            package
+                .dependency_exclusions
+                .contains(&super::super::NativeDependencyExclusion::Sysroot),
+            "only actual builtin sysroot edges have a successful typed exclusion"
+        );
+        let original = engine.package_context(&package.package_id).unwrap();
+        assert_eq!(
+            original["packages"][0]["dependencies"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2,
+            "the native session transports the same captured closure without Cargo on read"
+        );
+        std::fs::write(root.path().join("leaf/Cargo.toml"),"[package]\nname='profile-leaf'\nversion='0.0.0'\nedition='2024'\n[features]\nwide=[]\nchanged=[]\n").unwrap();
+        assert!(
+            matches!(
+                engine.package_context(&package.package_id),
+                Err(Error::Stale)
+            ),
+            "mutating a transitive dependency manifest invalidates the captured world"
+        );
+    }
+
     #[tokio::test]
     async fn immutable_cargo_snapshot_resolves_targets_types_roles_and_rejects_stale_inputs() {
         let (root, configuration, file) = fixture();
@@ -662,6 +1092,116 @@ mod tests {
         assert_eq!(
             first["session"]["configuration"]["backend"],
             "native_snapshot"
+        );
+        assert!(
+            first["session"]["configuration"]["target"].is_null(),
+            "requested configuration remains unchanged"
+        );
+        assert!(
+            first["session"]["backend_status"]["actual_target"]
+                .as_str()
+                .is_some_and(|target| !target.is_empty()),
+            "the actual loaded target is a separately retained native premise"
+        );
+        let direct = answer(&engine, query(&file, "original()->", Kind::Explain)).await;
+        let facade = answer(&engine, query(&file, "facade()", Kind::Explain)).await;
+        assert_eq!(
+            direct["facts"]["target"]["location"], facade["facts"]["target"]["location"],
+            "plain calls through reexports must retain the actual native declaration identity"
+        );
+        assert_eq!(facade["facts"]["target"]["name"], "original");
+        let vector = answer(&engine, query(&file, "values.len", Kind::Explain)).await;
+        assert_eq!(
+            vector["facts"]["original"]["contains_unknown"], false,
+            "installed std/core must participate in the same native world: {vector}"
+        );
+        assert!(
+            vector["facts"]["original"]["display"]
+                .as_str()
+                .is_some_and(|value| value.contains("Vec") && value.contains("u32"))
+        );
+        assert_eq!(vector["facts"]["target"]["name"], "len");
+        assert!(
+            vector["facts"]["target"]["location"]["path"]
+                .as_str()
+                .is_some_and(|path| path.contains("rust/library"))
+        );
+        let optional = answer(&engine, query(&file, "optional.is_some", Kind::Explain)).await;
+        assert_eq!(optional["facts"]["original"]["contains_unknown"], false);
+        assert_eq!(optional["facts"]["target"]["name"], "is_some");
+        let outline = crate::source_read::rust(SOURCE, crate::source_read::RustEdition::E2024);
+        let target = |name: &str| {
+            let declaration = outline
+                .entries
+                .iter()
+                .find(|entry| {
+                    entry.path.last().is_some_and(|part| part == name) && entry.kind == "FN"
+                })
+                .unwrap();
+            super::super::ImportTarget {
+                file: file.clone(),
+                byte_start: declaration.range.byte_start,
+                byte_end: declaration.range.byte_end,
+                source_sha256: crate::source_read::source_digest(SOURCE),
+            }
+        };
+        let destination = |name: &str, kind| {
+            let mut query = query(&file, &format!("fn {name}("), kind);
+            query.column += 3;
+            query
+        };
+        let public = answer(
+            &engine,
+            destination(
+                "destination",
+                Kind::Importable {
+                    target: target("unused"),
+                },
+            ),
+        )
+        .await;
+        let public = &public["sections"][0]["evidence"];
+        assert_eq!(public["visibility"], true);
+        assert_eq!(public["importable"], true);
+        assert!(public["path"].as_str().is_some());
+        let hidden = answer(
+            &engine,
+            destination(
+                "destination",
+                Kind::Importable {
+                    target: target("hidden"),
+                },
+            ),
+        )
+        .await;
+        assert_eq!(hidden["sections"][0]["evidence"]["importable"], false);
+        let internal = answer(
+            &engine,
+            destination(
+                "internal_destination",
+                Kind::Importable {
+                    target: target("hidden"),
+                },
+            ),
+        )
+        .await;
+        assert_eq!(
+            internal["sections"][0]["evidence"]["importable"], true,
+            "private item remains visible from its actual own module"
+        );
+        let associated = answer(
+            &engine,
+            destination(
+                "destination",
+                Kind::Importable {
+                    target: target("same"),
+                },
+            ),
+        )
+        .await;
+        assert!(
+            associated["sections"][0]["evidence"]["importable"].is_null(),
+            "associated item naming is not ordinary module importability"
         );
         let generic = answer(&engine, query(&file, "value.same", Kind::Explain)).await;
         assert!(
@@ -682,8 +1222,8 @@ mod tests {
             true
         );
         assert_eq!(
-            adjustment["facts"]["adjusted"]["is_mutable_reference"],
-            false
+            adjustment["facts"]["adjusted"]["is_mutable_reference"], false,
+            "native &mut A to &A adjustment: {adjustment}"
         );
         assert_eq!(adjustment["facts"]["original_equals_adjusted"], false);
         assert_eq!(adjustment["facts"]["original_coerces_to_adjusted"], true);
@@ -712,7 +1252,9 @@ mod tests {
                 .start_symbols(
                     WorkspaceQuery {
                         query: "operations".into(),
+                        matching: super::super::NativeNameMode::Exact,
                         limit: 20,
+                        include_dependencies: false,
                         if_generation: Some(1)
                     },
                     CancellationToken::new()
@@ -725,6 +1267,61 @@ mod tests {
                 .unwrap()
                 .iter()
                 .any(|symbol| symbol["name"] == "operations")
+        );
+        let libraries = engine
+            .start_symbols(
+                WorkspaceQuery {
+                    query: "Vec".into(),
+                    matching: super::super::NativeNameMode::Exact,
+                    limit: 100,
+                    include_dependencies: true,
+                    if_generation: Some(1),
+                },
+                CancellationToken::new(),
+            )
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            libraries["symbols"]["evidence"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|symbol| symbol["name"] == "Vec"
+                    && symbol["location"]["uri"]
+                        .as_str()
+                        .is_some_and(|uri| uri.contains("rust/library"))),
+            "explicit dependency discovery must include the same world's installed standard library: {libraries}"
+        );
+        let qualified = engine
+            .start_symbols(
+                WorkspaceQuery {
+                    query: "api::unused".into(),
+                    matching: super::super::NativeNameMode::Exact,
+                    limit: 100,
+                    include_dependencies: false,
+                    if_generation: Some(1),
+                },
+                CancellationToken::new(),
+            )
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        let qualified = qualified["symbols"]["evidence"].as_array().unwrap();
+        assert_eq!(
+            qualified.len(),
+            1,
+            "native module qualification excludes the unrelated same basename"
+        );
+        assert_eq!(qualified[0]["name"], "unused");
+        assert_eq!(
+            qualified[0]["location"]["range"]["start"]["line"],
+            SOURCE[..SOURCE.find("mod api").unwrap()]
+                .bytes()
+                .filter(|byte| *byte == b'\n')
+                .count()
         );
         assert!(matches!(
             engine

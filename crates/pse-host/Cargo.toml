@@ -77,6 +77,7 @@ lspf.workspace = true
 lsp-server.workspace = true
 url.workspace = true
 futures-util.workspace = true
+futures-executor.workspace = true
 command-fds.workspace = true
 percent-encoding.workspace = true
 pathdiff.workspace = true

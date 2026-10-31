@@ -441,6 +441,7 @@ async fn history_records<R: tokio::io::AsyncRead + Unpin>(
             .into(),
         generation: query.revision.clone(),
         searched_encoding: None,
+        native: None,
     };
     let mut source_context = Some(source_context);
     let mut summary = Summary::default();
@@ -512,6 +513,7 @@ async fn history_records<R: tokio::io::AsyncRead + Unpin>(
                     name: None,
                     entity: None,
                     candidate_reference: None,
+                    refinement: None,
                     range: None,
                     context: String::from_utf8_lossy(&raw).into_owned(),
                     reference,
@@ -562,6 +564,7 @@ async fn history_records<R: tokio::io::AsyncRead + Unpin>(
                     name: Some(commit),
                     entity: None,
                     candidate_reference: None,
+                    refinement: None,
                     range: None,
                     context: serde_json::to_string(&payload)?,
                     reference,

@@ -244,6 +244,7 @@ fn record(
         captures: BTreeMap::new(),
         entity: None,
         candidate_reference: None,
+        refinement: None,
         reference: Some(ResultReference::new(Locator::Source {
             path: input.path.clone().into(),
             source: input.source.clone(),
@@ -358,11 +359,13 @@ pub fn evaluate(
                 {
                     continue;
                 }
-                if query
-                    .signature
-                    .as_ref()
-                    .is_some_and(|signature| !entry.signature.contains(signature))
-                {
+                if query.signature.as_ref().is_some_and(|signature| {
+                    !entry
+                        .written_header
+                        .as_ref()
+                        .and_then(|header| source.text().get(header.byte_start..header.byte_end))
+                        .is_some_and(|header| header.contains(signature))
+                }) {
                     continue;
                 }
                 if query
@@ -429,7 +432,8 @@ pub fn evaluate(
                     break;
                 }
             }
-            let known = outline.parse_issues.is_empty() && graph.complete() && !missing;
+            let known =
+                outline.parse_issues.is_empty() && graph.complete_for(&input.path) && !missing;
             let limited = known && limit.is_some_and(|limit| rows.len() >= limit);
             let complete = known && !limited;
             let mut diagnostics = outline
@@ -441,7 +445,7 @@ pub fn evaluate(
                     source: None,
                 })
                 .collect::<Vec<_>>();
-            diagnostics.extend(graph.diagnostics().iter().cloned());
+            diagnostics.extend(graph.diagnostics_for(&input.path).cloned());
             if missing {
                 diagnostics.push(QueryDiagnostic {code:"search.module_unavailable".into(),message:"selected source has no established authored crate/module route; qualified absence is unknown".into(),source:None});
             }
@@ -632,18 +636,25 @@ pub async fn global_search(
         request.answer.limit.unwrap_or(usize::MAX)
     };
     match &request.predicate {
-        Predicate::Api(query) => api_search(root, query, request, limit, emit),
+        Predicate::Api(query) => api_search(root, query, None, request, limit, emit),
         Predicate::Symbol(query) if query.provider == DiscoveryProvider::Api => {
-            if !query.kinds.is_empty() || query.module.is_some() || query.visibility.is_some() {
-                return Err(Error::Unavailable("API-backed symbol discovery accepts artifact/name/dependency selection; use API structural predicates or inspection for additional declaration constraints".into()));
+            if query.matching == NameMatch::Fuzzy || query.signature.is_some() {
+                return Err(Error::Unavailable("API symbol discovery supports exact/prefix/contains names and native declaration kind/public-path filters; fuzzy/written-source signature filters require their selected provider".into()));
             }
-            let query = ApiQuery {
+            if query
+                .visibility
+                .as_deref()
+                .is_some_and(|visibility| !matches!(visibility, "pub" | "public"))
+            {
+                return Err(Error::Unavailable("the acquired API public-path universe does not establish private destination visibility".into()));
+            }
+            let api = ApiQuery {
                 query: query.name.clone(),
                 artifact: query.artifact.clone(),
                 dependency: query.dependency.clone(),
                 ..ApiQuery::default()
             };
-            api_search(root, &query, request, limit, emit)
+            api_search(root, &api, Some(query), request, limit, emit)
         }
         Predicate::Symbol(query) if query.provider == DiscoveryProvider::Semantic => {
             if query.signature.is_some() {
@@ -683,7 +694,15 @@ pub async fn global_search(
             let native_request =
                 crate::semantic::Request::WorkspaceSymbols(crate::semantic::WorkspaceQuery {
                     query: query.name.clone(),
+                    matching: match query.matching {
+                        NameMatch::Exact => crate::semantic::NativeNameMode::Exact,
+                        NameMatch::Prefix => crate::semantic::NativeNameMode::Prefix,
+                        NameMatch::Contains | NameMatch::Fuzzy => {
+                            crate::semantic::NativeNameMode::Fuzzy
+                        }
+                    },
                     limit: usize::MAX,
+                    include_dependencies: request.sources.include_dependencies,
                     if_generation: None,
                 });
             let value =
@@ -697,7 +716,12 @@ pub async fn global_search(
                 origin: Some(SourceKind::Working),
                 provider: answer.session.backend.clone(),
                 generation: Some(answer.generation.to_string()),
-                searched_encoding: Some(answer.session.position_encoding.clone()),
+                searched_encoding: None,
+                native: Some(NativeContext {
+                    session_invocation: record.invocation.to_string(),
+                    generation: answer.generation,
+                    analysis: answer.session.clone(),
+                }),
             }))?;
             let mut summary = Summary::default();
             for symbol in answer.symbols.evidence.as_array().into_iter().flatten() {
@@ -727,7 +751,10 @@ pub async fn global_search(
                     continue;
                 }
                 let name = symbol["name"].as_str().unwrap_or("").to_owned();
-                if !name_matches(&name, &name, &query.name, query.matching) {
+                // Native module-path resolution established the qualified prefix;
+                // apply the remaining written-name policy only to the final item.
+                let item_needle = query.name.rsplit("::").next().unwrap_or(&query.name);
+                if !name_matches(&name, &name, item_needle, query.matching) {
                     continue;
                 }
                 let kind = symbol["kind"]
@@ -761,6 +788,7 @@ pub async fn global_search(
                         captures: BTreeMap::new(),
                         entity: None,
                         candidate_reference: None,
+                        refinement: None,
                     }))?;
                     summary.emitted += 1;
                 }
@@ -959,9 +987,167 @@ async fn semantic_query(
     .await
     .map_err(Error::from)
 }
-/// Lift an exact working source candidate into one explicitly selected native session.
-/// This chooses a real declaration/callee token; it does not itself assert resolved identity.
+/// Original artifact guards and selected native configuration define a batch proof.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct ApiContextKey {
+    artifact: std::path::PathBuf,
+    sha256: Option<String>,
+    context: Option<String>,
+    native_configuration: String,
+    native_session: String,
+}
+/// One request owns acquired-API/source proofs; no artifact/package scan repeats per candidate.
+#[derive(Debug, Default)]
+pub struct ResolutionContext {
+    api: Mutex<BTreeMap<ApiContextKey, Arc<crate::api::bridge::SourceBridge>>>,
+}
+impl ResolutionContext {
+    async fn api_source(
+        &self,
+        root: &Path,
+        locator: &Locator,
+        record: &crate::semantic::SessionRecord,
+        environment: &crate::environment::Environment,
+        token: &CancellationToken,
+    ) -> Result<(SourceText, std::ops::Range<usize>), Error> {
+        let Locator::Api {
+            artifact,
+            item,
+            artifact_sha256,
+            context_key,
+            public_path,
+        } = locator
+        else {
+            return Err(Error::Invalid(
+                "API source bridge requires an acquired artifact locator".into(),
+            ));
+        };
+        let key = ApiContextKey {
+            artifact: root.join(artifact),
+            sha256: artifact_sha256.clone(),
+            context: context_key.clone(),
+            native_configuration: record.configuration.identity()?,
+            native_session: record.invocation.as_str().into(),
+        };
+        let existing = {
+            self.api
+                .lock()
+                .map_err(|_| Error::Unavailable("API resolution context owner panicked".into()))?
+                .get(&key)
+                .cloned()
+        };
+        let bridge = if let Some(bridge) = existing {
+            bridge
+        } else {
+            let artifact = Arc::new(checked_api(root, locator)?);
+            let value = crate::semantic::client_cancellable(
+                root,
+                environment,
+                record,
+                &crate::semantic::Request::PackageContext {
+                    package_id: artifact.context.package_id.clone(),
+                },
+                token,
+            )
+            .await?;
+            let captured: crate::semantic::PackageContextAnswer = serde_json::from_value(value)?;
+            if captured.session.configuration != record.configuration {
+                return Err(Error::Stale(
+                    "captured native package context belongs to another selected configuration"
+                        .into(),
+                ));
+            }
+            let bridge = Arc::new(crate::api::bridge::SourceBridge::prepare(
+                artifact,
+                &record.configuration,
+                &captured.packages,
+                environment,
+            )?);
+            self.api
+                .lock()
+                .map_err(|_| Error::Unavailable("API resolution context owner panicked".into()))?
+                .insert(key, bridge.clone());
+            bridge
+        };
+        bridge
+            .source(item, public_path.as_deref())
+            .map_err(Error::from)
+    }
+    /// Recheck original acquired source/context premises before accepting a completed batch.
+    pub fn verify_unchanged(&self) -> Result<(), Error> {
+        let cache = self
+            .api
+            .lock()
+            .map_err(|_| Error::Unavailable("API resolution context owner panicked".into()))?;
+        let environment = environment();
+        for bridge in cache.values() {
+            bridge.verify_unchanged(&environment)?;
+        }
+        Ok(())
+    }
+}
+/// Lift a guarded current-source/API candidate to its real native declaration/callee token.
 pub async fn source_semantic(
+    root: &Path,
+    locator: &Locator,
+    token: &CancellationToken,
+) -> Result<Locator, Error> {
+    let context = ResolutionContext::default();
+    let result = source_semantic_with_context(root, locator, token, &context).await?;
+    context.verify_unchanged()?;
+    Ok(result)
+}
+/// Lift a candidate while retaining the request's shared API/source proof owner.
+pub async fn source_semantic_with_context(
+    root: &Path,
+    locator: &Locator,
+    token: &CancellationToken,
+    context: &ResolutionContext,
+) -> Result<Locator, Error> {
+    if token.is_cancelled() {
+        return Err(Error::Cancelled);
+    }
+    if let Locator::Semantic { .. } = locator {
+        return Ok(locator.clone());
+    }
+    let env = environment();
+    let record = crate::semantic::load(root, &env)
+        .map_err(Error::from)?
+        .ok_or_else(|| {
+            Error::Unavailable("explicitly prepare a semantic context before refinement".into())
+        })?;
+    let (source,range)=match locator {
+        Locator::Source {source:SourceKind::Working,..}=>{let(source,range)=hydrate(root,locator)?;(source,range.byte_start..range.byte_end)},
+        Locator::Api {..}=>context.api_source(root,locator,&record,&env,token).await?,
+        _=>return Err(Error::Unavailable("semantic refinement requires current guarded source or an API declaration with matching original package/target/feature premises; index/revision evidence is not current source".into())),
+    };
+    let offset=crate::source_read::semantic_anchor(source.text(),range).ok_or_else(||Error::Unavailable("selection has no unique native declaration/callee token; inspect a narrower source witness".into()))?;
+    Ok(semantic_position(&record, &source, offset))
+}
+fn semantic_position(
+    record: &crate::semantic::SessionRecord,
+    source: &SourceText,
+    offset: usize,
+) -> Locator {
+    let prefix = &source.text()[..offset];
+    let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
+    let column = prefix
+        .rsplit('\n')
+        .next()
+        .map_or(1, |line| line.chars().count() + 1);
+    Locator::Semantic {
+        project: record.configuration.project.clone().into(),
+        path: source.identity().path().to_owned().into(),
+        line,
+        column,
+        generation: None,
+        source_sha256: Some(source.identity().source_sha256().into()),
+        candidate_fingerprint: None,
+        session_invocation: Some(record.invocation.as_str().into()),
+    }
+}
+
+async fn semantic_scope(
     root: &Path,
     locator: &Locator,
     token: &CancellationToken,
@@ -972,39 +1158,95 @@ pub async fn source_semantic(
     if let Locator::Semantic { .. } = locator {
         return Ok(locator.clone());
     }
-    if !matches!(
-        locator,
-        Locator::Source {
-            source: SourceKind::Working,
-            ..
-        }
-    ) {
-        return Err(Error::Unavailable("semantic refinement requires exact current working source; historical/index/API evidence needs its separately checked source-context bridge".into()));
+    let mut selected = locator.clone();
+    let Locator::Source {
+        source: SourceKind::Working,
+        range,
+        ..
+    } = &mut selected
+    else {
+        return Err(Error::Unavailable(
+            "native destination scope requires a guarded current source position".into(),
+        ));
+    };
+    if range.is_none() {
+        *range = Some(MatchRange {
+            byte_start: 0,
+            byte_end: 0,
+            line_start: 1,
+            line_end: 1,
+        });
     }
-    let (source, range) = hydrate(root, locator)?;
-    let offset=crate::source_read::semantic_anchor(source.text(),range.byte_start..range.byte_end).ok_or_else(||Error::Unavailable("selection has no unique native declaration/callee token; inspect a narrower source witness".into()))?;
-    let env = environment();
-    let record = crate::semantic::load(root, &env)
-        .map_err(Error::from)?
-        .ok_or_else(|| {
-            Error::Unavailable("explicitly prepare a semantic context before refinement".into())
-        })?;
-    let prefix = &source.text()[..offset];
-    let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
-    let column = prefix
-        .rsplit('\n')
-        .next()
-        .map_or(1, |line| line.chars().count() + 1);
-    Ok(Locator::Semantic {
-        project: record.configuration.project.into(),
-        path: source.identity().path().to_owned().into(),
-        line,
-        column,
-        generation: None,
-        source_sha256: Some(source.identity().source_sha256().into()),
-        candidate_fingerprint: None,
-        session_invocation: Some(record.invocation.as_str().into()),
-    })
+    let (source, range) = hydrate(root, &selected)?;
+    let offset =
+        crate::source_read::semantic_anchor(source.text(), range.byte_start..range.byte_end)
+            .unwrap_or(range.byte_start);
+    let record = crate::semantic::load(root, &environment())?.ok_or_else(|| {
+        Error::Unavailable("explicitly prepare a native destination context".into())
+    })?;
+    Ok(semantic_position(&record, &source, offset))
+}
+
+/// Ask actual native visibility and an available naming path at an unused destination scope.
+pub async fn importability(
+    root: &Path,
+    target: &ResolvedEntity,
+    destination: &Locator,
+    token: &CancellationToken,
+    _context: &ResolutionContext,
+) -> Result<(Truth, serde_json::Value), Error> {
+    let location = serde_json::json!({"path":target.identity.declaration.to_path_buf(),"start":target.identity.byte_start,"end":target.identity.byte_end});
+    let (declaration, _) = guard_location(root, &target.locator, &target.native, &location)?;
+    let Locator::Semantic {
+        source_sha256: Some(source_sha256),
+        ..
+    } = declaration
+    else {
+        return Err(Error::Unavailable(
+            "native import target has no original byte guard".into(),
+        ));
+    };
+    let mut destination = semantic_scope(root, destination, token).await?;
+    let Locator::Semantic {
+        generation,
+        session_invocation,
+        ..
+    } = &mut destination
+    else {
+        return Err(Error::Invalid("destination lost its native context".into()));
+    };
+    if session_invocation.as_deref() != Some(target.identity.session_invocation.as_str()) {
+        return Err(Error::Stale(
+            "native import target and destination belong to different sessions".into(),
+        ));
+    }
+    *generation = Some(target.identity.generation.to_string());
+    let answer = semantic_operation_cancellable(
+        root,
+        &destination,
+        crate::semantic::Kind::Importable {
+            target: crate::semantic::ImportTarget {
+                file: target.identity.declaration.to_path_buf(),
+                byte_start: target.identity.byte_start,
+                byte_end: target.identity.byte_end,
+                source_sha256,
+            },
+        },
+        token,
+    )
+    .await?;
+    let fact = answer["sections"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|section| section["category"] == "importability")
+        .map(|section| &section["evidence"]);
+    let truth = match fact.and_then(|fact| fact["importable"].as_bool()) {
+        Some(true) => Truth::True,
+        Some(false) => Truth::False,
+        None => Truth::Unknown,
+    };
+    Ok((truth, answer))
 }
 
 /// One native resolved declaration; original candidate context remains separately inspectable.
@@ -1221,7 +1463,19 @@ pub async fn resolve_entity(
     locator: &Locator,
     token: &CancellationToken,
 ) -> Result<ResolvedEntity, Error> {
-    let semantic = source_semantic(root, locator, token).await?;
+    let context = ResolutionContext::default();
+    let result = resolve_entity_with_context(root, locator, token, &context).await?;
+    context.verify_unchanged()?;
+    Ok(result)
+}
+/// Resolve several candidates through one request-local acquired artifact/native context.
+pub async fn resolve_entity_with_context(
+    root: &Path,
+    locator: &Locator,
+    token: &CancellationToken,
+    context: &ResolutionContext,
+) -> Result<ResolvedEntity, Error> {
+    let semantic = source_semantic_with_context(root, locator, token, context).await?;
     let answer =
         semantic_operation_cancellable(root, &semantic, crate::semantic::Kind::Explain, token)
             .await?;
@@ -1300,8 +1554,27 @@ pub async fn relationship(
     limit: usize,
     token: &CancellationToken,
 ) -> Result<RelationEvaluation, Error> {
+    let context = ResolutionContext::default();
+    let result =
+        relationship_with_context(root, seed, relation, direction, limit, token, &context).await?;
+    context.verify_unchanged()?;
+    Ok(result)
+}
+/// Traverse using the request's one acquired-API/source verification owner.
+pub async fn relationship_with_context(
+    root: &Path,
+    seed: &Locator,
+    relation: Relationship,
+    direction: Direction,
+    limit: usize,
+    token: &CancellationToken,
+    context: &ResolutionContext,
+) -> Result<RelationEvaluation, Error> {
     use crate::semantic::Kind;
-    let semantic = source_semantic(root, seed, token).await?;
+    let semantic = source_semantic_with_context(root, seed, token, context).await?;
+    if relation == Relationship::References && direction == Direction::Outgoing {
+        return Err(Error::Unavailable("native references enumerate incoming uses of the selected entity; outgoing references are unavailable here, while the separate outgoing definition relation resolves a selected use".into()));
+    }
     let kind = match relation {
         Relationship::Definition => Kind::Explain,
         Relationship::References => Kind::Refs,
@@ -1436,6 +1709,7 @@ pub async fn relationship(
                     captures: BTreeMap::new(),
                     entity,
                     candidate_reference: None,
+                    refinement: None,
                 });
             }
             Err(error) => {
@@ -1460,9 +1734,22 @@ pub async fn relationship(
             .unwrap_or("native")
             .into(),
         generation: Some(generation.to_string()),
-        searched_encoding: answer["session"]["position_encoding"]
-            .as_str()
-            .map(str::to_owned),
+        searched_encoding: None,
+        native: Some(NativeContext {
+            session_invocation: match &semantic {
+                Locator::Semantic {
+                    session_invocation: Some(invocation),
+                    ..
+                } => invocation.clone(),
+                _ => {
+                    return Err(Error::Unavailable(
+                        "native relationship lost its original invocation".into(),
+                    ));
+                }
+            },
+            generation,
+            analysis: serde_json::from_value(answer["session"].clone())?,
+        }),
     }];
     Ok(RelationEvaluation {
         rows,
@@ -1546,34 +1833,14 @@ pub async fn semantic_view(
 /// Inspect an acquired artifact-local declaration without another search/acquisition.
 pub fn inspect_api(root: &Path, locator: &Locator) -> Result<SearchResult, Error> {
     let Locator::Api {
-        artifact,
-        item,
-        artifact_sha256,
-        context_key,
+        item, public_path, ..
     } = locator
     else {
         return Err(Error::Invalid(
             "expected an acquired API item locator".into(),
         ));
     };
-    let artifact = crate::api::retained(&root.join(artifact)).map_err(native)?;
-    if artifact_sha256
-        .as_ref()
-        .is_some_and(|expected| expected != &artifact.sha256)
-    {
-        return Err(Error::Stale(
-            "acquired API artifact no longer matches the selected item reference".into(),
-        ));
-    }
-    let actual_context = artifact.context.key().map_err(native)?;
-    if context_key
-        .as_ref()
-        .is_some_and(|expected| expected != &actual_context)
-    {
-        return Err(Error::Stale(
-            "acquired API context no longer matches the selected item reference".into(),
-        ));
-    }
+    let artifact = checked_api(root, locator)?;
     let id = item
         .parse::<u32>()
         .map_err(|_| Error::Invalid("invalid artifact-local item identity".into()))?;
@@ -1585,7 +1852,7 @@ pub fn inspect_api(root: &Path, locator: &Locator) -> Result<SearchResult, Error
     Ok(SearchResult {
         source: artifact.sha256,
         kind: "api_declaration".into(),
-        name: declaration.name.clone(),
+        name: public_path.clone().or_else(|| declaration.name.clone()),
         range: None,
         context: serde_json::to_string(declaration)?,
         bytes: None,
@@ -1593,11 +1860,45 @@ pub fn inspect_api(root: &Path, locator: &Locator) -> Result<SearchResult, Error
         captures: BTreeMap::new(),
         entity: None,
         candidate_reference: None,
+        refinement: None,
     })
+}
+fn checked_api(root: &Path, locator: &Locator) -> Result<crate::api::Artifact, Error> {
+    let Locator::Api {
+        artifact,
+        artifact_sha256,
+        context_key,
+        ..
+    } = locator
+    else {
+        return Err(Error::Invalid(
+            "expected an acquired API item locator".into(),
+        ));
+    };
+    let artifact = crate::api::retained(&root.join(artifact)).map_err(Error::from)?;
+    if artifact_sha256
+        .as_ref()
+        .is_some_and(|expected| expected != &artifact.sha256)
+    {
+        return Err(Error::Stale(
+            "acquired API artifact no longer matches the selected item reference".into(),
+        ));
+    }
+    let actual_context = artifact.context.key().map_err(Error::from)?;
+    if context_key
+        .as_ref()
+        .is_some_and(|expected| expected != &actual_context)
+    {
+        return Err(Error::Stale(
+            "acquired API context no longer matches the selected item reference".into(),
+        ));
+    }
+    Ok(artifact)
 }
 fn api_search(
     root: &Path,
     query: &ApiQuery,
+    symbol: Option<&SymbolQuery>,
     request: &Request,
     limit: usize,
     emit: &mut (dyn FnMut(Event) -> Result<(), Error> + Send),
@@ -1625,14 +1926,14 @@ fn api_search(
         return Err(Error::Unavailable("API candidate search counts declared public-path candidates; file/line/entity counts require an explicit acquired-artifact population query".into()));
     }
     let artifact = if let Some(path) = &query.artifact {
-        crate::api::retained(&root.join(path)).map_err(native)?
+        crate::api::retained(&root.join(path)).map_err(Error::from)?
     } else if let Some(dependency) = &query.dependency {
         let env = environment();
         let snapshot = crate::dependency::capture(root, &env).map_err(native)?;
         let store = crate::paths::CheckoutState::resolve(root, &env)
             .map_err(native)?
             .root;
-        crate::api::locate(root,&store,&snapshot,dependency,None,&env).map_err(native)?.artifact
+        crate::api::locate(root,&store,&snapshot,dependency,None,&env).map_err(Error::from)?.artifact
             .ok_or_else(||Error::Unavailable("the selected exact dependency context has no acquired API artifact; acquire explicitly".into()))?
     } else {
         return Err(Error::Unavailable(
@@ -1647,18 +1948,27 @@ fn api_search(
             .as_deref()
             .map(crate::api::query::TypePattern::parse)
             .transpose()
-            .map_err(native)?,
+            .map_err(Error::from)?,
         output_shape: query
             .output
             .as_deref()
             .map(crate::api::query::TypePattern::parse)
             .transpose()
-            .map_err(native)?,
+            .map_err(Error::from)?,
         declared_bound: query.bound.clone(),
         ..crate::api::query::Query::default()
     };
-    let page =
-        crate::api::query::inspect(&artifact, &selected, limit.max(1), None).map_err(native)?;
+    let page = crate::api::query::inspect(
+        &artifact,
+        &selected,
+        if symbol.is_some() {
+            usize::MAX
+        } else {
+            limit.max(1)
+        },
+        None,
+    )
+    .map_err(Error::from)?;
     emit(Event::Source(SourceContext {
         id: "api".into(),
         path: artifact.path.clone().into(),
@@ -1669,15 +1979,68 @@ fn api_search(
         ),
         generation: Some(artifact.sha256.clone()),
         searched_encoding: None,
+        native: None,
     }))?;
     let mut summary = Summary::default();
-    summary.matches = page.matched_candidates as u64;
-    for candidate in page.candidates {
+    let root_name = artifact
+        .document
+        .index
+        .get(&artifact.document.root)
+        .and_then(|item| item.name.as_deref());
+    let candidates = page
+        .candidates
+        .into_iter()
+        .filter(|candidate| {
+            let Some(symbol) = symbol else {
+                return true;
+            };
+            let simple = artifact
+                .document
+                .index
+                .get(&rustdoc_types::Id(candidate.item_id))
+                .and_then(|item| item.name.as_deref())
+                .unwrap_or("");
+            let relative = root_name
+                .and_then(|name| candidate.public_path.strip_prefix(&format!("{name}::")))
+                .unwrap_or(&candidate.public_path);
+            if !name_matches(relative, simple, &symbol.name, symbol.matching)
+                && !name_matches(
+                    &candidate.public_path,
+                    simple,
+                    &symbol.name,
+                    symbol.matching,
+                )
+            {
+                return false;
+            }
+            if !symbol.kinds.is_empty()
+                && !symbol.kinds.iter().any(|kind| {
+                    native_symbol_kind(&format!("{:?}", candidate.kind)).eq_ignore_ascii_case(kind)
+                })
+            {
+                return false;
+            }
+            if symbol.module.as_ref().is_some_and(|module| {
+                let parent = relative.rsplit_once("::").map_or("", |(parent, _)| parent);
+                parent != module && !parent.starts_with(&format!("{module}::"))
+            }) {
+                return false;
+            }
+            true
+        })
+        .collect::<Vec<_>>();
+    summary.matches = if symbol.is_some() {
+        candidates.len() as u64
+    } else {
+        page.matched_candidates as u64
+    };
+    let limited = candidates.len() > limit;
+    for candidate in candidates.into_iter().take(limit) {
         if request.answer.kind != AnswerKind::Count {
             emit(Event::Result(SearchResult {
                 source: "api".into(),
                 kind: format!("{:?}", candidate.kind),
-                name: Some(candidate.public_path),
+                name: Some(candidate.public_path.clone()),
                 range: None,
                 context: candidate.signature,
                 bytes: None,
@@ -1686,16 +2049,18 @@ fn api_search(
                     item: candidate.item_id.to_string(),
                     artifact_sha256: Some(artifact.sha256.clone()),
                     context_key: Some(page.context_key.clone()),
+                    public_path: Some(candidate.public_path.clone()),
                 })),
                 captures: BTreeMap::new(),
                 entity: None,
                 candidate_reference: None,
+                refinement: None,
             }))?;
             summary.emitted += 1;
         }
     }
     summary.count = Count::Exact(summary.matches);
-    summary.complete = page.omitted_candidates == 0;
+    summary.complete = page.omitted_candidates == 0 && !limited;
     if !summary.complete {
         summary.stop = StopReason::Limit;
     }
@@ -1705,6 +2070,91 @@ fn api_search(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn source_name_policies_and_written_signature_do_not_match_documentation() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("control.rs");
+        std::fs::write(
+            &path,
+            "/// fn misleading() -> u32\n#[inline]\npub fn actual(x: bool) -> bool {x}\n",
+        )
+        .unwrap();
+        let input = providers::acquire(root.path(), &SourceRequest::Working { path }).unwrap();
+        let mut context = EvaluationContext::new(Arc::new(CompiledProgram::default()));
+        let mut query = SymbolQuery {
+            name: "actual".into(),
+            matching: NameMatch::Exact,
+            signature: Some("u32".into()),
+            ..Default::default()
+        };
+        let absent = evaluate(
+            root.path(),
+            &input,
+            &Predicate::Symbol(query.clone()),
+            &CancellationToken::new(),
+            None,
+            &mut context,
+        )
+        .unwrap();
+        assert!(absent.rows.is_empty() && absent.complete);
+        query.signature = Some("bool".into());
+        assert_eq!(
+            evaluate(
+                root.path(),
+                &input,
+                &Predicate::Symbol(query.clone()),
+                &CancellationToken::new(),
+                None,
+                &mut context
+            )
+            .unwrap()
+            .rows
+            .len(),
+            1
+        );
+        query.name = "act".into();
+        query.matching = NameMatch::Prefix;
+        assert_eq!(
+            evaluate(
+                root.path(),
+                &input,
+                &Predicate::Symbol(query.clone()),
+                &CancellationToken::new(),
+                None,
+                &mut context
+            )
+            .unwrap()
+            .rows
+            .len(),
+            1
+        );
+        query.matching = NameMatch::Exact;
+        assert!(
+            evaluate(
+                root.path(),
+                &input,
+                &Predicate::Symbol(query.clone()),
+                &CancellationToken::new(),
+                None,
+                &mut context
+            )
+            .unwrap()
+            .rows
+            .is_empty()
+        );
+        query.matching = NameMatch::Fuzzy;
+        assert!(matches!(
+            evaluate(
+                root.path(),
+                &input,
+                &Predicate::Symbol(query),
+                &CancellationToken::new(),
+                None,
+                &mut context
+            ),
+            Err(Error::Unavailable(_))
+        ));
+    }
     #[test]
     fn native_file_context_shares_parse_and_request_selector_without_capture_leakage() {
         let root = tempfile::tempdir().unwrap();

@@ -147,6 +147,7 @@ impl State<'_> {
                 provider: provider.into(),
                 generation: None,
                 searched_encoding,
+                native: None,
             }))?;
         }
         Ok(id)
@@ -537,6 +538,7 @@ pub(super) fn record(
         name: None,
         entity: None,
         candidate_reference: None,
+        refinement: None,
         range: range.clone(),
         context,
         reference: Some(ResultReference {

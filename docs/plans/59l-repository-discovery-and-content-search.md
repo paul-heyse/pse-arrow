@@ -60,9 +60,9 @@ are outside the initial target; existing artifact/log owners remain usable.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [L01](#l01) | planned | 59l | Shared source enumeration and direct exact-content inspection |
-| [L02](#l02) | planned | 59l | Native lexical search with real demand/stop/error semantics |
-| [L03](#l03) | planned | 59l | Structured adjacent content and historical investigation providers |
+| [L01](#l01) | in progress | 59l | Shared enumeration/inspection implemented; latest review corrections and assembled qualification remain |
+| [L02](#l02) | in progress | 59l | Native parallel scanning, bounded publication and cancellation implemented; assembled qualification remains |
+| [L03](#l03) | in progress | 59l | Typed fields and incremental native Git history implemented; final targeted/assembled qualification remains |
 
 <a id="l01"></a>
 ### L01 — Select and inspect the actual universe
@@ -107,6 +107,46 @@ Counterfactual dependency graphs and API meaning stay with H07/H08; this is not 
 interpreter or generalized shell/SQL engine.
 
 ## Verification and handoff
+
+### Implementation checkpoint — 2026-10-31
+
+The native providers are connected to the common request/result owner. Ordinary working
+arrival queries use `ignore::WalkParallel` directly; request-owned compiled lexical/native
+selectors are shared while parsers and reader state remain per file. Match context attaches
+to witness rows. A presentation budget suppresses payload construction/publication without
+turning an explicitly exhaustive count into first-N work. Query-local quota or consumer
+closure cancels active readers and joins native walker workers without cancelling the caller's
+token or inventing provider failures.
+
+Filename answers observe names/stat or Git object identity without reading/hashing contents.
+Index observations carry their native blob identity; resolved revisions remain immutable.
+Explicit stable pages guard their name/object/stat or acquired-source universe, and whole-source
+read/hash loops poll cancellation between chunks. Package filtering uses the nearest authored
+manifest rather than a root-package prefix that also selects nested packages.
+
+Explicit working dependency widening uses the existing locked, offline metadata owner once
+to add external dependency source roots; default path/text discovery does not invoke Cargo.
+Current dependency metadata cannot stand in for index/revision metadata. Prepared semantic
+consumers use the same selection policy through its prepared-context constructor and visitor,
+which never acquire metadata. The source-only module graph derives Cargo authored/default
+lib/bin roots and native module/path declarations without Cargo/analyzer preparation; it keeps
+multiple written/cfg routes and explicit uncertainty rather than guessing names from filenames.
+
+JSON/TOML/YAML field queries preserve typed values and unknown original ranges. Native Git
+log/blame/pickaxe retains explicit revisions and original record bytes; string-count `-S`
+and changed-line `-G` remain distinct. Tokio framing publishes complete records incrementally,
+reduces counts without result payloads, and joins stdout processing, stderr drain and child wait
+after cancellation or consumer failure. Unsupported history selection combinations refuse before
+starting Git rather than ignoring selector fields.
+
+**Tested (2026-10-31):**
+`cargo t -p pse-host --lib -E 'test(investigation::providers) or test(api::bridge) or test(prepared_xtask) or test(cli::tools)'`
+passed 46/46 selected tests against a zero failure/warning baseline. This includes the native
+module graph, filename zero-content-read observations, cancellation, actual external dependency
+metadata, incremental history framing and request-budget regressions. Later API bridge context
+changes require their own fresh check and receive no acceptance credit from this snapshot.
+Root owns public source→search→inspect journeys and complete integration/static qualification.
+These packages are not marked complete by implementation or focused passes alone.
 
 **Proposed verification:** focused unit/adapter tests plus public source→search→inspect journeys
 at each package. M03/P02 own assembled discovery and displacement evidence; E06 moves skill and

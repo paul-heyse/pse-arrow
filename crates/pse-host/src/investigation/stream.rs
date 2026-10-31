@@ -75,6 +75,7 @@ mod tests {
         let mut stream = StreamWriter::new(Vec::new(), token);
         stream
             .emit(&Event::Begin {
+                root: std::path::PathBuf::from("/stream-fixture").into(),
                 invocation_id: "invocation".into(),
                 request: Request::default(),
             })
@@ -108,6 +109,7 @@ mod tests {
         let mut stream = StreamWriter::new(Closed, token.clone());
         assert!(matches!(
             stream.emit(&Event::Begin {
+                root: std::path::PathBuf::from("/stream-fixture").into(),
                 invocation_id: "id".into(),
                 request: Request::default()
             }),

@@ -103,6 +103,14 @@ fn no_match_is_success_and_exact_count_ignores_default_display_limit() {
     std::fs::write(root.path().join("many.txt"), "witness\n".repeat(43)).unwrap();
     let missing = run(root.path(), &["search", "text", "absent"]);
     assert_eq!(missing["payload"]["summary"]["matches"], 0);
+    assert_eq!(
+        missing["payload"]["query"]["root"],
+        root.path().to_str().unwrap()
+    );
+    assert_eq!(
+        missing["payload"]["query"]["request"]["predicate"]["patterns"],
+        json!(["absent"])
+    );
     assert_eq!(missing["payload"]["summary"]["complete"], true);
     let limited = run(root.path(), &["search", "text", "witness"]);
     assert_eq!(limited["payload"]["results"].as_array().unwrap().len(), 20);
@@ -117,6 +125,14 @@ fn no_match_is_success_and_exact_count_ignores_default_display_limit() {
 #[test]
 fn missing_native_provider_is_unknown_instead_of_a_complete_empty_answer() {
     let root = tempfile::tempdir().unwrap();
+    assert!(
+        std::process::Command::new("git")
+            .args(["init", "--quiet"])
+            .arg(root.path())
+            .status()
+            .unwrap()
+            .success()
+    );
     let output = Command::new(env!("CARGO_BIN_EXE_pse"))
         .current_dir(root.path())
         .args([
@@ -208,6 +224,138 @@ fn late_native_protocol_failure_keeps_already_delivered_witness_counts() {
     assert_eq!(terminal["complete"], false);
     assert_eq!(terminal["failures"], 1);
     assert_eq!(terminal["count"], json!({"precision":"at_least","value":1}));
+}
+
+#[test]
+fn public_stable_pages_continue_original_sources_and_refuse_changed_universe() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("a.rs"), "// witness alpha\n").unwrap();
+    std::fs::write(root.path().join("b.toml"), "name = 'witness beta'\n").unwrap();
+    std::fs::write(root.path().join("c.md"), "witness gamma\n").unwrap();
+    let first = run(
+        root.path(),
+        &[
+            "search",
+            "text",
+            "witness",
+            "--order",
+            "deterministic",
+            "--limit",
+            "1",
+        ],
+    );
+    assert!(
+        first["payload"]["results"][0]["context"]
+            .as_str()
+            .unwrap()
+            .contains("alpha")
+    );
+    let cursor = first["payload"]["summary"]["next_cursor"].as_str().unwrap();
+    let second = run(
+        root.path(),
+        &[
+            "search",
+            "text",
+            "witness",
+            "--order",
+            "deterministic",
+            "--limit",
+            "1",
+            "--cursor",
+            cursor,
+        ],
+    );
+    assert!(
+        second["payload"]["results"][0]["context"]
+            .as_str()
+            .unwrap()
+            .contains("beta")
+    );
+    std::fs::write(root.path().join("c.md"), "witness changed gamma\n").unwrap();
+    Command::new(env!("CARGO_BIN_EXE_pse"))
+        .current_dir(root.path())
+        .args([
+            "search",
+            "text",
+            "witness",
+            "--order",
+            "deterministic",
+            "--limit",
+            "1",
+            "--cursor",
+            cursor,
+            "--format",
+            "json",
+        ])
+        .assert()
+        .failure();
+    let all = run(root.path(), &["search", "text", "witness", "--all"]);
+    assert_eq!(
+        all["payload"]["summary"]["count"],
+        json!({"precision":"exact","value":3})
+    );
+    assert_eq!(all["payload"]["sources"].as_array().unwrap().len(), 3);
+}
+
+#[test]
+fn envelope_projection_preserves_shared_source_coverage_and_stream_fields_are_explicit() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("a.txt"), "witness\n").unwrap();
+    let response = run(
+        root.path(),
+        &["search", "text", "witness", "--fields", "results"],
+    );
+    assert_eq!(response["payload"]["summary"]["matches"], 1);
+    assert_eq!(response["payload"]["sources"].as_array().unwrap().len(), 1);
+    assert!(response["payload"]["diagnostics"].is_array());
+    let schema = run(root.path(), &["schema", "search", "--fields", "results"]);
+    jsonschema::validator_for(&schema)
+        .unwrap()
+        .validate(&response)
+        .unwrap();
+    let rejected = Command::new(env!("CARGO_BIN_EXE_pse"))
+        .current_dir(root.path())
+        .args([
+            "search", "text", "witness", "--format", "ndjson", "--fields", "results",
+        ])
+        .assert()
+        .failure()
+        .get_output()
+        .clone();
+    assert!(
+        rejected.stdout.is_empty(),
+        "invalid projection must refuse before stream begin"
+    );
+}
+
+#[test]
+fn human_inspection_and_search_render_code_as_lines_and_keep_portable_references() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(
+        root.path().join("source.rs"),
+        "// café\nfn clear() {\n    let witness = 1;\n}\n",
+    )
+    .unwrap();
+    for args in [
+        vec!["inspect", "--source", "source.rs", "--format", "human"],
+        vec!["search", "text", "witness", "--format", "human"],
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_pse"))
+            .current_dir(root.path())
+            .args(args)
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let text = String::from_utf8(output).unwrap();
+        assert!(text.contains("\n    let witness = 1;\n"), "{text}");
+        assert!(text.contains("reference={\"version\":1"), "{text}");
+        assert!(
+            !text.contains("\"context\":\""),
+            "source code must be readable lines in human output"
+        );
+    }
 }
 
 #[test]

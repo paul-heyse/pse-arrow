@@ -201,6 +201,17 @@ Restricted snapshots now seal source/configuration inputs without discovering di
 outputs; the correction still needs its functional rerun. API/source joins, assembled native
 journeys, generated references and scope-end qualification remain open.
 
+The integrated correction now preserves performed-root/query provenance even for empty counts,
+actual shared native worlds for fully filtered answers, and original native failure records.
+Composed counts, unknown candidates, selected relationship scope, configuration-relative nested
+artifacts and guarded native package/dependency profiles have focused controls. Source-only
+module routing normalizes native raw identifiers and scopes uncertainty to the selected target.
+Readable human witnesses and bounded output support both synchronous and async native providers
+on the admitted producer. The selected native implementation loads installed standard-library
+sources, retains actual package/dependency profiles and supplies native visibility/use-path
+proofs. Public native/API/cancellation journeys and scope-end qualification are still pending;
+the focused controls and all-target compile do not establish their completion.
+
 **Proposed verification:** targeted unit/parser/schema controls per package, including independent
 expectations and public producer→consumer tests. M03/P02 own assembled coverage and scoped
 performance comparisons; current small read-only observations are not an SLA. Scope-end hygiene

@@ -161,6 +161,7 @@ mod tests {
         .unwrap();
         Context {
             version: 1,
+            source_root: "/fixture".into(),
             package_id: "fixture@1.0.0".into(),
             manifest: "/fixture/Cargo.toml".into(),
             package_source_sha256: "original source".into(),

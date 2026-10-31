@@ -266,7 +266,7 @@ package, target, required features, capabilities, fixtures and exact `pse test` 
 | [C07](#c07) | complete | 59c | Native target/feature/absence selection and policy-owned group membership pass focused and integrated tests. Only incompatible contexts sharing an exclusion sequence; other contexts remain concurrent. Future semantic consumers retain their own acceptance |
 | [C08](#c08) | complete | 59c | Named pure reader target, phase/context explanations and native Cargo timing links are delivered and tested. Existing wall durations/native stage attribution survive real concurrent producers. Two-stage cold bootstrap retained by bounded decision; no speedup claim |
 | [C09](#c09) | complete | 59c | assert_cmd wraps actual outputs; semantic JSON/exit/capture assertions and reviewed Clap snapshots pass. Proptest covers arbitrary byte chunks/bounds/EOF independently. Full host 579/579 passes; native ownership remains tested through real kernel/service journeys |
-| [C10](#c10) | in-progress | 59c | Retained evidence locators and guarded working-source→current containing-package selection implemented; actual source/proposal/selection and stale/root controls pass. Native semantic candidate handoff and assembled M03 acceptance remain |
+| [C10](#c10) | in-progress | 59c | Retained evidence locators and guarded source/native-project→current containing-package selection implemented; actual source/proposal/selection and stale/root controls pass. Actual native semantic-candidate and assembled M03 acceptance remain |
 
 <a id="c10"></a>
 ### C10 — Bridge addressed search results to retained test evidence and selection
@@ -280,6 +280,13 @@ preserves the native target/features/platform/filter/ignored policy. Conflicting
 package/workspace/changed/rerun scope refuses. This is a current package candidate, not an
 original compiler context, dependency-impact or sufficient-coverage claim. `inspect affected`
 remains the conservative changed-source owner; `tests` and `test` retain explicit effects.
+
+An original native semantic reference additionally validates its authenticated session,
+configuration, generation and source guard before resolving the native project's current
+containing package. The controlling checkout remains the semantic-session owner; an external
+project does not get reinterpreted as that checkout. The assembled native namesake/trait-method
+journey exercises this handoff together with addressed inspection and an immutable candidate
+preview; its actual native qualification remains pending.
 
 The actual CLI `investigation_evidence` controls pass for a trait-method source witness→
 guarded immutable proposal→native intent selection, retained-byte reads, foreign/stale root

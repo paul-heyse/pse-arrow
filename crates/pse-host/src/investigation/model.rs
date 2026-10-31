@@ -101,7 +101,7 @@ impl Request {
 }
 
 /// Source selection is separate from active compiler membership.
-#[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct SourceSelector {
     /// Working, index or a resolved revision universe.
@@ -191,7 +191,7 @@ pub enum Predicate {
         seed: ResultReference,
         /// Native relationship.
         relation: Relationship,
-        /// Directed call traversal; other relationships retain their native direction.
+        /// Incoming uses/callers or outgoing declaration/call targets; unsupported inverse edges refuse.
         #[serde(default)]
         direction: Direction,
         /// Maximum edge distance; defaults to one hop.
@@ -422,7 +422,7 @@ pub enum DiscoveryProvider {
     Api,
 }
 /// Native name-selection policy; fuzzy matching requires a provider with actual fuzzy search.
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum NameMatch {
     /// Contiguous substring in native names.
@@ -685,6 +685,20 @@ pub struct SourceContext {
     pub generation: Option<String>,
     /// Explicit searched encoding; None means original bytes.
     pub searched_encoding: Option<String>,
+    /// Actual shared native world, including empty/fully filtered answers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native: Option<NativeContext>,
+}
+/// Actual native reply context, reused instead of restating its backend/configuration fields.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeContext {
+    /// Original authenticated semantic session.
+    pub session_invocation: String,
+    /// Original observed native world revision.
+    pub generation: u64,
+    /// Library-owned analysis context and preparation limits.
+    pub analysis: crate::semantic::AnalysisContext,
 }
 /// Exact snapshot or lightweight-observation premises; absent fields assert nothing.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -753,6 +767,9 @@ pub enum Locator {
         /// Exact original extraction-context identity.
         #[serde(default)]
         context_key: Option<String>,
+        /// Original rustdoc-qualified public route, preserving distinct reexports.
+        #[serde(default)]
+        public_path: Option<String>,
     },
     /// Original retained evidence.
     Evidence {
@@ -874,6 +891,9 @@ pub struct SearchResult {
     /// Exact pre-refinement source/API witness, distinct from its resolved native context.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub candidate_reference: Option<ResultReference>,
+    /// Native refinement state; unknown structural witnesses are not positive matches.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refinement: Option<RefinementFact>,
     /// Resolved declaration/context when native refinement actually established one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub entity: Option<EntityIdentity>,
@@ -891,6 +911,19 @@ pub enum Truth {
     False,
     /// Insufficient/unsupported evidence.
     Unknown,
+}
+/// Original structural candidate and typed refinement outcome remain distinct facts.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RefinementFact {
+    /// Proven match, contradiction or unproved/unsupported enrichment.
+    pub truth: Truth,
+    /// Original classification/reason where refinement is not established.
+    pub diagnostic: Option<QueryDiagnostic>,
+    /// Original typed native refusal, preserving backend code and opaque evidence.
+    pub native: Option<crate::semantic::Failure>,
+    /// Actual native predicate/importability subtree, without parsing rendered descriptions.
+    pub evidence: Option<Value>,
 }
 impl Truth {
     /// Three-valued conjunction never invents a negative from unknown information.
@@ -1009,6 +1042,11 @@ pub struct QueryDiagnostic {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum Event {
+    /// Original typed native refusal; no local error is relabelled as remote evidence.
+    NativeFailure {
+        /// Exactly the owner's structured reply.
+        failure: Box<crate::semantic::Failure>,
+    },
     /// Actual internal progress facts; the CLI renders these on stderr, never machine stdout.
     #[serde(skip)]
     Progress {
@@ -1021,6 +1059,8 @@ pub enum Event {
     },
     /// Declare one invocation and its effective query.
     Begin {
+        /// Original selected source/control checkout, including empty/count answers.
+        root: NativePath,
         /// CLI invocation, not a scientific run.
         invocation_id: String,
         /// Validated effective query.
@@ -1054,14 +1094,27 @@ impl Event {
 /// A bounded collected view uses the same rows as the incremental stream.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Report {
+    /// Performed source root and normalized question, retained even with no result rows.
+    pub query: Option<PerformedQuery>,
     /// Shared source declarations.
     pub sources: Vec<SourceContext>,
     /// Requested complete rows only.
     pub results: Vec<SearchResult>,
     /// Original source/provider refusals.
     pub diagnostics: Vec<QueryDiagnostic>,
+    /// Original typed remote refusals, including cancellation acknowledgement data.
+    pub native_failures: Vec<crate::semantic::Failure>,
     /// Actual terminal work facts.
     pub summary: Summary,
+}
+/// One performed question; no answer or process inventory is duplicated here.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PerformedQuery {
+    /// Original selected source/control checkout.
+    pub root: NativePath,
+    /// Effective typed request after source configuration and explicit overrides.
+    pub request: Request,
 }
 
 #[cfg(test)]
@@ -1193,7 +1246,7 @@ mod tests {
                         guard: Some(guard), ..
                     } = &mut invalid.locator
                     {
-                        guard.root = Some(std::path::PathBuf::from("relative").into());
+                        guard.root = Some(PathBuf::from("relative").into());
                     }
                 }
                 _ => unreachable!(),

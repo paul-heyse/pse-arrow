@@ -85,6 +85,88 @@ pub enum Request {
     Query(Query),
     /// Name-first workspace discovery in the existing explicitly prepared world.
     WorkspaceSymbols(WorkspaceQuery),
+    /// Read selected package facts from the already loaded native Cargo/VFS world.
+    PackageContext {
+        /// Exact Cargo source-qualified package identity.
+        package_id: String,
+    },
+}
+/// Actual library crate context captured from the same prepared native database.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+pub struct NativeLibraryProfile {
+    /// Original source-qualified Cargo package identifier.
+    pub package_id: String,
+    /// Original package manifest.
+    pub manifest: PathBuf,
+    /// Original package source root.
+    pub source_root: PathBuf,
+    /// Actual loaded library root.
+    pub library_root: PathBuf,
+    /// Effective feature atoms of this exact native crate.
+    pub features: std::collections::BTreeSet<String>,
+    /// Actual loaded target, absent for unqualified host contexts.
+    pub target: Option<String>,
+    /// Actual library/proc-macro/test role.
+    pub role: String,
+}
+/// Actual library crate context captured from the same prepared native database.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum NativeDependencyExclusion {
+    /// Actual native builtin sysroot crates have no ordinary Cargo documentation-unit node.
+    Sysroot,
+}
+/// Actual library crate context captured from the same prepared native database.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct NativePackageContext {
+    /// Cargo source-qualified package identifier, never a bare crate spelling.
+    pub package_id: String,
+    /// Original package manifest from the loaded project model.
+    pub manifest: PathBuf,
+    /// Package source directory; may be a prepared dependency outside the project.
+    pub source_root: PathBuf,
+    /// Workspace root used by the loaded Cargo project model.
+    pub workspace_root: PathBuf,
+    /// Actual native Cargo library root in the loaded VFS.
+    pub library_root: PathBuf,
+    /// Actual feature atoms supplied to this loaded native crate.
+    pub features: std::collections::BTreeSet<String>,
+    /// Effective target fed to the native project loader; unknown host variants stay absent.
+    pub target: Option<String>,
+    /// Cargo library role: `lib`, `proc-macro`, or an explicitly distinct test context.
+    pub role: String,
+    /// Original loaded source bytes, checked by the immutable context owner.
+    pub source_hashes: std::collections::BTreeMap<PathBuf, String>,
+    /// Actual transitive non-sysroot library dependency profiles from this same HIR graph.
+    pub dependencies: Vec<NativeLibraryProfile>,
+    /// Unmapped/unsupported dependency contexts prevent inventing graph equivalence.
+    pub dependency_issues: Vec<String>,
+    /// Explicit successful projection exclusions, distinct from unqualified dependencies.
+    pub dependency_exclusions: std::collections::BTreeSet<NativeDependencyExclusion>,
+}
+/// Package observations retain the same session/configuration/generation authority.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct PackageContextAnswer {
+    /// Actual prepared backend and configuration.
+    pub session: AnalysisContext,
+    /// Immutable native-world generation.
+    pub generation: u64,
+    /// All actual matching library contexts; ambiguity is not collapsed.
+    pub packages: Vec<NativePackageContext>,
+}
+/// Policies directly supported by the selected native symbol index.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum NativeNameMode {
+    /// Library-owned fuzzy candidate matching.
+    #[default]
+    Fuzzy,
+    /// Case-sensitive exact item matching and native module-path resolution.
+    Exact,
+    /// Case-sensitive item prefix matching and native module-path resolution.
+    Prefix,
 }
 /// A name query does not require guessing a source file or position.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -92,8 +174,14 @@ pub enum Request {
 pub struct WorkspaceQuery {
     /// Native analyzer name query; provider ranking/ambiguity remain visible.
     pub query: String,
+    /// Actual native matching policy; display container labels never establish qualification.
+    #[serde(default)]
+    pub matching: NativeNameMode,
     /// Whole native candidate allowance.
     pub limit: usize,
+    /// Include dependency-library roots from this same prepared native world.
+    #[serde(default)]
+    pub include_dependencies: bool,
     /// Optional original-session generation guard.
     pub if_generation: Option<u64>,
 }
@@ -166,6 +254,12 @@ pub enum Kind {
         /// Native SSR rule including its ==>> replacement.
         rule: String,
     },
+    /// Native path/visibility proof for an original target from the selected destination.
+    #[value(skip)]
+    Importable {
+        /// Original native declaration range and exact source bytes.
+        target: ImportTarget,
+    },
     /// Native predicate question with distinct holds/not-proven/unsupported outcomes.
     #[value(skip)]
     Predicate {
@@ -198,6 +292,19 @@ pub enum Kind {
         /// Zero-based candidate index in the original source-bound action set.
         index: usize,
     },
+}
+/// Plain guarded declaration coordinates; native AST/HIR handles never cross the boundary.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ImportTarget {
+    /// Canonical original declaration source in the same selected native world.
+    pub file: PathBuf,
+    /// Start of the original native declaration, in UTF-8 bytes.
+    pub byte_start: usize,
+    /// Exclusive end of the original native declaration, in UTF-8 bytes.
+    pub byte_end: usize,
+    /// SHA-256 of the exact original target file, checked against the native snapshot.
+    pub source_sha256: String,
 }
 /// Native protocol result retained as opaque backend evidence, with whole-record budgeting.
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -264,7 +371,7 @@ pub enum Availability {
     NoMatch,
 }
 /// Compact mandatory query context; full actual capabilities belong to session status.
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct AnalysisContext {
     /// Actual analyzer identity.
     pub backend: String,

@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use tokio_util::sync::CancellationToken;
 mod delivery;
 mod evidence;
+mod human;
 mod proposal;
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -90,9 +91,9 @@ pub(super) struct Search {
     #[arg(long, global = true, conflicts_with_all = ["limit", "exists"])]
     pub all: bool,
     /// Stop after a positive witness; a negative answer requires complete examination.
-    #[arg(long, global = true)]
+    #[arg(long, global = true, conflicts_with = "limit")]
     pub exists: bool,
-    #[arg(long, global = true)]
+    #[arg(long, global = true, conflicts_with_all = ["exists", "limit"])]
     pub count: bool,
     /// Select the population counted by an explicit count demand.
     #[arg(long, global = true, value_enum)]
@@ -554,7 +555,11 @@ pub(super) fn search(
     let handle = rt.handle().clone();
     let cancellation = CancellationToken::new();
     let task_token = cancellation.clone();
-    let output = output.clone();
+    let mut output = output.clone();
+    if output.format == OutputFormat::Ndjson && output.presentation.fields.is_some() {
+        return Err(query::Error::Invalid("--fields selects envelope payload fields; use --result-fields to select streamed search detail".into()).into());
+    }
+    output.presentation = query::presentation::envelope_view(&output.presentation);
     let (sender, receiver) = tokio::sync::mpsc::channel(8);
     let mut task = crate::source_command::batch::spawn_cpu(task_token, move |token| {
         execute(
@@ -595,6 +600,12 @@ fn execute(
     let streaming = output.format == OutputFormat::Ndjson;
     let mut writer = query::stream::StreamWriter::new(frames, token.clone());
     let mut report = query::Report::default();
+    if !streaming {
+        report.query = Some(query::PerformedQuery {
+            root: root.clone().into(),
+            request: request.clone(),
+        });
+    }
     let mut groups = std::collections::BTreeMap::<String, Vec<u64>>::new();
     let mut ordinal = 0u64;
     let observed = std::sync::Mutex::new(query::Summary::default());
@@ -657,6 +668,7 @@ fn execute(
                 message,
                 source,
             }),
+            query::Event::NativeFailure { failure } => report.native_failures.push(*failure),
             query::Event::Terminal(summary) => report.summary = summary,
             query::Event::Begin { .. } => {}
             query::Event::Progress { .. } => {}
@@ -665,6 +677,7 @@ fn execute(
     };
     emit(query::Event::Begin {
         invocation_id: output.invocation_id.as_str().into(),
+        root: root.clone().into(),
         request: request.clone(),
     })?;
     let performed = if query::composition::required(&request.predicate) {
@@ -690,8 +703,15 @@ fn execute(
             if matches!(error, query::Error::Io(_)) && token.is_cancelled() {
                 return Err(error);
             }
-            let unavailable = matches!(&error, query::Error::Unavailable(_))
-                || matches!(&error,query::Error::Semantic(error) if matches!(error.as_ref(),crate::semantic::Error::Unavailable(_)));
+            let disposition = error.disposition();
+            if let Some(failure) = error.native_refusal() {
+                emit(query::Event::NativeFailure {
+                    failure: Box::new(failure.clone()),
+                })?;
+            }
+            let unavailable = disposition == query::FailureDisposition::Unavailable;
+            let cancelled =
+                disposition == query::FailureDisposition::Cancelled || token.is_cancelled();
             emit(query::Event::Diagnostic {
                 code: if unavailable {
                     "investigation.unavailable"
@@ -708,12 +728,12 @@ fn execute(
                 .clone();
             if unavailable {
                 summary.unknown = summary.unknown.saturating_add(1);
-            } else {
+            } else if !cancelled {
                 summary.failures = summary.failures.saturating_add(1);
             }
             summary.complete = false;
-            summary.cancellation_requested = token.is_cancelled();
-            summary.stop = if token.is_cancelled() {
+            summary.cancellation_requested = cancelled;
+            summary.stop = if cancelled {
                 query::StopReason::Cancelled
             } else {
                 query::StopReason::Complete
@@ -723,15 +743,18 @@ fn execute(
         }
     };
     let failed = summary.failures > 0 || summary.unknown > 0 || summary.cancellation_requested;
+    let cancelled = summary.cancellation_requested;
     emit(query::Event::Terminal(summary))?;
     drop(emit);
     if streaming {
-        return Ok(i32::from(failed));
+        return Ok(if cancelled { 130 } else { i32::from(failed) });
     }
     // The streaming writer never owns full-answer retention, and releases stdout before rendering.
-    let frames = writer.finish();
+    let mut frames = writer.finish();
     let complete = report.summary.complete;
-    let subject = if report.summary.unknown > 0 {
+    let subject = if cancelled {
+        crate::envelope::SubjectState::Cancelled
+    } else if report.summary.unknown > 0 || report.summary.failures > 0 {
         crate::envelope::SubjectState::Unknown
     } else if complete && report.summary.matches == 0 {
         crate::envelope::SubjectState::NoMatch
@@ -740,7 +763,9 @@ fn execute(
     };
     let mut response = Envelope::response("search", "requested investigation work settled", report);
     response.subject_state = subject;
-    if failed {
+    if cancelled {
+        response.outcome = CommandOutcome::Interrupted;
+    } else if failed {
         response.outcome = CommandOutcome::Failure;
     }
     response.observation.completeness = if complete {
@@ -751,6 +776,12 @@ fn execute(
     response.observation.scope = "selected_query_source_universe".into();
     response.observation.required = false;
     response.invocation_id = output.invocation_id;
+    if output.format == OutputFormat::Human && output.presentation.fields.is_none() {
+        use std::io::Write as _;
+        let rendered = human::report(&response)?;
+        frames.write_all(rendered.as_bytes())?;
+        return Ok(response.exit_code());
+    }
     let projection = crate::envelope::Presentation {
         fields: output.presentation.fields,
         budget: None,
@@ -944,6 +975,27 @@ pub(super) fn inspect(
             response.next =
                 super::code::semantic::test_routes(&root, &answer.native, &configuration);
         }
+    }
+    if output.format == OutputFormat::Human
+        && output.presentation.fields.is_none()
+        && output.presentation.budget.is_none()
+    {
+        let text = match &response.payload {
+            Inspection::Source(row) => {
+                let path = row
+                    .reference
+                    .as_ref()
+                    .and_then(|reference| match &reference.locator {
+                        query::Locator::Source { path, .. } => Some(path),
+                        _ => None,
+                    });
+                human::row(row, path)?
+            }
+            Inspection::Semantic(answer) => {
+                serde_json::to_string_pretty(answer).map_err(query::Error::from)?
+            }
+        };
+        return super::source_emit(output, response, move |_| text);
     }
     output
         .emit_page(response, crate::envelope::DetailView::default())

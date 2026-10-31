@@ -61,10 +61,10 @@ async fn native_response(
             task.cancel();
             // Dropping an awaiter does not terminate Rayon work. Keep the actual
             // owner until completion, even though this client no longer wants output.
-            let _settled = task.settle().await.map_err(super::engine::protocol)?;
+            let settled = task.settle().await.map_err(super::engine::protocol)?;
             match result? {
                 0 => Ok(None),
-                1 if disconnected[0] == 3 => Err(Error::Cancelled),
+                1 if disconnected[0] == 3 => Err(native_cancel_ack(settled)),
                 _ => Err(Error::Protocol("unsupported semantic cancellation frame".into())),
             }
         },
@@ -74,6 +74,22 @@ async fn native_response(
             Ok(None)
         },
     }
+}
+
+#[cfg(feature = "native-hir")]
+fn native_cancel_ack(settled: Result<serde_json::Value>) -> Error {
+    let original = match settled {
+        Ok(_) => serde_json::json!({"state":"completed"}),
+        Err(Error::Cancelled) => serde_json::json!({"state":"cancelled"}),
+        Err(error) => {
+            serde_json::json!({"state":"failed","failure":super::Failure::from_error(&error)})
+        }
+    };
+    let mut failure = super::Failure::from_error(&Error::Cancelled);
+    failure.backend_data = Some(
+        serde_json::json!({"control_version":1,"cancellation_requested":true,"cpu_work_completed":true,"session_stopped":false,"original_outcome":original}),
+    );
+    Error::Refusal(failure)
 }
 
 /// Explicit current session selector; immutable invocation records own actual native custody.
@@ -365,6 +381,13 @@ async fn connection(
             stopping.cancel();
             Ok(serde_json::json!({"stop_requested":true,"native_drain":"unobserved"}))
         }
+        Request::PackageContext { package_id } => match engine.as_ref() {
+            ServiceEngine::Lsp(_) => Err(Error::Unavailable(format!(
+                "selected live LSP session does not expose captured package context for {package_id}; explicitly select the prepared native snapshot"
+            ))),
+            #[cfg(feature = "native-hir")]
+            ServiceEngine::Snapshot(engine) => engine.package_context(&package_id),
+        },
         Request::Query(query) => match engine.as_ref() {
             ServiceEngine::Lsp(engine) => tokio::select! {
                 result = engine.query(query) => result.and_then(|answer| serde_json::to_value(answer).map_err(Error::from)),
@@ -607,7 +630,9 @@ mod native_tests {
             client.write_all(&frame).await.unwrap();
             let outcome = native_response(task, &mut read, &CancellationToken::new()).await;
             if frame == [3] {
-                assert!(matches!(outcome, Err(Error::Cancelled)));
+                assert!(
+                    matches!(outcome,Err(Error::Refusal(failure)) if matches!(failure.state,super::super::FailureState::Cancelled)&&failure.backend_data.as_ref().is_some_and(|data|data["cpu_work_completed"]==true&&data["original_outcome"]["state"]=="cancelled"))
+                );
             } else {
                 assert!(matches!(outcome, Err(Error::Protocol(_))));
             }

@@ -3,6 +3,23 @@
 use super::*;
 
 #[test]
+fn raw_identifiers_have_logical_names_while_ranges_preserve_original_syntax() {
+    let source = "mod r#type { pub fn r#match() {} }";
+    let outline = rust(source, RustEdition::E2024);
+    let function = outline
+        .entries
+        .iter()
+        .find(|entry| entry.kind == "FN")
+        .unwrap();
+    assert_eq!(function.path, ["type", "match"]);
+    assert_eq!(function.modules, ["type"]);
+    assert_eq!(
+        &source[function.range.byte_start..function.range.byte_end],
+        "pub fn r#match() {}"
+    );
+}
+
+#[test]
 fn declaration_metadata_uses_native_visibility_and_module_nodes_without_wire_changes() {
     let outline = rust(
         "mod real { struct S; impl S { /// pub misleading\n pub(crate) fn same(){} fn member(&self){} } /// text pub\n pub fn same(){} }",
@@ -36,6 +53,10 @@ fn semantic_anchor_selects_native_names_instead_of_documentation_or_receiver_pre
         semantic_anchor(source, 0..source.len()),
         Some(source.find("café").unwrap())
     );
+    assert_eq!(
+        semantic_anchor(source, source.find("pub fn").unwrap()..source.len()),
+        Some(source.find("café").unwrap())
+    );
     let start = source.find("receiver.same").unwrap();
     let end = source.find(");").unwrap() + 1;
     assert_eq!(
@@ -49,6 +70,17 @@ fn semantic_anchor_selects_native_names_instead_of_documentation_or_receiver_pre
         ),
         Some(source.find("argument").unwrap())
     );
+}
+
+#[test]
+fn semantic_anchor_uses_unique_reexport_path_instead_of_alias_or_group_guess() {
+    let source = "pub use dependency::original as facade;";
+    assert_eq!(
+        semantic_anchor(source, 0..source.len()),
+        Some(source.find("original").unwrap())
+    );
+    let grouped = "pub use dependency::{first,second};";
+    assert_eq!(semantic_anchor(grouped, 0..grouped.len()), None);
 }
 
 #[test]

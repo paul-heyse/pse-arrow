@@ -500,6 +500,17 @@ declaration/context facts, not a trait solver or destination visibility proof. S
 importability enrichment stays an explicit semantic operation with unsupported states unknown;
 G12 facts keep their own selected context. Public artifact/source-join acceptance remains open.
 
+The request-owned source bridge now reuses each acquired artifact and its original public
+reexport route across candidates. It compares the retained Cargo documentation-unit identity
+with actual selected native-library package/source-root/features/target facts and transitive
+dependency profiles from the same loaded world, then checks span bytes against both original acquisition and native source
+digests. Session invocation participates in cache identity; a new preparation cannot inherit an
+old bridge merely because its requested configuration has the same spelling. Real native
+declaration identity drives use joins, while the native destination module supplies visibility
+and import-path facts for unused items. Unsupported associations, ambiguous contexts and missing
+native facts remain unknown structural candidates. Dependency/reexport/private-destination and
+two-context public qualification is still required before H07 completion.
+
 <a id="h08"></a>
 ### H08 — Conditional graph and acquisition extensions
 

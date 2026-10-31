@@ -306,12 +306,61 @@ fn resolve_predicate_paths(predicate: &mut Value, root: &Path) -> Result<(), Err
     if let Some(clause) = predicate.get_mut("clause") {
         resolve_predicate_paths(clause, root)?;
     }
+    if let Some(candidates) = predicate.get_mut("candidates") {
+        resolve_predicate_paths(candidates, root)?;
+    }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn nested_refinement_candidates_keep_their_request_and_configuration_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let nested = root.path().join("nested");
+        std::fs::create_dir(&nested).unwrap();
+        let predicate = serde_json::json!({"kind":"refine","candidates":{"kind":"api","query":"increment","artifact":"api/document.json"},"filter":{"kind":"native_predicate","text":"Copy"}});
+        let request = nested.join("request.json");
+        std::fs::write(
+            &request,
+            serde_json::to_vec(&serde_json::json!({"predicate":predicate})).unwrap(),
+        )
+        .unwrap();
+        let configured = nested.join("saved.json");
+        std::fs::write(
+            &configured,
+            serde_json::to_vec(&serde_json::json!({"queries":{"saved":{"predicate":predicate}}}))
+                .unwrap(),
+        )
+        .unwrap();
+        for resolved in [
+            resolve(
+                root.path(),
+                None,
+                None,
+                Some(&request),
+                serde_json::json!({}),
+            )
+            .unwrap(),
+            resolve(
+                root.path(),
+                Some(&configured),
+                Some("saved"),
+                None,
+                serde_json::json!({}),
+            )
+            .unwrap(),
+        ] {
+            let super::super::Predicate::Refine { candidates, .. } = resolved.predicate else {
+                panic!("lost refined request");
+            };
+            let super::super::Predicate::Api(query) = *candidates else {
+                panic!("lost native candidate provider");
+            };
+            assert_eq!(query.artifact, Some(nested.join("api/document.json")));
+        }
+    }
     #[test]
     fn explicit_overrides_replace_arrays_without_implicit_cli_defaults() {
         let root = tempfile::tempdir().unwrap();
