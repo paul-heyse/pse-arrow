@@ -18,7 +18,7 @@ SPDX-FileCopyrightText = [
 SPDX-License-Identifier = "MIT OR Apache-2.0"
 
 [[annotations]]
-path = ["vendor/ra-ap-ide-db/**"]
+path = ["vendor/ra_ap_ide_db/**"]
 precedence = "override"
 SPDX-FileCopyrightText = [
   "rust-analyzer contributors (original notices retained)",
