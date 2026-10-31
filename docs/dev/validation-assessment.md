@@ -49,6 +49,16 @@ Pure closures need no unrelated scientific root. Plain Cargo commands retain the
 feature spelling alone is not proof. A binary built earlier or an environment marker does not
 prove the current source or compiled feature closure.
 
+Run fixtures that deliberately prepare independent persistent semantic sessions from the
+top-level `cargo t` route, after `scripts/bootstrap-host`. For example, use
+`cargo t -p pse-host --test composed_investigations` or select the native session tests with
+`cargo t -p pse-host --lib --features native-hir -E 'test(semantic::tests::native_snapshot)'`.
+Each fixture explicitly prepares its helper and session, then verifies the original stop/drain.
+Its child environment removes Cargo's injected `RUSTUP_TOOLCHAIN` so the authored project pin
+selects the toolchain, while retaining every native ownership and placement input. Persistent
+independent detachment remains unsupported inside an enclosing `pse test`/`pse-env` workload;
+ordinary tests continue to use the native managed route.
+
 ### Inspecting a product invocation
 
 Nextest owns selection, execution and reporting. Retain the exact native command, source/build

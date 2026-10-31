@@ -47,6 +47,10 @@ async fn native_snapshot_authenticated_cancel_settles_one_request_and_preserves_
     );
     session.ready();
     let mut environment: crate::environment::Environment = std::env::vars_os().collect();
+    // Cargo supplies its selected toolchain to test processes. Explicit nested
+    // preparation selects the checked-in toolchain afresh, retaining every
+    // workload/placement owner and the production override refusal.
+    environment.remove(std::ffi::OsStr::new("RUSTUP_TOOLCHAIN"));
     environment.insert(
         "XDG_STATE_HOME".into(),
         session.state.path().as_os_str().to_owned(),
@@ -208,6 +212,7 @@ impl Session {
         let mut command = Command::new(&self.executable);
         command
             .current_dir(&self.root)
+            .env_remove("RUSTUP_TOOLCHAIN")
             .arg("-C")
             .arg(&self.root)
             .env("XDG_STATE_HOME", self.state.path());

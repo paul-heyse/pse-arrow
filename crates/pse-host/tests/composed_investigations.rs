@@ -68,6 +68,9 @@ impl Fixture {
     }
     fn environment(&self) -> BTreeMap<OsString, OsString> {
         let mut environment = std::env::vars_os().collect::<BTreeMap<_, _>>();
+        // Cargo injects its own selected toolchain into test children. An independent
+        // native construction selects the fixture/checkout pin through ordinary rustup.
+        environment.remove(std::ffi::OsStr::new("RUSTUP_TOOLCHAIN"));
         environment.insert(
             "XDG_STATE_HOME".into(),
             self.state.path().as_os_str().to_owned(),
@@ -85,6 +88,7 @@ impl Fixture {
             .current_dir(&self.root)
             .arg("-C")
             .arg(&self.root)
+            .env_clear()
             .envs(self.environment());
         command
     }
