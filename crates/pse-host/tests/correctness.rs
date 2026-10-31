@@ -16,16 +16,30 @@ fn adapter(root: &Path) -> Command {
     )
 }
 fn adapter_at(root: &Path, executable: impl AsRef<std::ffi::OsStr>) -> Command {
+    let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    // Resolve the real tools before individual fixtures deliberately remove PATH.
+    // The fake Cargo models graph/argv behavior, not a compiler-selection provider.
+    let tool = |name| {
+        let output = Command::new("rustup")
+            .args(["which", name])
+            .current_dir(&checkout)
+            .env_remove("RUSTUP_TOOLCHAIN")
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        std::path::PathBuf::from(std::str::from_utf8(&output.stdout).unwrap().trim())
+            .canonicalize()
+            .unwrap()
+    };
     let mut command = Command::new(executable);
     command
         .current_dir(root)
-        .env(
-            "PSE_TEST_CHECKOUT",
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../..")
-                .canonicalize()
-                .unwrap(),
-        )
+        .env("PSE_TEST_CHECKOUT", &checkout)
+        .env("RUSTC", tool("rustc"))
+        .env("RUSTDOC", tool("rustdoc"))
         .env("CARGO", root.join("cargo"))
         .env_remove("PSE_CORRECTNESS_REAL_CARGO")
         .env_remove("PSE_CORRECTNESS_ADAPTER")
