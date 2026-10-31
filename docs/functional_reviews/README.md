@@ -1,5 +1,13 @@
 # Functional opportunity reviews
 
+The [Rust-centered search and investigation review](rust-centered-search-and-investigation-cli-2026-10-31.md)
+develops fourteen opportunities for whole-checkout discovery, text/structural/semantic queries,
+compact progressive results, API/history investigation and source-bound proposals through a
+smaller CLI vocabulary. End-to-end reading of nineteen library overviews and focused primary-source
+checks inform the proposed model and native integration alternatives. It records current public
+query observations and unresolved native SSR/RA/compiler integration questions; it changes no
+production capability, Plan59 scope or agent configuration.
+
 The [CLI, test and runtime workflow review](cli-test-and-runtime-workflows-2026-10-30.md)
 develops fourteen opportunities for a smaller CLI over native test, fixture and process
 owners. It compares completed Nextest reports with custom event reconciliation, proposes
