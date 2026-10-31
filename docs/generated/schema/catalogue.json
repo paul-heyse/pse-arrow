@@ -1656,7 +1656,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenEvidenceSet",
       "schema_path": "docs/generated/schema/frozen-evidence-set.input.schema.json",
-      "schema_sha256": "c6ed8c22465d6174405556b4dd90189e6472f60b792184e5d779e8924121f0ce",
+      "schema_sha256": "e471b53cbcaa54a6d9ecb0df89f5b9d6d176b160c7eebbf571800b62b0caf19c",
       "slug": "frozen-evidence-set",
       "version": 3,
       "wire": "Native"
@@ -1668,7 +1668,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenEvidenceSet",
       "schema_path": "docs/generated/schema/frozen-evidence-set.output.schema.json",
-      "schema_sha256": "c1cb9bce7684d80a311e514c789a4c21f98a6a70e5f8e8ab73f6d018f6000507",
+      "schema_sha256": "25e66611f6462b66d3388c8348d1b57376e4046684d0f4e03524fbe081c0bccc",
       "slug": "frozen-evidence-set",
       "version": 3,
       "wire": "Native"
@@ -2868,7 +2868,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: observation :: ProcessCheckpoint",
       "schema_path": "docs/generated/schema/process-checkpoint.input.schema.json",
-      "schema_sha256": "3154d34178d977d4a5aadddff566b5065b643035eaedf5e2b7e5c9bbb7a9a55e",
+      "schema_sha256": "95042ffca78157196da1f9b3385b6607fb47170322ac50ecbd28d9aebf2f8526",
       "slug": "process-checkpoint",
       "version": 6,
       "wire": "Native"
@@ -2880,7 +2880,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: observation :: ProcessCheckpoint",
       "schema_path": "docs/generated/schema/process-checkpoint.output.schema.json",
-      "schema_sha256": "ff517291d2c7fb0c0c4a3e804d1225a775e8166e46d578f5dd42935890f9eb02",
+      "schema_sha256": "095849dba6d413362cb780091ca1c409726365c0045463f512d571d762ae583b",
       "slug": "process-checkpoint",
       "version": 6,
       "wire": "Native"
@@ -5946,6 +5946,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:f196d99ba55b62c5ef6e85822ff81d8b3cc2c7fd61eb779e0a6a63dc1169528e",
+  "schema_set_fingerprint": "blake3:e6c542de611fa2bf158350f661771efc54cd55702da5eb60eace253b5d94b3ea",
   "version": 1
 }

@@ -537,6 +537,27 @@
       ],
       "type": "string"
     },
+    "ManagedInvocationCandidate": {
+      "additionalProperties": false,
+      "description": "Producer-published routing candidate for a separately checked managed invocation.\nNeither the marker nor copied process facts grant native ownership or prove membership.",
+      "properties": {
+        "invocation": {
+          "description": "Original launcher's opaque invocation marker; the host validates its own identity type.",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "process": {
+          "$ref": "#/$defs/ProcessIdentity",
+          "description": "Actual publishing process identity at establishment; readers recheck kernel membership."
+        }
+      },
+      "required": [
+        "invocation",
+        "process"
+      ],
+      "type": "object"
+    },
     "MetricSnapshot": {
       "additionalProperties": false,
       "description": "Latest and cumulative facts remain available after recent detail has rolled over.",
@@ -1185,6 +1206,38 @@
           "type": "string"
         }
       ]
+    },
+    "ProcessIdentity": {
+      "description": "Raw kernel identity, with no conversion of process ticks to wall time.",
+      "properties": {
+        "boot_id": {
+          "description": "Kernel boot identifier.",
+          "type": "string"
+        },
+        "pid": {
+          "description": "PID as seen by this observer.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pid_namespace": {
+          "description": "Kernel PID namespace link, e.g. `pid:[4026531836]`.",
+          "type": "string"
+        },
+        "start_ticks": {
+          "description": "Raw stat field22, without clock arithmetic.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "boot_id",
+        "pid_namespace",
+        "pid",
+        "start_ticks"
+      ],
+      "type": "object"
     },
     "ProcessLocatorBody": {
       "additionalProperties": false,
@@ -2020,6 +2073,18 @@
     "locator": {
       "$ref": "#/$defs/ProcessLocatorBody",
       "description": "Actual operational attachment locator, not build provenance."
+    },
+    "managed_invocation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ManagedInvocationCandidate"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional launch routing hint plus actual publisher identity; never ownership proof."
     },
     "omitted": {
       "description": "Operations omitted from this bounded external image.",
