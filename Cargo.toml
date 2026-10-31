@@ -723,7 +723,8 @@ schemars = "Derives the committed JSON Schemas and msgspec types of the boundary
 feos = "FeOS reference oracle: `just feos-reference` generates the committed package pse.data.oracles.feos-0.10.1, qualified at this release with feos-core and quantity"
 feos-core = "FeOS reference oracle closure (see feos)"
 quantity = "FeOS reference oracle closure (see feos)"
-salsa = "pse-compiler calls `<dyn salsa::Database>::memory_usage` (src/workspace.rs), gated by `salsa_unstable`, which carries no compatibility guarantee within 0.28.x; the build fails without the feature (checked 2026-10-04)"
+salsa = "pse-compiler consumes unstable memory_usage, and the exact vendored source supplies opt-in descendant cancellation groups for native analysis. Revisit with both compiler accounting and isolated/native descendant cancellation controls; ordinary clone behavior must remain unchanged."
+ra_ap_ide_db = "The compatible native analyzer family consumes the vendored request_snapshot cancellation-group bridge. Revisit with coherent family, original IDE navigation/reference and authenticated cancellation qualification."
 
 # Resolved normal-dependency closures, checked by family-check (blueprint §3.1).
 [workspace.metadata.pse.dependency-ceilings.semantic]

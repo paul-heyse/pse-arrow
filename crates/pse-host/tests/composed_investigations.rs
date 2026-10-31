@@ -406,6 +406,35 @@ fn method_calls() -> Predicate {
 fn actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_and_test_selection() {
     let fixture = Fixture::new();
     fixture.prepare(None);
+    let discovered = fixture.search(&fixture.request(Predicate::Symbol(SymbolQuery {
+        name: "invoke".into(),
+        matching: NameMatch::Exact,
+        provider: DiscoveryProvider::Semantic,
+        kinds: vec!["function".into()],
+        ..Default::default()
+    })));
+    assert_eq!(
+        discovered["payload"]["results"].as_array().map(Vec::len),
+        Some(1),
+        "{discovered}"
+    );
+    let symbol_reference =
+        serde_json::to_string(&discovered["payload"]["results"][0]["reference"]).unwrap();
+    let symbol_inspection = value(
+        fixture
+            .command(false)
+            .args(["inspect", "--result", &symbol_reference])
+            .output()
+            .unwrap(),
+    );
+    assert!(
+        symbol_inspection["payload"]["native"]["sections"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|section| section["category"] == "definition"),
+        "{symbol_inspection}"
+    );
     let target = fixture.source("fn run(&self) -> u32 { 11 }");
     let request = fixture.request(Predicate::Refine {
         candidates: Box::new(method_calls()),
@@ -822,6 +851,7 @@ fn acquired_dependency_aliases_unused_imports_privacy_and_two_native_contexts_pr
         "scope applies to the original API source nomination, not its use site: {excluded}"
     );
     dependency_request.sources.paths = vec![dependency.join("src/lib.rs")];
+    dependency_request.sources.include_dependencies = true;
     let included = fixture.search(&dependency_request);
     assert_eq!(included["payload"]["summary"]["matches"], 1, "{included}");
     let destination = fixture.source("fn anchor() -> u32 { 0 }");

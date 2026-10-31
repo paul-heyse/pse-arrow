@@ -80,36 +80,82 @@ fn contains_api(predicate: &Predicate) -> bool {
 fn is_api_locator(locator: &Locator) -> bool {
     matches!(locator, Locator::Api { .. })
 }
+#[derive(Debug)]
+struct NominationScope {
+    project: std::path::PathBuf,
+    selector: SourceSelector,
+    policy: providers::Selection,
+    selected: BTreeSet<std::path::PathBuf>,
+}
 fn nomination_scope(
     root: &Path,
     selector: &SourceSelector,
     token: &CancellationToken,
-) -> Result<Option<BTreeSet<std::path::PathBuf>>, Error> {
+) -> Result<Option<NominationScope>, Error> {
     if selector.kind != SourceKind::Working {
         return Err(Error::Unavailable("API/native source refinement cannot reinterpret index/revision selectors as working-source nominations".into()));
     }
     if selector == &SourceSelector::default() {
         return Ok(None);
     }
-    providers::select(root, selector, token)?
-        .into_iter()
-        .map(|source| root.join(source.path()).canonicalize().map_err(Error::from))
-        .collect::<Result<BTreeSet<_>, _>>()
-        .map(Some)
+    let environment = std::env::vars_os().collect();
+    let record = crate::semantic::load(root, &environment).map_err(Error::from)?;
+    let project = record
+        .as_ref()
+        .map_or(root, |record| record.configuration.project.as_path());
+    nomination_scope_in_project(project, selector, token).map(Some)
 }
-fn nomination_allowed(
-    scope: &Option<BTreeSet<std::path::PathBuf>>,
-    locator: &Locator,
-) -> Result<bool, Error> {
+fn nomination_scope_in_project(
+    project: &Path,
+    selector: &SourceSelector,
+    token: &CancellationToken,
+) -> Result<NominationScope, Error> {
+    if selector.kind != SourceKind::Working {
+        return Err(Error::Unavailable("API/native source refinement cannot reinterpret index/revision selectors as working-source nominations".into()));
+    }
+    if token.is_cancelled() {
+        return Err(Error::Cancelled);
+    }
+    let project = project.canonicalize()?;
+    // Dependency membership is already established by the verified native nomination.
+    // Reuse its prepared scope policy without observing fresh Cargo metadata.
+    let policy = providers::Selection::for_prepared_context(&project, selector)?;
+    let selected = providers::select_prepared_context(&project, selector, token)?
+        .into_iter()
+        .map(|source| {
+            project
+                .join(source.path())
+                .canonicalize()
+                .map_err(Error::from)
+        })
+        .collect::<Result<BTreeSet<_>, _>>()?;
+    Ok(NominationScope {
+        project,
+        selector: selector.clone(),
+        policy,
+        selected,
+    })
+}
+fn nomination_allowed(scope: &Option<NominationScope>, locator: &Locator) -> Result<bool, Error> {
     let Some(scope) = scope else {
         return Ok(true);
     };
-    let Locator::Semantic { path, .. } = locator else {
+    let Locator::Semantic { project, path, .. } = locator else {
         return Err(Error::Unavailable(
             "verified API nomination has no guarded native source location".into(),
         ));
     };
-    Ok(scope.contains(&path.to_path_buf().canonicalize()?))
+    if project.canonicalize()? != scope.project {
+        return Err(Error::Stale(
+            "native nomination project differs from the selected prepared source scope".into(),
+        ));
+    }
+    let path = path.to_path_buf().canonicalize()?;
+    Ok(if let Ok(relative) = path.strip_prefix(&scope.project) {
+        scope.selected.contains(&path) && scope.policy.accepts(relative, &scope.selector)
+    } else {
+        scope.selector.include_dependencies && scope.policy.accepts(&path, &scope.selector)
+    })
 }
 
 /// Run a typed native pipeline. Each bounded producer is joined before returning, including
@@ -1476,6 +1522,129 @@ fn related(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn nominated(project: &Path, path: &Path) -> Locator {
+        Locator::Semantic {
+            project: project.to_owned(),
+            path: path.to_owned().into(),
+            line: 1,
+            column: 1,
+            generation: Some("1".into()),
+            source_sha256: None,
+            candidate_fingerprint: None,
+            session_invocation: Some("selected-native-world".into()),
+        }
+    }
+    #[test]
+    fn nomination_prepared_scope_uses_project_selection_without_cargo() {
+        let sandbox = tempfile::tempdir().unwrap();
+        let project = sandbox.path().join("selected-project");
+        std::fs::create_dir_all(project.join("src")).unwrap();
+        std::fs::write(
+            project.join("Cargo.toml"),
+            "invalid Cargo manifest; a metadata query must fail",
+        )
+        .unwrap();
+        std::fs::write(project.join("src/lib.rs"), "pub fn selected() {}\n").unwrap();
+        std::fs::write(project.join("src/ignored.rs"), "pub fn ignored() {}\n").unwrap();
+        std::fs::write(project.join("src/excluded.rs"), "pub fn excluded() {}\n").unwrap();
+        std::fs::write(project.join("src/settings.toml"), "enabled=true\n").unwrap();
+        std::fs::write(project.join(".ignore"), "ignored.rs\n").unwrap();
+        let selector = SourceSelector {
+            paths: vec!["src".into()],
+            types: vec!["rust".into()],
+            exclude: vec!["**/excluded.rs".into()],
+            include_dependencies: true,
+            ..Default::default()
+        };
+        let scope = Some(
+            nomination_scope_in_project(&project, &selector, &CancellationToken::new()).unwrap(),
+        );
+        assert!(
+            nomination_allowed(&scope, &nominated(&project, &project.join("src/lib.rs"))).unwrap()
+        );
+        for path in ["src/ignored.rs", "src/excluded.rs", "src/settings.toml"] {
+            assert!(
+                !nomination_allowed(&scope, &nominated(&project, &project.join(path))).unwrap(),
+                "{path}"
+            );
+        }
+        assert!(!project.join("Cargo.lock").exists());
+        assert!(!project.join("target").exists());
+    }
+    #[test]
+    fn nomination_dependencies_require_explicit_widening_and_keep_type_and_path_policy() {
+        let sandbox = tempfile::tempdir().unwrap();
+        let project = sandbox.path().join("selected-project");
+        let external = sandbox.path().join("outside-project/external.rs");
+        let vendor = project.join("vendor/dependency/src/lib.rs");
+        std::fs::create_dir_all(external.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(vendor.parent().unwrap()).unwrap();
+        for path in [&external, &vendor] {
+            std::fs::write(path, "pub fn dependency() {}\n").unwrap();
+        }
+        std::fs::write(project.join("Cargo.toml"), "not a Cargo manifest").unwrap();
+        for path in [&external, &vendor] {
+            let mut selector = SourceSelector {
+                paths: vec![path.clone()],
+                types: vec!["rust".into()],
+                ..Default::default()
+            };
+            let scope = Some(
+                nomination_scope_in_project(&project, &selector, &CancellationToken::new())
+                    .unwrap(),
+            );
+            assert!(!nomination_allowed(&scope, &nominated(&project, path)).unwrap());
+            selector.include_dependencies = true;
+            let scope = Some(
+                nomination_scope_in_project(&project, &selector, &CancellationToken::new())
+                    .unwrap(),
+            );
+            assert!(nomination_allowed(&scope, &nominated(&project, path)).unwrap());
+            assert!(matches!(
+                nomination_allowed(&scope, &nominated(sandbox.path(), path)),
+                Err(Error::Stale(_))
+            ));
+            selector.types = vec!["toml".into()];
+            let scope = Some(
+                nomination_scope_in_project(&project, &selector, &CancellationToken::new())
+                    .unwrap(),
+            );
+            assert!(!nomination_allowed(&scope, &nominated(&project, path)).unwrap());
+        }
+        let selector = SourceSelector {
+            paths: vec![project.join("vendor")],
+            include_dependencies: true,
+            ..Default::default()
+        };
+        let scope = Some(
+            nomination_scope_in_project(&project, &selector, &CancellationToken::new()).unwrap(),
+        );
+        assert!(!nomination_allowed(&scope, &nominated(&project, &external)).unwrap());
+    }
+    #[test]
+    fn nomination_default_and_historical_scope_preserve_their_contract() {
+        let absent = Path::new("/unprepared-project-is-not-needed-for-default-scope");
+        assert!(
+            nomination_scope(
+                absent,
+                &SourceSelector::default(),
+                &CancellationToken::new()
+            )
+            .unwrap()
+            .is_none()
+        );
+        assert!(
+            nomination_scope(
+                absent,
+                &SourceSelector {
+                    kind: SourceKind::Index,
+                    ..Default::default()
+                },
+                &CancellationToken::new()
+            )
+            .is_err()
+        );
+    }
     #[test]
     fn unrelated_same_spelled_declarations_never_share_entity_identity() {
         let first = EntityIdentity {
