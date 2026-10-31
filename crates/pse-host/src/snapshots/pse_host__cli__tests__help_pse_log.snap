@@ -17,7 +17,7 @@ Options:
       --stderr
       --fields <FIELDS>    Select comma-separated payload fields while retaining identity, state and coverage
       --offset <OFFSET>    [default: 0]
-      --budget <BUDGET>    Limit payload array records; retain complete evidence as an artifact
+      --budget <BUDGET>    Limit whole payload records; producer pages retain their omission and continuation facts
       --length <LENGTH>    [default: 4096]
       --tail
   -h, --help               Print help (see more with '--help')
@@ -59,7 +59,7 @@ Options:
           [default: 0]
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --length <LENGTH>
           [default: 4096]

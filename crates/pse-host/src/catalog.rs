@@ -253,8 +253,14 @@ pub fn command_tree() -> Command {
         command
             .mut_arg("package", |arg| arg.add(Domain::Dependencies.association()))
             .mut_subcommand("units", |command| {
-                command.mut_arg("dependency", |arg| {
-                    arg.add(Domain::Dependencies.association())
+                // mut_arg removes then appends: a required prefix would move behind the
+                // variadic workspace selection before Clap assigns positional indices.
+                command.mut_args(|arg| {
+                    if arg.get_id() == "dependency" {
+                        arg.add(Domain::Dependencies.association())
+                    } else {
+                        arg
+                    }
                 })
             })
     });

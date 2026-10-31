@@ -838,12 +838,30 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "api prepare" | "api compare" | "api check-docs" | "probe run" => {
             envelope::schema::<ManagedReply>(command, view)
         }
-        "code semantic" | "code explain" | "code symbols" | "code refs" | "code calls" | "code implementations" | "code macro" | "code tests" | "code candidates" | "code candidate" | "code predicate" | "code hints" | "code hint" | "code edit rename" | "code edit assists" | "code edit assist" | "code edit ssr" => envelope::schema::<crate::semantic::Answer>(command, view),
+        "code semantic"
+        | "code explain"
+        | "code symbols"
+        | "code refs"
+        | "code calls"
+        | "code implementations"
+        | "code macro"
+        | "code tests"
+        | "code candidates"
+        | "code candidate"
+        | "code predicate"
+        | "code hints"
+        | "code hint"
+        | "code edit rename"
+        | "code edit assists"
+        | "code edit assist"
+        | "code edit ssr" => envelope::schema::<crate::semantic::Answer>(command, view),
         "code session prepare" => envelope::schema::<crate::semantic::SessionStatus>(command, view),
-        "code session status" => envelope::schema::<crate::semantic::SessionOverview>(command,view),
-        "code session stop" => envelope::schema::<control::ControlView>(command,view),
-        "code semantic refusal" => envelope::schema::<crate::semantic::Failure>(command,view),
-        "code edit file-rename" => envelope::schema::<crate::semantic::Answer>(command,view),
+        "code session status" => {
+            envelope::schema::<crate::semantic::SessionOverview>(command, view)
+        }
+        "code session stop" => envelope::schema::<control::ControlView>(command, view),
+        "code semantic refusal" => envelope::schema::<crate::semantic::Failure>(command, view),
+        "code edit file-rename" => envelope::schema::<crate::semantic::Answer>(command, view),
         "probe new" => envelope::schema::<crate::probe::Probe>(command, view),
         "probe rm" => envelope::schema::<PathBuf>(command, view),
         "outline batch" => envelope::schema::<crate::source_command::batch::Report>(command, view),
@@ -985,9 +1003,20 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             crate::managed::decode_checkout(&args.checkout_bytes)?,
             args.invocation,
         )),
-        Command::SemanticService { invocation, configuration } => {
-            let configuration = serde_json::from_str(&configuration).map_err(|error| HostError::Ownership(format!("semantic configuration: {error}")))?;
-            runtime()?.block_on(crate::semantic::serve(checkout_root(selected)?, invocation, configuration)).map_err(|error| HostError::Ownership(error.to_string()))?;
+        Command::SemanticService {
+            invocation,
+            configuration,
+        } => {
+            let configuration = serde_json::from_str(&configuration).map_err(|error| {
+                HostError::Ownership(format!("semantic configuration: {error}"))
+            })?;
+            runtime()?
+                .block_on(crate::semantic::serve(
+                    checkout_root(selected)?,
+                    invocation,
+                    configuration,
+                ))
+                .map_err(|error| HostError::Ownership(error.to_string()))?;
             Ok(0)
         }
         Command::Tests(args) => testing::start(
@@ -2590,6 +2619,7 @@ mod tests {
     fn command_tree_is_consistent() {
         Cli::command().debug_assert();
         CorrectnessCli::command().debug_assert();
+        crate::catalog::command_tree().debug_assert();
     }
     #[test]
     fn generation_intent_is_independent_of_output_protocol_and_child_arguments() {

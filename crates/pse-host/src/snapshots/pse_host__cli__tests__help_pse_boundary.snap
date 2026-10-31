@@ -25,7 +25,7 @@ Options:
       --json
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
       --docs
 
       --no-scope
@@ -79,7 +79,7 @@ Options:
 
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --docs
 

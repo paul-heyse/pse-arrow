@@ -22,7 +22,7 @@ Options:
       --resource-class <RESOURCE_CLASS>
           Explicit finite workload class; ordinary work keeps the configured host policy
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
   -h, --help
           Print help (see more with '--help')
 --help
@@ -61,7 +61,7 @@ Options:
           Explicit finite workload class; ordinary work keeps the configured host policy
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')

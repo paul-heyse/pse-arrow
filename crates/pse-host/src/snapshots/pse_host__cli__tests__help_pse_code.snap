@@ -8,15 +8,29 @@ Query Rust syntax and inspect source-bound change proposals
 Usage: pse code [OPTIONS] <COMMAND>
 
 Commands:
-  origin   Follow an exact generated hit to existing declared contributors and regeneration routing
-  query    Enumerate written Rust structural candidates and captures; nested matches remain visible
-  preview  Inspect immutable capture-preserving replacements; selected overlaps refuse and no files change
+  session          Explicit reusable semantic session preparation, passive status and original stop
+  explain          Explain selected code through native hover, definition and type resolution
+  symbols          Semantic document symbols, distinct from server-free outline
+  refs             Native semantic references including declarations
+  calls            One-hop incoming and outgoing semantic calls
+  implementations  Native implementation targets; no universal trait-applicability claim
+  macro            Selected macro expansion text with invocation provenance limits
+  tests            Related test candidates; does not run analyzer-supplied commands
+  candidates       Contextual completion candidates, preserving unresolved editing intent
+  hints            Selected native inlay annotations, without dumping the full file
+  hint             Resolve one source/generation-bound native inlay hint lazily
+  candidate        Resolve one source-bound completion candidate, retaining imports and snippet intent
+  predicate        Ask a native trait predicate question; not-proven remains distinct from contradiction
+  edit             Native source-bound semantic edit previews, without filesystem application
+  origin           Follow an exact generated hit to existing declared contributors and regeneration routing
+  query            Enumerate written Rust structural candidates and captures; nested matches remain visible
+  preview          Inspect immutable capture-preserving replacements; selected overlaps refuse and no files change
 
 Options:
   -C <checkout>
       --format <FORMAT>  Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
       --fields <FIELDS>  Select comma-separated payload fields while retaining identity, state and coverage
-      --budget <BUDGET>  Limit payload array records; retain complete evidence as an artifact
+      --budget <BUDGET>  Limit whole payload records; producer pages retain their omission and continuation facts
   -h, --help             Print help (see more with '--help')
 --help
 Query Rust syntax and inspect source-bound change proposals
@@ -24,9 +38,23 @@ Query Rust syntax and inspect source-bound change proposals
 Usage: pse code [OPTIONS] <COMMAND>
 
 Commands:
-  origin   Follow an exact generated hit to existing declared contributors and regeneration routing
-  query    Enumerate written Rust structural candidates and captures; nested matches remain visible
-  preview  Inspect immutable capture-preserving replacements; selected overlaps refuse and no files change
+  session          Explicit reusable semantic session preparation, passive status and original stop
+  explain          Explain selected code through native hover, definition and type resolution
+  symbols          Semantic document symbols, distinct from server-free outline
+  refs             Native semantic references including declarations
+  calls            One-hop incoming and outgoing semantic calls
+  implementations  Native implementation targets; no universal trait-applicability claim
+  macro            Selected macro expansion text with invocation provenance limits
+  tests            Related test candidates; does not run analyzer-supplied commands
+  candidates       Contextual completion candidates, preserving unresolved editing intent
+  hints            Selected native inlay annotations, without dumping the full file
+  hint             Resolve one source/generation-bound native inlay hint lazily
+  candidate        Resolve one source-bound completion candidate, retaining imports and snippet intent
+  predicate        Ask a native trait predicate question; not-proven remains distinct from contradiction
+  edit             Native source-bound semantic edit previews, without filesystem application
+  origin           Follow an exact generated hit to existing declared contributors and regeneration routing
+  query            Enumerate written Rust structural candidates and captures; nested matches remain visible
+  preview          Inspect immutable capture-preserving replacements; selected overlaps refuse and no files change
 
 Options:
   -C <checkout>
@@ -48,7 +76,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')

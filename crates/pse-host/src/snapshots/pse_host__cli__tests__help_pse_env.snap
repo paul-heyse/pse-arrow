@@ -12,7 +12,7 @@ Options:
       --format <FORMAT>  Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
       --fields <FIELDS>  Select comma-separated payload fields while retaining identity, state and coverage
       --json
-      --budget <BUDGET>  Limit payload array records; retain complete evidence as an artifact
+      --budget <BUDGET>  Limit whole payload records; producer pages retain their omission and continuation facts
       --docs
       --root <ROOT>
       --cache <CACHE>    [default: auto] [possible values: auto, on, off]
@@ -49,7 +49,7 @@ Options:
 
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --docs
 

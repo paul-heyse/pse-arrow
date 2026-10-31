@@ -17,7 +17,7 @@ Options:
       --pattern <PATTERN>        Native code-shaped Rust pattern ($NAME or $$$SEQUENCE captures)
       --fields <FIELDS>          Select comma-separated payload fields while retaining identity, state and coverage
       --strictness <STRICTNESS>  [default: smart] [possible values: cst, smart, ast, relaxed, signature, template]
-      --budget <BUDGET>          Limit payload array records; retain complete evidence as an artifact
+      --budget <BUDGET>          Limit whole payload records; producer pages retain their omission and continuation facts
       --inside <INSIDE>          Require an ancestor matching each native pattern
       --has <HAS>                Require a proper descendant matching each native pattern
       --exclude <EXCLUDE>        Exclude a candidate matching any of these native patterns
@@ -75,7 +75,7 @@ Options:
           [default: smart]
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --inside <INSIDE>
           Require an ancestor matching each native pattern

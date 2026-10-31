@@ -1,0 +1,63 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
+---
+-h
+Create a sibling checkout, copy local configuration and explicitly prepare native tools
+
+Usage: pse worktree new [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>  One sibling directory component; no existing path is overwritten
+
+Options:
+      --base <BASE>      [default: HEAD]
+  -C <checkout>
+      --branch <BRANCH>  New branch name; default matches the native checkout name
+      --format <FORMAT>  Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --fields <FIELDS>  Select comma-separated payload fields while retaining identity, state and coverage
+      --warm             Submit the existing detached workspace check after preparation succeeds
+      --budget <BUDGET>  Limit whole payload records; producer pages retain their omission and continuation facts
+  -h, --help             Print help (see more with '--help')
+--help
+Create a sibling checkout, copy local configuration and explicitly prepare native tools
+
+Usage: pse worktree new [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>
+          One sibling directory component; no existing path is overwritten
+
+Options:
+      --base <BASE>
+          [default: HEAD]
+
+  -C <checkout>
+
+
+      --branch <BRANCH>
+          New branch name; default matches the native checkout name
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --warm
+          Submit the existing detached workspace check after preparation succeeds
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')

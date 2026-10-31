@@ -8,6 +8,8 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  compiler           Read retained native compiler diagnostics without rebuilding
+  worktree           Create prepared sibling worktrees or inspect native checkout users
   run-all            Attempt every independent Just recipe under one native foreground owner
   tests              Explicitly build/list the actual selected native test population
   test               Build, execute and reconcile the actual selected native tests
@@ -51,7 +53,7 @@ Options:
   -C <checkout>
       --format <FORMAT>  Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
       --fields <FIELDS>  Select comma-separated payload fields while retaining identity, state and coverage
-      --budget <BUDGET>  Limit payload array records; retain complete evidence as an artifact
+      --budget <BUDGET>  Limit whole payload records; producer pages retain their omission and continuation facts
       --version
   -h, --help             Print help (see more with '--help')
 --help
@@ -60,6 +62,8 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  compiler           Read retained native compiler diagnostics without rebuilding
+  worktree           Create prepared sibling worktrees or inspect native checkout users
   run-all            Attempt every independent Just recipe under one native foreground owner
   tests              Explicitly build/list the actual selected native test population
   test               Build, execute and reconcile the actual selected native tests
@@ -119,7 +123,7 @@ Options:
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --version
 

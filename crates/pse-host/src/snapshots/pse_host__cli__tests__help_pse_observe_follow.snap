@@ -14,7 +14,7 @@ Options:
       --request <REQUEST>          Initial product follow request; resume coordinates remain product-owned
       --fields <FIELDS>            Select comma-separated payload fields while retaining identity, state and coverage
       --samples <SAMPLES>          Maximum whole snapshots emitted before observation stops [default: 32]
-      --budget <BUDGET>            Limit payload array records; retain complete evidence as an artifact
+      --budget <BUDGET>            Limit whole payload records; producer pages retain their omission and continuation facts
       --interval-ms <INTERVAL_MS>  Minimum polling interval; native progress never awaits this renderer [default: 1000]
       --timeout <TIMEOUT>          Observer allowance; its expiry does not time out the original workload [default: 30]
   -h, --help                       Print help (see more with '--help')
@@ -54,7 +54,7 @@ Options:
           [default: 32]
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --interval-ms <INTERVAL_MS>
           Minimum polling interval; native progress never awaits this renderer

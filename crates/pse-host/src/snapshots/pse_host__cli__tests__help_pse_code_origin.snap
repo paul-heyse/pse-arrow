@@ -17,7 +17,7 @@ Options:
       --range-end <RANGE_END>
       --fields <FIELDS>            Select comma-separated payload fields while retaining identity, state and coverage
       --if-source <IF_SOURCE>      Refuse when the hit's original source bytes have changed
-      --budget <BUDGET>            Limit payload array records; retain complete evidence as an artifact
+      --budget <BUDGET>            Limit whole payload records; producer pages retain their omission and continuation facts
       --index                      Read the raw staging-index blob rather than working bytes
       --revision <REVISION>        Read a committed blob; resolve the revision before returning its identity
       --language <LANGUAGE>        Override the .rs/.md/.markdown filename inference [possible values: rust, markdown]
@@ -61,7 +61,7 @@ Options:
           Refuse when the hit's original source bytes have changed
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --index
           Read the raw staging-index blob rather than working bytes

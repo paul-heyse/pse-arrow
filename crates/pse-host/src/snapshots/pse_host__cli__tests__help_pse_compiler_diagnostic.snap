@@ -1,0 +1,76 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
+---
+-h
+Read one addressed original rustc diagnostic, its suggestions and related spans
+
+Usage: pse compiler diagnostic [OPTIONS] --address <ADDRESS>
+
+Options:
+      --address <ADDRESS>
+          Opaque original address returned by compiler diagnostics
+  -C <checkout>
+
+      --cursor <CURSOR>
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+      --raw
+          Include exact original JSON as opaque evidence, preserving original numeric lexemes
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+      --source
+          Compare retained native source lines to independently acquired current candidates
+      --max-record-bytes <MAX_RECORD_BYTES>
+          Whole-record decoding bound; oversized originals stay in their raw artifact [default: 4194304]
+  -h, --help
+          Print help (see more with '--help')
+--help
+Read one addressed original rustc diagnostic, its suggestions and related spans
+
+Usage: pse compiler diagnostic [OPTIONS] --address <ADDRESS>
+
+Options:
+      --address <ADDRESS>
+          Opaque original address returned by compiler diagnostics
+
+  -C <checkout>
+
+
+      --cursor <CURSOR>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --raw
+          Include exact original JSON as opaque evidence, preserving original numeric lexemes
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --source
+          Compare retained native source lines to independently acquired current candidates
+
+      --max-record-bytes <MAX_RECORD_BYTES>
+          Whole-record decoding bound; oversized originals stay in their raw artifact
+
+          [default: 4194304]
+
+  -h, --help
+          Print help (see a summary with '-h')

@@ -19,7 +19,7 @@ Options:
       --organization <ORGANIZATION>
           [default: default]
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
       --stream <STREAMS>
 
       --retention-days <RETENTION_DAYS>
@@ -58,7 +58,7 @@ Options:
           [default: default]
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --stream <STREAMS>
 

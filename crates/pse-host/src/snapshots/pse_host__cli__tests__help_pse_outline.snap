@@ -17,7 +17,7 @@ Options:
       --index                Read the raw staging-index blob rather than working bytes
       --fields <FIELDS>      Select comma-separated payload fields while retaining identity, state and coverage
       --revision <REVISION>  Read a committed blob; resolve the revision before returning its identity
-      --budget <BUDGET>      Limit payload array records; retain complete evidence as an artifact
+      --budget <BUDGET>      Limit whole payload records; producer pages retain their omission and continuation facts
       --language <LANGUAGE>  Override the .rs/.md/.markdown filename inference [possible values: rust, markdown]
       --edition <EDITION>    Explicit syntax policy; no Cargo edition or cfg discovery is performed [default: 2024] [possible values: 2015, 2018, 2021, 2024]
   -h, --help                 Print help (see more with '--help')
@@ -59,7 +59,7 @@ Options:
           Read a committed blob; resolve the revision before returning its identity
 
       --budget <BUDGET>
-          Limit payload array records; retain complete evidence as an artifact
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --language <LANGUAGE>
           Override the .rs/.md/.markdown filename inference
