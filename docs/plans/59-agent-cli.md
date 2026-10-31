@@ -485,6 +485,11 @@ applicable native ownership operations. D08 concurrent Git acceptance is deferre
 
 ## Current state and next step
 
+**2026-10-31 adoption amendment:** the `pse-cli` skill, native PATH exposure and shared
+advisory tooling hook are implemented. [59e's adoption outcome](59e-environment-and-adoption.md#cli-adoption-amendment--2026-10-31)
+owns verification and the remaining fresh-client discovery/delivery check, including Codex's
+native hook trust review. This does not settle E01's separate removal choice.
+
 **Remaining-series implementation and qualification — 2026-10-30.** The maintainer authorized the
 entire remaining series, including J03–J05. Earlier exclusions below describe the
 completed simplification/testing wave, not the boundary of this new execution.

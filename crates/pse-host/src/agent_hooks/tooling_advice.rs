@@ -103,9 +103,9 @@ fn collect(
         for argument in node.children_by_field_name("argument", &mut cursor) {
             words.push(literal(argument, source)?);
         }
-        if matches!(words[0].as_str(), "command" | "builtin" | "exec")
-            && route(&words).is_none()
-        { return None; }
+        if matches!(words[0].as_str(), "command" | "builtin" | "exec") && route(&words).is_none() {
+            return None;
+        }
         if words
             .iter()
             .any(|w| matches!(w.as_str(), "--help" | "-h" | "--version" | "-V"))

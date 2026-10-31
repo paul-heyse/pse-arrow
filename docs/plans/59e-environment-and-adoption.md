@@ -48,7 +48,9 @@ and the required decision route; this documentation revision authorizes no teard
 
 Operator directions:
 - No direnv changes; the operator's separate environment work owns them.
-- No Codex configuration changes; Codex uses the CLI through its shell and the shared AGENTS.md.
+- Codex uses the CLI through its shell and the shared AGENTS.md. The 2026-10-31 adoption
+  amendment permits the repository-local advisory Bash hook; global configuration and MCP
+  integration remain outside this scope.
 - Adoption comes from ease and communication, never hooks.
 
 ## Baseline
@@ -162,6 +164,53 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 | [E03](#e03) | complete | 59e | Native test/runtime/source/product/semantic/API/compiler/worktree guidance and generated reference published; actual implementation and diagnosis use delivered verbs. Deferred commands are not advertised |
 | [E04](#e04) | complete | 59e | Current-work pointer links native status owners; lifecycle validate passed with zero errors |
 | [E05](#e05) | complete | 59e | Edit guidance in AGENTS.md and `.claude/rules/tooling.md` |
+
+### CLI adoption amendment — 2026-10-31
+
+**Implemented:** the local `pse-cli` skill provides thin ordinary-workflow guidance and a
+progressive code-intelligence reference. Shared agent/execution guidance now explains the
+CLI preference in terms of actual correctness selection, fixtures, ownership and retained
+results. Native environment composition exposes the active checkout's `scripts/pse` as
+`pse`, without installation or activation-time compilation.
+
+The shared Rust `agent-hook tooling-advice` endpoint parses bounded Bash syntax and emits
+only advisory context. Both runtime registrations preserve direct execution and quietly
+allow an unavailable/stale host. Ambiguous shell state, functions, dynamic arguments,
+foreign manifests, comments and heredoc data do not produce guessed advice. The matcher is
+conservative, not an enforcement boundary or a complete shell interpreter. No permission
+rewrite, automatic briefing, global configuration change or MCP service was introduced.
+`tree-sitter-bash =0.25.1` is the only new locked package; the existing Tree-sitter 0.27.0
+is now an exact direct workspace dependency.
+
+**Tested**, local Linux and pinned toolchain, zero failure baseline: `pse test pse-host
+--all-targets -E 'test(agent_hooks::) | test(environment::) | binary(tooling_advice) |
+test(cli::tests::help_snapshots) | test(cli::tests::command_tree_is_consistent)' --format json`
+passed 30/30, required capture and native settlement complete
+(`01a19088-e203-75ec-9690-fce3125ef4a2`). `pse test xtask --lib -E
+ 'test(native_hook_wiring)' --format json` passed 1/1
+(`01a19087-6e3a-739b-8677-995e95ab47f1`). Skill-creator validation passed and both existing
+runtime aliases resolve the skill. A fresh shell resolved `pse` to this checkout's launcher;
+the configured reminder returned context only, and a disposable checkout without a host
+returned quiet exit0. These are executable/protocol checks, not fresh-agent adoption evidence.
+
+**Corrections:** review exposed joined/dynamic manifest selectors, directory-changing `env`
+options, shell function/builtin shadowing and startup failures outside the Rust endpoint.
+The conservative classifier and fail-open registration address those cases. An initial
+combined `--lib --test` invocation was correctly rejected; the accepted command uses
+`--all-targets` with an explicit Nextest filter. No rejected invocation receives test credit.
+
+**Remaining client acceptance:** fresh Codex/Claude session adoption and in-host reminder
+injection are **not_run**. Codex requires native `/hooks` review/trust of the new definition;
+the repository does not bypass that mechanism. The skill and reminder implementation are
+available; automatic discovery and live delivery must be checked in refreshed clients before
+claiming seamless adoption. E01's separate removal decision remains open.
+
+**Tested — scope end:** `just ready`, `just turn-end` and `just hygiene` passed against
+the zero error/warning baseline. Hygiene includes both strict workspace/all-targets Clippy
+modes with keep-going, agent wiring, types, licenses, rustdoc and generated equivalence.
+`just codegen` completed all nine targets and `just docs` published 951 chapters with
+scoped search. The final formatting delta changes layout only. No scientific, performance
+or fresh-client adoption qualification is inferred from these checks.
 
 <a id="e01"></a>
 ### E01 — Worktrees ready on creation
