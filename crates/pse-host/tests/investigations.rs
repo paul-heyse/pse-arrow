@@ -55,6 +55,38 @@ fn run(root: &Path, args: &[&str]) -> Value {
 }
 
 #[test]
+fn unreadable_source_retains_readable_witness_and_partial_scope() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("readable.txt"), "needle\n").unwrap();
+    let denied = root.path().join("denied.txt");
+    std::fs::write(&denied, "needle\n").unwrap();
+    std::fs::set_permissions(&denied, std::fs::Permissions::from_mode(0)).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_pse"))
+        .current_dir(root.path())
+        .args(["search", "--all", "text", "needle", "--format", "json"])
+        .output()
+        .unwrap();
+    std::fs::set_permissions(&denied, std::fs::Permissions::from_mode(0o600)).unwrap();
+    assert!(
+        !output.status.success(),
+        "unreadable scope is not complete success"
+    );
+    let answer: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let report = &answer["payload"];
+    assert_eq!(report["results"].as_array().unwrap().len(), 1, "{answer}");
+    assert_eq!(report["summary"]["matches"], 1, "{answer}");
+    assert_eq!(report["summary"]["failures"], 1, "{answer}");
+    assert_eq!(report["summary"]["complete"], false, "{answer}");
+    assert_ne!(report["summary"]["count"]["precision"], "exact", "{answer}");
+    assert_ne!(answer["subject_state"], "no_match", "{answer}");
+    assert!(
+        !report["diagnostics"].as_array().unwrap().is_empty(),
+        "{answer}"
+    );
+}
+
+#[test]
 fn public_text_discovery_inspection_and_preview_keep_original_bytes() {
     let root = tempfile::tempdir().unwrap();
     let text = "// café must remain\nfn retained() { let answer = 17; }\n";

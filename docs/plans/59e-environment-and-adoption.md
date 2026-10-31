@@ -173,7 +173,7 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 | [E03](#e03) | complete | 59e | Native test/runtime/source/product/semantic/API/compiler/worktree guidance and generated reference published; actual implementation and diagnosis use delivered verbs. Deferred commands are not advertised |
 | [E04](#e04) | complete | 59e | Current-work pointer links native status owners; lifecycle validate passed with zero errors |
 | [E05](#e05) | complete | 59e | Edit guidance in AGENTS.md and `.claude/rules/tooling.md` |
-| [E06](#e06) | in-progress | 59e | Skill, deep reference, native guide, AGENTS/rust-rule and bounded advisory suggestions use delivered search/inspect/propose; actual agent source→reference inspection exercised. Final generated reference, fresh-client/reminder-host acceptance remain |
+| [E06](#e06) | in-progress | 59e | Delivered guidance exercised by an actual delegated Codex agent through generated/historical search→guarded inspection→declared authored emitter. Final generated reference and scope-end acceptance remain; live UI hook trust/injection is explicitly unverified |
 
 <a id="e06"></a>
 ### E06 — Adopt delivered search and retire displaced guidance
@@ -194,9 +194,23 @@ quota-versus-unknown classification defect, retained for provider correction rat
 reported as success. Explicit exhaustive source discovery and guarded inspection succeeded.
 Native test-selection inspection also returned the actual library/feature/filter intent
 while keeping admission, listing and fixture readiness unavailable. These are practical
-current-agent use; separate fresh Codex/Claude attachment, actual reminder-host behavior and
-the final generated parser reference still require scope-end acceptance. No speedup or
-complete replacement of specialized external tools is claimed.
+current-agent use. No speedup or complete replacement of specialized external tools is claimed.
+
+**Tested (2026-10-31):** a delegated native Codex agent used the delivered skill and parser
+help on the actual checkout to discover generated declarations, paste a returned typed source
+reference into `inspect`, inspect its exact original bytes, and follow `inspect origin`'s returned
+action to the declared `documents` emitter. The historical variant retained its resolved commit
+and blob while origin inspection explicitly identified the independently declared producer
+snapshot; it did not claim that the current emitter generated those historical bytes. Representative
+origin invocation `01a193e2-d525-715e-bf00-842a8c39fd33` retained this distinction under
+`--fields hit`, including mandatory provider, coverage and next-action facts. A mismatched source
+guard refused. Missing authored source locations, unsupplied Cargo metadata and an unprepared
+document interpreter remained explicitly unknown/unavailable, without implicit preparation.
+
+This establishes actual native agent CLI adoption, including a useful generated-source
+refinement. Live Codex/Claude UI hook trust or context injection remains **unverified**; invoking
+the advisory endpoint does not establish that attachment. No hook-definition or global runtime
+change is selected. Final generated parser publication and scope-end qualification remain open.
 
 **Consumes:** actual public slices delivered through [M03](59m-composed-rust-investigations.md#m03),
 including their parser-owned discovery/schema, useful examples and retired-route list. E06 can

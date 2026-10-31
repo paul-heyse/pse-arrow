@@ -12,7 +12,10 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
-  compiler           Read retained native compiler diagnostics without rebuilding
+  search             Find source, text, Rust entities and relationships through one typed query
+  inspect            Inspect a known source or an addressed search result without preparation
+  propose            Construct a checked change preview from an exact guarded result
+  compiler           Explicitly generate selected native compiler evidence or run authored compiler probes
   worktree           Create prepared sibling worktrees or inspect native checkout users
   run-all            Attempt every independent Just recipe under one native foreground owner
   tests              Explicitly build/list the actual selected native test population
@@ -20,21 +23,13 @@ Commands:
   check              Check the selected source through the correctness and compiler observation owners
   fixture            Prepare or inspect inputs through the existing native fixture owner
   tools              Explicit captured development-tool preparation, discovery and managed native forwarding
-  affected           Preview conservative changed-source reach through Gitoxide and captured Cargo declarations
   wait               Observe one original managed invocation; an observation timeout leaves it running
   cancel             Stop one authenticated original invocation and inspect its original settlement evidence
   observe            Inspect scientific evidence through an explicitly prepared native product reader
-  explain            Resolve test/check intent without building binaries or preparing runtime inputs
-  owner              Inspect declared generated-output ownership and existing source contributors
-  dep                Inspect exact locked dependency identities, features and direct workspace consumers
-  changes            Inspect changed Git layers, declared source owners and conservative test reach
   docs               Forward documentation operations to the explicitly prepared native owner
-  api                Read exact-context Rust APIs, or explicitly prepare their documentation artifacts
-  code               Query Rust syntax and inspect source-bound change proposals
+  api                Explicitly acquire Rust API artifacts, run compatibility rules or check documentation
+  code               Explicitly prepare, observe or settle a native Rust semantic session
   probe              Create and run an explicitly isolated authored Rust experiment
-  artifact           Read an explicit retained file without interpreting its content as a protocol
-  outline            Read one Rust file's written declarations or a Markdown document's headings
-  show               Read exact original source at FILE::ITEM[::ITEM], preserving ambiguity
   commands           Discover actual command declarations or lazily query one argument's candidates
   help               Inspect one command's native help and public parser metadata
   status             Read independent native checkout, invocation and prepared-tool observations
@@ -49,8 +44,6 @@ Commands:
   env
   activity
   history            Inspect newest invocation metadata without reading historical result payloads
-  result             Read the original immutable result without starting or rebuilding work
-  log                Read a bounded original raw stream with exact byte offsets
   run
 
 Options:
@@ -83,20 +76,1489 @@ Options:
 
 ~~~~
 
+## `pse search`
+
+~~~~text
+Find source, text, Rust entities and relationships through one typed query
+
+Usage: pse search [OPTIONS] [COMMAND]
+
+Commands:
+  files       Discover selected files and their source kinds
+  text        Search native text, preserving byte and encoding policies
+  syntax      Match a native Rust syntax pattern or explicit Tree-sitter extraction query
+  symbol      Find written declarations or explicitly selected semantic workspace symbols
+  api         Search an explicitly acquired native API artifact without acquisition
+  structured  Select a structured field using a typed JSON Pointer
+  history     Investigate native Git history without changing the checkout
+
+Options:
+  -C <checkout>
+
+
+      --request <REQUEST>
+          Read a complete typed JSON request; explicit flags override selected fields
+
+      --config <CONFIG>
+          Explicit named-query configuration; otherwise use the optional repository file
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --query <QUERY>
+          Select a saved typed query from configuration
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --path <PATHS>
+          Restrict source paths without requiring Cargo or analyzer preparation
+
+      --package <PACKAGE>
+
+
+      --glob <GLOB>
+
+
+      --exclude <EXCLUDE>
+
+
+      --type <TYPES>
+
+
+      --tracked
+
+
+      --untracked
+
+
+      --changed
+
+
+      --dependencies
+
+
+      --include-ignored
+
+
+      --hidden
+
+
+      --generated
+
+
+      --index
+
+
+      --revision <REVISION>
+
+
+      --limit <LIMIT>
+          Stop after this many useful results; the default is twenty
+
+      --all
+          Examine the complete selected scope instead of using the default result limit
+
+      --exists
+          Stop after a positive witness; a negative answer requires complete examination
+
+      --count
+
+
+      --count-unit <COUNT_UNIT>
+          Select the population counted by an explicit count demand
+
+          [possible values: matches, files, lines, entities]
+
+      --order <ORDER>
+          [possible values: arrival, deterministic]
+
+      --cursor <CURSOR>
+          Continue a deterministic page under its original query/source guards
+
+      --result-fields <RESULT_FIELDS>
+          Select result detail fields; source identity and coverage remain mandatory
+
+      --group-by <GROUP_BY>
+          Group returned witnesses, without claiming exhaustive group counts
+
+          [possible values: source, kind, name]
+
+      --explain
+          Explain the effective validated query without invoking its providers
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse search files`
+
+~~~~text
+Discover selected files and their source kinds
+
+Usage: pse search files [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --path <PATHS>
+          Restrict source paths without requiring Cargo or analyzer preparation
+
+      --package <PACKAGE>
+
+
+      --glob <GLOB>
+
+
+      --exclude <EXCLUDE>
+
+
+      --type <TYPES>
+
+
+      --tracked
+
+
+      --untracked
+
+
+      --changed
+
+
+      --dependencies
+
+
+      --include-ignored
+
+
+      --hidden
+
+
+      --generated
+
+
+      --index
+
+
+      --revision <REVISION>
+
+
+      --limit <LIMIT>
+          Stop after this many useful results; the default is twenty
+
+      --all
+          Examine the complete selected scope instead of using the default result limit
+
+      --exists
+          Stop after a positive witness; a negative answer requires complete examination
+
+      --count
+
+
+      --count-unit <COUNT_UNIT>
+          Select the population counted by an explicit count demand
+
+          [possible values: matches, files, lines, entities]
+
+      --order <ORDER>
+          [possible values: arrival, deterministic]
+
+      --cursor <CURSOR>
+          Continue a deterministic page under its original query/source guards
+
+      --result-fields <RESULT_FIELDS>
+          Select result detail fields; source identity and coverage remain mandatory
+
+      --group-by <GROUP_BY>
+          Group returned witnesses, without claiming exhaustive group counts
+
+          [possible values: source, kind, name]
+
+      --explain
+          Explain the effective validated query without invoking its providers
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse search text`
+
+~~~~text
+Search native text, preserving byte and encoding policies
+
+Usage: pse search text [OPTIONS] <PATTERN>
+
+Arguments:
+  <PATTERN>
+
+
+Options:
+  -C <checkout>
+
+
+      --literal
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --ignore-case
+
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --word
+
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --line
+
+
+      --path <PATHS>
+          Restrict source paths without requiring Cargo or analyzer preparation
+
+      --multiline
+
+
+      --package <PACKAGE>
+
+
+      --glob <GLOB>
+
+
+      --invert
+
+
+      --context <CONTEXT>
+
+
+      --exclude <EXCLUDE>
+
+
+      --type <TYPES>
+
+
+      --tracked
+
+
+      --untracked
+
+
+      --changed
+
+
+      --dependencies
+
+
+      --include-ignored
+
+
+      --hidden
+
+
+      --generated
+
+
+      --index
+
+
+      --revision <REVISION>
+
+
+      --limit <LIMIT>
+          Stop after this many useful results; the default is twenty
+
+      --all
+          Examine the complete selected scope instead of using the default result limit
+
+      --exists
+          Stop after a positive witness; a negative answer requires complete examination
+
+      --count
+
+
+      --count-unit <COUNT_UNIT>
+          Select the population counted by an explicit count demand
+
+          [possible values: matches, files, lines, entities]
+
+      --order <ORDER>
+          [possible values: arrival, deterministic]
+
+      --cursor <CURSOR>
+          Continue a deterministic page under its original query/source guards
+
+      --result-fields <RESULT_FIELDS>
+          Select result detail fields; source identity and coverage remain mandatory
+
+      --group-by <GROUP_BY>
+          Group returned witnesses, without claiming exhaustive group counts
+
+          [possible values: source, kind, name]
+
+      --explain
+          Explain the effective validated query without invoking its providers
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse search syntax`
+
+~~~~text
+Match a native Rust syntax pattern or explicit Tree-sitter extraction query
+
+Usage: pse search syntax [OPTIONS] [PATTERN]
+
+Arguments:
+  [PATTERN]
+
+
+Options:
+  -C <checkout>
+
+
+      --tree-sitter <TREE_SITTER>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --rule <RULE>
+
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --path <PATHS>
+          Restrict source paths without requiring Cargo or analyzer preparation
+
+      --package <PACKAGE>
+
+
+      --glob <GLOB>
+
+
+      --exclude <EXCLUDE>
+
+
+      --type <TYPES>
+
+
+      --tracked
+
+
+      --untracked
+
+
+      --changed
+
+
+      --dependencies
+
+
+      --include-ignored
+
+
+      --hidden
+
+
+      --generated
+
+
+      --index
+
+
+      --revision <REVISION>
+
+
+      --limit <LIMIT>
+          Stop after this many useful results; the default is twenty
+
+      --all
+          Examine the complete selected scope instead of using the default result limit
+
+      --exists
+          Stop after a positive witness; a negative answer requires complete examination
+
+      --count
+
+
+      --count-unit <COUNT_UNIT>
+          Select the population counted by an explicit count demand
+
+          [possible values: matches, files, lines, entities]
+
+      --order <ORDER>
+          [possible values: arrival, deterministic]
+
+      --cursor <CURSOR>
+          Continue a deterministic page under its original query/source guards
+
+      --result-fields <RESULT_FIELDS>
+          Select result detail fields; source identity and coverage remain mandatory
+
+      --group-by <GROUP_BY>
+          Group returned witnesses, without claiming exhaustive group counts
+
+          [possible values: source, kind, name]
+
+      --explain
+          Explain the effective validated query without invoking its providers
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse search symbol`
+
+~~~~text
+Find written declarations or explicitly selected semantic workspace symbols
+
+Usage: pse search symbol [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>
+
+
+Options:
+  -C <checkout>
+
+
+      --semantic
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --matching <MATCHING>
+          [possible values: contains, exact, prefix, fuzzy]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --kind <KINDS>
+
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --module <MODULE>
+
+
+      --path <PATHS>
+          Restrict source paths without requiring Cargo or analyzer preparation
+
+      --package <PACKAGE>
+
+
+      --visibility <VISIBILITY>
+
+
+      --glob <GLOB>
+
+
+      --signature <SIGNATURE>
+          Written signature filter; no inferred type equivalence is claimed
+
+      --exclude <EXCLUDE>
+
+
+      --type <TYPES>
+
+
+      --tracked
+
+
+      --untracked
+
+
+      --changed
+
+
+      --dependencies
+
+
+      --include-ignored
+
+
+      --hidden
+
+
+      --generated
+
+
+      --index
+
+
+      --revision <REVISION>
+
+
+      --limit <LIMIT>
+          Stop after this many useful results; the default is twenty
+
+      --all
+          Examine the complete selected scope instead of using the default result limit
+
+      --exists
+          Stop after a positive witness; a negative answer requires complete examination
+
+      --count
+
+
+      --count-unit <COUNT_UNIT>
+          Select the population counted by an explicit count demand
+
+          [possible values: matches, files, lines, entities]
+
+      --order <ORDER>
+          [possible values: arrival, deterministic]
+
+      --cursor <CURSOR>
+          Continue a deterministic page under its original query/source guards
+
+      --result-fields <RESULT_FIELDS>
+          Select result detail fields; source identity and coverage remain mandatory
+
+      --group-by <GROUP_BY>
+          Group returned witnesses, without claiming exhaustive group counts
+
+          [possible values: source, kind, name]
+
+      --explain
+          Explain the effective validated query without invoking its providers
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse search api`
+
+~~~~text
+Search an explicitly acquired native API artifact without acquisition
+
+Usage: pse search api [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>
+
+
+Options:
+      --artifact <ARTIFACT>
+
+
+  -C <checkout>
+
+
+      --dependency <DEPENDENCY>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --input <INPUT>
+
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --output <OUTPUT>
+
+
+      --path <PATHS>
+          Restrict source paths without requiring Cargo or analyzer preparation
+
+      --bound <BOUND>
+
+
+      --package <PACKAGE>
+
+
+      --glob <GLOB>
+
+
+      --exclude <EXCLUDE>
+
+
+      --type <TYPES>
+
+
+      --tracked
+
+
+      --untracked
+
+
+      --changed
+
+
+      --dependencies
+
+
+      --include-ignored
+
+
+      --hidden
+
+
+      --generated
+
+
+      --index
+
+
+      --revision <REVISION>
+
+
+      --limit <LIMIT>
+          Stop after this many useful results; the default is twenty
+
+      --all
+          Examine the complete selected scope instead of using the default result limit
+
+      --exists
+          Stop after a positive witness; a negative answer requires complete examination
+
+      --count
+
+
+      --count-unit <COUNT_UNIT>
+          Select the population counted by an explicit count demand
+
+          [possible values: matches, files, lines, entities]
+
+      --order <ORDER>
+          [possible values: arrival, deterministic]
+
+      --cursor <CURSOR>
+          Continue a deterministic page under its original query/source guards
+
+      --result-fields <RESULT_FIELDS>
+          Select result detail fields; source identity and coverage remain mandatory
+
+      --group-by <GROUP_BY>
+          Group returned witnesses, without claiming exhaustive group counts
+
+          [possible values: source, kind, name]
+
+      --explain
+          Explain the effective validated query without invoking its providers
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse search structured`
+
+~~~~text
+Select a structured field using a typed JSON Pointer
+
+Usage: pse search structured [OPTIONS] <POINTER>
+
+Arguments:
+  <POINTER>
+
+
+Options:
+  -C <checkout>
+
+
+      --equals <EQUALS>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --path <PATHS>
+          Restrict source paths without requiring Cargo or analyzer preparation
+
+      --package <PACKAGE>
+
+
+      --glob <GLOB>
+
+
+      --exclude <EXCLUDE>
+
+
+      --type <TYPES>
+
+
+      --tracked
+
+
+      --untracked
+
+
+      --changed
+
+
+      --dependencies
+
+
+      --include-ignored
+
+
+      --hidden
+
+
+      --generated
+
+
+      --index
+
+
+      --revision <REVISION>
+
+
+      --limit <LIMIT>
+          Stop after this many useful results; the default is twenty
+
+      --all
+          Examine the complete selected scope instead of using the default result limit
+
+      --exists
+          Stop after a positive witness; a negative answer requires complete examination
+
+      --count
+
+
+      --count-unit <COUNT_UNIT>
+          Select the population counted by an explicit count demand
+
+          [possible values: matches, files, lines, entities]
+
+      --order <ORDER>
+          [possible values: arrival, deterministic]
+
+      --cursor <CURSOR>
+          Continue a deterministic page under its original query/source guards
+
+      --result-fields <RESULT_FIELDS>
+          Select result detail fields; source identity and coverage remain mandatory
+
+      --group-by <GROUP_BY>
+          Group returned witnesses, without claiming exhaustive group counts
+
+          [possible values: source, kind, name]
+
+      --explain
+          Explain the effective validated query without invoking its providers
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse search history`
+
+~~~~text
+Investigate native Git history without changing the checkout
+
+Usage: pse search history [OPTIONS] [PATTERN]
+
+Arguments:
+  [PATTERN]
+
+
+Options:
+      --at-revision <REVISION>
+
+
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --operation <OPERATION>
+          [possible values: log, blame, pickaxe, pickaxe-lines]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --path <PATHS>
+          Restrict source paths without requiring Cargo or analyzer preparation
+
+      --package <PACKAGE>
+
+
+      --glob <GLOB>
+
+
+      --exclude <EXCLUDE>
+
+
+      --type <TYPES>
+
+
+      --tracked
+
+
+      --untracked
+
+
+      --changed
+
+
+      --dependencies
+
+
+      --include-ignored
+
+
+      --hidden
+
+
+      --generated
+
+
+      --index
+
+
+      --limit <LIMIT>
+          Stop after this many useful results; the default is twenty
+
+      --all
+          Examine the complete selected scope instead of using the default result limit
+
+      --exists
+          Stop after a positive witness; a negative answer requires complete examination
+
+      --count
+
+
+      --count-unit <COUNT_UNIT>
+          Select the population counted by an explicit count demand
+
+          [possible values: matches, files, lines, entities]
+
+      --order <ORDER>
+          [possible values: arrival, deterministic]
+
+      --cursor <CURSOR>
+          Continue a deterministic page under its original query/source guards
+
+      --result-fields <RESULT_FIELDS>
+          Select result detail fields; source identity and coverage remain mandatory
+
+      --group-by <GROUP_BY>
+          Group returned witnesses, without claiming exhaustive group counts
+
+          [possible values: source, kind, name]
+
+      --explain
+          Explain the effective validated query without invoking its providers
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose`
+
+~~~~text
+Construct a checked change preview from an exact guarded result
+
+Usage: pse propose [OPTIONS]
+       pse propose <COMMAND>
+
+Commands:
+  rename       Preview only the selected entity's native semantic rename; no source writes
+  file-rename  Preview native file-rename follow-up edits and the exact filesystem operation
+  assists      Enumerate native assists without eagerly resolving every edit
+  assist       Resolve one source/generation-bound native assist into an immutable proposal
+  ssr          Preview the native semantic SSR rule (PATTERN ==>> REPLACEMENT), scoped to selected lines
+  syntax       Native capture-preserving syntax template, not literal replacement text
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --result <RESULT>
+          Original result reference as returned JSON or its portable encoded form
+
+      --replacement <REPLACEMENT>
+          Exact replacement preview; source and index remain untouched
+
+      --rename <RENAME>
+          Native semantic rename preview, requiring the original provider context
+
+      --file-rename <FILE_RENAME>
+
+
+      --ssr <SSR>
+
+
+      --assist <ASSIST>
+
+
+      --assists
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose rename`
+
+~~~~text
+Preview only the selected entity's native semantic rename; no source writes
+
+Usage: pse propose rename [OPTIONS] --name <NAME> <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+      --name <NAME>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose file-rename`
+
+~~~~text
+Preview native file-rename follow-up edits and the exact filesystem operation
+
+Usage: pse propose file-rename [OPTIONS] --to <TO> <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+      --to <TO>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose assists`
+
+~~~~text
+Enumerate native assists without eagerly resolving every edit
+
+Usage: pse propose assists [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose assist`
+
+~~~~text
+Resolve one source/generation-bound native assist into an immutable proposal
+
+Usage: pse propose assist [OPTIONS] --select <SELECT> <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+      --select <SELECT>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose ssr`
+
+~~~~text
+Preview the native semantic SSR rule (PATTERN ==>> REPLACEMENT), scoped to selected lines
+
+Usage: pse propose ssr [OPTIONS] --rule <RULE> <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+      --rule <RULE>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose syntax`
+
+~~~~text
+Native capture-preserving syntax template, not literal replacement text
+
+Usage: pse propose syntax [OPTIONS] --pattern <PATTERN> --replacement <REPLACEMENT> <FILES>...
+
+Arguments:
+  <FILES>...
+          Exact source operands, acquired independently without a semantic session
+
+Options:
+  -C <checkout>
+
+
+      --pattern <PATTERN>
+          Native code-shaped Rust pattern ($NAME or $$$SEQUENCE captures)
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --strictness <STRICTNESS>
+          Possible values:
+          - cst:       Match all concrete syntax nodes
+          - smart:     Native smart policy, retaining significant written syntax
+          - ast:       Match named AST nodes
+          - relaxed:   Ignore comments and unnamed punctuation
+          - signature: Compare structural signatures without terminal text
+          - template:  Native textual template matching policy
+
+          [default: smart]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --inside <INSIDE>
+          Require an ancestor matching each native pattern
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --has <HAS>
+          Require a proper descendant matching each native pattern
+
+      --exclude <EXCLUDE>
+          Exclude a candidate matching any of these native patterns
+
+      --capture <CAPTURE>
+          Extract only this named capture (without sigils); absence retains all captures
+
+      --index
+          Read the raw staging-index blob rather than working bytes
+
+      --revision <REVISION>
+          Read a committed blob; resolve the revision before returning its identity
+
+      --language <LANGUAGE>
+          Override the .rs/.md/.markdown filename inference
+
+          Possible values:
+          - rust:     Lossless Rust syntax, without Cargo/cfg/macro expansion
+          - markdown: CommonMark headings and their source sections
+
+      --edition <EDITION>
+          Explicit syntax policy; no Cargo edition or cfg discovery is performed
+
+          Possible values:
+          - 2015: Rust 2015 syntax
+          - 2018: Rust 2018 syntax
+          - 2021: Rust 2021 syntax
+          - 2024: Rust 2024 syntax
+
+          [default: 2024]
+
+      --replacement <REPLACEMENT>
+
+
+      --select <SELECTED>
+          Select candidate indices; absence retains candidates without choosing edits
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
 ## `pse compiler`
 
 ~~~~text
-Read retained native compiler diagnostics without rebuilding
+Explicitly generate selected native compiler evidence or run authored compiler probes
 
 Usage: pse compiler [OPTIONS] <COMMAND>
 
 Commands:
-  generate     Explicitly generate native selected-unit/body artifacts through correctness admission
-  artifacts    Observe the original compiler-artifact context, status and completed file digests
-  probe        Explicitly evaluate an authored probe or generate native artifacts from its isolated unit
-  file         Read one original indexed opaque file after whole-file SHA verification; never compile
-  diagnostics  Page original retained check failures; related native detail is a separate observation
-  diagnostic   Read one addressed original rustc diagnostic, its suggestions and related spans
+  generate  Explicitly generate native selected-unit/body artifacts through correctness admission
+  probe     Explicitly evaluate an authored probe or generate native artifacts from its isolated unit
 
 Options:
   -C <checkout>
@@ -198,44 +1660,6 @@ Options:
 
 ~~~~
 
-## `pse compiler artifacts`
-
-~~~~text
-Observe the original compiler-artifact context, status and completed file digests
-
-Usage: pse compiler artifacts [OPTIONS] <INVOCATION>
-
-Arguments:
-  <INVOCATION>
-
-
-Options:
-  -C <checkout>
-
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
 ## `pse compiler probe`
 
 ~~~~text
@@ -287,148 +1711,6 @@ Options:
 
       --pass <PASSES>
 
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse compiler file`
-
-~~~~text
-Read one original indexed opaque file after whole-file SHA verification; never compile
-
-Usage: pse compiler file [OPTIONS] <INVOCATION> <FILE>
-
-Arguments:
-  <INVOCATION>
-
-
-  <FILE>
-
-
-Options:
-  -C <checkout>
-
-
-      --offset <OFFSET>
-          [default: 0]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --length <LENGTH>
-          [default: 4096]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse compiler diagnostics`
-
-~~~~text
-Page original retained check failures; related native detail is a separate observation
-
-Usage: pse compiler diagnostics [OPTIONS] <INVOCATION>
-
-Arguments:
-  <INVOCATION>
-
-
-Options:
-  -C <checkout>
-
-
-      --session <SESSION>
-
-
-      --cursor <CURSOR>
-
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse compiler diagnostic`
-
-~~~~text
-Read one addressed original rustc diagnostic, its suggestions and related spans
-
-Usage: pse compiler diagnostic [OPTIONS] --address <ADDRESS>
-
-Options:
-      --address <ADDRESS>
-          Opaque original address returned by compiler diagnostics
-
-  -C <checkout>
-
-
-      --cursor <CURSOR>
-
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --raw
-          Include exact original JSON as opaque evidence, preserving original numeric lexemes
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --source
-          Compare retained native source lines to independently acquired current candidates
-
-      --max-record-bytes <MAX_RECORD_BYTES>
-          Whole-record decoding bound; oversized originals stay in their raw artifact
-
-          [default: 4194304]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1057,6 +2339,7 @@ Commands:
   catalog       Read the selected native parser's retained catalogue, with captured-source limits
   owner-schema  Read the actual retained native document-owner response schema
   run           Run exact arguments through the selected native parser under managed ownership
+  protocol      Read the original fixed semantic protocol schemas from a captured helper
 
 Options:
   -C <checkout>
@@ -1094,7 +2377,9 @@ Usage: pse tools prepare [OPTIONS] <TOOL>
 
 Arguments:
   <TOOL>
-          [possible values: xtask]
+          Possible values:
+          - xtask:           Existing development composition and document owner
+          - native-analysis: Explicitly prepared native HIR/IDE semantic service
 
 Options:
   -C <checkout>
@@ -1134,8 +2419,12 @@ Options:
   -C <checkout>
 
 
-      --selection <SELECTION>
+      --tool <TOOL>
+          Possible values:
+          - xtask:           Existing development composition and document owner
+          - native-analysis: Explicitly prepared native HIR/IDE semantic service
 
+          [default: xtask]
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -1148,6 +2437,9 @@ Options:
 
           [env: PSE_FORMAT]
           [default: auto]
+
+      --selection <SELECTION>
+
 
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
@@ -1171,8 +2463,12 @@ Options:
   -C <checkout>
 
 
-      --selection <SELECTION>
+      --tool <TOOL>
+          Possible values:
+          - xtask:           Existing development composition and document owner
+          - native-analysis: Explicitly prepared native HIR/IDE semantic service
 
+          [default: xtask]
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -1185,6 +2481,9 @@ Options:
 
           [env: PSE_FORMAT]
           [default: auto]
+
+      --selection <SELECTION>
+
 
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
@@ -1212,53 +2511,62 @@ Options:
   -C <checkout>
 
 
+      --tool <TOOL>
+          Possible values:
+          - xtask:           Existing development composition and document owner
+          - native-analysis: Explicitly prepared native HIR/IDE semantic service
+
+          [default: xtask]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
       --selection <SELECTION>
 
 
       --detach
 
 
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
 
-      --session <SESSION>
-
-
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --session <SESSION>
+
 
   -h, --help
           Print help (see a summary with '-h')
 
 ~~~~
 
-## `pse affected`
+## `pse tools protocol`
 
 ~~~~text
-Preview conservative changed-source reach through Gitoxide and captured Cargo declarations
+Read the original fixed semantic protocol schemas from a captured helper
 
-Usage: pse affected [OPTIONS]
+Usage: pse tools protocol [OPTIONS] --selection <SELECTION>
 
 Options:
-      --base <BASE>
-          Explicit Git revision for base-to-HEAD plus observed index/worktree/untracked changes
-
-          [default: HEAD]
-
   -C <checkout>
 
+
+      --tool <TOOL>
+          Possible values:
+          - xtask:           Existing development composition and document owner
+          - native-analysis: Explicitly prepared native HIR/IDE semantic service
+
+          [default: native-analysis]
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -1272,8 +2580,8 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --metadata <METADATA>
-          Existing metadata snapshot; absence queries locked offline Cargo metadata without a build
+      --selection <SELECTION>
+
 
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
@@ -1667,327 +2975,6 @@ Options:
 
 ~~~~
 
-## `pse explain`
-
-~~~~text
-Resolve test/check intent without building binaries or preparing runtime inputs
-
-Usage: pse explain [OPTIONS] <COMMAND>
-
-Commands:
-  test
-  check
-
-Options:
-  -C <checkout>
-
-
-      --intent-only
-          Stop at normalized declarations before querying the actual compiler-unit graph
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --full
-          Include every reached compiler unit, rather than the default selected-root view
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse explain test`
-
-~~~~text
-Usage: pse explain test [OPTIONS] [PACKAGE[:TARGET]]... [-- <WORDS>...]
-
-Arguments:
-  [PACKAGE[:TARGET]]...
-          Workspace package names, optionally followed by :TARGET. Use -p for opaque package IDs
-
-  [WORDS]...
-          Bare test-name filters after --; these are not package or target names
-
-Options:
-  -C <checkout>
-
-
-      --rerun-failed <INVOCATION>
-          Rebuild current source for exact failed identities and original compiler policy
-
-      --changed
-          Conservatively select changed source owners and reverse dependencies
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --base <BASE>
-          Git base for --changed, including observed index/worktree/untracked changes
-
-          [default: HEAD]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-  -p, --package <SPEC>
-          Package to process (see `cargo help pkgid`)
-
-      --workspace
-          Process all packages in the workspace
-
-      --exclude <SPEC>
-          Exclude packages from being processed
-
-      --all-features
-          Activate all available features
-
-      --no-default-features
-          Do not activate the `default` feature
-
-  -F, --features <FEATURES>
-          Space-separated list of features to activate
-
-      --lib
-          Select actual library declarations, without guessing their names
-
-      --all-targets
-          Preserve native Cargo all-targets selection without enabling all features
-
-      --test <TEST_TARGET>
-          Select one integration-test target
-
-      --bin <BIN_TARGET>
-          Select one binary target
-
-      --without-feature <ABSENT>
-          Features that the actual selected compiler roots must keep absent
-
-      --target <PLATFORM>
-          Explicit Cargo target platform; host dependency contexts remain independent
-
-      --target-kind <TARGET_KIND>
-          Disambiguate duplicate target names by their Cargo kind, for example test or bin
-
-      --ignore-default-filter
-          Bypass the selected nextest profile's default filter
-
-  -E, --filterset <EXPRESSIONS>
-          Native nextest filtersets; nextest owns their grammar
-
-      --ignored <IGNORED>
-          Possible values:
-          - default: Run ordinary tests only
-          - only:    Run ignored tests only
-          - all:     Run ordinary and ignored tests
-
-          [default: default]
-
-      --profile <PROFILE>
-          Selected nextest policy profile, without running its setup during explain
-
-          [default: default]
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse explain check`
-
-~~~~text
-Usage: pse explain check [OPTIONS] [PACKAGE[:TARGET]]...
-
-Arguments:
-  [PACKAGE[:TARGET]]...
-          Workspace package names, optionally followed by :TARGET. Use -p for opaque package IDs
-
-Options:
-  -C <checkout>
-
-
-      --changed
-          Conservatively select changed source owners and reverse dependencies
-
-      --base <BASE>
-          Git base for --changed, including observed index/worktree/untracked changes
-
-          [default: HEAD]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-  -p, --package <SPEC>
-          Package to process (see `cargo help pkgid`)
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --workspace
-          Process all packages in the workspace
-
-      --exclude <SPEC>
-          Exclude packages from being processed
-
-      --all-features
-          Activate all available features
-
-      --no-default-features
-          Do not activate the `default` feature
-
-  -F, --features <FEATURES>
-          Space-separated list of features to activate
-
-      --lib
-          Select actual library declarations, without guessing their names
-
-      --all-targets
-          Preserve native Cargo all-targets selection without enabling all features
-
-      --test <TEST_TARGET>
-          Select one integration-test target
-
-      --bin <BIN_TARGET>
-          Select one binary target
-
-      --without-feature <ABSENT>
-          Features that the actual selected compiler roots must keep absent
-
-      --target <PLATFORM>
-          Explicit Cargo target platform; host dependency contexts remain independent
-
-      --target-kind <TARGET_KIND>
-          Disambiguate duplicate target names by their Cargo kind, for example test or bin
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse owner`
-
-~~~~text
-Inspect declared generated-output ownership and existing source contributors
-
-Usage: pse owner [OPTIONS] <PATH>
-
-Arguments:
-  <PATH>
-
-
-Options:
-  -C <checkout>
-
-
-      --metadata <METADATA>
-          Existing captured Cargo metadata enables exact source-package ownership
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --xtask-selection <XTASK_SELECTION>
-          Explicit prepared native document interpreter; no read implicitly builds it
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse changes`
-
-~~~~text
-Inspect changed Git layers, declared source owners and conservative test reach
-
-Usage: pse changes [OPTIONS]
-
-Options:
-      --base <BASE>
-          Direct base-to-HEAD comparison, plus separately observed staged/working changes
-
-          [default: HEAD]
-
-  -C <checkout>
-
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --metadata <METADATA>
-          Existing exact Cargo metadata; omission collects locked offline metadata without building
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
 ## `pse docs`
 
 ~~~~text
@@ -2032,9 +3019,9 @@ Options:
 ## `pse api`
 
 ~~~~text
-Read exact-context Rust APIs, or explicitly prepare their documentation artifacts
+Explicitly acquire Rust API artifacts, run compatibility rules or check documentation
 
-Usage: pse api [OPTIONS] <CRATE_QUERY> [PATH]
+Usage: pse api [OPTIONS] <--prepare|--compatibility|--check-docs> <CRATE_QUERY> [PATH]
 
 Arguments:
   <CRATE_QUERY>
@@ -2062,17 +3049,11 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --prepare
-          Explicitly compile documentation in an isolated context; ordinary lookup never generates it
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
       --target <TARGET>
           Explicit target triple; default is the pinned rustc's observed host
 
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
 
       --kind <KIND>
           Possible values:
@@ -2087,6 +3068,9 @@ Options:
           - module:     A module declaration
           - macro:      A declarative or procedural macro
           - other:      Another rustdoc declaration, retained without guessing its kind
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --input <INPUT>
 
@@ -2118,14 +3102,17 @@ Options:
       --compare-with <COMPARE_WITH>
           Read structural differences from an explicitly selected acquired document.json; --compatibility separately executes native rules. Neither generates an input
 
-      --compatibility
-          Explicitly execute separately prepared native compatibility rules. Without this flag comparison only reads library-owned structural differences
-
-      --check-docs
-          Explicitly check this workspace library's authored documentation with native rustdoc diagnostics; no API artifact or analyzer session is required
-
       --cursor <CURSOR>
           Continue the same immutable artifact/query page; stale contexts refuse
+
+      --prepare
+          Explicitly acquire documentation; passive reads use inspect api
+
+      --compatibility
+          Explicitly execute separately prepared compatibility rules
+
+      --check-docs
+          Explicitly check workspace library documentation through native rustdoc
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2135,28 +3122,12 @@ Options:
 ## `pse code`
 
 ~~~~text
-Query Rust syntax and inspect source-bound change proposals
+Explicitly prepare, observe or settle a native Rust semantic session
 
 Usage: pse code [OPTIONS] <COMMAND>
 
 Commands:
-  session          Explicit reusable semantic session preparation, passive status and original stop
-  explain          Explain selected code through native hover, definition and type resolution
-  symbols          Semantic document symbols, distinct from server-free outline
-  refs             Native semantic references including declarations
-  calls            One-hop incoming and outgoing semantic calls
-  implementations  Native implementation targets; no universal trait-applicability claim
-  macro            Selected macro expansion text with invocation provenance limits
-  tests            Related test candidates; does not run analyzer-supplied commands
-  candidates       Contextual completion candidates, preserving unresolved editing intent
-  hints            Selected native inlay annotations, without dumping the full file
-  hint             Resolve one source/generation-bound native inlay hint lazily
-  candidate        Resolve one source-bound completion candidate, retaining imports and snippet intent
-  predicate        Ask a native trait predicate question; not-proven remains distinct from contradiction
-  edit             Native source-bound semantic edit previews, without filesystem application
-  origin           Follow an exact generated hit to existing declared contributors and regeneration routing
-  query            Enumerate written Rust structural candidates and captures; nested matches remain visible
-  preview          Inspect immutable capture-preserving replacements; selected overlaps refuse and no files change
+  session  Explicit reusable semantic session preparation, passive status and original stop
 
 Options:
   -C <checkout>
@@ -2238,8 +3209,14 @@ Options:
       --project <PROJECT>
           Cargo project root; defaults to the owning checkout
 
-      --features <FEATURES>
+      --backend <BACKEND>
+          Choose one semantic world owner; native snapshots remain explicitly prepared
 
+          Possible values:
+          - lsp:             The explicitly prepared reusable rust-analyzer LSP session
+          - native-snapshot: An explicitly prepared immutable compatible-family HIR/IDE snapshot
+
+          [default: lsp]
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -2253,14 +3230,17 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
+      --features <FEATURES>
+
+
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
 
-      --no-default-features
-
-
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --no-default-features
+
 
       --target <TARGET>
 
@@ -2335,1402 +3315,6 @@ Options:
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code explain`
-
-~~~~text
-Explain selected code through native hover, definition and type resolution
-
-Usage: pse code explain [OPTIONS] <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code symbols`
-
-~~~~text
-Semantic document symbols, distinct from server-free outline
-
-Usage: pse code symbols [OPTIONS] <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code refs`
-
-~~~~text
-Native semantic references including declarations
-
-Usage: pse code refs [OPTIONS] <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code calls`
-
-~~~~text
-One-hop incoming and outgoing semantic calls
-
-Usage: pse code calls [OPTIONS] <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code implementations`
-
-~~~~text
-Native implementation targets; no universal trait-applicability claim
-
-Usage: pse code implementations [OPTIONS] <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code macro`
-
-~~~~text
-Selected macro expansion text with invocation provenance limits
-
-Usage: pse code macro [OPTIONS] <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code tests`
-
-~~~~text
-Related test candidates; does not run analyzer-supplied commands
-
-Usage: pse code tests [OPTIONS] <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code candidates`
-
-~~~~text
-Contextual completion candidates, preserving unresolved editing intent
-
-Usage: pse code candidates [OPTIONS] <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code hints`
-
-~~~~text
-Selected native inlay annotations, without dumping the full file
-
-Usage: pse code hints [OPTIONS] <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code hint`
-
-~~~~text
-Resolve one source/generation-bound native inlay hint lazily
-
-Usage: pse code hint [OPTIONS] --select <SELECT> <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-      --select <SELECT>
-
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code candidate`
-
-~~~~text
-Resolve one source-bound completion candidate, retaining imports and snippet intent
-
-Usage: pse code candidate [OPTIONS] --select <SELECT> <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-      --select <SELECT>
-
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code predicate`
-
-~~~~text
-Ask a native trait predicate question; not-proven remains distinct from contradiction
-
-Usage: pse code predicate [OPTIONS] --text <TEXT> <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-      --text <TEXT>
-
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code edit`
-
-~~~~text
-Native source-bound semantic edit previews, without filesystem application
-
-Usage: pse code edit [OPTIONS] <COMMAND>
-
-Commands:
-  rename       Preview only the selected entity's native semantic rename; no source writes
-  file-rename  Preview native file-rename follow-up edits and the exact filesystem operation
-  assists      Enumerate native assists without eagerly resolving every edit
-  assist       Resolve one source/generation-bound native assist into an immutable proposal
-  ssr          Preview the native semantic SSR rule (PATTERN ==>> REPLACEMENT), scoped to selected lines
-
-Options:
-  -C <checkout>
-
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code edit rename`
-
-~~~~text
-Preview only the selected entity's native semantic rename; no source writes
-
-Usage: pse code edit rename [OPTIONS] --name <NAME> <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-      --name <NAME>
-
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code edit file-rename`
-
-~~~~text
-Preview native file-rename follow-up edits and the exact filesystem operation
-
-Usage: pse code edit file-rename [OPTIONS] --to <TO> <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-      --to <TO>
-
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code edit assists`
-
-~~~~text
-Enumerate native assists without eagerly resolving every edit
-
-Usage: pse code edit assists [OPTIONS] <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code edit assist`
-
-~~~~text
-Resolve one source/generation-bound native assist into an immutable proposal
-
-Usage: pse code edit assist [OPTIONS] --select <SELECT> <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-      --select <SELECT>
-
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code edit ssr`
-
-~~~~text
-Preview the native semantic SSR rule (PATTERN ==>> REPLACEMENT), scoped to selected lines
-
-Usage: pse code edit ssr [OPTIONS] --rule <RULE> <FILE>
-
-Arguments:
-  <FILE>
-          Exact working Rust file; no editor attachment or unsaved buffer is assumed
-
-Options:
-  -C <checkout>
-
-
-      --line <LINE>
-          One-based source line
-
-          [default: 1]
-
-      --column <COLUMN>
-          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
-
-          [default: 1]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse if the original source digest differs
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-generation <IF_GENERATION>
-          Refuse stale generation-bound action selection
-
-      --if-candidate <IF_CANDIDATE>
-          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-
-      --configuration <CONFIGURATION>
-          Require this explicit session configuration identity
-
-      --end-line <END_LINE>
-          Inclusive final line for selected inlay/SSR range; defaults to the selected line
-
-      --rule <RULE>
-
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code origin`
-
-~~~~text
-Follow an exact generated hit to existing declared contributors and regeneration routing
-
-Usage: pse code origin [OPTIONS] --range-start <RANGE_START> --range-end <RANGE_END> <SOURCE>
-
-Arguments:
-  <SOURCE>
-
-
-Options:
-  -C <checkout>
-
-
-      --range-start <RANGE_START>
-
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --range-end <RANGE_END>
-
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --if-source <IF_SOURCE>
-          Refuse when the hit's original source bytes have changed
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --index
-          Read the raw staging-index blob rather than working bytes
-
-      --revision <REVISION>
-          Read a committed blob; resolve the revision before returning its identity
-
-      --language <LANGUAGE>
-          Override the .rs/.md/.markdown filename inference
-
-          Possible values:
-          - rust:     Lossless Rust syntax, without Cargo/cfg/macro expansion
-          - markdown: CommonMark headings and their source sections
-
-      --edition <EDITION>
-          Explicit syntax policy; no Cargo edition or cfg discovery is performed
-
-          Possible values:
-          - 2015: Rust 2015 syntax
-          - 2018: Rust 2018 syntax
-          - 2021: Rust 2021 syntax
-          - 2024: Rust 2024 syntax
-
-          [default: 2024]
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code query`
-
-~~~~text
-Enumerate written Rust structural candidates and captures; nested matches remain visible
-
-Usage: pse code query [OPTIONS] --mode <MODE> --pattern <PATTERN> <FILES>...
-
-Arguments:
-  <FILES>...
-          Exact source operands, acquired independently without a semantic session
-
-Options:
-  -C <checkout>
-
-
-      --mode <MODE>
-          Select syntax explicitly. Semantic mode requires its actual provider and never falls back
-
-          [possible values: syntax, semantic]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --pattern <PATTERN>
-          Native code-shaped Rust pattern ($NAME or $$$SEQUENCE captures)
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --strictness <STRICTNESS>
-          Possible values:
-          - cst:       Match all concrete syntax nodes
-          - smart:     Native smart policy, retaining significant written syntax
-          - ast:       Match named AST nodes
-          - relaxed:   Ignore comments and unnamed punctuation
-          - signature: Compare structural signatures without terminal text
-          - template:  Native textual template matching policy
-
-          [default: smart]
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --inside <INSIDE>
-          Require an ancestor matching each native pattern
-
-      --has <HAS>
-          Require a proper descendant matching each native pattern
-
-      --exclude <EXCLUDE>
-          Exclude a candidate matching any of these native patterns
-
-      --capture <CAPTURE>
-          Extract only this named capture (without sigils); absence retains all captures
-
-      --index
-          Read the raw staging-index blob rather than working bytes
-
-      --revision <REVISION>
-          Read a committed blob; resolve the revision before returning its identity
-
-      --language <LANGUAGE>
-          Override the .rs/.md/.markdown filename inference
-
-          Possible values:
-          - rust:     Lossless Rust syntax, without Cargo/cfg/macro expansion
-          - markdown: CommonMark headings and their source sections
-
-      --edition <EDITION>
-          Explicit syntax policy; no Cargo edition or cfg discovery is performed
-
-          Possible values:
-          - 2015: Rust 2015 syntax
-          - 2018: Rust 2018 syntax
-          - 2021: Rust 2021 syntax
-          - 2024: Rust 2024 syntax
-
-          [default: 2024]
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse code preview`
-
-~~~~text
-Inspect immutable capture-preserving replacements; selected overlaps refuse and no files change
-
-Usage: pse code preview [OPTIONS] --mode <MODE> --pattern <PATTERN> --replacement <REPLACEMENT> <FILES>...
-
-Arguments:
-  <FILES>...
-          Exact source operands, acquired independently without a semantic session
-
-Options:
-  -C <checkout>
-
-
-      --mode <MODE>
-          Select syntax explicitly. Semantic mode requires its actual provider and never falls back
-
-          [possible values: syntax, semantic]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --pattern <PATTERN>
-          Native code-shaped Rust pattern ($NAME or $$$SEQUENCE captures)
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --strictness <STRICTNESS>
-          Possible values:
-          - cst:       Match all concrete syntax nodes
-          - smart:     Native smart policy, retaining significant written syntax
-          - ast:       Match named AST nodes
-          - relaxed:   Ignore comments and unnamed punctuation
-          - signature: Compare structural signatures without terminal text
-          - template:  Native textual template matching policy
-
-          [default: smart]
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --inside <INSIDE>
-          Require an ancestor matching each native pattern
-
-      --has <HAS>
-          Require a proper descendant matching each native pattern
-
-      --exclude <EXCLUDE>
-          Exclude a candidate matching any of these native patterns
-
-      --capture <CAPTURE>
-          Extract only this named capture (without sigils); absence retains all captures
-
-      --index
-          Read the raw staging-index blob rather than working bytes
-
-      --revision <REVISION>
-          Read a committed blob; resolve the revision before returning its identity
-
-      --language <LANGUAGE>
-          Override the .rs/.md/.markdown filename inference
-
-          Possible values:
-          - rust:     Lossless Rust syntax, without Cargo/cfg/macro expansion
-          - markdown: CommonMark headings and their source sections
-
-      --edition <EDITION>
-          Explicit syntax policy; no Cargo edition or cfg discovery is performed
-
-          Possible values:
-          - 2015: Rust 2015 syntax
-          - 2018: Rust 2018 syntax
-          - 2021: Rust 2021 syntax
-          - 2024: Rust 2024 syntax
-
-          [default: 2024]
-
-      --replacement <REPLACEMENT>
-          Native ast-grep template; every named variable must be defined by the positive pattern
-
-      --select <SELECTED>
-          Candidate indices to select; absence retains candidates without selecting edits
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3890,238 +3474,6 @@ Options:
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse artifact`
-
-~~~~text
-Read an explicit retained file without interpreting its content as a protocol
-
-Usage: pse artifact [OPTIONS] <COMMAND>
-
-Commands:
-  read  Read a selected byte range with explicit continuation; default maximum 4096 bytes
-
-Options:
-  -C <checkout>
-
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse artifact read`
-
-~~~~text
-Read a selected byte range with explicit continuation; default maximum 4096 bytes
-
-Usage: pse artifact read [OPTIONS] <FILE>
-
-Arguments:
-  <FILE>
-
-
-Options:
-  -C <checkout>
-
-
-      --offset <OFFSET>
-          [default: 0]
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --length <LENGTH>
-          Select a positive byte length instead of the default prefix
-
-      --all
-          Explicitly select every remaining byte from the offset
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --if-match <IF_MATCH>
-          Require the opaque native ETag observed previously; this is not a content hash
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse outline`
-
-~~~~text
-Read one Rust file's written declarations or a Markdown document's headings
-
-Usage: pse outline [OPTIONS] <FILES>...
-
-Arguments:
-  <FILES>...
-
-
-Options:
-  -C <checkout>
-
-
-      --cursor <CURSOR>
-          Continue an exact-source declaration page; select one file
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --index
-          Read the raw staging-index blob rather than working bytes
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --revision <REVISION>
-          Read a committed blob; resolve the revision before returning its identity
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --language <LANGUAGE>
-          Override the .rs/.md/.markdown filename inference
-
-          Possible values:
-          - rust:     Lossless Rust syntax, without Cargo/cfg/macro expansion
-          - markdown: CommonMark headings and their source sections
-
-      --edition <EDITION>
-          Explicit syntax policy; no Cargo edition or cfg discovery is performed
-
-          Possible values:
-          - 2015: Rust 2015 syntax
-          - 2018: Rust 2018 syntax
-          - 2021: Rust 2021 syntax
-          - 2024: Rust 2024 syntax
-
-          [default: 2024]
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
-## `pse show`
-
-~~~~text
-Read exact original source at FILE::ITEM[::ITEM], preserving ambiguity
-
-Usage: pse show [OPTIONS] <SOURCE>
-
-Arguments:
-  <SOURCE>
-
-
-Options:
-  -C <checkout>
-
-
-      --item <ITEM>
-          Select literal path components; also supports filenames/headings containing ::
-
-      --at-byte <AT_BYTE>
-          Disambiguate duplicate paths using an original UTF-8 byte position
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --at-line <AT_LINE>
-          One-based line and Unicode scalar column of an enclosing declaration
-
-      --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
-
-      --at-column <AT_COLUMN>
-
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --range-start <RANGE_START>
-          Exact half-open UTF-8 byte range
-
-      --range-end <RANGE_END>
-
-
-      --index
-          Read the raw staging-index blob rather than working bytes
-
-      --revision <REVISION>
-          Read a committed blob; resolve the revision before returning its identity
-
-      --language <LANGUAGE>
-          Override the .rs/.md/.markdown filename inference
-
-          Possible values:
-          - rust:     Lossless Rust syntax, without Cargo/cfg/macro expansion
-          - markdown: CommonMark headings and their source sections
-
-      --edition <EDITION>
-          Explicit syntax policy; no Cargo edition or cfg discovery is performed
-
-          Possible values:
-          - 2015: Rust 2015 syntax
-          - 2018: Rust 2018 syntax
-          - 2021: Rust 2021 syntax
-          - 2024: Rust 2024 syntax
-
-          [default: 2024]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -5267,12 +4619,877 @@ Options:
 
 ~~~~
 
-## `pse result`
+## `pse inspect`
 
 ~~~~text
-Read the original immutable result without starting or rebuilding work
+Inspect a known source or an addressed search result without preparation
 
-Usage: pse result [OPTIONS] <INVOCATION>
+Usage: pse inspect [OPTIONS] <--result <RESULT>|--source <SOURCE>>
+       pse inspect <COMMAND>
+
+Commands:
+  outline             Read written declarations or document headings without semantic preparation
+  declaration         Read a known declaration, literal item, position or exact original range
+  origin              Inspect the declared authored owner of an exact generated-source hit
+  entity              Inspect a known Rust position through its explicitly prepared native semantic owner
+  api                 Inspect an exact locked API, original docs/examples, reexports or structural differences
+  dependency          Inspect native exact dependency identity, features and inclusion explanations
+  dependency-units    Inspect planned compiler units without building or listing tests
+  owner               Inspect existing source, generated and document ownership independently
+  diagnostic          Read original compiler failures or one addressed original record
+  artifact            Read exact artifact ranges with native validators; this does not decode a protocol
+  compiler-artifact   Read an original native compiler artifact after its existing whole-file verification
+  compiler-artifacts  Inspect the original compiler-generation context, outcome and checked file index
+  tests               Read an already captured original test population or its original failures
+  test-selection      Explain real native test selection; no binary listing or test execution occurs
+  check-selection     Explain selected native check declarations or admitted compiler units without compiling
+  invocation          Read the original managed result without waiting, cancellation or resubmission
+  log                 Read original retained stdout/stderr byte ranges
+  affected            Explain conservative affected-test reach through the existing native owner
+  changes             Inspect native Git layers and source/test ownership without compiling
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --result <RESULT>
+          Original result reference: returned JSON object or its portable encoded form
+
+      --source <SOURCE>
+          Direct known source: no preliminary search is required
+
+      --index
+
+
+      --revision <REVISION>
+
+
+      --range-start <RANGE_START>
+
+
+      --range-end <RANGE_END>
+
+
+      --lines <LINES>
+
+
+      --head <HEAD>
+
+
+      --tail <TAIL>
+
+
+      --view <VIEW>
+          Expand one selected semantic fact through its original native provider
+
+          [possible values: declaration, references, calls, implementations, macro, tests, candidates, hints, hint, candidate, predicate]
+
+      --select <SELECT>
+
+
+      --predicate <PREDICATE>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect outline`
+
+~~~~text
+Read written declarations or document headings without semantic preparation
+
+Usage: pse inspect outline [OPTIONS] <FILES>...
+
+Arguments:
+  <FILES>...
+
+
+Options:
+  -C <checkout>
+
+
+      --cursor <CURSOR>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --index
+          Read the raw staging-index blob rather than working bytes
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --revision <REVISION>
+          Read a committed blob; resolve the revision before returning its identity
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --language <LANGUAGE>
+          Override the .rs/.md/.markdown filename inference
+
+          Possible values:
+          - rust:     Lossless Rust syntax, without Cargo/cfg/macro expansion
+          - markdown: CommonMark headings and their source sections
+
+      --edition <EDITION>
+          Explicit syntax policy; no Cargo edition or cfg discovery is performed
+
+          Possible values:
+          - 2015: Rust 2015 syntax
+          - 2018: Rust 2018 syntax
+          - 2021: Rust 2021 syntax
+          - 2024: Rust 2024 syntax
+
+          [default: 2024]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect declaration`
+
+~~~~text
+Read a known declaration, literal item, position or exact original range
+
+Usage: pse inspect declaration [OPTIONS] <SOURCE>
+
+Arguments:
+  <SOURCE>
+
+
+Options:
+  -C <checkout>
+
+
+      --item <ITEM>
+
+
+      --at-byte <AT_BYTE>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --at-line <AT_LINE>
+
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --at-column <AT_COLUMN>
+
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --range-start <RANGE_START>
+
+
+      --range-end <RANGE_END>
+
+
+      --index
+          Read the raw staging-index blob rather than working bytes
+
+      --revision <REVISION>
+          Read a committed blob; resolve the revision before returning its identity
+
+      --language <LANGUAGE>
+          Override the .rs/.md/.markdown filename inference
+
+          Possible values:
+          - rust:     Lossless Rust syntax, without Cargo/cfg/macro expansion
+          - markdown: CommonMark headings and their source sections
+
+      --edition <EDITION>
+          Explicit syntax policy; no Cargo edition or cfg discovery is performed
+
+          Possible values:
+          - 2015: Rust 2015 syntax
+          - 2018: Rust 2018 syntax
+          - 2021: Rust 2021 syntax
+          - 2024: Rust 2024 syntax
+
+          [default: 2024]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect origin`
+
+~~~~text
+Inspect the declared authored owner of an exact generated-source hit
+
+Usage: pse inspect origin [OPTIONS] --range-start <RANGE_START> --range-end <RANGE_END> <SOURCE>
+
+Arguments:
+  <SOURCE>
+
+
+Options:
+  -C <checkout>
+
+
+      --range-start <RANGE_START>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --range-end <RANGE_END>
+
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --index
+          Read the raw staging-index blob rather than working bytes
+
+      --revision <REVISION>
+          Read a committed blob; resolve the revision before returning its identity
+
+      --language <LANGUAGE>
+          Override the .rs/.md/.markdown filename inference
+
+          Possible values:
+          - rust:     Lossless Rust syntax, without Cargo/cfg/macro expansion
+          - markdown: CommonMark headings and their source sections
+
+      --edition <EDITION>
+          Explicit syntax policy; no Cargo edition or cfg discovery is performed
+
+          Possible values:
+          - 2015: Rust 2015 syntax
+          - 2018: Rust 2018 syntax
+          - 2021: Rust 2021 syntax
+          - 2024: Rust 2024 syntax
+
+          [default: 2024]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect entity`
+
+~~~~text
+Inspect a known Rust position through its explicitly prepared native semantic owner
+
+Usage: pse inspect entity [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Exact working Rust file; no editor attachment or unsaved buffer is assumed
+
+Options:
+  -C <checkout>
+
+
+      --line <LINE>
+          One-based source line
+
+          [default: 1]
+
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding
+
+          [default: 1]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+
+      --view <VIEW>
+          [default: explain]
+          [possible values: explain, symbols, refs, calls, implementations, macro, tests, candidates, candidate, hints, hint, predicate, assists]
+
+      --select <SELECT>
+
+
+      --text <TEXT>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect api`
+
+~~~~text
+Inspect an exact locked API, original docs/examples, reexports or structural differences
+
+Usage: pse inspect api [OPTIONS] <CRATE_QUERY> [PATH]
+
+Arguments:
+  <CRATE_QUERY>
+          Exact locked dependency name, name@version or source-qualified Cargo package ID
+
+  [PATH]
+          Public crate-relative item path; omission lists candidates
+
+Options:
+  -C <checkout>
+
+
+      --search <SEARCH>
+          Case-insensitive name/documentation search
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --target <TARGET>
+          Explicit target triple; default is the pinned rustc's observed host
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --kind <KIND>
+          Possible values:
+          - function:   A free or associated function
+          - struct:     A struct declaration
+          - enum:       An enum declaration
+          - union:      A union declaration
+          - trait:      A trait or trait alias
+          - type-alias: A type alias
+          - constant:   A constant or associated constant
+          - static:     A static declaration
+          - module:     A module declaration
+          - macro:      A declarative or procedural macro
+          - other:      Another rustdoc declaration, retained without guessing its kind
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --input <INPUT>
+
+
+      --output-type <OUTPUT_TYPE>
+
+
+      --trait-name <TRAIT_NAME>
+
+
+      --unsafe-only
+
+
+      --async-only
+
+
+      --const-only
+
+
+      --docs
+          Expand authored documentation for returned candidates
+
+      --examples
+          Expand authored Rust examples and hidden setup; never execute them
+
+      --declaration
+          Expand the original format-qualified rustdoc item, including complex bounds/associated data
+
+      --compare-with <COMPARE_WITH>
+          Read structural differences from an explicitly selected acquired document.json; --compatibility separately executes native rules. Neither generates an input
+
+      --cursor <CURSOR>
+          Continue the same immutable artifact/query page; stale contexts refuse
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect owner`
+
+~~~~text
+Inspect existing source, generated and document ownership independently
+
+Usage: pse inspect owner [OPTIONS] <PATH>
+
+Arguments:
+  <PATH>
+
+
+Options:
+  -C <checkout>
+
+
+      --metadata <METADATA>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --xtask-selection <XTASK_SELECTION>
+
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect artifact`
+
+~~~~text
+Read exact artifact ranges with native validators; this does not decode a protocol
+
+Usage: pse inspect artifact [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+
+
+Options:
+  -C <checkout>
+
+
+      --offset <OFFSET>
+          [default: 0]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --length <LENGTH>
+
+
+      --all
+
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --if-match <IF_MATCH>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect test-selection`
+
+~~~~text
+Explain real native test selection; no binary listing or test execution occurs
+
+Usage: pse inspect test-selection [OPTIONS] [PACKAGE[:TARGET]]... [-- <WORDS>...]
+
+Arguments:
+  [PACKAGE[:TARGET]]...
+          Workspace package names, optionally followed by :TARGET. Use -p for opaque package IDs
+
+  [WORDS]...
+          Bare test-name filters after --; these are not package or target names
+
+Options:
+  -C <checkout>
+
+
+      --rerun-failed <INVOCATION>
+          Rebuild current source for exact failed identities and original compiler policy
+
+      --changed
+          Conservatively select changed source owners and reverse dependencies
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --base <BASE>
+          Git base for --changed, including observed index/worktree/untracked changes
+
+          [default: HEAD]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -p, --package <SPEC>
+          Package to process (see `cargo help pkgid`)
+
+      --workspace
+          Process all packages in the workspace
+
+      --exclude <SPEC>
+          Exclude packages from being processed
+
+      --all-features
+          Activate all available features
+
+      --no-default-features
+          Do not activate the `default` feature
+
+  -F, --features <FEATURES>
+          Space-separated list of features to activate
+
+      --lib
+          Select actual library declarations, without guessing their names
+
+      --all-targets
+          Preserve native Cargo all-targets selection without enabling all features
+
+      --test <TEST_TARGET>
+          Select one integration-test target
+
+      --bin <BIN_TARGET>
+          Select one binary target
+
+      --without-feature <ABSENT>
+          Features that the actual selected compiler roots must keep absent
+
+      --target <PLATFORM>
+          Explicit Cargo target platform; host dependency contexts remain independent
+
+      --target-kind <TARGET_KIND>
+          Disambiguate duplicate target names by their Cargo kind, for example test or bin
+
+      --ignore-default-filter
+          Bypass the selected nextest profile's default filter
+
+  -E, --filterset <EXPRESSIONS>
+          Native nextest filtersets; nextest owns their grammar
+
+      --ignored <IGNORED>
+          Possible values:
+          - default: Run ordinary tests only
+          - only:    Run ignored tests only
+          - all:     Run ordinary and ignored tests
+
+          [default: default]
+
+      --profile <PROFILE>
+          Selected nextest policy profile, without running its setup during explain
+
+          [default: default]
+
+      --from-result <FROM_RESULT>
+          Validate a source witness, then select its current containing package as a test candidate
+
+      --admitted
+
+
+      --full
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect check-selection`
+
+~~~~text
+Explain selected native check declarations or admitted compiler units without compiling
+
+Usage: pse inspect check-selection [OPTIONS] [PACKAGE[:TARGET]]...
+
+Arguments:
+  [PACKAGE[:TARGET]]...
+          Workspace package names, optionally followed by :TARGET. Use -p for opaque package IDs
+
+Options:
+  -C <checkout>
+
+
+      --changed
+          Conservatively select changed source owners and reverse dependencies
+
+      --base <BASE>
+          Git base for --changed, including observed index/worktree/untracked changes
+
+          [default: HEAD]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+  -p, --package <SPEC>
+          Package to process (see `cargo help pkgid`)
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --workspace
+          Process all packages in the workspace
+
+      --exclude <SPEC>
+          Exclude packages from being processed
+
+      --all-features
+          Activate all available features
+
+      --no-default-features
+          Do not activate the `default` feature
+
+  -F, --features <FEATURES>
+          Space-separated list of features to activate
+
+      --lib
+          Select actual library declarations, without guessing their names
+
+      --all-targets
+          Preserve native Cargo all-targets selection without enabling all features
+
+      --test <TEST_TARGET>
+          Select one integration-test target
+
+      --bin <BIN_TARGET>
+          Select one binary target
+
+      --without-feature <ABSENT>
+          Features that the actual selected compiler roots must keep absent
+
+      --target <PLATFORM>
+          Explicit Cargo target platform; host dependency contexts remain independent
+
+      --target-kind <TARGET_KIND>
+          Disambiguate duplicate target names by their Cargo kind, for example test or bin
+
+      --admitted
+
+
+      --full
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect affected`
+
+~~~~text
+Explain conservative affected-test reach through the existing native owner
+
+Usage: pse inspect affected [OPTIONS]
+
+Options:
+      --base <BASE>
+          Explicit Git revision for base-to-HEAD plus observed index/worktree/untracked changes
+
+          [default: HEAD]
+
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --metadata <METADATA>
+          Existing metadata snapshot; absence queries locked offline Cargo metadata without a build
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect changes`
+
+~~~~text
+Inspect native Git layers and source/test ownership without compiling
+
+Usage: pse inspect changes [OPTIONS]
+
+Options:
+      --base <BASE>
+          Direct base-to-HEAD comparison, plus separately observed staged/working changes
+
+          [default: HEAD]
+
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --metadata <METADATA>
+          Existing exact Cargo metadata; omission collects locked offline metadata without building
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect invocation`
+
+~~~~text
+Read the original managed result without waiting, cancellation or resubmission
+
+Usage: pse inspect invocation [OPTIONS] <INVOCATION>
 
 Arguments:
   <INVOCATION>
@@ -5297,43 +5514,23 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --tests
-          Read whole selected-test records from this original workflow's retained inventory
-
-      --failures
-          Read original failed cases and owner diagnostics without running work
-
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
 
-      --failure-cursor <FAILURE_CURSOR>
-
-
-      --cursor <CURSOR>
-          Continue a test page using its original JSON cursor, refusing changed inventory bytes
-
-      --limit <LIMIT>
-          [default: 20]
-
-      --page-bytes <PAGE_BYTES>
-          Bound serialized whole test rows; source scanning remains explicit
-
-          [default: 16384]
-
   -h, --help
           Print help (see a summary with '-h')
 
 ~~~~
 
-## `pse log`
+## `pse inspect log`
 
 ~~~~text
-Read a bounded original raw stream with exact byte offsets
+Read original retained stdout/stderr byte ranges
 
-Usage: pse log [OPTIONS] <INVOCATION>
+Usage: pse inspect log [OPTIONS] <INVOCATION>
 
 Arguments:
   <INVOCATION>
@@ -5381,19 +5578,171 @@ Options:
 
 ~~~~
 
-## `pse dep`
+## `pse inspect tests`
 
 ~~~~text
-Inspect exact locked dependency identities, features and direct workspace consumers
+Read an already captured original test population or its original failures
 
-Usage: pse dep [OPTIONS] <PACKAGE>
-       pse dep <COMMAND>
-
-Commands:
-  units  Explain dependency instances in actual admitted check contexts without compiling
+Usage: pse inspect tests [OPTIONS] <INVOCATION>
 
 Arguments:
-  <PACKAGE>
+  <INVOCATION>
+
+
+Options:
+  -C <checkout>
+
+
+      --session <SESSION>
+
+
+      --failures
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --cursor <CURSOR>
+
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --limit <LIMIT>
+          [default: 20]
+
+      --page-bytes <PAGE_BYTES>
+          [default: 262144]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect diagnostic`
+
+~~~~text
+Read original compiler failures or one addressed original record
+
+Usage: pse inspect diagnostic [OPTIONS] <INVOCATION|--address <ADDRESS>>
+
+Arguments:
+  [INVOCATION]
+
+
+Options:
+      --address <ADDRESS>
+
+
+  -C <checkout>
+
+
+      --cursor <CURSOR>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --session <SESSION>
+
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --raw
+
+
+      --source
+
+
+      --max-record-bytes <MAX_RECORD_BYTES>
+          [default: 4194304]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect compiler-artifact`
+
+~~~~text
+Read an original native compiler artifact after its existing whole-file verification
+
+Usage: pse inspect compiler-artifact [OPTIONS] <FILE> <INVOCATION>
+
+Arguments:
+  <FILE>
+
+
+  <INVOCATION>
+
+
+Options:
+  -C <checkout>
+
+
+      --offset <OFFSET>
+          [default: 0]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --length <LENGTH>
+          [default: 4096]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect compiler-artifacts`
+
+~~~~text
+Inspect the original compiler-generation context, outcome and checked file index
+
+Usage: pse inspect compiler-artifacts [OPTIONS] <INVOCATION>
+
+Arguments:
+  <INVOCATION>
 
 
 Options:
@@ -5412,36 +5761,74 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --metadata <METADATA>
-          Read this explicit Cargo metadata snapshot instead of collecting locked offline metadata
-
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
 
-      --why
-          Show one shortest package inclusion path per reachable workspace member
-
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
-
-      --feature-member <FEATURE_MEMBER>
-          Find exact authored feature-expansion members without activating them
 
   -h, --help
           Print help (see a summary with '-h')
 
 ~~~~
 
-## `pse dep units`
+## `pse inspect dependency`
 
 ~~~~text
-Explain dependency instances in actual admitted check contexts without compiling
+Inspect native exact dependency identity, features and inclusion explanations
 
-Usage: pse dep units [OPTIONS] <dependency> [PACKAGE[:TARGET]]...
+Usage: pse inspect dependency [OPTIONS] <PACKAGE>
 
 Arguments:
-  <dependency>
-          Exact locked dependency, distinct from the following selected workspace roots
+  <PACKAGE>
+
+
+Options:
+  -C <checkout>
+
+
+      --metadata <METADATA>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --why
+
+
+      --feature-member <FEATURE_MEMBER>
+
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect dependency-units`
+
+~~~~text
+Inspect planned compiler units without building or listing tests
+
+Usage: pse inspect dependency-units [OPTIONS] <DEPENDENCY> [PACKAGE[:TARGET]]...
+
+Arguments:
+  <DEPENDENCY>
+
 
   [PACKAGE[:TARGET]]...
           Workspace package names, optionally followed by :TARGET. Use -p for opaque package IDs
