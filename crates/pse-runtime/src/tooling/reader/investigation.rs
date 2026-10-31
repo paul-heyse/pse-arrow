@@ -74,7 +74,7 @@ pub enum ResultView {
     /// Recorded inspection without live freshness or result permission.
     FrozenInspect {
         /// Original recorded source interpretation and limitations.
-        document: frozen_inspection::FrozenInspectionDocument,
+        document: Box<frozen_inspection::FrozenInspectionDocument>,
     },
     /// Original source-linked questions and evidence strengths.
     Analyze {
@@ -194,8 +194,10 @@ pub(super) fn handle(request: Request) -> Result<Payload, ReaderError> {
         } => {
             let evidence = evidence(&path)?;
             ResultView::FrozenInspect {
-                document: frozen_inspection::inspect_frozen(&evidence, request)
-                    .map_err(ReaderError::Identity)?,
+                document: Box::new(
+                    frozen_inspection::inspect_frozen(&evidence, request)
+                        .map_err(ReaderError::Identity)?,
+                ),
             }
         }
         Request::Analyze {

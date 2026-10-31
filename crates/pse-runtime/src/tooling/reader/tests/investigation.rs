@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 use crate::tooling::{
-    frozen_inspection::FrozenEvidenceSet,
+    frozen_inspection::{self, FrozenEvidenceSet, FrozenInspectionRequest, RecordedWindow},
     review_analysis::AnalysisRequest,
     review_pack::{PackReader, PackSelection},
     review_query::{ReviewQuery, ReviewQueryRequest},
@@ -23,6 +23,57 @@ fn operation() -> OperationId {
     OperationId {
         process_instance: [19, 3],
         sequence: 42,
+    }
+}
+#[test]
+fn frozen_inspection_preserves_owner_document_bytes_and_response_schema() {
+    let root = tempfile::tempdir().unwrap();
+    let evidence = FrozenEvidenceSet::default();
+    let path = root.path().join("frozen.json");
+    std::fs::write(&path, serde_json::to_vec(&evidence).unwrap()).unwrap();
+    let request = FrozenInspectionRequest {
+        version: Version,
+        inspection: InspectionRequest::new(operation()),
+        window: RecordedWindow::Recorded,
+    };
+    let document = frozen_inspection::inspect_frozen(&evidence, request.clone()).unwrap();
+    let expected_document = serde_json::to_vec(&document).unwrap();
+    let payload = handle(Request::Investigate {
+        request: InvestigationRequest::FrozenInspect {
+            evidence: path,
+            request,
+        },
+    })
+    .unwrap();
+    let mut expected =
+        br#"{"kind":"investigation","result":{"action":"frozen_inspect","document":"#.to_vec();
+    expected.extend_from_slice(&expected_document);
+    expected.extend_from_slice(b"}}");
+    assert_eq!(serde_json::to_vec(&payload).unwrap(), expected);
+
+    let response_schema = serde_json::to_value(schema(Contract::Response)).unwrap();
+    let frozen_result = response_schema["$defs"]["ResultView"]["oneOf"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|variant| variant["properties"]["action"]["const"] == "frozen_inspect")
+        .unwrap();
+    assert_eq!(
+        frozen_result["properties"]["document"]["$ref"],
+        "#/$defs/FrozenInspectionDocument"
+    );
+    let native_schema = serde_json::to_value(
+        SchemaSettings::draft2020_12()
+            .for_serialize()
+            .into_generator()
+            .into_root_schema_for::<frozen_inspection::FrozenInspectionDocument>(),
+    )
+    .unwrap();
+    for key in ["type", "properties", "required", "additionalProperties"] {
+        assert_eq!(
+            response_schema["$defs"]["FrozenInspectionDocument"][key], native_schema[key],
+            "original document schema {key}"
+        );
     }
 }
 #[test]
