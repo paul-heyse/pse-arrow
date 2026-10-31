@@ -399,20 +399,32 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["a", "b"]
         );
+        let quantified_source =
+            SourceText::new("/quantified.rs".into(), "fn complete(){foo(a,b,c);}".into()).unwrap();
+        // Quantify the separator with its following node. Anonymous commas
+        // break an identifier-only repeated sequence in this native grammar.
         let quantified = tree_sitter_query(
-            &source,
-            "(arguments (identifier)+ @arguments)",
+            &quantified_source,
+            r#"(arguments (identifier) @arguments ("," (identifier) @arguments)+)"#,
             None,
             &CancellationToken::new(),
         )
         .unwrap();
-        assert!(
-            quantified.matches.iter().any(|matched| matched
+        assert_eq!(quantified.matches.len(), 1);
+        assert_eq!(
+            quantified.matches[0]
                 .captures
                 .iter()
-                .any(|capture| capture.nodes.len() == 2)),
-            "all repeated captures must survive native extraction"
+                .find(|capture| capture.name == "arguments")
+                .unwrap()
+                .nodes
+                .iter()
+                .map(|node| node.text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "b", "c"],
+            "every native repeated-group capture survives extraction"
         );
+        assert!(quantified.complete && !quantified.recovery);
         let canceled = CancellationToken::new();
         canceled.cancel();
         let stopped = native_rule(

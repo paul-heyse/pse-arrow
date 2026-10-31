@@ -316,7 +316,7 @@ pub struct Section {
     /// Exact known records excluded from this presentation.
     pub omitted: usize,
     /// Source/generation-bound discovery handles for lazy selection; no permanent symbol identity.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handles: Vec<CandidateHandle>,
 }
 /// Stateless identity of one original native discovery record.

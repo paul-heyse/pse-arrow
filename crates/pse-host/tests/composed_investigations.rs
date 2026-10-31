@@ -435,6 +435,15 @@ fn actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_an
             .any(|section| section["category"] == "definition"),
         "{symbol_inspection}"
     );
+    assert_eq!(
+        symbol_inspection["payload"]["native"]["facts"]["target"]["name"], "invoke",
+        "{symbol_inspection}"
+    );
+    assert_eq!(
+        symbol_inspection["payload"]["native"]["facts"]["target"]["location"]["path"],
+        fixture.project.path().join("src/lib.rs").to_str().unwrap(),
+        "{symbol_inspection}"
+    );
     let target = fixture.source("fn run(&self) -> u32 { 11 }");
     let request = fixture.request(Predicate::Refine {
         candidates: Box::new(method_calls()),

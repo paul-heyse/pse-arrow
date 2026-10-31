@@ -8,6 +8,55 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[test]
+fn compact_native_sections_and_workspace_answers_round_trip_without_invented_facts() {
+    for handles in [
+        Vec::new(),
+        vec![CandidateHandle {
+            index: 3,
+            fingerprint: "original-candidate".into(),
+        }],
+    ] {
+        let section = Section {
+            category: "workspace_symbols".into(),
+            evidence: json!([{ "name":"run", "kind":"function" }]),
+            omitted: 2,
+            handles,
+        };
+        let emitted = serde_json::to_value(&section).unwrap();
+        assert_eq!(emitted.get("handles").is_none(), section.handles.is_empty());
+        let received: Section = serde_json::from_value(emitted.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&received).unwrap(), emitted);
+        let answer = WorkspaceAnswer {
+            session: AnalysisContext {
+                backend: "original-native".into(),
+                configuration: Configuration {
+                    backend: Backend::NativeSnapshot,
+                    project: "/selected/project".into(),
+                    features: vec!["actual".into()],
+                    no_default_features: false,
+                    target: None,
+                    build_macros: false,
+                },
+                position_encoding: "utf-8".into(),
+                backend_status: Some(json!({"actual_target":"selected-target"})),
+                preparation: "explicit-original-context".into(),
+            },
+            generation: 7,
+            symbols: section,
+            limitations: vec!["provider-ranked; not an absence proof".into()],
+        };
+        let emitted = serde_json::to_value(&answer).unwrap();
+        let received: WorkspaceAnswer = serde_json::from_value(emitted.clone()).unwrap();
+        assert_eq!(serde_json::to_value(received).unwrap(), emitted);
+    }
+    let malformed = json!({"category":"workspace_symbols","evidence":[]});
+    assert!(
+        serde_json::from_value::<Section>(malformed).is_err(),
+        "known omission counts remain required; compact empty handles alone have a defined default"
+    );
+}
+
 #[cfg(feature = "native-hir")]
 #[tokio::test]
 async fn native_snapshot_authenticated_cancel_settles_one_request_and_preserves_the_session() {
