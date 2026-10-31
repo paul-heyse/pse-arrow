@@ -45,7 +45,7 @@ pub(super) fn dispatch(
         metadata.as_ref().map(|snapshot| &snapshot.metadata),
     )?;
     let mut response = Envelope::response(
-        "affected",
+        "inspect affected",
         "conservative source reach; no build, test or preparation performed",
         preview,
     );

@@ -260,6 +260,16 @@ chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 pulldown-cmark = { version = "=0.13.5", default-features = false }
 ra_ap_syntax = "=0.0.360"
 ast-grep-core = "=0.51.0"
+ast-grep-config = "=0.51.0"
+ra_ap_hir = "=0.0.358"
+ra_ap_ide = "=0.0.358"
+ra_ap_ide_db = "=0.0.358"
+ra_ap_load-cargo = "=0.0.358"
+ra_ap_project_model = "=0.0.358"
+ra_ap_vfs = "=0.0.358"
+native_ra_syntax = { package = "ra_ap_syntax", version = "=0.0.358" }
+unicode-properties = "=0.1.4"
+unicode-ident = "=1.0.24"
 tree-sitter-rust = "=0.24.2"
 tree-sitter = "=0.27.0"
 tree-sitter-bash = "=0.25.1"
@@ -453,6 +463,11 @@ clap = { version = "=4.6.7", features = [
 clap-cargo = "=0.18.3"
 regex = "=1.13.1"
 ignore = "=0.4.33"
+grep-searcher = "=0.1.17"
+grep-regex = "=0.1.14"
+grep-matcher = "=0.1.9"
+figment = { version = "=0.10.19", features = ["toml", "json"] }
+indicatif = "=0.18.6"
 bindgen = "=0.73.2"
 pkg-config = "=0.3.34"
 cc = "=1.6.0"
@@ -682,6 +697,8 @@ object_store = { version = "0.13.2", crates = ["object_store"] }
 # each with its reason (ADR-0165). Every dependency is exact anyway; one with no entry here
 # may be bumped when the work calls for it. Remove the entry when the reason lapses.
 [workspace.metadata.pse.pins]
+unicode-properties = "The isolated ra_ap 0.0.358 native analysis world requires Unicode 17 tables; 0.1.5 supplies Unicode 18 and fails the analyzer's const alignment checks. Revisit with a coherent analyzer family update and the native source/type/reference controls."
+unicode-ident = "Native ra_ap 0.0.358 Unicode alignment companion to unicode-properties; revisit that family together."
 rustdoc-types = "Decodes rustdoc JSON format 61 emitted by nightly-2026-09-29. Revisit together with the pinned toolchain or an observed rustdoc format change; reject unknown formats before typed decoding."
 surrealdb-types = "The bounded canonical client consumes the public but doc-hidden Error::from_wire proto error constructor at 3.3.4. Revisit on a released supported protobuf-error conversion or protocol/server move; preserve typed causes, details, cardinality and substantive-error selection controls."
 symbolica = "Maintained 3.0.1 bounded exact-root APIs and certified proof conversion; Dualizer expansion, C++ export, build-time abort and remaining global root-cache couplings are release-specific. Numerica Rational::to_f64 double rounds some literals; the three general map_coeff paths retain their existing non-RNE numerical realization. Revisit on supplier/API change or a consumer requiring certified rounding, with exact-source and scientific controls. See vendor/symbolica-bounded-roots.md."

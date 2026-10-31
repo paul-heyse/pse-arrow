@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded stdout draining under the existing original native child owner.
-use super::{PreparedXtaskError, invalid};
+use super::{PreparedNativeToolError, invalid};
 use pse_diagnostics::{DrainFailurePolicy, StderrCapture, SupervisedChild};
 use std::{
     io::Read,
@@ -18,7 +18,7 @@ pub(super) fn run(
     mut command: Command,
     maximum: usize,
     timeout: Option<Duration>,
-) -> Result<Output, PreparedXtaskError> {
+) -> Result<Output, PreparedNativeToolError> {
     command.stdin(Stdio::null()).stdout(Stdio::piped());
     let deadline = timeout.map(|duration| Instant::now() + duration);
     let mut child = SupervisedChild::spawn(
@@ -32,7 +32,7 @@ pub(super) fn run(
     let mut failures = Vec::new();
     let reader = match child.take_stdout() {
         Some(mut stdout) => match std::thread::Builder::new()
-            .name("pse-xtask-output".into())
+            .name("pse-native-tool-output".into())
             .spawn(move || {
                 let mut bytes = Vec::new();
                 let mut total = 0_u64;
@@ -86,7 +86,7 @@ pub(super) fn run(
     }
     let stderr = child.take_stderr_prefix().unwrap_or_default();
     if !failures.is_empty() {
-        return Err(PreparedXtaskError::Execution {
+        return Err(PreparedNativeToolError::Execution {
             failures,
             stdout,
             stderr,

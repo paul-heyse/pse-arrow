@@ -128,7 +128,7 @@ pub fn result(
         .transpose()?
         .flatten();
     let mut response = Envelope::response(
-        "result",
+        "inspect invocation",
         if selected.is_none() {
             "no matching invocation"
         } else if retained.is_none() {
@@ -209,7 +209,7 @@ pub fn log(
         Err(error) => Content::Base64(STANDARD.encode(error.into_bytes())),
     };
     let mut response = Envelope::response(
-        "log",
+        "inspect log",
         format!("original {stream:?} bytes {start}..{actual_end} of {observed_bytes} observed"),
         LogView {
             original_invocation: id,

@@ -24,6 +24,7 @@ mod compiler;
 mod control;
 mod dependency;
 mod docs;
+mod investigation;
 mod probe;
 mod product;
 mod selection;
@@ -75,7 +76,13 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Read retained native compiler diagnostics without rebuilding.
+    /// Find source, text, Rust entities and relationships through one typed query.
+    Search(investigation::Search),
+    /// Inspect a known source or an addressed search result without preparation.
+    Inspect(investigation::Inspect),
+    /// Construct a checked change preview from an exact guarded result.
+    Propose(investigation::Propose),
+    /// Explicitly generate selected native compiler evidence or run authored compiler probes.
     Compiler {
         #[command(subcommand)]
         action: compiler::Action,
@@ -116,8 +123,6 @@ enum Command {
         #[command(subcommand)]
         action: tools::Action,
     },
-    /// Preview conservative changed-source reach through Gitoxide and captured Cargo declarations.
-    Affected(affected::Selection),
     /// Observe one original managed invocation; an observation timeout leaves it running.
     Wait(control::Selection),
     /// Stop one authenticated original invocation and inspect its original settlement evidence.
@@ -131,51 +136,11 @@ enum Command {
     Supervise(ManagedEntryArgs),
     #[command(name = "__finalize", hide = true)]
     Finalize(ManagedEntryArgs),
-    /// Resolve test/check intent without building binaries or preparing runtime inputs.
-    Explain {
-        /// Stop at normalized declarations before querying the actual compiler-unit graph.
-        #[arg(long)]
-        intent_only: bool,
-        /// Include every reached compiler unit, rather than the default selected-root view.
-        #[arg(long)]
-        full: bool,
-        #[command(subcommand)]
-        action: ExplainAction,
-    },
-    /// Inspect declared generated-output ownership and existing source contributors.
-    Owner {
-        path: PathBuf,
-        /// Existing captured Cargo metadata enables exact source-package ownership.
-        #[arg(long)]
-        metadata: Option<PathBuf>,
-        /// Explicit prepared native document interpreter; no read implicitly builds it.
-        #[arg(long)]
-        xtask_selection: Option<String>,
-    },
-    /// Inspect exact locked dependency identities, features and direct workspace consumers.
-    #[command(subcommand_negates_reqs = true, args_conflicts_with_subcommands = true)]
-    Dep {
-        #[arg(required = true)]
-        package: Option<String>,
-        #[command(subcommand)]
-        action: Option<dependency::Action>,
-        /// Read this explicit Cargo metadata snapshot instead of collecting locked offline metadata.
-        #[arg(long)]
-        metadata: Option<PathBuf>,
-        /// Show one shortest package inclusion path per reachable workspace member.
-        #[arg(long)]
-        why: bool,
-        /// Find exact authored feature-expansion members without activating them.
-        #[arg(long)]
-        feature_member: Option<String>,
-    },
-    /// Inspect changed Git layers, declared source owners and conservative test reach.
-    Changes(changes::Selection),
     /// Forward documentation operations to the explicitly prepared native owner.
     Docs(docs::Args),
-    /// Read exact-context Rust APIs, or explicitly prepare their documentation artifacts.
+    /// Explicitly acquire Rust API artifacts, run compatibility rules or check documentation.
     Api(api::Arguments),
-    /// Query Rust syntax and inspect source-bound change proposals.
+    /// Explicitly prepare, observe or settle a native Rust semantic session.
     Code {
         #[command(subcommand)]
         action: code::Action,
@@ -184,43 +149,6 @@ enum Command {
     Probe {
         #[command(subcommand)]
         action: probe::Action,
-    },
-    /// Read an explicit retained file without interpreting its content as a protocol.
-    Artifact {
-        #[command(subcommand)]
-        action: ArtifactAction,
-    },
-    /// Read one Rust file's written declarations or a Markdown document's headings.
-    Outline {
-        #[arg(required=true,num_args=1..)]
-        files: Vec<PathBuf>,
-        /// Continue an exact-source declaration page; select one file.
-        #[arg(long)]
-        cursor: Option<String>,
-        #[command(flatten)]
-        parsing: SourceParsing,
-    },
-    /// Read exact original source at FILE::ITEM[::ITEM], preserving ambiguity.
-    Show {
-        source: OsString,
-        /// Select literal path components; also supports filenames/headings containing ::.
-        #[arg(long)]
-        item: Vec<String>,
-        /// Disambiguate duplicate paths using an original UTF-8 byte position.
-        #[arg(long)]
-        at_byte: Option<usize>,
-        /// One-based line and Unicode scalar column of an enclosing declaration.
-        #[arg(long, requires = "at_column", conflicts_with_all = ["at_byte", "range_start"])]
-        at_line: Option<usize>,
-        #[arg(long, requires = "at_line")]
-        at_column: Option<usize>,
-        /// Exact half-open UTF-8 byte range.
-        #[arg(long, requires = "range_end", conflicts_with_all = ["at_byte", "at_line", "item"])]
-        range_start: Option<usize>,
-        #[arg(long, requires = "range_start")]
-        range_end: Option<usize>,
-        #[command(flatten)]
-        parsing: SourceParsing,
     },
     /// Discover actual command declarations or lazily query one argument's candidates.
     Commands(CatalogArgs),
@@ -296,43 +224,6 @@ enum Command {
         #[arg(long, default_value_t = 20, value_parser=clap::value_parser!(u64).range(1..))]
         limit: u64,
     },
-    /// Read the original immutable result without starting or rebuilding work.
-    #[command(group(clap::ArgGroup::new("result_page").args(["tests", "failures"]).multiple(false)))]
-    Result {
-        invocation: String,
-        #[arg(long)]
-        session: Option<String>,
-        /// Read whole selected-test records from this original workflow's retained inventory.
-        #[arg(long)]
-        tests: bool,
-        /// Read original failed cases and owner diagnostics without running work.
-        #[arg(long)]
-        failures: bool,
-        #[arg(long, requires = "failures", value_parser = failure_cursor)]
-        failure_cursor: Option<crate::test_inventory::FailureCursor>,
-        /// Continue a test page using its original JSON cursor, refusing changed inventory bytes.
-        #[arg(long, requires = "tests", value_parser = test_cursor)]
-        cursor: Option<crate::test_inventory::Cursor>,
-        #[arg(long, requires = "result_page", default_value = "20")]
-        limit: std::num::NonZeroUsize,
-        /// Bound serialized whole test rows; source scanning remains explicit.
-        #[arg(long, requires = "result_page", default_value = "16384")]
-        page_bytes: std::num::NonZeroUsize,
-    },
-    /// Read a bounded original raw stream with exact byte offsets.
-    Log {
-        invocation: String,
-        #[arg(long)]
-        session: Option<String>,
-        #[arg(long)]
-        stderr: bool,
-        #[arg(long, default_value_t = 0, conflicts_with = "tail")]
-        offset: u64,
-        #[arg(long, default_value = "4096")]
-        length: std::num::NonZeroU64,
-        #[arg(long)]
-        tail: bool,
-    },
     Run {
         /// Keep the owned invocation alive after this launching process returns.
         #[arg(long)]
@@ -394,14 +285,9 @@ impl Command {
                 GenerationIntent::NewWork
             }
             Self::Boundary(_)
-            | Self::Affected(_)
-            | Self::Explain { .. }
-            | Self::Owner { .. }
-            | Self::Dep { .. }
-            | Self::Changes(_)
-            | Self::Outline { .. }
-            | Self::Show { .. }
-            | Self::Artifact { .. }
+            | Self::Search(_)
+            | Self::Inspect(_)
+            | Self::Propose(_)
             | Self::Commands(_)
             | Self::Help(_)
             | Self::Status { .. }
@@ -415,8 +301,6 @@ impl Command {
             | Self::Env(_)
             | Self::Activity { .. }
             | Self::History { .. }
-            | Self::Result { .. }
-            | Self::Log { .. }
             | Self::DiagnosticTools {
                 action: ToolAction::Verify { .. },
             }
@@ -464,11 +348,6 @@ struct ManagedEntryArgs {
 fn parse_invocation_id(value: &str) -> Result<CliInvocationId, String> {
     CliInvocationId::try_from(value.to_owned()).map_err(|error| error.to_string())
 }
-#[derive(Debug, Subcommand)]
-enum ExplainAction {
-    Test(selection::TestArgs),
-    Check(selection::SelectionArgs),
-}
 #[derive(Debug, Args)]
 struct CatalogArgs {
     /// Select a command path below pse; absence selects the root.
@@ -505,24 +384,6 @@ struct SourceParsing {
     /// Explicit syntax policy; no Cargo edition or cfg discovery is performed.
     #[arg(long, value_enum, default_value = "2024")]
     edition: crate::source_read::RustEdition,
-}
-#[derive(Debug, Subcommand)]
-enum ArtifactAction {
-    /// Read a selected byte range with explicit continuation; default maximum 4096 bytes.
-    Read {
-        file: PathBuf,
-        #[arg(long, default_value_t = 0)]
-        offset: u64,
-        /// Select a positive byte length instead of the default prefix.
-        #[arg(long, conflicts_with = "all")]
-        length: Option<std::num::NonZeroU64>,
-        /// Explicitly select every remaining byte from the offset.
-        #[arg(long)]
-        all: bool,
-        /// Require the opaque native ETag observed previously; this is not a content hash.
-        #[arg(long)]
-        if_match: Option<String>,
-    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -703,12 +564,6 @@ fn resource_class(value: &str) -> Result<String, String> {
     crate::admission::validate_class(value).map_err(|error| error.to_string())?;
     Ok(value.into())
 }
-fn failure_cursor(value: &str) -> Result<crate::test_inventory::FailureCursor, serde_json::Error> {
-    serde_json::from_str(value)
-}
-fn test_cursor(value: &str) -> Result<crate::test_inventory::Cursor, serde_json::Error> {
-    serde_json::from_str(value)
-}
 
 #[derive(Parser)]
 #[command(
@@ -801,6 +656,70 @@ struct ServerSelection {
 }
 pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
     match command {
+        "search explain" => {
+            envelope::schema::<crate::investigation::config::Resolved>(command, view)
+        }
+        "search request" => Ok(crate::investigation::Request::input_schema()),
+        "search stream" => Ok(crate::investigation::Event::output_schema()),
+        name if name == "search" || name.starts_with("search ") => {
+            envelope::schema::<crate::investigation::Report>(command, view)
+        }
+        "inspect" => envelope::schema::<investigation::Inspection>(command, view),
+        "inspect outline" => envelope::schema::<crate::source_command::FileOutline>(command, view),
+        "inspect outline batch" => {
+            envelope::schema::<crate::source_command::batch::Report>(command, view)
+        }
+        "inspect declaration" => {
+            envelope::schema::<crate::source_command::FileSelection>(command, view)
+        }
+        "inspect origin" => {
+            envelope::schema::<crate::source_command::GeneratedOrigin>(command, view)
+        }
+        "inspect entity"
+        | "propose entity"
+        | "propose rename"
+        | "propose file-rename"
+        | "propose assists"
+        | "propose assist"
+        | "propose ssr" => envelope::schema::<crate::semantic::Answer>(command, view),
+        "inspect entity refusal" | "propose entity refusal" => {
+            envelope::schema::<crate::semantic::Failure>(command, view)
+        }
+        "inspect dependency" => envelope::schema::<crate::dependency::Report>(command, view),
+        "inspect dependency-units" => envelope::schema::<dependency::Units>(command, view),
+        "inspect affected" => envelope::schema::<crate::affected::Preview>(command, view),
+        "inspect changes" => envelope::schema::<changes::Report>(command, view),
+        "inspect api" => envelope::schema::<crate::api::query::Report>(command, view),
+        "propose syntax" => envelope::schema::<crate::source_query::PreviewReport>(command, view),
+        "inspect owner" => envelope::schema::<OwnerView>(command, view),
+        "inspect artifact" => envelope::schema::<crate::artifacts::ArtifactRead>(command, view),
+        "inspect compiler-artifact" => {
+            envelope::schema::<crate::compiler_investigation::artifact::FileRead>(command, view)
+        }
+        "inspect compiler-artifacts" => {
+            envelope::schema::<crate::compiler_investigation::artifact::Observation>(command, view)
+        }
+        "inspect test-selection" | "inspect check-selection" => {
+            envelope::schema::<crate::test_workflow::BriefExplanation<'static>>(command, view)
+        }
+        "inspect test-selection full" | "inspect check-selection full" => {
+            envelope::schema::<crate::test_workflow::Explanation<'static>>(command, view)
+        }
+        "inspect diagnostic" => {
+            envelope::schema::<crate::compiler_investigation::DiagnosticPage>(command, view)
+        }
+        "inspect diagnostic detail" => {
+            envelope::schema::<crate::compiler_investigation::DetailPage<'static>>(command, view)
+        }
+        "inspect tests" => envelope::schema::<crate::test_inventory::TestPage>(command, view),
+        "inspect tests failures" => {
+            envelope::schema::<crate::test_inventory::FailurePage>(command, view)
+        }
+        "inspect invocation" => {
+            envelope::schema::<crate::invocation_view::ResultView>(command, view)
+        }
+        "inspect log" => envelope::schema::<crate::invocation_view::LogView>(command, view),
+        "propose" => envelope::schema::<investigation::Preview>(command, view),
         "run" | "run-all" | "tools run" | "test" | "tests" | "check" => {
             envelope::schema::<ManagedReply>(command, view)
         }
@@ -814,60 +733,20 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             envelope::schema::<product::ProductView<'static>>(command, view)
         }
         "observe follow" => envelope::schema::<product::FollowView<'static>>(command, view),
-        "artifact read" => envelope::schema::<crate::artifacts::ArtifactRead>(command, view),
-        "outline" => envelope::schema::<crate::source_command::FileOutline>(command, view),
-        "changes" => envelope::schema::<changes::Report>(command, view),
         "docs" => envelope::schema::<ManagedReply>(command, view),
-        "api" => envelope::schema::<crate::api::query::Report>(command, view),
-        "code query" => envelope::schema::<crate::source_query::QueryReport>(command, view),
-        "code preview" => envelope::schema::<crate::source_query::PreviewReport>(command, view),
-        "code origin" => envelope::schema::<crate::source_command::GeneratedOrigin>(command, view),
-        "compiler diagnostics" => {
-            envelope::schema::<crate::compiler_investigation::DiagnosticPage>(command, view)
-        }
-        "compiler diagnostic" => {
-            envelope::schema::<crate::compiler_investigation::DetailPage<'static>>(command, view)
-        }
         "compiler generate" | "compiler probe" => envelope::schema::<ManagedReply>(command, view),
-        "compiler artifacts" => {
-            envelope::schema::<crate::compiler_investigation::artifact::Observation>(command, view)
-        }
-        "compiler file" => {
-            envelope::schema::<crate::compiler_investigation::artifact::FileRead>(command, view)
-        }
         "worktree new" => envelope::schema::<crate::worktree::NewReport>(command, view),
         "worktree list" => envelope::schema::<crate::worktree::ListReport>(command, view),
-        "api prepare" | "api compare" | "api check-docs" | "probe run" => {
+        "api" | "api prepare" | "api compare" | "api check-docs" | "probe run" => {
             envelope::schema::<ManagedReply>(command, view)
         }
-        "code semantic"
-        | "code explain"
-        | "code symbols"
-        | "code refs"
-        | "code calls"
-        | "code implementations"
-        | "code macro"
-        | "code tests"
-        | "code candidates"
-        | "code candidate"
-        | "code predicate"
-        | "code hints"
-        | "code hint"
-        | "code edit rename"
-        | "code edit assists"
-        | "code edit assist"
-        | "code edit ssr" => envelope::schema::<crate::semantic::Answer>(command, view),
         "code session prepare" => envelope::schema::<crate::semantic::SessionStatus>(command, view),
         "code session status" => {
             envelope::schema::<crate::semantic::SessionOverview>(command, view)
         }
         "code session stop" => envelope::schema::<control::ControlView>(command, view),
-        "code semantic refusal" => envelope::schema::<crate::semantic::Failure>(command, view),
-        "code edit file-rename" => envelope::schema::<crate::semantic::Answer>(command, view),
         "probe new" => envelope::schema::<crate::probe::Probe>(command, view),
         "probe rm" => envelope::schema::<PathBuf>(command, view),
-        "outline batch" => envelope::schema::<crate::source_command::batch::Report>(command, view),
-        "show" => envelope::schema::<crate::source_command::FileSelection>(command, view),
         "commands" | "help" => envelope::schema::<
             crate::catalog::description::Page<crate::catalog::description::Description>,
         >(command, view),
@@ -875,21 +754,7 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             crate::catalog::description::Page<crate::catalog::description::Candidate>,
         >(command, view),
         "status" => envelope::schema::<crate::status::Report>(command, view),
-        "explain test" | "explain check" => {
-            envelope::schema::<crate::test_workflow::BriefExplanation<'static>>(command, view)
-        }
-        "explain test full" | "explain check full" => {
-            envelope::schema::<crate::test_workflow::Explanation<'static>>(command, view)
-        }
-        "owner" => envelope::schema::<OwnerView>(command, view),
-        "affected" => envelope::schema::<crate::affected::Preview>(command, view),
-        "dep" => envelope::schema::<crate::dependency::Report>(command, view),
-        "dep units" => envelope::schema::<dependency::Units>(command, view),
         "history" => envelope::schema::<crate::invocation_view::HistoryPage>(command, view),
-        "result" => envelope::schema::<crate::invocation_view::ResultView>(command, view),
-        "result tests" => envelope::schema::<crate::test_inventory::TestPage>(command, view),
-        "result failures" => envelope::schema::<crate::test_inventory::FailurePage>(command, view),
-        "log" => envelope::schema::<crate::invocation_view::LogView>(command, view),
         "status brief" => envelope::schema::<crate::status::Summary>(command, view),
         "doctor" => envelope::schema::<crate::doctor::Report>(command, view),
         "env" | "env explain" => {
@@ -930,6 +795,9 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
         return Ok(0);
     };
     match command {
+        Command::Search(options) => investigation::search(options, selected, presentation),
+        Command::Inspect(options) => investigation::inspect(options, selected, presentation),
+        Command::Propose(options) => investigation::propose(options, selected, presentation),
         Command::Fixture {
             action: FixtureAction::Prepare { fixture },
         } => {
@@ -1049,7 +917,6 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             presentation,
         ),
         Command::Tools { action } => tools::dispatch(action, selected, presentation, entry),
-        Command::Affected(args) => affected::dispatch(args, selected, presentation),
         Command::Wait(args) => control::dispatch(args, false, selected, presentation),
         Command::Cancel(args) => control::dispatch(args, true, selected, presentation),
         Command::Observe { action } => product::dispatch(action, selected, presentation),
@@ -1064,362 +931,14 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             ))?;
             Ok(0)
         }
-        Command::Explain {
-            intent_only,
-            full,
-            action,
-        } => {
-            let root = checkout_root(selected)?;
-            let inputs = std::env::vars_os().collect();
-
-            let metadata = crate::dependency::capture(&root, &inputs)?.metadata;
-            match action {
-                ExplainAction::Test(args) => {
-                    let intent = crate::test_workflow::Intent::new(
-                        metadata,
-                        args.request()?,
-                        args.profile,
-                        inputs,
-                    )
-                    .map_err(|error| HostError::Workflow(Box::new(error)))?;
-                    if intent_only {
-                        return explain_emit(presentation, "test", full, intent.explain());
-                    }
-                    let admitted = intent
-                        .admit()
-                        .map_err(|error| HostError::Workflow(Box::new(error)))?;
-                    explain_emit(presentation, "test", full, admitted.explain())
-                }
-                ExplainAction::Check(args) => {
-                    let intent = crate::test_workflow::CheckIntent::new(
-                        metadata,
-                        args.request(crate::selection::Operation::Check)?,
-                        inputs,
-                    )
-                    .map_err(|error| HostError::Workflow(Box::new(error)))?;
-                    if intent_only {
-                        return explain_emit(presentation, "check", full, intent.explain());
-                    }
-                    let admitted = intent
-                        .admit()
-                        .map_err(|error| HostError::Workflow(Box::new(error)))?;
-                    explain_emit(presentation, "check", full, admitted.explain())
-                }
-            }
-        }
-        Command::Owner {
-            path,
-            metadata,
-            xtask_selection,
-        } => {
-            let root = checkout_root(selected)?;
-            let metadata = metadata
-                .map(|path| {
-                    source_path(selected, path).and_then(|path| {
-                        crate::catalog::MetadataSnapshot::read(&path).map_err(HostError::from)
-                    })
-                })
-                .transpose()?;
-            let source = crate::ownership::source_owner(&root, &path, metadata.as_ref())?;
-            let mut failures = Vec::new();
-            let mut document_failure = None;
-            let document = match xtask_selection {
-                Some(id) => {
-
-                    let inputs = std::env::vars_os().collect();
-                    match crate::prepared_xtask::PreparedXtask::open(&root, &inputs, &id).and_then(|tool| tool.document_owner(&path, &inputs)) {
-                        Ok(document) => crate::catalog::description::Information::Available(document),
-                        Err(error) => { let reason = error.to_string(); document_failure = Some(error); crate::catalog::description::Information::Unavailable { reason } },
-                    }
-                }
-                None => crate::catalog::description::Information::Unavailable { reason: "no prepared native document interpreter selected; use tools prepare xtask, then --xtask-selection ID".into() },
-            };
-            let generated = match crate::ownership::query(&root, &path) {
-                Ok(mut query) => {
-                    failures.append(&mut query.failures);
-                    crate::catalog::description::Information::Available(query)
-                }
-                Err(error) => {
-                    let reason = error.to_string();
-                    failures.push(error);
-                    crate::catalog::description::Information::Unavailable { reason }
-                }
-            };
-            let mut response = Envelope::response(
-                "owner",
-                "source and generated-output ownership observed independently",
-                OwnerView {
-                    source,
-                    generated,
-                    document,
-                },
-            );
-            response.observation.scope = "source_package_and_generated_output_routing".into();
-            response.observation.limitations = response.payload.source.coverage_limits.clone();
-            let policy = RedactionPolicy::from_environment();
-            if let Some(error) = document_failure {
-                response
-                    .failures
-                    .push(ErrorRecord::from_typed(&error, &policy));
-            }
-            response.failures.extend(
-                failures
-                    .iter()
-                    .map(|error| ErrorRecord::from_typed(error, &policy)),
-            );
-            if !response.failures.is_empty() {
-                response.observation.completeness = Completeness::Partial;
-            }
-            Ok(presentation.emit(response)?)
-        }
         Command::Probe { action } => {
             probe::dispatch(action, &checkout_root(selected)?, presentation, entry)
         }
-        Command::Changes(args) => changes::dispatch(args, selected, presentation),
         Command::Docs(args) => docs::dispatch(args, selected, presentation, entry),
         Command::Api(args) => api::dispatch(args, &checkout_root(selected)?, presentation, entry),
         Command::Code { action } => code::dispatch(action, selected, presentation, entry),
         Command::Compiler { action } => compiler::dispatch(action, selected, presentation, entry),
         Command::Worktree { action } => worktree::dispatch(action, selected, presentation),
-        Command::Dep {
-            package,
-            action,
-            metadata,
-            why,
-            feature_member,
-        } => {
-            if let Some(action) = action {
-                return dependency::dispatch(action, selected, presentation);
-            }
-            let package = package.ok_or_else(|| {
-                HostError::Ownership("select a dependency identity or dep units operation".into())
-            })?;
-            let snapshot = if let Some(path) = metadata.as_ref() {
-                crate::catalog::MetadataSnapshot::read(&source_path(selected, path.clone())?)?
-            } else {
-                crate::dependency::capture(
-                    &checkout_root(selected)?,
-                    &std::env::vars_os().collect(),
-                )?
-            };
-            Ok(presentation.emit(crate::dependency::inspect_details(
-                &snapshot,
-                &package,
-                if metadata.is_some() {
-                    "explicit_retained_snapshot"
-                } else {
-                    "locked_offline_metadata"
-                },
-                why,
-                feature_member.as_deref(),
-            ))?)
-        }
-        Command::Artifact {
-            action:
-                ArtifactAction::Read {
-                    file,
-                    offset,
-                    length,
-                    all,
-                    if_match,
-                },
-        } => {
-            let file = source_path(selected, file)?;
-            let request = crate::artifacts::ReadRequest {
-                offset,
-                length: if all {
-                    None
-                } else {
-                    length.or_else(|| crate::artifacts::ReadRequest::default().length)
-                },
-                expected_etag: if_match,
-            };
-            let payload = runtime()?.block_on(crate::artifacts::read_file(&file, &request))?;
-            let mut response = Envelope::response(
-                "artifact read",
-                format!(
-                    "artifact bytes {}..{} of {}; whole_object={}",
-                    payload.byte_range.start,
-                    payload.byte_range.end,
-                    payload.object_bytes,
-                    payload.whole_object
-                ),
-                payload,
-            );
-            response.observation.scope = "selected_artifact_byte_range".into();
-            response.observation.limitations.push("native ETag is an opaque provider validator, not a content hash; local mutable files have no snapshot-isolation guarantee".into());
-            if let Some(offset) = response.payload.next_offset {
-                let file = std::path::absolute(file)?;
-                let file = file.to_str().ok_or_else(|| {
-                    HostError::Ownership(
-                        "artifact continuation requires the native reader's Unicode filesystem key"
-                            .into(),
-                    )
-                })?;
-                let mut argv = vec![
-                    "pse".into(),
-                    "artifact".into(),
-                    "read".into(),
-                    "--offset".into(),
-                    offset.to_string(),
-                ];
-                if let Some(length) = request.length {
-                    argv.extend(["--length".into(), length.to_string()]);
-                } else {
-                    argv.push("--all".into());
-                }
-                if let Some(etag) = &response.payload.etag {
-                    argv.extend(["--if-match".into(), etag.clone()]);
-                }
-                argv.extend(["--".into(), file.into()]);
-                response.next.push(envelope::NextAction::Command{argv,reason:"read the next selected byte range under the observed native validator; no whole-file identity is inferred".into()});
-            }
-            source_emit(presentation, response, artifact_text)
-        }
-        Command::Outline {
-            files,
-            cursor,
-            parsing,
-        } => {
-            if cursor.is_some() && files.len() != 1 {
-                return Err(HostError::Ownership(
-                    "an outline continuation selects exactly one file".into(),
-                ));
-            }
-            let mut files = files
-                .into_iter()
-                .map(|file| {
-                    selected.map_or_else(
-                        || Ok(file.clone()),
-                        |root| std::path::absolute(root.join(&file)),
-                    )
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            if files.len() > 1 {
-                if parsing.index || parsing.revision.is_some() {
-                    return Err(HostError::Ownership(
-                        "select one index/blob source per addressed outline".into(),
-                    ));
-                }
-                let response = runtime()?.block_on(async {
-                    let mut task = crate::source_command::batch::start_page(
-                        files,
-                        parsing.language,
-                        parsing.edition,
-                        tokio_util::sync::CancellationToken::new(),
-                        presentation.presentation.budget,
-                    );
-                    tokio::select! {
-                        response=task.settle()=>response.map_err(HostError::from),
-                        signal=tokio::signal::ctrl_c()=>{
-                            task.cancel();
-                            let response=task.settle().await?;
-                            signal?;
-                            Ok(response)
-                        },
-                    }
-                })?;
-                let omitted_records = response
-                    .payload
-                    .records
-                    .iter()
-                    .map(|record| match record {
-                        crate::source_command::batch::Record::Read { reading } => {
-                            reading.page.omitted_records
-                        }
-                        _ => 0,
-                    })
-                    .sum();
-                return Ok(presentation.emit_page(
-                    response,
-                    envelope::DetailView {
-                        budget: presentation.presentation.budget,
-                        omitted_records,
-                        truncated: omitted_records > 0,
-                        ..envelope::DetailView::default()
-                    },
-                )?);
-            }
-            let file = files.pop().ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "select at least one source file",
-                )
-            })?;
-            let request = source_request(selected, file, &parsing)?;
-            let response = crate::source_command::outline_page(
-                &request,
-                parsing.language,
-                parsing.edition,
-                crate::source_read::PageRequest {
-                    max_records: presentation.presentation.budget,
-                    cursor,
-                },
-            )?;
-            let detail = envelope::DetailView {
-                budget: presentation.presentation.budget,
-                omitted_records: response.payload.page.omitted_records,
-                truncated: response.payload.page.omitted_records > 0,
-                ..envelope::DetailView::default()
-            };
-            Ok(presentation.emit_page(response, detail)?)
-        }
-        Command::Show {
-            source,
-            item,
-            at_byte,
-            at_line,
-            at_column,
-            range_start,
-            range_end,
-            parsing,
-        } => {
-            let positional = at_byte.is_some() || at_line.is_some() || range_start.is_some();
-            let (file, items) = if positional
-                && item.is_empty()
-                && !source
-                    .as_encoded_bytes()
-                    .windows(2)
-                    .any(|part| part == b"::")
-            {
-                (PathBuf::from(source), Vec::new())
-            } else {
-                crate::source_command::selector(&source, item)?
-            };
-            let file = selected.map_or_else(
-                || Ok(file.clone()),
-                |root| std::path::absolute(root.join(&file)),
-            )?;
-            let position = if let Some(start) = range_start {
-                crate::source_read::PositionSelector::Range {
-                    start,
-                    end: range_end
-                        .ok_or_else(|| HostError::Ownership("range end is required".into()))?,
-                }
-            } else if let Some(line) = at_line {
-                crate::source_read::PositionSelector::LineColumn {
-                    line,
-                    column: at_column
-                        .ok_or_else(|| HostError::Ownership("column is required".into()))?,
-                }
-            } else if let Some(offset) = at_byte {
-                crate::source_read::PositionSelector::Byte { offset }
-            } else {
-                crate::source_read::PositionSelector::Path
-            };
-            let response = crate::source_command::show_addressed(
-                &source_request(selected, file, &parsing)?,
-                &items,
-                &position,
-                parsing.language,
-                parsing.edition,
-            )?;
-            source_emit(
-                presentation,
-                response,
-                crate::source_command::selection_text,
-            )
-        }
         Command::Commands(args) => catalog_dispatch(args, true, "commands", selected, presentation),
         Command::Help(args) => catalog_dispatch(args, false, "help", selected, presentation),
         Command::Status { brief, line, all } => {
@@ -1624,71 +1143,6 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                 session.as_deref(),
                 limit,
                 &RedactionPolicy::from_environment(),
-            )?)?)
-        }
-        Command::Result {
-            invocation,
-            session,
-            tests,
-            failures,
-            failure_cursor,
-            cursor,
-            limit,
-            page_bytes,
-        } => {
-            let store = invocation_store(selected)?;
-            let session =
-                crate::invocation::select_session(session, &std::env::vars_os().collect())?;
-            if failures {
-                return Ok(presentation.emit(crate::test_inventory::failures(
-                    &store,
-                    &invocation,
-                    session.as_deref(),
-                    failure_cursor.as_ref(),
-                    limit,
-                    page_bytes,
-                )?)?);
-            }
-            if tests {
-                return Ok(presentation.emit(crate::test_inventory::read(
-                    &store,
-                    &invocation,
-                    session.as_deref(),
-                    cursor.as_ref(),
-                    limit,
-                    page_bytes,
-                )?)?);
-            }
-            Ok(presentation.emit(crate::invocation_view::result(
-                &store,
-                &invocation,
-                session.as_deref(),
-            )?)?)
-        }
-        Command::Log {
-            invocation,
-            session,
-            stderr,
-            offset,
-            length,
-            tail,
-        } => {
-            let store = invocation_store(selected)?;
-            let session =
-                crate::invocation::select_session(session, &std::env::vars_os().collect())?;
-            let stream = if stderr {
-                crate::extraction::OutputStream::Stderr
-            } else {
-                crate::extraction::OutputStream::Stdout
-            };
-            Ok(presentation.emit(crate::invocation_view::log(
-                &store,
-                &invocation,
-                session.as_deref(),
-                stream,
-                offset,
-                length,
-                tail,
             )?)?)
         }
         Command::Run {
@@ -1969,30 +1423,6 @@ pub(crate) fn environment_digest(environment: &Environment) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
-}
-fn explain_emit(
-    presentation: &OutputOptions,
-    verb: &str,
-    full: bool,
-    explanation: crate::test_workflow::Explanation<'_>,
-) -> Result<i32, HostError> {
-    let summary = format!(
-        "{verb} {:?} stage; remaining preparation and settlement obligations are explicit",
-        explanation.stage
-    );
-    if full {
-        Ok(presentation.emit(Envelope::response(
-            format!("explain {verb} full"),
-            summary,
-            explanation,
-        ))?)
-    } else {
-        Ok(presentation.emit(Envelope::response(
-            format!("explain {verb}"),
-            summary,
-            explanation.brief(),
-        ))?)
-    }
 }
 fn invocation_store(
     selected: Option<&Path>,
@@ -2371,14 +1801,11 @@ pub fn main(kind: BinKind) -> ExitCode {
                             cli.command.as_ref(),
                             Some(
                                 Command::Schema { .. }
-                                    | Command::Outline { .. }
-                                    | Command::Show { .. }
+                                    | Command::Search(_)
+                                    | Command::Inspect(_)
+                                    | Command::Propose(_)
                                     | Command::Api(_)
                                     | Command::Code { .. }
-                                    | Command::Compiler {
-                                        action: compiler::Action::Diagnostics { .. }
-                                            | compiler::Action::Diagnostic { .. }
-                                    }
                             )
                         )
                         && (cli.fields.is_some() || cli.budget.is_some())
@@ -2570,7 +1997,8 @@ mod tests {
     fn failure_pages_are_passive_and_exclusive() {
         let cli = Cli::try_parse_from([
             "pse",
-            "result",
+            "inspect",
+            "tests",
             "latest",
             "--failures",
             "--limit",
@@ -2583,10 +2011,21 @@ mod tests {
             cli.command.unwrap().generation_intent(),
             GenerationIntent::Passive
         );
-        assert!(response_schema("result failures", &Default::default()).is_ok());
-        assert!(Cli::try_parse_from(["pse", "result", "latest", "--tests", "--failures"]).is_err());
+        assert!(response_schema("inspect tests failures", &Default::default()).is_ok());
         assert!(
-            Cli::try_parse_from(["pse", "result", "latest", "--failure-cursor", "{}"]).is_err()
+            Cli::try_parse_from(["pse", "inspect", "tests", "latest", "--tests", "--failures"])
+                .is_err()
+        );
+        assert!(
+            Cli::try_parse_from([
+                "pse",
+                "inspect",
+                "tests",
+                "latest",
+                "--failure-cursor",
+                "{}"
+            ])
+            .is_err()
         );
         let helper = Cli::try_parse_from(["pse", "__fixture-prepare"]).unwrap();
         assert_eq!(
@@ -2668,9 +2107,9 @@ mod tests {
     fn invocation_observers_select_passive_reads_and_reject_invalid_extents() {
         for arguments in [
             vec!["pse", "history", "--session", "session", "--limit", "3"],
-            vec!["pse", "result", "latest"],
+            vec!["pse", "inspect", "invocation", "latest"],
             vec![
-                "pse", "log", "latest", "--stderr", "--tail", "--length", "4",
+                "pse", "inspect", "log", "latest", "--stderr", "--tail", "--length", "4",
             ],
         ] {
             let parsed = Cli::try_parse_from(arguments).unwrap();
@@ -2680,8 +2119,8 @@ mod tests {
         }
         for arguments in [
             vec!["pse", "history", "--limit", "0"],
-            vec!["pse", "log", "latest", "--length", "0"],
-            vec!["pse", "log", "latest", "--offset", "1", "--tail"],
+            vec!["pse", "inspect", "log", "latest", "--length", "0"],
+            vec!["pse", "inspect", "log", "latest", "--offset", "1", "--tail"],
         ] {
             assert!(Cli::try_parse_from(arguments).is_err());
         }
@@ -2896,7 +2335,7 @@ mod tests {
             next_cursor: None,
         };
         snapshot(
-            "outline",
+            "inspect outline",
             crate::source_command::FileOutline {
                 file: "fixture.rs".into(),
                 source: source_identity.clone(),
@@ -2905,7 +2344,7 @@ mod tests {
             },
         );
         snapshot(
-            "show",
+            "inspect declaration",
             crate::source_command::FileSelection {
                 file: "fixture.rs".into(),
                 locator: crate::source_read::SourceLocator {
@@ -2919,7 +2358,7 @@ mod tests {
             },
         );
         snapshot(
-            "outline batch",
+            "inspect outline batch",
             crate::source_command::batch::Report {
                 records: vec![crate::source_command::batch::Record::Read {
                     reading: Box::new(crate::source_command::FileOutline {
@@ -2943,7 +2382,7 @@ mod tests {
             },
         );
         snapshot(
-            "artifact read",
+            "inspect artifact",
             crate::artifacts::ArtifactRead {
                 object_key: "fixture/evidence".into(),
                 object_bytes: 10,

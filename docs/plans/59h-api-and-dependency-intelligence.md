@@ -140,8 +140,8 @@ the review's source inspection is not an executed pinned-interface probe.
 | [H04](#h04) | complete | 59h | Native structural differences with selected-input losslessness checks and separate explicit compatibility execution delivered; actual native trials retain missing-reference and rule-coverage limits |
 | [H05](#h05) | complete | 59h | Native rustdoc uses the original compiler workflow and diagnostics; actual public check and corrected native broken-link/codeblock controls pass |
 | [H06](#h06) | complete | 59h | Original failure → API constraint → explicit corrected probe demonstrated; conditional non-adoptions below retained. Series-end qualification remains with the coordinator |
-| [H07](#h07) | planned | 59h | Structural API/dependency queries joined to source uses and destination importability, with conditional native typed enrichment |
-| [H08](#h08) | planned | 59h | Bounded graph/acquisition extension decisions, explicit non-adoptions and observable revisit triggers |
+| [H07](#h07) | in-progress | 59h | Structural signature/bound/associated-type filters and artifact-hash-bound inspection implemented; common public join and native-context qualification remains open |
+| [H08](#h08) | complete | 59h | Existing retained metadata/selected-unit owners selected for actual-context queries; explicit graph, hosted, example and archive non-adoptions with concrete revisit triggers below |
 
 <a id="h01"></a>
 ### H01 — Discover a capability and a usable public path
@@ -489,6 +489,17 @@ examples and original diagnostics. Delete replaced parser branches, duplicate sp
 structural filtering, formatters, guidance and tests once the replacement passes. Explicit
 acquisition, compatibility/check execution and probes keep their original owners/effects.
 
+**Implemented:** common API discovery composes the retained artifact/query owner rather than
+acquiring per hit. `syn` parses selected Rust type syntax; predicates compare native rustdoc
+type trees for paths, type arguments, references/lifetimes, pointers, tuples, slices and explicit
+`<Self as Trait>::Associated` shapes. Parameter/where-clause bounds inspect actual declarations;
+unsupported shapes refuse without a spelling fallback. Original declarations, constraints and
+directed reexport paths remain inspectable. Portable local item references carry original
+artifact SHA, so replacing an artifact directory cannot reinterpret an old item ID. These are
+declaration/context facts, not a trait solver or destination visibility proof. Source-use and
+importability enrichment stays an explicit semantic operation with unsupported states unknown;
+G12 facts keep their own selected context. Public artifact/source-join acceptance remains open.
+
 <a id="h08"></a>
 ### H08 — Conditional graph and acquisition extensions
 
@@ -526,3 +537,42 @@ Remove graph/acquisition interpretation that it actually replaces, including old
 tests; retain distinct local/hosted provenance and effects. A no-adoption outcome completes the
 inquiry, leaves unsupported queries unavailable and introduces no dependency, daemon or index.
 The coordinator owns scope-end qualification of adopted branches and M03 public retirement.
+
+#### H08 outcome — preserve actual-context owners
+
+**Interface-checked:** the concrete dependency question is “which retained workspace package
+paths include this exact source-qualified package, which authored feature members mention
+it, and which selected host/target compiler unit is being inspected?” Existing
+`dependency::inspect_details` answers package reach with native petgraph traversal and exact
+authored feature-member inverse links over one retained `MetadataSnapshot`; selected compiler
+units retain their distinct admission/context owner. Existing independent tests
+`package_paths_and_authored_feature_links_do_not_simulate_activation` and
+`omitted_graph_is_unknown_not_empty_features_or_no_consumers` exercise the distinction; their
+current integrated test result is owned by the scope-end run, not this interface assessment.
+
+**Decision:** no Guppy producer is adopted for that selected question. Guppy's
+[`PackageGraph`/derived feature graph](https://docs.rs/guppy/0.17.23/guppy/graph/struct.PackageGraph.html)
+can model forward/reverse dependency and feature relationships; it is a genuine extension
+for counterfactual resolver/target/feature comparisons, not a missing Cargo fact parser.
+The directly examined primary API is 0.17.23; the overview's later version leads are not
+claimed tested or selected pins. The current answer does not simulate alternate resolutions,
+and adding a second graph would not improve its selected-unit authority. Revisit for a named
+comparison of candidate feature/target/root selections that requires those simulated
+relationships. Keep the simulation context explicit and qualify optional/default/host/target
+relationships independently if adopted. Hakari remains unselected because manifest feature
+unification is not this consumer's query.
+
+**Decision:** no hosted JSON acquisition branch is adopted. The selected API query has an
+explicit local, format-checked artifact and retained source-qualified context; no missing
+external/version-research artifact has been selected. Hosted
+[`docs.rs` JSON](https://docs.rs/about/rustdoc-json) is available by addressed version, target
+and format, can be absent, and can use another rustdoc format. Revisit for an explicitly
+selected external/version research question unavailable usefully from local exact context;
+adopt a distinct D02 acquisition with provenance and no selected-build fallback. Likewise,
+native scraped examples remain unselected until a named API lacks a useful authored example
+and analyzed targets are explicitly generated. Archive/fast-hash conversion remains
+unselected until repeated large-artifact reads present a measured decode/access problem;
+no zero-copy-JSON or performance benefit is asserted. These are completed bounded decisions,
+not claims that the libraries lack the capabilities. They add no dependency, acquisition,
+daemon, index or automatic compiler work; H07/M03 integration and qualification remain their
+own obligations.

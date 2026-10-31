@@ -444,8 +444,13 @@ fn actual_read_verbs_expose_lazy_invocation_and_exact_dependency_candidates() {
         metadata: Some(&data),
         ..Context::default()
     };
-    let dependencies =
-        candidates(&["dep".into()], "package", &Window::default(), &context).unwrap();
+    let dependencies = candidates(
+        &["inspect".into(), "dependency".into()],
+        "package",
+        &Window::default(),
+        &context,
+    )
+    .unwrap();
     assert!(!dependencies.page.records.is_empty());
     assert_eq!(dependencies.page.exhaustiveness, Exhaustiveness::Unknown);
     assert!(
@@ -455,9 +460,9 @@ fn actual_read_verbs_expose_lazy_invocation_and_exact_dependency_candidates() {
             .iter()
             .any(|record| record.value == data.packages[0].id.repr)
     );
-    for verb in ["result", "log"] {
+    for verb in ["invocation", "log", "tests", "compiler-artifact"] {
         let page = candidates(
-            &[verb.into()],
+            &["inspect".into(), verb.into()],
             "invocation",
             &Window::default(),
             &Context::default(),

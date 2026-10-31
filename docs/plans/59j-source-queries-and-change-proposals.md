@@ -106,8 +106,8 @@ current authorization. Final parser publication and series qualification remain 
 | [J03](#j03) | complete | 59j | Native syntax queries, captures/context constraints and explicit immutable previews pass targeted and actual CLI controls |
 | [J04](#j04) | complete | 59j | Actual generated hit follows declared contributor/emitter and regeneration routing; unknown authored location remains unknown |
 | [J05](#j05) | complete | 59j | Actual source-only query→preview→origin→emitter journey passes without semantic preparation or source writes; series qualification remains separate |
-| [J06](#j06) | planned | 59j | Native AST rule composition and advanced Tree-sitter extraction under exact compatible pins |
-| [J07](#j07) | planned | 59j | Guarded result hydration into existing shared immutable previews; no application |
+| [J06](#j06) | in-progress | 59j | Native rules/extraction, request-local compiled selectors and shared per-file parse implemented; selected/public qualification remains open |
+| [J07](#j07) | in-progress | 59j | Exact result guards and capture-aware previews integrated with the shared validator; native/public stale and preview qualification remains open |
 
 <a id="j01"></a>
 ### J01 — Addressed source and bounded reading
@@ -301,6 +301,18 @@ where the selected native mechanisms cover it; remove old callers/tests with mig
 distinct useful answer semantics. M03 removes replaced public query routes/guidance with their
 working replacements. No new parser service, query VM or general DSL follows from this package.
 
+**Implemented:** compatible ast-grep core/config0.51.0, tree-sitter0.27.0 and Rust grammar0.24.2
+supply the producer. One request-local compiled-selector owner shares AST, Tree-sitter and
+lexical matchers across workers; each file keeps one exact acquisition and one compatible
+native tree across structural leaves. Capture environments remain per match/branch. Native
+rule relations replace manual interpretation, including one prepared RuleCore/template in the
+remaining explicit syntax-preview producer. The count-then-reparse path, per-file matcher
+compilation and manual preview relation loops were deleted. Extraction retains every capture
+range and explicitly rejects unsupported predicates/match-limit failure. Recovery keeps positive
+witnesses while preventing exhaustive negatives. Quota stopping remains separate from provider
+unknown/error, and cancellation retains actual CPU completion ownership. Targeted native cases
+and integrated public output still require the selected run.
+
 <a id="j07"></a>
 ### J07 — Hydrate selected results into checked previews
 
@@ -342,3 +354,12 @@ validator. Preview success is not apply, compile/test success, equivalence or Gi
 G08's no-application outcome remains intact. Ordinary explicitly authorized edits and real
 checks can assess a preview's usefulness separately during integrated acceptance. The
 coordinator owns scope-end journeys/static checks; this document establishes no such result.
+
+**Implemented:** lexical selections validate original checkout, observed byte-span digest and
+declared freshness before exact hydration; syntax selections additionally validate their full
+original source hash. Capture-template previews re-match the exact range and use the shared
+proposal validator/protected-source owner. Working/index/revision sources keep their acquisition
+identity. Semantic follow-ups preserve session, generation, source and lazy-candidate guards
+through the original native producer; unsupported snapshot transformations do not fall back to
+spelling-based edits. No preview writes source/index. Public stale/multi-source/unsupported
+preview acceptance remains open with the integrated run.

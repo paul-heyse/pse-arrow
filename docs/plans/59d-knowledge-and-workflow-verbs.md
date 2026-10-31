@@ -14,7 +14,7 @@ Part of [Plan59](59-agent-cli.md).
 
 ## Current extension — passive route consolidation, 2026-10-31
 
-**Proposed:** [D10](#d10) migrates useful source/dependency/history/owner inspection into the
+**Implemented; assembled acceptance in progress:** [D10](#d10) migrates useful source/dependency/history/owner inspection into the
 operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
 target. The [coordinator](59-agent-cli.md) owns the combined target and rule decisions;
 [59k](59k-query-and-result-foundations.md) owns common query/result contracts and
@@ -184,10 +184,29 @@ a current, immutable captured xtask selected through A05 rather than a mutable C
 | [D07](#d07) | complete | 59d | Complete parser-derived reference generated and reviewed; full nine-target regeneration and drift check pass. Discovery annotation preserves native positional order |
 | [D08](#d08) | deferred | 59d | Operator-confirmed deferral; D09 investigation retained, no commit CLI implementation required |
 | [D09](#d09) | complete | 59d | Native Git transaction strategy selected with 11 passing disposable-repository probes; D08 runtime acceptance remains outstanding |
-| [D10](#d10) | planned | 59d | Move passive source/dependency/history/owner consumers to K02/L01 search and inspect; retire replaced public routes with working replacements |
+| [D10](#d10) | in-progress | 59d | Passive source/dependency/owner/evidence/API routes consolidated under search/inspect/propose; replaced public parser branches and schemas deleted. Focused exact-byte/native-template/origin controls pass; complete assembled native/history/API acceptance remains |
 
 <a id="d10"></a>
 ### D10 — Cut over passive reads without moving their authorities
+
+**Implemented; focused Tested (2026-10-31):** direct declaration/outline/origin and binary
+artifact readers now live under `inspect`; passive dependency identity/units, owner, changed
+source, affected reach, retained result/log/test/compiler evidence and acquired API reads
+delegate to their existing owners. Native entity views use `inspect entity`; capture-template
+and semantic previews use `propose`. Displaced root passive verbs, `code` query/entity/edit
+branches, compiler passive branches and their schema aliases are deleted. Explicit analyzer
+sessions, API acquisition/compatibility/check-docs, compiler generation/probes, correctness
+listing/execution and controls keep their distinct owners. Parser-derived candidate domains
+follow the new invocation/dependency routes.
+
+`source_commands`, `source_addressing`, `artifact_commands`, `source_queries` and
+`investigation_evidence` pass their focused actual CLI controls after migration, preserving
+working/index/revision/Unicode/native-byte guards, generated→authored navigation, nested
+captures, template trivia and selected-overlap refusal. A malformed-source search explicitly
+retains positive witnesses while reporting recovery/unknown/partial coverage. Shared
+model/config/stream/evidence/catalog intent controls pass; these focused results do not
+qualify the complete new provider/native/backend surface. Remaining assembled journeys and
+scope-end qualification stay with M03/the coordinator.
 
 **Consumes:** [K02](59k-query-and-result-foundations.md#k02)'s working typed query/result and
 explicit-locator contract, [L01](59l-repository-discovery-and-content-search.md#l01)'s source

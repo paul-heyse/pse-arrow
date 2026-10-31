@@ -30,11 +30,14 @@ pub mod extraction;
 pub mod fixtures;
 pub mod foreground;
 pub mod generation;
+/// Shared source search, contextual inspection and checked proposals.
+pub mod investigation;
 pub mod invocation;
 pub mod invocation_view;
 pub mod managed;
 mod manager;
 pub mod native;
+pub(crate) mod output_writer;
 pub mod ownership;
 pub mod paths;
 pub mod prepared_xtask;
@@ -83,7 +86,7 @@ pub enum HostError {
     ProductReader(Box<product_reader::ProductReaderError>),
     /// Captured development-tool preparation or native forwarding failure.
     #[error(transparent)]
-    PreparedXtask(Box<prepared_xtask::PreparedXtaskError>),
+    PreparedNativeTool(Box<prepared_xtask::PreparedNativeToolError>),
     /// Scratch authored input, resolution or disposal failure.
     #[error(transparent)]
     Probe(Box<probe::ProbeError>),
@@ -141,6 +144,12 @@ pub enum HostError {
     /// Explicit native syntax query or source-bound preview refusal.
     #[error(transparent)]
     SourceQuery(#[from] source_query::QueryError),
+    /// Shared investigation validation, provider or addressed-source refusal.
+    #[error(transparent)]
+    Investigation(#[from] investigation::Error),
+    /// Native analysis preparation, context, protocol and cancellation causes.
+    #[error(transparent)]
+    Semantic(Box<semantic::Error>),
     /// Native artifact path, range and backend failures retain their original causes.
     #[error(transparent)]
     Artifact(#[from] artifacts::ArtifactError),
@@ -158,7 +167,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Workflow(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::WorkflowOwner(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::ProductReader(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
-        Self::PreparedXtask(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
+        Self::PreparedNativeTool(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::Probe(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Api(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Affected(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
@@ -173,10 +182,12 @@ pse_diagnostics::impl_diagnostic! {
         Self::Correctness(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::SourceCommand(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::SourceQuery(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
+        Self::Investigation(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
+        Self::Semantic(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Artifact(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::SourceOwnership(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
     }) },
-    forward(this) { match this { Self::Workflow(error) => Some(error.as_ref()), Self::WorkflowOwner(error) => Some(error.as_ref()), Self::ProductReader(error) => Some(error.as_ref()), Self::PreparedXtask(error) => Some(error.as_ref()), Self::Affected(error) => Some(error), Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::SourceQuery(error) => Some(error), Self::Artifact(error) => Some(error), Self::SourceOwnership(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Workflow(error) => Some(error.as_ref()), Self::WorkflowOwner(error) => Some(error.as_ref()), Self::ProductReader(error) => Some(error.as_ref()), Self::PreparedNativeTool(error) => Some(error.as_ref()), Self::Affected(error) => Some(error), Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::SourceQuery(error) => Some(error), Self::Investigation(error) => Some(error), Self::Semantic(error) => Some(error.as_ref()), Self::Artifact(error) => Some(error), Self::SourceOwnership(error) => Some(error), _ => None } },
     help(_this) { None },
     related(this) { match this {
         Self::Settlement {operation,cleanup} => { let children:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()]; Some(Box::new(children.into_iter())) },

@@ -39,7 +39,7 @@ fn build(checkout: &Path, executable: Executable) -> BuildCapture {
 fn metadata(root: &Path) -> cargo_metadata::Metadata {
     serde_json::from_value(json!({"version":1,"workspace_root":root,"target_directory":root.join("target"),"workspace_members":["xtask-id"],"workspace_default_members":["xtask-id"],"packages":[{"name":"xtask","version":"0.0.1","id":"xtask-id","manifest_path":root.join("xtask/Cargo.toml"),"dependencies":[],"targets":[],"features":{"force-validate":[]}}],"resolve":{"root":null,"nodes":[{"id":"xtask-id","dependencies":[],"deps":[],"features":["force-validate"]}]}})).unwrap()
 }
-fn fixture() -> (tempfile::TempDir, Environment, PreparedXtask) {
+fn fixture() -> (tempfile::TempDir, Environment, PreparedNativeTool) {
     let root = tempfile::tempdir().unwrap();
     assert!(
         Command::new("git")
@@ -143,11 +143,12 @@ fn fixture() -> (tempfile::TempDir, Environment, PreparedXtask) {
         &build.resolution,
     )
     .unwrap();
-    let selected = PreparedXtask {
+    let selected = PreparedNativeTool {
         checkout: root.path().into(),
         directory,
         manifest: Manifest {
             version: 1,
+            target: NativeToolTarget::Xtask,
             checkout_id: state.checkout_id.as_str().into(),
             selection_id: id,
             executable,
@@ -156,8 +157,9 @@ fn fixture() -> (tempfile::TempDir, Environment, PreparedXtask) {
             context,
             features: BTreeSet::from(["force-validate".into()]),
             build: Evidence::new("build/build.json", &bytes),
-            catalog: Evidence::new("commands.json", &catalog),
-            owner_schema: Evidence::new("owner-schema.json", &schema),
+            catalog: Some(Evidence::new("commands.json", &catalog)),
+            owner_schema: Some(Evidence::new("owner-schema.json", &schema)),
+            protocol: None,
         },
     };
     publish(
@@ -171,16 +173,16 @@ fn fixture() -> (tempfile::TempDir, Environment, PreparedXtask) {
 fn explicit_successful_selection_atomically_updates_current_without_a_new_build() {
     let (root, environment, selected) = fixture();
     assert!(
-        PreparedXtask::current(root.path(), &environment).is_err(),
+        PreparedNativeTool::current(root.path(), &environment).is_err(),
         "immutable capture alone never invents a default"
     );
     selected.select_current().unwrap();
-    let current = PreparedXtask::current(root.path(), &environment).unwrap();
+    let current = PreparedNativeTool::current(root.path(), &environment).unwrap();
     assert_eq!(current.id(), selected.id());
     assert_eq!(current.executable(), selected.executable());
     selected.select_current().unwrap();
     assert_eq!(
-        PreparedXtask::current(root.path(), &environment)
+        PreparedNativeTool::current(root.path(), &environment)
             .unwrap()
             .id(),
         selected.id()
@@ -193,10 +195,10 @@ fn invalid_capture_or_symlink_cannot_replace_the_authenticated_current_selector(
     let (root, environment, mut selected) = fixture();
     selected.select_current().unwrap();
     let original = selected.id().to_owned();
-    selected.manifest.catalog.sha256 = "refused-original-evidence".into();
+    selected.manifest.catalog.as_mut().unwrap().sha256 = "refused-original-evidence".into();
     assert!(selected.select_current().is_err());
     assert_eq!(
-        PreparedXtask::current(root.path(), &environment)
+        PreparedNativeTool::current(root.path(), &environment)
             .unwrap()
             .id(),
         original
@@ -206,7 +208,7 @@ fn invalid_capture_or_symlink_cannot_replace_the_authenticated_current_selector(
     let unrelated = root.path().join("unrelated.json");
     fs::write(&unrelated, b"untouched original bytes").unwrap();
     std::os::unix::fs::symlink(&unrelated, &pointer).unwrap();
-    assert!(PreparedXtask::current(root.path(), &environment).is_err());
+    assert!(PreparedNativeTool::current(root.path(), &environment).is_err());
     assert_eq!(fs::read(unrelated).unwrap(), b"untouched original bytes");
 }
 #[test]
@@ -244,7 +246,7 @@ fn known_passive_docs_reads_preserve_original_exit_and_do_not_require_current_so
 #[test]
 fn passive_open_authenticates_source_and_evidence_without_a_compiler_or_build() {
     let (root, environment, original) = fixture();
-    let selected = PreparedXtask::open(root.path(), &environment, original.id()).unwrap();
+    let selected = PreparedNativeTool::open(root.path(), &environment, original.id()).unwrap();
     assert_eq!(selected.id(), original.id());
     assert_eq!(
         selected.features(),
@@ -285,7 +287,7 @@ fn passive_open_authenticates_source_and_evidence_without_a_compiler_or_build() 
         "changed after capture",
     )
     .unwrap();
-    let retained = PreparedXtask::open(root.path(), &environment, original.id()).unwrap();
+    let retained = PreparedNativeTool::open(root.path(), &environment, original.id()).unwrap();
     let metadata = retained.catalog().unwrap();
     assert_eq!(
         metadata.source.freshness,
@@ -315,9 +317,11 @@ fn unprepared_open_creates_no_state_and_invalid_keys_never_become_paths() {
         ),
         ("PATH".into(), "/missing".into()),
     ]);
-    assert!(PreparedXtask::open(root, &environment, &uuid::Uuid::new_v4().to_string()).is_err());
+    assert!(
+        PreparedNativeTool::open(root, &environment, &uuid::Uuid::new_v4().to_string()).is_err()
+    );
     for id in ["../arbitrary", "/absolute", "not-a-uuid"] {
-        assert!(PreparedXtask::open(root, &environment, id).is_err());
+        assert!(PreparedNativeTool::open(root, &environment, id).is_err());
     }
     assert_eq!(fs::read_dir(scratch.path()).unwrap().count(), 0);
 }
@@ -338,14 +342,14 @@ fn original_manifest_evidence_and_executable_cannot_redirect_or_silently_change(
         .unwrap();
         fs::write(selected.directory.join(name), b"changed original evidence").unwrap();
         assert!(
-            PreparedXtask::open(root.path(), &environment, selected.id()).is_err(),
+            PreparedNativeTool::open(root.path(), &environment, selected.id()).is_err(),
             "{name}"
         );
     }
     let (root, environment, mut selected) = fixture();
-    selected.manifest.catalog.name = "../response.json".into();
+    selected.manifest.catalog.as_mut().unwrap().name = "../response.json".into();
     assert!(selected.verify().is_err());
-    selected.manifest.catalog.name = "commands.json".into();
+    selected.manifest.catalog.as_mut().unwrap().name = "commands.json".into();
     selected.manifest.control.captured = root.path().join("tool");
     assert!(selected.verify().is_err());
     let other = tempfile::tempdir().unwrap();
@@ -357,7 +361,7 @@ fn original_manifest_evidence_and_executable_cannot_redirect_or_silently_change(
             .unwrap()
             .success()
     );
-    assert!(PreparedXtask::open(other.path(), &environment, selected.id()).is_err());
+    assert!(PreparedNativeTool::open(other.path(), &environment, selected.id()).is_err());
 }
 #[test]
 fn zero_exit_is_not_artifact_capture_and_unit_source_feature_identity_must_match() {
@@ -399,7 +403,7 @@ fn zero_exit_is_not_artifact_capture_and_unit_source_feature_identity_must_match
     assert!(select_executable(&build, &selected.directory, root.path()).is_err());
     let missing = build_evidence(&selected.directory.join("missing")).unwrap_err();
     assert!(
-        matches!(missing,PreparedXtaskError::BuildEvidence{source,..} if matches!(*source,PreparedXtaskError::Io(_)))
+        matches!(missing,PreparedNativeToolError::BuildEvidence{source,..} if matches!(*source,PreparedNativeToolError::Io(_)))
     );
     let command =
         source_build_command(&selected.manifest.control, root.path(), &Environment::new());
@@ -418,6 +422,123 @@ fn zero_exit_is_not_artifact_capture_and_unit_source_feature_identity_must_match
         ))
     );
 }
+
+#[test]
+fn native_analysis_profile_cannot_accept_an_xtask_or_other_feature_artifact() {
+    let (root, _, selected) = fixture();
+    let original: BuildCapture = serde_json::from_slice(
+        &read(&selected.directory.join("build/build.json"), MAX_DOCUMENT).unwrap(),
+    )
+    .unwrap();
+    assert!(
+        select_executable_for(
+            &original,
+            &selected.directory,
+            root.path(),
+            NativeToolTarget::NativeAnalysis
+        )
+        .is_err()
+    );
+    let mut native = original;
+    let profile = NativeToolTarget::NativeAnalysis.profile();
+    native.artifacts[0].cargo.target.name = profile.binary.into();
+    native.artifacts[0].cargo.target.src_path =
+        root.path().join(profile.source).try_into().unwrap();
+    native.artifacts[0].cargo.features = profile
+        .features
+        .iter()
+        .map(|feature| (*feature).into())
+        .collect();
+    native.resolution.units[0].package_name = profile.package.into();
+    native.resolution.units[0].target_name = profile.binary.into();
+    native.resolution.units[0].source_path = native.artifacts[0].cargo.target.src_path.to_string();
+    native.resolution.units[0].features = NativeToolTarget::NativeAnalysis.features();
+    assert!(
+        select_executable_for(
+            &native,
+            &selected.directory,
+            root.path(),
+            NativeToolTarget::NativeAnalysis
+        )
+        .is_ok()
+    );
+    assert!(
+        select_executable_for(
+            &native,
+            &selected.directory,
+            root.path(),
+            NativeToolTarget::Xtask
+        )
+        .is_err()
+    );
+    native.resolution.units[0].features.clear();
+    assert!(
+        select_executable_for(
+            &native,
+            &selected.directory,
+            root.path(),
+            NativeToolTarget::NativeAnalysis
+        )
+        .is_err()
+    );
+    let arguments = source_build_arguments_for(NativeToolTarget::NativeAnalysis);
+    assert_eq!(
+        arguments,
+        [
+            "build",
+            "--locked",
+            "-p",
+            "pse-host",
+            "--bin",
+            "pse-native-analysis",
+            "--no-default-features",
+            "--features",
+            "native-hir",
+            "--message-format=json"
+        ]
+    );
+}
+
+#[test]
+fn missing_native_analysis_does_not_repair_or_redirect_the_xtask_selection() {
+    let (root, environment, selected) = fixture();
+    selected.select_current().unwrap();
+    let native = CheckoutState::resolve(root.path(), &environment)
+        .unwrap()
+        .root
+        .join("tools/native-analysis");
+    let error = PreparedNativeTool::current_for(
+        root.path(),
+        &environment,
+        NativeToolTarget::NativeAnalysis,
+    )
+    .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("pse tools prepare native-analysis")
+    );
+    assert!(!native.exists());
+    assert_eq!(
+        PreparedNativeTool::current(root.path(), &environment)
+            .unwrap()
+            .id(),
+        selected.id()
+    );
+}
+
+#[test]
+fn native_analysis_protocol_has_real_schema_documents_and_no_phantom_catalog() {
+    let schema = schemars::schema_for!(crate::semantic::Request).to_value();
+    let protocol = json!({"version":1,"tool":"native-analysis","request_schema":schema,"configuration_schema":schema,"response_schema":schema,"backend":"ra_ap_hir/0.0.358 immutable_snapshot"});
+    assert!(protocol_document(&serde_json::to_vec(&protocol).unwrap()).is_ok());
+    let mut malformed = protocol.clone();
+    malformed["tool"] = json!("xtask");
+    assert!(protocol_document(&serde_json::to_vec(&malformed).unwrap()).is_err());
+    let mut malformed = protocol;
+    malformed.as_object_mut().unwrap().remove("response_schema");
+    assert!(protocol_document(&serde_json::to_vec(&malformed).unwrap()).is_err());
+}
 #[test]
 fn native_child_refusal_and_timeout_keep_original_streams_after_settlement() {
     let mut command = Command::new("/bin/sh");
@@ -429,7 +550,7 @@ fn native_child_refusal_and_timeout_keep_original_streams_after_settlement() {
         .env_clear();
     let output = process::run(command, 1024, Some(Duration::from_secs(2))).unwrap();
     match successful(output, "fixture-read", true).unwrap_err() {
-        PreparedXtaskError::Command {
+        PreparedNativeToolError::Command {
             status,
             stdout,
             stderr,
@@ -449,12 +570,12 @@ fn native_child_refusal_and_timeout_keep_original_streams_after_settlement() {
         .err()
         .unwrap();
     match &error {
-        PreparedXtaskError::Execution {
+        PreparedNativeToolError::Execution {
             failures, stderr, ..
         } => {
             assert!(failures.iter().any(|failure| matches!(
                 failure,
-                PreparedXtaskError::Supervision(pse_diagnostics::SupervisionError::Deadline)
+                PreparedNativeToolError::Supervision(pse_diagnostics::SupervisionError::Deadline)
             )));
             assert_eq!(stderr, b"before-timeout");
             assert_eq!(
@@ -475,7 +596,7 @@ fn native_child_refusal_and_timeout_keep_original_streams_after_settlement() {
         .env_clear();
     let output = process::run(command, 3, Some(Duration::from_secs(2))).unwrap();
     match successful(output, "fixture-read", true).unwrap_err() {
-        PreparedXtaskError::Extent {
+        PreparedNativeToolError::Extent {
             bytes,
             stdout,
             stderr,
@@ -583,7 +704,7 @@ fn actual_prepared_xtask_exports_same_image_parser_schema_and_document_owner() {
     let roots = footprint["package_roots"].as_array().unwrap();
     assert!(!roots.contains(&json!("crates/pse-runtime")));
     assert!(!roots.contains(&json!("crates/pse-host")));
-    let opened = PreparedXtask::open(root, &environment, selected.id()).unwrap();
+    let opened = PreparedNativeTool::open(root, &environment, selected.id()).unwrap();
     let catalog = opened.catalog().unwrap();
     assert_eq!(
         catalog.source.freshness,
@@ -615,7 +736,7 @@ fn actual_prepared_xtask_exports_same_image_parser_schema_and_document_owner() {
         .document_owner(Path::new("../../outside.md"), &environment)
         .unwrap_err()
     {
-        PreparedXtaskError::Command { status, stderr, .. } => {
+        PreparedNativeToolError::Command { status, stderr, .. } => {
             assert_eq!(status, 1);
             assert!(!stderr.is_empty());
         }

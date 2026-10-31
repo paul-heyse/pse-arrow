@@ -22,7 +22,6 @@ use std::{
 /// Bounded observer polling; no native scientific or canonical control is retained.
 pub mod follow;
 pub mod native;
-pub(crate) mod output;
 
 const PROTOCOL: &str = "pse.product-reader";
 const REQUEST_SCHEMA: &str = "urn:pse:product-reader:v1:request";

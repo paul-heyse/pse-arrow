@@ -14,7 +14,7 @@ Part of [Plan59](59-agent-cli.md).
 
 ## Current extension — delivered search adoption, 2026-10-31
 
-**Proposed:** [E06](#e06) carries the operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
+**Implemented, fresh-client acceptance in progress:** [E06](#e06) carries the operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
 adoption through actual `search`/`inspect`/`propose` deliveries. The [coordinator](59-agent-cli.md)
 owns the combined target and [59m](59m-composed-rust-investigations.md) owns assembled migration
 slices. E06 follows useful public delivery rather than advertising planned syntax. Completed
@@ -173,10 +173,30 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 | [E03](#e03) | complete | 59e | Native test/runtime/source/product/semantic/API/compiler/worktree guidance and generated reference published; actual implementation and diagnosis use delivered verbs. Deferred commands are not advertised |
 | [E04](#e04) | complete | 59e | Current-work pointer links native status owners; lifecycle validate passed with zero errors |
 | [E05](#e05) | complete | 59e | Edit guidance in AGENTS.md and `.claude/rules/tooling.md` |
-| [E06](#e06) | planned | 59e | Migrate skill/guides/reference/advisory suggestions with actual M03 public slices; demonstrate fresh-client adoption of delivered search |
+| [E06](#e06) | in-progress | 59e | Skill, deep reference, native guide, AGENTS/rust-rule and bounded advisory suggestions use delivered search/inspect/propose; actual agent source→reference inspection exercised. Final generated reference, fresh-client/reminder-host acceptance remain |
 
 <a id="e06"></a>
 ### E06 — Adopt delivered search and retire displaced guidance
+
+**Implemented (2026-10-31):** `pse-cli`, its code-intelligence reference and the native
+environment guide describe first-arrival discovery, typed/native composed requests, explicit
+exhaustiveness/count/order, result fields/grouping/budgets, effective-config explanation,
+guarded direct/reference inspection and current test-candidate selection. Old passive command
+examples and advisory suggestions are replaced with actual `search`/`inspect`/`propose`
+routes. The hook remains advisory and narrowly recognizes useful Rust read/search questions;
+generic searches and edit escape hatches remain available. No hook-definition, trust,
+global Codex/MCP or direnv change was made.
+
+**Focused adoption evidence:** an executing agent used the actual native CLI to discover
+`StreamWriter` declarations, refine to `StreamWriter<W>::emit`, follow its portable source
+reference and inspect the original `write_all` body. A bounded-symbol run first exposed a
+quota-versus-unknown classification defect, retained for provider correction rather than
+reported as success. Explicit exhaustive source discovery and guarded inspection succeeded.
+Native test-selection inspection also returned the actual library/feature/filter intent
+while keeping admission, listing and fixture readiness unavailable. These are practical
+current-agent use; separate fresh Codex/Claude attachment, actual reminder-host behavior and
+the final generated parser reference still require scope-end acceptance. No speedup or
+complete replacement of specialized external tools is claimed.
 
 **Consumes:** actual public slices delivered through [M03](59m-composed-rust-investigations.md#m03),
 including their parser-owned discovery/schema, useful examples and retired-route list. E06 can

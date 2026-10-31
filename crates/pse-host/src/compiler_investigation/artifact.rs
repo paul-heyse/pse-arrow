@@ -914,7 +914,7 @@ pub fn observe(
     };
     let native_provider=ProviderContext {provider:"original-managed-compiler-outcome/v1".into(),context:Some(serde_json::to_string(&serde_json::json!({"invocation":id,"outcome":original.outcome,"subject_state":original.subject_state,"settlement":original.settlement,"child_exit":original.child_exit,"observation":original.observation,"failures":original.failures,"index_availability":index_availability})).map_err(std::io::Error::other)?),analysis_generation:Some(sha),availability:SubjectState::Available,coordinates:vec![]};
     let mut response = Envelope::response(
-        "compiler artifacts",
+        "inspect compiler-artifacts",
         "original native artifact evidence; no compiler rerun or debug-format interpretation",
         Observation {
             original_invocation: id,
@@ -943,7 +943,7 @@ pub fn observe(
     if let Some(root) = root.to_str() {
         if let Some(index) = &response.payload.index {
             for (ordinal, _) in index.files.iter().enumerate() {
-                response.next.push(NextAction::Command {argv:vec!["pse".into(),"-C".into(),root.into(),"compiler".into(),"file".into(),response.payload.original_invocation.to_string(),ordinal.to_string()],reason:"read bounded original opaque bytes with the retained full-file digest guard; no compilation".into()});
+                response.next.push(NextAction::Command {argv:vec!["pse".into(),"-C".into(),root.into(),"inspect".into(),"compiler-artifact".into(),response.payload.original_invocation.to_string(),ordinal.to_string()],reason:"read bounded original opaque bytes with the retained full-file digest guard; no compilation".into()});
             }
         }
         for suffix in [None, Some("--stderr")] {
@@ -951,6 +951,7 @@ pub fn observe(
                 "pse".into(),
                 "-C".into(),
                 root.into(),
+                "inspect".into(),
                 "log".into(),
                 response.payload.original_invocation.to_string(),
             ];
@@ -1001,7 +1002,7 @@ pub fn read_file(
         crate::artifacts::read_descriptor(descriptor, offset, Some(length), Some(&file.sha256))?;
     let next = read.next_offset;
     let mut response = Envelope::response(
-        "compiler file",
+        "inspect compiler-artifact",
         "bounded original opaque bytes after whole-file digest verification; no compilation",
         FileRead {
             original_invocation: original.payload.original_invocation,
@@ -1019,8 +1020,8 @@ pub fn read_file(
                 "pse".into(),
                 "-C".into(),
                 root.into(),
-                "compiler".into(),
-                "file".into(),
+                "inspect".into(),
+                "compiler-artifact".into(),
                 response.payload.original_invocation.to_string(),
                 ordinal.to_string(),
                 "--offset".into(),

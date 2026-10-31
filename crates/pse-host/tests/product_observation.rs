@@ -395,7 +395,7 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
         prefix - window_length,
     ] {
         let output = pse()
-            .args(["artifact", "read"])
+            .args(["inspect", "artifact"])
             .arg(timeline["path"].as_str().unwrap())
             .args([
                 "--offset",
@@ -422,7 +422,7 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
     let mutable_copy = directory.path().join("mutable-capture-copy");
     std::fs::write(&mutable_copy, &original_raw).unwrap();
     let before = pse()
-        .args(["artifact", "read"])
+        .args(["inspect", "artifact"])
         .arg(&mutable_copy)
         .args(["--length", "1"])
         .output()
@@ -434,7 +434,7 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
     changed.extend_from_slice(b"changed fixture tail");
     std::fs::write(&mutable_copy, changed).unwrap();
     let changed = pse()
-        .args(["artifact", "read"])
+        .args(["inspect", "artifact"])
         .arg(&mutable_copy)
         .args(["--length", "1", "--if-match", validator])
         .output()

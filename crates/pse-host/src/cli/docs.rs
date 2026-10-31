@@ -4,7 +4,7 @@
 use super::{GenerationIntent, HostError, OutputOptions, checkout_root, tools};
 use crate::{
     generation::EntryGuard,
-    prepared_xtask::{self, PreparedXtask},
+    prepared_xtask::{self, NativeToolTarget, PreparedNativeTool},
 };
 use clap::Args as ClapArgs;
 use std::{
@@ -41,10 +41,12 @@ pub(super) fn dispatch(
     let passive = args.intent() == GenerationIntent::Passive;
     let selection = match args.selection {
         Some(selection) => selection,
-        None => PreparedXtask::current(&checkout_root(selected)?, &std::env::vars_os().collect())
-            .map_err(|error| HostError::PreparedXtask(Box::new(error)))?
-            .id()
-            .to_owned(),
+        None => {
+            PreparedNativeTool::current(&checkout_root(selected)?, &std::env::vars_os().collect())
+                .map_err(|error| HostError::PreparedNativeTool(Box::new(error)))?
+                .id()
+                .to_owned()
+        }
     };
     let arguments = std::iter::once(OsString::from("docs"))
         .chain(args.arguments)
@@ -52,17 +54,18 @@ pub(super) fn dispatch(
     if passive {
         let root = checkout_root(selected)?;
         let environment = std::env::vars_os().collect();
-        let tool = PreparedXtask::open(&root, &environment, &selection)
-            .map_err(|error| HostError::PreparedXtask(Box::new(error)))?;
+        let tool = PreparedNativeTool::open(&root, &environment, &selection)
+            .map_err(|error| HostError::PreparedNativeTool(Box::new(error)))?;
         let reply = tool
             .read_passive_docs(arguments, &environment)
-            .map_err(|error| HostError::PreparedXtask(Box::new(error)))?;
+            .map_err(|error| HostError::PreparedNativeTool(Box::new(error)))?;
         io::stdout().lock().write_all(&reply.stdout)?;
         io::stderr().lock().write_all(&reply.stderr)?;
         return Ok(reply.status);
     }
     tools::run(
         tools::Run {
+            tool: NativeToolTarget::Xtask,
             selection,
             detach: false,
             session: None,

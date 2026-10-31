@@ -244,7 +244,7 @@ feature choices are exactly the review's
 | [A09](#a09) | complete | 59a | Proposed ADR-0233/0234 and blueprint318/319 publish the operator-confirmed review target and command adoption. Governing owners/dependencies agree; native runtime evidence is recorded by the wave Outcome, independently of formal ADR acceptance |
 | [A10](#a10) | complete | 59a | Proposed ADR-0233/0234 and blueprint320 publish K01's settled search/inspect/propose, compact context/locators and truthful stream target; K02 consumes publication, not a runtime pass or formal ADR acceptance |
 | [A11](#a11) | complete | 59a | Positive G11 selected immutable native-analysis snapshot; proposed ADR-0233 and blueprint321 publish the binding before G12 production, independently of compiler I06/A12 |
-| [A12](#a12) | planned, conditional | 59a | Publish only governing amendments required by I06's selected compiler-driver path; independent of the analyzer investigation |
+| [A12](#a12) | complete | 59a | I06 selects existing original diagnostics and explicit opaque MIR, with no compiler-private driver or changed governing contract; no amendment selected |
 
 <a id="a10"></a>
 ### A10 — Publish the shared query, command and result contracts
@@ -312,6 +312,14 @@ effects. If no changed governing contract is selected, record that disposition w
 amendment. Retire replaced governing wording with its successor; I07 owns implementation,
 targeted verification and replaced driver/caller/test removal. Neither investigation creates
 a recurrence threshold or a global release gate for unrelated search delivery.
+
+**Disposition — 2026-10-31:** I06's pinned-compiler source and suspension probes select the
+existing original-diagnostic and explicit MIR-evidence owners. I07 is not adopted, so no
+compiler-driver governing amendment is required. Location-specific active-loan and
+maybe-initialized-path machine-readable states remain unavailable. Reopen I06/A12/I07 when
+a consumer needs that exact location/phase/domain relationship; original diagnostics and
+opaque MIR must not be promoted to typed dataflow facts. This disposition changes neither
+the compiler toolchain nor the production lifecycle and gives no runtime acceptance credit.
 
 <a id="a01"></a>
 ### A01 — Land the accepted rule changes

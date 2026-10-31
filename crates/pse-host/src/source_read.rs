@@ -22,6 +22,54 @@ pub(crate) fn source_digest(source: &str) -> String {
         .collect()
 }
 
+/// Choose an actual declaration/callee name inside a guarded source selection.
+/// Ambiguous text is not silently rebound to the beginning of comments or attributes.
+pub(crate) fn semantic_anchor(source: &str, range: Range<usize>) -> Option<usize> {
+    if range.start > range.end || source.get(range.clone()).is_none() {
+        return None;
+    }
+    let parsed = SourceFile::parse(source, RustEdition::E2024.native());
+    let root = parsed.syntax_node();
+    let start = ra_ap_syntax::TextSize::from(u32::try_from(range.start).ok()?);
+    let end = ra_ap_syntax::TextSize::from(u32::try_from(range.end).ok()?);
+    let selected = ra_ap_syntax::TextRange::new(start, end);
+    let node = root
+        .descendants()
+        .filter(|node| node.text_range() == selected)
+        .last();
+    if let Some(node) = node {
+        if let Some(method) = ast::MethodCallExpr::cast(node.clone()) {
+            return method
+                .name_ref()
+                .map(|name| usize::from(name.syntax().text_range().start()));
+        }
+        if let Some(call) = ast::CallExpr::cast(node.clone()) {
+            return call
+                .expr()?
+                .syntax()
+                .descendants()
+                .filter(|node| node.kind() == SyntaxKind::NAME_REF)
+                .last()
+                .map(|name| usize::from(name.text_range().start()));
+        }
+        if let Some(name) = node.children().find(|node| node.kind() == SyntaxKind::NAME) {
+            return Some(usize::from(name.text_range().start()));
+        }
+        if matches!(node.kind(), SyntaxKind::NAME | SyntaxKind::NAME_REF) {
+            return Some(usize::from(node.text_range().start()));
+        }
+    }
+    let mut names = root.descendants().filter(|node| {
+        matches!(node.kind(), SyntaxKind::NAME | SyntaxKind::NAME_REF)
+            && node.text_range().contains_range(selected)
+    });
+    let name = names.next()?;
+    if names.next().is_some() {
+        return None;
+    }
+    Some(usize::from(name.text_range().start()))
+}
+
 /// Explicit parsing policy; this is never presented as an inferred Cargo configuration.
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum, Serialize, Deserialize, JsonSchema,
@@ -99,6 +147,22 @@ pub struct Entry {
     pub range: SourceRange,
     /// Original declaration header; no token regeneration or formatting.
     pub signature: String,
+    /// Native written visibility, not a semantic accessibility verdict.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub(crate) written_visibility: Option<String>,
+    /// Actual enclosing module declarations, excluding impl/trait names.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub(crate) modules: Vec<String>,
+    /// The native declaration is nested under a trait/impl item list.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub(crate) associated: bool,
+    /// Native self receiver, used by declaration-kind filters rather than text guessing.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub(crate) method: bool,
 }
 /// Parser error; useful recovered entries remain available alongside it.
 #[derive(Clone, Debug, Serialize, JsonSchema)]
@@ -191,6 +255,26 @@ pub(super) fn rust_bounded(
                 kind: format!("{:?}", node.kind()),
                 range: location(&lines, start..end),
                 signature: source[start..header_end].trim_end().to_owned(),
+                written_visibility: node
+                    .children()
+                    .find(|child| child.kind() == SyntaxKind::VISIBILITY)
+                    .map(|visibility| visibility.text().to_string()),
+                modules: {
+                    let mut modules = node
+                        .ancestors()
+                        .skip(1)
+                        .filter_map(ast::Module::cast)
+                        .filter_map(|module| module.name().map(|name| name.text().to_string()))
+                        .collect::<Vec<_>>();
+                    modules.reverse();
+                    modules
+                },
+                associated: node.ancestors().skip(1).any(|ancestor| {
+                    matches!(ancestor.kind(), SyntaxKind::TRAIT | SyntaxKind::IMPL)
+                }),
+                method: ast::Fn::cast(node.clone())
+                    .and_then(|function| function.param_list())
+                    .is_some_and(|parameters| parameters.self_param().is_some()),
             })
         })
         .filter_map(|entry| {
@@ -277,6 +361,10 @@ pub(super) fn markdown_bounded(source: &str, offset: usize, limit: usize) -> (Ou
                 kind: "heading".into(),
                 range: location(&lines, range.start..section_end),
                 signature: source[range.clone()].trim_end().to_owned(),
+                written_visibility: None,
+                modules: Vec::new(),
+                associated: false,
+                method: false,
             }
         })
         .enumerate()

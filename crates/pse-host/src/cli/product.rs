@@ -307,8 +307,8 @@ fn follow(
     let reader = Arc::new(reader);
     let environment = Arc::new(environment);
     super::runtime()?.block_on(async {
-        let stdout = product_reader::output::Writer::new(io::stdout())?;
-        let stderr = product_reader::output::Writer::new(io::stderr())?;
+        let stdout = crate::output_writer::Writer::new(io::stdout())?;
+        let stderr = crate::output_writer::Writer::new(io::stderr())?;
         let control = pse_diagnostics::Cancellation::default();
         let count = std::cell::Cell::new(0);
         let refused = std::cell::Cell::new(false);

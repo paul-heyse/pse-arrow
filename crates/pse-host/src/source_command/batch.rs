@@ -141,7 +141,7 @@ where
             .collect::<Vec<_>>();
         let cancelled = worker_token.is_cancelled();
         let mut response = Envelope::response(
-            "outline batch",
+            "inspect outline batch",
             format!(
                 "{} source file observations; all submitted CPU work returned",
                 records.len()
@@ -312,7 +312,7 @@ pub fn start_page(
             .collect::<Vec<_>>();
         let (records, providers): (Vec<_>, Vec<_>) = records.into_iter().unzip();
         let mut response = Envelope::response(
-            "outline batch",
+            "inspect outline batch",
             "source file observations; all submitted CPU work returned",
             Report {
                 records,

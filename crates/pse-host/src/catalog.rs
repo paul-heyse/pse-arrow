@@ -242,19 +242,26 @@ pub fn command_tree() -> Command {
             })
         })
     });
-    for name in ["result", "log"] {
-        tree = tree.mut_subcommand(name, |command| {
-            command.mut_arg("invocation", |arg| {
-                arg.add(Domain::Invocations.association())
-            })
-        });
-    }
-    tree = tree.mut_subcommand("dep", |command| {
+    tree = tree.mut_subcommand("inspect", |mut command| {
+        for name in [
+            "invocation",
+            "log",
+            "tests",
+            "diagnostic",
+            "compiler-artifact",
+            "compiler-artifacts",
+        ] {
+            command = command.mut_subcommand(name, |command| {
+                command.mut_arg("invocation", |arg| {
+                    arg.add(Domain::Invocations.association())
+                })
+            });
+        }
         command
-            .mut_arg("package", |arg| arg.add(Domain::Dependencies.association()))
-            .mut_subcommand("units", |command| {
-                // mut_arg removes then appends: a required prefix would move behind the
-                // variadic workspace selection before Clap assigns positional indices.
+            .mut_subcommand("dependency", |command| {
+                command.mut_arg("package", |arg| arg.add(Domain::Dependencies.association()))
+            })
+            .mut_subcommand("dependency-units", |command| {
                 command.mut_args(|arg| {
                     if arg.get_id() == "dependency" {
                         arg.add(Domain::Dependencies.association())

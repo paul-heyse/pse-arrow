@@ -26,91 +26,44 @@ fn schema(root: &Path, command: &str, response: &serde_json::Value) {
 }
 
 #[test]
-fn actual_syntax_query_retains_nested_matches_captures_and_explicit_authority() {
+fn actual_syntax_search_retains_nested_matches_and_named_captures() {
     let root = tempfile::tempdir().unwrap();
     let source = "fn first() { call(inner(β)); }\nfn second() { call(γ); }\nfn broken(\n";
     std::fs::write(root.path().join("query.rs"), source).unwrap();
-    let response = value(
-        pse(root.path())
-            .args([
-                "code",
-                "query",
-                "--mode",
-                "syntax",
-                "--pattern",
-                "$CALL($ARG)",
-                "query.rs",
-            ])
-            .output()
-            .unwrap(),
-    );
-    schema(root.path(), "code query", &response);
-    let payload = &response["payload"];
-    assert_eq!(payload["grammar_abi"], 15);
-    assert_eq!(payload["total_matches"], 3);
-    assert_eq!(payload["matches"][0]["text"], "call(inner(β))");
-    assert_eq!(payload["matches"][1]["text"], "inner(β)");
+    let output = pse(root.path())
+        .args([
+            "search",
+            "--path",
+            "query.rs",
+            "--all",
+            "syntax",
+            "$CALL($ARG)",
+        ])
+        .output()
+        .unwrap();
     assert!(
-        !payload["sources"][0]["recovery_regions"]
+        !output.status.success(),
+        "malformed source cannot establish an exhaustive successful search"
+    );
+    let response: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(response["observation"]["completeness"], "partial");
+    assert_eq!(response["payload"]["summary"]["unknown"], 1);
+    assert!(
+        response["payload"]["diagnostics"]
             .as_array()
             .unwrap()
-            .is_empty()
+            .iter()
+            .any(|row| row["code"] == "search.syntax_recovery")
     );
-    assert_eq!(payload["cpu_work_completed"], true);
-    let projected = value(
-        pse(root.path())
-            .args([
-                "code",
-                "query",
-                "--mode",
-                "syntax",
-                "--pattern",
-                "call($ARG)",
-                "--fields",
-                "total_matches",
-                "--budget",
-                "1",
-                "query.rs",
-            ])
-            .output()
-            .unwrap(),
-    );
-    assert!(projected["payload"].get("sources").is_none());
-    assert!(projected["payload"].get("backend").is_none());
-    let provider = &projected["providers"][0];
+    let rows = response["payload"]["results"].as_array().unwrap();
+    assert_eq!(rows.len(), 3, "{response}");
     assert!(
-        provider["provider"]
-            .as_str()
-            .unwrap()
-            .contains("ast-grep-core/0.51.0")
+        rows.iter().any(|row| row["context"] == "inner(β)"),
+        "{response}"
     );
-    let identity: serde_json::Value =
-        serde_json::from_str(provider["context"].as_str().unwrap()).unwrap();
-    assert_eq!(identity, payload["sources"][0]["source"]);
-    assert_eq!(provider["coordinates"][0]["end"], source.len());
-    let limited = value(
-        pse(root.path())
-            .args([
-                "code",
-                "query",
-                "--mode",
-                "syntax",
-                "--pattern",
-                "call($ARG)",
-                "--inside",
-                "fn second() { $$$BODY }",
-                "--capture",
-                "ARG",
-                "--budget",
-                "1",
-                "query.rs",
-            ])
-            .output()
-            .unwrap(),
-    );
-    assert_eq!(
-        limited["payload"]["matches"][0]["captures"][0]["nodes"][0]["text"],
-        "γ"
+    assert!(
+        rows.iter().all(|row| row["captures"]["ARG"].is_array()),
+        "{response}"
     );
     assert_eq!(
         std::fs::read_to_string(root.path().join("query.rs")).unwrap(),
@@ -127,9 +80,7 @@ fn actual_preview_uses_shared_proposal_and_exact_native_template_without_writes(
     let response = value(
         pse(root.path())
             .args([
-                "code",
-                "preview",
-                "--mode",
+                "propose",
                 "syntax",
                 "--pattern",
                 "old($FIRST, $$$REST)",
@@ -142,7 +93,7 @@ fn actual_preview_uses_shared_proposal_and_exact_native_template_without_writes(
             .output()
             .unwrap(),
     );
-    schema(root.path(), "code preview", &response);
+    schema(root.path(), "propose syntax", &response);
     assert_eq!(
         response["payload"]["proposal"]["producer"]["authority"],
         "syntax"
@@ -178,21 +129,7 @@ fn semantic_unavailability_undefined_templates_and_selected_overlaps_refuse() {
     for (arguments, expected) in [
         (
             vec![
-                "code",
-                "query",
-                "--mode",
-                "semantic",
-                "--pattern",
-                "outer($A)",
-                "source.rs",
-            ],
-            "semantic structural queries are unavailable",
-        ),
-        (
-            vec![
-                "code",
-                "preview",
-                "--mode",
+                "propose",
                 "syntax",
                 "--pattern",
                 "outer($A)",
@@ -204,9 +141,7 @@ fn semantic_unavailability_undefined_templates_and_selected_overlaps_refuse() {
         ),
         (
             vec![
-                "code",
-                "preview",
-                "--mode",
+                "propose",
                 "syntax",
                 "--pattern",
                 "$CALL($ARG)",
@@ -308,7 +243,7 @@ fn generated_query_preview_origin_and_emitter_form_an_actual_source_only_consume
     .unwrap();
     let outline = value(
         pse(root.path())
-            .args(["outline", "generated/hit.rs", "--budget", "1"])
+            .args(["inspect", "outline", "generated/hit.rs", "--budget", "1"])
             .output()
             .unwrap(),
     );
@@ -316,34 +251,12 @@ fn generated_query_preview_origin_and_emitter_form_an_actual_source_only_consume
         outline["payload"]["outline"]["entries"][0]["path"][0],
         "generated"
     );
-    let query = value(
-        pse(root.path())
-            .args([
-                "code",
-                "query",
-                "generated/hit.rs",
-                "--mode",
-                "syntax",
-                "--pattern",
-                "old($ARG)",
-            ])
-            .output()
-            .unwrap(),
-    );
-    let origin_argv = query["next"][0]["argv"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|arg| arg.as_str().unwrap())
-        .collect::<Vec<_>>();
     let preview = value(
         pse(root.path())
             .args([
-                "code",
-                "preview",
-                "generated/hit.rs",
-                "--mode",
+                "propose",
                 "syntax",
+                "generated/hit.rs",
                 "--pattern",
                 "old($ARG)",
                 "--replacement",
@@ -354,6 +267,12 @@ fn generated_query_preview_origin_and_emitter_form_an_actual_source_only_consume
             .output()
             .unwrap(),
     );
+    let origin_argv = preview["next"][0]["argv"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|arg| arg.as_str().unwrap())
+        .collect::<Vec<_>>();
     assert_eq!(
         preview["payload"]["proposal"]["candidates"][0]["replacement"],
         "new(β)"
@@ -369,7 +288,7 @@ fn generated_query_preview_origin_and_emitter_form_an_actual_source_only_consume
             .output()
             .unwrap(),
     );
-    schema(root.path(), "code origin", &origin);
+    schema(root.path(), "inspect origin", &origin);
     assert_eq!(origin["payload"]["text"], "old(β)");
     assert_eq!(
         origin["payload"]["owner"]["ownership"]["owner"]["regenerate"],

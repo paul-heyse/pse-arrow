@@ -120,7 +120,7 @@ pub fn generated_origin(
     let mut owner = crate::ownership::query(root, request.path())?;
     let failures = std::mem::take(&mut owner.failures);
     let mut response = Envelope::response(
-        "code origin",
+        "inspect origin",
         "exact generated hit and independently declared contributor/regeneration routes",
         GeneratedOrigin { hit, text, owner },
     );
@@ -144,6 +144,7 @@ pub fn generated_origin(
                             "pse".into(),
                             "-C".into(),
                             root.into(),
+                            "inspect".into(),
                             "outline".into(),
                             record.generator_path.clone(),
                         ],
@@ -179,7 +180,7 @@ pub(crate) fn origin_action(
         "pse".into(),
         "-C".into(),
         root.to_str()?.into(),
-        "code".into(),
+        "inspect".into(),
         "origin".into(),
         locator.source.path().to_str()?.into(),
         "--range-start".into(),
@@ -280,7 +281,7 @@ pub fn outline_page(
         page,
     )?;
     let mut response = Envelope::response(
-        "outline",
+        "inspect outline",
         format!(
             "{} syntactic entries; {} parse issues",
             outline.entries.len(),
@@ -380,7 +381,7 @@ pub fn show_addressed(
         range: selection.range.clone(),
     };
     let mut response = Envelope::response(
-        "show",
+        "inspect declaration",
         format!(
             "source lines {}–{}; original text",
             selection.range.line_start, selection.range.line_end

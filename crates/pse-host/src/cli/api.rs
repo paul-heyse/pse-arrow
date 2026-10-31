@@ -15,7 +15,22 @@ use clap::Args;
 use std::path::Path;
 
 #[derive(Debug, Args)]
+#[command(group(clap::ArgGroup::new("api_effect").args(["prepare","compatibility","check_docs"]).required(true).multiple(false)))]
 pub(super) struct Arguments {
+    #[command(flatten)]
+    lookup: InspectArgs,
+    /// Explicitly acquire documentation; passive reads use inspect api.
+    #[arg(long,conflicts_with_all=["path","search","cursor","compare_with"])]
+    prepare: bool,
+    /// Explicitly execute separately prepared compatibility rules.
+    #[arg(long, requires = "compare_with", conflicts_with = "cursor")]
+    compatibility: bool,
+    /// Explicitly check workspace library documentation through native rustdoc.
+    #[arg(long,conflicts_with_all=["compare_with","path","search","cursor"])]
+    check_docs: bool,
+}
+#[derive(Debug, Args)]
+pub(in crate::cli) struct InspectArgs {
     /// Exact locked dependency name, name@version or source-qualified Cargo package ID.
     crate_query: String,
     /// Public crate-relative item path; omission lists candidates.
@@ -23,9 +38,6 @@ pub(super) struct Arguments {
     /// Case-insensitive name/documentation search.
     #[arg(long, conflicts_with = "path")]
     search: Option<String>,
-    /// Explicitly compile documentation in an isolated context; ordinary lookup never generates it.
-    #[arg(long,conflicts_with_all=["path","search","cursor"])]
-    prepare: bool,
     /// Explicit target triple; default is the pinned rustc's observed host.
     #[arg(long)]
     target: Option<String>,
@@ -54,16 +66,8 @@ pub(super) struct Arguments {
     declaration: bool,
     /// Read structural differences from an explicitly selected acquired document.json;
     /// --compatibility separately executes native rules. Neither generates an input.
-    #[arg(long, conflicts_with_all=["prepare","path","search"])]
+    #[arg(long, conflicts_with_all=["path","search"])]
     compare_with: Option<std::path::PathBuf>,
-    /// Explicitly execute separately prepared native compatibility rules. Without
-    /// this flag comparison only reads library-owned structural differences.
-    #[arg(long, requires = "compare_with", conflicts_with = "cursor")]
-    compatibility: bool,
-    /// Explicitly check this workspace library's authored documentation with native
-    /// rustdoc diagnostics; no API artifact or analyzer session is required.
-    #[arg(long, conflicts_with_all=["prepare","compare_with","path","search","cursor"])]
-    check_docs: bool,
     /// Continue the same immutable artifact/query page; stale contexts refuse.
     #[arg(long)]
     cursor: Option<String>,
@@ -130,7 +134,7 @@ fn unprepared(
     output: &OutputOptions,
 ) -> Result<i32, HostError> {
     let mut response = Envelope::response(
-        "api",
+        "inspect api",
         if providers
             .iter()
             .any(|provider| provider.availability == envelope::SubjectState::Available)
@@ -168,10 +172,46 @@ pub(super) fn dispatch(
     output: &OutputOptions,
     entry: &EntryGuard,
 ) -> Result<i32, HostError> {
+    let Arguments {
+        lookup,
+        prepare,
+        compatibility,
+        check_docs,
+    } = arguments;
+    let operation = if prepare {
+        Operation::Prepare
+    } else if compatibility {
+        Operation::Compatibility
+    } else if check_docs {
+        Operation::CheckDocs
+    } else {
+        return Err(HostError::Ownership("API lookup is passive: use inspect api; explicit acquisition/checks select an operation".into()));
+    };
+    perform(lookup, root, output, Some((operation, entry)))
+}
+pub(in crate::cli) fn inspect(
+    arguments: InspectArgs,
+    root: &Path,
+    output: &OutputOptions,
+) -> Result<i32, HostError> {
+    perform(arguments, root, output, None)
+}
+#[derive(Clone, Copy, Debug)]
+enum Operation {
+    Prepare,
+    Compatibility,
+    CheckDocs,
+}
+fn perform(
+    arguments: InspectArgs,
+    root: &Path,
+    output: &OutputOptions,
+    effect: Option<(Operation, &EntryGuard)>,
+) -> Result<i32, HostError> {
     let environment = std::env::vars_os().collect();
     let store = CheckoutState::resolve(root, &environment)?.root;
     let snapshot = crate::dependency::capture(root, &environment)?;
-    if arguments.check_docs {
+    if let Some((Operation::CheckDocs, entry)) = effect {
         let package = crate::probe::select(&snapshot.metadata, &arguments.crate_query)
             .map_err(|error| HostError::Api(Box::new(error.into())))?;
         if !snapshot.metadata.workspace_members.contains(&package.id) {
@@ -202,7 +242,7 @@ pub(super) fn dispatch(
             output,
         );
     }
-    if arguments.prepare {
+    if let Some((Operation::Prepare, entry)) = effect {
         let acquisition = api::prepare(
             root,
             &store,
@@ -298,7 +338,7 @@ pub(super) fn dispatch(
     };
     if let Some(baseline) = arguments.compare_with {
         let baseline = api::retained(&root.join(baseline)).map_err(error)?;
-        if !arguments.compatibility {
+        if !matches!(effect, Some((Operation::Compatibility, _))) {
             let page = api::comparison::inspect(
                 &baseline,
                 &artifact,
@@ -314,7 +354,7 @@ pub(super) fn dispatch(
             };
             let incomplete = page.missing_items != [0, 0];
             let mut response = Envelope::response(
-                "api",
+                "inspect api",
                 "native structural API differences; no compatibility rules executed",
                 api::query::Report::Comparison { page },
             );
@@ -330,6 +370,11 @@ pub(super) fn dispatch(
             }
             return Ok(output.emit_page(response, detail)?);
         }
+        let Some((Operation::Compatibility, entry)) = effect else {
+            return Err(HostError::Ownership(
+                "native compatibility requires an explicit performing operation".into(),
+            ));
+        };
         let comparison =
             api::comparison::prepare(root, &store, &baseline, &artifact, &environment)?;
         providers.push(provider(&baseline.context, Some(&baseline))?);
@@ -362,6 +407,8 @@ pub(super) fn dispatch(
         );
     }
     let mut query = Query {
+        input_shape: None,
+        output_shape: None,
         path: arguments.path,
         search: arguments.search,
         kind: arguments.kind,
@@ -376,6 +423,7 @@ pub(super) fn dispatch(
         declaration: arguments.declaration,
         surface_identity: None,
         request_identity: None,
+        ..Query::default()
     };
     api::query::bind_request(&mut query, arguments.cursor.as_deref()).map_err(error)?;
     let mut artifacts = Vec::new();
@@ -464,7 +512,7 @@ pub(super) fn dispatch(
     let omitted = page.omitted_candidates;
     let no_match = page.candidates.is_empty();
     let mut response = Envelope::response(
-        "api",
+        "inspect api",
         if no_match {
             "no matching declarations in the addressed API artifact"
         } else {

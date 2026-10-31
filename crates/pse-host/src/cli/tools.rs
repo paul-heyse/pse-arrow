@@ -7,9 +7,9 @@ use super::{
 use crate::{
     envelope::Envelope,
     generation::EntryGuard,
-    prepared_xtask::{self, PreparedXtask},
+    prepared_xtask::{self, NativeToolTarget, PreparedNativeTool},
 };
-use clap::{Subcommand, ValueEnum};
+use clap::Subcommand;
 use schemars::JsonSchema;
 use serde::Serialize;
 use std::{
@@ -24,20 +24,26 @@ pub(super) enum Action {
     /// Build/capture the declared native tool; passive queries never invoke this operation.
     Prepare {
         #[arg(value_enum)]
-        tool: Tool,
+        tool: NativeToolTarget,
     },
     /// Read the selected native parser's retained catalogue, with captured-source limits.
     Catalog {
+        #[arg(long, value_enum, default_value = "xtask")]
+        tool: NativeToolTarget,
         #[arg(long)]
         selection: String,
     },
     /// Read the actual retained native document-owner response schema.
     OwnerSchema {
+        #[arg(long, value_enum, default_value = "xtask")]
+        tool: NativeToolTarget,
         #[arg(long)]
         selection: String,
     },
     /// Run exact arguments through the selected native parser under managed ownership.
     Run {
+        #[arg(long, value_enum, default_value = "xtask")]
+        tool: NativeToolTarget,
         #[arg(long)]
         selection: String,
         #[arg(long)]
@@ -47,10 +53,13 @@ pub(super) enum Action {
         #[arg(last=true, required=true, num_args=1..)]
         arguments: Vec<OsString>,
     },
-}
-#[derive(Clone, Copy, Debug, ValueEnum)]
-pub(super) enum Tool {
-    Xtask,
+    /// Read the original fixed semantic protocol schemas from a captured helper.
+    Protocol {
+        #[arg(long, value_enum, default_value = "native-analysis")]
+        tool: NativeToolTarget,
+        #[arg(long)]
+        selection: String,
+    },
 }
 impl Action {
     pub(super) fn intent(&self) -> GenerationIntent {
@@ -71,12 +80,13 @@ pub(super) struct PreparedTool {
     executable_sha256: String,
     features: BTreeSet<String>,
 }
-fn tool_error(error: prepared_xtask::PreparedXtaskError) -> HostError {
-    HostError::PreparedXtask(Box::new(error))
+fn tool_error(error: prepared_xtask::PreparedNativeToolError) -> HostError {
+    HostError::PreparedNativeTool(Box::new(error))
 }
 /// Transport/run controls shared by exact native-owner forwarding adapters.
 #[derive(Debug)]
 pub(super) struct Run {
+    pub tool: NativeToolTarget,
     pub selection: String,
     pub detach: bool,
     pub session: Option<String>,
@@ -91,9 +101,10 @@ pub(super) fn run(
 ) -> Result<i32, HostError> {
     let root = checkout_root(selected)?;
     let environment = std::env::vars_os().collect();
-    let tool = PreparedXtask::open(&root, &environment, &args.selection).map_err(tool_error)?;
+    let tool = PreparedNativeTool::open_for(&root, &environment, &args.selection, args.tool)
+        .map_err(tool_error)?;
     let evidence = NativeToolSelection {
-        kind: "xtask",
+        kind: tool.target().name(),
         selection: tool.id().into(),
         source_identity: tool.source_identity().map_err(tool_error)?,
         executable_sha256: tool.executable().sha256.clone(),
@@ -131,13 +142,14 @@ pub(super) fn dispatch(
     let root = checkout_root(selected)?;
     let environment = std::env::vars_os().collect();
     match action {
-        Action::Prepare { tool: Tool::Xtask } => {
-            let tool = prepared_xtask::prepare(&root, &environment).map_err(tool_error)?;
+        Action::Prepare { tool: target } => {
+            let tool =
+                prepared_xtask::prepare_for(&root, &environment, target).map_err(tool_error)?;
             Ok(output.emit(Envelope::response(
                 "tools prepare",
                 "native development tool explicitly captured",
                 PreparedTool {
-                    tool: "xtask",
+                    tool: tool.target().name(),
                     selection: tool.id().into(),
                     source_identity: tool.source_identity().map_err(tool_error)?,
                     executable_sha256: tool.executable().sha256.clone(),
@@ -145,16 +157,24 @@ pub(super) fn dispatch(
                 },
             ))?)
         }
-        Action::Catalog { selection } => {
-            let tool = PreparedXtask::open(&root, &environment, &selection).map_err(tool_error)?;
+        Action::Catalog {
+            selection,
+            tool: target,
+        } => {
+            let tool = PreparedNativeTool::open_for(&root, &environment, &selection, target)
+                .map_err(tool_error)?;
             Ok(output.emit(super::catalog_envelope(
                 tool.catalog().map_err(tool_error)?,
                 "tools catalog",
-                format!("captured xtask selection {}", tool.id()),
+                format!("captured {} selection {}", tool.target(), tool.id()),
             ))?)
         }
-        Action::OwnerSchema { selection } => {
-            let tool = PreparedXtask::open(&root, &environment, &selection).map_err(tool_error)?;
+        Action::OwnerSchema {
+            selection,
+            tool: target,
+        } => {
+            let tool = PreparedNativeTool::open_for(&root, &environment, &selection, target)
+                .map_err(tool_error)?;
             serde_json::to_writer(
                 io::stdout().lock(),
                 &tool.owner_schema().map_err(tool_error)?,
@@ -164,12 +184,14 @@ pub(super) fn dispatch(
             Ok(0)
         }
         Action::Run {
+            tool,
             selection,
             detach,
             session,
             arguments,
         } => run(
             Run {
+                tool,
                 selection,
                 detach,
                 session,
@@ -180,6 +202,17 @@ pub(super) fn dispatch(
             output,
             entry,
         ),
+        Action::Protocol {
+            selection,
+            tool: target,
+        } => {
+            let tool = PreparedNativeTool::open_for(&root, &environment, &selection, target)
+                .map_err(tool_error)?;
+            serde_json::to_writer(io::stdout().lock(), &tool.protocol().map_err(tool_error)?)
+                .map_err(io::Error::other)?;
+            writeln!(io::stdout().lock())?;
+            Ok(0)
+        }
     }
 }
 
@@ -187,6 +220,32 @@ pub(super) fn dispatch(
 mod tests {
     use super::*;
     use clap::Parser;
+    #[test]
+    fn native_analysis_preparation_is_explicit_and_protocol_discovery_is_passive() {
+        let parsed =
+            super::super::Cli::try_parse_from(["pse", "tools", "prepare", "native-analysis"])
+                .unwrap();
+        assert!(matches!(
+            parsed.command,
+            Some(super::super::Command::Tools {
+                action: Action::Prepare {
+                    tool: NativeToolTarget::NativeAnalysis
+                }
+            })
+        ));
+        let parsed = super::super::Cli::try_parse_from([
+            "pse",
+            "tools",
+            "protocol",
+            "--selection",
+            "original",
+        ])
+        .unwrap();
+        assert_eq!(
+            parsed.command.unwrap().generation_intent(),
+            GenerationIntent::Passive
+        );
+    }
     #[test]
     fn tool_parser_tail_stays_literal_and_discovery_remains_passive() {
         let cli = super::super::Cli::try_parse_from([

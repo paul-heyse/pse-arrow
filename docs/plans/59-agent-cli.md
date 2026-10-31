@@ -562,7 +562,7 @@ flowchart TD
   M01 --> M02["M02: composed investigation"]
   L02 --> M02
   J06 --> M02
-  G12 -. "selected typed enrichment" .-> M02
+  G12 --> M02
   I07 -. "selected compiler enrichment" .-> M02
   J06 --> J07["J07: result/proposal hydration"]
   L01 --> D10["D10: passive reader migration"]
@@ -653,13 +653,15 @@ applicable native ownership operations. D08 concurrent Git acceptance is deferre
 
 ## Current state and next step
 
-**2026-10-31 search-extension planning amendment:** K/L/M and affected A–J packages now capture
-all fourteen search-review opportunities, governing publication, parallel native investigations,
-consumer migration and assembled P02 acceptance. All new work remains **Proposed/planned**;
-documentation authoring establishes no new runtime delivery. Next execution can start with K01
-and the independent I06 inquiry, then A10/K02 and the first L01/G10/H07→M01 discovery-to-inspection
-slice. G11 proceeds from K01 alongside ordinary providers; deeper conditional work does not block
-that first useful slice. Existing Outcomes below remain historical evidence for their exact scope.
+**2026-10-31 search-extension execution:** the maintainer authorized the entire 59k–59m
+scope and its necessary producer/consumer slices. K01/A10 publish the shared interpretation;
+G11/A11 select and publish an explicitly prepared immutable native-analysis snapshot. I06/A12
+retain existing original compiler evidence and select no compiler-private driver. K/L/M and
+affected A–J production work is in progress: native discovery, scoped composition, guarded
+inspection/proposals and passive-route retirement are integrated, with public/native
+acceptance, generated references and P02 scope-end qualification still pending. G12 is now
+a selected prerequisite for its typed M02 enrichment. No focused pass establishes the whole
+extension's completion. Existing Outcomes below retain their original scope.
 
 **2026-10-31 adoption amendment:** the `pse-cli` skill, native PATH exposure and shared
 advisory tooling hook are implemented. [59e's adoption outcome](59e-environment-and-adoption.md#cli-adoption-amendment--2026-10-31)

@@ -65,7 +65,7 @@ async fn indexed_batch_retains_file_order_and_all_independent_failures() {
         matches!(&response.payload.records[2],Record::Read{reading} if reading.file==b.as_os_str())
     );
     let schema = crate::envelope::schema::<Report>(
-        "outline batch",
+        "inspect outline batch",
         &crate::envelope::Presentation::default(),
     )
     .unwrap();

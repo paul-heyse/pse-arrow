@@ -3,6 +3,55 @@
 use super::*;
 
 #[test]
+fn declaration_metadata_uses_native_visibility_and_module_nodes_without_wire_changes() {
+    let outline = rust(
+        "mod real { struct S; impl S { /// pub misleading\n pub(crate) fn same(){} fn member(&self){} } /// text pub\n pub fn same(){} }",
+        RustEdition::E2024,
+    );
+    let functions = outline
+        .entries
+        .iter()
+        .filter(|entry| entry.kind == "FN")
+        .collect::<Vec<_>>();
+    assert_eq!(functions.len(), 3);
+    assert_eq!(
+        functions[0].written_visibility.as_deref(),
+        Some("pub(crate)")
+    );
+    assert_eq!(functions[0].modules, vec!["real"]);
+    assert!(functions[0].associated);
+    assert!(!functions[0].method);
+    assert!(functions[1].method);
+    assert_eq!(functions[2].written_visibility.as_deref(), Some("pub"));
+    assert!(!functions[2].associated);
+    let wire = serde_json::to_value(&outline).unwrap();
+    assert!(wire["entries"][0].get("written_visibility").is_none());
+    assert!(wire["entries"][0].get("modules").is_none());
+}
+
+#[test]
+fn semantic_anchor_selects_native_names_instead_of_documentation_or_receiver_prefix() {
+    let source = "/// authored text\n#[inline]\npub fn café(){ receiver.same(argument); }";
+    assert_eq!(
+        semantic_anchor(source, 0..source.len()),
+        Some(source.find("café").unwrap())
+    );
+    let start = source.find("receiver.same").unwrap();
+    let end = source.find(");").unwrap() + 1;
+    assert_eq!(
+        semantic_anchor(source, start..end),
+        Some(source.find("same").unwrap())
+    );
+    assert_eq!(
+        semantic_anchor(
+            source,
+            source.find("argument").unwrap()..source.find("argument").unwrap() + 3
+        ),
+        Some(source.find("argument").unwrap())
+    );
+}
+
+#[test]
 fn incomplete_source_keeps_neighbors_and_original_unicode_bytes() {
     let source =
         "mod m {\n/// café\n#[inline]\npub fn α() { /* preserved */ }\nfn unfinished(\n}\n";

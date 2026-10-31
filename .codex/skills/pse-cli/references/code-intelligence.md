@@ -11,6 +11,53 @@ Examples below use operands such as `FILE`, `PACKAGE` and `INVOCATION` to replac
 - [Original failures and new compiler investigations](#original-failures-and-new-compiler-investigations)
 - [Generated-source ownership](#generated-source-ownership)
 
+## Whole-checkout discovery and composed questions
+
+Use `search` to find useful candidates, `inspect` to expand known source or a returned
+reference, and `propose` to construct a checked preview. Preparation and execution remain
+explicit. Ordinary source/text discovery needs no analyzer, database, API acquisition or Cargo.
+
+```bash
+pse search files --path crates/pse-host/src --glob '*.rs' --limit 10
+pse search text 'CancellationToken' --literal --path crates/pse-host/src --context 1
+pse search symbol EnvironmentSettings --path crates/pse-host/src
+pse search syntax 'Command::new($BIN)' --path crates/pse-host/src --limit 8
+pse inspect --source crates/pse-host/src/cli.rs --lines 10:40
+pse search --request query.json --explain
+```
+
+The default is twenty useful arrival-order results. `--exists`, `--count` and `--all`
+request different native examination/completion. `--order deterministic` enables guarded
+continuations; pass the returned cursor unchanged. A small page establishes neither exact
+totals nor exhaustive absence. No-match, partial I/O, stale context, unsupported predicates
+and absent preparation remain different outcomes.
+
+Use a typed JSON request for grouped predicates and batches; `pse schema search request`
+describes its actual input. Same-file conjunction can have different witness nodes; same-node
+conjunction holds on one native node; semantic conjunction binds one entity/context. Unavailable
+information remains unknown, including under negation. Do not narrow global references to
+only files containing a convenient spelling.
+
+`search structured POINTER` selects JSON/TOML/YAML fields, with explicit typed equality;
+it does not implement every jq/SQL operation. `search history` selects native log/blame/pickaxe
+questions. Historical source does not inherit current semantic context. Prefer domain readers
+for dependency features, tests and source ownership over scraping their serialized files.
+
+`--result-fields name,context` chooses optional detail while source/reference/range stay mandatory.
+`--group-by source`, `kind` or `name` groups returned witnesses, not universe-wide counts.
+`--budget` bounds published whole rows independently of requested examination. NDJSON publishes
+live complete records and final coverage; absent finality is incomplete delivery. Actual progress
+is stderr presentation, not a fabricated percentage or success proof.
+
+Saved requests, named queries and source scopes use optional `.config/pse-search.toml` or explicit
+`--config`. Select saved queries with `--query NAME`. Explicit flags override selected request/config
+values; arrays replace, and file-relative paths resolve at their source. `search --explain` exposes
+effective values and provenance without starting providers or another host environment evaluator.
+
+References bind original source/context, without a universal result database. A lexical observation
+need not snapshot a full file. Before previews, exact hydration verifies the observed witness and
+refuses stale premises. A reference must not silently reinterpret an identical path in another checkout.
+
 ## Written source and structural changes
 
 Use source-only reads before preparing a semantic service when declaration structure or exact
@@ -18,19 +65,19 @@ written bytes will settle the question. These reads also work outside a pse-arro
 
 | Question | Capability and useful limits |
 |---|---|
-| Where is a declaration or document section? | `pse outline FILE --budget 20` reads nested Rust declarations or Markdown headings without Cargo, cfg evaluation or macro expansion. Multiple files are supported; use one file for a continuation. |
-| What exactly surrounds this location? | `pse show FILE --at-line N --at-column N` returns the enclosing declaration/section. `--range-start` / `--range-end` select a half-open UTF-8 byte range. Line/column coordinates are one-based Unicode scalars. |
+| Where is a declaration or document section? | `pse inspect outline FILE --budget 20` reads nested Rust declarations or Markdown headings without Cargo, cfg evaluation or macro expansion. Multiple files are supported; use one file for a continuation. |
+| What exactly surrounds this location? | `pse inspect declaration FILE --at-line N --at-column N` returns the enclosing declaration/section. `--range-start` / `--range-end` select a half-open UTF-8 byte range. Line/column coordinates are one-based Unicode scalars. |
 | What was staged or committed? | Add `--index` for the raw staged blob or `--revision REF` for a resolved committed blob. This avoids checkout changes and distinguishes Git bytes from current working bytes. |
-| Which written shapes match a refactor? | `pse code query FILE --mode syntax --pattern 'call($ARG)'` returns structural candidates with captures and exact source identity. Rust is the current structural language. |
-| Which matches occur in the intended context? | `--inside`, `--has` and `--exclude` constrain ancestors, proper descendants and excluded candidate shapes. `--strictness` selects matching policy; `--capture NAME` selects named or sequence captures without sigils. |
-| What would a replacement change? | `code preview` uses the same pattern plus `--replacement` and optional `--select` candidate indices. Inspect candidates before selecting edits; selected overlaps and undefined template captures refuse. Neither source nor the Git index changes. |
-| What changed, and which tests might matter? | `pse changes` separates Git layers and declared source/generated owners. `pse affected` supplies conservative test reach. Use these to narrow investigation, then select real tests; reach is not test success. |
+| Which written shapes match a refactor? | `pse search syntax 'call($ARG)' --path FILE` returns structural candidates with captures and exact source identity. Rust is the current structural language. |
+| Which matches occur in the intended context? | Native rule requests express ancestor/descendant/sibling/field constraints and repeated captures. Strictness selects matching policy. Syntax previews also retain native `--inside`, `--has`, `--exclude`, `--strictness` and `--capture` input controls. |
+| What would a replacement change? | `propose syntax` uses the same pattern plus `--replacement` and optional `--select` candidate indices. Inspect candidates before selecting edits; selected overlaps and undefined template captures refuse. Neither source nor the Git index changes. |
+| What changed, and which tests might matter? | `pse inspect changes` separates Git layers and declared source/generated owners. `pse inspect affected` supplies conservative test reach. Use these to narrow investigation, then select real tests; reach is not test success. |
 
 For an outline continuation, pass `payload.page.next_cursor` unchanged as `--cursor`; changed
 working bytes refuse. Source parsing has an explicit edition/language policy rather than an
 inferred build context. A syntax match is a written candidate even when names are spelled alike;
-it does not establish resolved identity or active cfg membership. `--mode semantic` structural
-queries are currently unavailable and never fall back to syntax.
+it does not establish resolved identity or active cfg membership. Semantic refinement explicitly
+selects a prepared provider; unavailable information never silently becomes syntax evidence.
 
 Allowances count nested declarations or matches. Review total/omitted and continuation facts
 before concluding a search is complete. `--fields` can hide payload detail while mandatory
@@ -43,7 +90,7 @@ Prepare a reusable analyzer only when resolving Rust meaning can change the next
 
 ```bash
 pse code session prepare --project PATH
-pse code explain FILE --line N --column N
+pse inspect entity --view explain FILE --line N --column N
 ```
 
 Select features, default-feature policy and platform during preparation. Restricted preparation
@@ -51,18 +98,24 @@ disables automatic compiler checking, build scripts and proc macros. `--build-ma
 runs correctness-admitted `check --workspace --all-targets` preparation for those outputs; choose
 it when the needed semantics depend on them. Queries do not enable checking or rebuild inputs.
 
+Choose one backend during explicit preparation. Native snapshot selection uses the explicitly
+prepared native-analysis helper; consult actual readiness and supported capabilities rather
+than assuming every LSP view is implemented there. HIR and compiler evidence retain separate
+contexts. Portable semantic references bind the original session owner as well as source,
+generation and lazy candidate fingerprint; a restarted generation counter is insufficient.
+
 | Question | Selected capability |
 |---|---|
-| What entity/type does this expression name? | `code explain` requests hover, definitions and type resolution. Rendered hover remains rendered evidence when a structured field is unsupported. |
-| What symbols does the semantic provider see in this file? | `code symbols`; prefer source-only `outline` when written declarations suffice. |
-| Where is this actual entity referenced? | `code refs`, including declarations; use it when text matches would conflate same-spelled names. |
-| What calls this function, and what does it call? | `code calls` supplies one-hop incoming/outgoing calls. Expand only the relevant neighbors; this is not a whole-program runtime trace. |
-| Where are native implementation targets? | `code implementations` locates returned targets. It does not establish that every generic trait obligation holds. |
-| What did this macro expand to? | `code macro` returns selected expansion text with invocation/provenance limits. Prepared macro inputs may be required. |
-| Which tests are related to this entity? | `code tests` returns candidates with next actions through `pse tests` / `pse test`. It never executes analyzer-supplied argv. |
-| Which APIs fit this editing position? | `code candidates`, then its guarded `code candidate` action for one useful choice. Lazy resolution retains imports, snippets and unresolved editing intent. |
-| What inferred annotations help explain these lines? | `code hints` with a selected line/range, then guarded `code hint` resolution when needed. Avoid fetching the whole file's annotations. |
-| Can the native provider establish a specific trait predicate here? | `code predicate FILE --line N --column N --text TEXT`. Preserve proven, contradictory and not-proven/unavailable outcomes; lack of proof is not a negative fact. |
+| What entity/type does this expression name? | `inspect entity --view explain` requests hover, definitions and type resolution. Rendered hover remains rendered evidence when a structured field is unsupported. |
+| What symbols does the semantic provider see in this file? | `inspect entity --view symbols`; prefer source-only `inspect outline` when written declarations suffice. |
+| Where is this actual entity referenced? | `inspect entity --view refs`, including declarations; use it when text matches would conflate same-spelled names. |
+| What calls this function, and what does it call? | `inspect entity --view calls` supplies one-hop incoming/outgoing calls. Expand only the relevant neighbors; this is not a whole-program runtime trace. |
+| Where are native implementation targets? | `inspect entity --view implementations` locates returned targets. It does not establish that every generic trait obligation holds. |
+| What did this macro expand to? | `inspect entity --view macro` returns selected expansion text with invocation/provenance limits. Prepared macro inputs may be required. |
+| Which tests are related to this entity? | `inspect entity --view tests` returns candidates with next actions through `pse tests` / `pse test`. It never executes analyzer-supplied argv. |
+| Which APIs fit this editing position? | `inspect entity --view candidates`, then its guarded `inspect entity --view candidate` action for one useful choice. Lazy resolution retains imports, snippets and unresolved editing intent. |
+| What inferred annotations help explain these lines? | `inspect entity --view hints` with a selected line/range, then guarded `inspect entity --view hint` resolution when needed. Avoid fetching the whole file's annotations. |
+| Can the native provider establish a specific trait predicate here? | `inspect entity --view predicate FILE --line N --column N --text TEXT`. Preserve proven, contradictory and not-proven/unavailable outcomes; lack of proof is not a negative fact. |
 
 Commands operate on working files, without assuming an editor's unsaved buffers. CLI positions
 are one-based Unicode scalar coordinates, converted to the provider's negotiated encoding.
@@ -74,10 +127,10 @@ Use edit previews when resolved identity or native assists can reduce a refactor
 
 | Intent | Proposal capability |
 |---|---|
-| Rename one resolved entity | `code edit rename FILE ... --name NAME` |
-| Rename a file and inspect required semantic follow-up | `code edit file-rename FILE --to PATH` |
-| Discover useful transformations at this position | `code edit assists`, then one guarded `code edit assist --select INDEX` |
-| Rewrite with the provider's semantic structural search | `code edit ssr FILE ... --rule 'PATTERN ==>> REPLACEMENT'`, scoped to selected lines |
+| Rename one resolved entity | `propose rename FILE ... --name NAME` |
+| Rename a file and inspect required semantic follow-up | `propose file-rename FILE --to PATH` |
+| Discover useful transformations at this position | `inspect entity --view assists`, then one guarded `propose assist --select INDEX` |
+| Rewrite with the provider's semantic structural search | `propose ssr FILE ... --rule 'PATTERN ==>> REPLACEMENT'`, scoped to selected lines |
 
 Inspect original/replacement regions, file operations, placeholders and provider context.
 These are immutable checked proposals; no edit command applies changes or establishes that a
@@ -93,14 +146,14 @@ not to silently label a text match semantic evidence.
 
 ## Locked APIs and dependency context
 
-Use `pse api` for the exact locked dependency context before designing against remembered APIs.
+Use `pse inspect api` for the exact locked dependency context before designing against remembered APIs.
 Context7 remains the first external library-documentation lookup under repository policy;
 the acquired local API answers a distinct question about the pinned source and extraction context.
 
 ```bash
 pse api PACKAGE --prepare
-pse api PACKAGE --search TERM --budget 3
-pse api PACKAGE ITEM_PATH --docs --examples --declaration
+pse inspect api PACKAGE --search TERM --budget 3
+pse inspect api PACKAGE ITEM_PATH --docs --examples --declaration
 ```
 
 Acquisition explicitly compiles documentation in an isolated context; ordinary lookup never
@@ -119,7 +172,7 @@ remain visible. Returned APIs do not alone establish ordinary-build applicabilit
 To inspect an upgrade's structural changes, select the original acquired input explicitly:
 
 ```bash
-pse api PACKAGE --compare-with /original/acquisition/document.json --budget 10
+pse inspect api PACKAGE --compare-with /original/acquisition/document.json --budget 10
 ```
 
 Follow the returned cursor unchanged. Comparison reads both complete artifacts and requires
@@ -127,7 +180,7 @@ the backend's lossless typed decoder round trip; unsupported newer declarations 
 unavailable. Changed original bytes, extraction context or backend policy refuse continuation.
 Structural changes alone are not a SemVer or behavioral compatibility verdict.
 
-`--compatibility` explicitly executes separately installed native compatibility rules over
+`pse api PACKAGE --compare-with ORIGINAL --compatibility` explicitly executes installed native rules over
 the two original captures. Prepare that optional tool with
 `pse diagnostic-tools install cargo-semver-checks`. It neither generates a baseline nor updates
 manifests/locks; inspect original findings, exit status, raw streams and differing premises.
@@ -138,9 +191,9 @@ For dependency questions, distinguish declarations, resolved metadata and compil
 
 | Question | Capability and boundary |
 |---|---|
-| Why is this package included? | `pse dep PACKAGE --why` returns shortest metadata inclusion paths. |
-| Which authored feature links request this member? | `dep --feature-member VALUE` follows exact authored expansion links. Optionality, default requests and target expressions remain distinct from Cargo's resolved feature union. |
-| Which actual target/host/build units does this selection admit? | `pse dep units DEPENDENCY ROOT --lib ...` uses the shared check grammar, including multiple roots, features and negative features. This is compiler-unit context, not compilation, provider readiness, a test population or impact proof. |
+| Why is this package included? | `pse inspect dependency PACKAGE --why` returns shortest metadata inclusion paths. |
+| Which authored feature links request this member? | `inspect dependency --feature-member VALUE` follows exact authored expansion links. Optionality, default requests and target expressions remain distinct from Cargo's resolved feature union. |
+| Which actual target/host/build units does this selection admit? | `pse inspect dependency-units DEPENDENCY ROOT --lib ...` uses the shared check grammar, including multiple roots, features and negative features. This is compiler-unit context, not compilation, provider readiness, a test population or impact proof. |
 
 For a concrete unresolved API question, `pse probe new NAME --deps PACKAGE` creates an authored
 isolated workspace seeded with locked dependencies. Edit its source to state the experiment;
@@ -153,14 +206,14 @@ using its result.
 Read original evidence first when a check already failed:
 
 ```bash
-pse compiler diagnostics INVOCATION
+pse inspect diagnostic INVOCATION
 ```
 
-Follow the addressed `compiler diagnostic` action for selected detail. `--source` compares
+Follow the addressed `inspect diagnostic` action for selected detail. `--source` compares
 retained native snippets with current source; `--raw` retains exact Cargo JSON. Related-span
 pages preserve secondary locations, child notes, suggested replacements/applicability and
 macro context. These reads never compile. Matching visible lines does not establish original
-whole-source identity. A returned `code explain` action is guarded against the newly observed
+whole-source identity. A returned `inspect entity --view explain` action is guarded against the newly observed
 whole-source digest and uses a separately prepared current session; its answer belongs to
 current semantics, not retroactively to the original compilation.
 
@@ -187,8 +240,8 @@ facts, runtime behavior or speed measurements. No component is installed implici
 
 Create/edit an authored `pse probe` before `pse compiler probe NAME --question QUESTION`.
 The original probe owner retains its lease, graph, toolchain and output meaning; compiler
-artifact kinds can also select that probe explicitly. Inspect `compiler artifacts INVOCATION`
-for original context, native outcome and file index, then `compiler file INVOCATION INDEX
+artifact kinds can also select that probe explicitly. Inspect `inspect compiler-artifacts INVOCATION`
+for original context, native outcome and file index, then `inspect compiler-artifact INVOCATION INDEX
 --length 4096` for a bounded range. The reader validates the historical whole-file SHA first,
 scanning the complete file and stating that cost. Changed files refuse. Reads neither rerun
 compilation nor prepare a structured compiler driver.
@@ -200,7 +253,7 @@ protected, including a still-running enclosing borrowed owner.
 
 ## Generated-source ownership
 
-When source inspection hits a declared generated output, follow its returned `code origin`
+When source inspection hits a declared generated output, follow its returned `inspect origin`
 action before planning an edit. The action binds the hit's original byte range/digest, reads
 the existing contributor sidecar, exposes declared regeneration argv and offers an outline of
 the known emitter. This helps find the authored declaration or generator that actually owns

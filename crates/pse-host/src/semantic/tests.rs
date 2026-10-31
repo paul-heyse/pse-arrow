@@ -158,14 +158,16 @@ impl Session {
             "stale preparation must not be reused"
         );
         let answer = self.run(
-            &["code", "explain", file, "--line", "1", "--column", "8"],
+            &["inspect", "entity", file, "--line", "1", "--column", "8"],
             1,
         );
         assert_eq!(answer["payload"]["state"], "stale", "{answer}");
     }
     fn expansion(&self, file: &str, line: &str, column: &str) -> String {
         let answer = self.run(
-            &["code", "macro", file, "--line", line, "--column", column],
+            &[
+                "inspect", "entity", "--view", "macro", file, "--line", line, "--column", column,
+            ],
             0,
         );
         answer["payload"]["sections"]
@@ -245,7 +247,9 @@ fn native_journey() {
     let line = text.lines().nth(1).unwrap();
     let column = (line[..line.find("value").unwrap()].chars().count() + 1).to_string();
     let answer = session.run(
-        &["code", "explain", file, "--line", "2", "--column", &column],
+        &[
+            "inspect", "entity", file, "--line", "2", "--column", &column,
+        ],
         0,
     );
     assert!(
@@ -259,7 +263,7 @@ fn native_journey() {
     );
     let preview = session.run(
         &[
-            "code", "edit", "rename", file, "--line", "1", "--column", "8", "--name", "renamed",
+            "propose", "rename", file, "--line", "1", "--column", "8", "--name", "renamed",
         ],
         0,
     );
@@ -271,8 +275,8 @@ fn native_journey() {
     );
     let stale = session.run(
         &[
-            "code",
-            "explain",
+            "inspect",
+            "entity",
             file,
             "--line",
             "1",
@@ -380,7 +384,7 @@ fn native_journey() {
         std::thread::sleep(Duration::from_millis(50));
     }
     let stale = session.run(
-        &["code", "explain", file, "--line", "1", "--column", "8"],
+        &["inspect", "entity", file, "--line", "1", "--column", "8"],
         1,
     );
     assert_eq!(stale["payload"]["state"], "stale");
@@ -510,6 +514,7 @@ async fn socket_peer_cannot_supply_its_own_pid_or_receive_input_without_original
         version: 1,
         invocation,
         configuration: Configuration {
+            backend: Backend::Lsp,
             project: root.clone(),
             features: vec![],
             no_default_features: false,

@@ -59,7 +59,7 @@ pub(super) fn dispatch(
                 selection: None,
                 contexts: None,
             });
-            response.command = "dep units".into();
+            response.command = "inspect dependency-units".into();
             return Ok(output.emit(response)?);
         }
     };
@@ -92,7 +92,7 @@ pub(super) fn dispatch(
         })
         .collect();
     let mut response = crate::envelope::Envelope::response(
-        "dep units",
+        "inspect dependency-units",
         "selected dependency compiler contexts; no build or test listing performed",
         Units {
             dependency: facts.payload,

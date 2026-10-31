@@ -510,11 +510,33 @@ impl SourceFingerprint {
         if &self.context != context {
             return Ok(false);
         }
+        self.recorded_sources_match(root)
+    }
+    /// Recheck the original complete source universe without running Cargo. Callers comparing
+    /// another kind of native context must establish its configuration equivalence separately.
+    pub(crate) fn recorded_sources_match(&self, root: &Path) -> Result<bool, HostError> {
         match self.observe_files(root) {
             Ok(files) => Ok(self.files == files),
             Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
             Err(error) => Err(error),
         }
+    }
+    /// Compare the recorded build-input variables, including newly introduced target inputs.
+    pub(crate) fn recorded_environment_matches(&self, environment: &Environment) -> bool {
+        self.context.environment.iter().all(|(name, expected)| {
+            environment
+                .get(OsStr::new(name))
+                .map(|value| digest(value.as_bytes()))
+                == *expected
+        }) && environment
+            .keys()
+            .filter_map(|key| key.to_str())
+            .filter(|key| {
+                key.starts_with("CARGO_TARGET_")
+                    || key.starts_with("CARGO_BUILD_")
+                    || matches!(*key, "RUSTDOC" | "RUSTUP_TOOLCHAIN")
+            })
+            .all(|key| self.context.environment.contains_key(key))
     }
     /// Compare fresh pre/post construction observations, including a newly resolved closure.
     pub fn require_unchanged(&self, after: &Self) -> Result<(), HostError> {

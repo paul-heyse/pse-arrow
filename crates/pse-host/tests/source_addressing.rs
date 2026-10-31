@@ -64,7 +64,7 @@ fn working_staged_and_committed_unicode_sources_are_selected_without_checkout_pr
     let index_before = std::fs::read(root.path().join(".git/index")).unwrap();
     let working = value(
         pse(root.path())
-            .arg("show")
+            .args(["inspect", "declaration"])
             .arg(&path)
             .args(["--at-line", "1", "--at-column", "4"])
             .output()
@@ -72,7 +72,7 @@ fn working_staged_and_committed_unicode_sources_are_selected_without_checkout_pr
     );
     let staged = value(
         pse(root.path())
-            .arg("show")
+            .args(["inspect", "declaration"])
             .arg(&path)
             .args(["--index", "--at-line", "1", "--at-column", "4"])
             .output()
@@ -80,14 +80,14 @@ fn working_staged_and_committed_unicode_sources_are_selected_without_checkout_pr
     );
     let committed = value(
         pse(root.path())
-            .arg("show")
+            .args(["inspect", "declaration"])
             .arg(&path)
             .args(["--revision", "HEAD", "--at-line", "1", "--at-column", "4"])
             .output()
             .unwrap(),
     );
     for response in [&working, &staged, &committed] {
-        schema(root.path(), "show", response);
+        schema(root.path(), "inspect declaration", response);
     }
     assert_eq!(
         working["payload"]["selection"]["text"],
@@ -115,7 +115,7 @@ fn working_staged_and_committed_unicode_sources_are_selected_without_checkout_pr
     );
     let projected = value(
         pse(root.path())
-            .arg("show")
+            .args(["inspect", "declaration"])
             .arg(&path)
             .args(["--index", "--at-byte", "4", "--fields", "selection"])
             .output()
@@ -142,7 +142,7 @@ fn working_staged_and_committed_unicode_sources_are_selected_without_checkout_pr
     std::fs::remove_file(root.path().join(&path)).unwrap();
     let removed = value(
         pse(root.path())
-            .arg("outline")
+            .args(["inspect", "outline"])
             .arg(&path)
             .args(["--revision", "HEAD"])
             .output()
@@ -167,7 +167,7 @@ fn nested_declaration_pages_retain_coordinates_and_refuse_changed_working_source
     std::fs::write(root.path().join("nested.rs"), source).unwrap();
     let first = value(
         pse(root.path())
-            .args(["outline", "nested.rs", "--budget", "2"])
+            .args(["inspect", "outline", "nested.rs", "--budget", "2"])
             .output()
             .unwrap(),
     );
@@ -184,7 +184,15 @@ fn nested_declaration_pages_retain_coordinates_and_refuse_changed_working_source
     let cursor = first["payload"]["page"]["next_cursor"].as_str().unwrap();
     let second = value(
         pse(root.path())
-            .args(["outline", "nested.rs", "--budget", "2", "--cursor", cursor])
+            .args([
+                "inspect",
+                "outline",
+                "nested.rs",
+                "--budget",
+                "2",
+                "--cursor",
+                cursor,
+            ])
             .output()
             .unwrap(),
     );
@@ -197,6 +205,7 @@ fn nested_declaration_pages_retain_coordinates_and_refuse_changed_working_source
     let final_page = value(
         pse(root.path())
             .args([
+                "inspect",
                 "outline",
                 "nested.rs",
                 "--budget",
@@ -218,7 +227,7 @@ fn nested_declaration_pages_retain_coordinates_and_refuse_changed_working_source
     )
     .unwrap();
     let stale = pse(root.path())
-        .args(["outline", "nested.rs", "--cursor", cursor])
+        .args(["inspect", "outline", "nested.rs", "--cursor", cursor])
         .output()
         .unwrap();
     assert!(!stale.status.success());
@@ -235,7 +244,8 @@ fn unicode_scalar_positions_ranges_and_batch_budget_use_original_bytes() {
     let selected = value(
         pse(root.path())
             .args([
-                "show",
+                "inspect",
+                "declaration",
                 "duplicate.rs",
                 "--at-line",
                 "2",
@@ -259,7 +269,8 @@ fn unicode_scalar_positions_ranges_and_batch_budget_use_original_bytes() {
     let enclosing = value(
         pse(root.path())
             .args([
-                "show",
+                "inspect",
+                "declaration",
                 "duplicate.rs",
                 "--at-line",
                 "2",
@@ -277,7 +288,8 @@ fn unicode_scalar_positions_ranges_and_batch_budget_use_original_bytes() {
     let selected = value(
         pse(root.path())
             .args([
-                "show",
+                "inspect",
+                "declaration",
                 "duplicate.rs",
                 "--range-start",
                 &start.to_string(),
@@ -290,7 +302,8 @@ fn unicode_scalar_positions_ranges_and_batch_budget_use_original_bytes() {
     assert_eq!(selected["payload"]["selection"]["text"], "β");
     let invalid = pse(root.path())
         .args([
-            "show",
+            "inspect",
+            "declaration",
             "duplicate.rs",
             "--range-start",
             &(start + 1).to_string(),
@@ -303,6 +316,7 @@ fn unicode_scalar_positions_ranges_and_batch_budget_use_original_bytes() {
     std::fs::write(root.path().join("last.rs"), "fn last() {}\n").unwrap();
     let output = pse(root.path())
         .args([
+            "inspect",
             "outline",
             "duplicate.rs",
             "missing.rs",

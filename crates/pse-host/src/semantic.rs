@@ -4,6 +4,8 @@
 mod context;
 mod edit;
 mod engine;
+#[cfg(feature = "native-hir")]
+pub mod native;
 mod service;
 #[cfg(test)]
 mod tests;
@@ -12,15 +14,31 @@ use crate::source_proposal::ChangeProposal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 pub use service::{
-    SessionOverview, SessionRecord, SessionStatus, client, load, preparation_lock, prepare_record,
-    serve, socket_path, stop,
+    SessionOverview, SessionRecord, SessionStatus, client, client_cancellable, load,
+    preparation_lock, prepare_record, serve, socket_path, stop,
 };
 use std::path::PathBuf;
+
+/// Explicit context owner; immutable native snapshots are not a second live LSP world.
+#[derive(
+    Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema, clap::ValueEnum,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum Backend {
+    /// The explicitly prepared reusable rust-analyzer LSP session.
+    #[default]
+    Lsp,
+    /// An explicitly prepared immutable compatible-family HIR/IDE snapshot.
+    NativeSnapshot,
+}
 
 /// Selected analysis context; LSP cannot choose an exact Cargo compiler-unit instance.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Configuration {
+    /// Selected semantic context and provider authority.
+    #[serde(default)]
+    pub backend: Backend,
     /// Canonical Cargo project root, independent of the owning checkout.
     pub project: PathBuf,
     /// Explicit feature names passed to the analyzer's Cargo model.
@@ -35,6 +53,9 @@ pub struct Configuration {
 impl Configuration {
     /// Validate and canonicalize before preparation; reads do not prepare a session.
     pub fn resolve(mut self) -> Result<Self> {
+        if self.backend == Backend::NativeSnapshot && self.build_macros {
+            return Err(Error::Unavailable("native snapshot macro/build-script preparation is not supported; explicitly select the live LSP backend for its prepared macro context".into()));
+        }
         self.project = self.project.canonicalize()?;
         if !self.project.join("Cargo.toml").is_file() {
             return Err(Error::Unavailable(
@@ -53,7 +74,7 @@ impl Configuration {
     }
 }
 /// Fixed requests; clients cannot choose arbitrary protocol methods or executable arguments.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Request {
     /// Session state without a semantic query.
@@ -62,9 +83,34 @@ pub enum Request {
     Stop {},
     /// Selected semantic producer.
     Query(Query),
+    /// Name-first workspace discovery in the existing explicitly prepared world.
+    WorkspaceSymbols(WorkspaceQuery),
+}
+/// A name query does not require guessing a source file or position.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WorkspaceQuery {
+    /// Native analyzer name query; provider ranking/ambiguity remain visible.
+    pub query: String,
+    /// Whole native candidate allowance.
+    pub limit: usize,
+    /// Optional original-session generation guard.
+    pub if_generation: Option<u64>,
+}
+/// Native workspace candidates keep their selected configuration and generation.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct WorkspaceAnswer {
+    /// Actual reusable provider and configuration, not source-only parser context.
+    pub session: AnalysisContext,
+    /// Actual synchronized session generation.
+    pub generation: u64,
+    /// Native candidates, without inventing typed fields from hover text.
+    pub symbols: Section,
+    /// Unknown compiler-unit/exhaustiveness remains explicit.
+    pub limitations: Vec<String>,
 }
 /// Explicit source question, with one-based Unicode scalar CLI coordinates.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Query {
     /// Fixed semantic operation.
@@ -193,10 +239,20 @@ pub struct Answer {
     pub position: serde_json::Value,
     /// Whole native views, each retaining the provider's scope.
     pub sections: Vec<Section>,
+    /// Exact original bytes for native source-linked result locations.
+    pub location_sources: Vec<LocationSource>,
     /// Checked immutable source-bound edit proposal, when requested.
     pub proposal: Option<ChangeProposal>,
     /// Explicit interpretation/preparation limits.
     pub limitations: Vec<String>,
+}
+/// A provider-observed location source, retained separately from its native location payload.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct LocationSource {
+    /// Canonical original path in the selected provider context.
+    pub path: PathBuf,
+    /// Original byte digest used when the native result was produced.
+    pub source_sha256: String,
 }
 /// Result presence is independent of backend preparation and compiler correctness.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -208,7 +264,7 @@ pub enum Availability {
     NoMatch,
 }
 /// Compact mandatory query context; full actual capabilities belong to session status.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct AnalysisContext {
     /// Actual analyzer identity.
     pub backend: String,
@@ -221,8 +277,16 @@ pub struct AnalysisContext {
     /// Actual supported preparation boundary.
     pub preparation: String,
 }
+/// Convert native positions through the existing negotiated coordinate owner.
+pub fn native_byte_position(
+    text: &str,
+    position: &serde_json::Value,
+    encoding: &str,
+) -> Result<usize> {
+    engine::byte_position(text, position, encoding)
+}
 /// Serialized service response; a failed query does not terminate the session.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum Reply {
     /// Typed backend response serialized once by its owning producer.
@@ -315,6 +379,13 @@ pub enum Error {
     /// Client request cancellation never implies session cancellation.
     #[error("semantic request canceled; inspect session status for original session availability")]
     Cancelled,
+    /// Cancellation was requested but the original completion reply could not be observed.
+    #[error("native request cancellation requested; CPU settlement remains unobserved: {cause}")]
+    CancellationUnobserved {
+        /// Original transport/protocol failure, independent of the cancellation request.
+        #[source]
+        cause: Box<Error>,
+    },
     /// An old handle/input cannot be joined with current analysis.
     #[error("semantic source/context changed; reacquire the current generation")]
     Stale,

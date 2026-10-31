@@ -380,6 +380,103 @@ impl Engine {
         }
         Ok(())
     }
+    pub(super) async fn workspace_symbols(
+        &self,
+        query: super::WorkspaceQuery,
+    ) -> Result<super::WorkspaceAnswer> {
+        struct Active<'a>(&'a Engine);
+        impl Drop for Active<'_> {
+            fn drop(&mut self) {
+                self.0.release_query();
+            }
+        }
+        self.active.fetch_add(1, Ordering::SeqCst);
+        let _active = Active(self);
+        if self.configuration_exchange.phase.load(Ordering::SeqCst) != 3 {
+            return Err(Error::Unavailable(
+                "explicit analyzer preparation is pending".into(),
+            ));
+        }
+        self.refresh_open_documents()?;
+        self.check_context()?;
+        let status = self.status()?;
+        if status
+            .backend_status
+            .as_ref()
+            .and_then(|value| value["quiescent"].as_bool())
+            == Some(false)
+        {
+            return Err(Error::Unavailable(
+                "analyzer workspace reload is pending".into(),
+            ));
+        }
+        // An unopened native candidate has no byte binding yet. Synchronize the
+        // discovered files through this same owner and repeat the native request;
+        // never attach a post-query filesystem digest to an earlier native range.
+        let mut bound = None;
+        for _ in 0..4 {
+            let generation = self.generation.load(Ordering::SeqCst);
+            if query
+                .if_generation
+                .is_some_and(|expected| expected != generation)
+            {
+                return Err(Error::Stale);
+            }
+            let mut native = request::<types::WorkspaceSymbolRequest>(
+                &self.server,
+                json!({"query":query.query}),
+            )
+            .await?;
+            let mut snapshots = BTreeMap::new();
+            for symbol in native.as_array().into_iter().flatten() {
+                let Some(uri) = symbol.pointer("/location/uri").and_then(Value::as_str) else {
+                    continue;
+                };
+                let Ok(path) = url::Url::parse(uri).map_err(protocol)?.to_file_path() else {
+                    continue;
+                };
+                if snapshots.contains_key(&path) {
+                    continue;
+                }
+                let source = SourceRequest::Working { path: path.clone() }.acquire()?;
+                self.synchronize(&source)?;
+                snapshots.insert(path, source.identity().source_sha256().to_owned());
+            }
+            if generation != self.generation.load(Ordering::SeqCst) {
+                continue;
+            }
+            self.check_generation(generation)?;
+            for symbol in native.as_array_mut().into_iter().flatten() {
+                let digest = symbol
+                    .pointer("/location/uri")
+                    .and_then(Value::as_str)
+                    .and_then(|uri| url::Url::parse(uri).ok())
+                    .and_then(|uri| uri.to_file_path().ok())
+                    .and_then(|path| snapshots.get(&path));
+                if let (Some(digest), Some(object)) = (digest, symbol.as_object_mut()) {
+                    object.insert("source_sha256".into(), json!(digest));
+                }
+            }
+            bound = Some((generation, native));
+            break;
+        }
+        let (generation,native)=bound.ok_or_else(||Error::Unavailable("native symbol candidates changed while binding exact source; repeat the query against a stable selected context".into()))?;
+        Ok(super::WorkspaceAnswer {
+            session: super::AnalysisContext {
+                backend: status.backend,
+                configuration: status.configuration,
+                position_encoding: status.position_encoding,
+                backend_status: status.backend_status,
+                preparation: status.preparation,
+            },
+            generation,
+            symbols: section("workspace_symbols", native, query.limit),
+            limitations: vec![
+                "Native workspace-symbol candidates retain provider ranking and configuration; document symbols and rustdoc item IDs are not interchangeable identities.".into(),
+                "Backend search may be incomplete and cannot select an exact Cargo compiler-unit instance. No compilation or semantic preparation was started by this query.".into(),
+            ],
+        })
+    }
     pub(super) async fn query(&self, query: Query) -> Result<Answer> {
         struct Active<'a>(&'a Engine);
         impl Drop for Active<'_> {
@@ -389,6 +486,20 @@ impl Engine {
         }
         self.active.fetch_add(1, Ordering::SeqCst);
         let _active = Active(self);
+        let mut query = query;
+        for _ in 0..4 {
+            if let Some(answer) = self.query_once(query.clone()).await? {
+                return Ok(answer);
+            }
+            // Native result inputs were added through this same owner. The
+            // original input source guard is unchanged; fence the expanded world.
+            query.if_generation = Some(self.generation.load(Ordering::SeqCst));
+        }
+        Err(Error::Unavailable(
+            "native location sources did not stabilize; repeat the selected query".into(),
+        ))
+    }
+    async fn query_once(&self, query: Query) -> Result<Option<Answer>> {
         if self.configuration_exchange.phase.load(Ordering::SeqCst) != 3 {
             return Err(Error::Unavailable("explicit initial preparation or post-activation configuration is pending; inspect session status".into()));
         }
@@ -718,6 +829,33 @@ impl Engine {
                 }
             }
         }
+        let mut target_paths = std::collections::BTreeSet::new();
+        for section in &sections {
+            if matches!(
+                section.category.as_str(),
+                "definition"
+                    | "type_definition"
+                    | "implementations"
+                    | "references_by_file"
+                    | "incoming_calls_one_hop"
+                    | "outgoing_calls_one_hop"
+                    | "call_hierarchy_roots"
+            ) {
+                collect_location_paths(&section.evidence, &mut target_paths)?;
+            }
+        }
+        let mut location_sources = Vec::new();
+        for path in target_paths {
+            let selected = SourceRequest::Working { path }.acquire()?;
+            self.synchronize(&selected)?;
+            location_sources.push(super::LocationSource {
+                path: selected.identity().path().into(),
+                source_sha256: selected.identity().source_sha256().into(),
+            });
+        }
+        if generation != self.generation.load(Ordering::SeqCst) {
+            return Ok(None);
+        }
         self.check_generation(generation)?;
         if (SourceRequest::Working { path: file.clone() })
             .acquire()?
@@ -753,36 +891,19 @@ impl Engine {
                 ),
             _ => true,
         });
-        Ok(Answer { session, source: source.identity().clone(),source_uri:uri(&file)?,source_byte_offset:crate::source_read::byte_offset(source.text(),query.line,query.column)?,availability:if available{super::Availability::Available}else{super::Availability::NoMatch}, generation, position, sections, proposal,
+        Ok(Some(Answer { session, source: source.identity().clone(),source_uri:uri(&file)?,source_byte_offset:crate::source_read::byte_offset(source.text(),query.line,query.column)?,availability:if available{super::Availability::Available}else{super::Availability::NoMatch}, generation, position, sections, location_sources,proposal,
             limitations: vec![
                 "Analyzer evidence is not Cargo/Clippy/borrow-check acceptance. Macro/build-script preparation is explicit in session context; missing or failed preparation can make answers incomplete.".into(),
                 "The analyzer selects Cargo cfg/test contexts; LSP cannot select an exact compiler-unit/crate instance. Ambiguous same-file contexts remain backend-selected.".into(),
                 "Generation fences selected open documents and effective Cargo/workspace inputs; macro preparation additionally refuses package-tree or declared rerun-input changes. Undeclared external build-script/proc-macro I/O is unknown. Native watchers own other source invalidation; this is not an atomic cross-file filesystem snapshot.".into(),
                 "Typed captures, adjustments and reference categories are unavailable through the pinned protocol. Macro expansion has invocation fallback, not an exact expansion source map.".into(),
                 "Indirect dispatch, callback/FFI edges and universal trait applicability are not established. Test/completion candidates are non-exhaustive; no analyzer-produced command is executed.".into(),
-            ] })
+            ] }))
     }
     fn release_query(&self) {
-        if self.active.fetch_sub(1, Ordering::SeqCst) != 1 {
-            return;
-        }
-        if let Ok(mut documents) = self.documents.lock() {
-            // A concurrent new query increments before acquiring this lock, so it either
-            // keeps these inputs open or observes the complete close before reopening.
-            if self.active.load(Ordering::SeqCst) != 0 {
-                return;
-            }
-            documents.retain(|path, _| {
-                uri(path)
-                    .and_then(|uri| {
-                        notify::<types::DidCloseTextDocumentNotification>(
-                            &self.server,
-                            json!({"textDocument":{"uri":uri}}),
-                        )
-                    })
-                    .is_err()
-            });
-        }
+        // Keep this session's original source/generation history. Discarding it
+        // at idle would let changed targets reuse an old semantic generation.
+        self.active.fetch_sub(1, Ordering::SeqCst);
     }
     fn prepare_edit_inputs(&self, edit: &Value) -> Result<()> {
         for path in super::edit::input_paths(edit, &self.configuration.project)? {
@@ -893,6 +1014,33 @@ pub(super) fn file_digest(path: &Path) -> Result<Option<String>> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error.into()),
     }
+}
+fn collect_location_paths(
+    value: &Value,
+    paths: &mut std::collections::BTreeSet<PathBuf>,
+) -> Result<()> {
+    match value {
+        Value::Object(object) => {
+            for key in ["uri", "targetUri"] {
+                if let Some(uri) = object.get(key).and_then(Value::as_str) {
+                    let uri = url::Url::parse(uri).map_err(protocol)?;
+                    if let Ok(path) = uri.to_file_path() {
+                        paths.insert(path.canonicalize()?);
+                    }
+                }
+            }
+            for child in object.values() {
+                collect_location_paths(child, paths)?;
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                collect_location_paths(item, paths)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
 }
 fn section(category: &str, mut evidence: Value, limit: usize) -> Section {
     let records = if evidence.is_array() {
@@ -1065,6 +1213,7 @@ mod tests {
         let file = fixture.path().join("src/lib.rs");
         std::fs::write(&file, original).unwrap();
         let configuration = Configuration {
+            backend: super::super::Backend::Lsp,
             project: fixture.path().to_owned(),
             features: vec![],
             no_default_features: false,

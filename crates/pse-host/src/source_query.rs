@@ -22,6 +22,8 @@ use schemars::JsonSchema;
 use serde::Serialize;
 use std::borrow::Cow;
 use tokio_util::sync::CancellationToken;
+mod native;
+pub use native::{CompiledSyntax, NativeMatches, ParsedSyntax, native_rule, tree_sitter_query};
 
 #[derive(Clone, Debug)]
 struct RustGrammar;
@@ -214,6 +216,9 @@ pub enum QueryError {
     /// Native fallible pattern-construction failure.
     #[error(transparent)]
     Pattern(#[from] PatternError),
+    /// Native rule compilation retains its complete original cause chain.
+    #[error("native structural rule: {0}")]
+    Rule(#[source] Box<ast_grep_config::RuleCoreError>),
     /// Grammar/runtime refusal is explicit rather than a missing match.
     #[error("syntax backend refused source: {0}")]
     Parse(String),
@@ -257,46 +262,64 @@ struct FileResult {
     matches: Vec<SyntaxMatch>,
     edits: Vec<EditCandidate>,
 }
+struct PreparedQuery {
+    matcher: ast_grep_config::RuleCore,
+    template: Option<TemplateFix>,
+}
+impl PreparedQuery {
+    fn new(query: &Query, replacement: Option<&str>) -> Result<Self, QueryError> {
+        let code = |text: &str| -> Result<serde_json::Value, QueryError> {
+            // Keep the native malformed-pattern refusal, then let the rule family
+            // own relation/capture behavior for the whole request.
+            pattern(text, query.strictness)?;
+            Ok(serde_json::json!({"pattern":{"context":text,"strictness":query.strictness}}))
+        };
+        let mut clauses = vec![code(&query.pattern)?];
+        for text in &query.inside {
+            let mut relation = code(text)?;
+            relation["stopBy"] = serde_json::json!("end");
+            clauses.push(serde_json::json!({"inside":relation}));
+        }
+        for text in &query.has {
+            let mut relation = code(text)?;
+            relation["stopBy"] = serde_json::json!("end");
+            clauses.push(serde_json::json!({"has":relation}));
+        }
+        for text in &query.excluded {
+            clauses.push(serde_json::json!({"not":code(text)?}));
+        }
+        let rule: ast_grep_config::SerializableRuleCore =
+            serde_json::from_value(serde_json::json!({"rule":{"all":clauses}}))?;
+        let matcher = rule
+            .get_matcher(ast_grep_config::DeserializeEnv::new(RustGrammar))
+            .map_err(|error| QueryError::Rule(Box::new(error)))?;
+        for name in &query.captures {
+            if !matcher.defined_vars().contains(name.as_str()) {
+                return Err(QueryError::UndefinedCapture(name.clone()));
+            }
+        }
+        let template = replacement
+            .map(|text| {
+                TemplateFix::try_new(text, &RustGrammar)
+                    .map_err(|error| QueryError::Parse(error.to_string()))
+            })
+            .transpose()?;
+        if let Some(template) = &template {
+            for name in template.used_vars() {
+                if !matcher.defined_vars().contains(name) {
+                    return Err(QueryError::UndefinedCapture(name.into()));
+                }
+            }
+        }
+        Ok(Self { matcher, template })
+    }
+}
 fn analyze(
     source: &SourceText,
     query: &Query,
-    replacement: Option<&str>,
+    prepared: &PreparedQuery,
     limit: usize,
 ) -> Result<FileResult, QueryError> {
-    let matcher = pattern(&query.pattern, query.strictness)?;
-    for name in &query.captures {
-        if !matcher.defined_vars().contains(name.as_str()) {
-            return Err(QueryError::UndefinedCapture(name.clone()));
-        }
-    }
-    let inside = query
-        .inside
-        .iter()
-        .map(|text| pattern(text, query.strictness))
-        .collect::<Result<Vec<_>, _>>()?;
-    let has = query
-        .has
-        .iter()
-        .map(|text| pattern(text, query.strictness))
-        .collect::<Result<Vec<_>, _>>()?;
-    let excluded = query
-        .excluded
-        .iter()
-        .map(|text| pattern(text, query.strictness))
-        .collect::<Result<Vec<_>, _>>()?;
-    let template = replacement
-        .map(|text| {
-            TemplateFix::try_new(text, &RustGrammar)
-                .map_err(|error| QueryError::Parse(error.to_string()))
-        })
-        .transpose()?;
-    if let Some(template) = &template {
-        for variable in template.used_vars() {
-            if !matcher.defined_vars().contains(variable) {
-                return Err(QueryError::UndefinedCapture(variable.into()));
-            }
-        }
-    }
     let document = StrDoc::try_new(source.text(), RustGrammar).map_err(QueryError::Parse)?;
     let tree = AstGrep::doc(document);
     let root = tree.root();
@@ -309,22 +332,7 @@ fn analyze(
     let mut edits = Vec::new();
     let mut total = 0;
     // find_all traverses every native node; replace_all intentionally skips nested matches.
-    for matched in root.find_all(&matcher) {
-        if !inside.iter().all(|pattern| {
-            matched
-                .ancestors()
-                .any(|node| pattern.match_node(node).is_some())
-        }) || !has.iter().all(|pattern| {
-            matched
-                .dfs()
-                .skip(1)
-                .any(|node| pattern.match_node(node).is_some())
-        }) || excluded
-            .iter()
-            .any(|pattern| pattern.match_node(matched.get_node().clone()).is_some())
-        {
-            continue;
-        }
+    for matched in root.find_all(&prepared.matcher) {
         total += 1;
         if matches.len() >= limit {
             continue;
@@ -362,7 +370,7 @@ fn analyze(
             });
         }
         captures.sort_by(|left, right| left.name.cmp(&right.name));
-        if let Some(template) = &template {
+        if let Some(template) = &prepared.template {
             let edit = matched.replace_by(template);
             let text = String::from_utf8(edit.inserted_text)
                 .map_err(|error| QueryError::Parse(error.to_string()))?;
@@ -403,37 +411,37 @@ fn execute(
     selected: Vec<usize>,
     token: CancellationToken,
 ) -> Result<(QueryReport, Option<ChangeProposal>), QueryError> {
+    let prepared = PreparedQuery::new(&query, replacement.as_deref())?;
     let inputs = requests
         .into_par_iter()
         .map(|request| request.acquire())
         .collect::<Result<Vec<_>, _>>()?;
-    // Count without retaining candidate records, then give each worker its deterministic quota.
-    let counts = inputs
-        .par_iter()
-        .map(|source| {
-            analyze(source, &query, replacement.as_deref(), 0)
-                .map(|result| result.coverage.total_matches)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut remaining = query.max_records.unwrap_or(usize::MAX);
-    let quotas: Vec<_> = counts
-        .iter()
-        .map(|count| {
-            let quota = (*count).min(remaining);
-            remaining -= quota;
-            quota
-        })
-        .collect();
+    // Each source is analyzed once. Exact totals come from the same native traversal;
+    // per-file retention never exceeds the global requested allowance.
     let results = inputs
         .par_iter()
-        .zip(quotas)
-        .map(|(source, quota)| analyze(source, &query, replacement.as_deref(), quota))
+        .map(|source| {
+            analyze(
+                source,
+                &query,
+                &prepared,
+                query.max_records.unwrap_or(usize::MAX),
+            )
+        })
         .collect::<Result<Vec<_>, _>>()?;
+    let total_matches = results
+        .iter()
+        .map(|result| result.coverage.total_matches)
+        .sum::<usize>();
+    let mut remaining = query.max_records.unwrap_or(usize::MAX);
     let mut sources = Vec::new();
     let mut matches = Vec::new();
     let mut edits = Vec::new();
     let mut originals = Vec::new();
     for (original, mut result) in inputs.into_iter().zip(results) {
+        result.matches.truncate(remaining);
+        result.edits.truncate(remaining);
+        remaining = remaining.saturating_sub(result.matches.len());
         for matched in &mut result.matches {
             matched.index += matches.len();
         }
@@ -444,7 +452,6 @@ fn execute(
         matches.extend(result.matches);
         edits.extend(result.edits);
     }
-    let total_matches = counts.iter().sum();
     let omitted_matches = total_matches - matches.len();
     let proposal = if replacement.is_some() {
         Some(ChangeProposal::new(
@@ -481,6 +488,40 @@ fn execute(
         },
         proposal,
     ))
+}
+/// Re-match one exactly selected candidate and construct a capture-preserving preview.
+/// The selected range cannot drift to another occurrence with the same spelling.
+pub fn preview_selected(
+    source: SourceText,
+    selected: std::ops::Range<usize>,
+    pattern_text: &str,
+    strictness: Strictness,
+    replacement: &str,
+) -> Result<ChangeProposal, QueryError> {
+    let query = Query {
+        pattern: pattern_text.into(),
+        strictness,
+        inside: Vec::new(),
+        has: Vec::new(),
+        excluded: Vec::new(),
+        captures: Vec::new(),
+        edition: RustEdition::E2024,
+        max_records: None,
+    };
+    let prepared = PreparedQuery::new(&query, Some(replacement))?;
+    let result = analyze(&source, &query, &prepared, usize::MAX)?;
+    let Some(index) = result.matches.iter().position(|candidate| {
+        candidate.locator.range.byte_start == selected.start
+            && candidate.locator.range.byte_end == selected.end
+    }) else {
+        return Err(QueryError::Unavailable(
+            "selected range is not a current candidate of the explicit native pattern".into(),
+        ));
+    };
+    let edit = result.edits.into_iter().nth(index).ok_or_else(|| {
+        QueryError::Unavailable("native pattern supplied no edit for the selected candidate".into())
+    })?;
+    Ok(ChangeProposal::new(ProducerContext::Syntax {backend:"ast-grep-core/0.51.0;tree-sitter-rust/0.24.2".into(),configuration:format!("selected exact range; strictness={strictness:?}; native capture-preserving template")},vec![source],vec![edit],vec![0],vec!["Syntax preview only; no semantic identity, compilation or source/index application established".into()],vec![])?)
 }
 fn envelope<T>(command: &str, payload: T, partial: bool) -> Envelope<T> {
     let mut response = Envelope::response(
@@ -530,7 +571,7 @@ pub fn start_preview(
             });
         let providers = providers(&report)?;
         let mut response = envelope(
-            "code preview",
+            "propose syntax",
             PreviewReport {
                 query: report,
                 proposal: proposal.ok_or_else(|| {

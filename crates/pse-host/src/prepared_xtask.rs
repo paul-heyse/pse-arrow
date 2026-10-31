@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Explicit native xtask capture; passive selection never compiles or reconstructs its parser.
+//! Explicit native tool capture; passive selection never compiles or reconstructs a target.
 mod process;
 use crate::{
     catalog::description::{Availability, Description, Page},
@@ -35,14 +35,82 @@ const SHARED_INPUTS: &[&str] = &[
     "scripts/generated-outputs.rs",
 ];
 
+/// A source-built immutable helper, with one authoritative artifact/feature profile.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+    clap::ValueEnum,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum NativeToolTarget {
+    /// Existing development composition and document owner.
+    #[default]
+    Xtask,
+    /// Explicitly prepared native HIR/IDE semantic service.
+    NativeAnalysis,
+}
+struct ToolProfile {
+    name: &'static str,
+    package: &'static str,
+    binary: &'static str,
+    source: &'static str,
+    features: &'static [&'static str],
+}
+impl NativeToolTarget {
+    fn profile(self) -> ToolProfile {
+        match self {
+            Self::Xtask => ToolProfile {
+                name: "xtask",
+                package: "xtask",
+                binary: "xtask",
+                source: "xtask/src/main.rs",
+                features: &["force-validate"],
+            },
+            Self::NativeAnalysis => ToolProfile {
+                name: "native-analysis",
+                package: "pse-host",
+                binary: "pse-native-analysis",
+                source: "crates/pse-host/src/bin/pse-native-analysis.rs",
+                features: &["native-hir"],
+            },
+        }
+    }
+    /// Fixed preparation namespace, also used by the command grammar.
+    pub fn name(self) -> &'static str {
+        self.profile().name
+    }
+    fn features(self) -> BTreeSet<String> {
+        self.profile()
+            .features
+            .iter()
+            .map(|f| (*f).into())
+            .collect()
+    }
+    fn manifest(self) -> String {
+        format!("{}.json", self.name())
+    }
+}
+impl std::fmt::Display for NativeToolTarget {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.name())
+    }
+}
+
 /// Original preparation/read failure, never an empty successful owner response.
 #[derive(Debug, thiserror::Error)]
-pub enum PreparedXtaskError {
+pub enum PreparedNativeToolError {
     /// Original file/pipe failure.
-    #[error("prepared xtask I/O: {0}")]
+    #[error("prepared native tool I/O: {0}")]
     Io(#[from] std::io::Error),
     /// Original native external record decoding failure.
-    #[error("prepared xtask JSON: {0}")]
+    #[error("prepared native tool JSON: {0}")]
     Json(#[from] serde_json::Error),
     /// Original compiler admission/capture refusal.
     #[error(transparent)]
@@ -57,17 +125,17 @@ pub enum PreparedXtaskError {
     #[error(transparent)]
     Supervision(#[from] pse_diagnostics::SupervisionError),
     /// Preserved independent failures after all owned drains and child settlement were attempted.
-    #[error("prepared xtask child failed in {} independent responsibilities", failures.len())]
+    #[error("prepared native tool child failed in {} independent responsibilities", failures.len())]
     Execution {
         /// Original independent failures.
-        failures: Vec<PreparedXtaskError>,
+        failures: Vec<PreparedNativeToolError>,
         /// Original bounded stdout prefix.
         stdout: Vec<u8>,
         /// Original bounded stderr prefix.
         stderr: Vec<u8>,
     },
     /// Native command refusal retains original status and streams.
-    #[error("prepared xtask {phase} exited {status}")]
+    #[error("prepared native tool {phase} exited {status}")]
     Command {
         /// Exact preparation or typed read phase.
         phase: &'static str,
@@ -79,7 +147,7 @@ pub enum PreparedXtaskError {
         stderr: Vec<u8>,
     },
     /// A complete native read cannot be established from a truncated prefix.
-    #[error("prepared xtask {phase} emitted {bytes} bytes beyond its complete-read extent")]
+    #[error("prepared native tool {phase} emitted {bytes} bytes beyond its complete-read extent")]
     Extent {
         /// Typed native read phase.
         phase: &'static str,
@@ -91,36 +159,38 @@ pub enum PreparedXtaskError {
         stderr: Vec<u8>,
     },
     /// Build zero is independent of publishing the required native compiler capture.
-    #[error("prepared xtask compiler evidence at {path}: {source}")]
+    #[error("prepared native tool compiler evidence at {path}: {source}")]
     BuildEvidence {
         /// Fixed original callback destination.
         path: PathBuf,
         /// Original read/decoding cause.
-        source: Box<PreparedXtaskError>,
+        source: Box<PreparedNativeToolError>,
     },
     /// Passive current-selection failure retains the original pointer/open cause.
     #[error(
-        "current xtask selection at {path} is unavailable; explicitly run pse tools prepare xtask: {source}"
+        "current {target} selection at {path} is unavailable; explicitly run pse tools prepare {target}: {source}"
     )]
     CurrentSelection {
+        /// Actual immutable tool target which must be explicitly prepared.
+        target: NativeToolTarget,
         /// Fixed checkout-private current selector, never an arbitrary executable path.
         path: PathBuf,
         /// Original source/manifest/association failure.
         #[source]
-        source: Box<PreparedXtaskError>,
+        source: Box<PreparedNativeToolError>,
     },
     /// Missing, stale or inconsistent evidence refuses use without repair.
-    #[error("prepared xtask: {0}")]
+    #[error("prepared native tool: {0}")]
     Invalid(String),
 }
 pse_diagnostics::impl_diagnostic! {
-    PreparedXtaskError,
+    PreparedNativeToolError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::HostOwnership) },
     forward(this) { match this { Self::Host(error) => Some(error), Self::Environment(error) => Some(error), Self::Correctness(error) => Some(error), Self::Supervision(error) => Some(error), Self::BuildEvidence { source, .. } | Self::CurrentSelection {source,..} => Some(source.as_ref()), _ => None } },
     help(_this) { None }, related(this) { match this { Self::Execution { failures, .. } => Some(Box::new(failures.iter().map(|error| { let error: &dyn pse_diagnostics::TypedDiagnostic = error; error }))), _ => None } }, source(_this) { None }
 }
-fn invalid(message: impl Into<String>) -> PreparedXtaskError {
-    PreparedXtaskError::Invalid(message.into())
+fn invalid(message: impl Into<String>) -> PreparedNativeToolError {
+    PreparedNativeToolError::Invalid(message.into())
 }
 fn hash(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
@@ -128,7 +198,7 @@ fn hash(bytes: &[u8]) -> String {
         .map(|byte| format!("{byte:02x}"))
         .collect()
 }
-fn private_directory(path: &Path, create: bool) -> Result<(), PreparedXtaskError> {
+fn private_directory(path: &Path, create: bool) -> Result<(), PreparedNativeToolError> {
     if create {
         match fs::DirBuilder::new().mode(0o700).create(path) {
             Ok(()) => {}
@@ -148,7 +218,7 @@ fn private_directory(path: &Path, create: bool) -> Result<(), PreparedXtaskError
     }
     Ok(())
 }
-fn read(path: &Path, maximum: usize) -> Result<Vec<u8>, PreparedXtaskError> {
+fn read(path: &Path, maximum: usize) -> Result<Vec<u8>, PreparedNativeToolError> {
     let file = OpenOptions::new()
         .read(true)
         .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
@@ -164,7 +234,7 @@ fn read(path: &Path, maximum: usize) -> Result<Vec<u8>, PreparedXtaskError> {
     }
     Ok(bytes)
 }
-fn publish(path: &Path, bytes: &[u8]) -> Result<(), PreparedXtaskError> {
+fn publish(path: &Path, bytes: &[u8]) -> Result<(), PreparedNativeToolError> {
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -194,6 +264,8 @@ impl Evidence {
 #[serde(deny_unknown_fields)]
 struct Manifest {
     version: u32,
+    #[serde(default)]
+    target: NativeToolTarget,
     checkout_id: String,
     selection_id: String,
     executable: Executable,
@@ -202,8 +274,10 @@ struct Manifest {
     context: BuildContext,
     features: BTreeSet<String>,
     build: Evidence,
-    catalog: Evidence,
-    owner_schema: Evidence,
+    catalog: Option<Evidence>,
+    owner_schema: Option<Evidence>,
+    #[serde(default)]
+    protocol: Option<Evidence>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -215,7 +289,7 @@ struct CurrentSelection {
 
 /// Authenticated retained executable plus its original compiler/parser/schema evidence.
 #[derive(Debug)]
-pub struct PreparedXtask {
+pub struct PreparedNativeTool {
     checkout: PathBuf,
     directory: PathBuf,
     manifest: Manifest,
@@ -234,14 +308,16 @@ pub(crate) fn passive_read(arguments: &[OsString]) -> bool {
         .take_while(|argument| argument.as_os_str() != "--")
         .any(|argument| argument == "--schema" || argument == "--help" || argument == "-h")
 }
-impl PreparedXtask {
+impl PreparedNativeTool {
     /// Run a known passive native docs read without source preparation or a managed wrapper.
     pub(crate) fn read_passive_docs(
         &self,
         arguments: Vec<OsString>,
         environment: &Environment,
-    ) -> Result<NativeRead, PreparedXtaskError> {
-        if arguments.first().is_none_or(|argument| argument != "docs") || !passive_read(&arguments)
+    ) -> Result<NativeRead, PreparedNativeToolError> {
+        if self.manifest.target != NativeToolTarget::Xtask
+            || arguments.first().is_none_or(|argument| argument != "docs")
+            || !passive_read(&arguments)
         {
             return Err(invalid(
                 "native passive docs reads require explicit help/schema before a literal argument tail",
@@ -254,7 +330,7 @@ impl PreparedXtask {
         command.args(arguments);
         let output = process::run(command, MAX_DOCUMENT, Some(READ_TIMEOUT))?;
         if output.stdout_bytes > MAX_DOCUMENT as u64 {
-            return Err(PreparedXtaskError::Extent {
+            return Err(PreparedNativeToolError::Extent {
                 phase: "passive-docs",
                 bytes: output.stdout_bytes,
                 stdout: output.stdout,
@@ -268,33 +344,49 @@ impl PreparedXtask {
         })
     }
     /// Read the explicitly prepared current selection without compiling, creating or repairing it.
-    pub fn current(checkout: &Path, environment: &Environment) -> Result<Self, PreparedXtaskError> {
+    pub fn current(
+        checkout: &Path,
+        environment: &Environment,
+    ) -> Result<Self, PreparedNativeToolError> {
+        Self::current_for(checkout, environment, NativeToolTarget::Xtask)
+    }
+    /// Select an existing target-specific helper without compiling or repairing it.
+    pub fn current_for(
+        checkout: &Path,
+        environment: &Environment,
+        target: NativeToolTarget,
+    ) -> Result<Self, PreparedNativeToolError> {
         let checkout = checkout.canonicalize()?;
         let state = CheckoutState::resolve(&checkout, environment)?;
-        let path = state.root.join("tools/xtask/current.json");
+        let path = state
+            .root
+            .join("tools")
+            .join(target.name())
+            .join("current.json");
         let operation = (|| {
             private_directory(&state.root, false)?;
             private_directory(&state.root.join("tools"), false)?;
-            private_directory(&state.root.join("tools/xtask"), false)?;
+            private_directory(&state.root.join("tools").join(target.name()), false)?;
             let current: CurrentSelection = serde_json::from_slice(&read(&path, 4096)?)?;
             if current.version != 1 || current.checkout_id != state.checkout_id.as_str() {
                 return Err(invalid(
-                    "current xtask pointer belongs to another checkout or unsupported version",
+                    "current native tool pointer belongs to another checkout or unsupported version",
                 ));
             }
-            Self::open(&checkout, environment, &current.selection_id)
+            Self::open_for(&checkout, environment, &current.selection_id, target)
         })();
-        operation.map_err(|source| PreparedXtaskError::CurrentSelection {
+        operation.map_err(|source| PreparedNativeToolError::CurrentSelection {
+            target,
             path,
             source: Box::new(source),
         })
     }
-    fn select_current(&self) -> Result<(), PreparedXtaskError> {
+    fn select_current(&self) -> Result<(), PreparedNativeToolError> {
         self.verify()?;
         let parent = self
             .directory
             .parent()
-            .ok_or_else(|| invalid("xtask selection parent absent"))?;
+            .ok_or_else(|| invalid("native tool selection parent absent"))?;
         private_directory(parent, false)?;
         let path = parent.join("current.json");
         match fs::symlink_metadata(&path) {
@@ -302,7 +394,7 @@ impl PreparedXtask {
                 if !metadata.is_file() || metadata.uid() != rustix::process::geteuid().as_raw() =>
             {
                 return Err(invalid(
-                    "current xtask selector must be a regular owned file",
+                    "current native tool selector must be a regular owned file",
                 ));
             }
             Ok(_) => {}
@@ -328,6 +420,10 @@ impl PreparedXtask {
     pub fn id(&self) -> &str {
         &self.manifest.selection_id
     }
+    /// Actual authenticated target, never inferred from an executable filename.
+    pub fn target(&self) -> NativeToolTarget {
+        self.manifest.target
+    }
     /// Exact captured program identity.
     pub fn executable(&self) -> &Executable {
         &self.manifest.executable
@@ -337,7 +433,7 @@ impl PreparedXtask {
         &self.manifest.features
     }
     /// Original compiled source/context identity; no currentness claim follows from the digest.
-    pub fn source_identity(&self) -> Result<String, PreparedXtaskError> {
+    pub fn source_identity(&self) -> Result<String, PreparedNativeToolError> {
         Ok(self.manifest.source.digest()?)
     }
     /// Open an existing selection using only original retained evidence and source reads.
@@ -345,24 +441,34 @@ impl PreparedXtask {
         checkout: &Path,
         environment: &Environment,
         id: &str,
-    ) -> Result<Self, PreparedXtaskError> {
+    ) -> Result<Self, PreparedNativeToolError> {
+        Self::open_for(checkout, environment, id, NativeToolTarget::Xtask)
+    }
+    /// Authenticate a selected helper against its target-specific source/artifact profile.
+    pub fn open_for(
+        checkout: &Path,
+        environment: &Environment,
+        id: &str,
+        target: NativeToolTarget,
+    ) -> Result<Self, PreparedNativeToolError> {
         if id.len() != 36 || uuid::Uuid::parse_str(id).is_err() {
-            return Err(invalid("invalid xtask selection key"));
+            return Err(invalid("invalid native tool selection key"));
         }
         let checkout = checkout.canonicalize()?;
         let state = CheckoutState::resolve(&checkout, environment)?;
         private_directory(&state.root, false)?;
         private_directory(&state.root.join("tools"), false)?;
-        private_directory(&state.root.join("tools/xtask"), false)?;
-        let directory = state.root.join("tools/xtask").join(id);
+        private_directory(&state.root.join("tools").join(target.name()), false)?;
+        let directory = state.root.join("tools").join(target.name()).join(id);
         private_directory(&directory, false)?;
         let manifest: Manifest =
-            serde_json::from_slice(&read(&directory.join("xtask.json"), MAX_MANIFEST)?)?;
+            serde_json::from_slice(&read(&directory.join(target.manifest()), MAX_MANIFEST)?)?;
         if manifest.version != 1
             || manifest.checkout_id != state.checkout_id.as_str()
             || manifest.selection_id != id
+            || manifest.target != target
         {
-            return Err(invalid("xtask checkout/selection manifest mismatch"));
+            return Err(invalid("native tool checkout/selection manifest mismatch"));
         }
         let selected = Self {
             checkout,
@@ -377,7 +483,7 @@ impl PreparedXtask {
         record: &Evidence,
         name: &str,
         maximum: usize,
-    ) -> Result<Vec<u8>, PreparedXtaskError> {
+    ) -> Result<Vec<u8>, PreparedNativeToolError> {
         if record.name != name {
             return Err(invalid("evidence path differs from its fixed association"));
         }
@@ -389,7 +495,7 @@ impl PreparedXtask {
         }
         Ok(bytes)
     }
-    fn verify(&self) -> Result<(), PreparedXtaskError> {
+    fn verify(&self) -> Result<(), PreparedNativeToolError> {
         private_directory(&self.directory, false)?;
         private_directory(&self.directory.join("build"), false)?;
         if self.manifest.control.captured != self.directory.join("cargo-pse-correctness") {
@@ -403,41 +509,88 @@ impl PreparedXtask {
             "build/build.json",
             MAX_DOCUMENT,
         )?)?;
-        let executable = select_executable(&build, &self.directory, &self.checkout)?;
+        let executable = select_executable_for(
+            &build,
+            &self.directory,
+            &self.checkout,
+            self.manifest.target,
+        )?;
         if executable != &self.manifest.executable {
             return Err(invalid(
                 "selected executable differs from original compiler capture",
             ));
         }
-        if self.manifest.features != BTreeSet::from(["force-validate".into()]) {
-            return Err(invalid("unsupported captured xtask feature profile"));
+        if self.manifest.features != self.manifest.target.features() {
+            return Err(invalid("unsupported captured native tool feature profile"));
         }
         executable.verify()?;
-        catalog_document(&self.evidence(&self.manifest.catalog, "commands.json", MAX_DOCUMENT)?)?;
-        schema_document(&self.evidence(
-            &self.manifest.owner_schema,
-            "owner-schema.json",
-            MAX_DOCUMENT,
-        )?)?;
+        match self.manifest.target {
+            NativeToolTarget::Xtask => {
+                if self.manifest.protocol.is_some() {
+                    return Err(invalid(
+                        "xtask cannot carry native-analysis protocol evidence",
+                    ));
+                }
+                catalog_document(
+                    &self.evidence(
+                        self.manifest
+                            .catalog
+                            .as_ref()
+                            .ok_or_else(|| invalid("xtask parser evidence absent"))?,
+                        "commands.json",
+                        MAX_DOCUMENT,
+                    )?,
+                )?;
+                schema_document(
+                    &self.evidence(
+                        self.manifest
+                            .owner_schema
+                            .as_ref()
+                            .ok_or_else(|| invalid("xtask owner schema absent"))?,
+                        "owner-schema.json",
+                        MAX_DOCUMENT,
+                    )?,
+                )?;
+            }
+            NativeToolTarget::NativeAnalysis => {
+                if self.manifest.catalog.is_some() || self.manifest.owner_schema.is_some() {
+                    return Err(invalid(
+                        "native analysis is not an xtask parser/document owner",
+                    ));
+                }
+                protocol_document(
+                    &self.evidence(
+                        self.manifest
+                            .protocol
+                            .as_ref()
+                            .ok_or_else(|| invalid("native semantic protocol evidence absent"))?,
+                        "protocol.json",
+                        MAX_DOCUMENT,
+                    )?,
+                )?;
+            }
+        }
         Ok(())
     }
-    fn require_current_sources(&self) -> Result<(), PreparedXtaskError> {
+    fn require_current_sources(&self) -> Result<(), PreparedNativeToolError> {
         if !self
             .manifest
             .source
             .matches_sources(&self.checkout, &self.manifest.context)?
         {
             return Err(invalid(
-                "xtask source association is stale; prepare a new selection explicitly",
+                "native tool source association is stale; prepare a new selection explicitly",
             ));
         }
         Ok(())
     }
     /// Original native parser export. Missing per-verb metadata remains unavailable in it.
-    pub fn catalog(&self) -> Result<Page<Description>, PreparedXtaskError> {
+    pub fn catalog(&self) -> Result<Page<Description>, PreparedNativeToolError> {
         self.verify()?;
         let mut page = catalog_document(&self.evidence(
-            &self.manifest.catalog,
+            self.manifest.catalog.as_ref().ok_or_else(|| {
+                invalid("this target exposes its fixed semantic protocol, not an xtask catalog")
+            })?,
             "commands.json",
             MAX_DOCUMENT,
         )?)?;
@@ -447,13 +600,32 @@ impl PreparedXtask {
         Ok(page)
     }
     /// Exact response schema emitted by the captured native document owner.
-    pub fn owner_schema(&self) -> Result<serde_json::Value, PreparedXtaskError> {
+    pub fn owner_schema(&self) -> Result<serde_json::Value, PreparedNativeToolError> {
         self.verify()?;
-        schema_document(&self.evidence(
-            &self.manifest.owner_schema,
-            "owner-schema.json",
-            MAX_DOCUMENT,
-        )?)
+        schema_document(
+            &self.evidence(
+                self.manifest
+                    .owner_schema
+                    .as_ref()
+                    .ok_or_else(|| invalid("this target has no document-owner response schema"))?,
+                "owner-schema.json",
+                MAX_DOCUMENT,
+            )?,
+        )
+    }
+    /// Original fixed semantic request/configuration/reply schemas from the captured helper.
+    pub fn protocol(&self) -> Result<serde_json::Value, PreparedNativeToolError> {
+        self.verify()?;
+        protocol_document(
+            &self.evidence(
+                self.manifest
+                    .protocol
+                    .as_ref()
+                    .ok_or_else(|| invalid("this target has no native semantic protocol"))?,
+                "protocol.json",
+                MAX_DOCUMENT,
+            )?,
+        )
     }
     /// Return exact process inputs for the shared managed owner; this starts no child.
     /// The caller retains admission, invocation and physical lifecycle responsibility.
@@ -461,7 +633,7 @@ impl PreparedXtask {
         &self,
         arguments: Vec<OsString>,
         environment: Environment,
-    ) -> Result<PayloadCommand, PreparedXtaskError> {
+    ) -> Result<PayloadCommand, PreparedNativeToolError> {
         self.verify()?;
         self.require_current_sources()?;
         Ok(PayloadCommand {
@@ -476,7 +648,10 @@ impl PreparedXtask {
         &self,
         path: &Path,
         environment: &Environment,
-    ) -> Result<DocumentOwnership, PreparedXtaskError> {
+    ) -> Result<DocumentOwnership, PreparedNativeToolError> {
+        if self.manifest.target != NativeToolTarget::Xtask {
+            return Err(invalid("document ownership requires the xtask target"));
+        }
         self.verify()?;
         self.require_current_sources()?;
         let mut command = self.command(environment);
@@ -503,7 +678,7 @@ impl PreparedXtask {
     }
 }
 
-fn catalog_document(bytes: &[u8]) -> Result<Page<Description>, PreparedXtaskError> {
+fn catalog_document(bytes: &[u8]) -> Result<Page<Description>, PreparedNativeToolError> {
     let page: Page<Description> = serde_json::from_slice(bytes)?;
     if page.availability != Availability::Available
         || page.source.owner != "compiled xtask command parser"
@@ -516,7 +691,7 @@ fn catalog_document(bytes: &[u8]) -> Result<Page<Description>, PreparedXtaskErro
     }
     Ok(page)
 }
-fn schema_document(bytes: &[u8]) -> Result<serde_json::Value, PreparedXtaskError> {
+fn schema_document(bytes: &[u8]) -> Result<serde_json::Value, PreparedNativeToolError> {
     let value: serde_json::Value = serde_json::from_slice(bytes)?;
     if !value.is_object()
         || !value
@@ -529,11 +704,46 @@ fn schema_document(bytes: &[u8]) -> Result<serde_json::Value, PreparedXtaskError
     }
     Ok(value)
 }
+fn protocol_document(bytes: &[u8]) -> Result<serde_json::Value, PreparedNativeToolError> {
+    let value: serde_json::Value = serde_json::from_slice(bytes)?;
+    if value.get("version").and_then(serde_json::Value::as_u64) != Some(1)
+        || value.get("tool").and_then(serde_json::Value::as_str) != Some("native-analysis")
+    {
+        return Err(invalid(
+            "native semantic protocol belongs to another target or version",
+        ));
+    }
+    for name in ["request_schema", "configuration_schema", "response_schema"] {
+        let schema = value
+            .get(name)
+            .ok_or_else(|| invalid(format!("native semantic protocol omits {name}")))?;
+        if !schema.is_object()
+            || !schema
+                .get("$schema")
+                .is_some_and(serde_json::Value::is_string)
+        {
+            return Err(invalid(
+                "native semantic protocol requires actual directional JSON Schemas",
+            ));
+        }
+    }
+    Ok(value)
+}
+#[cfg(test)]
 fn select_executable<'a>(
     build: &'a BuildCapture,
     directory: &Path,
     checkout: &Path,
-) -> Result<&'a Executable, PreparedXtaskError> {
+) -> Result<&'a Executable, PreparedNativeToolError> {
+    select_executable_for(build, directory, checkout, NativeToolTarget::Xtask)
+}
+fn select_executable_for<'a>(
+    build: &'a BuildCapture,
+    directory: &Path,
+    checkout: &Path,
+    target: NativeToolTarget,
+) -> Result<&'a Executable, PreparedNativeToolError> {
+    let profile = target.profile();
     if build.version != 1 || build.cargo_exit != 0 || !build.incomplete.is_empty() {
         return Err(invalid("compiler capture is failed or incomplete"));
     }
@@ -542,7 +752,7 @@ fn select_executable<'a>(
         .iter()
         .enumerate()
         .filter(|(_, artifact)| {
-            artifact.cargo.target.name == "xtask"
+            artifact.cargo.target.name == profile.binary
                 && artifact
                     .cargo
                     .target
@@ -552,36 +762,36 @@ fn select_executable<'a>(
         })
         .collect();
     let [(index, artifact)] = artifacts.as_slice() else {
-        return Err(invalid(
-            "compiler capture does not select exactly one xtask binary",
-        ));
+        return Err(invalid(format!(
+            "compiler capture does not select exactly one {} binary",
+            profile.binary
+        )));
     };
     let features: BTreeSet<_> = artifact.cargo.features.iter().cloned().collect();
-    let original =
-        artifact.cargo.executable.as_ref().ok_or_else(|| {
-            invalid("selected xtask compiler artifact has no original executable")
-        })?;
-    if features != BTreeSet::from(["force-validate".into()])
+    let original = artifact.cargo.executable.as_ref().ok_or_else(|| {
+        invalid("selected native tool compiler artifact has no original executable")
+    })?;
+    if features != target.features()
         || artifact.executable.original != original.as_std_path()
         || artifact.executable.captured
             != capture::artifact_path(&directory.join("build"), *index, original.as_std_path())?
-        || artifact.cargo.target.src_path.as_std_path() != checkout.join("xtask/src/main.rs")
+        || artifact.cargo.target.src_path.as_std_path() != checkout.join(profile.source)
     {
         return Err(invalid(
-            "compiler artifact differs from the bounded xtask source/feature/capture profile",
+            "compiler artifact differs from the selected native tool source/feature/capture profile",
         ));
     }
     if !build.resolution.units.iter().any(|unit| {
         unit.root
-            && unit.package_name == "xtask"
+            && unit.package_name == profile.package
             && unit.package_id == artifact.cargo.package_id.repr
-            && unit.target_name == "xtask"
+            && unit.target_name == profile.binary
             && unit.mode == "build"
             && unit.source_path == artifact.cargo.target.src_path.as_str()
             && unit.features == features
     }) {
         return Err(invalid(
-            "admitted compiler units do not bind the same xtask artifact",
+            "admitted compiler units do not bind the same native tool artifact",
         ));
     }
     Ok(&artifact.executable)
@@ -590,9 +800,9 @@ fn successful(
     output: process::Output,
     phase: &'static str,
     complete: bool,
-) -> Result<Vec<u8>, PreparedXtaskError> {
+) -> Result<Vec<u8>, PreparedNativeToolError> {
     if output.status != 0 {
-        return Err(PreparedXtaskError::Command {
+        return Err(PreparedNativeToolError::Command {
             phase,
             status: output.status,
             stdout: output.stdout,
@@ -600,7 +810,7 @@ fn successful(
         });
     }
     if complete && output.stdout_bytes > output.stdout.len() as u64 {
-        return Err(PreparedXtaskError::Extent {
+        return Err(PreparedNativeToolError::Extent {
             phase,
             bytes: output.stdout_bytes,
             stdout: output.stdout,
@@ -609,12 +819,13 @@ fn successful(
     }
     Ok(output.stdout)
 }
-fn source(
+fn source_for(
     checkout: &Path,
     environment: &Environment,
-) -> Result<(SourceFingerprint, BuildContext, correctness::Resolution), PreparedXtaskError> {
+    target: NativeToolTarget,
+) -> Result<(SourceFingerprint, BuildContext, correctness::Resolution), PreparedNativeToolError> {
     let cargo = correctness::real_cargo_in(environment)?;
-    let observed = |program: &OsStr| -> Result<String, PreparedXtaskError> {
+    let observed = |program: &OsStr| -> Result<String, PreparedNativeToolError> {
         let mut command = Command::new(program);
         command
             .arg("-vV")
@@ -635,9 +846,21 @@ fn source(
         observed(rustc)?,
         observed(&cargo)?,
         "dev".into(),
-        BTreeSet::from(["xtask/force-validate".into()]),
+        target
+            .profile()
+            .features
+            .iter()
+            .map(|feature| format!("{}/{feature}", target.profile().package))
+            .collect(),
         environment,
     );
+    let scoped_features = target
+        .profile()
+        .features
+        .iter()
+        .map(|feature| format!("{}/{feature}", target.profile().package))
+        .collect::<Vec<_>>()
+        .join(",");
     let arguments: Vec<OsString> = [
         "metadata",
         "--format-version=1",
@@ -645,7 +868,7 @@ fn source(
         "--offline",
         "--no-default-features",
         "--features",
-        "xtask/force-validate",
+        &scoped_features,
     ]
     .into_iter()
     .map(Into::into)
@@ -656,7 +879,7 @@ fn source(
         checkout,
         environment,
     )?)?;
-    let arguments: Vec<OsString> = source_build_arguments()
+    let arguments: Vec<OsString> = source_build_arguments_for(target)
         .iter()
         .map(OsString::from)
         .collect();
@@ -668,24 +891,37 @@ fn source(
             .with_additional_files(checkout, SHARED_INPUTS.iter().map(PathBuf::from))?;
     Ok((source, context, resolution))
 }
-fn source_build_arguments() -> &'static [&'static str] {
-    &[
+fn source_build_arguments_for(target: NativeToolTarget) -> Vec<String> {
+    let profile = target.profile();
+    [
         "build",
         "--locked",
         "-p",
-        "xtask",
+        profile.package,
         "--bin",
-        "xtask",
+        profile.binary,
         "--no-default-features",
         "--features",
-        "force-validate",
+        &profile.features.join(","),
         "--message-format=json",
     ]
+    .into_iter()
+    .map(String::from)
+    .collect()
 }
+#[cfg(test)]
 fn source_build_command(
     control: &Executable,
     checkout: &Path,
     environment: &Environment,
+) -> Command {
+    source_build_command_for(control, checkout, environment, NativeToolTarget::Xtask)
+}
+fn source_build_command_for(
+    control: &Executable,
+    checkout: &Path,
+    environment: &Environment,
+    target: NativeToolTarget,
 ) -> Command {
     let mut command = Command::new(&control.captured);
     command
@@ -694,13 +930,13 @@ fn source_build_command(
         .envs(environment)
         .env("PSE_CORRECTNESS_ADAPTER", "1")
         .env("PSE_CORRECTNESS_EXECUTABLE", &control.captured)
-        .args(source_build_arguments());
+        .args(source_build_arguments_for(target));
     command
 }
 fn require_same_compiler_context(
     before: &correctness::Resolution,
     after: &correctness::Resolution,
-) -> Result<(), PreparedXtaskError> {
+) -> Result<(), PreparedNativeToolError> {
     if before.arguments != after.arguments
         || before.packages != after.packages
         || before.native_capabilities != after.native_capabilities
@@ -708,19 +944,19 @@ fn require_same_compiler_context(
         || before.units.iter().any(|unit| !after.units.contains(unit))
     {
         return Err(invalid(
-            "xtask compiler-unit selection changed during construction; explicitly re-resolve",
+            "native tool compiler-unit selection changed during construction; explicitly re-resolve",
         ));
     }
     Ok(())
 }
-fn build_evidence(directory: &Path) -> Result<(Vec<u8>, BuildCapture), PreparedXtaskError> {
+fn build_evidence(directory: &Path) -> Result<(Vec<u8>, BuildCapture), PreparedNativeToolError> {
     let path = directory.join("build.json");
     let result = (|| {
         let bytes = read(&path, MAX_DOCUMENT)?;
         let build = serde_json::from_slice(&bytes)?;
         Ok((bytes, build))
     })();
-    result.map_err(|source| PreparedXtaskError::BuildEvidence {
+    result.map_err(|source| PreparedNativeToolError::BuildEvidence {
         path,
         source: Box::new(source),
     })
@@ -731,7 +967,15 @@ fn build_evidence(directory: &Path) -> Result<(Vec<u8>, BuildCapture), PreparedX
 pub fn prepare(
     checkout: &Path,
     environment: &Environment,
-) -> Result<PreparedXtask, PreparedXtaskError> {
+) -> Result<PreparedNativeTool, PreparedNativeToolError> {
+    prepare_for(checkout, environment, NativeToolTarget::Xtask)
+}
+/// Explicitly capture exactly one declared target with its actual compiler and protocol evidence.
+pub fn prepare_for(
+    checkout: &Path,
+    environment: &Environment,
+    target: NativeToolTarget,
+) -> Result<PreparedNativeTool, PreparedNativeToolError> {
     let checkout = checkout.canonicalize()?;
     let state = CheckoutState::resolve(&checkout, environment)?;
     fs::DirBuilder::new()
@@ -740,9 +984,9 @@ pub fn prepare(
         .create(&state.root)?;
     private_directory(&state.root, false)?;
     private_directory(&state.root.join("tools"), true)?;
-    private_directory(&state.root.join("tools/xtask"), true)?;
+    private_directory(&state.root.join("tools").join(target.name()), true)?;
     let id = uuid::Uuid::new_v4().to_string();
-    let selected_dir = state.root.join("tools/xtask").join(&id);
+    let selected_dir = state.root.join("tools").join(target.name()).join(&id);
     private_directory(&selected_dir, true)?;
     let build_dir = selected_dir.join("build");
     private_directory(&build_dir, true)?;
@@ -754,20 +998,20 @@ pub fn prepare(
     let control =
         capture::executable(&source_control, &selected_dir.join("cargo-pse-correctness"))?;
     let mut environment = correctness::standalone_adapter_environment(environment)?;
-    let (before, context, admission) = source(&checkout, &environment)?;
+    let (before, context, admission) = source_for(&checkout, &environment, target)?;
     environment.insert(
         "PSE_CORRECTNESS_BUILD_CAPTURE".into(),
         build_dir.clone().into_os_string(),
     );
     control.verify()?;
-    let command = source_build_command(&control, &checkout, &environment);
+    let command = source_build_command_for(&control, &checkout, &environment, target);
     successful(process::run(command, 65536, None)?, "source-build", false)?;
     let (build_bytes, build) = build_evidence(&build_dir)?;
     require_same_compiler_context(&admission, &build.resolution)?;
-    let executable = select_executable(&build, &selected_dir, &checkout)?.clone();
+    let executable = select_executable_for(&build, &selected_dir, &checkout, target)?.clone();
     executable.verify()?;
     environment.remove(OsStr::new("PSE_CORRECTNESS_BUILD_CAPTURE"));
-    let query = |args: &[&str], name: &str, phase| -> Result<Vec<u8>, PreparedXtaskError> {
+    let query = |args: &[&str], name: &str, phase| -> Result<Vec<u8>, PreparedNativeToolError> {
         let mut command = Command::new(&executable.captured);
         command
             .current_dir(&checkout)
@@ -779,32 +1023,47 @@ pub fn prepare(
         publish(&selected_dir.join(format!("{name}.stderr")), &output.stderr)?;
         successful(output, phase, true)
     };
-    let catalog = query(
-        &["commands", "--json", "--recursive"],
-        "commands.json",
-        "parser-discovery",
-    )?;
-    catalog_document(&catalog)?;
-    let schema = query(&["owner", "--schema"], "owner-schema.json", "owner-schema")?;
-    schema_document(&schema)?;
-    let (after, _, admission_after) = source(&checkout, &environment)?;
+    let (catalog, schema, protocol) = if target == NativeToolTarget::Xtask {
+        let catalog = query(
+            &["commands", "--json", "--recursive"],
+            "commands.json",
+            "parser-discovery",
+        )?;
+        catalog_document(&catalog)?;
+        let schema = query(&["owner", "--schema"], "owner-schema.json", "owner-schema")?;
+        schema_document(&schema)?;
+        (Some(catalog), Some(schema), None)
+    } else {
+        let protocol = query(&["--protocol"], "protocol.json", "native-semantic-protocol")?;
+        protocol_document(&protocol)?;
+        (None, None, Some(protocol))
+    };
+    let (after, _, admission_after) = source_for(&checkout, &environment, target)?;
     require_same_compiler_context(&build.resolution, &admission_after)?;
     before.require_unchanged(&after)?;
-    let selected = PreparedXtask {
+    let selected = PreparedNativeTool {
         checkout,
         directory: selected_dir,
         manifest: Manifest {
             version: 1,
+            target,
             checkout_id: state.checkout_id.as_str().into(),
             selection_id: id,
             executable,
             control,
             source: before,
             context,
-            features: BTreeSet::from(["force-validate".into()]),
+            features: target.features(),
             build: Evidence::new("build/build.json", &build_bytes),
-            catalog: Evidence::new("commands.json", &catalog),
-            owner_schema: Evidence::new("owner-schema.json", &schema),
+            catalog: catalog
+                .as_ref()
+                .map(|bytes| Evidence::new("commands.json", bytes)),
+            owner_schema: schema
+                .as_ref()
+                .map(|bytes| Evidence::new("owner-schema.json", bytes)),
+            protocol: protocol
+                .as_ref()
+                .map(|bytes| Evidence::new("protocol.json", bytes)),
         },
     };
     selected.verify()?;
@@ -814,7 +1073,7 @@ pub fn prepare(
             "selection manifest exceeds supported decoding extent",
         ));
     }
-    publish(&selected.directory.join("xtask.json"), &bytes)?;
+    publish(&selected.directory.join(target.manifest()), &bytes)?;
     selected.select_current()?;
     Ok(selected)
 }

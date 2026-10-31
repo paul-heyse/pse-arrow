@@ -20,6 +20,9 @@ pub(in crate::cli) enum Session {
         /// Cargo project root; defaults to the owning checkout.
         #[arg(long)]
         project: Option<PathBuf>,
+        /// Choose one semantic world owner; native snapshots remain explicitly prepared.
+        #[arg(long, value_enum, default_value = "lsp")]
+        backend: semantic::Backend,
         #[arg(long, value_delimiter = ',')]
         features: Vec<String>,
         #[arg(long)]
@@ -105,7 +108,7 @@ pub(in crate::cli) enum Edit {
     },
 }
 fn error(error: semantic::Error) -> HostError {
-    HostError::Ownership(error.to_string())
+    HostError::Semantic(Box::new(error))
 }
 #[derive(serde::Serialize, schemars::JsonSchema)]
 #[serde(transparent)]
@@ -124,12 +127,14 @@ pub(super) fn session(
     match action {
         Session::Prepare {
             project,
+            backend,
             features,
             no_default_features,
             target,
             build_macros,
         } => {
             let configuration = Configuration {
+                backend,
                 project: project.map_or_else(
                     || root.clone(),
                     |path| {
@@ -373,7 +378,7 @@ pub(super) fn session(
         }
     }
 }
-pub(super) fn query(
+pub(in crate::cli) fn query(
     kind: Kind,
     subject: Subject,
     selected: Option<&Path>,
@@ -381,7 +386,15 @@ pub(super) fn query(
 ) -> Result<i32, HostError> {
     let root = checkout_root(selected)?;
     let environment = std::env::vars_os().collect();
-    let record = semantic::load(&root,&environment).map_err(error)?.ok_or_else(|| HostError::Ownership("semantic preparation required: pse code session prepare; source-only outline/show/query remain available".into()))?;
+    let record = semantic::load(&root,&environment).map_err(error)?.ok_or_else(|| HostError::Ownership("semantic preparation required: pse code session prepare; source-only search/inspect remain available".into()))?;
+    let command = if matches!(
+        &kind,
+        Kind::Rename { .. } | Kind::FileRename { .. } | Kind::Ssr { .. } | Kind::Assist { .. }
+    ) {
+        "propose entity"
+    } else {
+        "inspect entity"
+    };
     let identity = record.configuration.identity().map_err(error)?;
     if subject
         .configuration
@@ -419,7 +432,7 @@ pub(super) fn query(
         Err(error) => {
             let failure = semantic::Failure::from_error(&error);
             let mut response = Envelope::response(
-                "code semantic refusal",
+                format!("{command} refusal"),
                 "semantic request did not produce a current answer; original session retains its independent lifetime",
                 failure,
             );
@@ -454,7 +467,7 @@ pub(super) fn query(
                 .sum::<u64>() as usize
         });
     let mut response = Envelope::response(
-        "code semantic",
+        command,
         "selected analyzer evidence; no compiler acceptance or source writes",
         value,
     );
@@ -546,7 +559,7 @@ pub(super) fn query(
         },
     )?)
 }
-pub(super) fn edit(
+pub(in crate::cli) fn edit(
     action: Edit,
     selected: Option<&Path>,
     output: &OutputOptions,
@@ -566,20 +579,7 @@ pub(super) fn edit(
         Edit::Ssr { subject, rule } => query(Kind::Ssr { rule }, subject, selected, output),
     }
 }
-pub(super) fn hint(
-    subject: Subject,
-    index: Option<usize>,
-    selected: Option<&Path>,
-    output: &OutputOptions,
-) -> Result<i32, HostError> {
-    query(
-        index.map_or(Kind::Hints, |index| Kind::Hint { index }),
-        subject,
-        selected,
-        output,
-    )
-}
-fn test_routes(
+pub(in crate::cli) fn test_routes(
     root: &Path,
     answer: &serde_json::Value,
     configuration: &Configuration,

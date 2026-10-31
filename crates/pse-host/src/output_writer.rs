@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! One observer-owned descriptor; no blocking pipe worker survives cancellation.
+//! One output-owned descriptor; no blocking pipe worker survives cancellation.
 #![allow(
     unsafe_code,
     reason = "Tokio1.53.3 registration requires an explicit stable owned-descriptor invariant"

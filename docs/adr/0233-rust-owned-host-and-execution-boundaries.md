@@ -255,6 +255,13 @@ Use a separately prepared `pse-native-analysis` binary in the existing host pack
 opt-in `native-hir` feature. Ordinary host construction does not compile or link its optional
 HIR/IDE dependency family. Reuse immutable prepared-tool authentication, original invocation
 custody, the authenticated Unix socket, cooperative CPU completion, cancel and native stop/drain.
+The version-one native snapshot connection carries one authenticated request. Its fixed
+single-byte cancellation control targets that connection's CPU operation; the typed reply
+follows actual CPU settlement and does not stop the session or another query. Unexpected or
+oversized control frames refuse. A client retains cancellation and the independent transport
+failure when its settlement reply is unobserved. Disconnect proves only client detachment;
+the service still retains and settles its CPU work. This native control does not upgrade live
+LSP cancellation acknowledgements into physical completion evidence.
 The selected compatible native family is 0.0.358; host source syntax0.0.360 remains a distinct
 parser and never passes its AST types into the native world. Unicode-version alignment belongs
 to exact dependency resolution, not an assumption that compatible semver guarantees it.

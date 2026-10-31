@@ -150,8 +150,8 @@ extraction remain explicit instead of becoming empty successful answers.
 | [I03](#i03) | complete | 59i | Authored isolated constant/layout evaluation and encountered type-size output tested; unresolved substitutions preserve actual compiler failure |
 | [I04](#i04) | complete | 59i | Native selected-unit mono-items and body/pass-filtered before/after MIR retained as opaque original artifacts and tested |
 | [I05](#i05) | complete | 59i | Lighter routes selected; no structured driver adopted without an unanswered recurring question meeting the criteria below |
-| [I06](#i06) | planned | 59i | Named ownership/async/dataflow driver feasibility against I01/I02 and the pinned compiler; no recurrence prerequisite |
-| [I07](#i07) | planned | 59i | Conditional: only I06-selected structured extraction after the applicable A12 publication |
+| [I06](#i06) | complete | 59i | Named borrow/await, partial-move and saved-state cases assessed against exact pinned compiler APIs and original diagnostic/MIR evidence; bounded no-driver decision below |
+| [I07](#i07) | complete | 59i | Conditional branch not adopted for I06's selected consumer; typed loan/initialization-at-location queries remain unavailable, with an explicit revisit trigger |
 
 <a id="i01"></a>
 ## I01 — Original evidence and explicit generation foundation
@@ -515,6 +515,54 @@ inquiry does not gate A11 or ordinary discovery and deletes no original diagnost
 If lighter routes suffice or exact-pin ownership cannot be qualified, record no adoption and
 leave structured facts explicitly unavailable. The plan revision itself installs no component,
 changes no toolchain and runs no experiment.
+
+#### I06 outcome — original ownership and suspension evidence
+
+**Interface-checked:** the selected compiler is `rustc 1.101.0-nightly`, commit
+`c1070d69382b8d2f2eb65119c738a77d9e324c9e` (2026-09-28), from the repository's pinned
+nightly. Its exact source exposes
+[`get_bodies_with_borrowck_facts` and `ConsumerOptions`](https://github.com/rust-lang/rust/blob/c1070d69382b8d2f2eb65119c738a77d9e324c9e/compiler/rustc_borrowck/src/consumers.rs),
+including copied body/promoted MIR, borrow sets, region inference and optional Polonius inputs.
+`PoloniusInputFacts` does not run Polonius; `PoloniusOutputFacts` does. Neither can be
+substituted for facts from another checker mode. The API requires a type-check root and warns
+that already-stolen bodies can panic; its supported interception lead is an override of
+`mir_borrowck`, rather than a later opportunistic read. The exact
+[`after_analysis` callback](https://github.com/rust-lang/rust/blob/c1070d69382b8d2f2eb65119c738a77d9e324c9e/compiler/rustc_driver_impl/src/lib.rs)
+runs after the compiler's analysis query. Native
+[`iterate_to_fixpoint` and results cursors/visitors](https://github.com/rust-lang/rust/blob/c1070d69382b8d2f2eb65119c738a77d9e324c9e/compiler/rustc_mir_dataflow/src/framework/mod.rs)
+can answer location-specific analysis questions while the matching `TyCtxt`, body, phase and
+domain remain valid. A structured driver is feasible in principle; a naive after-analysis
+adapter would not preserve these ownership/timing requirements. `rustc-dev` is not installed
+in the selected local toolchain; this is a preparation obligation, not capability absence.
+
+**Tested:** bounded standalone source cases in `/tmp/plan59-i06.WF55r6`, using the pinned
+compiler from the activated checkout, address the selected consumer question: which source
+operation conflicts with a borrow retained across suspension, and which values the generated
+coroutine retains. `rustc --edition=2024 --crate-type=lib --emit=metadata --error-format=json
+borrow.rs` returns the independently expected `E0502` (exit 1): original borrow, conflicting
+mutation and later use remain source-linked in the original diagnostic. The valid companion
+`retained.rs`, compiled with `--emit=mir`, succeeds and preserves the original coroutine's
+`Vec`, reference and awaiter fields. A second successful `--emit=mir -Zmir-opt-level=0
+partial.rs` case conditionally moves one `Pair` field before suspension, retains the other,
+and exposes original conditional drop flags. Its consumed-before-await companion keeps only
+the awaiter in the coroutine's saved fields, while the original MIR still shows the local's
+storage operations. This distinguishes saved state, conditional initialization/drop behavior
+and source-level storage scope without asserting a parsed may/must dataflow result. The
+expected invalid case is the probe's subject, not a passing production correctness test.
+Earlier launcher attempts rejected moving host preparation before reaching `rustc` and supply
+no compiler acceptance evidence.
+
+**Decision:** retain I01/I02's original diagnostics, explicit compiler generation and opaque
+saved MIR for this selected consumer; do not adopt a compiler-private driver or I07 production
+protocol. They answer the concrete conflict/retention investigation without a new query
+override, compiler component, checker-mode selection or pin-specific typed protocol. This
+does **not** answer the separate structured question “which active loans or maybe-initialized
+move paths hold immediately before MIR location L?” Those facts remain explicitly unavailable;
+MIR text, source spans and the native analyzer must not synthesize them. Reopen I06/A12/I07
+when a consumer selects that exact location/phase/domain relationship and needs machine-readable
+states rather than the original evidence. There is no recurrence threshold. No component,
+toolchain, Polonius mode or production compiler lifecycle was changed, and no safety or
+performance claim follows from these bounded probes.
 
 <a id="i07"></a>
 ### I07 — Conditional structured compiler extraction

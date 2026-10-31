@@ -84,8 +84,8 @@ stage/file/byte progress on stderr; it does not supply execution ownership, tota
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | [K01](#k01) | complete | 59k | Shared semantics/defaults and B/C/F impact settled below; A10 publishes proposed ADR-0233/0234/blueprint320 before K02; no runtime completion claim |
-| [K02](#k02) | planned | 59k | Shared validated requests, compact result/locator/event contracts and generated schemas |
-| [K03](#k03) | planned | 59k | Configured demand-driven publication, continuations, progress and actual transport integration |
+| [K02](#k02) | in-progress | 59k | Shared validated requests, compact result/locator/event contracts and directional schemas implemented; integrated consumer acceptance and generated references remain |
+| [K03](#k03) | in-progress | 59k | Configuration, whole-record writer and demand-aware providers implemented; budget, presentation and complete public/native acceptance remain in progress |
 
 <a id="k01"></a>
 ### K01 — Settle the common contract and physical boundaries
@@ -179,6 +179,27 @@ partial failure, canceled no-match input and closed consumer preserve their dist
 configuration precedence and file-relative paths work without a second environment evaluator.
 
 ## Verification and handoff
+
+### Execution checkpoint — 2026-10-31
+
+K01/A10 governing publication is complete. The shared model/configuration/stream and new
+source/evidence adapters have focused passing controls, followed by additional integration
+changes that still require revalidation. Public journeys exposed and corrected context rows
+being counted as matches and a nonportable `u128` locator timestamp representation. Source
+guards now distinguish original roots, lightweight witnessed intervals and exact hydration;
+native candidate guards retain their original session as well as generation. Current work
+integrates output budgets, result projection/grouping and actual progress. This checkpoint
+does not establish full K02/K03, B06, M03 or P02 completion.
+
+The next integrated implementation boundary adds bounded output delivery through the existing
+native writer, source-to-semantic guards, typed composition and retirement of replaced passive
+routes. Focused public checks include a passing open-but-stalled-reader interruption. Their
+first eight-test run had seven passes and one parser failure for `--explain` after the mode;
+the parser is corrected, with revalidation pending. Optional native-analysis compilation passes;
+its first engine test exposed a build-directory assumption in the shared preparation owner.
+Restricted snapshots now seal source/configuration inputs without discovering disabled build
+outputs; the correction still needs its functional rerun. API/source joins, assembled native
+journeys, generated references and scope-end qualification remain open.
 
 **Proposed verification:** targeted unit/parser/schema controls per package, including independent
 expectations and public producer→consumer tests. M03/P02 own assembled coverage and scoped

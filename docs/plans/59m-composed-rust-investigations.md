@@ -58,9 +58,9 @@ require a Git transaction/commit feature or an apply implementation.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [M01](#m01) | planned | 59m | Public name-first source/symbol/API discovery and direct inspection |
-| [M02](#m02) | planned | 59m | Composed structural/semantic/API/evidence investigation consumers |
-| [M03](#m03) | planned | 59m | Complete useful journeys, preserved-capability cutover and replaced-route deletion |
+| [M01](#m01) | in-progress | 59m | Source discovery, workspace symbols, API and direct inspection consumers implemented; complete provider/native public journeys pending |
+| [M02](#m02) | in-progress | 59m | Native structural composition and guarded semantic/API consumers underway; positive G11 feasibility selects G12 immutable native snapshot implementation |
+| [M03](#m03) | in-progress | 59m | Proven source/evidence routes migrating and obsolete public routes retiring; eight assembled journeys, adoption and final qualification remain |
 
 <a id="m01"></a>
 ### M01 — Find an entity without knowing its file

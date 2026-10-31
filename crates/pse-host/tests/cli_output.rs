@@ -220,7 +220,7 @@ fn foreground_managed_failure_retains_literal_child_arguments_and_original_exit(
     let id = value["invocation_id"].as_str().unwrap();
     let log = pse()
         .env("XDG_STATE_HOME", state.path())
-        .args(["log", id])
+        .args(["inspect", "log", id])
         .output()
         .unwrap();
     let assertion = Assert::new(log).success().stderr(b"".as_slice());
@@ -231,7 +231,7 @@ fn foreground_managed_failure_retains_literal_child_arguments_and_original_exit(
     );
     let original = pse()
         .env("XDG_STATE_HOME", state.path())
-        .args(["result", id])
+        .args(["inspect", "invocation", id])
         .output()
         .unwrap();
     // A successful passive read preserves the performing operation's failed state.

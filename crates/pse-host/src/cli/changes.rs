@@ -121,7 +121,7 @@ fn inspect(
             .push(index);
     }
     let mut response = Envelope::response(
-        "changes",
+        "inspect changes",
         "changed paths with declared owners and conservative test reach",
         Report {
             observed,

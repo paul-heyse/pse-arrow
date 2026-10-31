@@ -77,7 +77,7 @@ without a reason will not compile in CI.
 Follow *Execution rhythm* in AGENTS.md. While implementing, `scripts/pse check <pkg> --all-targets`
 (or `scripts/pse check --workspace --all-targets` across crates) and targeted
 `scripts/pse test <pkg> --lib -E '<filterset>'` tests
-for the behaviour you changed are the whole loop (`scripts/pse affected` previews what a change can
+for the behaviour you changed are the whole loop (`scripts/pse inspect affected` previews what a change can
 reach). Correctness routes must activate and verify Arrow validation for the actual
 normal/build/selected-root dev closure, including host dependencies (ADR-0170). Pure
 closures need no Arrow feature or unrelated relation root. Bare commands carry the same

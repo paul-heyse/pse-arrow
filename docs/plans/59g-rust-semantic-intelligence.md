@@ -152,8 +152,8 @@ The review checked development interfaces; exact pinned extension/native signatu
 | [G07](#g07) | complete | 59g | Source-bound rename, lazy assist, scoped semantic SSR, file-rename and complete supported workspace-effect previews into J02 |
 | [G08](#g08) | complete | 59g | Preview-only decision below; no apply command is advertised |
 | [G09](#g09) | complete | 59g | Native selected CLI/lifecycle journeys and 678-test host run pass; original diagnostics offer guarded, explicitly current-source semantics without inventing original-source identity |
-| [G10](#g10) | planned | 59g | Name-first workspace discovery through the existing owned LSP session and common query/result contracts |
-| [G11](#g11) | in-progress | 59g | Positive compatible0.0.358 typed/method/reference/Cargo-VFS probes select immutable native snapshot; SSR public accessor limits and selected context are recorded below, final integration decision/evidence remains with G12 |
+| [G10](#g10) | in-progress | 59g | Existing-session discovery and exact source/generation/session-bound locators implemented; native public navigation qualification remains open |
+| [G11](#g11) | complete | 59g | Compatible0.0.358 typed/method/reference/Cargo-VFS probes select the A11-published immutable snapshot; SSR non-adoption/revisit recorded below; product acceptance belongs to G12 |
 | [G12](#g12) | in-progress | 59g | Selected immutable native-analysis snapshot after A11/blueprint321 publication; native public query, stale/cancel/lifetime acceptance remains open |
 
 <a id="g01"></a>
@@ -579,6 +579,16 @@ starts Cargo or another analyzer. Test actual public navigation, not only protoc
 consumers through M03 and remove their replaced public parser branches, guidance and tests in
 the delivering slice. Keep explicit session control and useful distinct semantic investigations.
 Delete no read merely because a new workspace-symbol request exists.
+
+**Implemented:** the original semantic service accepts name-first workspace requests through
+the single prepared session. Its existing LSP owner synchronizes newly discovered files and
+repeats the native query until ranges can be bound to one checked generation and original byte
+digests. Portable follow-ups retain original managed-session invocation, source hash and
+generation. A changed session/source/configuration refuses. Native container labels do not
+prove a full module path or visibility, so unsupported semantic filters refuse; source-only
+selection uses actual AST visibility/module/self-receiver metadata. Fuzzy symbol output remains
+non-exhaustive even below the client allowance, so zero rows do not prove absence. Public
+navigation/stale/cancellation acceptance remains open with the integrated run.
 
 <a id="g11"></a>
 ### G11 — Native IDE/HIR, SSR and snapshot feasibility

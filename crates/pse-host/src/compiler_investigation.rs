@@ -244,7 +244,7 @@ pub fn diagnostics(
         offset: next_offset,
     });
     let mut response = Envelope::response(
-        "compiler diagnostics",
+        "inspect diagnostic",
         "original retained compiler-failure references; no compilation started",
         DiagnosticPage {
             original_invocation: id,
@@ -259,7 +259,7 @@ pub fn diagnostics(
     response.observation.limitations.push("The page bounds retained references, not the original compiler's examined scope. B02 presentation omissions remain omissions; sole original phase output stays with its existing owner.".into());
     for record in &response.payload.records {
         if let (Some(root), Ok(address)) = (root.to_str(), serde_json::to_string(&record.address)) {
-            response.next.push(NextAction::Command {argv:vec!["pse".into(),"-C".into(),root.into(),"compiler".into(),"diagnostic".into(),"--address".into(),address],reason:"read the original diagnostic's related spans, suggestions and source context without rebuilding".into()});
+            response.next.push(NextAction::Command {argv:vec!["pse".into(),"-C".into(),root.into(),"inspect".into(),"diagnostic".into(),"--address".into(),address],reason:"read the original diagnostic's related spans, suggestions and source context without rebuilding".into()});
         }
     }
     response.providers.push(ProviderContext {
@@ -276,8 +276,8 @@ pub fn diagnostics(
                     "pse".into(),
                     "-C".into(),
                     root.into(),
-                    "compiler".into(),
-                    "diagnostics".into(),
+                    "inspect".into(),
+                    "diagnostic".into(),
                     response.payload.original_invocation.to_string(),
                     "--cursor".into(),
                     serde_json::to_string(cursor).map_err(std::io::Error::other)?,
@@ -753,8 +753,8 @@ fn fresh_semantic_action(root: &Path, comparison: &SourceComparison) -> Option<N
     let column = prefix.rsplit('\n').next()?.chars().count() + 1;
     Some(NextAction::Command {
         argv: vec![
-            "pse".into(), "-C".into(), root.to_str()?.into(), "code".into(),
-            "explain".into(), source.identity().path().to_str()?.into(),
+            "pse".into(), "-C".into(), root.to_str()?.into(), "inspect".into(),
+            "entity".into(), source.identity().path().to_str()?.into(),
             "--line".into(), locator.range.line_start.to_string(),
             "--column".into(), column.to_string(), "--if-source".into(),
             source.identity().source_sha256().into(),
@@ -937,7 +937,7 @@ impl DiagnosticEvidence {
             total_units: self.report_context.units.len(),
         };
         let mut response = Envelope::response(
-            "compiler diagnostic",
+            "inspect diagnostic detail",
             "original native diagnostic detail; no compilation or automatic suggestion application",
             DetailPage {
                 address: &self.address,
@@ -984,7 +984,7 @@ impl DiagnosticEvidence {
                 "pse".into(),
                 "-C".into(),
                 root.into(),
-                "compiler".into(),
+                "inspect".into(),
                 "diagnostic".into(),
                 "--address".into(),
                 serde_json::to_string(&self.address).map_err(std::io::Error::other)?,
@@ -1057,7 +1057,7 @@ mod tests {
         else {
             panic!("current semantic candidate")
         };
-        assert_eq!(&argv[3..5], ["code", "explain"]);
+        assert_eq!(&argv[3..5], ["inspect", "entity"]);
         assert_eq!(argv[7], "1");
         assert_eq!(argv[9], "2"); // CLI scalars include the original BOM; compiler lines do not.
         assert_eq!(

@@ -17,11 +17,20 @@ fn query(pattern: &str) -> Query {
 fn source(text: &str) -> SourceText {
     SourceText::new("/source/example.rs".into(), text.into()).unwrap()
 }
+fn observe(
+    source: &SourceText,
+    query: &Query,
+    replacement: Option<&str>,
+    limit: usize,
+) -> Result<FileResult, QueryError> {
+    let prepared = PreparedQuery::new(query, replacement)?;
+    analyze(source, query, &prepared, limit)
+}
 
 #[test]
 fn native_grammar_abi_named_and_sequence_captures_retain_exact_unicode() {
     let original = source("fn α() { target(first, /* retained */ β); }");
-    let result = analyze(&original, &query("target($A, $$$REST)"), None, usize::MAX).unwrap();
+    let result = observe(&original, &query("target($A, $$$REST)"), None, usize::MAX).unwrap();
     assert_eq!(RustGrammar.get_ts_language().abi_version(), 15);
     assert_eq!(result.coverage.total_matches, 1);
     let found = &result.matches[0];
@@ -50,7 +59,7 @@ fn native_grammar_abi_named_and_sequence_captures_retain_exact_unicode() {
 #[test]
 fn nested_matches_remain_candidates_and_capture_preserving_preview_shares_proposal() {
     let original = source("fn f() { outer(inner(β)); }");
-    let result = analyze(
+    let result = observe(
         &original,
         &query("$CALL($ARG)"),
         Some("wrapped($ARG)"),
@@ -84,7 +93,7 @@ fn contexts_capture_selection_and_recovery_do_not_claim_resolution() {
     let mut selected = query("target($A)");
     selected.inside.push("fn first() { $$$BODY }".into());
     selected.captures.push("A".into());
-    let result = analyze(&original, &selected, None, usize::MAX).unwrap();
+    let result = observe(&original, &selected, None, usize::MAX).unwrap();
     assert_eq!(result.matches.len(), 1);
     assert_eq!(result.matches[0].captures[0].nodes[0].text, "a");
     assert!(!result.coverage.recovery_regions.is_empty());
@@ -92,7 +101,7 @@ fn contexts_capture_selection_and_recovery_do_not_claim_resolution() {
     let mut selected = query("fn $NAME() { $$$BODY }");
     selected.has.push("target(b)".into());
     assert_eq!(
-        analyze(&original, &selected, None, usize::MAX)
+        observe(&original, &selected, None, usize::MAX)
             .unwrap()
             .matches
             .len(),
@@ -101,7 +110,7 @@ fn contexts_capture_selection_and_recovery_do_not_claim_resolution() {
     let mut selected = query("target($A)");
     selected.excluded.push("target(a)".into());
     assert_eq!(
-        analyze(&original, &selected, None, usize::MAX)
+        observe(&original, &selected, None, usize::MAX)
             .unwrap()
             .matches[0]
             .text,
@@ -113,20 +122,20 @@ fn contexts_capture_selection_and_recovery_do_not_claim_resolution() {
 fn undefined_captures_templates_and_native_invalid_patterns_refuse() {
     let original = source("fn f() { call(a); }");
     assert!(
-        matches!(analyze(&original,&query("call($A)"),Some("other($MISSING)"),1),Err(QueryError::UndefinedCapture(name)) if name=="MISSING")
+        matches!(observe(&original,&query("call($A)"),Some("other($MISSING)"),1),Err(QueryError::UndefinedCapture(name)) if name=="MISSING")
     );
     let mut selected = query("call($A)");
     selected.captures.push("MISSING".into());
     assert!(matches!(
-        analyze(&original, &selected, None, 1),
+        observe(&original, &selected, None, 1),
         Err(QueryError::UndefinedCapture(_))
     ));
     assert!(matches!(
-        analyze(&original, &query(""), None, 1),
+        observe(&original, &query(""), None, 1),
         Err(QueryError::Pattern(_))
     ));
     assert!(matches!(
-        analyze(&original, &query("$$$ONLY"), None, 1),
+        observe(&original, &query("$$$ONLY"), None, 1),
         Err(QueryError::Pattern(_))
     ));
 }

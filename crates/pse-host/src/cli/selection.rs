@@ -48,6 +48,18 @@ pub(super) struct SelectionArgs {
     target_kind: Option<String>,
 }
 impl SelectionArgs {
+    fn select_source_package(&mut self, package: String) -> Result<(), CorrectnessError> {
+        if self.changed
+            || self.workspace.workspace
+            || self.workspace.all
+            || !self.targets.is_empty()
+            || !self.workspace.package.is_empty()
+        {
+            return Err(CorrectnessError::Invalid("--from-result selects its current containing package; explicit packages, workspace and changed scopes conflict".into()));
+        }
+        self.workspace.package.push(package);
+        Ok(())
+    }
     fn cargo_targets(&self) -> Option<selection::CargoTargets> {
         if self.lib {
             Some(selection::CargoTargets::Library)
@@ -162,6 +174,17 @@ pub(super) struct TestArgs {
     pub(super) profile: String,
 }
 impl TestArgs {
+    pub(in crate::cli) fn select_source_package(
+        &mut self,
+        package: String,
+    ) -> Result<(), CorrectnessError> {
+        if self.rerun_failed.is_some() {
+            return Err(CorrectnessError::Invalid(
+                "--from-result cannot replace original rerun selection".into(),
+            ));
+        }
+        self.selection.select_source_package(package)
+    }
     pub(super) fn request(&self) -> Result<Request, CorrectnessError> {
         let mut request = self.selection.request(Operation::Test)?;
         if let Some(invocation) = &self.rerun_failed {

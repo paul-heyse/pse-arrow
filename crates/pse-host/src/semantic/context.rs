@@ -16,6 +16,7 @@ pub(super) struct Context {
     manifests: BTreeMap<PathBuf, Option<String>>,
     configuration_watch: Mutex<ConfigurationWatch>,
     preparation: Option<Mutex<Preparation>>,
+    snapshot_sources: Option<Mutex<ConfigurationWatch>>,
 }
 impl Context {
     pub(super) fn capture(checkout: &Path, configuration: &Configuration) -> Result<Self> {
@@ -81,8 +82,8 @@ impl Context {
                 Ok((path, digest))
             })
             .collect::<Result<_>>()?;
-        let preparation = configuration
-            .build_macros
+        let preparation = (configuration.build_macros
+            || configuration.backend == super::Backend::NativeSnapshot)
             .then(|| Preparation::capture(&metadata, configuration))
             .transpose()?
             .map(Mutex::new);
@@ -90,6 +91,7 @@ impl Context {
             manifests,
             configuration_watch,
             preparation,
+            snapshot_sources: None,
         };
         // Bind metadata membership/auto-target discovery to the captured bytes rather than
         // pairing an old metadata response with manifests edited before their first digest.
@@ -108,6 +110,9 @@ impl Context {
         Ok(context)
     }
     pub(super) fn check(&self) -> Result<()> {
+        if let Some(sources) = &self.snapshot_sources {
+            sources.lock().map_err(super::engine::protocol)?.check()?;
+        }
         self.configuration_watch
             .lock()
             .map_err(super::engine::protocol)?
@@ -124,6 +129,12 @@ impl Context {
                 .check()?;
         }
         Ok(())
+    }
+    /// Reuse native input fencing for loaded dependency/sysroot sources as well as local roots.
+    #[cfg(feature = "native-hir")]
+    pub(super) fn bind_snapshot_sources(&mut self, paths: &BTreeSet<PathBuf>) -> Result<()> {
+        self.snapshot_sources = Some(Mutex::new(ConfigurationWatch::capture(paths)?));
+        self.check()
     }
     pub(super) fn seal(&self) -> Result<()> {
         if let Some(preparation) = &self.preparation {
@@ -258,9 +269,10 @@ struct Preparation {
     packages: BTreeMap<String, Vec<PathBuf>>,
     started: SystemTime,
     stale: bool,
+    build_outputs: bool,
 }
 impl Preparation {
-    fn capture(metadata: &Value, _configuration: &Configuration) -> Result<Self> {
+    fn capture(metadata: &Value, configuration: &Configuration) -> Result<Self> {
         let target = metadata["target_directory"].as_str().ok_or_else(|| {
             Error::Unavailable("Cargo metadata omitted its target directory".into())
         })?;
@@ -283,6 +295,7 @@ impl Preparation {
             packages: BTreeMap::new(),
             started: SystemTime::now(),
             stale: false,
+            build_outputs: configuration.build_macros,
         };
         for package in metadata["packages"].as_array().into_iter().flatten() {
             let manifest = package["manifest_path"].as_str().ok_or_else(|| {
@@ -371,6 +384,12 @@ impl Preparation {
     }
     fn seal(&mut self) -> Result<()> {
         self.check()?;
+        // Restricted immutable snapshots never build; their intermediate/output
+        // directory is legitimately absent. Keep source fencing without requiring
+        // or discovering build-script products that this context did not execute.
+        if !self.build_outputs {
+            return Ok(());
+        }
         // Cargo's native build-script output owns declared dynamic rerun inputs. Discovery
         // happens once at explicit preparation, never as a query-side target/source scan.
         // Cargo 1.101's pinned intermediate layout is package/hash/run/stdout. Native
@@ -461,6 +480,7 @@ mod tests {
             "name":"control", "manifest_path":package.join("Cargo.toml")
         }]});
         let configuration = Configuration {
+            backend: super::super::Backend::Lsp,
             project: package,
             features: vec![],
             no_default_features: false,
@@ -494,6 +514,7 @@ mod tests {
             "name":"control", "manifest_path":package.join("Cargo.toml")
         }]});
         let configuration = Configuration {
+            backend: super::super::Backend::Lsp,
             project: package,
             features: vec![],
             no_default_features: false,
@@ -528,6 +549,7 @@ mod tests {
             "name":"control", "manifest_path":package.join("Cargo.toml")
         }]});
         let configuration = Configuration {
+            backend: super::super::Backend::Lsp,
             project: package,
             features: vec![],
             no_default_features: false,
@@ -549,6 +571,7 @@ mod tests {
             "name":"control", "manifest_path":package.join("Cargo.toml")
         }]});
         let configuration = Configuration {
+            backend: super::super::Backend::Lsp,
             project: package,
             features: vec![],
             no_default_features: false,

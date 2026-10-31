@@ -70,7 +70,7 @@ those lines are yours. The specialized `pse commit` transaction is deferred (Pla
 - Compile what you touched: `scripts/pse check <pkg> --all-targets`, or
   `scripts/pse check --workspace --all-targets` for cross-crate work.
 - Run, or write, the targeted unit tests that show the new behaviour:
-  `scripts/pse test <pkg> --lib -E '<filterset>'`; `scripts/pse affected` previews the tests a
+  `scripts/pse test <pkg> --lib -E '<filterset>'`; `scripts/pse inspect affected` previews the tests a
   change can reach. Select integration targets with `<pkg>:<target>`. A new mechanism gets
   its tests in the same change.
 - Run `just codegen` when a generator or registry declaration changes — regeneration is

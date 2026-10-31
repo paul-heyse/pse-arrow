@@ -220,7 +220,7 @@ pub fn inspect_details(
             .collect()
     });
     let mut response = Envelope::response(
-        "dep",
+        "inspect dependency",
         match &selected {
             Selection::Exact { .. } => "exact locked dependency facts",
             Selection::Ambiguous { .. } => {

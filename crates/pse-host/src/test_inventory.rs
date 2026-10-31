@@ -258,7 +258,7 @@ pub fn failures(
         offset: next_offset,
     });
     let mut response = Envelope::response(
-        "result failures",
+        "inspect tests failures",
         format!("{} of {total} original failure rows", records.len()),
         FailurePage {
             original_invocation: id,
@@ -490,7 +490,7 @@ pub fn read(
         offset: next_offset,
     });
     let mut response = Envelope::response(
-        "result tests",
+        "inspect tests",
         format!("{} of {total} original selected tests", records.len()),
         TestPage {
             original_invocation: id,

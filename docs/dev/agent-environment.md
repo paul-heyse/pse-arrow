@@ -258,12 +258,21 @@ builds and captures the actual selected population. Test/check/list can use `--d
 test selection is a nonpass. Missing fixture lifecycle readiness remains explicit; the broader
 fixture/rerun migration is still owned by [Plan59c](../plans/59c-tests-and-fixtures.md).
 
-`scripts/pse result ID --tests --limit 20` reads captured whole-test records without rebuilding.
+`scripts/pse inspect tests ID --limit 20` reads captured whole-test records without rebuilding.
 Pass the returned `payload.next` object as JSON to `--cursor`; changed inventory bytes or a
 different original invocation refuse continuation. `--page-bytes` bounds serialized whole rows;
 an oversized next row reports its required extent without splitting its identity. The reader
 still scans the retained inventory and grants no fixture readiness or executable-reuse authority.
 New command grammar requires an explicitly prepared image containing that grammar.
+
+`scripts/pse inspect test-selection --from-result REF --lib -E 'test(NAME)'` validates a
+working-source result's original root and bytes, resolves its current containing package
+from native Cargo metadata, and delegates unchanged target/feature/filter policy to the
+test owner. It does not list tests or prepare fixtures. Explicit package/workspace/changed
+scopes and original failed-run selection conflict with this source-derived package. The
+answer names a current candidate; source search did not capture an original Cargo graph
+and cannot establish dependency impact or sufficient coverage. Use `inspect affected` for
+the separate conservative changed-source explanation, then explicitly list or execute.
 
 - `scripts/pse check PACKAGE --all-targets` compiles the package's eligible targets without
   running tests; `--lib`, `--test NAME` and `--bin NAME` narrow that scope.
@@ -272,7 +281,7 @@ New command grammar requires an explicitly prepared image containing that gramma
 - `scripts/pse test PACKAGE --lib --features FEATURES -E FILTER` derives the required native
   capabilities from the reached compiler units and selects their already prepared providers.
   Database consumers use their declared Rust fixture owner.
-- `scripts/pse affected` previews conservative changed-package reach; inspect its explicit
+- `scripts/pse inspect affected` previews conservative changed-package reach; inspect its explicit
   widening and coverage limits before
   treating the selection as coverage. Run-only reporting and fixture ownership remain separate.
 - `scripts/pse test PACKAGE:TARGET --target-kind KIND --features FEATURES -E FILTER`
@@ -365,7 +374,7 @@ For capability/use-case selection, use the local `pse-cli` skill and read its
 `references/code-intelligence.md` only for the relevant question. This section owns detailed
 mechanics; the skill explains when source, semantic, API or compiler evidence is useful.
 
-Use `just --usage RECIPE`, source search and native `scripts/pse affected` for command/reach questions.
+Use `just --usage RECIPE`, source search and native `scripts/pse inspect affected` for command/reach questions.
 `scripts/pse commands --markdown` exports the owning parser without preparing a tool;
 `just codegen` publishes its [CLI reference](../generated/agent-cli.md) and checks derive from
 that same parser rather than a second command list.
@@ -375,29 +384,32 @@ coverage through native xtask. Documentation lifecycle/scope queries use
 [`xtask lifecycle`](documentation.md#metadata-and-aggregate-scope); they derive status from
 native owners rather than create another backlog. Reading a schema or corpus starts no service.
 
-For exact written source, use `scripts/pse outline FILE --budget 20` and pass the returned
+For exact written source, use `scripts/pse inspect outline FILE --budget 20` and pass the returned
 `payload.page.next_cursor` unchanged with `--cursor`. The allowance counts nested declarations,
 including entries inside modules and impls. A continuation refuses changed working bytes.
-`scripts/pse show FILE --at-line 12 --at-column 7` selects the enclosing declaration using
+`scripts/pse inspect declaration FILE --at-line 12 --at-column 7` selects the enclosing declaration using
 one-based Unicode scalar coordinates; `--range-start` and `--range-end` select a half-open
 UTF-8 byte range. `--index` reads the raw staged blob and `--revision REF` resolves a committed
 blob without checkout. These reads need neither a prepared analyzer nor a pse-arrow checkout.
 
-Use `scripts/pse code query FILE --mode syntax --pattern 'call($ARG)'` for written structural
-candidates. `code preview` adds `--replacement` and explicit `--select` candidate indices;
-it preserves original source identity and changes no source or Git index. Same-spelled names
-remain syntax candidates, and selected overlaps refuse. Semantic queries require their own
-provider; selecting syntax is explicit. Use `scripts/pse changes` inside the checkout to inspect
-separate changed Git layers, declared source/generated owners and conservative test reach.
+Use `scripts/pse search --path FILE syntax 'call($ARG)'` for written structural
+candidates. Search defaults to the first twenty arrivals; `--all`, `--count` and stable
+continuation are explicit demands. Native AST rules and Tree-sitter queries keep their
+original subtrees in typed JSON requests. Scoped Boolean clauses distinguish line, file,
+node and entity predicates; an unavailable refinement remains unknown rather than false.
+`scripts/pse search --explain` shows merged request/configuration provenance without searching.
+`--result-fields`, `--group-by`, `--limit` and `--budget` select independent result detail,
+returned-witness grouping, answer demand and display allowance. NDJSON delivers whole live
+records followed by the coverage summary; absent finality means incomplete delivery.
 
-`--inside`, `--has` and `--exclude` compose structural context constraints; `--capture NAME`
-extracts selected named or sequence captures. `--strictness` selects the native matching policy.
-Query allowances count nested matches and retain total/omitted counts separately. Every source
-retains its exact generation and parser context in the mandatory `providers` field even when
-`--fields` hides payload detail. Preview candidates remain distinct from explicit selected edits;
-an undefined template capture refuses rather than disappearing from the replacement.
+`scripts/pse propose syntax FILE --pattern 'call($ARG)' --replacement
+'wrapped($ARG)' --select 0` preserves native template captures and original trivia without
+source or Git-index writes. Its `--inside`, `--has`, `--exclude`, `--capture` and
+`--strictness` options retain native matching policy. An undefined template capture or
+selected overlapping edits refuses. Use `scripts/pse inspect changes` to inspect separate
+changed Git layers, declared source/generated owners and conservative test reach.
 
-For a hit in a declared generated output, follow the returned `code origin` next action. It
+For a hit in a declared generated output, follow the returned `inspect origin` next action. It
 binds the original byte range and digest, reads the existing contributor sidecar, exposes the
 declared regeneration argv and offers an outline of the known emitter. An unknown authored
 declaration location stays unknown. A changed working source refuses the original-hit action;
@@ -405,23 +417,23 @@ neither preview nor drill-through edits files, regenerates outputs or prepares a
 
 ### Dependency, API and native documentation investigations
 
-`scripts/pse dep tokio --why` adds shortest metadata inclusion paths; `--feature-member VALUE`
+`scripts/pse inspect dependency tokio --why` adds shortest metadata inclusion paths; `--feature-member VALUE`
 finds exact authored feature-expansion links. Declaration optionality, default requests and
 target expressions are retained independently of Cargo's resolved metadata feature union.
-For selected compiler instances, use `scripts/pse dep units tokio pse-host --lib
+For selected compiler instances, use `scripts/pse inspect dependency-units tokio pse-host --lib
 --no-default-features --without-feature diagnostic-taskdump`. The root/target/features grammar
 is shared with checks, including multiple roots and negative features. The answer is admitted
 compiler-unit context, not compilation, native readiness, a test population or impact proof.
 
 `scripts/pse api tokio --prepare` explicitly acquires a source/context-qualified rustdoc artifact;
-lookup does not compile. Then `scripts/pse api tokio --search spawn --budget 3 --examples`
+lookup does not compile. Then `scripts/pse inspect api tokio --search spawn --budget 3 --examples`
 selects authored examples with hidden setup and native expectations. `--declaration` expands
 the original version-qualified item when compact signatures omit complex bounds or associated
 data. A facade may require explicit preparation of its defining package; absence of that
 artifact is unprepared, not an empty API result. `scripts/pse probe --help` exposes separate
 authored experiments; printing an example never executes it.
 
-`scripts/pse api PACKAGE --compare-with /original/acquisition/document.json --budget 10`
+`scripts/pse inspect api PACKAGE --compare-with /original/acquisition/document.json --budget 10`
 reads native structural differences against the currently acquired PACKAGE context. Continue
 with the returned cursor; different original bytes, extraction context or backend policy refuse.
 The structural backend is admitted per input only after a lossless typed decoder round trip;
@@ -439,12 +451,12 @@ Ordinary API queries require neither that check nor an analyzer session.
 
 ### Original compiler evidence and explicit investigations
 
-For an original check failure, use `scripts/pse compiler diagnostics INVOCATION` and follow its
-addressed `compiler diagnostic` action. `--source` compares original native snippets to current
+For an original check failure, use `scripts/pse inspect diagnostic INVOCATION` and follow its
+addressed `inspect diagnostic` action. `--source` compares original native snippets to current
 source; `--raw` retains the exact Cargo JSON representation. Related-span pages keep secondary
 locations, child notes, replacements/applicability and macro context. They never compile, and
 matching visible lines does not establish a whole original-source identity.
-When those visible lines match, a returned `code explain` action is separately guarded against
+When those visible lines match, a returned `inspect entity` action is separately guarded against
 the newly observed whole-source digest. It requests current semantics from an explicitly
 prepared session; it does not assign that digest or semantic answer to the original compilation.
 
@@ -459,8 +471,8 @@ they are not host-inferred loan/liveness facts, an ABI proof, runtime reach or a
 For concrete constants/layouts, first create and edit an authored `pse probe`; then use
 `scripts/pse compiler probe NAME --question 'concrete constant and layout'`. The existing isolated
 probe owner retains its lease, graph, toolchain and authored stdout meaning. Compiler artifact kinds
-can also select that probe explicitly. `compiler artifacts INVOCATION` reads its original context,
-native outcome and file index; `compiler file INVOCATION INDEX --length 4096` verifies the historical
+can also select that probe explicitly. `inspect compiler-artifacts INVOCATION` reads its original context,
+native outcome and file index; `inspect compiler-artifact INVOCATION INDEX --length 4096` verifies the historical
 whole-file SHA on a checked descriptor before returning a bounded range. Digest validation scans
 the complete file and states that cost. Reads never rerun compilation, install components or
 prepare a structured compiler driver. Changed original files refuse their digest guard.
@@ -479,18 +491,18 @@ PATH`; project defaults to this checkout. Select features/defaults/platform ther
 preparation disables automatic compiler checking, build scripts and proc macros. Add
 `--build-macros` only for explicit correctness-admitted `check --workspace --all-targets`
 preparation of those outputs. Queries never enable checking or refresh those compiled inputs.
-Source-only `outline`, `show`, syntax `code query` and `code preview` remain useful without a
+Source-only `inspect outline`, `inspect declaration`, `search syntax` and `propose syntax` remain useful without a
 session; unavailable typed semantics are not silently replaced with text matching.
 
-Use `scripts/pse code explain FILE --line N --column N` for native hover/definition/type
-resolution, then selected `refs`, `calls`, `implementations`, `macro`, `tests`, `candidates`
-or `hints`. CLI coordinates are one-based Unicode scalar columns; provider locations retain
+Use `scripts/pse inspect entity FILE --line N --column N` for native hover/definition/type
+resolution, then select `--view refs`, `calls`, `implementations`, `macro`, `tests`,
+`candidates` or `hints` on that same `inspect entity` route. CLI coordinates are one-based Unicode scalar columns; provider locations retain
 their actual negotiated encoding. `--if-source SHA` guards a previously observed source.
 Returned lazy candidate/hint/assist actions also bind the original generation and native-record
 fingerprint; an array index alone cannot select a changed candidate. Related tests are candidates:
 their next action goes through `pse tests`/`pse test` selection rather than executing analyzer argv.
 
-`code edit rename`, `assists`/`assist`, `file-rename` and scoped `ssr` produce the same checked
+`propose rename`, `propose assists`/`propose assist`, `propose file-rename` and scoped `propose ssr` produce the same checked
 proposal used by syntax previews. Inspect exact original/replacement regions, file operations,
 placeholders and provider context. These commands apply no edits and make no compile-success or
 multi-file publication claim. Unsupported structured native fields stay explicitly unavailable;

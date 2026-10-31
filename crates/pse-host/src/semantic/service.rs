@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Checkout-bound session discovery and authenticated local multiplexing, under B03 custody.
-use super::{Configuration, Error, Reply, Request, Result, engine::Engine};
+use super::{Backend, Configuration, Error, Reply, Request, Result, engine::Engine};
 use crate::{
     envelope::CliInvocationId,
     environment::Environment,
@@ -18,6 +18,63 @@ use std::{
 };
 use tokio::io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncWriteExt as _};
 use tokio_util::sync::CancellationToken;
+
+enum ServiceEngine {
+    Lsp(Engine),
+    #[cfg(feature = "native-hir")]
+    Snapshot(super::native::Engine),
+}
+impl ServiceEngine {
+    fn status(&self) -> Result<SessionStatus> {
+        match self {
+            Self::Lsp(engine) => engine.status(),
+            #[cfg(feature = "native-hir")]
+            Self::Snapshot(engine) => engine.status(),
+        }
+    }
+    fn driver_finished(&self) -> bool {
+        match self {
+            Self::Lsp(engine) => engine.driver.is_finished(),
+            #[cfg(feature = "native-hir")]
+            Self::Snapshot(_) => false,
+        }
+    }
+    async fn shutdown(self) -> Result<()> {
+        match self {
+            Self::Lsp(engine) => engine.shutdown().await,
+            #[cfg(feature = "native-hir")]
+            Self::Snapshot(_) => Ok(()),
+        }
+    }
+}
+
+#[cfg(feature = "native-hir")]
+async fn native_response(
+    mut task: crate::source_command::batch::CpuTask<Result<serde_json::Value>>,
+    read: &mut tokio::io::BufReader<tokio::net::unix::OwnedReadHalf>,
+    stopping: &CancellationToken,
+) -> Result<Option<serde_json::Value>> {
+    let mut disconnected = [0u8; 2];
+    tokio::select! {
+        result = task.settle() => result.map_err(super::engine::protocol)?.map(Some),
+        result = read.read(&mut disconnected) => {
+            task.cancel();
+            // Dropping an awaiter does not terminate Rayon work. Keep the actual
+            // owner until completion, even though this client no longer wants output.
+            let _settled = task.settle().await.map_err(super::engine::protocol)?;
+            match result? {
+                0 => Ok(None),
+                1 if disconnected[0] == 3 => Err(Error::Cancelled),
+                _ => Err(Error::Protocol("unsupported semantic cancellation frame".into())),
+            }
+        },
+        _ = stopping.cancelled() => {
+            task.cancel();
+            let _settled = task.settle().await.map_err(super::engine::protocol)?;
+            Ok(None)
+        },
+    }
+}
 
 /// Explicit current session selector; immutable invocation records own actual native custody.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -181,6 +238,36 @@ pub async fn client(
     record: &SessionRecord,
     request: &Request,
 ) -> Result<serde_json::Value> {
+    client_inner(root, environment, record, request, None).await
+}
+/// A native snapshot cancellation waits for the original request's CPU settlement reply.
+/// Live LSP cancellation retains its existing protocol/detachment semantics.
+pub async fn client_cancellable(
+    root: &Path,
+    environment: &Environment,
+    record: &SessionRecord,
+    request: &Request,
+    cancellation: &CancellationToken,
+) -> Result<serde_json::Value> {
+    if cancellation.is_cancelled() {
+        return Err(Error::Cancelled);
+    }
+    if record.configuration.backend == Backend::NativeSnapshot {
+        client_inner(root, environment, record, request, Some(cancellation)).await
+    } else {
+        tokio::select! {
+            result=client(root,environment,record,request)=>result,
+            _=cancellation.cancelled()=>Err(Error::Cancelled),
+        }
+    }
+}
+async fn client_inner(
+    root: &Path,
+    environment: &Environment,
+    record: &SessionRecord,
+    request: &Request,
+    cancellation: Option<&CancellationToken>,
+) -> Result<serde_json::Value> {
     let socket = socket_path(root, environment, &record.invocation, false)?;
     let mut stream = tokio::net::UnixStream::connect(socket).await.map_err(|error|Error::Unavailable(format!("original semantic socket is unavailable ({error}); inspect code session status and explicitly prepare a session")))?;
     let peer = stream.peer_cred()?;
@@ -197,25 +284,56 @@ pub async fn client(
         )
         .await,
     )?;
+    if cancellation.is_some_and(CancellationToken::is_cancelled) {
+        return Err(Error::Cancelled);
+    }
     stream.write_all(&serde_json::to_vec(request)?).await?;
     stream.write_all(b"\n").await?;
-    let mut response = String::new();
-    let count = tokio::io::BufReader::new(stream)
-        .read_line(&mut response)
-        .await?;
-    if count == 0 || !response.ends_with('\n') {
-        return Err(Error::Protocol(
-            "semantic peer closed without a complete response".into(),
-        ));
+    let (read, mut write) = stream.into_split();
+    let mut read = tokio::io::BufReader::new(read);
+    let mut response = Vec::new();
+    let mut cancellation_requested = false;
+    let received = async {
+        let count = if let Some(cancellation) = cancellation {
+            tokio::select! {
+                // read_until preserves partial bytes when the token wins the select.
+                count=read.read_until(b'\n',&mut response)=>count?,
+                _=cancellation.cancelled()=>{
+                    cancellation_requested=true;
+                    // One authenticated request owns this connection; version-one
+                    // native control is exactly one byte, followed by a settled reply.
+                    write.write_all(&[3]).await?;
+                    read.read_until(b'\n',&mut response).await?
+                },
+            }
+        } else {
+            read.read_until(b'\n', &mut response).await?
+        };
+        if count == 0 || response.last() != Some(&b'\n') {
+            return Err(Error::Protocol(
+                "semantic peer closed without a complete response".into(),
+            ));
+        }
+        serde_json::from_slice::<Reply>(&response).map_err(Error::from)
     }
-    match serde_json::from_str::<Reply>(&response)? {
+    .await;
+    let received = received.map_err(|cause| {
+        if cancellation_requested {
+            Error::CancellationUnobserved {
+                cause: Box::new(cause),
+            }
+        } else {
+            cause
+        }
+    })?;
+    match received {
         Reply::Answer { value } => Ok(value),
         Reply::Failed { failure } => Err(Error::Refusal(failure)),
     }
 }
 async fn connection(
     stream: tokio::net::UnixStream,
-    engine: Arc<Engine>,
+    engine: Arc<ServiceEngine>,
     stopping: CancellationToken,
 ) -> Result<()> {
     if stream.peer_cred()?.uid() != rustix::process::geteuid().as_raw() {
@@ -227,7 +345,13 @@ async fn connection(
     let mut read = tokio::io::BufReader::new(read);
     let mut frame = String::new();
     // Fixed request grammar plus a wire extent; no arbitrary backend payload is accepted.
-    let count = (&mut read).take(64 * 1024).read_line(&mut frame).await?;
+    let count = {
+        let mut limited = (&mut read).take(64 * 1024);
+        tokio::select! {
+            result = limited.read_line(&mut frame) => result?,
+            _ = stopping.cancelled() => return Ok(()),
+        }
+    };
     if count == 0 || !frame.ends_with('\n') {
         return Err(Error::Protocol(
             "incomplete semantic request or request frame exceeds 64 KiB".into(),
@@ -241,17 +365,63 @@ async fn connection(
             stopping.cancel();
             Ok(serde_json::json!({"stop_requested":true,"native_drain":"unobserved"}))
         }
-        Request::Query(query) => tokio::select! {
-            result = engine.query(query) => result.and_then(|answer| serde_json::to_value(answer).map_err(Error::from)),
-            _ = read.read(&mut disconnected) => return Ok(()),
-            _ = stopping.cancelled() => return Ok(()),
+        Request::Query(query) => match engine.as_ref() {
+            ServiceEngine::Lsp(engine) => tokio::select! {
+                result = engine.query(query) => result.and_then(|answer| serde_json::to_value(answer).map_err(Error::from)),
+                _ = read.read(&mut disconnected) => return Ok(()),
+                _ = stopping.cancelled() => return Ok(()),
+            },
+            #[cfg(feature = "native-hir")]
+            ServiceEngine::Snapshot(engine) => match native_response(
+                engine.start_query(query, stopping.child_token()),
+                &mut read,
+                &stopping,
+            )
+            .await
+            {
+                Ok(Some(value)) => Ok(value),
+                Ok(None) => return Ok(()),
+                Err(error) => Err(error),
+            },
+        },
+        Request::WorkspaceSymbols(query) => match engine.as_ref() {
+            ServiceEngine::Lsp(engine) => tokio::select! {
+                result = engine.workspace_symbols(query) => result.and_then(|answer| serde_json::to_value(answer).map_err(Error::from)),
+                _ = read.read(&mut disconnected) => return Ok(()),
+                _ = stopping.cancelled() => return Ok(()),
+            },
+            #[cfg(feature = "native-hir")]
+            ServiceEngine::Snapshot(engine) => match native_response(
+                engine.start_symbols(query, stopping.child_token()),
+                &mut read,
+                &stopping,
+            )
+            .await
+            {
+                Ok(Some(value)) => Ok(value),
+                Ok(None) => return Ok(()),
+                Err(error) => Err(error),
+            },
         },
     };
     let reply = match response {
         Ok(value) => Reply::Answer { value },
-        Err(error) => Reply::Failed {
-            failure: super::Failure::from_error(&error),
-        },
+        Err(error) => {
+            let failure = super::Failure::from_error(&error);
+            #[cfg(feature = "native-hir")]
+            let failure = {
+                let mut failure = failure;
+                if matches!(engine.as_ref(), ServiceEngine::Snapshot(_))
+                    && matches!(error, Error::Cancelled)
+                {
+                    failure.backend_data = Some(
+                        serde_json::json!({"control_version":1,"cancellation_requested":true,"cpu_work_completed":true,"session_stopped":false}),
+                    );
+                }
+                failure
+            };
+            Reply::Failed { failure }
+        }
     };
     write.write_all(&serde_json::to_vec(&reply)?).await?;
     write.write_all(b"\n").await?;
@@ -289,10 +459,45 @@ pub async fn serve(
         .write(true)
         .mode(0o600)
         .open(directory.join(format!("{}.stderr", invocation.as_str())))?;
-    let engine = Arc::new(Engine::start(&root, configuration, stderr).await?);
     let stopping = CancellationToken::new();
-    let mut clients = tokio::task::JoinSet::new();
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    let engine = match configuration.backend {
+        Backend::Lsp => ServiceEngine::Lsp(Engine::start(&root, configuration, stderr).await?),
+        Backend::NativeSnapshot => {
+            #[cfg(feature = "native-hir")]
+            {
+                let root = root.clone();
+                let mut task =
+                    crate::source_command::batch::spawn_cpu(stopping.child_token(), move |token| {
+                        let engine = super::native::Engine::start(&root, configuration)?;
+                        if token.is_cancelled() {
+                            return Err(Error::Cancelled);
+                        }
+                        Ok(engine)
+                    });
+                let engine = tokio::select! {
+                    result = task.settle() => result.map_err(super::engine::protocol)??,
+                    _ = terminate.recv() => {
+                        task.cancel();
+                        let _settled = task.settle().await.map_err(super::engine::protocol)?;
+                        return Err(Error::Cancelled);
+                    },
+                    _ = tokio::signal::ctrl_c() => {
+                        task.cancel();
+                        let _settled = task.settle().await.map_err(super::engine::protocol)?;
+                        return Err(Error::Cancelled);
+                    },
+                };
+                ServiceEngine::Snapshot(engine)
+            }
+            #[cfg(not(feature = "native-hir"))]
+            {
+                return Err(Error::Unavailable("native snapshot requires the explicitly prepared native-analysis helper; the ordinary host does not load this optional dependency family".into()));
+            }
+        }
+    };
+    let engine = Arc::new(engine);
+    let mut clients = tokio::task::JoinSet::new();
     let mut check = tokio::time::interval(Duration::from_millis(250));
     let result = loop {
         tokio::select! {
@@ -304,11 +509,12 @@ pub async fn serve(
             _ = terminate.recv() => break Ok(()),
             _ = tokio::signal::ctrl_c() => break Ok(()),
             Some(_) = clients.join_next(), if !clients.is_empty() => {},
-            _ = check.tick() => { if engine.driver.is_finished() { break Err(Error::Protocol("analyzer connection terminated".into())); } },
+            _ = check.tick() => { if engine.driver_finished() { break Err(Error::Protocol("analyzer connection terminated".into())); } },
         }
     };
     stopping.cancel();
-    clients.abort_all();
+    // Every handler observes the cancellation token and settles its actual work.
+    // Aborting handlers would discard native CPU completion ownership.
     while clients.join_next().await.is_some() {}
     drop(listener);
     let cleanup = match Arc::try_unwrap(engine) {
@@ -348,4 +554,64 @@ pub async fn stop(
             .cancel(Instant::now() + Duration::from_secs(30))
             .await,
     )
+}
+
+#[cfg(all(test, feature = "native-hir"))]
+mod native_tests {
+    use super::*;
+    #[tokio::test]
+    async fn disconnected_native_consumer_settles_cpu_work_before_returning() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let finished = Arc::new(AtomicBool::new(false));
+        let witness = finished.clone();
+        let task =
+            crate::source_command::batch::spawn_cpu(CancellationToken::new(), move |token| {
+                while !token.is_cancelled() {
+                    std::thread::yield_now();
+                }
+                witness.store(true, Ordering::SeqCst);
+                Err(Error::Cancelled)
+            });
+        let (server, client) = tokio::net::UnixStream::pair().unwrap();
+        let (read, _write) = server.into_split();
+        let mut reader = tokio::io::BufReader::new(read);
+        drop(client);
+        assert!(
+            native_response(task, &mut reader, &CancellationToken::new())
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            finished.load(Ordering::SeqCst),
+            "disconnect must not return while its CPU work is still running"
+        );
+    }
+    #[tokio::test]
+    async fn native_cancel_control_acknowledges_cpu_settlement_and_rejects_extra_frames() {
+        for frame in [vec![3], vec![3, 3], vec![4]] {
+            use std::sync::atomic::{AtomicBool, Ordering};
+            let finished = Arc::new(AtomicBool::new(false));
+            let witness = finished.clone();
+            let task =
+                crate::source_command::batch::spawn_cpu(CancellationToken::new(), move |token| {
+                    while !token.is_cancelled() {
+                        std::thread::yield_now();
+                    }
+                    witness.store(true, Ordering::SeqCst);
+                    Err(Error::Cancelled)
+                });
+            let (server, mut client) = tokio::net::UnixStream::pair().unwrap();
+            let (read, _write) = server.into_split();
+            let mut read = tokio::io::BufReader::new(read);
+            client.write_all(&frame).await.unwrap();
+            let outcome = native_response(task, &mut read, &CancellationToken::new()).await;
+            if frame == [3] {
+                assert!(matches!(outcome, Err(Error::Cancelled)));
+            } else {
+                assert!(matches!(outcome, Err(Error::Protocol(_))));
+            }
+            assert!(finished.load(Ordering::SeqCst));
+        }
+    }
 }

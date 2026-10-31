@@ -125,8 +125,14 @@ mod tests {
         let request = args.selection.request().unwrap();
         assert_eq!(request.filters.expressions, ["test(exact_case)"]);
         assert!(
-            super::super::Cli::try_parse_from(["pse", "explain", "test", "pse-host", "--detach",])
-                .is_err()
+            super::super::Cli::try_parse_from([
+                "pse",
+                "inspect",
+                "test-selection",
+                "pse-host",
+                "--detach",
+            ])
+            .is_err()
         );
         let cli = super::super::Cli::try_parse_from([
             "pse",

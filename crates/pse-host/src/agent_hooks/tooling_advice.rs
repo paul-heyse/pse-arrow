@@ -49,7 +49,7 @@ fn route(words: &[String]) -> Option<&'static str> {
             "clippy" => Some("pse run-all clippy-default clippy-no-default (at scope end)"),
             "fmt" => Some("pse run-all adr-index fmt (at turn end)"),
             "doc" => Some(
-                "pse api for API lookup, or pse run-all docs-rust for workspace documentation checks",
+                "pse inspect api for API lookup, or pse run-all docs-rust for workspace documentation checks",
             ),
             "rustc" => Some(
                 "pse compiler generate or pse compiler probe for explicit compiler investigations",
@@ -58,17 +58,39 @@ fn route(words: &[String]) -> Option<&'static str> {
                 Some("pse run -- cargo build for managed builds; pse check for compilation checks")
             }
             "run" if args.windows(2).any(|pair| pair == ["-p", "xtask"]) => Some(
-                "pse owner / pse docs check for those workflows, or pse run for other managed xtask work",
+                "pse inspect owner / pse docs check for those workflows, or pse run for other managed xtask work",
             ),
             _ => None,
         },
         "rustc" | "rustdoc" => Some(
-            "pse compiler / pse api for investigations, or pse run -- TOOL for managed execution",
+            "pse inspect diagnostic / pse inspect api for original evidence, pse compiler for explicit experiments, or pse run -- TOOL for managed execution",
         ),
         "rust-analyzer" => Some("pse code session prepare for an owned reusable semantic session"),
         "xtask" => Some(
-            "pse owner / pse docs check for those workflows, or pse run -- xtask for other managed work",
+            "pse inspect owner / pse docs check for those workflows, or pse run -- xtask for other managed work",
         ),
+        "rg" | "ripgrep"
+            if args.iter().any(|arg| arg.ends_with(".rs"))
+                || args.windows(2).any(|pair| {
+                    matches!(pair[0].as_str(), "--type" | "-t") && pair[1] == "rust"
+                }) =>
+        {
+            Some(
+                "pse search text / pse search syntax with an explicit Rust source scope; pse inspect expands guarded results",
+            )
+        }
+        "cat" | "head" | "tail" | "sed" if args.iter().any(|arg| arg.ends_with(".rs")) => Some(
+            "pse inspect --source FILE for exact source ranges, or pse inspect declaration for the enclosing Rust item",
+        ),
+        "ast-grep" | "sg"
+            if !args
+                .iter()
+                .any(|arg| matches!(arg.as_str(), "--update-all" | "--update" | "-U")) =>
+        {
+            Some(
+                "pse search syntax for native structural discovery or pse propose syntax for checked capture-preserving previews",
+            )
+        }
         _ => None,
     }
 }
@@ -232,6 +254,25 @@ mod tests {
             "cargo() { :; }; cargo test",
             "function later() { cargo test; }",
             "cargo test '",
+        ] {
+            assert!(advice(source, Path::new("/repo")).is_none(), "{source}");
+        }
+    }
+    #[test]
+    fn focused_rust_reads_offer_native_investigation_without_blanket_search_reminders() {
+        for source in [
+            "rg needle source.rs",
+            "rg -t rust needle",
+            "cat source.rs",
+            "ast-grep run --pattern 'call($A)' source.rs",
+        ] {
+            assert!(advice(source, Path::new("/repo")).is_some(), "{source}");
+        }
+        for source in [
+            "rg needle README.md",
+            "rg needle .",
+            "pse search text needle",
+            "ast-grep run --pattern 'call($A)' --update-all source.rs",
         ] {
             assert!(advice(source, Path::new("/repo")).is_none(), "{source}");
         }

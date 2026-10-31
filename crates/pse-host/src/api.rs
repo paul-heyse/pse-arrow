@@ -20,6 +20,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+pub mod bridge;
 pub mod comparison;
 pub mod query;
 
@@ -241,6 +242,20 @@ fn documentation_features(
     }
 }
 type SourceFiles = Vec<(PathBuf, Vec<u8>)>;
+fn source_files_digest(files: &SourceFiles) -> String {
+    use sha2::Digest as _;
+    let mut hash = sha2::Sha256::new();
+    for (path, bytes) in files {
+        hash.update(path.as_os_str().as_bytes());
+        hash.update([0]);
+        hash.update((bytes.len() as u64).to_le_bytes());
+        hash.update(bytes);
+    }
+    hash.finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
 struct Observation {
     context: Context,
     files: SourceFiles,
@@ -369,19 +384,7 @@ fn observed_context(
         .as_std_path();
     let mut files = Vec::new();
     source_files(package_root, Path::new(""), &mut files)?;
-    use sha2::Digest as _;
-    let mut hasher = sha2::Sha256::new();
-    for (path, bytes) in &files {
-        hasher.update(path.as_os_str().as_bytes());
-        hasher.update([0]);
-        hasher.update((bytes.len() as u64).to_le_bytes());
-        hasher.update(bytes);
-    }
-    let package_source_sha256 = hasher
-        .finalize()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
+    let package_source_sha256 = source_files_digest(&files);
     let rustdoc = environment
         .get(OsStr::new("RUSTDOC"))
         .map_or(OsStr::new("rustdoc"), |value| value.as_os_str());

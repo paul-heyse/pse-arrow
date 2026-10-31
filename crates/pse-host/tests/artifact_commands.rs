@@ -27,7 +27,7 @@ fn default_prefix_continues_under_the_native_validator_without_writing_state() {
     std::fs::write(&file, &source).unwrap();
     let first = value(
         pse(root.path())
-            .args(["artifact", "read", "opaque.json"])
+            .args(["inspect", "artifact", "opaque.json"])
             .output()
             .unwrap(),
     );
@@ -42,7 +42,7 @@ fn default_prefix_continues_under_the_native_validator_without_writing_state() {
     assert_eq!(first["payload"]["atomic_snapshot"], false);
     let schema = value(
         pse(root.path())
-            .args(["schema", "artifact", "read"])
+            .args(["schema", "inspect", "artifact"])
             .output()
             .unwrap(),
     );
@@ -63,7 +63,7 @@ fn default_prefix_continues_under_the_native_validator_without_writing_state() {
     assert_eq!(continuation["payload"]["whole_object"], false);
     let full = value(
         pse(root.path())
-            .args(["artifact", "read", "opaque.json", "--all"])
+            .args(["inspect", "artifact", "opaque.json", "--all"])
             .output()
             .unwrap(),
     );
@@ -79,8 +79,8 @@ fn condition_mismatch_and_invalid_extent_preserve_structured_native_failures() {
     std::fs::write(root.path().join("evidence"), b"source").unwrap();
     let mismatch = pse(root.path())
         .args([
+            "inspect",
             "artifact",
-            "read",
             "evidence",
             "--if-match",
             "deliberately-wrong",
@@ -97,11 +97,11 @@ fn condition_mismatch_and_invalid_extent_preserve_structured_native_failures() {
     );
     assert!(error.to_string().to_lowercase().contains("precondition"));
     for args in [
-        vec!["artifact", "read", "missing"],
-        vec!["artifact", "read", "evidence", "--offset", "999"],
+        vec!["inspect", "artifact", "missing"],
+        vec!["inspect", "artifact", "evidence", "--offset", "999"],
         vec![
+            "inspect",
             "artifact",
-            "read",
             "evidence",
             "--offset",
             "18446744073709551615",
@@ -115,8 +115,8 @@ fn condition_mismatch_and_invalid_extent_preserve_structured_native_failures() {
         assert_eq!(failure["outcome"], "boundary_failure");
     }
     for args in [
-        vec!["artifact", "read", "evidence", "--length", "0"],
-        vec!["artifact", "read", "evidence", "--length", "2", "--all"],
+        vec!["inspect", "artifact", "evidence", "--length", "0"],
+        vec!["inspect", "artifact", "evidence", "--length", "2", "--all"],
     ] {
         assert_eq!(
             pse(root.path()).args(args).output().unwrap().status.code(),
@@ -132,7 +132,7 @@ fn binary_and_json_looking_text_remain_exact_opaque_content() {
     std::fs::write(root.path().join("binary"), bytes).unwrap();
     let response = value(
         pse(root.path())
-            .args(["artifact", "read", "binary", "--all"])
+            .args(["inspect", "artifact", "binary", "--all"])
             .output()
             .unwrap(),
     );
@@ -147,13 +147,13 @@ fn binary_and_json_looking_text_remain_exact_opaque_content() {
     std::fs::write(root.path().join("raw.json"), source).unwrap();
     let response = value(
         pse(root.path())
-            .args(["artifact", "read", "raw.json", "--all"])
+            .args(["inspect", "artifact", "raw.json", "--all"])
             .output()
             .unwrap(),
     );
     assert_eq!(response["payload"]["content"]["data"], source);
     let human = pse(root.path())
-        .args(["artifact", "read", "binary", "--format", "human"])
+        .args(["inspect", "artifact", "binary", "--format", "human"])
         .output()
         .unwrap();
     assert!(human.status.success());
@@ -168,7 +168,7 @@ fn unsupported_native_filename_bytes_are_refused_instead_of_substituted() {
     let name = OsString::from_vec(b"file-\xff".to_vec());
     std::fs::write(root.path().join(&name), b"data").unwrap();
     let output = pse(root.path())
-        .args(["artifact", "read"])
+        .args(["inspect", "artifact"])
         .arg(name)
         .output()
         .unwrap();

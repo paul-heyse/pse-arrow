@@ -227,7 +227,7 @@ no configuration or data deletion. Focused result/source links remain independen
 | [B03](#b03) | complete | 59b | One original service contains wrapper/payload/descendants, with finite reservation before birth. Real ordinary/finite exit/cancel/main-crash, allocation-fault/live-gate, byte and detached-test→wait journeys pass; old generic subtree/recovery protocols are deleted |
 | [B04](#b04) | complete | 59b | Synchronous `run-all` preserves original per-child outcomes and parent/session identity in one native unit. Native `--justfile` supports explicit recipe files. Failed/incomplete/successful sibling controls pass; aggregate callers migrated and private recipe deleted |
 | [B05](#b05) | complete | 59b | Explicit/environment/harness precedence, session-local latest, checkout-wide history override and independent exact IDs pass focused, public and integrated controls. Correlation grants no native stop authority; no packet hooks added |
-| [B06](#b06) | planned | 59b | Integrate K02 typed search events with owned per-record delivery, cancellation and settlement; K03 consumes the working transport |
+| [B06](#b06) | in-progress | 59b | K02 frames use bounded delivery through the existing native output writer; producer cancellation waits for actual settlement. Public closed/stalled-consumer and scope-end qualification remain |
 
 <a id="b06"></a>
 ### B06 — Search record streaming and output settlement

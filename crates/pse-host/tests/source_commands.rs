@@ -29,11 +29,11 @@ fn malformed_rust_keeps_exact_unicode_method_with_context_and_schema() {
     std::fs::write(root.path().join("manager.rs"), source).unwrap();
     let response = value(
         pse(root.path())
-            .args(["show", "manager.rs::HostManager::observe"])
+            .args(["inspect", "declaration", "manager.rs::HostManager::observe"])
             .output()
             .unwrap(),
     );
-    validate(root.path(), "show", &response);
+    validate(root.path(), "inspect declaration", &response);
     assert_eq!(response["observation"]["completeness"], "partial");
     assert!(
         !response["payload"]["parse_issues"]
@@ -54,7 +54,8 @@ fn malformed_rust_keeps_exact_unicode_method_with_context_and_schema() {
     assert!(selected["text"].as_str().unwrap().starts_with("/// café"));
     let output = pse(root.path())
         .args([
-            "show",
+            "inspect",
+            "declaration",
             "manager.rs::HostManager::observe",
             "--format",
             "human",
@@ -74,7 +75,7 @@ fn duplicate_paths_refuse_until_explicit_original_byte_selection() {
     let source = "impl A for S { fn act() {} }\nimpl B for S { fn act() {} }";
     std::fs::write(root.path().join("ambiguous.rs"), source).unwrap();
     let output = pse(root.path())
-        .args(["show", "ambiguous.rs::S::act"])
+        .args(["inspect", "declaration", "ambiguous.rs::S::act"])
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(125));
@@ -83,13 +84,19 @@ fn duplicate_paths_refuse_until_explicit_original_byte_selection() {
     let at = source.rfind("fn act").unwrap().to_string();
     let response = value(
         pse(root.path())
-            .args(["show", "ambiguous.rs::S::act", "--at-byte", &at])
+            .args([
+                "inspect",
+                "declaration",
+                "ambiguous.rs::S::act",
+                "--at-byte",
+                &at,
+            ])
             .output()
             .unwrap(),
     );
     assert_eq!(response["payload"]["selection"]["range"]["line_start"], 2);
     let missing = pse(root.path())
-        .args(["show", "ambiguous.rs::S::missing"])
+        .args(["inspect", "declaration", "ambiguous.rs::S::missing"])
         .output()
         .unwrap();
     assert!(!missing.status.success());
@@ -106,11 +113,11 @@ fn commonmark_sections_and_explicit_literal_items_replace_line_grep() {
     std::fs::write(root.path().join("plan.md"), source).unwrap();
     let outline = value(
         pse(root.path())
-            .args(["outline", "plan.md"])
+            .args(["inspect", "outline", "plan.md"])
             .output()
             .unwrap(),
     );
-    validate(root.path(), "outline", &outline);
+    validate(root.path(), "inspect outline", &outline);
     assert_eq!(
         outline["payload"]["outline"]["entries"]
             .as_array()
@@ -125,7 +132,8 @@ fn commonmark_sections_and_explicit_literal_items_replace_line_grep() {
     let response = value(
         pse(root.path())
             .args([
-                "show",
+                "inspect",
+                "declaration",
                 "plan.md",
                 "--item",
                 "Root",
@@ -139,7 +147,12 @@ fn commonmark_sections_and_explicit_literal_items_replace_line_grep() {
         response["payload"]["selection"]["text"],
         "Child::heading\n-------------\ntext\n"
     );
-    let discovery = value(pse(root.path()).args(["help", "show"]).output().unwrap());
+    let discovery = value(
+        pse(root.path())
+            .args(["help", "inspect", "declaration"])
+            .output()
+            .unwrap(),
+    );
     assert_eq!(
         discovery["payload"]["records"][0]["output_schemas"]["availability"],
         "available"
@@ -152,13 +165,13 @@ fn native_filename_bytes_and_explicit_edition_survive_source_reads() {
     std::fs::write(root.path().join(&file), "fn async() {}\n").unwrap();
     let response = value(
         pse(root.path())
-            .arg("outline")
+            .args(["inspect", "outline"])
             .arg(&file)
             .args(["--edition", "2015"])
             .output()
             .unwrap(),
     );
-    validate(root.path(), "outline", &response);
+    validate(root.path(), "inspect outline", &response);
     assert_eq!(
         response["payload"]["file"],
         serde_json::json!({"Unix":[120,255,46,114,115]})
@@ -169,7 +182,13 @@ fn native_filename_bytes_and_explicit_edition_survive_source_reads() {
             .unwrap()
             .is_empty()
     );
-    let response = value(pse(root.path()).arg("outline").arg(file).output().unwrap());
+    let response = value(
+        pse(root.path())
+            .args(["inspect", "outline"])
+            .arg(file)
+            .output()
+            .unwrap(),
+    );
     assert!(
         !response["payload"]["outline"]["parse_issues"]
             .as_array()
@@ -178,13 +197,13 @@ fn native_filename_bytes_and_explicit_edition_survive_source_reads() {
     );
     std::fs::write(root.path().join("plain"), "# title").unwrap();
     let output = pse(root.path())
-        .args(["outline", "plain"])
+        .args(["inspect", "outline", "plain"])
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(125));
     let response = value(
         pse(root.path())
-            .args(["outline", "plain", "--language", "markdown"])
+            .args(["inspect", "outline", "plain", "--language", "markdown"])
             .output()
             .unwrap(),
     );
@@ -200,13 +219,13 @@ fn multiple_files_use_the_shared_cpu_batch_and_keep_partial_read_results() {
     std::fs::write(root.path().join("first.rs"), "fn first() {}\n").unwrap();
     std::fs::write(root.path().join("last.md"), "# Last\n").unwrap();
     let output = pse(root.path())
-        .args(["outline", "first.rs", "missing.rs", "last.md"])
+        .args(["inspect", "outline", "first.rs", "missing.rs", "last.md"])
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(1));
     let response: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    validate(root.path(), "outline batch", &response);
-    assert_eq!(response["command"], "outline batch");
+    validate(root.path(), "inspect outline batch", &response);
+    assert_eq!(response["command"], "inspect outline batch");
     assert_eq!(response["payload"]["cpu_work_completed"], true);
     let records = response["payload"]["records"].as_array().unwrap();
     assert_eq!(records.len(), 3);

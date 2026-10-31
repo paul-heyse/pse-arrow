@@ -24,6 +24,14 @@ path = "src/main.rs"
 name = "cargo-pse-correctness"
 path = "src/bin/cargo-pse-correctness.rs"
 
+[[bin]]
+name = "pse-native-analysis"
+path = "src/bin/pse-native-analysis.rs"
+required-features = ["native-hir"]
+
+[features]
+native-hir = ["dep:ra_ap_hir", "dep:ra_ap_ide", "dep:ra_ap_ide_db", "dep:ra_ap_load-cargo", "dep:ra_ap_project_model", "dep:ra_ap_vfs", "dep:native_ra_syntax", "dep:unicode-properties", "dep:unicode-ident"]
+
 [lib]
 doctest = false
 
@@ -31,11 +39,22 @@ doctest = false
 workspace = true
 
 [dependencies]
+ra_ap_hir = { workspace = true, optional = true }
+ra_ap_ide = { workspace = true, optional = true }
+ra_ap_ide_db = { workspace = true, optional = true }
+ra_ap_load-cargo = { workspace = true, optional = true }
+ra_ap_project_model = { workspace = true, optional = true }
+ra_ap_vfs = { workspace = true, optional = true }
+native_ra_syntax = { workspace = true, optional = true }
+unicode-properties = { workspace = true, optional = true }
+unicode-ident = { workspace = true, optional = true }
 clap.workspace = true
 clap-cargo.workspace = true
 pulldown-cmark.workspace = true
 ra_ap_syntax.workspace = true
 ast-grep-core.workspace = true
+ast-grep-config.workspace = true
+syn.workspace = true
 tree-sitter-rust.workspace = true
 tree-sitter.workspace = true
 tree-sitter-bash.workspace = true
@@ -69,6 +88,12 @@ cargo_metadata.workspace = true
 petgraph.workspace = true
 public-api.workspace = true
 globset.workspace = true
+ignore.workspace = true
+grep-searcher.workspace = true
+grep-regex.workspace = true
+grep-matcher.workspace = true
+figment.workspace = true
+indicatif.workspace = true
 serde-saphyr.workspace = true
 rustdoc-types.workspace = true
 nextest-metadata.workspace = true

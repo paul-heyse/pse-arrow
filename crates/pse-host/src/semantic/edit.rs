@@ -318,6 +318,7 @@ mod tests {
         assert!(inputs.contains(&old) && inputs.contains(&gone));
         assert_eq!(inputs.len(), 2);
         let configuration = Configuration {
+            backend: super::super::Backend::Lsp,
             project,
             features: vec![],
             no_default_features: false,
