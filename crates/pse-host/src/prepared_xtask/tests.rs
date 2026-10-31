@@ -549,7 +549,21 @@ fn native_child_refusal_and_timeout_keep_original_streams_after_settlement() {
         ])
         .env_clear();
     let output = process::run(command, 1024, Some(Duration::from_secs(2))).unwrap();
-    match successful(output, "fixture-read", true).unwrap_err() {
+    let error = successful(output, "fixture-read", true).unwrap_err();
+    let diagnostic = crate::envelope::ErrorRecord::from_typed(
+        &error,
+        &crate::envelope::RedactionPolicy::new([("TOKEN".into(), "original".into())]),
+    );
+    let wire = serde_json::to_value(diagnostic).unwrap();
+    assert_eq!(
+        wire["facts"]["observations"]["status"],
+        json!({"kind":"integer","value":7})
+    );
+    let text = serde_json::to_string(&wire).unwrap();
+    assert!(text.contains("<redacted:TOKEN>-error"), "{text}");
+    assert!(text.contains("fixture-read"), "{text}");
+    assert!(!text.contains("original-error"), "{text}");
+    match error {
         PreparedNativeToolError::Command {
             status,
             stdout,

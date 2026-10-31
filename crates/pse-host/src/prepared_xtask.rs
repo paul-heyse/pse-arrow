@@ -187,7 +187,52 @@ pse_diagnostics::impl_diagnostic! {
     PreparedNativeToolError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::HostOwnership) },
     forward(this) { match this { Self::Host(error) => Some(error), Self::Environment(error) => Some(error), Self::Correctness(error) => Some(error), Self::Supervision(error) => Some(error), Self::BuildEvidence { source, .. } | Self::CurrentSelection {source,..} => Some(source.as_ref()), _ => None } },
-    help(_this) { None }, related(this) { match this { Self::Execution { failures, .. } => Some(Box::new(failures.iter().map(|error| { let error: &dyn pse_diagnostics::TypedDiagnostic = error; error }))), _ => None } }, source(_this) { None }
+    help(_this) { None }, related(this) { match this { Self::Execution { failures, .. } => Some(Box::new(failures.iter().map(|error| { let error: &dyn pse_diagnostics::TypedDiagnostic = error; error }))), _ => None } }, source(_this) { None },
+    facts(this) { this.command_facts() }
+}
+impl PreparedNativeToolError {
+    fn command_facts(&self) -> pse_diagnostics::DiagnosticFacts {
+        use pse_diagnostics::DiagnosticObservation as Observation;
+        let mut facts = pse_diagnostics::DiagnosticFacts::default();
+        let (stdout, stderr) = match self {
+            Self::Command {
+                phase,
+                status,
+                stdout,
+                stderr,
+            } => {
+                facts.observe("phase", Observation::Text((*phase).into()));
+                facts.observe("status", Observation::Integer(i64::from(*status)));
+                (stdout, stderr)
+            }
+            Self::Extent {
+                phase,
+                bytes,
+                stdout,
+                stderr,
+            } => {
+                facts.observe("phase", Observation::Text((*phase).into()));
+                facts.observe(
+                    "observed_stdout_bytes",
+                    Observation::Text(bytes.to_string()),
+                );
+                (stdout, stderr)
+            }
+            Self::Execution { stdout, stderr, .. } => (stdout, stderr),
+            _ => return facts,
+        };
+        // These are explicitly lossy text projections of already bounded original
+        // prefixes. The envelope's normal redaction applies to both strings.
+        facts.observe(
+            "stdout_prefix_utf8_lossy",
+            Observation::Text(String::from_utf8_lossy(stdout).into_owned()),
+        );
+        facts.observe(
+            "stderr_prefix_utf8_lossy",
+            Observation::Text(String::from_utf8_lossy(stderr).into_owned()),
+        );
+        facts
+    }
 }
 fn invalid(message: impl Into<String>) -> PreparedNativeToolError {
     PreparedNativeToolError::Invalid(message.into())
