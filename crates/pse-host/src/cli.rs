@@ -2031,8 +2031,7 @@ fn source_request(
     if !parsing.index && parsing.revision.is_none() {
         return Ok(crate::source_read::SourceRequest::Working { path: file });
     }
-    let directory =
-        selected.map_or_else(std::env::current_dir, |root| std::path::absolute(root))?;
+    let directory = selected.map_or_else(std::env::current_dir, std::path::absolute)?;
     let repository = crate::repository::source::root(&directory)
         .map_err(crate::source_read::SourceReadError::from)
         .map_err(crate::source_command::SourceCommandError::from)?;
@@ -2921,7 +2920,7 @@ mod tests {
             "outline batch",
             crate::source_command::batch::Report {
                 records: vec![crate::source_command::batch::Record::Read {
-                    reading: crate::source_command::FileOutline {
+                    reading: Box::new(crate::source_command::FileOutline {
                         file: "fixture.rs".into(),
                         source: source_identity.clone(),
                         page: crate::source_read::PageState {
@@ -2935,7 +2934,7 @@ mod tests {
                             source,
                             crate::source_read::RustEdition::E2024,
                         ),
-                    },
+                    }),
                 }],
                 cancellation_requested: false,
                 cpu_work_completed: true,

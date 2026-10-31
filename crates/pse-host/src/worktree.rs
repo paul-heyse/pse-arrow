@@ -784,7 +784,7 @@ pub async fn list(
                 let path = PathBuf::from(OsString::from_vec(path.as_bytes().to_vec()));
                 match repository::observe(&path, Arc::new(AtomicBool::new(false))) {
                     Ok(observation) => row.dirty_paths = Some(observation.dirty_path_count),
-                    Err(error) => row.failures.push(ErrorRecord::from_typed(&error, &policy)),
+                    Err(error) => row.failures.push(ErrorRecord::from_typed(&error, policy)),
                 }
                 if let (Some(base), Some(base_reachable)) = (base_id, base_reachable.as_ref()) {
                     let comparison = (|| {
@@ -803,17 +803,17 @@ pub async fn list(
                     })();
                     match comparison {
                         Ok(comparison) => row.divergence = Some(comparison),
-                        Err(error) => row.failures.push(ErrorRecord::from_typed(&error, &policy)),
+                        Err(error) => row.failures.push(ErrorRecord::from_typed(&error, policy)),
                     }
                 }
-                match activity(&path, environment, &policy).await {
+                match activity(&path, environment, policy).await {
                     Ok((records, errors)) => {
                         row.last_recorded_creation_ms =
                             records.iter().map(|record| record.created_unix_ms).max();
                         row.invocations = records;
                         row.failures.extend(errors);
                     }
-                    Err(error) => row.failures.push(ErrorRecord::from_typed(&error, &policy)),
+                    Err(error) => row.failures.push(ErrorRecord::from_typed(&error, policy)),
                 }
             }
             row

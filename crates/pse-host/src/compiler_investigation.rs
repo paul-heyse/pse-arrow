@@ -421,12 +421,12 @@ pub fn diagnostic(
         .byte_offset
         .checked_add(address.origin.byte_length)
         .ok_or_else(|| invalid("compiler record byte extent overflows"))?;
-    if let Some(capture) = &phase.stdout_capture {
-        if end > capture.bytes_retained {
-            return Err(invalid(
-                "compiler record lies beyond original retained stdout custody",
-            ));
-        }
+    if let Some(capture) = &phase.stdout_capture
+        && end > capture.bytes_retained
+    {
+        return Err(invalid(
+            "compiler record lies beyond original retained stdout custody",
+        ));
     }
     let path = parent.join(relative);
     let (artifact, raw) = read_record(&path, &address.origin)?;
@@ -974,10 +974,9 @@ impl DiagnosticEvidence {
                 .source
                 .as_ref()
                 .and_then(|source| fresh_semantic_action(root, source))
+                && semantic_actions.insert(argv.clone())
             {
-                if semantic_actions.insert(argv.clone()) {
-                    response.next.push(NextAction::Command { argv, reason });
-                }
+                response.next.push(NextAction::Command { argv, reason });
             }
         }
         if let Some(root) = root.to_str() {

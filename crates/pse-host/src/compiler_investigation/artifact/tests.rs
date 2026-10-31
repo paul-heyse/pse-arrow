@@ -217,7 +217,7 @@ fn actual_thir_layout_and_mono_output_remain_opaque_with_selected_tool_and_unit_
             Kind::MonoItems => {
                 assert!(text.contains("identity::<u32>") && text.contains("identity::<u64>"))
             }
-            _ => unreachable!(),
+            _ => panic!("native stdout fixture selected an unsupported artifact kind: {kind:?}"),
         };
         let index = retain_completed(&prepared, &state, &output);
         assert!(

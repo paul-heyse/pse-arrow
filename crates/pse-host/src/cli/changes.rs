@@ -80,7 +80,7 @@ fn inspect(
         .into_iter()
         .map(|path| {
             let path = PathBuf::from(std::ffi::OsString::from_vec(path.as_bytes().to_vec()));
-            let generated = match crate::ownership::query(&root, &path) {
+            let generated = match crate::ownership::query(root, &path) {
                 Ok(owner) => Some(owner),
                 Err(error) => {
                     owner_failures.push(HostError::from(error));
@@ -89,12 +89,12 @@ fn inspect(
             };
             Ok(ChangedPath {
                 applicable_rules: rules.as_ref().map(|rules| rules.matching(&path)),
-                source: crate::ownership::source_owner(&root, &path, Some(&snapshot))?,
+                source: crate::ownership::source_owner(root, &path, Some(snapshot))?,
                 generated,
             })
         })
         .collect::<Result<Vec<_>, HostError>>()?;
-    let reach = crate::affected::preview(&root, &observed, Some(&snapshot.metadata))?;
+    let reach = crate::affected::preview(root, &observed, Some(&snapshot.metadata))?;
     let mut groups = std::collections::BTreeMap::new();
     for (index, path) in paths.iter().enumerate() {
         let (key, owner) = match &path.source.package {

@@ -103,23 +103,23 @@ impl TransportWriter for Writer {
         } else {
             false
         };
-        if let RawMessage::Request { id, method, params } = &mut message {
-            if method == "initialize" {
-                let mut request: InitializeParams =
-                    serde_json::from_slice(params).map_err(malformed)?;
-                request.process_id = Some(std::process::id().try_into().map_err(malformed)?);
-                request
-                    .workspace_folders_initialize_params
-                    .workspace_folders = Some(
-                    vec![WorkspaceFolder {
-                        uri: self.root.parse().map_err(malformed)?,
-                        name: "selected-project".into(),
-                    }]
-                    .into(),
-                );
-                *params = Bytes::from(serde_json::to_vec(&request).map_err(malformed)?);
-                self.evidence.lock().map_err(malformed)?.id = Some(id.clone());
-            }
+        if let RawMessage::Request { id, method, params } = &mut message
+            && method == "initialize"
+        {
+            let mut request: InitializeParams =
+                serde_json::from_slice(params).map_err(malformed)?;
+            request.process_id = Some(std::process::id().try_into().map_err(malformed)?);
+            request
+                .workspace_folders_initialize_params
+                .workspace_folders = Some(
+                vec![WorkspaceFolder {
+                    uri: self.root.parse().map_err(malformed)?,
+                    name: "selected-project".into(),
+                }]
+                .into(),
+            );
+            *params = Bytes::from(serde_json::to_vec(&request).map_err(malformed)?);
+            self.evidence.lock().map_err(malformed)?.id = Some(id.clone());
         }
         let (sent, completed) = oneshot::channel();
         self.messages
@@ -265,39 +265,37 @@ pub(super) fn spawn(
                     break;
                 }
             };
-            if let Ok(message) = &message {
-                if let Ok(mut evidence) = reader_evidence.lock() {
-                    match message {
-                        RawMessage::Request { id, method, params }
-                            if method == "workspace/configuration"
-                                && reader_configuration.phase.load(Ordering::SeqCst) == 1 =>
+            if let Ok(message) = &message
+                && let Ok(mut evidence) = reader_evidence.lock()
+            {
+                match message {
+                    RawMessage::Request { id, method, params }
+                        if method == "workspace/configuration"
+                            && reader_configuration.phase.load(Ordering::SeqCst) == 1 =>
+                    {
+                        if let Ok(params) = serde_json::from_slice::<serde_json::Value>(params)
+                            && params["items"].as_array().is_some_and(|items| {
+                                items.len() == 1
+                                    && items[0]["scopeUri"].is_null()
+                                    && items[0]["section"] == "rust-analyzer"
+                            })
+                            && let Ok(mut request) = reader_configuration.request.lock()
                         {
-                            if let Ok(params) = serde_json::from_slice::<serde_json::Value>(params)
-                            {
-                                if params["items"].as_array().is_some_and(|items| {
-                                    items.len() == 1
-                                        && items[0]["scopeUri"].is_null()
-                                        && items[0]["section"] == "rust-analyzer"
-                                }) {
-                                    if let Ok(mut request) = reader_configuration.request.lock() {
-                                        *request = Some(id.clone());
-                                    }
-                                }
-                            }
+                            *request = Some(id.clone());
                         }
-                        RawMessage::Response {
-                            id,
-                            result: Ok(bytes),
-                        } if evidence.id.as_ref() == Some(id) => {
-                            evidence.result = serde_json::from_slice(bytes).ok();
-                        }
-                        RawMessage::Notification { method, params }
-                            if method == "experimental/serverStatus" =>
-                        {
-                            evidence.status = serde_json::from_slice(params).ok();
-                        }
-                        _ => {}
                     }
+                    RawMessage::Response {
+                        id,
+                        result: Ok(bytes),
+                    } if evidence.id.as_ref() == Some(id) => {
+                        evidence.result = serde_json::from_slice(bytes).ok();
+                    }
+                    RawMessage::Notification { method, params }
+                        if method == "experimental/serverStatus" =>
+                    {
+                        evidence.status = serde_json::from_slice(params).ok();
+                    }
+                    _ => {}
                 }
             }
             if deliver && incoming.blocking_send(message).is_err() {

@@ -191,7 +191,7 @@ pub enum AccountingObservation {
     /// Source failure is retained while the original unit observation remains readable.
     Unavailable {
         /// Original typed source failure and causes.
-        diagnostic: crate::envelope::ErrorRecord,
+        diagnostic: Box<crate::envelope::ErrorRecord>,
     },
     /// The manager already proved the original unit gone/drained.
     NotPresent,
@@ -452,10 +452,10 @@ async fn accounting_snapshot(
     {
         Ok(facts) => AccountingObservation::Available { facts },
         Err(error) => AccountingObservation::Unavailable {
-            diagnostic: crate::envelope::ErrorRecord::from_typed(
+            diagnostic: Box::new(crate::envelope::ErrorRecord::from_typed(
                 &error,
                 &RedactionPolicy::from_inputs(environment),
-            ),
+            )),
         },
     }
 }

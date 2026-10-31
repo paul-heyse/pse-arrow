@@ -100,100 +100,6 @@ impl Action {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use clap::Parser as _;
-    #[test]
-    fn original_evidence_is_passive_and_requires_explicit_record_selection() {
-        let cli = super::super::Cli::try_parse_from([
-            "pse",
-            "compiler",
-            "diagnostic",
-            "--address",
-            "{}",
-            "--source",
-            "--raw",
-            "--budget",
-            "2",
-        ])
-        .unwrap();
-        assert_eq!(
-            cli.command.as_ref().unwrap().generation_intent(),
-            GenerationIntent::Passive
-        );
-        let Some(super::super::Command::Compiler {
-            action: Action::Diagnostic { source, raw, .. },
-        }) = cli.command
-        else {
-            panic!("selected original reader")
-        };
-        assert!(source && raw);
-        assert!(super::super::Cli::try_parse_from(["pse", "compiler", "diagnostic"]).is_err());
-        assert!(
-            super::super::Cli::try_parse_from([
-                "pse",
-                "compiler",
-                "diagnostics",
-                "latest",
-                "--detach"
-            ])
-            .is_err()
-        );
-    }
-    #[test]
-    fn compiler_generation_is_explicit_and_original_file_reads_remain_passive() {
-        let generated = super::super::Cli::try_parse_from([
-            "pse",
-            "compiler",
-            "generate",
-            "case",
-            "--kind",
-            "mir",
-            "--body",
-            "partial",
-            "--pass",
-            "ElaborateDrops",
-            "--question",
-            "remaining field drops",
-            "--lib",
-        ])
-        .unwrap();
-        assert_eq!(
-            generated.command.as_ref().unwrap().generation_intent(),
-            GenerationIntent::NewWork
-        );
-        let probe = super::super::Cli::try_parse_from([
-            "pse",
-            "compiler",
-            "probe",
-            "layout",
-            "--question",
-            "concrete layout",
-        ])
-        .unwrap();
-        assert_eq!(
-            probe.command.as_ref().unwrap().generation_intent(),
-            GenerationIntent::NewWork
-        );
-        for arguments in [
-            vec!["pse", "compiler", "artifacts", "latest"],
-            vec!["pse", "compiler", "file", "latest", "0", "--length", "64"],
-        ] {
-            let cli = super::super::Cli::try_parse_from(arguments).unwrap();
-            assert_eq!(
-                cli.command.as_ref().unwrap().generation_intent(),
-                GenerationIntent::Passive
-            );
-        }
-        assert!(
-            super::super::Cli::try_parse_from([
-                "pse", "compiler", "generate", "case", "--kind", "mir"
-            ])
-            .is_err()
-        );
-    }
-}
 fn decoded<T: serde::de::DeserializeOwned>(text: &str) -> Result<T, HostError> {
     serde_json::from_str(text)
         .map_err(std::io::Error::other)
@@ -418,5 +324,100 @@ pub(super) fn dispatch(
                 },
             )?)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser as _;
+    #[test]
+    fn original_evidence_is_passive_and_requires_explicit_record_selection() {
+        let cli = super::super::Cli::try_parse_from([
+            "pse",
+            "compiler",
+            "diagnostic",
+            "--address",
+            "{}",
+            "--source",
+            "--raw",
+            "--budget",
+            "2",
+        ])
+        .unwrap();
+        assert_eq!(
+            cli.command.as_ref().unwrap().generation_intent(),
+            GenerationIntent::Passive
+        );
+        let Some(super::super::Command::Compiler {
+            action: Action::Diagnostic { source, raw, .. },
+        }) = cli.command
+        else {
+            panic!("selected original reader")
+        };
+        assert!(source && raw);
+        assert!(super::super::Cli::try_parse_from(["pse", "compiler", "diagnostic"]).is_err());
+        assert!(
+            super::super::Cli::try_parse_from([
+                "pse",
+                "compiler",
+                "diagnostics",
+                "latest",
+                "--detach"
+            ])
+            .is_err()
+        );
+    }
+    #[test]
+    fn compiler_generation_is_explicit_and_original_file_reads_remain_passive() {
+        let generated = super::super::Cli::try_parse_from([
+            "pse",
+            "compiler",
+            "generate",
+            "case",
+            "--kind",
+            "mir",
+            "--body",
+            "partial",
+            "--pass",
+            "ElaborateDrops",
+            "--question",
+            "remaining field drops",
+            "--lib",
+        ])
+        .unwrap();
+        assert_eq!(
+            generated.command.as_ref().unwrap().generation_intent(),
+            GenerationIntent::NewWork
+        );
+        let probe = super::super::Cli::try_parse_from([
+            "pse",
+            "compiler",
+            "probe",
+            "layout",
+            "--question",
+            "concrete layout",
+        ])
+        .unwrap();
+        assert_eq!(
+            probe.command.as_ref().unwrap().generation_intent(),
+            GenerationIntent::NewWork
+        );
+        for arguments in [
+            vec!["pse", "compiler", "artifacts", "latest"],
+            vec!["pse", "compiler", "file", "latest", "0", "--length", "64"],
+        ] {
+            let cli = super::super::Cli::try_parse_from(arguments).unwrap();
+            assert_eq!(
+                cli.command.as_ref().unwrap().generation_intent(),
+                GenerationIntent::Passive
+            );
+        }
+        assert!(
+            super::super::Cli::try_parse_from([
+                "pse", "compiler", "generate", "case", "--kind", "mir"
+            ])
+            .is_err()
+        );
     }
 }

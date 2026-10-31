@@ -12,6 +12,26 @@ pub(in crate::managed) const FRONTEND_ENTRY: &str =
 const PUBLICATION_COLLISION: &str = "PSE_DETACHED_TEST_PUBLICATION_COLLISION";
 
 #[test]
+fn unavailable_accounting_keeps_the_typed_diagnostic_wire_and_schema() {
+    let diagnostic = crate::envelope::ErrorRecord::from_typed(
+        &HostError::Ownership("original accounting unavailable".into()),
+        &RedactionPolicy::from_environment(),
+    );
+    let expected = serde_json::to_value(&diagnostic).unwrap();
+    let observation = AccountingObservation::Unavailable {
+        diagnostic: Box::new(diagnostic),
+    };
+    let value = serde_json::to_value(&observation).unwrap();
+    assert_eq!(value["state"], "unavailable");
+    assert_eq!(value["diagnostic"], expected);
+    let schema = schemars::schema_for!(AccountingObservation).to_value();
+    jsonschema::validator_for(&schema)
+        .unwrap()
+        .validate(&value)
+        .unwrap();
+}
+
+#[test]
 fn passive_scope_wire_omits_service_properties_and_uses_its_declared_view_schema() {
     let mut observed = PassiveRecordedObservation {
         observation: RecordedObservation::Observed {
@@ -41,7 +61,7 @@ fn passive_scope_wire_omits_service_properties_and_uses_its_declared_view_schema
             .is_none()
     );
     let RecordedObservation::Observed { service } = &mut observed.observation else {
-        unreachable!()
+        panic!("scope fixture must retain its observed unit before testing the service view")
     };
     service.unit = "original.service".into();
     service.main_pid = 42;

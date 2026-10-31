@@ -20,7 +20,7 @@ pub enum Record {
     /// The same native source model used by the single-file command.
     Read {
         /// Exact immutable parse result.
-        reading: FileOutline,
+        reading: Box<FileOutline>,
     },
     /// A file failure does not discard successful neighbors.
     Failed {
@@ -129,7 +129,9 @@ where
                     };
                 }
                 match read(&file) {
-                    Ok(reading) => Record::Read { reading },
+                    Ok(reading) => Record::Read {
+                        reading: Box::new(reading),
+                    },
                     Err(error) => Record::Failed {
                         file: file.into_os_string(),
                         failure: Box::new(ErrorRecord::from_typed(&error, &policy)),
@@ -279,7 +281,7 @@ pub fn start_page(
                     match provider {
                         Ok(provider) => (
                             Record::Read {
-                                reading: FileOutline {
+                                reading: Box::new(FileOutline {
                                     file: file.into_os_string(),
                                     source: source.identity().clone(),
                                     page: crate::source_read::PageState {
@@ -290,7 +292,7 @@ pub fn start_page(
                                         next_cursor: None,
                                     },
                                     outline,
-                                },
+                                }),
                             },
                             Some(provider),
                         ),

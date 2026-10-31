@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Actual captured reader and CLI against a source-built runtime-owned publication fixture.
 //! Native fixture-owner inputs are required; passive reads never prepare them.
+#![cfg(test)]
 use pse_diagnostics::{DrainFailurePolicy, SupervisedChild};
 use pse_host::{environment::Environment, product_reader::ProductReaderSelection};
 use serde_json::{Value, json, value::RawValue};
@@ -237,7 +238,7 @@ fn prepared_cli_follows_original_work_and_explicitly_captures_and_exports_select
             }
             "wrong_boot" => image["managed_invocation"]["process"]["boot_id"] = json!("wrong-boot"),
             "wrong_start" => image["managed_invocation"]["process"]["start_ticks"] = json!(0),
-            _ => unreachable!(),
+            _ => panic!("unsupported native association fixture mutation: {mode}"),
         }
         std::fs::write(&copied, image.to_string()).unwrap();
         let mut selected_copy = inspect.clone();

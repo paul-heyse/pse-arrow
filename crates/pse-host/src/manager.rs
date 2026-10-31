@@ -2058,13 +2058,12 @@ impl HostManager {
             }
             Err(error) => return Err(error),
         };
-        if let Some(observed) = observed {
-            if observed.invocation != binding.invocation
+        if let Some(observed) = observed
+            && (observed.invocation != binding.invocation
                 || (!observed.control_group.is_empty() && observed.control_group != binding.group)
-                || !matches!(observed.active_state.as_str(), "inactive" | "failed")
-            {
-                return Ok(false);
-            }
+                || !matches!(observed.active_state.as_str(), "inactive" | "failed"))
+        {
+            return Ok(false);
         }
         self.validate_view()?;
         group.empty()
