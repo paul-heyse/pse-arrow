@@ -1,64 +1,54 @@
 # Study execution and database boundary
 
-**Interface-checked. Refreshed 2026-10-29 at source `f83bac039` plus the working tree.**
+**Interface-checked, 2026-11-01, source `19e7b49a67df24c1bf73005a6186e145e930d53a`.**
+The [collection baseline and limits](README.md) apply throughout.
 
-This page began as a scoped supplement (2026-10-28, source `64a217de2`). It is now part of the
-whole-system account and keeps the primary homes of DA-046 and DA-047. Two of its scoped premise
-corrections are carried into the primary findings:
-- [DA-033](boundaries-and-composition.md#da-033) is resolved: exact settlement is shared;
-- [DA-035](execution-fit.md#da-035) and [DA-034](execution-fit.md#da-034) are narrowed.
+This page retains the primary homes of DA-046 and DA-047 from the earlier scoped inquiry.
+Current durable execution-fit findings are
+[DA-055](execution-fit.md#da-055) and [DA-063](execution-fit.md#da-063).
+Exact settlement remains historically resolved under
+[DA-033](boundaries-and-composition.md#da-033).
 
-Per-point execution of durable studies is [DA-055](execution-fit.md#da-055). The full 2026-10-28
-text, including its research basis, is at publication `5e8aea0cc`.
+## <a id="da-046"></a>DA-046 — The scientific-root requirement for workbench metadata access has retired
 
-<a id="da-046"></a>
+**Prior diagnosis resolved for its known path.**
 
-## DA-046 — Metadata access requires the scientific runtime composition root
+The native project CLI handles study-workbench paging before `SharedRuntime::build` and calls
+the control reader directly (`pse-runtime/src/bin/project/runtime.rs`). The former Python
+product path has been removed. Its composition-root requirement is therefore no longer a
+current manifestation.
 
-**Principles:** AP-01, AP-02, AP-06, AP-07, DP-10, DP-16, DP-17; H3, H6, H17, H27.
+Other native actions can still build the root and digest the executable before dispatch.
+Their fixed-work consequence belongs to [DA-043](development-tooling.md#da-043), not an inherited
+claim that all metadata access constructs scientific execution.
 
-**Status:** inherited and corrected by the native replacement. The old path is retiring.
-- The native project CLI answers the study-workbench page before building any runtime. It
-  allocates a bounded response consumer and calls `control_study_workbench_page` directly, then
-  returns (`crates/pse-runtime/src/bin/project/runtime.rs:213-224`). `SharedRuntime::build`
-  follows only for other actions (`:225-226`).
-- The Python route still constructs the scientific root first: `pse-py/src/workflow.rs:926`
-  calls `runtime::acquire`. It retires with `pse-py` under 58g G03.
-- Once G03 lands, this identity can be resolved on removal evidence.
+## <a id="da-047"></a>DA-047 — Destruction attribution remains a bounded contract question
 
-**Residual.** Other native project actions build the runtime and digest the executable before
-dispatch, whether or not they need scientific construction ([DA-043](development-tooling.md#da-043)).
+**AP-02, AP-05, AP-06, DP-08, DP-21; H1, H4, H18. Partially revalidated; diagnosis conditional.**
 
-<a id="da-047"></a>
+`pse-runtime/src/execution_context.rs::instrument_with` attaches the captured OpenTelemetry
+context inside `poll_fn` while polling. The inner future undergoes ordinary destruction outside
+that attachment. Synchronous `ExecutionContext::enter` restores carriers lexically.
+The canonical client's `ObservedBody` explicitly scopes both poll and inner-body destruction.
 
-## DA-047 — Poll and child-destruction attribution have different contracts
+These paths have different attribution contracts. If asynchronous cleanup is intended to retain
+the original context, ordinary destruction can emit under the dropping caller's context.
+Whether the inspected generic wrapper promises that lifecycle contract remains unresolved;
+no misattributed cleanup event was reproduced.
 
-**Principles:** AP-02, AP-05, AP-06, DP-08, DP-21; H1, H4, H18.
+The broader earlier statements about every subscriber/observation wrapper were not revalidated
+and do not inherit this source date. This observation establishes neither premature release,
+permission failure nor failed drain.
 
-**Status:** retained. Only formatting and typing commits touched the decisive file after
-`64a217de2`, and no Plan58 package names it. 58c governs destruction joins, not attribution
-scope.
+## Useful current boundary evidence
 
-**Structural cause.**
-- `ExecutionContext::instrument_with` attaches its OpenTelemetry carrier inside a `poll_fn`
-  closure only (`crates/pse-runtime/src/execution_context.rs:91-119`).
-- `pse_diagnostics::observation::Scoped` installs observation only during poll, and its child
-  undergoes ordinary field destruction.
-- `Instrumented` enters its span on poll and on pinned destruction. `WithDispatch` installs the
-  subscriber on poll without corresponding destruction scoping.
-- By contrast, `canonical_client/owned.rs::ObservedBody` explicitly installs dispatch, span and
-  OTel context around both polling and inner-body destruction.
+Canonical analysis publication seals the full request and closure, stages bounded products and
+activates only a complete publication (`pse-operations/src/canonical_analyses.rs`).
+Immutable columnar proofs retain their field premises; input replacement drops a witness unless
+the input is unchanged (`pse-relations/src/columnar.rs` and `pse-engine/src/session/input.rs`).
+Store recovery distinguishes exact lost-acknowledgement settlement from reissuing a different
+operation. Those source-level strengths constrain any later proposed correction.
 
-**Consequence.**
-- A child may execute under captured attribution but emit cleanup diagnostics under the dropping
-  caller's observation, subscriber and OTel context.
-- To add such a diagnostic safely, authors must understand how the wrappers compose.
-- This is an observational lifecycle inconsistency. It is not an established permission,
-  premature-release or drain failure.
-
-**Counterevidence and uncertainty.**
-- Synchronous `ExecutionContext::enter` restores carriers lexically.
-- Request-body destruction is explicitly scoped.
-- No misattributed event was reproduced.
-- Whether a particular async boundary intends polling-only attribution is a review contract
-  question.
+The original 2026-10-28 supplement is recoverable at publication `5e8aea0cc`.
+Its later account is present at source `19e7b49a6`; neither historical baseline is silently
+promoted into current runtime qualification.
