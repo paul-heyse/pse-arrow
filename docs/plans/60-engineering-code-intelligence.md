@@ -36,11 +36,14 @@ Reuse the completed foundation within these limits; Plan59/61/62 delivery is not
 does not implement or qualify Plan60's additional consumer behavior.
 
 Existing constructors, one query validator, proof/client reuse, guarded references, compact
-answers, API contracts, runnables and qualified contexts are available foundations. Remaining
-work includes extending the delivered early structural graph, richer matcher inputs,
-selected-context deltas and useful evidence paths. [60a's Outcome](60a-evidence-contracts-and-query-composition.md#outcome)
+answers, API contracts, runnables and qualified contexts are available foundations.
+[60a's Outcome](60a-evidence-contracts-and-query-composition.md#outcome)
 owns delivered role/witness evidence, one-snapshot multi-seed traversal independent of output
-scope, focused views and grammar/query assistance; full B01 remains open at its owner.
+scope, focused views and grammar/query assistance. The subsequent native relationship/lifetime
+and acquired API extensions are recorded in [60b's Outcome](60b-native-relationships-and-lifetime-evidence.md#outcome)
+and [60c's Outcome](60c-library-api-and-compatibility-evidence.md#outcome).
+Remaining work includes selected-context deltas, further evidence associations, validation
+relevance and agent-interaction/workflow consumers.
 SearchResult.source_relationship records written source context, not the full native edge
 contract. The remaining packages extend and compose these producers; they do not rebuild
 Plan62 preparation, contextual inference, runnable discovery, compiler acquisition or exact
@@ -92,8 +95,12 @@ they do not add another implementation lane.
 ## Opportunity dispositions
 
 This table alone owns disposition of source O01–O11. Companion package tables own execution
-state. A scheduled recommendation is not implemented; a package pass does not resolve an
+state. A scheduled disposition alone is not implementation evidence; a package pass does not resolve an
 opportunity whose other contributors or assembled acceptance remain open.
+
+Delivered A–C package evidence is recorded in the companion Outcomes. Remaining scheduled
+dispositions retain their parent integration/assembled obligations; they do not reschedule
+the completed producer or consumer packages.
 
 | Opportunity | Disposition | Work owner | Required evidence or trigger |
 | --- | --- | --- | --- |
@@ -194,10 +201,10 @@ consumer or assembled acceptance, and unavailable contexts retain their original
 | E01/A03 | Working interfaces for each example/view | Guidance and compact views integrate incrementally |
 | E03/Q01 | Working selected A–F public consumers and revealing evidence | One scope-end assembled/static campaign; dormant options excluded |
 
-Continue from the delivered A01/B01/A02 responsibility slice while F01/F02 and existing guidance proceed.
-Develop API, passive comparisons and explicit associations independently against their
-existing foundations. Integrate selected lifetime, provenance, validation and structured
-correction consumers as ready. A package boundary is not a permanent worker assignment.
+Further authorized work consumes the delivered A–C contracts, native/artifact inquiries and
+guarded lifetime views. Passive comparisons, explicit associations, validation, guidance and
+structured correction consumers retain their independent readiness routes. A package boundary
+is not a permanent worker assignment.
 One integration owner coordinates shared proto/model/CLI edits and generation; native handles
 remain owner-confined and request-local reuse must preserve world/use-site premises.
 Update native lifecycle relationships to express these same dependencies without copied status.
@@ -263,11 +270,13 @@ mistake made/corrected and deliberate deviations in the final Outcome.
 
 ## Current checkpoint
 
-The 2026-11-01 revision integrates all I01–I08 and new functional O01–O06 into proposed
-scope, with O07/O08 and modeled/alternative branches explicitly conditional. Implementation
-under this series has not started. First work is the A01/B01/A02 slice alongside F01/F02/E01;
-remaining packages use the readiness table above. The post-Plan62 baseline refresh inspected
-`42bede27a` and the completed companion Outcomes; no Plan60 package was implemented by that
-delivery. Existing preparation, typed producer and original-evidence work is consumed rather
-than rescheduled. All Plan60 package states and its own E03/Q01 acceptance remain planned.
-Publication is document acceptance only; no new product Tested/Measured claim follows.
+The 2026-11-01 scope revision integrates I01–I08 and functional O01–O06, with O07/O08
+and modeled/alternative branches explicitly conditional. The A01/A02 delivery is recorded in
+[60a's Outcome](60a-evidence-contracts-and-query-composition.md#outcome), at `926655517`.
+The subsequent `11280f6e3` delivery and its [native Outcome](60b-native-relationships-and-lifetime-evidence.md#outcome)
+and [API Outcome](60c-library-api-and-compatibility-evidence.md#outcome) own B01/B02/B03/B05
+and C01/C02 acceptance. Their completed companions are retained while this series depends on
+them. Existing Plan61/62 preparation, typed producers and original-evidence work are
+consumed rather than rescheduled. Remaining companions retain their own package states;
+E03/Q01 engineering journeys and final qualification remain separate. B04 and deeper compiler,
+indexing and remote alternatives retain their observable triggers.

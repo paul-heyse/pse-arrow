@@ -120,3 +120,6 @@ no general new CEL engine is selected.
   scoped review remains A02-only and formal status remains proposed.
 - 2026-11-01 — recorded operator-authorized Plan60a typed relationship and bounded composition
   extension before dependent implementation; formal status and the prior scoped review are unchanged.
+- 2026-11-01 — Plan60b/c realization is implemented at `11280f6e3`, with targeted acceptance
+  and evidence limits owned by the retained companion Outcomes. The original review remains
+  A02-only; this implementation record does not change formal proposed status.

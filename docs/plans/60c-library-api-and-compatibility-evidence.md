@@ -1,12 +1,14 @@
 ---
 title: "Plan60c: Library API and compatibility evidence"
-status: active
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Active Plan60 consumers and E03/Q01 qualification depend on the artifact contracts, matcher semantics and targeted acceptance."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md
 doc_topics: [current-work, design, libraries, diagnostics]
 review_sources: [docs/functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md, docs/plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md, docs/functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md]
-adrs: []
+adrs: [ADR-0235]
 ---
 
 # Library API and compatibility evidence
@@ -140,16 +142,17 @@ coherent change; do not preserve a compatibility matcher.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| C01 | planned | Acquired API graph/bridge owner | Bounded qualified adjacency/defaults, source-coordinate decision and useful local-use/contextual consumer |
-| C02 | planned | API structural matcher owner | Rich input shapes/binders/constraints in the existing matcher and public request routes |
+| C01 | complete | Acquired API graph/bridge owner | Artifact-qualified adjacency/defaults/bounds/impls/links with shared inquiry lookups and actual local-use/destination journeys |
+| C02 | complete | API structural matcher owner | Rich structural inputs, binder scopes, constants/constraints and one validator/matcher across public request routes |
 
 ## Verification and handoff
 
-**Proposed:** targeted API fixture/matcher/bridge tests plus an actual acquired-library question
-through public search/inspection. Acquisition stays explicit; missing artifacts do not launch
+**Tested:** the Outcome records API fixture/matcher/bridge tests and actual acquired-library
+questions through public search/inspection. Acquisition stays explicit; missing artifacts do not launch
 builds. E01 can deliver current-feature guidance immediately; E03 later exercises these new
-capabilities and their B03/D01 connections. Q01 owns scope-end qualification. No new dependency
-or version bump is selected: verify exact pinned APIs through Context7 discovery followed by
+capabilities and their B03/D01 connections. Q01 owns scope-end qualification. The existing
+exact workspace `quote` dependency is inherited; no version bump was selected. Research uses
+Context7 discovery followed by
 primary/pinned source when implementation reaches consequential details. The review identifies
 overview/pin drift; advertised releases are not evidence of checkout availability. The reviewed
 schema is rustdoc-types0.61.0, while the syn overview targets3.0.9 and the inspected checkout
@@ -158,6 +161,83 @@ are rustdoc §§4,8/addendum §5 and rustdoc-types §§5–10/addenda B/E/F/G, p
 parsing/generic sections. These mechanisms support AP-04/AP-05 and DP-07/DP-15 by preserving
 artifact and predicate meanings. Extra setup is justified only for the selected question.
 
-No API package is newly Implemented or Tested by this revision. C01/C02 own targeted matcher,
-fixture/bridge and public-consumer tests during implementation; E03 assembles the library-fit
-journey and Q01 owns the later scope-end campaign.
+C01/C02 own targeted matcher, fixture/bridge and public-consumer acceptance during
+implementation; E03 assembles the wider library-fit journey and Q01 owns the later scope-end
+campaign. Targeted capability acceptance does not establish those later series boundaries.
+
+## Outcome
+
+### What was built
+
+**Implemented (2026-11-01, `11280f6e3`):** C01/C02 through the existing acquired-artifact,
+definition/source bridge and request owners. Declared adjacency exposes containment, structured
+bounds including associated-type bounds, implementation records, provided defaults, reexports
+and compiler-resolved documentation links. Native and acquired graphs share the canonical
+edge projection while keeping separate relation domains, guarded nodes and original witnesses.
+Impl witnesses preserve negative/synthetic/blanket flags and declared trait/self types.
+A provided default can be followed even when absent from `Impl.items`.
+
+Each inquiry shares acquired definition lookup, artifact/context-qualified parent indexes and
+contract projections. Missing retained definitions remain partial; inspection never acquires
+them implicitly. Numeric item IDs are not identities across artifacts or contexts. Declared
+membership does not invent Deref inheritance, destination importability or use-site applicability.
+Existing qualified native consumers answer those separate questions.
+
+One typed structural program handles flags, typed JSON, saved queries and ordinary API inspection.
+It preserves callable/function-pointer forms, arrays, lifetime/type/const argument kinds,
+higher-ranked scopes, GAT arguments, associated equality versus bounds and declared where
+predicates. Recursive validation runs before providers. Source-addressed parse diagnostics
+retain query coordinates. Repeated wildcards remain independent; opaque constants are not
+evaluated and unsupported comparisons remain unknown. Textual unbraced identifiers retain
+their type interpretation; const identifiers use braces or structured input. Legacy spelling
+filters and type-only generic-argument filtering were removed with migrated callers/tests.
+The existing exact workspace `quote` dependency was inherited without an upgrade.
+
+**Tested:** the combined [60b Outcome](60b-native-relationships-and-lifetime-evidence.md#outcome)
+command passed 38 tests against the zero failure baseline on local Linux, including the rich
+matcher matrix, indexed contract projection, qualified external aliases, actual producer span
+coordinates and shared request/schema regressions. The final native-hir all-target check had
+zero errors and warnings; full generation published 10 configured targets. Additional public
+checks used the native correctness route:
+
+```bash
+scripts/pse test pse-host:composed_investigations -E 'test(acquired_api_rich_shapes_) | test(actual_acquired_api_constraints_join_native_use_) | test(bounded_multi_seed_graph_)'
+scripts/pse test pse-host:composed_investigations -E 'test(acquired_api_rich_shapes_) | test(actual_acquired_api_constraints_join_native_use_)'
+```
+
+The initial selection passed its graph test and failed both API fixtures during setup. After
+repairing caller ownership, the final selection passed all 3 selected tests (two public journeys
+and their matching guarded entry), with zero failures. The acquired fixture independently
+expects callback/HRTB flag/JSON/saved-query equivalence and its negative counterpart, declared
+where constraints, provided defaults absent from impl items, negative/synthetic/blanket impl
+metadata, associated bounds and resolved versus prose-only links. It follows actual default
+and Deref-selected calls through the existing native use bridge and refuses stale context.
+The existing destination journey verifies native use and importability; contextual candidate
+tests separately retain adjustments, required imports and obligation limits. These are targeted
+capability checks, not a feature-adoption measurement or whole-series qualification.
+
+### Mistakes corrected
+
+Independent review found repeated whole-artifact parent scans per impl witness and omission
+of associated-type bounds. A shared parent index removes the scans while retaining ambiguous
+membership semantics; the acquired fixture asserts the previously omitted bound edge. A
+generalized shared edge type removed duplicate canonical projection declarations without
+collapsing identity domains.
+
+The first public selection failed 2 of 3 tests against the zero target because the API journeys
+attempted independent detachment inside an enclosing managed test workload. Both now use the
+existing authenticated independent-caller/entry-gate harness. Production refusal remains in
+force. The final rerun passed; failed setup runs receive no acceptance credit.
+
+### Deliberate boundaries and handoff
+
+**Implemented:** blueprint §21.7 owns enduring behavior. The actual pinned rustdoc producer
+coordinate test was reused and its misleading comment corrected; no repeated feasibility
+study or alternate source-link reconstruction was added. Patterns describe shape, declared
+adjacency describes artifacts, and B03/native calls retain contextual predicate authority.
+No trait solver, global index, synchronization service, implicit acquisition or new dependency
+version was introduced. This plan remains retained while the parent series depends on it.
+
+**Proposed / not_run:** E03's wider engineering-process journeys and Q01's final integrated/static
+campaign remain separate. Formal ADR acceptance is unchanged, and the user-owned library
+documentation remains outside this implementation's commit scope.

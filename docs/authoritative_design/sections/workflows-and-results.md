@@ -1858,7 +1858,7 @@ witnesses. Missing or incompletely examined facts stay unknown, including under 
 
 > Decision: ADR-0235 (proposed Plan60a relationship-contract extension).
 
-**Proposed extension (Plan60b/c).** Native compatibility compares guarded operands in one
+**Implemented extension (Plan60b/c).** Native compatibility compares guarded operands in one
 snapshot after fallible generic-owner rebasing; possible unification/coercion, existential
 implementation discovery and obligation evaluation retain distinct outcomes. Native origins
 distinguish locals, assembly operands, originating ADTs and generated observations. Acquired
@@ -1867,6 +1867,28 @@ implicitly. Rich patterns share one structural parser/matcher across entry point
 views join native/compiler bodies only with verified original-source and selected-unit
 correspondence; normalized/remapped locations and accompanying runtime evidence alone do not
 prove that join. Existing owners retain preparation, cancellation and actual settlement.
+The existing compiler producer retains checksum-verified original UTF-8 source bytes once per
+file inside its acquired facts artifact; source expansion reads those bytes with bounded
+UTF-8/base64 output. Historical artifacts without that binding remain readable and unjoined.
+Body correspondence checks compiler identity, actual cfg, edition, target, package/role/features,
+crate-root bytes and exact original body bytes. Binary body context uses a unique admitted
+Cargo target mapping and the actual loader target; it does not become a library API profile.
+Pinned native cfg discovery uses optimized settings and adds atomic capability atoms; ordinary
+debug compiler acquisitions can therefore remain unjoined. Those actual differences are retained.
+Supplied work evidence remains explicitly accompanying evidence, without an inferred execution
+link or a zip between native captures and compiler saved fields. Public lifetime cancellation
+retains the original native receive owner through terminal settlement.
+
+Artifact adjacency and native traversal share canonical edge indexes while retaining separate
+domains, qualified nodes and original witnesses. Adjacency reuses artifact-local definition,
+parent and contract lookups within the inquiry; provided defaults, associated bounds, impl
+qualifiers and compiler-resolved documentation links do not establish use-site applicability.
+Pattern input preserves lifetime/type/const argument kinds and higher-ranked scopes; wildcards
+are independent and opaque constant expressions are not evaluated. Native comparison preserves
+exact equality, possible unification and directional possible coercion as separate operations.
+Format/derive observations retain optional/plural mappings and bounded, cancellable projection;
+an originating ADT is not an identity for a generated declaration. The companion Outcomes own
+targeted acceptance; E03/Q01 retain broader process journeys and final qualification.
 
 **Implemented realization (Plan60a).** Related investigations use nonempty guarded seeds and selected
 relations, an independent traversal domain and any/all seed attribution. Output source selection
@@ -1878,8 +1900,11 @@ and generation; unsupported or unmapped facts remain explicit. Depth bounds desc
 question, while incomplete node/edge/provider examination prevents negative conclusions.
 Settled compact graph answers retain guarded expansion and coverage in every presentation.
 Traversal intersects selection with the active prepared world; inactive files are identified
-as outside that world, while inactive/plural seeds refuse. Explicit source uses retain
-unsupported field classification, block-local population and unresolved facts as incomplete.
+as outside that world, while inactive/plural seeds refuse. The subsequent B01 extension adds
+associated/supertrait/impl relationships, supported immediate block-local containment and
+contextual field witnesses. Direct assignments distinguish read/write roles; aliases, borrowing
+and interior mutation remain incomplete. Calls require actual native invocation resolution;
+callback values remain uses and unresolved indirect calls remain unknown.
 Native `NODE_TYPES` inspection and query-byte error locations remain source-only assistance.
 Plan60a owns targeted local Linux implementation evidence; E03/Q01 retain engineering-process
 and assembled/static qualification. No new persistent graph or universal identity follows.

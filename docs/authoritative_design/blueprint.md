@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 331
+revision: 332
 date: 2026-11-01
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 332 | 2026-11-01 | Record Plan60b/c native relationships/comparisons/origins, acquired API adjacency/patterns and guarded lifetime/source realization (§21.7). | Operator-authorized implementation; companion Outcomes own targeted acceptance, E03/Q01 remain separate; ADR-0235 remains proposed. |
 | 331 | 2026-11-01 | Publish Plan60b/c native compatibility/origin, artifact adjacency/pattern and verified compiler-source correspondence extensions (§21.7). | Operator-authorized execution within proposed ADR-0235; target publication before dependent code, acceptance remains with 60b/c. |
 | 330 | 2026-11-01 | Record delivered Plan60a typed graph, active-world multi-seed traversal, guarded focused views and native grammar/error assistance (§21.7). | Operator-authorized execution within proposed ADR-0235; Plan60a Outcome owns targeted Linux checks and corrected public attempts. Full B01 and E03/Q01 remain open; formal ADR status unchanged. |
 | 329 | 2026-11-01 | Publish Plan60a role-qualified relationships, independent traversal/output selection and one snapshot-bound multi-seed operation (§21.7). | Operator-authorized Plan60a execution within proposed ADR-0235; target publication only, targeted implementation acceptance remains open. |

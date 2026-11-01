@@ -1,12 +1,14 @@
 ---
 title: "Plan60b: Native relationships and lifetime evidence"
-status: active
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Active Plan60 consumers and E03/Q01 qualification depend on the native contracts, targeted acceptance and conditional extraction boundaries."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md
 doc_topics: [current-work, design, libraries, diagnostics]
 review_sources: [docs/functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md, docs/plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md, docs/functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md]
-adrs: []
+adrs: [ADR-0235]
 ---
 
 # Native relationships and lifetime evidence
@@ -109,10 +111,10 @@ Migrate shared result consumers and delete replaced text-parsing/duplicate class
 The early producer slice is delivered and targeted-tested with
 [60a's Outcome](60a-evidence-contracts-and-query-composition.md#outcome): containment,
 role-qualified nominal dependencies and explicit resolved uses feed the multi-seed consumer.
-Remaining B01 work includes its selected associated/visibility/supertrait and contextual field/
-use classification obligations above. Current Uses coverage explicitly retains unsupported
-field-use and block-local populations as incomplete; implicit operations are not reclassified
-as ordinary source uses. B01 completion must preserve these distinctions while extending them.
+At that handoff, the selected associated/visibility/supertrait and contextual field/use
+obligations remained. That early slice marked unsupported field-use and block-local populations
+incomplete. This companion's Outcome records the subsequent extension and its remaining
+evidence limits; implicit operations are not reclassified as ordinary source uses.
 Do not delete complementary live-provider capabilities merely because snapshots lack parity.
 
 <a id="b02"></a>
@@ -231,16 +233,106 @@ provenance assembly after the typed consumer passes, retaining cheap text/AST no
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| B01 | in-progress | Native semantic relationship owner | Early A01/A02 producer delivered at 60a Outcome; selected associated/visibility/supertrait and contextual-use obligations remain |
-| B02 | planned | Native body evidence owner | Joined existing capture/compiler/original-work evidence; deeper extraction conditional |
-| B03 | planned | Native predicate owner | Existing contextual predicates consumed with origin checks and inconclusive cases |
+| B01 | complete | Native semantic relationship owner | Associated/supertrait/impl relations, supported block-local containment and contextual field/call witnesses; targeted acceptance below |
+| B02 | complete | Native body evidence owner | Original-source retention, conservative body correspondence, original work evidence and settled public cancellation; deeper extraction conditional |
+| B03 | complete | Native predicate owner | Named comparisons with owner/source/generation guards and inconclusive cases; existing obligation outcomes retained |
 | B04 | deferred | Native semantic owner | Observable bulk-work trigger and selected decision before any implementation |
-| B05 | planned | Native provenance owner | Typed format-reference and derive-origin questions with optional/plural source correspondence |
+| B05 | complete | Native provenance owner | Bounded typed format/local/assembly and derive observations, exact source expansion and explicit missing/plural mappings |
 
 ## Verification and handoff
 
-**Proposed:** targeted native-helper and host adapter tests exercise actual selected contexts,
-positive facts and the counterexamples above. A live-provider pass does not qualify native
-snapshot exports. Native preparation remains explicit, isolated from passive reads. E03 owns
-actual engineering use; Q01 owns final integrated/static qualification. No new native,
-compiler-private or performance claim follows from authoring this plan.
+**Tested:** the Outcome records targeted native-helper, typed-wire and public adapter checks
+over selected contexts, positive facts and counterexamples. Native preparation remains explicit,
+isolated from passive reads. E03 owns actual engineering-process journeys and Q01 owns final
+integrated/static qualification; these targeted checks do not establish those series exits.
+
+## Outcome
+
+### What was built
+
+**Implemented (2026-11-01, `11280f6e3`):** B01/B02/B03/B05 through the existing immutable
+native snapshot, typed protocol6, original compiler producer and guarded public inspection.
+Associated declarations, direct supertraits, impl trait/self-type dependencies and supported
+immediate block-local containment preserve original endpoints and witnesses. Field observations
+retain substituted context and direct assignment read/write roles; borrowing, aliases and
+interior mutation remain incomplete. Calls require an actual native call expression/callee;
+callback values stay uses and unresolved indirect calls remain unknown.
+
+Named equality, possible deep unification and directional possible coercion compare two
+guarded operands in one snapshot with fallible owner rebasing. Unknown types stay inconclusive.
+Visibility is checked in the selected destination, including field visibility. Exact expression,
+type and string-position inspection is separate from declaration-identity nomination; a range
+covering multiple operands refuses. Existing call substitutions and qualified where/obligation
+outcomes remain with their original producers.
+
+Format observations distinguish original substrings, local bindings and invocation-owned assembly
+operands. Derive observations retain originating ADTs, generated impl observations and helper
+nominations without fabricated generated declaration identity. Projection stops at the requested
+allowance and polls cancellation; individual native library calls remain indivisible boundaries.
+
+Lifetime inspection combines independently qualified native, acquired compiler and supplied
+work sections. The existing compiler producer retains checksum-verified pre-normalization source
+bytes and complete original HIR body spans. `inspect compiler-source` expands bounded retained
+UTF-8/base64 bytes after whole-artifact verification, including after working source changes.
+Body joins check compiler identity, actual cfg, edition, target, package/role/features, crate-root
+bytes and exact original body bytes. Binary body context uses unique admitted Cargo targets
+without changing library-profile qualification. Historical or incompatible evidence remains
+readable and unjoined. Captures and saved fields are not zipped; active loans and runtime
+destruction are not inferred. Supplied work remains accompanying evidence, not an execution link.
+Both public lifetime routes cancel on Ctrl-C and retain the original receive owner through
+native terminal settlement.
+
+**Tested:** zero failures in the final combined 38-test selection below on local Linux with the
+pinned nightly and native correctness/force-validation selection. The selection also covers
+shared C01/C02 contracts and regressions. The all-target compile check reported zero errors and
+zero warnings; `just codegen` published all 10 configured targets. Explicit compiler-analysis
+preparation and the actual compiler-probe journey exercised the pinned compiler-private API.
+
+```bash
+just codegen
+scripts/pse check pse-host --all-targets --features native-hir
+scripts/pse tools prepare compiler-analysis
+scripts/pse test pse-host --lib --features native-hir -E 'test(api::query::) | test(native_rustdoc_spans_) | test(compiler_original_source_binding) | test(cfg_canonicalization) | test(native::investigation_tests::) | test(typed_native_inquiry_wire_) | test(public_native_comparison_) | test(public_lifetime_) | test(native_contextual_candidates_public_preserve_) | test(bounded_graph_) | test(normalized_graph_wire_) | test(investigation::model::tests::) | test(code_intelligence_contracts::tests::) | test(inquiry_positions_)'
+```
+
+Tests exercise nominal namesakes, owner mismatch, unresolved types, coercion without equality,
+source/generation guards, private fields, actual calls versus callback values, contextual fields,
+nested unsupported containers, escaped braces, custom templates, assembly operands, distinct
+same-spelled locals and multiple derive attributes. The actual compiler-probe fixture follows
+cancellation signaling, a retained async guard/future, CPU join ownership and sibling reset as
+source/static facts. It verifies positive and incompatible body correspondence, raw byte
+expansion and original work evidence. The separate public SIGINT journey observes an active
+native request, cancellation with CPU settlement, sibling success and zero remaining requests.
+
+### Mistakes corrected
+
+The initial combined run failed 2 of 36 tests against the zero target: expression ranges were
+sent through declaration nomination, and compiler diagnostic header spans/cfg differences
+prevented the intended positive body join. Inspection now has its own exact position lift;
+the producer uses complete HIR spans. Pinned RA obtains cfg with optimized settings and appends
+atomic capability atoms; the positive fixture explicitly selects matching compiler settings.
+The production comparer still retains every actual cfg difference. A 19-test affected run
+then failed 2 fixture exit expectations; boundary refusal is 125 and incomplete correspondence
+is 1. Corrected public reruns passed, followed by the clean 38-test run. Earlier failed runs
+do not establish completion.
+
+Independent implementation review also found false containment through unsupported local
+containers, unbounded derive observation accumulation and missing public lifetime signal
+ownership. The repaired paths and focused regressions preserve those boundaries. Compiler
+preparation caught two unsupported digest-format operations; byte formatting corrected them.
+
+### Deliberate boundaries and handoff
+
+**Implemented:** enduring contracts are in blueprint §21.7. This plan remains retained while
+the parent series depends on its acceptance and conditional boundaries. B04 and deeper
+loan/shim/phase extraction remain deferred under their original observable triggers. Normal
+debug compiler cfg can differ from pinned RA and remain unjoined; no universal cross-provider
+equivalence is claimed. Native snapshot generation remains immutable within its original
+session. No global index, new service, universal identity or performance claim was introduced.
+
+**Tested:** `just ready` passed after the inherited exact `quote` dependency was added;
+`just turn-end` passed ADR indexing and formatting. No dependency version moved.
+
+**Proposed / not_run:** E03 engineering-process journeys and Q01 assembled/static qualification
+remain with the parent series. Formal ADR-0235 acceptance is unchanged. Feature-use
+frequency is not an acceptance gate, and the user-owned library-document changes were preserved.
