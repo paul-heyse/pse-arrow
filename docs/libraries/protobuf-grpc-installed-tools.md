@@ -1,3 +1,5 @@
+# Installed Protobuf and gRPC tools
+
 The Protobuf/gRPC setup now includes these **32 commands**, with pinned versions:
 
 | Tool | Version | Purpose |

@@ -1,5 +1,11 @@
 # Functional opportunity reviews
 
+The [Protobuf foundations review](code-intelligence-protobuf-foundations-2026-10-31.md)
+assesses improvements to existing code intelligence independently of Plan60. This first
+milestone supplies opportunities, competing runtime/toolchain options, installed-tool roles
+and prioritized documentation briefs. It stops at the documentation handoff; no runtime stack,
+production change or performance benefit is established.
+
 The [engineering-workflow code-intelligence review](engineering-workflow-code-intelligence-2026-10-31.md)
 assesses improvements supporting audits, design and functional reviews, library leverage and
 plan authoring/execution/improvement on the delivered Plan59 foundation. Eleven opportunities
