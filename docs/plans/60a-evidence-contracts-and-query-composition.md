@@ -145,6 +145,35 @@ full original inspection used for other questions.
 
 ## Package state
 
+### Execution boundary (2026-11-01)
+
+The authorized implementation combines A01–A03 with B01's minimal containment,
+parameter/return/field nominal type-dependency and resolved-use producers. Remaining B01
+families and B02–B05 retain their existing owner. The target supports the audit, design,
+functional-extension, library-leverage and planning skills; adoption frequency is not an
+acceptance gate.
+
+Related requests replace scalar `seed`/`relation` with nonempty `seeds`/`relations`, an
+independent working-tree `traversal` selector, `seed_match` (`any` by default, or `all`),
+and positive node/edge/depth bounds. Ordinary `sources` select answer nodes; hidden
+intermediates remain available as guarded support. All seeds share the original prepared
+session, configuration and generation. One native operation and snapshot run a shared pure
+traversal kernel, with request-local adjacency and minimum distance per seed. The declared
+depth is an intentional boundary; exhausted provider/node/edge work makes within-depth
+absence unknown. Canonical edge direction never changes when traversing incoming edges.
+
+Nominal dependencies are sets within each outer parameter/field role: repeated nested type
+positions are not claimed where the pinned HIR walk deduplicates them. Distinct outer roles
+retain parallel witnesses; enum variant fields and declared versus async return forms remain
+distinct. Incoming structural coverage comes from the selected prepared declaration population,
+not only textual reference nominations. No persistent index or HIR handle crosses the boundary.
+
+The first focused graph view is a settled bounded answer. Its NDJSON records are final
+records emitted after native work settles, without mutable graph updates. Existing source
+streams remain streaming. Grammar assistance reads pinned `NODE_TYPES`, and input/output
+schemas use their respective deserialization/serialization directions. F01–F03 universal
+controls and conditional capability triggers retain their separate ownership.
+
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | A01 | planned | Shared investigation contract owner | Consumed typed semantics, constructors, validation and schema/consumer integration |

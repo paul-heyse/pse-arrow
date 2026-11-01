@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 328
+revision: 329
 date: 2026-11-01
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 329 | 2026-11-01 | Publish Plan60a role-qualified relationships, independent traversal/output selection and one snapshot-bound multi-seed operation (§21.7). | Operator-authorized Plan60a execution within proposed ADR-0235; target publication only, targeted implementation acceptance remains open. |
 | 328 | 2026-11-01 | Record delivered native contextual facts, extended preparation, qualified layout, authenticated authored byte ranges, isolated compiler observation contracts and local Linux qualification with explicit exclusions (§21.7, §24.2). | Operator-authorized Plan62 implementation within proposed ADR-0233/0235; original native ownership retained. Plan62 Outcome owns corrected affected reruns, native/compiler public journeys, static qualification and operator-excluded copyright-header check; no formal ADR acceptance. |
 | 327 | 2026-11-01 | Record Plan62 explicit extended native preparation and isolated compiler observation target (§21.7). | Operator-confirmed RC01/RC02 and typed D03; proposed ADR-0233 extension before dependent implementation. Runtime delivery and qualification remain open. |
 | 326 | 2026-11-01 | Close Plan61 selected scope with assembled local Linux evidence, immutable descriptor ownership, guarded origin qualification and narrowly bounded generated reflection assertions (§21.7, §24.2). | Operator-authorized Plan61 Q01 publication; final runtime and keep-going static checks passed. ADR-0235 remains proposed with A02-scoped review; scientific/deployment/performance qualification remains separate. |

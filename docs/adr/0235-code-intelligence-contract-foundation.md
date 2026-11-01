@@ -60,6 +60,14 @@ preserves the original outcome through Terminal. Plain observation DTOs remain a
 HIR execution dependencies. Native public presentation remains deliberate Serde/Schemars output;
 original provider documents remain qualified inspection evidence. No legacy listener is retained.
 
+Plan60a extends this same boundary with role-qualified relationship facts and one bounded
+multi-seed native operation. Canonical declaration endpoints, occurrence witnesses and original
+session/configuration/generation remain distinct. Traversal selection and answer selection are
+independent; a shared request-local kernel preserves seed attribution, bounded support and
+unknown coverage. Typed facts, rather than rendered context, drive composition. This extends
+the selected host/schema boundary without a new crate, service, universal identity or persistent
+graph. Plan60a owns its implementation and targeted acceptance.
+
 ### Consequences
 
 Publish messages/views/validators/service bindings and full descriptors through GeneratedTree.
@@ -101,3 +109,5 @@ no general new CEL engine is selected.
 - 2026-10-31 — proposed for operator-authorized A02 implementation; formal status unchanged.
 - 2026-11-01 — recorded operator-authorized B/C realization within the selected boundary; the
   scoped review remains A02-only and formal status remains proposed.
+- 2026-11-01 — recorded operator-authorized Plan60a typed relationship and bounded composition
+  extension before dependent implementation; formal status and the prior scoped review are unchanged.

@@ -1856,6 +1856,19 @@ providers own matching, syntax, semantic/API/compiler facts and bounded relation
 Same-node/entity conjunction requires a common candidate/context; file conjunction can use different
 witnesses. Missing or incompletely examined facts stay unknown, including under negation.
 
+> Decision: ADR-0235 (proposed Plan60a relationship-contract extension).
+
+**Proposed target (Plan60a).** Related investigations use nonempty guarded seeds and selected
+relations, an independent traversal domain and any/all seed attribution. Output source selection
+does not prune supporting intermediates. One native worker and immutable snapshot serve one
+bounded traversal; request-local adjacency is shared across seeds. Canonical declaration edges
+retain structural roles and original occurrence witnesses, including parallel outer parameter
+and field positions. Native declaration identities keep their original session, configuration
+and generation; unsupported or unmapped facts remain explicit. Depth bounds describe the
+question, while incomplete node/edge/provider examination prevents negative conclusions.
+Settled compact graph answers retain guarded expansion and coverage in every presentation.
+Plan60a owns implementation evidence; no new persistent graph or universal identity follows.
+
 Bounded search defaults to 20 results in fast arrival order. Stable ordering and source/query-guarded
 continuations are explicit; arrival order has no reproducible continuation promise. Counts state
 their unit and exact/at-least/unknown character. A limit can fulfill the requested demand without
