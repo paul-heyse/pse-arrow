@@ -74,6 +74,16 @@ Actual contextual compatibility belongs to B03, not a second implementation here
 
 ## Work packages
 
+### Authorized execution refinement — 2026-11-01
+
+Execute C01/C02 from `926655517`. Artifact-qualified adjacency remains offline and separate
+from native traversal/applicability. Reuse the existing pinned-producer coordinate test and
+correct its misleading location comment rather than repeat feasibility work. Replace legacy
+spelling input/output filters with the same structural matcher used by search. Generic
+argument kinds and HRTB scopes remain explicit; textual unbraced identifiers retain type
+meaning, while const parameters use braces or typed JSON. Opaque expressions are never
+evaluated. One query-local catalog shares artifact lookups; no global index or new service.
+
 <a id="c01"></a>
 ### C01 — API, documentation and local-use adjacency
 

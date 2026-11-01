@@ -71,6 +71,18 @@ independently of the full new B01 structural-relation set.
 
 ## Work packages
 
+### Authorized execution refinement — 2026-11-01
+
+Execute remaining B01/B02/B03/B05 from `926655517`; B04 and deeper loan/shim extraction
+remain conditional. Extend the existing snapshot worker and move the native protocol to6.
+B03 verifies compatible generic owners with fallible rebasing and preserves unresolved types
+as inconclusive. B05 exports typed local/assembly/derive observations without false generated
+declaration identities. B02 adds source provenance to the existing compiler producer using
+its pre-normalization source hash and original-byte mapping; old artifacts stay readable and
+unjoined when correspondence is absent. A matched body does not justify zipping captures
+with saved fields. Public consumers use the existing guarded inspection and independent
+caller harnesses. Package acceptance remains separate from E03/Q01 and feature-use frequency.
+
 <a id="b01"></a>
 ### B01 — Native declaration, type and field relationships
 

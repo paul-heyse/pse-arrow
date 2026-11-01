@@ -70,6 +70,15 @@ graph. Plan60a owns its implementation and targeted acceptance.
 
 ### Consequences
 
+Plan60b/c's authorized extension keeps native, acquired-artifact and source/body origin
+domains explicit. Artifact endpoints bind original digest/context/item addresses; native
+declaration identities do not become universal IDs. Compatibility resolves both operands in
+one snapshot and checks generic-owner rebasing before comparison. Lifetime composition uses
+producer-verified original-source correspondence; historical normalized compiler coordinates
+alone cannot establish a current native join. Generated/local/assembly observations preserve
+their distinct origins without fabricated declaration identity. Structural pattern parsing
+and matching share one typed interpretation across public entry points.
+
 Publish messages/views/validators/service bindings and full descriptors through GeneratedTree.
 Distinguish the full source-aware artifact from its stripped runtime pool. Preserve native
 HIR/rustdoc/source context. Preflight and staging precede aggregate writes. Corrected CEL

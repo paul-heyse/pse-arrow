@@ -1858,6 +1858,16 @@ witnesses. Missing or incompletely examined facts stay unknown, including under 
 
 > Decision: ADR-0235 (proposed Plan60a relationship-contract extension).
 
+**Proposed extension (Plan60b/c).** Native compatibility compares guarded operands in one
+snapshot after fallible generic-owner rebasing; possible unification/coercion, existential
+implementation discovery and obligation evaluation retain distinct outcomes. Native origins
+distinguish locals, assembly operands, originating ADTs and generated observations. Acquired
+API adjacency binds artifact/context/item addresses and never acquires missing artifacts
+implicitly. Rich patterns share one structural parser/matcher across entry points. Lifetime
+views join native/compiler bodies only with verified original-source and selected-unit
+correspondence; normalized/remapped locations and accompanying runtime evidence alone do not
+prove that join. Existing owners retain preparation, cancellation and actual settlement.
+
 **Implemented realization (Plan60a).** Related investigations use nonempty guarded seeds and selected
 relations, an independent traversal domain and any/all seed attribution. Output source selection
 does not prune supporting intermediates. One native worker and immutable snapshot serve one
