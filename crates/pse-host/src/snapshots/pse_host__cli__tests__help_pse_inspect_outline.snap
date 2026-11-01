@@ -15,7 +15,7 @@ Options:
       --cursor <CURSOR>
       --format <FORMAT>      Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
       --index                Read the raw staging-index blob rather than working bytes
-      --fields <FIELDS>      Select comma-separated payload fields while retaining identity, state and coverage
+      --fields <FIELDS>      Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
       --revision <REVISION>  Read a committed blob; resolve the revision before returning its identity
       --budget <BUDGET>      Limit whole payload records; producer pages retain their omission and continuation facts
       --language <LANGUAGE>  Override the .rs/.md/.markdown filename inference [possible values: rust, markdown]
@@ -53,7 +53,7 @@ Options:
           Read the raw staging-index blob rather than working bytes
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --revision <REVISION>
           Read a committed blob; resolve the revision before returning its identity

@@ -1,0 +1,79 @@
+---
+source: crates/pse-host/src/cli.rs
+expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
+---
+-h
+Grammar-aware Rust edits at an exact native node, without semantic preparation
+
+Usage: pse propose grammar [OPTIONS] --byte-start <BYTE_START> --byte-end <BYTE_END> <FILE> <COMMAND>
+
+Commands:
+  add-where     Append a written where predicate; necessity and deduplication are not inferred
+  remove-use    Remove the selected grouped import branch, settling empty parents and separators
+  remove-bound  Remove the selected type bound and its separator
+  insert-item   Append one associated item to a selected impl/trait body
+  insert-field  Append one named field to a selected record declaration
+  expression    Construct a binary expression with parenthesized operands and result
+
+Arguments:
+  <FILE>  Working Rust source operand
+
+Options:
+      --byte-start <BYTE_START>  First byte of the exact syntax node
+  -C <checkout>
+      --byte-end <BYTE_END>      First byte after the exact syntax node
+      --format <FORMAT>          Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --fields <FIELDS>          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+      --if-source <IF_SOURCE>    Require the original source digest before constructing a preview
+      --budget <BUDGET>          Limit whole payload records; producer pages retain their omission and continuation facts
+  -h, --help                     Print help (see more with '--help')
+--help
+Grammar-aware Rust edits at an exact native node, without semantic preparation
+
+Usage: pse propose grammar [OPTIONS] --byte-start <BYTE_START> --byte-end <BYTE_END> <FILE> <COMMAND>
+
+Commands:
+  add-where     Append a written where predicate; necessity and deduplication are not inferred
+  remove-use    Remove the selected grouped import branch, settling empty parents and separators
+  remove-bound  Remove the selected type bound and its separator
+  insert-item   Append one associated item to a selected impl/trait body
+  insert-field  Append one named field to a selected record declaration
+  expression    Construct a binary expression with parenthesized operands and result
+
+Arguments:
+  <FILE>
+          Working Rust source operand
+
+Options:
+      --byte-start <BYTE_START>
+          First byte of the exact syntax node
+
+  -C <checkout>
+
+
+      --byte-end <BYTE_END>
+          First byte after the exact syntax node
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --if-source <IF_SOURCE>
+          Require the original source digest before constructing a preview
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')

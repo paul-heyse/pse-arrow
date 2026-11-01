@@ -21,7 +21,7 @@ Options:
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
       --json
 
       --budget <BUDGET>
@@ -73,7 +73,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --json
 

@@ -95,7 +95,130 @@ expression: "serde_json::to_string_pretty(&response).unwrap()"
           "signature": "/// fixture\nfn observed()"
         }
       ],
-      "parse_issues": []
+      "parse_issues": [],
+      "facts": [
+        {
+          "kind": "documentation",
+          "written": "/// fixture",
+          "range": {
+            "byte_start": 0,
+            "byte_end": 11,
+            "line_start": 1,
+            "line_end": 1
+          },
+          "owner": {
+            "byte_start": 0,
+            "byte_end": 28,
+            "line_start": 1,
+            "line_end": 2
+          },
+          "attachment": "outer",
+          "value": {
+            "kind": "text",
+            "value": " fixture"
+          },
+          "interpretation_error": null,
+          "mapping": [
+            {
+              "interpreted": {
+                "start": 0,
+                "end": 1
+              },
+              "source": {
+                "byte_start": 3,
+                "byte_end": 4,
+                "line_start": 1,
+                "line_end": 1
+              }
+            },
+            {
+              "interpreted": {
+                "start": 1,
+                "end": 2
+              },
+              "source": {
+                "byte_start": 4,
+                "byte_end": 5,
+                "line_start": 1,
+                "line_end": 1
+              }
+            },
+            {
+              "interpreted": {
+                "start": 2,
+                "end": 3
+              },
+              "source": {
+                "byte_start": 5,
+                "byte_end": 6,
+                "line_start": 1,
+                "line_end": 1
+              }
+            },
+            {
+              "interpreted": {
+                "start": 3,
+                "end": 4
+              },
+              "source": {
+                "byte_start": 6,
+                "byte_end": 7,
+                "line_start": 1,
+                "line_end": 1
+              }
+            },
+            {
+              "interpreted": {
+                "start": 4,
+                "end": 5
+              },
+              "source": {
+                "byte_start": 7,
+                "byte_end": 8,
+                "line_start": 1,
+                "line_end": 1
+              }
+            },
+            {
+              "interpreted": {
+                "start": 5,
+                "end": 6
+              },
+              "source": {
+                "byte_start": 8,
+                "byte_end": 9,
+                "line_start": 1,
+                "line_end": 1
+              }
+            },
+            {
+              "interpreted": {
+                "start": 6,
+                "end": 7
+              },
+              "source": {
+                "byte_start": 9,
+                "byte_end": 10,
+                "line_start": 1,
+                "line_end": 1
+              }
+            },
+            {
+              "interpreted": {
+                "start": 7,
+                "end": 8
+              },
+              "source": {
+                "byte_start": 10,
+                "byte_end": 11,
+                "line_start": 1,
+                "line_end": 1
+              }
+            }
+          ],
+          "meta": null
+        }
+      ]
     }
   }
 }

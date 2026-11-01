@@ -14,7 +14,7 @@ Options:
   -C <checkout>
       --reader <READER>
       --format <FORMAT>  Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
-      --fields <FIELDS>  Select comma-separated payload fields while retaining identity, state and coverage
+      --fields <FIELDS>  Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
       --budget <BUDGET>  Limit whole payload records; producer pages retain their omission and continuation facts
   -h, --help             Print help (see more with '--help')
 --help
@@ -46,7 +46,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts

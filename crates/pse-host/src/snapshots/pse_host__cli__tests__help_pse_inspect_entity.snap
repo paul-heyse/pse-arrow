@@ -12,20 +12,45 @@ Arguments:
 
 Options:
   -C <checkout>
-      --line <LINE>                    One-based source line [default: 1]
-      --column <COLUMN>                One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding [default: 1]
-      --format <FORMAT>                Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
-      --fields <FIELDS>                Select comma-separated payload fields while retaining identity, state and coverage
-      --if-source <IF_SOURCE>          Refuse if the original source digest differs
-      --budget <BUDGET>                Limit whole payload records; producer pages retain their omission and continuation facts
-      --if-generation <IF_GENERATION>  Refuse stale generation-bound action selection
-      --if-candidate <IF_CANDIDATE>    Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
-      --configuration <CONFIGURATION>  Require this explicit session configuration identity
-      --end-line <END_LINE>            Inclusive final line for selected inlay/SSR range; defaults to the selected line
-      --view <VIEW>                    [default: explain] [possible values: explain, symbols, refs, calls, implementations, macro, tests, candidates, candidate, hints, hint, predicate, assists]
+
+      --line <LINE>
+          One-based source line [default: 1]
+      --column <COLUMN>
+          One-based Unicode scalar column, excluding CR/LF; converted to negotiated encoding [default: 1]
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+      --if-source <IF_SOURCE>
+          Refuse if the original source digest differs
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+      --if-generation <IF_GENERATION>
+          Refuse stale generation-bound action selection
+      --if-candidate <IF_CANDIDATE>
+          Discovery fingerprint for a selected hint/completion/assist; indexes are not identities
+      --configuration <CONFIGURATION>
+          Require this explicit session configuration identity
+      --end-line <END_LINE>
+          Inclusive final line for selected inlay/SSR range; defaults to the selected line
+      --view <VIEW>
+          [default: explain] [possible values: lifetime, compatibility, visibility, format-origin, derive-origin, explain, layout, symbols, refs, calls, implementations, macro, tests, candidates, candidate, hints, hint, predicate, assists]
       --select <SELECT>
+
       --text <TEXT>
-  -h, --help                           Print help (see more with '--help')
+
+      --compiler-layout <COMPILER_LAYOUT>
+          Passively associate an original type-sizes acquisition; requires --view layout
+      --compiler-evidence <COMPILER_EVIDENCE>
+          Original compiler artifact reference accompanying a lifetime inquiry
+      --work-result <WORK_RESULT>
+          Original work invocation accompanying the inquiry; no execution association is inferred
+      --against-result <AGAINST_RESULT>
+          Original guarded position for a native compatibility or visibility comparison
+      --operation <OPERATION>
+          [possible values: equal, could-unify, could-coerce]
+  -h, --help
+          Print help (see more with '--help')
 --help
 Inspect a known Rust position through its explicitly prepared native semantic owner
 
@@ -62,7 +87,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --if-source <IF_SOURCE>
           Refuse if the original source digest differs
@@ -83,14 +108,52 @@ Options:
           Inclusive final line for selected inlay/SSR range; defaults to the selected line
 
       --view <VIEW>
+          Possible values:
+          - lifetime
+          - compatibility
+          - visibility
+          - format-origin
+          - derive-origin
+          - explain
+          - layout:          Inspect fallible layout with native type/target context
+          - symbols
+          - refs
+          - calls
+          - implementations
+          - macro
+          - tests
+          - candidates
+          - candidate
+          - hints
+          - hint
+          - predicate
+          - assists
+
           [default: explain]
-          [possible values: explain, symbols, refs, calls, implementations, macro, tests, candidates, candidate, hints, hint, predicate, assists]
 
       --select <SELECT>
 
 
       --text <TEXT>
 
+
+      --compiler-layout <COMPILER_LAYOUT>
+          Passively associate an original type-sizes acquisition; requires --view layout
+
+      --compiler-evidence <COMPILER_EVIDENCE>
+          Original compiler artifact reference accompanying a lifetime inquiry
+
+      --work-result <WORK_RESULT>
+          Original work invocation accompanying the inquiry; no execution association is inferred
+
+      --against-result <AGAINST_RESULT>
+          Original guarded position for a native compatibility or visibility comparison
+
+      --operation <OPERATION>
+          Possible values:
+          - equal:        Exact native type equality in a common owner
+          - could-unify:  Possible deep unification, not compiler acceptance
+          - could-coerce: Directional possible coercion from selected to against
 
   -h, --help
           Print help (see a summary with '-h')

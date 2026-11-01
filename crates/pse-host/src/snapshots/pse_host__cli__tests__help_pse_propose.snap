@@ -9,6 +9,7 @@ Usage: pse propose [OPTIONS]
        pse propose <COMMAND>
 
 Commands:
+  grammar      Grammar-aware Rust edits at an exact native node, without semantic preparation
   rename       Preview only the selected entity's native semantic rename; no source writes
   file-rename  Preview native file-rename follow-up edits and the exact filesystem operation
   assists      Enumerate native assists without eagerly resolving every edit
@@ -19,7 +20,7 @@ Commands:
 Options:
   -C <checkout>
       --format <FORMAT>            Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
-      --fields <FIELDS>            Select comma-separated payload fields while retaining identity, state and coverage
+      --fields <FIELDS>            Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
       --budget <BUDGET>            Limit whole payload records; producer pages retain their omission and continuation facts
       --result <RESULT>            Original result reference as returned JSON or its portable encoded form
       --replacement <REPLACEMENT>  Exact replacement preview; source and index remain untouched
@@ -36,6 +37,7 @@ Usage: pse propose [OPTIONS]
        pse propose <COMMAND>
 
 Commands:
+  grammar      Grammar-aware Rust edits at an exact native node, without semantic preparation
   rename       Preview only the selected entity's native semantic rename; no source writes
   file-rename  Preview native file-rename follow-up edits and the exact filesystem operation
   assists      Enumerate native assists without eagerly resolving every edit
@@ -60,7 +62,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts

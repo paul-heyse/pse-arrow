@@ -18,7 +18,7 @@ Options:
       --session <SESSION>
           Explicit session association; never used as a filesystem path
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
       --resource-class <RESOURCE_CLASS>
           Explicit finite workload class; ordinary work keeps the configured host policy
       --budget <BUDGET>
@@ -55,7 +55,7 @@ Options:
           Explicit session association; never used as a filesystem path
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --resource-class <RESOURCE_CLASS>
           Explicit finite workload class; ordinary work keeps the configured host policy

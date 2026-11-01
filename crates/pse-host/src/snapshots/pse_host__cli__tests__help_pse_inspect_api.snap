@@ -13,24 +13,49 @@ Arguments:
 
 Options:
   -C <checkout>
-      --search <SEARCH>              Case-insensitive name/documentation search
-      --format <FORMAT>              Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
-      --target <TARGET>              Explicit target triple; default is the pinned rustc's observed host
-      --fields <FIELDS>              Select comma-separated payload fields while retaining identity, state and coverage
-      --kind <KIND>                  [possible values: function, struct, enum, union, trait, type-alias, constant, static, module, macro, other]
-      --budget <BUDGET>              Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --search <SEARCH>
+          Case-insensitive name/documentation search
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --target <TARGET>
+          Explicit target triple; default is the pinned rustc's observed host
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+      --kind <KIND>
+          [possible values: function, struct, enum, union, trait, type-alias, constant, static, module, macro, other]
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
       --input <INPUT>
+
+      --where <WHERE_SHAPES>
+          Structural declared where predicate; may be repeated
       --output-type <OUTPUT_TYPE>
+
       --trait-name <TRAIT_NAME>
+
       --unsafe-only
+
       --async-only
+
       --const-only
-      --docs                         Expand authored documentation for returned candidates
-      --examples                     Expand authored Rust examples and hidden setup; never execute them
-      --declaration                  Expand the original format-qualified rustdoc item, including complex bounds/associated data
-      --compare-with <COMPARE_WITH>  Read structural differences from an explicitly selected acquired document.json; --compatibility separately executes native rules. Neither generates an input
-      --cursor <CURSOR>              Continue the same immutable artifact/query page; stale contexts refuse
-  -h, --help                         Print help (see more with '--help')
+
+      --docs
+          Expand authored documentation for returned candidates
+      --examples
+          Expand authored Rust examples and hidden setup; never execute them
+      --native-examples <NATIVE_EXAMPLES>
+          Inspect an explicitly acquired doctests.json, preserving native transformations
+      --declaration
+          Expand the original format-qualified rustdoc item, including complex bounds/associated data
+      --adjacency <ADJACENCY>
+          Examine selected declared adjacency; never acquires an analyzer or another artifact [possible values: contains, bound, implementation, provided-default, reexport, documentation-link]
+      --compare-with <COMPARE_WITH>
+          Read structural differences from an explicitly selected acquired document.json; --compatibility separately executes native rules. Neither generates an input
+      --cursor <CURSOR>
+          Continue the same immutable artifact/query page; stale contexts refuse
+  -h, --help
+          Print help (see more with '--help')
 --help
 Inspect an exact locked API, original docs/examples, reexports or structural differences
 
@@ -66,7 +91,7 @@ Options:
           Explicit target triple; default is the pinned rustc's observed host
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --kind <KIND>
           Possible values:
@@ -87,6 +112,9 @@ Options:
 
       --input <INPUT>
 
+
+      --where <WHERE_SHAPES>
+          Structural declared where predicate; may be repeated
 
       --output-type <OUTPUT_TYPE>
 
@@ -109,8 +137,22 @@ Options:
       --examples
           Expand authored Rust examples and hidden setup; never execute them
 
+      --native-examples <NATIVE_EXAMPLES>
+          Inspect an explicitly acquired doctests.json, preserving native transformations
+
       --declaration
           Expand the original format-qualified rustdoc item, including complex bounds/associated data
+
+      --adjacency <ADJACENCY>
+          Examine selected declared adjacency; never acquires an analyzer or another artifact
+
+          Possible values:
+          - contains:           Declared child/associated item
+          - bound:              Explicit supertrait or structured declared bound
+          - implementation:     An impl record, without a use-site applicability verdict
+          - provided-default:   Default trait method supplied by an impl's recorded provided-method list
+          - reexport:           Public facade to its definition
+          - documentation-link: Compiler-resolved intra-documentation link
 
       --compare-with <COMPARE_WITH>
           Read structural differences from an explicitly selected acquired document.json; --compatibility separately executes native rules. Neither generates an input

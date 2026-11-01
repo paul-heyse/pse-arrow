@@ -15,7 +15,7 @@ Options:
       --port <PORTS>
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
       --organization <ORGANIZATION>
           [default: default]
       --budget <BUDGET>
@@ -52,7 +52,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --organization <ORGANIZATION>
           [default: default]

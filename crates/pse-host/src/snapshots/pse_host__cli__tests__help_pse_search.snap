@@ -8,6 +8,7 @@ Find source, text, Rust entities and relationships through one typed query
 Usage: pse search [OPTIONS] [COMMAND]
 
 Commands:
+  schema      Search declarations in an explicitly selected complete descriptor set
   files       Discover selected files and their source kinds
   text        Search native text, preserving byte and encoding policies
   syntax      Match a native Rust syntax pattern or explicit Tree-sitter extraction query
@@ -21,7 +22,7 @@ Options:
       --request <REQUEST>              Read a complete typed JSON request; explicit flags override selected fields
       --config <CONFIG>                Explicit named-query configuration; otherwise use the optional repository file
       --format <FORMAT>                Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
-      --fields <FIELDS>                Select comma-separated payload fields while retaining identity, state and coverage
+      --fields <FIELDS>                Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
       --query <QUERY>                  Select a saved typed query from configuration
       --budget <BUDGET>                Limit whole payload records; producer pages retain their omission and continuation facts
       --path <PATHS>                   Restrict source paths without requiring Cargo or analyzer preparation
@@ -55,6 +56,7 @@ Find source, text, Rust entities and relationships through one typed query
 Usage: pse search [OPTIONS] [COMMAND]
 
 Commands:
+  schema      Search declarations in an explicitly selected complete descriptor set
   files       Discover selected files and their source kinds
   text        Search native text, preserving byte and encoding policies
   syntax      Match a native Rust syntax pattern or explicit Tree-sitter extraction query
@@ -86,7 +88,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --query <QUERY>
           Select a saved typed query from configuration
