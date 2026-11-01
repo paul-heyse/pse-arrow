@@ -46,6 +46,35 @@ Completion is a published actionable decision route and owned placement, not aut
 acceptance. Any new crate or family-major change uses its governing process; ordinary exact
 third-party dependencies remain normal implementation judgment.
 
+#### A00 realization assessment — 2026-10-31
+
+**Interface-checked:** blueprint §21.7 and ADR-0233/0234 retain the independent host,
+explicit preparation, provider/source qualification and original CPU/process settlement.
+The present wave adds test-only qualification inside existing `pse-host` and `xtask`
+owners; third-party dependency selection and these tests require no new ADR. No scientific,
+Arrow or canonical database policy moves into the host. No new workspace crate is selected.
+
+The subsequent production declaration/publication change requires the ADR/design route for
+metadata conventions: new wire meanings are proto-authored, existing product-registry meanings
+remain derived, and native directional presentation remains Serde/Schemars. Publish that scoped
+decision and its required review status before A02 production consumers. The helper realization
+must amend blueprint §21.7 through that same route, preserving ADR-0233/0234 custody and
+settlement semantics. The functional review and this qualification do not constitute formal
+design-review acceptance; no accepted ADR is amended by this test wave.
+
+Placement is existing xtask explicit generation plus host-local generated contracts and tests.
+One generator owns message/service/validation outputs and the complete immutable descriptor
+corpus. Qualification fixtures are not a second public schema authority. B/C/D production
+consumers must move together at their specified package boundaries after qualification.
+
+Representative contract obligations are: unknown/false/true remain distinct; exact/lower-bound/
+unknown counts retain their unit and precision; paths preserve original native bytes; source
+and provider/Cargo guards qualify locations; original failures remain distinguishable from
+schema/transport/validator defects. One operation starts once, admits operation-local cancel,
+and reports Terminal only after owned CPU settlement. Input half-close permits completion;
+reset/output loss cancels and drains under the session owner, but leaves completion unobserved
+to the disconnected client. These contextual facts are checked by native owners, not CEL.
+
 <a id="a01"></a>
 ### A01 — Qualify the consumed contract and exact library composition
 
