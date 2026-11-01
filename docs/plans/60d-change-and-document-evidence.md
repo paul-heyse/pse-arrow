@@ -2,13 +2,13 @@
 title: "Plan60d: Change and document evidence"
 status: complete
 doc_retention: while-dependent
-doc_retention_reason: "Plan60 qualification and proposed ADR-0235 consume the retained comparison/association evidence and conditional investigation decisions."
+doc_retention_reason: "Proposed ADR-0235 and qualification readers consume the retained comparison/association evidence and conditional investigation decisions."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md
 doc_topics: [current-work, design, documentation, diagnostics]
 review_sources: [docs/functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md, docs/plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md, docs/functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md]
-adrs: []
+adrs: [ADR-0235]
 ---
 
 # Change and document evidence

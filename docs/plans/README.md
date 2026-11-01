@@ -9,13 +9,21 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
-| [60: Engineering code intelligence](60-engineering-code-intelligence.md) | Consumer series on completed Plan61/62, with delivered [evidence/composition](60a-evidence-contracts-and-query-composition.md#outcome), [native relationships/lifetimes](60b-native-relationships-and-lifetime-evidence.md#outcome) and [API evidence](60c-library-api-and-compatibility-evidence.md#outcome). Remaining owners are [change/document associations](60d-change-and-document-evidence.md), [validation/adoption](60e-validation-relevance-and-workflow-adoption.md), and [agent interaction/contract diagnostics](60f-agent-interaction-and-contract-diagnostics.md). The coordinator owns original and review-qualified dispositions; companions own execution state. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
 | [53: Test architecture](53-test-architecture-target.md) | Test architecture and existing remaining qualification/decision scope. |
 | [40: Simulation diagnostics](40-simulation-performance-diagnostics.md) | Native simulation diagnostics and its independent campaign status. |
 | [32: Workspace content lifecycle](32-workspace-content-lifecycle.md) | Document metadata, retention and native scope interpretation. |
 | [28: Unified simulation substrate](28-surrealdb-unified-substrate.md#current-checkpoint) | Canonical substrate and its independently authorized remaining work. |
+
+[Plan60: Engineering code intelligence](60-engineering-code-intelligence.md#outcome) is complete.
+Its coordinator owns integrated acceptance and resolved source/review dispositions; companions
+retain their original evidence. Selected local Linux functional/native/API/lifetime, static,
+feature, governance and document checks passed, with the existing copyright-header exclusion
+kept explicit. The series and its source reviews remain while proposed ADR-0235 and qualification
+readers depend on them. Conditional bulk/modeling/compiler/index/schema/remote options retain
+their owners and triggers; completed records authorize no new work. Blueprint §21.7 owns the
+enduring contract and §24.2 the qualification basis.
 
 [Plan62: Code-intelligence capability expansion](62-code-intelligence-capability-expansion.md#outcome)
 is complete and retained as the highest-numbered series and support for subsequent intelligence
@@ -30,12 +38,9 @@ coordinator own implementation, assembled acceptance and evidence limits. Formal
 and the independent plans below retain their own authority.
 
 Plan60's [dependencies and execution route](60-engineering-code-intelligence.md#dependencies-and-execution-route)
-contains the package graph and prerequisite-readiness table. Its initial route is existing-feature
-guidance, agent handoff/correction and the typed native relation slice consumed by multi-seed
-questions. API patterns, retained context deltas and existing-fact consumers retain independent
-routes. Conditional bulk/compiler/index/remote/schema options retain observable triggers and do not
-become compulsory prototypes or adoption gates. Plan60 does not reopen completed Plan59
-scope or confer new implementation acceptance.
+retains the package graph and original prerequisite-readiness table. Its Outcome records
+delivery and selected acceptance; deferred options do not become compulsory prototypes or
+adoption gates. It does not reopen completed Plan59 scope.
 
 [Plan59: Agent CLI](59-agent-cli.md#current-state-and-next-step) is complete and retained
 with its companions and original qualification evidence. Creation/listing are delivered;

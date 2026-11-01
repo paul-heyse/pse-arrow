@@ -2,7 +2,7 @@
 title: "Plan60b: Native relationships and lifetime evidence"
 status: complete
 doc_retention: while-dependent
-doc_retention_reason: "Active Plan60 consumers and E03/Q01 qualification depend on the native contracts, targeted acceptance and conditional extraction boundaries."
+doc_retention_reason: "Proposed ADR-0235 and the retained Plan60 Outcome depend on the native contracts, original acceptance and conditional extraction boundaries."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md

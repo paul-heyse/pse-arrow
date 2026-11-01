@@ -1033,6 +1033,20 @@ and affected reruns; later records do not silently turn an earlier attempt into 
 
 #### 24.2.2 Recorded native engineering-tool evidence
 
+Plan60's engineering-question consumers have selected local Linux qualification. The
+[Plan60 Outcome](../../plans/60-engineering-code-intelligence.md#outcome) owns exact commands,
+conditions and corrected failures: final affected units 132/132, public interaction/evidence 14/14,
+selected native library 48/48, assembled native/API 10/10 and document-owner grammar/interpreter 7/7
+passed. Actual independently owned cfg worlds exposed a changed resolved target with identical
+local source; unavailable worlds remained unknown. Original workflow contexts retained ordered
+admission groups and independently selected metadata; duplicate correspondence stayed partial.
+Workspace Clippy passed default, no-default and native/compiler configurations with zero
+warnings/errors, host powerset passed 4/4, and final generation/governance passed. The existing
+operator-excluded copyright-header recipe is not passed, so full hygiene is not labeled green.
+Inspection, relatedness and assertion structure do not establish new execution, complete impact,
+oracle independence or scientific validity. Proposed ADR status, dormant options, performance,
+deployment and other-platform qualification remain separate.
+
 Plan62's extended native worlds, semantic explanations/contextual candidates, guarded source
 previews/origins, API/Cargo/runnable evidence and selected optional compiler facts have local
 Linux qualification. The [Plan62 Outcome](../../plans/62-code-intelligence-capability-expansion.md#outcome)

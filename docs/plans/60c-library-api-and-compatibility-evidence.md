@@ -2,7 +2,7 @@
 title: "Plan60c: Library API and compatibility evidence"
 status: complete
 doc_retention: while-dependent
-doc_retention_reason: "Active Plan60 consumers and E03/Q01 qualification depend on the artifact contracts, matcher semantics and targeted acceptance."
+doc_retention_reason: "Proposed ADR-0235 and the retained Plan60 Outcome depend on the artifact contracts, matcher semantics and original acceptance."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md

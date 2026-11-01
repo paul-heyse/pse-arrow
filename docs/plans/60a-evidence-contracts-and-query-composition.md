@@ -2,7 +2,7 @@
 title: "Plan60a: Evidence contracts and query composition"
 status: complete
 doc_retention: while-dependent
-doc_retention_reason: "Active Plan60 native/artifact consumers, engineering journeys and scope-end qualification depend on this contract and its acceptance evidence."
+doc_retention_reason: "Proposed ADR-0235 and the retained Plan60 Outcome depend on this contract and its original acceptance evidence."
 date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md

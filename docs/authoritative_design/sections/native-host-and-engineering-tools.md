@@ -206,7 +206,7 @@ witnesses. Missing or incompletely examined facts stay unknown, including under 
 
 > Decision: ADR-0235 (proposed Plan60a relationship-contract extension).
 
-**Proposed remaining Plan60 extension.** Paired inspection consumes explicitly addressed
+**Implemented Plan60 comparison and agent consumers.** Paired inspection consumes explicitly addressed
 original source/API/context inputs and separately authenticated before/after native sessions.
 Side-local observations and qualified correspondence do not establish universal cross-world
 identity. Retained metadata and admitted-unit evidence keep independent custody and hashes;
@@ -219,8 +219,29 @@ providers where the selected schema establishes their domain. Structured validat
 extends the existing diagnostic envelope with origin-owned disclosure/completeness facts;
 unknown peers remain unknown, and ordinary correction never restores redacted selectors from
 raw diagnostics. Native wire changes are authored/generated and fenced by protocol7. Existing
-preparation, cancellation and settlement owners remain authoritative. D–F/E03/Q01 own delivery
-and acceptance; conditional indexing/compiler/schema/remote branches remain dormant.
+preparation, cancellation and settlement owners remain authoritative. The
+[Plan60 Outcome](../../plans/60-engineering-code-intelligence.md#outcome) owns selected delivery
+and qualification; conditional indexing/compiler/schema/remote branches remain dormant.
+
+Retained Context addresses pair exact raw metadata with admitted units under their original
+owner. Compiler generation/probe contexts retain the strict artifact reader; ordinary workflow
+admissions retain the authenticated terminal/report reader. Digest domains, original outcomes,
+ordered admission groups and original indexes stay explicit. Metadata and units supplied
+independently do not establish common acquisition. Missing requested native enrichment does
+not suppress valid retained evidence, and omitted optional enrichment does not itself make
+that evidence partial. Duplicate unit matches remain ambiguous. Rebuildable Context pages
+retain their address outside projected detail and account for producer omissions.
+
+Source relevance exposes supported assertion operand/initializer/setup structure without
+claiming coverage or oracle independence. Frozen test/failure addresses retain full original
+selection identity and report/inventory digests; current source and current selection actions
+remain separate guarded observations. Canonical document associations retain original policy,
+section/status owner, explicit connection basis and unresolved references. Optional shared
+engineering inquiries support the distinct review/audit/planning processes without prescribing
+their conclusions or required tool use. Literal top-level field choices, native opaque address
+handoff and disclosed structured correction use the existing parser, reference and diagnostic
+owners. Opaque JSON retains runtime projection checks; arbitrary peers do not gain a known
+original violation count or redacted location from raw diagnostic custody.
 
 **Implemented extension (Plan60b/c).** Native compatibility compares guarded operands in one
 snapshot after fallible generic-owner rebasing; possible unification/coercion, existential
@@ -252,7 +273,8 @@ are independent and opaque constant expressions are not evaluated. Native compar
 exact equality, possible unification and directional possible coercion as separate operations.
 Format/derive observations retain optional/plural mappings and bounded, cancellable projection;
 an originating ADT is not an identity for a generated declaration. The companion Outcomes own
-targeted acceptance; E03/Q01 retain broader process journeys and final qualification.
+targeted acceptance; the coordinator Outcome records broader E03 process journeys and Q01
+qualification under their actual conditions.
 
 **Implemented realization (Plan60a).** Related investigations use nonempty guarded seeds and selected
 relations, an independent traversal domain and any/all seed attribution. Output source selection
@@ -270,8 +292,9 @@ contextual field witnesses. Direct assignments distinguish read/write roles; ali
 and interior mutation remain incomplete. Calls require actual native invocation resolution;
 callback values remain uses and unresolved indirect calls remain unknown.
 Native `NODE_TYPES` inspection and query-byte error locations remain source-only assistance.
-Plan60a owns targeted local Linux implementation evidence; E03/Q01 retain engineering-process
-and assembled/static qualification. No new persistent graph or universal identity follows.
+Plan60a owns its original targeted local Linux evidence; the coordinator Outcome records
+E03/Q01 engineering-process and assembled/static qualification. No new persistent graph or
+universal identity follows.
 
 #### 21.7.6 Bounded delivery and prepared snapshot ownership
 

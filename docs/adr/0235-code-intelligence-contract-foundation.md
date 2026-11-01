@@ -128,3 +128,10 @@ no general new CEL engine is selected.
 - 2026-11-01 — Plan60b/c realization is implemented at `11280f6e3`, with targeted acceptance
   and evidence limits owned by the retained companion Outcomes. The original review remains
   A02-only; this implementation record does not change formal proposed status.
+- 2026-11-01 — remaining Plan60 realization is implemented at `b4ce40e88`, `836de47b6` and
+  `87c1745cf`. **Tested:** selected local Linux functional, native/API/lifetime, wire-correction,
+  feature, static and governance populations are recorded at the
+  [Plan60 Outcome](../plans/60-engineering-code-intelligence.md#outcome), including corrected
+  failures and the operator-excluded copyright-header check. The retained series supplies
+  exact evidence and conditional decisions while this proposal and qualification readers
+  depend on it. Original review scope and formal proposed status remain unchanged.

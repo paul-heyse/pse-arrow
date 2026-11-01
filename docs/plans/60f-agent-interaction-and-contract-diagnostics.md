@@ -2,13 +2,13 @@
 title: "Plan60f: Agent interaction and contract diagnostics"
 status: complete
 doc_retention: while-dependent
-doc_retention_reason: "Plan60 qualification and proposed ADR-0235 consume the retained interaction, wire-disclosure and correction evidence."
+doc_retention_reason: "Proposed ADR-0235 and qualification readers consume the retained interaction, wire-disclosure and correction evidence."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md
 doc_topics: [current-work, design, libraries, diagnostics]
 review_sources: [docs/plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md, docs/functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md]
-adrs: []
+adrs: [ADR-0235]
 ---
 
 # Agent interaction and contract diagnostics
