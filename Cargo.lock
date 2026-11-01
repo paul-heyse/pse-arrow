@@ -8263,6 +8263,7 @@ dependencies = [
  "public-api",
  "pulldown-cmark 0.13.5",
  "quick-junit",
+ "quote",
  "ra_ap_hir",
  "ra_ap_ide",
  "ra_ap_ide_db",

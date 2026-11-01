@@ -73,14 +73,13 @@ pub struct Query {
     pub search: Option<String>,
     /// Exact structural kind.
     pub kind: Option<Kind>,
-    /// Input type spelling within structured function inputs.
-    pub input: Option<String>,
-    /// Output type spelling within a structured function output.
-    pub output: Option<String>,
-    /// Native structural input shape, distinct from the legacy spelling filter.
+    /// Native structural input shape shared by all public query routes.
     pub input_shape: Option<TypePattern>,
     /// Native structural output shape, retaining generic argument structure.
     pub output_shape: Option<TypePattern>,
+    /// Requested declared where-predicate shapes; no obligation is executed.
+    #[serde(default)]
+    pub where_shapes: Vec<WherePattern>,
     /// A declared generic trait-bound path; this does not run a trait solver.
     pub declared_bound: Option<String>,
     /// Declared trait path substring, never a trait-solver query.
@@ -102,276 +101,9 @@ pub struct Query {
     /// Original public query identity, preserved while resolving facade paths.
     pub(crate) request_identity: Option<String>,
 }
-/// A structural declaration query is not semantic type equality or trait applicability.
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum TypePattern {
-    /// Any type, explicitly written `_`.
-    Any,
-    /// Exact path components and optional native generic type arguments.
-    Path {
-        /// Written path, matched at component boundaries.
-        name: String,
-        /// Structural type arguments; None imposes no argument constraint.
-        arguments: Option<Vec<TypePattern>>,
-    },
-    /// Explicit associated-type declaration shape, without trait applicability inference.
-    Qualified {
-        /// The associated item's declared name.
-        name: String,
-        /// Written self type, structurally matched.
-        self_type: Box<TypePattern>,
-        /// Explicit trait path; None selects an inherent association.
-        trait_path: Option<String>,
-    },
-    /// Borrowed type with exact mutability.
-    Reference {
-        /// Mutable versus shared reference.
-        mutable: bool,
-        /// Explicit lifetime spelling, when the query constrains it.
-        lifetime: Option<String>,
-        /// Pointee type shape.
-        inner: Box<TypePattern>,
-    },
-    /// Tuple shape, including unit.
-    Tuple {
-        /// Exact ordered elements.
-        elements: Vec<TypePattern>,
-    },
-    /// Unsized slice shape.
-    Slice {
-        /// Element shape.
-        inner: Box<TypePattern>,
-    },
-    /// Raw pointer shape.
-    Pointer {
-        /// Mutable versus const pointer.
-        mutable: bool,
-        /// Pointee shape.
-        inner: Box<TypePattern>,
-    },
-}
-impl TypePattern {
-    /// Parse Rust type syntax through syn, never substring heuristics.
-    pub fn parse(text: &str) -> Result<Self, ApiError> {
-        let ty: syn::Type =
-            syn::parse_str(text).map_err(|error| super::invalid(format!("type query: {error}")))?;
-        Self::from_syn(&ty)
-    }
-    fn from_syn(ty: &syn::Type) -> Result<Self, ApiError> {
-        Ok(match ty {
-            syn::Type::Infer(_) => Self::Any,
-            syn::Type::Path(path) if path.qself.is_none() => {
-                let name = path
-                    .path
-                    .segments
-                    .iter()
-                    .map(|segment| segment.ident.to_string())
-                    .collect::<Vec<_>>()
-                    .join("::");
-                let Some(last) = path.path.segments.last() else {
-                    return Err(super::invalid("empty type path"));
-                };
-                let arguments = match &last.arguments {
-                    syn::PathArguments::None => None,
-                    syn::PathArguments::AngleBracketed(args) => {
-                        let mut types = Vec::new();
-                        for arg in &args.args {
-                            match arg {
-                                syn::GenericArgument::Type(ty) => types.push(Self::from_syn(ty)?),
-                                _ => {
-                                    return Err(super::invalid(
-                                        "type query currently requires type-only generic arguments; lifetimes/const/bindings remain explicit unsupported shapes",
-                                    ));
-                                }
-                            }
-                        }
-                        Some(types)
-                    }
-                    _ => {
-                        return Err(super::invalid(
-                            "parenthesized function-trait type queries require an explicit supported structural shape",
-                        ));
-                    }
-                };
-                Self::Path { name, arguments }
-            }
-            syn::Type::Path(path) => {
-                let qself = path
-                    .qself
-                    .as_ref()
-                    .ok_or_else(|| super::invalid("qualified type query has no self type"))?;
-                if path.path.segments.len() != qself.position + 1 {
-                    return Err(super::invalid(
-                        "nested associated-type query needs an explicit supported shape",
-                    ));
-                }
-                let associated = path
-                    .path
-                    .segments
-                    .last()
-                    .ok_or_else(|| super::invalid("associated type query has no item"))?;
-                if !matches!(associated.arguments, syn::PathArguments::None) {
-                    return Err(super::invalid(
-                        "associated-type generic argument queries require an explicit supported shape",
-                    ));
-                }
-                let trait_path = if qself.position == 0 {
-                    None
-                } else {
-                    let parts = path.path.segments.iter().take(qself.position);
-                    if parts
-                        .clone()
-                        .any(|segment| !matches!(segment.arguments, syn::PathArguments::None))
-                    {
-                        return Err(super::invalid(
-                            "qualified trait generic arguments require an explicit supported shape",
-                        ));
-                    }
-                    Some(
-                        parts
-                            .map(|segment| segment.ident.to_string())
-                            .collect::<Vec<_>>()
-                            .join("::"),
-                    )
-                };
-                Self::Qualified {
-                    name: associated.ident.to_string(),
-                    self_type: Box::new(Self::from_syn(&qself.ty)?),
-                    trait_path,
-                }
-            }
-            syn::Type::Reference(reference) => Self::Reference {
-                mutable: reference.mutability.is_some(),
-                lifetime: reference.lifetime.as_ref().map(ToString::to_string),
-                inner: Box::new(Self::from_syn(&reference.elem)?),
-            },
-            syn::Type::Tuple(tuple) => Self::Tuple {
-                elements: tuple
-                    .elems
-                    .iter()
-                    .map(Self::from_syn)
-                    .collect::<Result<_, _>>()?,
-            },
-            syn::Type::Slice(slice) => Self::Slice {
-                inner: Box::new(Self::from_syn(&slice.elem)?),
-            },
-            syn::Type::Ptr(pointer) => Self::Pointer {
-                mutable: matches!(pointer.mutability, syn::PointerMutability::Mut(_)),
-                inner: Box::new(Self::from_syn(&pointer.elem)?),
-            },
-            syn::Type::Paren(paren) => return Self::from_syn(&paren.elem),
-            _ => {
-                return Err(super::invalid(
-                    "unsupported structural type query; no spelling fallback was used",
-                ));
-            }
-        })
-    }
-    /// Compare the actual rustdoc type tree. Path spellings remain declared shape constraints.
-    pub fn matches(&self, ty: &Type) -> bool {
-        match (self, ty) {
-            (Self::Any, _) => true,
-            (Self::Path { name, arguments }, Type::ResolvedPath(path)) => {
-                if path.path != *name && !path.path.ends_with(&format!("::{name}")) {
-                    return false;
-                }
-                let Some(expected) = arguments else {
-                    return true;
-                };
-                let Some(args) = path.args.as_deref() else {
-                    return expected.is_empty();
-                };
-                let rustdoc_types::GenericArgs::AngleBracketed { args, .. } = args else {
-                    return false;
-                };
-                let actual = args
-                    .iter()
-                    .filter_map(|arg| match arg {
-                        rustdoc_types::GenericArg::Type(ty) => Some(ty),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>();
-                actual.len() == expected.len()
-                    && expected
-                        .iter()
-                        .zip(actual)
-                        .all(|(shape, ty)| shape.matches(ty))
-            }
-            (
-                Self::Path {
-                    name,
-                    arguments: None,
-                },
-                Type::Primitive(value) | Type::Generic(value),
-            ) => name == value,
-            (
-                Self::Qualified {
-                    name,
-                    self_type,
-                    trait_path,
-                },
-                Type::QualifiedPath {
-                    name: actual,
-                    self_type: actual_self,
-                    trait_,
-                    ..
-                },
-            ) => {
-                name == actual
-                    && self_type.matches(actual_self)
-                    && match (trait_path, trait_) {
-                        (Some(expected), Some(actual)) => {
-                            actual.path == *expected
-                                || actual.path.ends_with(&format!("::{expected}"))
-                        }
-                        (None, None) => true,
-                        _ => false,
-                    }
-            }
-            (
-                Self::Reference {
-                    mutable,
-                    lifetime,
-                    inner,
-                },
-                Type::BorrowedRef {
-                    is_mutable,
-                    type_,
-                    lifetime: actual,
-                },
-            ) => {
-                mutable == is_mutable
-                    && lifetime
-                        .as_ref()
-                        .is_none_or(|lifetime| actual.as_ref() == Some(lifetime))
-                    && inner.matches(type_)
-            }
-            (Self::Pointer { mutable, inner }, Type::RawPointer { is_mutable, type_ }) => {
-                mutable == is_mutable && inner.matches(type_)
-            }
-            (Self::Tuple { elements }, Type::Tuple(types)) => {
-                elements.len() == types.len()
-                    && elements
-                        .iter()
-                        .zip(types)
-                        .all(|(shape, ty)| shape.matches(ty))
-            }
-            (Self::Slice { inner }, Type::Slice(ty)) => inner.matches(ty),
-            _ => false,
-        }
-    }
-    /// Rustdoc omits the return type for an implicit unit return.
-    pub fn matches_return(&self, ty: Option<&Type>) -> bool {
-        ty.map_or_else(
-            || {
-                matches!(self, Self::Any)
-                    || matches!(self,Self::Tuple {elements} if elements.is_empty())
-            },
-            |ty| self.matches(ty),
-        )
-    }
-}
+mod pattern;
+pub use pattern::{QueryError, ShapeMatch, TypePattern, WherePattern};
+pub mod adjacency;
 /// Trait provenance is a declaration fact, independent of applicability.
 #[derive(Clone, Debug, Serialize, JsonSchema)]
 pub struct TraitProvenance {
@@ -391,7 +123,7 @@ pub struct TraitProvenance {
 pub struct Location {
     /// Original rustdoc source path.
     pub filename: std::path::PathBuf,
-    /// Original one-based line and zero-based column.
+    /// Original one-based line and Unicode-scalar column, established by the pinned producer.
     pub begin: (usize, usize),
     /// Original exclusive end location.
     pub end: (usize, usize),
@@ -621,6 +353,11 @@ pub enum Report {
     NativeExamples {
         /// Whole extracted examples from one addressed native artifact.
         page: super::doctests::Page,
+    },
+    /// Bounded declared artifact adjacency with qualified original expansion.
+    Adjacency {
+        /// Settled selected graph, not destination applicability.
+        graph: adjacency::Graph,
     },
     /// Native structural differences over two original acquired artifacts.
     Comparison {
@@ -1158,17 +895,17 @@ fn signature(item: &Item) -> (String, bool) {
         (format!("{:?} {name}", kind(item)), false)
     }
 }
-fn matches(item: &Item, address: &Address, query: &Query) -> bool {
+fn evaluate_match(item: &Item, address: &Address, query: &Query) -> ShapeMatch {
     if let Some(kind_) = query.kind
         && kind(item) != kind_
     {
-        return false;
+        return ShapeMatch::Different;
     }
     if let Some(path) = &query.path
         && address.path != *path
         && !address.path.ends_with(&format!("::{path}"))
     {
-        return false;
+        return ShapeMatch::Different;
     }
     if let Some(search) = &query.search {
         let search = search.to_lowercase();
@@ -1178,7 +915,7 @@ fn matches(item: &Item, address: &Address, query: &Query) -> bool {
                 .as_ref()
                 .is_some_and(|docs| docs.to_lowercase().contains(&search))
         {
-            return false;
+            return ShapeMatch::Different;
         }
     }
     if let Some(trait_) = &query.trait_name
@@ -1187,70 +924,58 @@ fn matches(item: &Item, address: &Address, query: &Query) -> bool {
             .as_ref()
             .is_some_and(|value| value.path.contains(trait_))
     {
-        return false;
+        return ShapeMatch::Different;
     }
     if let Some(bound) = &query.declared_bound {
         let ItemEnum::Function(function) = &item.inner else {
-            return false;
+            return ShapeMatch::Different;
         };
         let is_bound = |candidate: &rustdoc_types::GenericBound| matches!(candidate,rustdoc_types::GenericBound::TraitBound {trait_,..} if trait_.path==*bound||trait_.path.ends_with(&format!("::{bound}")));
         let parameter=function.generics.params.iter().any(|parameter|matches!(&parameter.kind,rustdoc_types::GenericParamDefKind::Type {bounds,..} if bounds.iter().any(is_bound)));
         let where_=function.generics.where_predicates.iter().any(|predicate|matches!(predicate,rustdoc_types::WherePredicate::BoundPredicate {bounds,..} if bounds.iter().any(is_bound)));
         if !parameter && !where_ {
-            return false;
+            return ShapeMatch::Different;
         }
     }
-    if query.input.is_some()
-        || query.output.is_some()
-        || query.input_shape.is_some()
+    let predicates = pattern::all(
+        query
+            .where_shapes
+            .iter()
+            .map(|pattern| pattern.evaluate(item)),
+    );
+    if query.input_shape.is_some()
         || query.output_shape.is_some()
         || query.unsafe_only
         || query.async_only
         || query.const_only
     {
         let ItemEnum::Function(function) = &item.inner else {
-            return false;
+            return ShapeMatch::Different;
         };
         if query.unsafe_only && !function.header.is_unsafe
             || query.async_only && !function.header.is_async
             || query.const_only && !function.header.is_const
         {
-            return false;
+            return ShapeMatch::Different;
         }
-        if let Some(input) = &query.input
-            && !function
-                .sig
-                .inputs
-                .iter()
-                .any(|(_, value)| type_name(value).contains(input))
-        {
-            return false;
-        }
-        if let Some(output) = &query.output
-            && !function
-                .sig
-                .output
-                .as_ref()
-                .is_some_and(|value| type_name(value).contains(output))
-        {
-            return false;
-        }
-        if query
+        let input = query
             .input_shape
             .as_ref()
-            .is_some_and(|shape| !function.sig.inputs.iter().any(|(_, ty)| shape.matches(ty)))
-        {
-            return false;
-        }
-        if query
+            .map_or(ShapeMatch::Matches, |shape| {
+                pattern::any(function.sig.inputs.iter().map(|(_, ty)| shape.evaluate(ty)))
+            });
+        let output = query
             .output_shape
             .as_ref()
-            .is_some_and(|shape| !shape.matches_return(function.sig.output.as_ref()))
-        {
-            return false;
-        }
+            .map_or(ShapeMatch::Matches, |shape| {
+                shape.evaluate_return(function.sig.output.as_ref())
+            });
+        return pattern::all([input, output, predicates]);
     }
-    true
+    predicates
+}
+fn matches(item: &Item, address: &Address, query: &Query) -> bool {
+    evaluate_match(item, address, query) == ShapeMatch::Matches
 }
 fn external_descendants_relevant(
     document: &Crate,
@@ -1383,6 +1108,15 @@ pub fn inspect(
     cursor: Option<&str>,
 ) -> Result<Page, ApiError> {
     use base64::Engine as _;
+    if let Some(shape) = &query.input_shape {
+        shape.validate()?;
+    }
+    if let Some(shape) = &query.output_shape {
+        shape.validate()?;
+    }
+    for predicate in &query.where_shapes {
+        predicate.validate()?;
+    }
     if limit == 0 {
         return Err(super::invalid("API page limit must be positive"));
     }
@@ -1397,8 +1131,7 @@ pub fn inspect(
         ..Query::default()
     };
     let needs_definition = query.kind.is_some()
-        || query.input.is_some()
-        || query.output.is_some()
+        || !query.where_shapes.is_empty()
         || query.input_shape.is_some()
         || query.output_shape.is_some()
         || query.declared_bound.is_some()
@@ -1421,16 +1154,26 @@ pub fn inspect(
                     let target = definition.document.index.get(&id).ok_or_else(|| {
                         super::invalid("verified defining declaration disappeared")
                     })?;
-                    if matches(target, &address, query) {
-                        selected.push((address, Some((definition, id, evidence)), None));
+                    match evaluate_match(target, &address, query) {
+                        ShapeMatch::Matches => {
+                            selected.push((address, Some((definition, id, evidence)), None))
+                        }
+                        ShapeMatch::Unknown(reason) => {
+                            selected.push((address, Some((definition, id, evidence)), Some(reason)))
+                        }
+                        ShapeMatch::Different => {}
                     }
                 }
                 Err(error) => {
                     selected.push((address, None, needs_definition.then(|| error.to_string())))
                 }
             }
-        } else if matches(item, &address, query) {
-            selected.push((address, None, None));
+        } else {
+            match evaluate_match(item, &address, query) {
+                ShapeMatch::Matches => selected.push((address, None, None)),
+                ShapeMatch::Unknown(reason) => selected.push((address, None, Some(reason))),
+                ShapeMatch::Different => {}
+            }
         }
     }
     // Additional defining evidence is part of the cursor, including missing-to-prepared changes.
@@ -1690,7 +1433,7 @@ mod cursor_tests {
                 .unwrap()
                 .matches(&associated)
         );
-        assert!(TypePattern::parse("dyn Trait").is_err());
+        assert!(TypePattern::parse("dyn Trait").is_ok());
     }
 
     #[test]

@@ -48,6 +48,9 @@ pub(in crate::cli) struct InspectArgs {
     kind: Option<Kind>,
     #[arg(long)]
     input: Option<String>,
+    /// Structural declared where predicate; may be repeated.
+    #[arg(long = "where")]
+    where_shapes: Vec<String>,
     #[arg(long)]
     output_type: Option<String>,
     #[arg(long)]
@@ -70,6 +73,9 @@ pub(in crate::cli) struct InspectArgs {
     /// Expand the original format-qualified rustdoc item, including complex bounds/associated data.
     #[arg(long)]
     declaration: bool,
+    /// Examine selected declared adjacency; never acquires an analyzer or another artifact.
+    #[arg(long, value_enum, requires = "path", conflicts_with_all=["cursor","compare_with","native_examples"])]
+    adjacency: Vec<api::query::adjacency::Relation>,
     /// Read structural differences from an explicitly selected acquired document.json;
     /// --compatibility separately executes native rules. Neither generates an input.
     #[arg(long, conflicts_with_all=["path","search"])]
@@ -218,6 +224,25 @@ fn perform(
     output: &OutputOptions,
     effect: Option<(Operation, &EntryGuard)>,
 ) -> Result<i32, HostError> {
+    // Validate the complete shape program before context lookup or explicit effects.
+    let input_shape = arguments
+        .input
+        .as_deref()
+        .map(api::query::TypePattern::parse)
+        .transpose()
+        .map_err(error)?;
+    let output_shape = arguments
+        .output_type
+        .as_deref()
+        .map(api::query::TypePattern::parse)
+        .transpose()
+        .map_err(error)?;
+    let where_shapes = arguments
+        .where_shapes
+        .iter()
+        .map(|v| api::query::WherePattern::parse(v))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(error)?;
     if let Some(path) = &arguments.native_examples {
         let page =
             api::doctests::inspect(&root.join(path), output.presentation.budget.unwrap_or(20))
@@ -465,13 +490,12 @@ fn perform(
         );
     }
     let mut query = Query {
-        input_shape: None,
-        output_shape: None,
+        input_shape,
+        output_shape,
+        where_shapes,
         path: arguments.path,
         search: arguments.search,
         kind: arguments.kind,
-        input: arguments.input,
-        output: arguments.output_type,
         trait_name: arguments.trait_name,
         unsafe_only: arguments.unsafe_only,
         async_only: arguments.async_only,
@@ -484,6 +508,33 @@ fn perform(
         ..Query::default()
     };
     api::query::bind_request(&mut query, arguments.cursor.as_deref()).map_err(error)?;
+    if !arguments.adjacency.is_empty() {
+        let page = api::query::inspect(&artifact, &query, 1, None).map_err(error)?;
+        let seed = page.candidates.first().ok_or_else(|| {
+            error(api::ApiError::Invalid(
+                "API adjacency requires one addressed declaration".into(),
+            ))
+        })?;
+        let graph = api::query::adjacency::inspect(
+            &artifact,
+            rustdoc_types::Id(seed.item_id),
+            &arguments.adjacency,
+            output.presentation.budget.unwrap_or(20),
+        )
+        .map_err(error)?;
+        let complete = graph.complete;
+        let mut response = Envelope::response(
+            "inspect api",
+            "declared acquired API adjacency; contextual applicability remains separate",
+            api::query::Report::Adjacency { graph },
+        );
+        response.providers = providers;
+        response.observation.scope = "bounded_acquired_artifact_adjacency".into();
+        if !complete {
+            response.observation.completeness = envelope::Completeness::Partial;
+        }
+        return Ok(output.emit_page(response, envelope::DetailView::default())?);
+    }
     let mut artifacts = Vec::new();
     let mut facades = Vec::new();
     let mut visited = std::collections::BTreeSet::from([artifact.context.package_id.clone()]);

@@ -90,6 +90,7 @@ pse-diagnostics.workspace = true
 pse-buildinfo.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+quote.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true

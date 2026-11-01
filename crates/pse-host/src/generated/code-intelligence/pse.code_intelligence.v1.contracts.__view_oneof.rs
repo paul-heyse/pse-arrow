@@ -282,6 +282,24 @@ pub mod native_query {
                 ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
             >,
         ),
+        Body(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Origins(::buffa::EnumValue<super::super::super::super::NativeOriginKind>),
+        Compatibility(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeCompatibilityQueryView<
+                    'a,
+                >,
+            >,
+        ),
+        Visibility(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeVisibilityQueryView<'a>,
+            >,
+        ),
     }
 }
 pub mod native_request {

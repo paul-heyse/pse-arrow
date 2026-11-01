@@ -1002,6 +1002,78 @@ async fn semantic_query(
     }?;
     response.into_query().map_err(Error::from)
 }
+/// Resolve a second operand without consuming another native query/snapshot.
+pub async fn guarded_operand(
+    root: &Path,
+    primary: &Locator,
+    reference: &ResultReference,
+) -> Result<(crate::semantic::ImportTarget, Option<u64>), Error> {
+    let selected = source_inquiry(root, &reference.locator, &CancellationToken::new()).await?;
+    let Locator::Semantic {
+        project,
+        path,
+        line,
+        column,
+        generation,
+        source_sha256,
+        session_invocation,
+        ..
+    } = selected
+    else {
+        return Err(Error::Invalid(
+            "native operand requires an original guarded source position".into(),
+        ));
+    };
+    let Locator::Semantic {
+        project: original_project,
+        session_invocation: original_session,
+        generation: original_generation,
+        ..
+    } = primary
+    else {
+        return Err(Error::Invalid(
+            "primary operand requires a native position".into(),
+        ));
+    };
+    if project.canonicalize()? != original_project.canonicalize()?
+        || session_invocation != *original_session
+    {
+        return Err(Error::Stale(
+            "native operands belong to different original worlds".into(),
+        ));
+    }
+    if generation.is_some() && original_generation.is_some() && generation != *original_generation {
+        return Err(Error::Stale(
+            "native operands span snapshot generations".into(),
+        ));
+    }
+    let source = SourceRequest::Working {
+        path: path.to_path_buf(),
+    }
+    .acquire()
+    .map_err(native)?;
+    let digest = source_sha256
+        .ok_or_else(|| Error::Invalid("native operand has no original source digest".into()))?;
+    if source.identity().source_sha256() != digest {
+        return Err(Error::Stale("native operand source changed".into()));
+    }
+    let start = crate::source_read::byte_offset(source.text(), line, column).map_err(native)?;
+    let generation = generation
+        .as_deref()
+        .map(str::parse)
+        .transpose()
+        .map_err(|_| Error::Invalid("invalid operand generation".into()))?;
+    Ok((
+        crate::semantic::ImportTarget {
+            file: path.to_path_buf(),
+            byte_start: start,
+            byte_end: start,
+            source_sha256: digest,
+        },
+        generation,
+    ))
+}
+
 /// Original artifact guards and selected native configuration define a batch proof.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct ApiContextKey {
@@ -1194,6 +1266,32 @@ pub async fn source_semantic(
     let result = source_semantic_with_context(root, locator, token, &context).await?;
     context.verify_unchanged()?;
     Ok(result)
+}
+
+/// Lift an exact guarded source operand or string to a native inspection position.
+/// This establishes no declaration identity; API locators retain their stricter source proof.
+pub async fn source_inquiry(
+    root: &Path,
+    locator: &Locator,
+    token: &CancellationToken,
+) -> Result<Locator, Error> {
+    if token.is_cancelled() {
+        return Err(Error::Cancelled);
+    }
+    let Locator::Source {
+        source: SourceKind::Working,
+        ..
+    } = locator
+    else {
+        return source_semantic(root, locator, token).await;
+    };
+    let (source, range) = hydrate(root, locator)?;
+    let offset = crate::source_read::inquiry_anchor(source.text(), range.byte_start..range.byte_end)
+        .ok_or_else(|| Error::Unavailable("inspection requires one exact expression, type, declaration, string token or explicit position".into()))?;
+    let record = crate::semantic::load(root, &environment())?.ok_or_else(|| {
+        Error::Unavailable("explicitly prepare a native inspection context".into())
+    })?;
+    Ok(semantic_position(&record, &source, offset))
 }
 /// Lift a candidate while retaining the request's shared API/source proof owner.
 pub async fn source_semantic_with_context(
@@ -1638,6 +1736,25 @@ pub async fn semantic_view(
         compiler_layout: None,
     })
 }
+/// Guard the acquired identity before expanding selected declared artifact edges.
+pub fn inspect_api_adjacency(
+    root: &Path,
+    locator: &Locator,
+    relations: &[crate::api::query::adjacency::Relation],
+    limit: usize,
+) -> Result<crate::api::query::adjacency::Graph, Error> {
+    let artifact = checked_api(root, locator)?;
+    let Locator::Api { item, .. } = locator else {
+        return Err(Error::Invalid(
+            "adjacency requires an acquired API reference".into(),
+        ));
+    };
+    let id = item
+        .parse()
+        .map_err(|_| Error::Invalid("invalid artifact-local item identity".into()))?;
+    crate::api::query::adjacency::inspect(&artifact, rustdoc_types::Id(id), relations, limit)
+        .map_err(Error::from)
+}
 /// Inspect an acquired artifact-local declaration without another search/acquisition.
 pub fn inspect_api(root: &Path, locator: &Locator) -> Result<SearchResult, Error> {
     let Locator::Api {
@@ -1779,6 +1896,7 @@ fn api_search(
     if request.answer.count_unit != CountUnit::Matches {
         return Err(Error::Unavailable("API candidate search counts declared public-path candidates; file/line/entity counts require an explicit acquired-artifact population query".into()));
     }
+    let selected = query.compiled().map_err(Error::from)?;
     let artifact = if let Some(path) = &query.artifact {
         crate::api::retained(&root.join(path)).map_err(Error::from)?
     } else if let Some(dependency) = &query.dependency {
@@ -1794,23 +1912,6 @@ fn api_search(
             "select an acquired API artifact or exact dependency; acquisition remains explicit"
                 .into(),
         ));
-    };
-    let selected = crate::api::query::Query {
-        search: Some(query.query.clone()),
-        input_shape: query
-            .input
-            .as_deref()
-            .map(crate::api::query::TypePattern::parse)
-            .transpose()
-            .map_err(Error::from)?,
-        output_shape: query
-            .output
-            .as_deref()
-            .map(crate::api::query::TypePattern::parse)
-            .transpose()
-            .map_err(Error::from)?,
-        declared_bound: query.bound.clone(),
-        ..crate::api::query::Query::default()
     };
     let page =
         crate::api::query::inspect(&artifact, &selected, usize::MAX, None).map_err(Error::from)?;

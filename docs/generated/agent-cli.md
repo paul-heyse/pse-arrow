@@ -883,10 +883,13 @@ Options:
       --path <PATHS>
           Restrict source paths without requiring Cargo or analyzer preparation
 
-      --bound <BOUND>
-
-
       --package <PACKAGE>
+
+
+      --where <WHERE_SHAPES>
+          A declared where predicate, repeated for conjunction
+
+      --bound <BOUND>
 
 
       --glob <GLOB>
@@ -3513,6 +3516,9 @@ Options:
       --input <INPUT>
 
 
+      --where <WHERE_SHAPES>
+          Structural declared where predicate; may be repeated
+
       --output-type <OUTPUT_TYPE>
 
 
@@ -3539,6 +3545,17 @@ Options:
 
       --declaration
           Expand the original format-qualified rustdoc item, including complex bounds/associated data
+
+      --adjacency <ADJACENCY>
+          Examine selected declared adjacency; never acquires an analyzer or another artifact
+
+          Possible values:
+          - contains:           Declared child/associated item
+          - bound:              Explicit supertrait or structured declared bound
+          - implementation:     An impl record, without a use-site applicability verdict
+          - provided-default:   Default trait method supplied by an impl's recorded provided-method list
+          - reexport:           Public facade to its definition
+          - documentation-link: Compiler-resolved intra-documentation link
 
       --compare-with <COMPARE_WITH>
           Read structural differences from an explicitly selected acquired document.json; --compatibility separately executes native rules. Neither generates an input
@@ -5089,6 +5106,7 @@ Commands:
   artifact            Read exact artifact ranges with native validators; this does not decode a protocol
   compiler-artifact   Read an original native compiler artifact after its existing whole-file verification
   compiler-artifacts  Inspect the original compiler-generation context, outcome and checked file index
+  compiler-source     Read compiler-verified original source bytes from an acquired facts artifact
   compiler-facts      Explain original typed capture, suspension and cleanup observations without rerunning rustc
   tests               Read an already captured original test population or its original failures
   test-selection      Explain real native test selection; no binary listing or test execution occurs
@@ -5151,6 +5169,12 @@ Options:
           Expand one selected semantic fact through its original native provider
 
           Possible values:
+          - adjacency
+          - compatibility
+          - visibility
+          - format-origin
+          - derive-origin
+          - lifetime
           - declaration
           - layout:          Inspect fallible native layout under the selected semantic world and target
           - references
@@ -5164,6 +5188,17 @@ Options:
           - candidate
           - predicate
 
+      --adjacency <ADJACENCY>
+          Selected acquired-artifact edges for --view adjacency; omission selects all kinds
+
+          Possible values:
+          - contains:           Declared child/associated item
+          - bound:              Explicit supertrait or structured declared bound
+          - implementation:     An impl record, without a use-site applicability verdict
+          - provided-default:   Default trait method supplied by an impl's recorded provided-method list
+          - reexport:           Public facade to its definition
+          - documentation-link: Compiler-resolved intra-documentation link
+
       --select <SELECT>
 
 
@@ -5172,6 +5207,23 @@ Options:
 
       --compiler-layout <COMPILER_LAYOUT>
           Passively associate an original type-sizes acquisition with --view layout
+
+      --against-result <AGAINST_RESULT>
+          Guarded second operand for compatibility or destination visibility
+
+      --operation <OPERATION>
+          Exact native compatibility operation; never inferred from display text
+
+          Possible values:
+          - equal:        Exact native type equality in a common owner
+          - could-unify:  Possible deep unification, not compiler acceptance
+          - could-coerce: Directional possible coercion from selected to against
+
+      --compiler-evidence <COMPILER_EVIDENCE>
+          Original compiler facts evidence supplied to a lifetime inquiry
+
+      --work-result <WORK_RESULT>
+          Accompanying original work outcome, with association qualified separately
 
   -h, --help
           Print help (see a summary with '-h')
@@ -5562,6 +5614,11 @@ Options:
 
       --view <VIEW>
           Possible values:
+          - lifetime
+          - compatibility
+          - visibility
+          - format-origin
+          - derive-origin
           - explain
           - layout:          Inspect fallible layout with native type/target context
           - symbols
@@ -5587,6 +5644,21 @@ Options:
 
       --compiler-layout <COMPILER_LAYOUT>
           Passively associate an original type-sizes acquisition; requires --view layout
+
+      --compiler-evidence <COMPILER_EVIDENCE>
+          Original compiler artifact reference accompanying a lifetime inquiry
+
+      --work-result <WORK_RESULT>
+          Original work invocation accompanying the inquiry; no execution association is inferred
+
+      --against-result <AGAINST_RESULT>
+          Original guarded position for a native compatibility or visibility comparison
+
+      --operation <OPERATION>
+          Possible values:
+          - equal:        Exact native type equality in a common owner
+          - could-unify:  Possible deep unification, not compiler acceptance
+          - could-coerce: Directional possible coercion from selected to against
 
   -h, --help
           Print help (see a summary with '-h')
@@ -5652,6 +5724,9 @@ Options:
       --input <INPUT>
 
 
+      --where <WHERE_SHAPES>
+          Structural declared where predicate; may be repeated
+
       --output-type <OUTPUT_TYPE>
 
 
@@ -5678,6 +5753,17 @@ Options:
 
       --declaration
           Expand the original format-qualified rustdoc item, including complex bounds/associated data
+
+      --adjacency <ADJACENCY>
+          Examine selected declared adjacency; never acquires an analyzer or another artifact
+
+          Possible values:
+          - contains:           Declared child/associated item
+          - bound:              Explicit supertrait or structured declared bound
+          - implementation:     An impl record, without a use-site applicability verdict
+          - provided-default:   Default trait method supplied by an impl's recorded provided-method list
+          - reexport:           Public facade to its definition
+          - documentation-link: Compiler-resolved intra-documentation link
 
       --compare-with <COMPARE_WITH>
           Read structural differences from an explicitly selected acquired document.json; --compatibility separately executes native rules. Neither generates an input
@@ -5778,6 +5864,53 @@ Options:
 
       --if-match <IF_MATCH>
 
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect compiler-source`
+
+~~~~text
+Read compiler-verified original source bytes from an acquired facts artifact
+
+Usage: pse inspect compiler-source [OPTIONS] <INVOCATION> <SOURCE_FILE>
+
+Arguments:
+  <INVOCATION>
+
+
+  <SOURCE_FILE>
+
+
+Options:
+  -C <checkout>
+
+
+      --offset <OFFSET>
+          [default: 0]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --length <LENGTH>
+          [default: 4096]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')

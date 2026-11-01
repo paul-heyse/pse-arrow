@@ -190,6 +190,9 @@ pub(super) enum Mode {
         input: Option<String>,
         #[arg(long)]
         output: Option<String>,
+        /// A declared where predicate, repeated for conjunction.
+        #[arg(long = "where")]
+        where_shapes: Vec<String>,
         #[arg(long)]
         bound: Option<String>,
     },
@@ -238,6 +241,9 @@ pub(super) struct Inspect {
     /// Expand one selected semantic fact through its original native provider.
     #[arg(long, value_enum)]
     pub view: Option<View>,
+    /// Selected acquired-artifact edges for --view adjacency; omission selects all kinds.
+    #[arg(long, value_enum, requires = "view")]
+    pub adjacency: Vec<crate::api::query::adjacency::Relation>,
     #[arg(long)]
     pub select: Option<usize>,
     #[arg(long)]
@@ -245,10 +251,28 @@ pub(super) struct Inspect {
     /// Passively associate an original type-sizes acquisition with --view layout.
     #[arg(long, requires = "view")]
     pub compiler_layout: Option<String>,
+    /// Guarded second operand for compatibility or destination visibility.
+    #[arg(long, requires = "view")]
+    pub against_result: Option<String>,
+    /// Exact native compatibility operation; never inferred from display text.
+    #[arg(long, requires = "against_result")]
+    pub operation: Option<crate::semantic::CompatibilityOperation>,
+    /// Original compiler facts evidence supplied to a lifetime inquiry.
+    #[arg(long, requires = "view")]
+    pub compiler_evidence: Option<String>,
+    /// Accompanying original work outcome, with association qualified separately.
+    #[arg(long, requires = "view")]
+    pub work_result: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub(super) enum View {
+    Adjacency,
+    Compatibility,
+    Visibility,
+    FormatOrigin,
+    DeriveOrigin,
+    Lifetime,
     Declaration,
     /// Inspect fallible native layout under the selected semantic world and target.
     Layout,
@@ -267,6 +291,7 @@ pub(super) enum View {
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
 pub(super) enum Inspection {
+    Lifetime(Box<query::lifetime::Report>),
     Schema(Box<crate::schema::Report>),
     Source(Box<query::SearchResult>),
     Semantic(Box<query::rust::SemanticInspection>),
@@ -277,6 +302,42 @@ pub(super) enum Inspection {
 pub(super) enum Preview {
     Syntax(Box<crate::source_proposal::ChangeProposal>),
     Semantic(Box<query::rust::SemanticInspection>),
+}
+
+/// Explicit source inspection can return native facts or their qualified lifetime composition.
+#[derive(serde::Serialize, schemars::JsonSchema)]
+#[serde(untagged)]
+#[allow(
+    dead_code,
+    reason = "schema union for two independently emitted entity response variants"
+)]
+pub(super) enum EntityInspection {
+    /// Original selected native observations.
+    Native(crate::cli::code::semantic::AnswerView),
+    /// Independently qualified compiler/native/work sections.
+    Lifetime(query::lifetime::Report),
+}
+
+/// Keep native receive ownership through cancellation and its settled terminal response.
+pub(super) fn lifetime_inspection(
+    root: &Path,
+    locator: &query::Locator,
+    compiler: Option<&str>,
+    work: Option<&str>,
+) -> Result<query::lifetime::Report, HostError> {
+    super::runtime()?.block_on(async {
+        let cancellation = CancellationToken::new();
+        let answer = query::lifetime::inspect(root, locator, compiler, work, &cancellation);
+        tokio::pin!(answer);
+        tokio::select! {
+            result = &mut answer => result,
+            signal = tokio::signal::ctrl_c() => {
+                signal?;
+                cancellation.cancel();
+                answer.await
+            }
+        }
+    })
 }
 
 #[derive(Debug, Args)]
@@ -494,9 +555,18 @@ impl Search {
                     dependency,
                     input,
                     output,
+                    where_shapes,
                     bound,
                 } => {
                     let mut value = json!({"kind":"api","query":name});
+                    if !where_shapes.is_empty() {
+                        value["where_shapes"] = serde_json::to_value(
+                            where_shapes
+                                .iter()
+                                .map(|v| crate::api::query::WherePattern::parse(v))
+                                .collect::<Result<Vec<_>, _>>()?,
+                        )?;
+                    }
                     if let Some(artifact) = artifact {
                         value["artifact"] = json!(artifact);
                     }
@@ -872,6 +942,41 @@ pub(super) fn inspect(
             query::Error::Invalid("--compiler-layout requires --view layout".into()).into(),
         );
     }
+    if (options.compiler_evidence.is_some() || options.work_result.is_some())
+        && !matches!(options.view, Some(View::Lifetime))
+    {
+        return Err(query::Error::Invalid(
+            "compiler/work evidence requires --view lifetime".into(),
+        )
+        .into());
+    }
+    if options.against_result.is_some()
+        && !matches!(options.view, Some(View::Compatibility | View::Visibility))
+    {
+        return Err(query::Error::Invalid(
+            "--against-result requires compatibility or visibility".into(),
+        )
+        .into());
+    }
+    if options.operation.is_some() && !matches!(options.view, Some(View::Compatibility)) {
+        return Err(
+            query::Error::Invalid("--operation requires --view compatibility".into()).into(),
+        );
+    }
+    if matches!(options.view, Some(View::Compatibility))
+        && (options.against_result.is_none() || options.operation.is_none())
+    {
+        return Err(query::Error::Invalid(
+            "compatibility requires --against-result and --operation".into(),
+        )
+        .into());
+    }
+    if matches!(options.view, Some(View::Visibility)) && options.against_result.is_none() {
+        return Err(query::Error::Invalid(
+            "visibility requires --against-result destination".into(),
+        )
+        .into());
+    }
     if let Some(action) = options.action {
         return evidence::inspect(action, selected, output);
     }
@@ -994,12 +1099,81 @@ pub(super) fn inspect(
             *guard = input.guard;
         }
     }
-    if options.view.is_some() && matches!(locator, query::Locator::Source { .. }) {
-        locator = super::runtime()?.block_on(query::rust::source_semantic(
+    if !options.adjacency.is_empty() && !matches!(options.view, Some(View::Adjacency)) {
+        return Err(query::Error::Invalid("--adjacency requires --view adjacency".into()).into());
+    }
+    if matches!(options.view, Some(View::Adjacency)) {
+        let relations = if options.adjacency.is_empty() {
+            vec![
+                crate::api::query::adjacency::Relation::Contains,
+                crate::api::query::adjacency::Relation::Bound,
+                crate::api::query::adjacency::Relation::Implementation,
+                crate::api::query::adjacency::Relation::ProvidedDefault,
+                crate::api::query::adjacency::Relation::Reexport,
+                crate::api::query::adjacency::Relation::DocumentationLink,
+            ]
+        } else {
+            options.adjacency
+        };
+        let graph = query::rust::inspect_api_adjacency(
             &root,
             &locator,
-            &CancellationToken::new(),
-        ))?;
+            &relations,
+            output.presentation.budget.unwrap_or(20),
+        )?;
+        let complete = graph.complete;
+        let mut response = Envelope::response(
+            "inspect api",
+            "declared acquired API adjacency; contextual applicability remains separate",
+            crate::api::query::Report::Adjacency { graph },
+        );
+        if !complete {
+            response.observation.completeness = Completeness::Partial;
+        }
+        return output
+            .emit_page(response, crate::envelope::DetailView::default())
+            .map_err(HostError::from);
+    }
+    if matches!(options.view, Some(View::Lifetime)) {
+        let report = lifetime_inspection(
+            &root,
+            &locator,
+            options.compiler_evidence.as_deref(),
+            options.work_result.as_deref(),
+        )?;
+        let partial = matches!(
+            report.correspondence,
+            query::lifetime::Correspondence::Unjoined { .. }
+        );
+        let mut response = Envelope::response(
+            "inspect",
+            "qualified lifetime evidence; no inferred effect or execution association",
+            Inspection::Lifetime(Box::new(report)),
+        );
+        if partial {
+            response.observation.completeness = Completeness::Partial;
+        }
+        return output
+            .emit_page(response, crate::envelope::DetailView::default())
+            .map_err(HostError::from);
+    }
+    if options.view.is_some() && matches!(locator, query::Locator::Source { .. }) {
+        locator = super::runtime()?.block_on(async {
+            let token = CancellationToken::new();
+            if matches!(
+                options.view,
+                Some(
+                    View::Compatibility
+                        | View::Visibility
+                        | View::FormatOrigin
+                        | View::DeriveOrigin
+                )
+            ) {
+                query::rust::source_inquiry(&root, &locator, &token).await
+            } else {
+                query::rust::source_semantic(&root, &locator, &token).await
+            }
+        })?;
     }
     if options.view.is_some() && !matches!(locator, query::Locator::Semantic { .. }) {
         return Err(query::Error::Unavailable(
@@ -1011,7 +1185,50 @@ pub(super) fn inspect(
     let result = if matches!(locator, query::Locator::Semantic { .. }) {
         use crate::semantic::Kind;
         let kind = match options.view.unwrap_or(View::Declaration) {
+            View::Adjacency => {
+                return Err(query::Error::Invalid(
+                    "adjacency requires acquired API evidence".into(),
+                )
+                .into());
+            }
+            View::Compatibility => {
+                let reference =
+                    query::ResultReference::decode(options.against_result.as_deref().ok_or_else(
+                        || query::Error::Invalid("compatibility requires --against-result".into()),
+                    )?)?;
+                let (against, against_generation) = super::runtime()?
+                    .block_on(query::rust::guarded_operand(&root, &locator, &reference))?;
+                Kind::Compatibility {
+                    against,
+                    against_generation,
+                    operation: options.operation.ok_or_else(|| {
+                        query::Error::Invalid("compatibility requires --operation".into())
+                    })?,
+                }
+            }
+            View::Visibility => {
+                let reference = query::ResultReference::decode(
+                    options.against_result.as_deref().ok_or_else(|| {
+                        query::Error::Invalid(
+                            "visibility requires --against-result destination".into(),
+                        )
+                    })?,
+                )?;
+                let (destination, destination_generation) = super::runtime()?
+                    .block_on(query::rust::guarded_operand(&root, &locator, &reference))?;
+                Kind::Visibility {
+                    destination,
+                    destination_generation,
+                }
+            }
+            View::FormatOrigin => Kind::Origins {
+                kind: crate::semantic::OriginKind::Format,
+            },
+            View::DeriveOrigin => Kind::Origins {
+                kind: crate::semantic::OriginKind::Derive,
+            },
             View::Declaration => Kind::Explain,
+            View::Lifetime => Kind::Body,
             View::Layout => Kind::Layout,
             View::References => Kind::Refs,
             View::Calls => Kind::Calls,
@@ -1090,6 +1307,9 @@ pub(super) fn inspect(
                         _ => None,
                     });
                 human::row(row, path)?
+            }
+            Inspection::Lifetime(answer) => {
+                serde_json::to_string_pretty(answer).map_err(query::Error::from)?
             }
             Inspection::Semantic(answer) => {
                 serde_json::to_string_pretty(answer).map_err(query::Error::from)?

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit native domain mappings. Only original provider documents use opaque JSON bytes.
 mod graph;
+mod investigation;
 use super::*;
 use crate::{
     code_intelligence_contracts::pb::pse::code_intelligence::v1 as pb,
@@ -169,6 +170,27 @@ pub(super) fn request_to_pb(value: &Request) -> Result<pb::NativeRequest> {
             limit: number(value.limit),
             end_line: value.end_line.map(number),
             kind: Some(match &value.kind {
+                Kind::Body => K::Body(Default::default()),
+                Kind::Origins { kind } => K::Origins(investigation::origin_to_pb(*kind).into()),
+                Kind::Compatibility {
+                    against,
+                    against_generation,
+                    operation,
+                } => K::Compatibility(Box::new(pb::NativeCompatibilityQuery {
+                    against: investigation::target_to_pb(against).into(),
+                    operation: investigation::operation_to_pb(*operation).into(),
+                    against_generation: *against_generation,
+                    ..Default::default()
+                })),
+                Kind::Visibility {
+                    destination,
+                    destination_generation,
+                } => K::Visibility(Box::new(pb::NativeVisibilityQuery {
+                    destination: investigation::target_to_pb(destination).into(),
+                    destination_generation: *destination_generation,
+                    ..Default::default()
+                })),
+
                 Kind::Explain => K::Explain(Default::default()),
                 Kind::Layout => K::Layout(Default::default()),
                 Kind::Refs => K::Refs(Default::default()),
@@ -233,6 +255,26 @@ pub(super) fn request_from_pb(value: pb::NativeRequest) -> Result<Request> {
             }
             Request::Query(Query {
                 kind: match required(value.kind, "query.kind")? {
+                    K::Body(_) => Kind::Body,
+                    K::Origins(kind) => Kind::Origins {
+                        kind: investigation::origin_from_pb(kind)?,
+                    },
+                    K::Compatibility(mut q) => Kind::Compatibility {
+                        against: investigation::target_from_pb(required(
+                            q.against.take(),
+                            "compatibility.against",
+                        )?)?,
+                        against_generation: q.against_generation,
+                        operation: investigation::operation_from_pb(q.operation)?,
+                    },
+                    K::Visibility(mut q) => Kind::Visibility {
+                        destination: investigation::target_from_pb(required(
+                            q.destination.take(),
+                            "visibility.destination",
+                        )?)?,
+                        destination_generation: q.destination_generation,
+                    },
+
                     K::Explain(_) => Kind::Explain,
                     K::Layout(_) => Kind::Layout,
                     K::Refs(_) => Kind::Refs,
@@ -542,6 +584,11 @@ fn relation_from_pb(value: buffa::EnumValue<pb::NativeRelation>) -> Result<FactR
 }
 fn observed_to_pb(value: ObservedFacts) -> Result<pb::NativeObservedFacts> {
     Ok(pb::NativeObservedFacts {
+        investigation: value
+            .investigation
+            .map(investigation::to_pb)
+            .transpose()?
+            .into(),
         symbols: value.symbols.into_iter().map(symbol_to_pb).collect(),
         relationships: value
             .relationships
@@ -654,6 +701,11 @@ fn observed_to_pb(value: ObservedFacts) -> Result<pb::NativeObservedFacts> {
 }
 fn observed_from_pb(mut value: pb::NativeObservedFacts) -> Result<ObservedFacts> {
     Ok(ObservedFacts {
+        investigation: value
+            .investigation
+            .take()
+            .map(investigation::from_pb)
+            .transpose()?,
         symbols: value
             .symbols
             .into_iter()
@@ -2000,6 +2052,7 @@ mod tests {
                 character: 3,
             },
             observed: ObservedFacts {
+                investigation: None,
                 symbols: vec![SymbolFact {
                     name: "target".into(),
                     kind: Some("function".into()),

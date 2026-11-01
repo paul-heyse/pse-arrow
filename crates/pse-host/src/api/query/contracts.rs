@@ -12,17 +12,17 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Generics {
     pub params: Vec<Parameter>,
     pub where_predicates: Vec<Predicate>,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Parameter {
     pub name: String,
     pub kind: ParameterKind,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ParameterKind {
     Lifetime {
@@ -39,7 +39,7 @@ pub enum ParameterKind {
         default: Option<String>,
     },
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Predicate {
     #[serde(rename = "bound_predicate")]
@@ -57,7 +57,7 @@ pub enum Predicate {
     #[serde(rename = "eq_predicate")]
     Equality { lhs: Type, rhs: Term },
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Bound {
     #[serde(rename = "trait_bound")]
@@ -70,26 +70,26 @@ pub enum Bound {
     Outlives(String),
     Use(Vec<Capture>),
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Modifier {
     None,
     Maybe,
     MaybeConst,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Capture {
     Lifetime(String),
     Param(String),
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Path {
     pub path: String,
     pub id: u32,
     pub args: Option<Box<Arguments>>,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Arguments {
     AngleBracketed {
@@ -102,7 +102,7 @@ pub enum Arguments {
     },
     ReturnTypeNotation,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Argument {
     Lifetime(String),
@@ -110,31 +110,31 @@ pub enum Argument {
     Const(Constant),
     Infer,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Constant {
     pub expr: String,
     pub value: Option<String>,
     pub is_literal: bool,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Constraint {
     pub name: String,
     pub args: Option<Box<Arguments>>,
     pub binding: Binding,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Binding {
     Equality(Term),
     Constraint(Vec<Bound>),
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Term {
     Type(Type),
     Constant(Constant),
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Type {
     ResolvedPath(Path),
@@ -175,37 +175,37 @@ pub enum Type {
         trait_: Option<Path>,
     },
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct DynTrait {
     pub traits: Vec<PolyTrait>,
     pub lifetime: Option<String>,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct PolyTrait {
     #[serde(rename = "trait")]
     pub trait_: Path,
     pub generic_params: Vec<Parameter>,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct FunctionPointer {
     pub sig: Signature,
     pub generic_params: Vec<Parameter>,
     pub header: Header,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Signature {
     pub inputs: Vec<(String, Type)>,
     pub output: Option<Type>,
     pub is_c_variadic: bool,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Header {
     pub is_const: bool,
     pub is_unsafe: bool,
     pub is_async: bool,
     pub abi: Abi,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum Abi {
     Rust,
     C { unwind: bool },
@@ -218,7 +218,7 @@ pub enum Abi {
     System { unwind: bool },
     Other(String),
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Attribute {
     NonExhaustive,
@@ -232,14 +232,14 @@ pub enum Attribute {
     TargetFeature { enable: Vec<String> },
     Other(String),
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Repr {
     pub kind: ReprKind,
     pub align: Option<u64>,
     pub packed: Option<u64>,
     pub int: Option<String>,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReprKind {
     Rust,
@@ -247,18 +247,18 @@ pub enum ReprKind {
     Transparent,
     Simd,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Stability {
     pub feature: String,
     pub level: StabilityLevel,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum StabilityLevel {
     Stable { since: Option<String> },
     Unstable,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct TraitProperties {
     pub is_auto: bool,
     pub is_unsafe: bool,
@@ -272,19 +272,19 @@ pub enum CaptureCategory {
     Const,
     Unresolved,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct CaptureResolution {
     pub argument: String,
     pub category: CaptureCategory,
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct EnclosingGenerics {
     pub item_id: u32,
     pub generics: Generics,
 }
 
 /// Structural declaration contract, not inferred layout, solver results or availability.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
 pub struct Contract {
     pub generics: Option<Generics>,
     pub enclosing_generics: Vec<EnclosingGenerics>,
@@ -302,7 +302,7 @@ pub(super) fn project<T: Serialize, U: serde::de::DeserializeOwned>(
 ) -> Result<U, super::ApiError> {
     Ok(serde_json::from_value(serde_json::to_value(value)?)?)
 }
-fn generics(item: &Item) -> Option<&rustdoc_types::Generics> {
+pub(super) fn generics(item: &Item) -> Option<&rustdoc_types::Generics> {
     Some(match &item.inner {
         ItemEnum::Function(v) => &v.generics,
         ItemEnum::Struct(v) => &v.generics,
@@ -320,21 +320,51 @@ pub(super) fn contract(
     document: &rustdoc_types::Crate,
     item: &Item,
 ) -> Result<Contract, super::ApiError> {
+    contract_with_parents(document, item, &ParentIndex::new(document))
+}
+/// Inquiry-owned artifact-local declared membership, shared across contract projections.
+pub(super) struct ParentIndex(BTreeMap<rustdoc_types::Id, Vec<rustdoc_types::Id>>);
+impl ParentIndex {
+    pub(super) fn new(document: &rustdoc_types::Crate) -> Self {
+        let mut parents: BTreeMap<_, Vec<_>> = BTreeMap::new();
+        for parent in document.index.values() {
+            let members = match &parent.inner {
+                ItemEnum::Trait(value) => &value.items,
+                ItemEnum::Impl(value) => &value.items,
+                _ => continue,
+            };
+            // A duplicate membership in one declaration is still one parent, matching
+            // the original per-parent contains lookup. Distinct parents remain ambiguous.
+            for member in members.iter().collect::<std::collections::BTreeSet<_>>() {
+                parents.entry(*member).or_default().push(parent.id);
+            }
+        }
+        Self(parents)
+    }
+    fn unique_parent<'a>(
+        &self,
+        document: &'a rustdoc_types::Crate,
+        item: rustdoc_types::Id,
+    ) -> Option<&'a Item> {
+        let [parent] = self.0.get(&item)?.as_slice() else {
+            return None;
+        };
+        document.index.get(parent)
+    }
+}
+pub(super) fn contract_with_parents(
+    document: &rustdoc_types::Crate,
+    item: &Item,
+    parents: &ParentIndex,
+) -> Result<Contract, super::ApiError> {
     let mut enclosing = Vec::new();
     // Parent declarations are artifact-local membership edges, never span/name matches.
     let mut selected = item.id;
     let mut seen = std::collections::BTreeSet::new();
     while seen.insert(selected) {
-        let parents: Vec<_> = document
-            .index
-            .values()
-            .filter(|parent| match &parent.inner {
-                ItemEnum::Trait(v) => v.items.contains(&selected),
-                ItemEnum::Impl(v) => v.items.contains(&selected),
-                _ => false,
-            })
-            .collect();
-        let [parent] = parents.as_slice() else { break };
+        let Some(parent) = parents.unique_parent(document, selected) else {
+            break;
+        };
         if let Some(generics) = generics(parent) {
             enclosing.push(EnclosingGenerics {
                 item_id: parent.id.0,
@@ -522,5 +552,33 @@ mod tests {
             })
         ));
         assert!(matches!(attrs[1], Attribute::Other(_)));
+        let mut parent = item.clone();
+        parent.id = rustdoc_types::Id(3);
+        parent.inner=serde_json::from_value(json!({"trait":{"is_auto":false,"is_unsafe":false,"is_dyn_compatible":true,"items":[1,1],"generics":{"params":[{"name":"Enclosing","kind":{"type":{"bounds":[],"default":null,"is_synthetic":false}}}],"where_predicates":[]},"bounds":[],"implementations":[]}})).unwrap();
+        let mut nested = document;
+        nested.index.insert(parent.id, parent.clone());
+        let indexed = contract_with_parents(&nested, &item, &ParentIndex::new(&nested)).unwrap();
+        assert_eq!(
+            indexed.enclosing_generics.len(),
+            1,
+            "duplicate membership is one original parent"
+        );
+        assert_eq!(
+            indexed.enclosing_generics[0].generics.params[0].name,
+            "Enclosing"
+        );
+        assert_eq!(
+            serde_json::to_value(&indexed).unwrap(),
+            serde_json::to_value(contract(&nested, &item).unwrap()).unwrap()
+        );
+        parent.id = rustdoc_types::Id(4);
+        nested.index.insert(parent.id, parent);
+        assert!(
+            contract_with_parents(&nested, &item, &ParentIndex::new(&nested))
+                .unwrap()
+                .enclosing_generics
+                .is_empty(),
+            "distinct original parents remain ambiguous"
+        );
     }
 }

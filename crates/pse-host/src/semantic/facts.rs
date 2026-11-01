@@ -225,6 +225,9 @@ pub struct SnapshotUpdateFact {
 /// Shared consumed observations; original evidence remains separately qualified.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct ObservedFacts {
+    /// Explicit body, compatibility, visibility or source-origin inquiry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub investigation: Option<super::NativeInvestigationFacts>,
     /// Native name candidates.
     pub symbols: Vec<SymbolFact>,
     /// Actual source-linked native relationships.

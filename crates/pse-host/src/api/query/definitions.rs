@@ -37,6 +37,7 @@ impl QualificationContext {
         let original = crate::api::documentation_closure(&graph, &facade.context)?;
         let root = crate::api::documentation_root(&graph, &facade.context)?;
         let mut bindings: BTreeMap<String, BTreeSet<DocumentationLibraryProfile>> = BTreeMap::new();
+        let mut original_crate_bindings: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for edge in graph.units[root]
             .dependencies
             .as_ref()
@@ -49,6 +50,10 @@ impl QualificationContext {
                 .units
                 .get(edge.index)
                 .ok_or_else(|| invalid("original dependency edge invalid"))?;
+            original_crate_bindings
+                .entry(unit.target.name.replace('-', "_"))
+                .or_default()
+                .insert(binding.clone());
             bindings
                 .entry(binding.clone())
                 .or_default()
@@ -57,7 +62,7 @@ impl QualificationContext {
                     &facade.context.source_root,
                 )?);
         }
-        let surfaces = facade
+        let mut surfaces: BTreeMap<Id, (String, Vec<String>)> = facade
             .document
             .index
             .iter()
@@ -70,6 +75,22 @@ impl QualificationContext {
                 Some((*id, (binding.to_owned(), canonical.path.clone())))
             })
             .collect();
+        // Original summary IDs also address links, bounds and impl trait owners. Resolve
+        // through the exact original external-crate binding, never another artifact's ID.
+        for (id, summary) in &facade.document.paths {
+            if facade.document.index.contains_key(id) {
+                continue;
+            }
+            if let Some(external) = facade.document.external_crates.get(&summary.crate_id) {
+                if let Some(names) = original_crate_bindings.get(&external.name) {
+                    if names.len() == 1 {
+                        surfaces.entry(*id).or_insert_with(|| {
+                            (names.first().unwrap().clone(), summary.path.clone())
+                        });
+                    }
+                }
+            }
+        }
         let inputs = facade
             .context
             .source
@@ -488,7 +509,7 @@ mod tests {
         let changed = acquire("registry-definition");
         let query = super::super::Query {
             search: Some("renamed".into()),
-            input: Some("bool".into()),
+            input_shape: Some(super::super::TypePattern::parse("bool").unwrap()),
             ..Default::default()
         };
         let unknown = super::super::inspect(&facade, &query, 20, None).unwrap();
@@ -505,7 +526,7 @@ mod tests {
         let positive = super::super::inspect(
             &facade,
             &super::super::Query {
-                input: Some("u32".into()),
+                input_shape: Some(super::super::TypePattern::parse("u32").unwrap()),
                 ..query
             },
             20,
@@ -573,8 +594,8 @@ mod tests {
         let facade = acquire("alias-facade");
         let query = super::super::Query {
             search: Some("renamed".into()),
-            input: Some("u32".into()),
-            output: Some("u32".into()),
+            input_shape: Some(super::super::TypePattern::parse("u32").unwrap()),
+            output_shape: Some(super::super::TypePattern::parse("u32").unwrap()),
             ..Default::default()
         };
         let missing = super::super::inspect(&facade, &query, 20, None).unwrap();
@@ -582,11 +603,25 @@ mod tests {
         assert_eq!(missing.unknown_candidates, 1);
         assert_eq!(missing.candidates.len(), 1);
         assert!(missing.candidates[0].qualification_unknown.is_some());
+        let missing_graph = super::super::adjacency::inspect(
+            &facade,
+            Id(missing.candidates[0].item_id),
+            &[super::super::adjacency::Relation::Reexport],
+            16,
+        )
+        .unwrap();
+        assert!(!missing_graph.complete);
+        assert!(
+            missing_graph
+                .nodes
+                .iter()
+                .any(|node| !node.declaration_available)
+        );
         let unrelated = super::super::inspect(
             &facade,
             &super::super::Query {
                 search: Some("local".into()),
-                input: Some("bool".into()),
+                input_shape: Some(super::super::TypePattern::parse("bool").unwrap()),
                 ..Default::default()
             },
             20,
@@ -611,6 +646,40 @@ mod tests {
         );
         assert!(row.signature.contains("u32"));
         let proof = row.definition.as_ref().unwrap();
+        let graph = super::super::adjacency::inspect(
+            &facade,
+            Id(row.item_id),
+            &[super::super::adjacency::Relation::Reexport],
+            16,
+        )
+        .unwrap();
+        assert!(graph.complete, "{graph:?}");
+        assert_eq!(graph.edges.len(), 1);
+        let edge = &graph.edges[0];
+        assert_ne!(edge.source, edge.target);
+        let crate::investigation::Locator::Api { artifact: from, .. } =
+            &graph.nodes[edge.source].reference.locator
+        else {
+            panic!("qualified facade expected")
+        };
+        let crate::investigation::Locator::Api {
+            artifact: to,
+            definition: node_proof,
+            ..
+        } = &graph.nodes[edge.target].reference.locator
+        else {
+            panic!("qualified definition expected")
+        };
+        assert_eq!(from, &facade.path);
+        assert_eq!(to, &definition.path);
+        assert!(node_proof.is_none());
+        assert!(matches!(
+            &graph.witnesses[edge.witness].reference.locator,
+            crate::investigation::Locator::Api {
+                definition: Some(_),
+                ..
+            }
+        ));
         super::super::validate_definition(&facade, &row.item_id.to_string(), proof, &definition)
             .unwrap();
         let unrelated = definition
@@ -638,7 +707,7 @@ mod tests {
         let absent = super::super::inspect(
             &facade,
             &super::super::Query {
-                input: Some("bool".into()),
+                input_shape: Some(super::super::TypePattern::parse("bool").unwrap()),
                 ..query.clone()
             },
             20,
@@ -651,7 +720,7 @@ mod tests {
             &facade,
             &super::super::Query {
                 kind: Some(super::super::Kind::Function),
-                input: Some("u32".into()),
+                input_shape: Some(super::super::TypePattern::parse("u32").unwrap()),
                 ..Default::default()
             },
             20,
@@ -738,7 +807,7 @@ mod tests {
             &module_facade,
             &super::super::Query {
                 search: Some("child".into()),
-                input: Some("u32".into()),
+                input_shape: Some(super::super::TypePattern::parse("u32").unwrap()),
                 ..Default::default()
             },
             20,

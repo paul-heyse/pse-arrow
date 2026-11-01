@@ -76,7 +76,7 @@ message HistoryQuery {
 }
 // Original versioned address bytes are interpreted and guarded by their native owner.
 message GuardedReference { bytes address = 1 [(buf.validate.field).bytes.min_len = 1]; ContextGuard guard = 2; }
-enum Relationship { DEFINITION = 0; REFERENCES = 1; CALLS = 2; IMPLEMENTATIONS = 3; RELATION_CONTAINS = 4; PARAMETER_TYPE = 5; RETURN_TYPE = 6; FIELD_TYPE = 7; USES = 8; }
+enum Relationship { DEFINITION = 0; REFERENCES = 1; CALLS = 2; IMPLEMENTATIONS = 3; RELATION_CONTAINS = 4; PARAMETER_TYPE = 5; RETURN_TYPE = 6; FIELD_TYPE = 7; USES = 8; SUPERTRAIT = 9; IMPL_TRAIT = 10; IMPL_SELF_TYPE = 11; }
 enum Direction { OUTGOING = 0; INCOMING = 1; }
 message Related {
   reserved 1, 2;
@@ -218,6 +218,10 @@ message NativeQuery {
     google.protobuf.Empty assists = 26;
     uint64 assist = 27;
     google.protobuf.Empty layout = 28;
+    google.protobuf.Empty body = 29;
+    NativeOriginKind origins = 30;
+    NativeCompatibilityQuery compatibility = 31;
+    NativeVisibilityQuery visibility = 32;
   }
 }
 message NativeImportTarget { bytes file = 1; uint64 byte_start = 2; uint64 byte_end = 3; string source_sha256 = 4; }
@@ -324,6 +328,7 @@ message NativeTestCandidate { optional string label = 1; NativeLocation location
 message NativeRunnableTarget { string package_id = 1; bytes manifest = 2; bytes root = 3; string name = 4; string kind = 5; repeated string required_features = 6; repeated string active_features = 7; bool required_features_satisfied = 8; }
 message NativeSnapshotUpdate { bool expect_test = 1; bool insta = 2; bool snapbox = 3; }
 message NativeObservedFacts {
+  NativeInvestigationFacts investigation = 7;
   repeated NativeSymbolFact symbols = 1;
   repeated NativeRelationshipFact relationships = 2;
   NativePredicateFact predicate = 3;
@@ -466,3 +471,14 @@ service NativeSemantic {
   rpc Stop(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc Run(stream NativeControl) returns (stream NativeEvent);
 }
+
+// Native questions retain source/world and operation-specific premises.
+enum NativeCompatibilityOperation { TYPE_EQUAL = 0; TYPE_COULD_UNIFY = 1; TYPE_COULD_COERCE = 2; }
+enum NativeOriginKind { FORMAT_ORIGIN = 0; DERIVE_ORIGIN = 1; }
+message NativeCompatibilityQuery { NativeImportTarget against = 1 [(buf.validate.field).required=true]; NativeCompatibilityOperation operation = 2; optional uint64 against_generation=3; }
+message NativeBodyObservation { NativeByteLocation location=1; string kind=2; NativeByteLocation owner=3; repeated string limitations=4; optional string package_id=5; optional string role=6; }
+message NativeCompatibilityObservation { NativeCompatibilityOperation operation=1; NativeByteLocation left=2; NativeByteLocation right=3; string left_type=4; string right_type=5; optional bool result=6; bool compatible_owner=7; repeated string limitations=8; }
+message NativeOriginObservation { uint64 ordinal=1; enum TargetKind { DECLARATION=0; LOCAL=1; ASSEMBLY_OPERAND=2; ORIGINATING_ADT=3; DERIVE_HELPER=4; GENERATED_IMPL=5; UNRESOLVED=6; } TargetKind target_kind=2; NativeByteLocation occurrence=3; NativeByteLocation target=4; optional string name=5; NativeByteLocation originating_adt=6; repeated string limitations=7; }
+message NativeInvestigationFacts { NativeBodyObservation body=1; NativeCompatibilityObservation compatibility=2; optional bool visible=3; repeated NativeOriginObservation origins=4; repeated string limitations=5; }
+
+message NativeVisibilityQuery { NativeImportTarget destination=1 [(buf.validate.field).required=true]; optional uint64 destination_generation=2; }

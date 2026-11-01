@@ -103,6 +103,15 @@ pub(super) enum Action {
     },
     /// Inspect the original compiler-generation context, outcome and checked file index.
     CompilerArtifacts { invocation: String },
+    /// Read compiler-verified original source bytes from an acquired facts artifact.
+    CompilerSource {
+        invocation: String,
+        source_file: u32,
+        #[arg(long, default_value = "0")]
+        offset: u64,
+        #[arg(long, default_value = "4096")]
+        length: NonZeroU64,
+    },
     /// Explain original typed capture, suspension and cleanup observations without rerunning rustc.
     CompilerFacts {
         invocation: String,
@@ -446,6 +455,25 @@ pub(super) fn inspect(
                 crate::compiler_investigation::artifact::observe(&root, &state, &invocation)?;
             response.command = "inspect compiler-artifacts".into();
             Ok(output.emit(response)?)
+        }
+        Action::CompilerSource {
+            invocation,
+            source_file,
+            offset,
+            length,
+        } => {
+            let state =
+                crate::paths::CheckoutState::resolve(&root, &std::env::vars_os().collect())?;
+            Ok(
+                output.emit(crate::compiler_investigation::facts::read_source(
+                    &root,
+                    &state,
+                    &invocation,
+                    source_file,
+                    offset,
+                    length,
+                )?)?,
+            )
         }
         Action::CompilerFacts {
             invocation,

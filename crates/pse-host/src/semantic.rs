@@ -7,6 +7,8 @@ mod engine;
 mod facts;
 mod graph;
 pub use graph::*;
+mod investigation;
+pub use investigation::*;
 mod layout;
 pub use layout::{LayoutAssociation, LayoutAssociationState, associate_layout};
 mod protocol_facts;
@@ -31,7 +33,7 @@ pub use service::{
 use std::path::PathBuf;
 
 /// Current prepared semantic helper/selector protocol; legacy selectors are administration-only.
-pub const SESSION_PROTOCOL_VERSION: u32 = 5;
+pub const SESSION_PROTOCOL_VERSION: u32 = 6;
 
 /// Explicit context owner; immutable native snapshots are not a second live LSP world.
 #[derive(
@@ -251,6 +253,33 @@ pub struct Query {
 #[derive(Clone, Debug, Serialize, Deserialize, clap::ValueEnum, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Kind {
+    /// Selected body observations from the same immutable snapshot.
+    Body,
+    /// Original format-string or derive provenance.
+    #[value(skip)]
+    Origins {
+        /// Native original-source origin family.
+        #[serde(rename = "origin_kind")]
+        kind: OriginKind,
+    },
+    /// Compare actual types under a compatible generic owner.
+    #[value(skip)]
+    Compatibility {
+        /// Original guarded operand in the same prepared world.
+        against: ImportTarget,
+        /// Session-local generation guard retained from the operand.
+        against_generation: Option<u64>,
+        /// Exact native operation requested by the caller.
+        operation: CompatibilityOperation,
+    },
+    /// Native visibility from an original destination module.
+    #[value(skip)]
+    Visibility {
+        /// Original guarded location whose module supplies the context.
+        destination: ImportTarget,
+        /// Session-local generation guard retained from the destination.
+        destination_generation: Option<u64>,
+    },
     /// Hover plus declaration/type targets.
     Explain,
     /// Fallible native target-qualified layout with immediate child detail.

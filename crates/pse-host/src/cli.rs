@@ -684,8 +684,8 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "inspect origin" => {
             envelope::schema::<crate::source_command::GeneratedOrigin>(command, view)
         }
-        "inspect entity"
-        | "propose entity"
+        "inspect entity" => envelope::schema::<investigation::EntityInspection>(command, view),
+        "propose entity"
         | "propose rename"
         | "propose file-rename"
         | "propose assists"
@@ -713,6 +713,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         }
         "inspect compiler-facts" => {
             envelope::schema::<crate::compiler_investigation::facts::Report>(command, view)
+        }
+        "inspect compiler-source" => {
+            envelope::schema::<crate::compiler_investigation::facts::SourceRead>(command, view)
         }
         "inspect test-selection" | "inspect check-selection" => {
             envelope::schema::<crate::test_workflow::BriefExplanation<'static>>(command, view)

@@ -573,9 +573,13 @@ impl Engine {
         let mut proposal = None;
         let limit = query.limit;
         match &query.kind {
-            Kind::Importable { .. } => {
+            Kind::Importable { .. }
+            | Kind::Body
+            | Kind::Compatibility { .. }
+            | Kind::Origins { .. }
+            | Kind::Visibility { .. } => {
                 return Err(Error::unsupported(
-                    "the selected live LSP does not expose native visibility/import-path facts; explicitly select a prepared native snapshot",
+                    "the selected live LSP does not expose this native body, origin, compatibility, visibility or import-path operation; explicitly select a prepared native snapshot",
                 ));
             }
             Kind::Explain => {

@@ -490,6 +490,12 @@ mod tests {
         assert_eq!(&text[range], "pub fn unicode_é() {}");
         assert!(offset(text, (1, 0)).is_err());
         assert!(offset(text, (99, 1)).is_err());
+        assert_eq!(offset("αβ", (1, 1)).unwrap(), 0);
+        assert_eq!(offset("αβ", (1, 2)).unwrap(), 2);
+        assert_eq!(offset("αβ", (1, 3)).unwrap(), 4);
+        assert!(offset("αβ", (1, 4)).is_err());
+        assert!(offset("αβ", (0, 1)).is_err());
+        assert_eq!(offset("α\n", (2, 1)).unwrap(), 3);
         let real = document
             .index
             .values()

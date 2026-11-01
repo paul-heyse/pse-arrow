@@ -3,6 +3,26 @@
 use super::*;
 
 #[test]
+fn inquiry_positions_keep_exact_operands_separate_from_declaration_identity() {
+    let source = "fn f() { first; second; let s = \"é{value}\"; }";
+    let first = source.find("first;").unwrap();
+    let second_end = source.find("second;").unwrap() + "second;".len();
+    assert_eq!(
+        inquiry_anchor(source, first..first + "first;".len()),
+        Some(first)
+    );
+    assert_eq!(inquiry_anchor(source, first..second_end), None);
+    let string = source.find('"').unwrap();
+    let value = source.find("{value}").unwrap();
+    assert_eq!(
+        inquiry_anchor(source, value..value + "{value}".len()),
+        Some(string)
+    );
+    assert_eq!(inquiry_anchor(source, string + 2..string + 3), None);
+    assert_eq!(inquiry_anchor(source, first..first), Some(first));
+}
+
+#[test]
 fn raw_identifiers_have_logical_names_while_ranges_preserve_original_syntax() {
     let source = "mod r#type { pub fn r#match() {} }";
     let outline = rust(source, RustEdition::E2024);

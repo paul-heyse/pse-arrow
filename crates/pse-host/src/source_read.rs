@@ -70,6 +70,44 @@ pub(crate) fn semantic_anchor(source: &str, range: Range<usize>) -> Option<usize
     }
     Some(usize::from(name.text_range().start()))
 }
+
+/// An inspection position is distinct from a resolved declaration identity.
+/// Accept one exact operand/statement or one string token, never a span of operands.
+pub(crate) fn inquiry_anchor(source: &str, range: Range<usize>) -> Option<usize> {
+    use ra_ap_syntax::AstToken as _;
+    if range.start > range.end || source.get(range.clone()).is_none() {
+        return None;
+    }
+    if range.is_empty() {
+        return Some(range.start);
+    }
+    let parsed = SourceFile::parse(source, RustEdition::E2024.native());
+    let root = parsed.syntax_node();
+    let selected = ra_ap_syntax::TextRange::new(
+        u32::try_from(range.start).ok()?.into(),
+        u32::try_from(range.end).ok()?.into(),
+    );
+    if let Some(token) = root.token_at_offset(selected.start()).right_biased()
+        && ast::String::cast(token.clone()).is_some()
+        && token.text_range().contains_range(selected)
+    {
+        return Some(usize::from(token.text_range().start()));
+    }
+    for node in root
+        .descendants()
+        .filter(|node| node.text_range() == selected)
+    {
+        if let Some(statement) = ast::ExprStmt::cast(node.clone()) {
+            return statement
+                .expr()
+                .map(|expr| usize::from(expr.syntax().text_range().start()));
+        }
+        if ast::Expr::can_cast(node.kind()) || ast::Type::can_cast(node.kind()) {
+            return Some(usize::from(node.text_range().start()));
+        }
+    }
+    semantic_anchor(source, range)
+}
 fn semantic_node_anchor(node: &SyntaxNode) -> Option<usize> {
     if let Some(method) = ast::MethodCallExpr::cast(node.clone()) {
         return method

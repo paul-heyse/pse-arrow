@@ -555,6 +555,14 @@ pub mod native_query {
         Assists(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
         Assist(u64),
         Layout(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Body(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Origins(::buffa::EnumValue<super::super::super::NativeOriginKind>),
+        Compatibility(
+            ::buffa::alloc::boxed::Box<super::super::super::NativeCompatibilityQuery>,
+        ),
+        Visibility(
+            ::buffa::alloc::boxed::Box<super::super::super::NativeVisibilityQuery>,
+        ),
     }
     impl ::buffa::Oneof for Kind {}
     impl From<super::super::super::NativeImportTarget> for Kind {
@@ -564,6 +572,28 @@ pub mod native_query {
     }
     impl From<super::super::super::NativeImportTarget> for ::core::option::Option<Kind> {
         fn from(v: super::super::super::NativeImportTarget) -> Self {
+            Self::Some(Kind::from(v))
+        }
+    }
+    impl From<super::super::super::NativeCompatibilityQuery> for Kind {
+        fn from(v: super::super::super::NativeCompatibilityQuery) -> Self {
+            Self::Compatibility(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativeCompatibilityQuery>
+    for ::core::option::Option<Kind> {
+        fn from(v: super::super::super::NativeCompatibilityQuery) -> Self {
+            Self::Some(Kind::from(v))
+        }
+    }
+    impl From<super::super::super::NativeVisibilityQuery> for Kind {
+        fn from(v: super::super::super::NativeVisibilityQuery) -> Self {
+            Self::Visibility(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativeVisibilityQuery>
+    for ::core::option::Option<Kind> {
+        fn from(v: super::super::super::NativeVisibilityQuery) -> Self {
             Self::Some(Kind::from(v))
         }
     }
@@ -637,6 +667,18 @@ pub mod native_query {
                 }
                 Self::Layout(v) => {
                     map.serialize_entry("layout", &**v)?;
+                }
+                Self::Body(v) => {
+                    map.serialize_entry("body", &**v)?;
+                }
+                Self::Origins(v) => {
+                    map.serialize_entry("origins", v)?;
+                }
+                Self::Compatibility(v) => {
+                    map.serialize_entry("compatibility", &**v)?;
+                }
+                Self::Visibility(v) => {
+                    map.serialize_entry("visibility", &**v)?;
                 }
             }
             map.end()

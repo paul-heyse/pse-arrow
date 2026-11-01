@@ -53,6 +53,11 @@ pub(in crate::cli::investigation) struct Origin {
 }
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub(super) enum EntityView {
+    Lifetime,
+    Compatibility,
+    Visibility,
+    FormatOrigin,
+    DeriveOrigin,
     Explain,
     /// Inspect fallible layout with native type/target context.
     Layout,
@@ -82,6 +87,17 @@ pub(in crate::cli::investigation) struct Entity {
     /// Passively associate an original type-sizes acquisition; requires --view layout.
     #[arg(long)]
     compiler_layout: Option<String>,
+    /// Original compiler artifact reference accompanying a lifetime inquiry.
+    #[arg(long)]
+    compiler_evidence: Option<String>,
+    /// Original work invocation accompanying the inquiry; no execution association is inferred.
+    #[arg(long)]
+    work_result: Option<String>,
+    /// Original guarded position for a native compatibility or visibility comparison.
+    #[arg(long)]
+    against_result: Option<String>,
+    #[arg(long, value_enum)]
+    operation: Option<crate::semantic::CompatibilityOperation>,
 }
 pub(super) fn entity(
     options: Entity,
@@ -89,11 +105,88 @@ pub(super) fn entity(
     output: &OutputOptions,
 ) -> Result<i32, HostError> {
     use crate::semantic::Kind;
+    let root = selected.map_or_else(std::env::current_dir, std::path::absolute)?;
+    if (options.against_result.is_some()
+        && !matches!(
+            options.view,
+            EntityView::Compatibility | EntityView::Visibility
+        ))
+        || (options.operation.is_some() && !matches!(options.view, EntityView::Compatibility))
+    {
+        return Err(HostError::Ownership(
+            "against-result requires compatibility/visibility; operation requires compatibility"
+                .into(),
+        ));
+    }
+    if matches!(options.view, EntityView::Lifetime) {
+        if options.compiler_layout.is_some() {
+            return Err(HostError::Ownership(
+                "compiler-layout requires layout view".into(),
+            ));
+        }
+        let locator = options.subject.lifetime_locator(&root)?;
+        let report = crate::cli::investigation::lifetime_inspection(
+            &root,
+            &locator,
+            options.compiler_evidence.as_deref(),
+            options.work_result.as_deref(),
+        )?;
+        let partial = matches!(
+            report.correspondence,
+            crate::investigation::lifetime::Correspondence::Unjoined { .. }
+        );
+        let mut response = crate::envelope::Envelope::response(
+            "inspect entity",
+            "qualified lifetime observations from original evidence",
+            report,
+        );
+        if partial {
+            response.observation.completeness = crate::envelope::Completeness::Partial;
+        }
+        return Ok(output.emit_page(response, DetailView::default())?);
+    }
+    if options.compiler_evidence.is_some() || options.work_result.is_some() {
+        return Err(HostError::Ownership(
+            "compiler-evidence/work-result require lifetime view".into(),
+        ));
+    }
     let index = || {
         options.select.ok_or_else(||HostError::Ownership("lazy candidate/hint inspection requires --select and the original source/generation/fingerprint guards".into()))
     };
     let kind = match options.view {
         EntityView::Explain => Kind::Explain,
+        EntityView::Lifetime => Kind::Body,
+        EntityView::FormatOrigin => Kind::Origins {
+            kind: crate::semantic::OriginKind::Format,
+        },
+        EntityView::DeriveOrigin => Kind::Origins {
+            kind: crate::semantic::OriginKind::Derive,
+        },
+        EntityView::Compatibility | EntityView::Visibility => {
+            let primary = options.subject.lifetime_locator(&root)?;
+            let reference = crate::investigation::ResultReference::decode(
+                options.against_result.as_deref().ok_or_else(|| {
+                    HostError::Ownership("native comparison requires --against-result".into())
+                })?,
+            )?;
+            let (against, generation) = crate::cli::runtime()?.block_on(
+                crate::investigation::rust::guarded_operand(&root, &primary, &reference),
+            )?;
+            if matches!(options.view, EntityView::Visibility) {
+                Kind::Visibility {
+                    destination: against,
+                    destination_generation: generation,
+                }
+            } else {
+                Kind::Compatibility {
+                    against,
+                    against_generation: generation,
+                    operation: options.operation.ok_or_else(|| {
+                        HostError::Ownership("native compatibility requires --operation".into())
+                    })?,
+                }
+            }
+        }
         EntityView::Layout => Kind::Layout,
         EntityView::Symbols => Kind::Symbols,
         EntityView::Refs => Kind::Refs,

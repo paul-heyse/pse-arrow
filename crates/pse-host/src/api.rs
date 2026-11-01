@@ -28,6 +28,9 @@ pub mod query;
 /// A version, acquisition or original native input failure.
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
+    /// A source-addressed structural query syntax failure.
+    #[error(transparent)]
+    Query(#[from] query::QueryError),
     /// Original file/process failure.
     #[error("API acquisition I/O: {0}")]
     Io(#[from] std::io::Error),
@@ -57,7 +60,7 @@ pub enum ApiError {
 pse_diagnostics::impl_diagnostic! {
     ApiError,
     code(_this) { Some(pse_diagnostics::DiagnosticCode::HostOwnership) },
-    forward(this) { match this { Self::Probe(error) => Some(error), Self::Correctness(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Query(error) => Some(error), Self::Probe(error) => Some(error), Self::Correctness(error) => Some(error), _ => None } },
     help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 fn invalid(message: impl Into<String>) -> ApiError {

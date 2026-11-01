@@ -6,6 +6,20 @@ package pse.code_intelligence.v1;
 message CompilerFacts {
   string compiler = 1;
   repeated CompilerBodyFact bodies = 2;
+  repeated CompilerSourceFile source_files = 3;
+  repeated string cfg = 4;
+  optional string edition = 5;
+  optional string target = 6;
+}
+// Original bytes verified against the compiler's pre-normalization source hash.
+// This record is retained inside the digest-bound facts acquisition, never an ambient read claim.
+message CompilerSourceFile {
+  uint32 id = 1;
+  bytes local_path = 2;
+  string display_name = 3;
+  bytes original_source = 4;
+  string original_sha256 = 5;
+  string normalized_sha256 = 6;
 }
 message CompilerBodyFact {
   string path = 1;
@@ -25,6 +39,9 @@ message CompilerSourceLocation {
   uint32 start = 2;
   uint32 end = 3;
   bool macro_expanded = 4;
+  optional uint32 source_file = 5;
+  optional uint32 original_start = 6;
+  optional uint32 original_end = 7;
 }
 message CompilerCaptureFact {
   enum Mode { UNKNOWN_CAPTURE = 0; SHARED = 1; UNIQUE_SHARED = 2; MUTABLE = 3; MOVED = 4; USED = 5; }

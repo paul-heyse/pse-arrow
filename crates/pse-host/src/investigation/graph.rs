@@ -19,13 +19,13 @@ pub enum SeedMatch {
 
 /// A canonical relationship; incoming traversal never reverses its meaning.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
-pub struct Edge {
+pub struct Edge<R = Relationship> {
     /// Canonical source declaration or use.
     pub source: usize,
     /// Canonical destination declaration.
     pub target: usize,
-    /// Native relationship meaning.
-    pub relation: Relationship,
+    /// Provider-domain relationship meaning; the default is a native relationship.
+    pub relation: R,
     /// Index of the original occurrence witness, distinct for parallel occurrences.
     pub witness: usize,
 }

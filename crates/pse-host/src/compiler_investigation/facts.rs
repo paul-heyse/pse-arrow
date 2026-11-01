@@ -28,6 +28,20 @@ pub(crate) struct Source {
     pub start: u32,
     pub end: u32,
     pub macro_expanded: bool,
+    /// Retained compiler-verified original file; absent in historical reports.
+    pub source_file: Option<u32>,
+    /// Original raw UTF-8 offsets, separate from normalized compiler offsets.
+    pub original_start: Option<u32>,
+    pub original_end: Option<u32>,
+}
+/// One exact original file retained within the digest-bound compiler facts artifact.
+#[derive(Debug, Serialize, JsonSchema)]
+pub(crate) struct SourceFile {
+    pub id: u32,
+    pub path: crate::investigation::NativePath,
+    pub display_name: String,
+    pub original_sha256: String,
+    pub normalized_sha256: String,
 }
 fn source(value: Option<pb::CompilerSourceLocation>) -> Option<Source> {
     value.map(|s| Source {
@@ -35,6 +49,9 @@ fn source(value: Option<pb::CompilerSourceLocation>) -> Option<Source> {
         start: s.start,
         end: s.end,
         macro_expanded: s.macro_expanded,
+        source_file: s.source_file,
+        original_start: s.original_start,
+        original_end: s.original_end,
     })
 }
 #[derive(Debug, Serialize, JsonSchema)]
@@ -132,6 +149,118 @@ pub(crate) struct Report {
     pub bodies: Vec<Body>,
     pub omitted_bodies: usize,
     pub fact_focus: artifact::FactFocus,
+    pub source_files: Vec<SourceFile>,
+    pub cfg: Vec<String>,
+    pub edition: Option<String>,
+    pub target: Option<String>,
+}
+/// A bounded read of source bytes retained by the original compiler, never the current path.
+#[derive(Debug, Serialize, JsonSchema)]
+pub(crate) struct SourceRead {
+    pub original_invocation: CliInvocationId,
+    pub source_file: u32,
+    pub path: crate::investigation::NativePath,
+    pub original_sha256: String,
+    pub original_bytes: u64,
+    pub byte_range: std::ops::Range<u64>,
+    pub content: crate::artifacts::Content,
+    pub next_offset: Option<u64>,
+}
+fn retained_facts(original: &artifact::Observation) -> Result<pb::CompilerFacts, HostError> {
+    if original.context.kind != artifact::Kind::Facts {
+        return Err(invalid(
+            "original acquisition did not select typed compiler observations",
+        ));
+    }
+    let file = original
+        .index
+        .as_ref()
+        .and_then(|index| {
+            index.files.iter().find(|file| {
+                Path::new(&file.path)
+                    .file_name()
+                    .is_some_and(|name| name == "facts.binpb")
+            })
+        })
+        .ok_or_else(|| invalid("published compiler facts file is absent"))?;
+    let bytes = crate::test_inventory::read_private(Path::new(&file.path))?;
+    if super::digest(&bytes) != file.sha256 {
+        return Err(invalid("original compiler facts digest changed"));
+    }
+    validate_acquisition(&bytes, &original.context)
+}
+pub(crate) fn read_source(
+    root: &Path,
+    state: &CheckoutState,
+    selector: &str,
+    source_file: u32,
+    offset: u64,
+    length: std::num::NonZeroU64,
+) -> Result<Envelope<SourceRead>, HostError> {
+    use base64::Engine as _;
+    let original = artifact::observe(root, state, selector)?;
+    let facts = retained_facts(&original.payload)?;
+    let file = facts
+        .source_files
+        .into_iter()
+        .find(|file| file.id == source_file)
+        .ok_or_else(|| {
+            invalid(
+                "original compiler source file is absent; historical facts cannot reacquire source",
+            )
+        })?;
+    let total = file.original_source.len() as u64;
+    if offset > total {
+        return Err(invalid("compiler source offset exceeds retained bytes"));
+    }
+    let end = offset.saturating_add(length.get()).min(total);
+    let selected = &file.original_source[offset as usize..end as usize];
+    let content = std::str::from_utf8(selected)
+        .map(|text| crate::artifacts::Content::Utf8(text.into()))
+        .unwrap_or_else(|_| {
+            crate::artifacts::Content::Base64(
+                base64::engine::general_purpose::STANDARD.encode(selected),
+            )
+        });
+    let path = {
+        use std::os::unix::ffi::OsStringExt as _;
+        std::path::PathBuf::from(std::ffi::OsString::from_vec(file.local_path.to_vec())).into()
+    };
+    let mut response = Envelope::response(
+        "inspect compiler-source",
+        "bounded original compiler-verified bytes; no current source read",
+        SourceRead {
+            original_invocation: original.payload.original_invocation,
+            source_file,
+            path,
+            original_sha256: file.original_sha256,
+            original_bytes: total,
+            byte_range: offset..end,
+            content,
+            next_offset: (end < total).then_some(end),
+        },
+    );
+    response.providers = original.providers;
+    response.artifacts = original.artifacts;
+    if let Some(root) = root.to_str().filter(|_| end < total) {
+        response.next.push(NextAction::Command {
+            argv: vec![
+                "pse".into(),
+                "-C".into(),
+                root.into(),
+                "inspect".into(),
+                "compiler-source".into(),
+                response.payload.original_invocation.to_string(),
+                source_file.to_string(),
+                "--offset".into(),
+                end.to_string(),
+                "--length".into(),
+                length.to_string(),
+            ],
+            reason: "continue the exact retained compiler source bytes".into(),
+        });
+    }
+    Ok(response)
 }
 /// Reject unsupported enum values rather than manufacturing a native conclusion.
 fn project(body: pb::CompilerBodyFact) -> Result<Body, HostError> {
@@ -252,8 +381,69 @@ pub(super) fn decode(bytes: &[u8]) -> Result<pb::CompilerFacts, HostError> {
             "compiler observations have no matched body/compiler identity",
         ));
     }
+    let mut source_ids = std::collections::BTreeMap::new();
+    for file in &facts.source_files {
+        if source_ids.insert(file.id, file).is_some()
+            || file.local_path.is_empty()
+            || super::digest(&file.original_source) != file.original_sha256
+            || file.normalized_sha256.is_empty()
+            || std::str::from_utf8(&file.original_source).is_err()
+        {
+            return Err(invalid(
+                "invalid compiler-verified original source identity",
+            ));
+        }
+    }
+    let validate_source = |source: &pb::CompilerSourceLocation| -> Result<(), HostError> {
+        match (
+            source.source_file,
+            source.original_start,
+            source.original_end,
+        ) {
+            (None, None, None) => Ok(()),
+            (Some(id), Some(start), Some(end)) => {
+                let file = source_ids
+                    .get(&id)
+                    .ok_or_else(|| invalid("compiler source file reference absent"))?;
+                let text = std::str::from_utf8(&file.original_source)
+                    .map_err(|_| invalid("compiler source not UTF-8"))?;
+                if start > end || text.get(start as usize..end as usize).is_none() {
+                    return Err(invalid("compiler original range is outside verified bytes"));
+                }
+                Ok(())
+            }
+            _ => Err(invalid("partial compiler original source binding")),
+        }
+    };
     let mut paths = std::collections::BTreeSet::new();
     for body in &facts.bodies {
+        for source in body
+            .source
+            .as_option()
+            .into_iter()
+            .chain(
+                body.captures
+                    .iter()
+                    .filter_map(|value| value.source.as_option()),
+            )
+            .chain(
+                body.saved_fields
+                    .iter()
+                    .filter_map(|value| value.source.as_option()),
+            )
+            .chain(
+                body.variants
+                    .iter()
+                    .filter_map(|value| value.source.as_option()),
+            )
+            .chain(
+                body.cleanup
+                    .iter()
+                    .filter_map(|value| value.source.as_option()),
+            )
+        {
+            validate_source(source)?;
+        }
         if body.path.is_empty() || !paths.insert(&body.path) {
             return Err(invalid("compiler body identity is absent or duplicated"));
         }
@@ -311,6 +501,46 @@ pub(crate) fn observe(
     budget: NonZeroUsize,
     focus: artifact::FactFocus,
 ) -> Result<Envelope<Report>, HostError> {
+    observe_selected(root, state, selector, Selection::Body(body), budget, focus)
+}
+enum Selection<'a> {
+    Body(Option<&'a str>),
+    Source {
+        ordinal: usize,
+        source: Option<&'a crate::semantic::NativeLocation>,
+    },
+}
+/// Select the original facts artifact and nominate bodies by verified original coordinates.
+/// Nomination bounds presentation; the lifetime consumer independently checks unit correspondence.
+pub(crate) fn observe_for_source(
+    root: &Path,
+    state: &CheckoutState,
+    selector: &str,
+    ordinal: usize,
+    source: Option<&crate::semantic::NativeLocation>,
+    budget: NonZeroUsize,
+) -> Result<Envelope<Report>, HostError> {
+    observe_selected(
+        root,
+        state,
+        selector,
+        Selection::Source { ordinal, source },
+        budget,
+        artifact::FactFocus::All,
+    )
+}
+fn observe_selected(
+    root: &Path,
+    state: &CheckoutState,
+    selector: &str,
+    selection: Selection<'_>,
+    budget: NonZeroUsize,
+    focus: artifact::FactFocus,
+) -> Result<Envelope<Report>, HostError> {
+    let (body, ordinal, selected_source) = match selection {
+        Selection::Body(body) => (body, None, None),
+        Selection::Source { ordinal, source } => (None, Some(ordinal), Some(source)),
+    };
     let original = artifact::observe(root, state, selector)?;
     if original.payload.context.kind != artifact::Kind::Facts {
         return Err(invalid(
@@ -330,11 +560,17 @@ pub(crate) fn observe(
                 .is_some_and(|n| n == "facts.binpb")
         })
         .ok_or_else(|| invalid("published compiler facts file is absent"))?;
-    let bytes = crate::test_inventory::read_private(Path::new(&file.path))?;
-    if super::digest(&bytes) != file.sha256 {
-        return Err(invalid("original compiler facts digest changed"));
+    if ordinal.is_some_and(|ordinal| {
+        index
+            .files
+            .get(ordinal)
+            .is_none_or(|selected| selected.path != file.path)
+    }) {
+        return Err(invalid(
+            "lifetime evidence selector must address the original facts.binpb artifact",
+        ));
     }
-    let facts = validate_acquisition(&bytes, &original.payload.context)?;
+    let facts = retained_facts(&original.payload)?;
     let acquired = original
         .payload
         .context
@@ -361,6 +597,26 @@ pub(crate) fn observe(
     for native in facts.bodies {
         if body.is_some_and(|selected| selected != native.path) {
             continue;
+        }
+        if let Some(selected) = selected_source {
+            let nominated = selected.is_some_and(|selected| {
+                native.source.as_option().is_some_and(|source| {
+                    !source.macro_expanded
+                        && source.original_start.map(|v| v as usize) == Some(selected.start)
+                        && source.original_end.map(|v| v as usize) == Some(selected.end)
+                        && source
+                            .source_file
+                            .and_then(|id| facts.source_files.iter().find(|file| file.id == id))
+                            .is_some_and(|file| {
+                                use std::os::unix::ffi::OsStrExt as _;
+                                file.local_path.as_slice() == selected.path.as_os_str().as_bytes()
+                            })
+                })
+            });
+            if !nominated {
+                omitted += 1;
+                continue;
+            }
         }
         let mut projected = project(native)?;
         if !focus.includes(artifact::FactFocus::Captures) {
@@ -394,6 +650,26 @@ pub(crate) fn observe(
             bodies,
             omitted_bodies: omitted,
             fact_focus: focus,
+            source_files: facts
+                .source_files
+                .into_iter()
+                .map(|file| SourceFile {
+                    id: file.id,
+                    path: {
+                        use std::os::unix::ffi::OsStringExt as _;
+                        std::path::PathBuf::from(std::ffi::OsString::from_vec(
+                            file.local_path.to_vec(),
+                        ))
+                        .into()
+                    },
+                    display_name: file.display_name,
+                    original_sha256: file.original_sha256,
+                    normalized_sha256: file.normalized_sha256,
+                })
+                .collect(),
+            cfg: facts.cfg,
+            edition: facts.edition,
+            target: facts.target,
         },
     );
     response.providers = original.providers;
@@ -410,6 +686,11 @@ pub(crate) fn observe(
     }
     response.artifacts = original.artifacts;
     response.next = original.next;
+    if let Some(root) = root.to_str() {
+        for file in &response.payload.source_files {
+            response.next.push(NextAction::Command{argv:vec!["pse".into(),"-C".into(),root.into(),"inspect".into(),"compiler-source".into(),response.payload.original_invocation.to_string(),file.id.to_string()],reason:"read bounded compiler-verified original source bytes, even if the working file changed".into()});
+        }
+    }
     response.observation.scope = "original_selected_compiler_bodies".into();
     response.observation.limitations.push("Saved fields describe conservative compiler storage, not dynamically live resources or Send proof. Cleanup edges describe phase-specific static control flow, not execution or resource release. Initialization flags are conservative native may-analyses at exact move paths before analysis-phase drops; absent flags or both false establish no initialization or reachability conclusion. Source displays may be synthetic; no unique current-source correspondence is asserted. Loan facts are not extracted.".into());
     if omitted > 0 {
@@ -436,6 +717,69 @@ pub(crate) fn observe(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn compiler_original_source_binding_retains_raw_utf8_and_refuses_tampering_or_partial_ranges() {
+        let original = "\u{feff}pub fn target(){let text=\"é\";}\r\n";
+        let mut facts = pb::CompilerFacts {
+            compiler: "pinned".into(),
+            source_files: vec![pb::CompilerSourceFile {
+                id: 7,
+                local_path: b"/fixture/lib.rs".to_vec().into(),
+                display_name: "remapped/lib.rs".into(),
+                original_source: original.as_bytes().to_vec().into(),
+                original_sha256: super::super::digest(original.as_bytes()),
+                normalized_sha256: super::super::digest(
+                    "pub fn target(){let text=\"é\";}\n".as_bytes(),
+                ),
+                ..Default::default()
+            }],
+            bodies: vec![pb::CompilerBodyFact {
+                path: "target".into(),
+                source: Some(pb::CompilerSourceLocation {
+                    file: "remapped/lib.rs".into(),
+                    start: 0,
+                    end: 29,
+                    source_file: Some(7),
+                    original_start: Some(3),
+                    original_end: Some(original.len() as u32),
+                    ..Default::default()
+                })
+                .into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        assert!(decode(&facts.encode_to_vec()).is_ok());
+        facts.source_files[0].original_sha256 = "tampered".into();
+        assert!(decode(&facts.encode_to_vec()).is_err());
+        facts.source_files[0].original_sha256 = super::super::digest(original.as_bytes());
+        facts.bodies[0]
+            .source
+            .as_option_mut()
+            .unwrap()
+            .original_start = Some(1);
+        assert!(
+            decode(&facts.encode_to_vec()).is_err(),
+            "raw offsets must respect UTF-8 boundaries"
+        );
+        facts.bodies[0]
+            .source
+            .as_option_mut()
+            .unwrap()
+            .original_start = None;
+        assert!(
+            decode(&facts.encode_to_vec()).is_err(),
+            "partial new bindings must fail closed"
+        );
+        let source = facts.bodies[0].source.as_option_mut().unwrap();
+        source.source_file = None;
+        source.original_end = None;
+        facts.source_files.clear();
+        assert!(
+            decode(&facts.encode_to_vec()).is_ok(),
+            "historical reports remain readable without asserting a join"
+        );
+    }
     #[test]
     fn compiler_fact_decoder_refuses_unknown_modes_dangling_saved_fields_and_empty_acquisition() {
         let mut facts = pb::CompilerFacts {

@@ -251,6 +251,7 @@ impl Predicate {
     fn validate(&self) -> Result<(), Error> {
         match self {
             Self::Schema(query) => query.validate(),
+            Self::Api(query) => query.compiled().map(|_| ()).map_err(Error::from),
             Self::Text(q) if q.patterns.is_empty() => {
                 Err(Error::Invalid("text search requires a pattern".into()))
             }
@@ -396,6 +397,12 @@ pub enum Relationship {
     FieldType,
     /// Explicit native resolved use, distinct from calls and implicit language operations.
     Uses,
+    /// Direct declared supertrait, not a transitive declaration claim.
+    Supertrait,
+    /// Trait implemented by the original implementation record.
+    ImplTrait,
+    /// Declared implementation self-type dependency.
+    ImplSelfType,
 }
 /// Explicit relationship direction.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -547,8 +554,50 @@ pub struct ApiQuery {
     pub input: Option<String>,
     /// Output-type shape.
     pub output: Option<String>,
+    /// Structured input pattern, exclusive with textual input.
+    pub input_shape: Option<crate::api::query::TypePattern>,
+    /// Structured output pattern, exclusive with textual output.
+    pub output_shape: Option<crate::api::query::TypePattern>,
+    /// Declared generic predicates.
+    pub where_shapes: Vec<crate::api::query::WherePattern>,
     /// Structurally selected trait/generic bound in the acquired API model.
     pub bound: Option<String>,
+}
+impl ApiQuery {
+    pub(crate) fn compiled(&self) -> Result<crate::api::query::Query, crate::api::ApiError> {
+        if let Some(shape) = &self.input_shape {
+            shape.validate()?;
+        }
+        if let Some(shape) = &self.output_shape {
+            shape.validate()?;
+        }
+        for predicate in &self.where_shapes {
+            predicate.validate()?;
+        }
+        if self.input.is_some() && self.input_shape.is_some()
+            || self.output.is_some() && self.output_shape.is_some()
+        {
+            return Err(crate::api::ApiError::Invalid(
+                "choose either textual or structured input/output shape".into(),
+            ));
+        }
+        Ok(crate::api::query::Query {
+            search: Some(self.query.clone()),
+            input_shape: self.input_shape.clone().or(self
+                .input
+                .as_deref()
+                .map(crate::api::query::TypePattern::parse)
+                .transpose()?),
+            output_shape: self.output_shape.clone().or(self
+                .output
+                .as_deref()
+                .map(crate::api::query::TypePattern::parse)
+                .transpose()?),
+            where_shapes: self.where_shapes.clone(),
+            declared_bound: self.bound.clone(),
+            ..Default::default()
+        })
+    }
 }
 /// Bounded structured-value selection.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
@@ -1163,8 +1212,18 @@ pub struct RelationshipWitness {
     pub limitations: Vec<String>,
 }
 /// Compact final graph answer; coverage is independent of a rendered match allowance.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RelationshipDomain {
+    /// Original selected immutable native world.
+    #[default]
+    Native,
+}
+/// Compact final native graph answer; artifact graphs retain their own qualified domain.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct RelationshipEvidence {
+    /// The domain governing node identity and traversal meaning.
+    pub domain: RelationshipDomain,
     /// Original seed ordinals as normalized request-local node indexes.
     pub seeds: Vec<usize>,
     /// Requested relation families, including unsupported or empty observations.

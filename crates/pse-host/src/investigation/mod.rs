@@ -4,6 +4,7 @@
 pub mod composition;
 pub mod config;
 pub mod graph;
+pub(crate) mod lifetime;
 mod model;
 pub(crate) mod native_path_serde;
 pub mod presentation;

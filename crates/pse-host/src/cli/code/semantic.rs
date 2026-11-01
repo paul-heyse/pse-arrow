@@ -77,6 +77,38 @@ pub(in crate::cli) struct Subject {
     #[arg(long)]
     end_line: Option<usize>,
 }
+impl Subject {
+    pub(in crate::cli) fn lifetime_locator(
+        &self,
+        root: &Path,
+    ) -> Result<crate::investigation::Locator, HostError> {
+        let env = std::env::vars_os().collect();
+        let record = semantic::load(root, &env).map_err(error)?.ok_or_else(|| {
+            HostError::Ownership(
+                "explicitly prepare a native session before semantic inspection".into(),
+            )
+        })?;
+        if self
+            .configuration
+            .as_ref()
+            .is_some_and(|expected| record.configuration.identity().as_ref().ok() != Some(expected))
+        {
+            return Err(HostError::Ownership(
+                "selected native configuration changed".into(),
+            ));
+        }
+        Ok(crate::investigation::Locator::Semantic {
+            project: record.configuration.project,
+            path: root.join(&self.file).canonicalize()?.into(),
+            line: self.line,
+            column: self.column,
+            generation: self.if_generation.map(|g| g.to_string()),
+            source_sha256: self.if_source.clone(),
+            candidate_fingerprint: self.if_candidate.clone(),
+            session_invocation: Some(record.invocation.as_str().into()),
+        })
+    }
+}
 #[derive(Debug, Subcommand)]
 pub(in crate::cli) enum Edit {
     /// Preview only the selected entity's native semantic rename; no source writes.

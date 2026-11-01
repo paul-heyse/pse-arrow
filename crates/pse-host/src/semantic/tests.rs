@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
+#[cfg(feature = "native-hir")]
+#[path = "tests/native_investigation.rs"]
+mod native_investigation;
 use serde_json::{Value, json};
 use std::{
     path::{Path, PathBuf},
@@ -1215,7 +1218,7 @@ impl Session {
             state: tempfile::tempdir().unwrap(),
         }
     }
-    fn command(&self) -> Command {
+    pub(crate) fn command(&self) -> Command {
         let mut command = Command::new(&self.executable);
         command
             .current_dir(&self.root)

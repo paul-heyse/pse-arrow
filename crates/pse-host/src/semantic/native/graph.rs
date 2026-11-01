@@ -376,6 +376,7 @@ impl<'a> Catalog<'a> {
     ) -> Result<()> {
         let sema = Semantics::new(self.snapshot.db);
         let mut modules = VecDeque::new();
+        let mut local_declarations = Vec::new();
         let mut seen = HashSet::new();
         for path in domain {
             let file = self.snapshot.files.get(path).ok_or_else(|| {
@@ -387,18 +388,53 @@ impl<'a> Catalog<'a> {
                 self.snapshot.db,
                 *file,
             ));
-            if parsed
+            for item in parsed
                 .syntax()
                 .descendants()
                 .filter_map(ast::Item::cast)
-                .any(|item| {
+                .filter(|item| {
                     item.syntax()
                         .ancestors()
                         .skip(1)
-                        .any(|node| ast::BlockExpr::can_cast(node.kind()))
+                        .any(|n| ast::BlockExpr::can_cast(n.kind()))
                 })
             {
-                self.unknown("block-local item declarations are not exhaustively enumerated by the selected module/impl declaration population");
+                let definition = match &item {
+                    ast::Item::Fn(f) => sema.to_def(f).map(ModuleDef::Function),
+                    ast::Item::Struct(v) => sema.to_def(v).map(|v| ModuleDef::Adt(v.into())),
+                    ast::Item::Enum(v) => sema.to_def(v).map(|v| ModuleDef::Adt(v.into())),
+                    ast::Item::Union(v) => sema.to_def(v).map(|v| ModuleDef::Adt(v.into())),
+                    ast::Item::Const(v) => sema.to_def(v).map(ModuleDef::Const),
+                    ast::Item::Static(v) => sema.to_def(v).map(ModuleDef::Static),
+                    ast::Item::TypeAlias(v) => sema.to_def(v).map(ModuleDef::TypeAlias),
+                    _ => None,
+                };
+                if let Some(definition) = definition {
+                    let parent = item
+                        .syntax()
+                        .ancestors()
+                        .skip(1)
+                        .find_map(|node| {
+                            if ast::ClosureExpr::can_cast(node.kind())
+                                || ast::BlockExpr::cast(node.clone())
+                                    .is_some_and(|block| block.async_token().is_some())
+                            {
+                                return Some(None);
+                            }
+                            ast::Item::cast(node).map(|owner| match owner {
+                                ast::Item::Fn(function) => sema.to_def(&function),
+                                _ => None,
+                            })
+                        })
+                        .flatten();
+                    if let Some(parent) = parent {
+                        local_declarations.push((definition, Some(parent)));
+                    } else {
+                        self.unknown("block-local item has an unsupported immediate declaration/body container; no outer-function containment was inferred");
+                    }
+                } else {
+                    self.unknown("one or more block-local items are outside supported declaration nomination");
+                }
             }
             let mut interpretations = sema.file_to_module_defs(*file);
             let Some(module) = interpretations.next() else {
@@ -425,9 +461,42 @@ impl<'a> Catalog<'a> {
                 .into_iter()
                 .map(|declaration| (declaration, parent))
                 .collect::<VecDeque<_>>();
+            for (definition, owner) in local_declarations.drain(..) {
+                let owner = owner.and_then(|f| self.definition(&sema, ModuleDef::Function(f)));
+                declarations.push_back((definition, owner));
+            }
             for impl_ in module.impl_defs(self.snapshot.db) {
                 let impl_source = self.source(&sema, impl_);
                 let impl_node = impl_source.and_then(|location| self.node(location, None, true));
+                if let Some(source) = impl_node {
+                    if selected.contains(&Relationship::ImplTrait) {
+                        if let Some(trait_) = impl_.trait_(self.snapshot.db) {
+                            if let Some(target) = self.definition(&sema, ModuleDef::Trait(trait_)) {
+                                self.edge(
+                                    source,
+                                    target,
+                                    Relationship::ImplTrait,
+                                    self.source(&sema, impl_),
+                                    GraphRole::Navigation,
+                                    None,
+                                );
+                            }
+                        }
+                    }
+                    if selected.contains(&Relationship::ImplSelfType) {
+                        self.dependencies(
+                            &sema,
+                            source,
+                            &impl_.self_ty(self.snapshot.db),
+                            Relationship::ImplSelfType,
+                            self.source(&sema, impl_),
+                            GraphRole::Navigation,
+                            module
+                                .krate(self.snapshot.db)
+                                .to_display_target(self.snapshot.db),
+                        );
+                    }
+                }
                 if selected.contains(&Relationship::Contains) {
                     if let (Some(parent), Some(target)) = (parent, impl_node) {
                         self.edge(
@@ -473,7 +542,9 @@ impl<'a> Catalog<'a> {
                         );
                     }
                 }
-                let display = module
+                let display = declaration
+                    .module(self.snapshot.db)
+                    .unwrap_or(module)
                     .krate(self.snapshot.db)
                     .to_display_target(self.snapshot.db);
                 match declaration {
@@ -572,6 +643,22 @@ impl<'a> Catalog<'a> {
                         }
                     }
                     ModuleDef::Trait(value) => {
+                        if selected.contains(&Relationship::Supertrait) {
+                            for super_ in value.direct_supertraits(self.snapshot.db) {
+                                if let Some(target) =
+                                    self.definition(&sema, ModuleDef::Trait(super_))
+                                {
+                                    self.edge(
+                                        source,
+                                        target,
+                                        Relationship::Supertrait,
+                                        self.source(&sema, value),
+                                        GraphRole::Navigation,
+                                        None,
+                                    );
+                                }
+                            }
+                        }
                         for item in value.items(self.snapshot.db) {
                             let declaration = match item {
                                 ra_ap_hir::AssocItem::Function(value) => ModuleDef::Function(value),
@@ -591,7 +678,7 @@ impl<'a> Catalog<'a> {
                 }
             }
         }
-        if selected.contains(&Relationship::Uses) {
+        if selected.contains(&Relationship::Uses) || selected.contains(&Relationship::Calls) {
             self.limitations.insert("uses reports explicit resolved paths and receiver-method syntax; implicit language operations are not enumerated".into());
             for path in domain {
                 if token.is_cancelled() {
@@ -602,14 +689,15 @@ impl<'a> Catalog<'a> {
                     self.snapshot.db,
                     file,
                 ));
-                if parsed
+                if selected.contains(&Relationship::Uses) {
+                    self.field_uses(&sema, parsed.syntax(), max_edges, token)?;
+                }
+                for path in parsed
                     .syntax()
                     .descendants()
-                    .any(|node| ast::FieldExpr::can_cast(node.kind()))
+                    .filter_map(ast::Path::cast)
+                    .filter(|_| selected.contains(&Relationship::Uses))
                 {
-                    self.unknown("explicit field-access uses are not yet exhaustively projected; field read/write classification belongs to the remaining native relation scope");
-                }
-                for path in parsed.syntax().descendants().filter_map(ast::Path::cast) {
                     if token.is_cancelled() {
                         return Err(Error::Cancelled);
                     }
@@ -644,28 +732,90 @@ impl<'a> Catalog<'a> {
                             range.range,
                         )
                     });
-                    self.edge(
-                        source,
-                        destination,
-                        Relationship::Uses,
-                        witness,
-                        GraphRole::Reference {
-                            read: None,
-                            write: None,
-                            import: Some(
-                                path.syntax()
-                                    .ancestors()
-                                    .any(|node| ast::Use::can_cast(node.kind())),
-                            ),
-                            test: None,
-                        },
-                        None,
-                    );
+                    if selected.contains(&Relationship::Uses) {
+                        self.edge(
+                            source,
+                            destination,
+                            Relationship::Uses,
+                            witness,
+                            GraphRole::Reference {
+                                read: None,
+                                write: None,
+                                import: Some(
+                                    path.syntax()
+                                        .ancestors()
+                                        .any(|node| ast::Use::can_cast(node.kind())),
+                                ),
+                                test: None,
+                            },
+                            None,
+                        );
+                    }
                     if self.edges.len() > max_edges {
                         self.unknown(
                             "resolved-use extraction reached the edge examination allowance",
                         );
                         return Ok(());
+                    }
+                }
+                if selected.contains(&Relationship::Calls) {
+                    for call in parsed
+                        .syntax()
+                        .descendants()
+                        .filter_map(ast::CallExpr::cast)
+                    {
+                        if token.is_cancelled() {
+                            return Err(Error::Cancelled);
+                        }
+                        let Some(callee) = call.expr() else {
+                            self.unknown("written invocation has no callee expression");
+                            continue;
+                        };
+                        let Some(function) = sema
+                            .resolve_expr_as_callable(&callee)
+                            .and_then(|c| c.as_function())
+                        else {
+                            self.unknown("indirect, closure, constructor, or unresolved invocation has no established concrete function declaration");
+                            continue;
+                        };
+                        let Some(destination) =
+                            self.definition(&sema, ModuleDef::Function(function))
+                        else {
+                            continue;
+                        };
+                        let owner = call
+                            .syntax()
+                            .ancestors()
+                            .find_map(ast::Fn::cast)
+                            .and_then(|f| sema.to_def(&f))
+                            .map(ModuleDef::Function)
+                            .or_else(|| {
+                                sema.scope(call.syntax())
+                                    .map(|s| ModuleDef::Module(s.module()))
+                            });
+                        let Some(source) = owner.and_then(|d| self.definition(&sema, d)) else {
+                            self.unknown("invocation has no mapped owning declaration");
+                            continue;
+                        };
+                        let witness = sema.original_range_opt(callee.syntax()).and_then(|r| {
+                            location(
+                                self.snapshot.paths,
+                                r.file_id.file_id(self.snapshot.db),
+                                r.range,
+                            )
+                        });
+                        self.edge(
+                            source,
+                            destination,
+                            Relationship::Calls,
+                            witness,
+                            GraphRole::Navigation,
+                            None,
+                        );
+                        if self.edges.len() > max_edges {
+                            self.unknown("call extraction reached the edge examination allowance");
+                            return Ok(());
+                        }
                     }
                 }
                 for method in parsed
@@ -708,25 +858,184 @@ impl<'a> Catalog<'a> {
                                 range.range,
                             )
                         });
-                    self.edge(
-                        source,
-                        destination,
-                        Relationship::Uses,
-                        witness,
-                        GraphRole::Reference {
-                            read: None,
-                            write: None,
-                            import: Some(false),
-                            test: None,
-                        },
-                        None,
-                    );
+                    if selected.contains(&Relationship::Calls) {
+                        self.edge(
+                            source,
+                            destination,
+                            Relationship::Calls,
+                            witness.clone(),
+                            GraphRole::Navigation,
+                            None,
+                        );
+                    }
+                    if selected.contains(&Relationship::Uses) {
+                        self.edge(
+                            source,
+                            destination,
+                            Relationship::Uses,
+                            witness,
+                            GraphRole::Reference {
+                                read: None,
+                                write: None,
+                                import: Some(false),
+                                test: None,
+                            },
+                            None,
+                        );
+                    }
                     if self.edges.len() > max_edges {
                         self.unknown(
                             "resolved-use extraction reached the edge examination allowance",
                         );
                         return Ok(());
                     }
+                }
+            }
+        }
+        Ok(())
+    }
+    fn field_uses(
+        &mut self,
+        sema: &Semantics<'_, ra_ap_ide_db::RootDatabase>,
+        root: &native_ra_syntax::SyntaxNode,
+        max_edges: usize,
+        token: &CancellationToken,
+    ) -> Result<()> {
+        for node in root.descendants() {
+            if token.is_cancelled() {
+                return Err(Error::Cancelled);
+            }
+            if self.edges.len() > max_edges {
+                self.unknown("field-use extraction reached the edge examination allowance");
+                return Ok(());
+            }
+            let resolved = if let Some(expr) = ast::FieldExpr::cast(node.clone()) {
+                match sema.resolve_field(&expr) {
+                    Some(field) => {
+                        if let Some(field) = field.left() {
+                            Some((
+                                field,
+                                sema.type_of_expr(&ast::Expr::FieldExpr(expr.clone()))
+                                    .map(|t| t.original),
+                            ))
+                        } else {
+                            self.unknown("tuple type field has no declaration entity; its source operation remains available");
+                            None
+                        }
+                    }
+                    None => {
+                        self.unknown("field receiver/type is unresolved");
+                        None
+                    }
+                }
+            } else if let Some(field) = ast::RecordExprField::cast(node.clone()) {
+                let resolved = sema
+                    .resolve_record_field_with_substitution(&field)
+                    .map(|(f, _, ty, _)| (f, Some(ty)));
+                if resolved.is_none() {
+                    self.unknown("record expression field is unresolved");
+                }
+                resolved
+            } else if let Some(field) = ast::RecordPatField::cast(node.clone()) {
+                let resolved = sema
+                    .resolve_record_pat_field_with_subst(&field)
+                    .map(|(f, ty, _)| (f, Some(ty)));
+                if resolved.is_none() {
+                    self.unknown("record pattern field is unresolved");
+                }
+                resolved
+            } else {
+                None
+            };
+            let Some((field, instantiated)) = resolved else {
+                continue;
+            };
+            let Some(target_location) = self.source(sema, field) else {
+                self.unknown("resolved field has no unique original declaration");
+                continue;
+            };
+            let Some(target) = self.node(
+                target_location,
+                Some(
+                    field
+                        .name(self.snapshot.db)
+                        .display(self.snapshot.db, native_ra_syntax::Edition::CURRENT)
+                        .to_string(),
+                ),
+                true,
+            ) else {
+                continue;
+            };
+            let owner = node
+                .ancestors()
+                .find_map(ast::Fn::cast)
+                .and_then(|f| sema.to_def(&f))
+                .map(ModuleDef::Function)
+                .or_else(|| {
+                    sema.scope(&node)
+                        .map(|scope| ModuleDef::Module(scope.module()))
+                });
+            let Some(source) = owner.and_then(|owner| self.definition(sema, owner)) else {
+                self.unknown("field use owner is unmapped");
+                continue;
+            };
+            let display = field
+                .parent_def(self.snapshot.db)
+                .module(self.snapshot.db)
+                .krate(self.snapshot.db)
+                .to_display_target(self.snapshot.db);
+            let witness = sema.original_range_opt(&node).and_then(|r| {
+                location(
+                    self.snapshot.paths,
+                    r.file_id.file_id(self.snapshot.db),
+                    r.range,
+                )
+            });
+            let mut read = None;
+            let mut write = None;
+            if ast::FieldExpr::can_cast(node.kind()) {
+                read = Some(true);
+                write = Some(false);
+                if let Some(binary) = node.parent().and_then(ast::BinExpr::cast) {
+                    if binary.lhs().is_some_and(|lhs| lhs.syntax() == &node) {
+                        if let Some(ast::BinaryOp::Assignment { op }) = binary.op_kind() {
+                            read = Some(op.is_some());
+                            write = Some(true);
+                        }
+                    }
+                }
+                if node.parent().is_some_and(|parent| {
+                    ast::RefExpr::can_cast(parent.kind())
+                        || ast::MethodCallExpr::can_cast(parent.kind())
+                }) {
+                    write = None;
+                }
+            }
+            self.edge(
+                source,
+                target,
+                Relationship::Uses,
+                witness,
+                GraphRole::Reference {
+                    read,
+                    write,
+                    import: Some(false),
+                    test: None,
+                },
+                Some(
+                    field
+                        .ty(self.snapshot.db)
+                        .display(self.snapshot.db, display)
+                        .to_string(),
+                ),
+            );
+            if let Some(last) = self.witnesses.last_mut() {
+                if let Some(ty) = instantiated {
+                    last.instantiated_type =
+                        Some(ty.display(self.snapshot.db, display).to_string());
+                }
+                if write.is_none() {
+                    last.limitations.push("static field operation does not establish mutation through a borrow, method, or interior mutability".into());
                 }
             }
         }
@@ -940,6 +1249,10 @@ pub(super) fn query(
                 | Relationship::ReturnType
                 | Relationship::FieldType
                 | Relationship::Uses
+                | Relationship::Calls
+                | Relationship::Supertrait
+                | Relationship::ImplTrait
+                | Relationship::ImplSelfType
         )
     });
     if structural {
@@ -993,7 +1306,7 @@ pub(super) fn query(
                     (Relationship::Definition, Direction::Outgoing) => Some(Kind::Explain),
                     (Relationship::Definition | Relationship::References, Direction::Incoming)
                     | (Relationship::References, Direction::Outgoing) => Some(Kind::Refs),
-                    (Relationship::Calls, _) => Some(Kind::Calls),
+                    (Relationship::Calls, _) => None,
                     (Relationship::Implementations, Direction::Outgoing) => {
                         Some(Kind::Implementations)
                     }

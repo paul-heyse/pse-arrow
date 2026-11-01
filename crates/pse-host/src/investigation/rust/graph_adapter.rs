@@ -262,6 +262,7 @@ pub async fn graph_with_context(
         complete,
         diagnostics,
         evidence: RelationshipEvidence {
+            domain: RelationshipDomain::Native,
             seeds,
             relations: intent.relations.to_vec(),
             direction: intent.direction,

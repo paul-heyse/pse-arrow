@@ -30,7 +30,14 @@ mod actions;
 mod candidates;
 mod graph;
 mod importability;
+mod investigation;
+#[cfg(test)]
+#[path = "native/investigation_tests.rs"]
+mod investigation_tests;
 mod runnables;
+
+// Immutable native worlds never reload; a new world gets a new session owner.
+const SNAPSHOT_GENERATION: u64 = 1;
 
 fn preparation_target(configuration: &Configuration) -> Result<String> {
     let explicit_target =
@@ -623,7 +630,7 @@ impl Engine {
         }
         Ok(super::PackageContextAnswer {
             session: self.analysis_context(),
-            generation: 1,
+            generation: SNAPSHOT_GENERATION,
             packages,
         })
     }
@@ -636,7 +643,7 @@ impl Engine {
             configuration: self.configuration.clone(),
             backend: BACKEND.into(),
             position_encoding: "utf-8".into(),
-            generation: 1,
+            generation: SNAPSHOT_GENERATION,
             server_capabilities: json!({"nativeSnapshot":true,"typedFacts":true,"referenceRoles":true,"boundedRelationships":true,"workspaceSymbolProvider":true,"sourceApplication":false,"procMacros":self.configuration.build_macros}),
             backend_status: self.analysis_context().backend_status,
             active_requests: self.active.load(Ordering::SeqCst),
@@ -827,7 +834,10 @@ impl Engine {
             active.fetch_add(1, Ordering::SeqCst);
             let _active = Active(active);
             context.check()?;
-            if query.if_generation.is_some_and(|value| value != 1) {
+            if query
+                .if_generation
+                .is_some_and(|value| value != SNAPSHOT_GENERATION)
+            {
                 return Err(Error::Stale);
             }
             let (db, _cancellation, paths, digests) = inputs?;
@@ -890,7 +900,7 @@ impl Engine {
                 rows.push(json!({"name":target.name.as_str(),"kind":kind,"containerName":container,"source_sha256":digests.get(path),"location":{"uri":super::engine::uri(path)?,"range":{"start":start,"end":end}}}));
             }
             context.check()?;
-            Ok(WorkspaceAnswer {session,generation:1,observed,symbols:Section {category:"workspace_symbols".into(),evidence:Value::Array(rows),omitted:0,handles:Vec::new()},limitations:vec!["Immutable native snapshot with explicit source/configuration guards; native fuzzy search is provider-ranked and not an uncapped whole-program proof.".into()]})
+            Ok(WorkspaceAnswer {session,generation:SNAPSHOT_GENERATION,observed,symbols:Section {category:"workspace_symbols".into(),evidence:Value::Array(rows),omitted:0,handles:Vec::new()},limitations:vec!["Immutable native snapshot with explicit source/configuration guards; native fuzzy search is provider-ranked and not an uncapped whole-program proof.".into()]})
         });
         match native_cancel {
             Some(cancel) => task.with_cancel_hook(move || cancel.cancel()),
@@ -1097,7 +1107,7 @@ fn query_world(
     } = snapshot;
     if query
         .if_generation
-        .is_some_and(|generation| generation != 1)
+        .is_some_and(|generation| generation != SNAPSHOT_GENERATION)
     {
         return Err(Error::Stale);
     }
@@ -1138,7 +1148,7 @@ fn query_world(
     let mut linked_paths = BTreeSet::new();
     let mut proposal = None;
     match query.kind {
-        Kind::Explain | Kind::Layout | Kind::Candidates => {
+        Kind::Explain | Kind::Body | Kind::Layout | Kind::Candidates => {
             let want_layout = matches!(query.kind, Kind::Layout);
             let want_candidates = matches!(query.kind, Kind::Candidates);
             let sema = Semantics::new(db);
@@ -1189,6 +1199,35 @@ fn query_world(
                         && package.features == features
                 })
                 .collect::<Vec<_>>();
+            let binary = profiles
+                .is_empty()
+                .then(|| {
+                    investigation::binary_context(runnable_targets, crate_root.as_ref(), &features)
+                })
+                .flatten();
+            if matches!(query.kind, Kind::Body) {
+                let mut observation = investigation::body(&sema, &node, paths);
+                if let Some(body) = observation.body.as_mut() {
+                    if let [profile] = profiles.as_slice() {
+                        body.package_id = Some(profile.package_id.clone());
+                        body.role = Some(profile.role.clone());
+                    } else if let Some(binary) = binary {
+                        body.package_id = Some(binary.package_id.clone());
+                        let test = module
+                            .krate(db)
+                            .cfg(db)
+                            .get_cfg_keys()
+                            .any(|key| key.as_str() == "test");
+                        body.role = Some(if test { "bin-test" } else { "bin" }.into());
+                    } else {
+                        body.limitations.push(
+                            "package/unit correspondence is missing, feature-ineligible, or plural"
+                                .into(),
+                        );
+                    }
+                }
+                observed.investigation = Some(observation);
+            }
             let type_context = crate_root.map(|crate_root| super::TypeContext {
                 crate_source_sha256: digests.get(&crate_root).cloned(),
                 crate_root,
@@ -1202,6 +1241,13 @@ fn query_world(
                 edition: module.krate(db).edition(db).to_string(),
                 target: if profiles.len() == 1 {
                     profiles[0].target.clone()
+                } else if binary.is_some() {
+                    session
+                        .backend_status
+                        .as_ref()
+                        .and_then(|status| status["actual_target"].as_str())
+                        .filter(|target| !target.is_empty())
+                        .map(str::to_owned)
                 } else {
                     None
                 },
@@ -1544,6 +1590,39 @@ fn query_world(
                 sections.push(Section {category:"native_callable_discovery".into(),evidence:json!({"limit":query.limit,"completeness":"unknown","scope":"native visible receiver methods plus same-crate extension declarations","empty_result":"does not prove impossibility","substitutions":"matching authored calls retain native instantiated receiver/parameters/result and actual generic type arguments; unresolved alternatives remain unavailable"}),omitted:0,handles:Vec::new()});
             }
         }
+        Kind::Compatibility {
+            ref against,
+            against_generation,
+            operation,
+        } => {
+            observed.investigation = Some(investigation::compatibility(
+                &snapshot,
+                position,
+                against,
+                against_generation,
+                operation,
+            )?);
+        }
+        Kind::Origins { kind } => {
+            observed.investigation = Some(investigation::origins(
+                &snapshot,
+                position,
+                kind,
+                query.limit,
+                token,
+            )?);
+        }
+        Kind::Visibility {
+            ref destination,
+            destination_generation,
+        } => {
+            observed.investigation = Some(investigation::visibility(
+                &snapshot,
+                position,
+                destination,
+                destination_generation,
+            )?);
+        }
         Kind::Predicate { text } => {
             let sema = Semantics::new(db);
             let parsed = sema.parse(ra_ap_hir::EditionedFileId::current_edition(db, id));
@@ -1850,6 +1929,12 @@ fn query_world(
     }) || proposal.is_some()
         || !observed.candidates.is_empty()
         || observed.predicate.is_some()
+        || observed.investigation.as_ref().is_some_and(|i| {
+            i.body.is_some()
+                || i.compatibility.is_some()
+                || i.visible.is_some()
+                || !i.origins.is_empty()
+        })
         || !observed.tests.is_empty()
         || !references.is_empty()
         || !observed.relationships.is_empty()
@@ -1857,6 +1942,30 @@ fn query_world(
             .importability
             .as_ref()
             .is_some_and(|fact| fact.importable.is_some() || fact.visibility.is_some());
+    if let Some(investigation) = &observed.investigation {
+        if let Some(body) = &investigation.body {
+            linked_paths.extend(
+                body.location
+                    .iter()
+                    .chain(body.owner.iter())
+                    .map(|l| l.path.clone()),
+            );
+        }
+        if let Some(comparison) = &investigation.compatibility {
+            linked_paths.insert(comparison.left.path.clone());
+            linked_paths.insert(comparison.right.path.clone());
+        }
+        for origin in &investigation.origins {
+            linked_paths.extend(
+                origin
+                    .occurrence
+                    .iter()
+                    .chain(origin.target.iter())
+                    .chain(origin.originating_adt.iter())
+                    .map(|l| l.path.clone()),
+            );
+        }
+    }
     linked_paths.extend(
         facts
             .as_ref()
@@ -1939,7 +2048,7 @@ fn query_world(
                 })
         })
         .collect();
-    Ok(super::Answer {session,source:source.identity().clone(),source_uri:super::engine::uri(&file)?,source_byte_offset:offset,generation:1,native_types:facts,position:serde_json::from_value(utf8_position(source.text(),offset)?)?,observed,omitted_relationships,proposal,availability:if available{super::Availability::Available}else{super::Availability::NoMatch},sections,location_sources,limitations:vec![
+    Ok(super::Answer {session,source:source.identity().clone(),source_uri:super::engine::uri(&file)?,source_byte_offset:offset,generation:SNAPSHOT_GENERATION,native_types:facts,position:serde_json::from_value(utf8_position(source.text(),offset)?)?,observed,omitted_relationships,proposal,availability:if available{super::Availability::Available}else{super::Availability::NoMatch},sections,location_sources,limitations:vec![
         "Immutable explicitly loaded Cargo snapshot; no automatic reloading/checking or query-side Cargo preparation. Explicit extended worlds may lazily execute retained proc-macro processes. Changed recorded inputs require stop/reprepare.".into(),
         "Native type display is presentation only. Equality/coercion fields use actual HIR types and unknown components remain unproven; arbitrary blanket-trait applicability and rustc acceptance are not established.".into(),
         "This is the selected analyzer Cargo context, not an admitted exact rustc compiler-unit identity; typed explain refuses inactive or ambiguous native module contexts.".into(),
@@ -2035,7 +2144,7 @@ mod tests {
     use super::*;
     const SOURCE: &str = "trait Act { fn same(&self)->u32; }\nstruct A;\nstruct B;\nimpl Act for A { fn same(&self)->u32 { 1 } }\nimpl Act for B { fn same(&self)->u32 { 2 } }\nfn generic<T: Act>(value:T) { let _ = value.same(); }\nfn operations() { let mut a=A; let b=B; let _=a.same(); let _=b.same(); let _: &A = &mut a; let mut n=1; n=2; let _=n; }\npub fn original()->u32 { 7 }\npub use original as facade;\nfn indirect(){let _=facade();}\nmod api { pub fn unused(){} fn hidden(){} fn internal_destination(){} }\nmod consumer { pub fn destination(){} pub fn unused(){} }\nfn standard(){let values=std::vec::Vec::<u32>::new();let optional=Some(7u32);let _=values.len();let _=optional.is_some();}\n";
 
-    fn fixture() -> (tempfile::TempDir, Configuration, PathBuf) {
+    pub(super) fn fixture() -> (tempfile::TempDir, Configuration, PathBuf) {
         let root = tempfile::tempdir().unwrap();
         std::fs::create_dir(root.path().join("src")).unwrap();
         std::fs::write(root.path().join("Cargo.toml"),"[package]\nname='native-analysis-control'\nversion='0.0.0'\nedition='2024'\n[workspace]\n").unwrap();
@@ -2067,7 +2176,7 @@ mod tests {
         };
         (root, config, file)
     }
-    fn query(file: &Path, needle: &str, kind: Kind) -> Query {
+    pub(super) fn query(file: &Path, needle: &str, kind: Kind) -> Query {
         let text = std::fs::read_to_string(file).unwrap();
         let offset = text.find(needle).unwrap();
         let prefix = &text[..offset];

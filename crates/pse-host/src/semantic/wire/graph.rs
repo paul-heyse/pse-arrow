@@ -15,6 +15,9 @@ fn relation_to_pb(value: Relationship) -> pb::Relationship {
         Relationship::ReturnType => pb::Relationship::ReturnType,
         Relationship::FieldType => pb::Relationship::FieldType,
         Relationship::Uses => pb::Relationship::Uses,
+        Relationship::Supertrait => pb::Relationship::Supertrait,
+        Relationship::ImplTrait => pb::Relationship::ImplTrait,
+        Relationship::ImplSelfType => pb::Relationship::ImplSelfType,
     }
 }
 fn relation_from_pb(value: buffa::EnumValue<pb::Relationship>) -> Result<Relationship> {
@@ -32,6 +35,9 @@ fn relation_from_pb(value: buffa::EnumValue<pb::Relationship>) -> Result<Relatio
             pb::Relationship::ReturnType => Relationship::ReturnType,
             pb::Relationship::FieldType => Relationship::FieldType,
             pb::Relationship::Uses => Relationship::Uses,
+            pb::Relationship::Supertrait => Relationship::Supertrait,
+            pb::Relationship::ImplTrait => Relationship::ImplTrait,
+            pb::Relationship::ImplSelfType => Relationship::ImplSelfType,
         },
     )
 }

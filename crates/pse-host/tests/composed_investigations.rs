@@ -913,8 +913,20 @@ fn t03_namesakes_graph_entry() {
     fixture.stop();
 }
 
+#[tokio::test]
+async fn actual_acquired_api_constraints_join_native_use_and_prove_existing_destination_importability()
+ {
+    independent_cli(
+        "t05_acquired_api_constraints_entry",
+        "PSE_T05_API_CONSTRAINTS_GATE",
+    )
+    .await;
+}
 #[test]
-fn actual_acquired_api_constraints_join_native_use_and_prove_existing_destination_importability() {
+fn t05_acquired_api_constraints_entry() {
+    if !entry_gate("PSE_T05_API_CONSTRAINTS_GATE") {
+        return;
+    }
     let fixture = Fixture::new();
     let artifact = fixture.acquire_api();
     fixture.prepare(Some(&artifact.context.target));
@@ -1002,6 +1014,292 @@ fn actual_acquired_api_constraints_join_native_use_and_prove_existing_destinatio
         !output.status.success(),
         "changed acquisition/native sources cannot preserve a stale API-use proof: {output:?}"
     );
+    fixture.stop();
+}
+
+#[tokio::test]
+async fn acquired_api_rich_shapes_share_flags_typed_saved_queries_and_guarded_adjacency() {
+    independent_cli(
+        "t06_acquired_api_rich_shapes_entry",
+        "PSE_T06_API_SHAPES_GATE",
+    )
+    .await;
+}
+#[test]
+fn t06_acquired_api_rich_shapes_entry() {
+    if !entry_gate("PSE_T06_API_SHAPES_GATE") {
+        return;
+    }
+    let fixture = Fixture::new();
+    std::fs::write(
+        fixture.project.path().join("src/lib.rs"),
+        r#"
+#![feature(negative_impls)]
+pub fn callback(value: for<'a> fn(&'a u8) -> &'a u8) { let _ = value; }
+pub fn array(value: [u8; 3]) { let _ = value; }
+pub fn generic<T: Clone>(value: T) { let _ = value; }
+pub trait Parent {}
+pub trait Operation: Parent { fn provided(&self) {} }
+pub trait Stream { type Item: Parent; }
+pub struct Subject;
+impl Parent for Subject {}
+impl Operation for Subject {}
+pub trait Denied {}
+impl !Denied for Subject {}
+pub trait Blanket {}
+impl<T: Operation> Blanket for T {}
+/// Compiler resolved [Subject]. ProseOnly is not a resolved link.
+pub fn documented() {}
+pub struct Inner;
+impl Inner { pub fn inherited(&self) {} }
+pub struct Outer(pub Inner);
+impl std::ops::Deref for Outer { type Target=Inner; fn deref(&self)->&Inner { &self.0 } }
+pub mod extension { pub trait Extra { fn extra(&self) {} } impl Extra for super::Outer {} }
+pub fn uses(subject: &Subject, outer: &Outer) { subject.provided(); outer.inherited(); }
+"#,
+    )
+    .unwrap();
+    let artifact = fixture.acquire_api();
+    let pattern = "for<'a> fn(&'a u8) -> &'a u8";
+    let flags = value(
+        fixture
+            .command(false)
+            .args(["search", "api", "callback", "--artifact"])
+            .arg(&artifact.path)
+            .args(["--input", pattern])
+            .output()
+            .unwrap(),
+    );
+    let mut request = fixture.request(Predicate::Api(ApiQuery {
+        query: "callback".into(),
+        artifact: Some(artifact.path.clone()),
+        input_shape: Some(pse_host::api::query::TypePattern::parse(pattern).unwrap()),
+        ..Default::default()
+    }));
+    request.sources = SourceSelector::default();
+    let typed = fixture.search(&request);
+    let saved_path = fixture.state.path().join("saved-api.json");
+    std::fs::write(
+        &saved_path,
+        serde_json::to_vec(&serde_json::json!({"queries":{"callback":request}})).unwrap(),
+    )
+    .unwrap();
+    let saved = value(
+        fixture
+            .command(false)
+            .args(["search", "--config"])
+            .arg(&saved_path)
+            .args(["--query", "callback"])
+            .output()
+            .unwrap(),
+    );
+    for response in [&flags, &typed, &saved] {
+        assert_eq!(response["payload"]["summary"]["matches"], 1, "{response}");
+        assert_eq!(
+            response["payload"]["results"][0]["name"], "composed_native_control::callback",
+            "{response}"
+        );
+    }
+    let negative = value(
+        fixture
+            .command(false)
+            .args(["search", "api", "callback", "--artifact"])
+            .arg(&artifact.path)
+            .args(["--input", "for<'a> fn(&'a u16) -> &'a u8"])
+            .output()
+            .unwrap(),
+    );
+    assert_eq!(negative["payload"]["summary"]["matches"], 0, "{negative}");
+    let mut where_query = request.clone();
+    where_query.predicate = Predicate::Api(ApiQuery {
+        query: "generic".into(),
+        artifact: Some(artifact.path.clone()),
+        where_shapes: vec![pse_host::api::query::WherePattern::parse("T: Clone").unwrap()],
+        ..Default::default()
+    });
+    assert_eq!(
+        fixture.search(&where_query)["payload"]["summary"]["matches"],
+        1
+    );
+    let reference = |name: &str| {
+        let item = artifact
+            .document
+            .index
+            .values()
+            .find(|item| item.name.as_deref() == Some(name))
+            .unwrap();
+        ResultReference::new(Locator::Api {
+            artifact: artifact.path.clone(),
+            item: item.id.0.to_string(),
+            artifact_sha256: Some(artifact.sha256.clone()),
+            context_key: Some(artifact.context.key().unwrap()),
+            public_path: None,
+            definition: None,
+        })
+        .encode()
+        .unwrap()
+    };
+    let adjacency = |reference: &str, relation: &str| {
+        value(
+            fixture
+                .command(false)
+                .args([
+                    "inspect",
+                    "--result",
+                    reference,
+                    "--view",
+                    "adjacency",
+                    "--adjacency",
+                    relation,
+                    "--budget",
+                    "256",
+                ])
+                .output()
+                .unwrap(),
+        )
+    };
+    let implementations = adjacency(&reference("Subject"), "implementation");
+    let graph = &implementations["payload"]["graph"];
+    assert_eq!(graph["domain"], "acquired_api");
+    let witnesses = graph["witnesses"].as_array().unwrap();
+    assert!(
+        witnesses
+            .iter()
+            .any(|w| w["implementation"]["negative"] == true),
+        "{implementations}"
+    );
+    assert!(
+        witnesses
+            .iter()
+            .any(|w| w["implementation"]["synthetic"] == true),
+        "{implementations}"
+    );
+    assert!(
+        witnesses
+            .iter()
+            .any(|w| !w["implementation"]["blanket"].is_null()),
+        "{implementations}"
+    );
+    let witness = graph["witnesses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|w| {
+            w["implementation"]["trait_"]["path"]
+                .as_str()
+                .is_some_and(|path| path.ends_with("Operation"))
+        })
+        .unwrap();
+    let impl_reference: ResultReference =
+        serde_json::from_value(witness["reference"].clone()).unwrap();
+    let defaults = adjacency(&impl_reference.encode().unwrap(), "provided-default");
+    assert!(
+        defaults["payload"]["graph"]["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|node| node["name"] == "provided"),
+        "{defaults}"
+    );
+    let impl_item = artifact
+        .document
+        .index
+        .get(&rustdoc_types::Id(match &impl_reference.locator {
+            Locator::Api { item, .. } => item.parse().unwrap(),
+            _ => panic!("qualified acquired impl expected"),
+        }))
+        .unwrap();
+    let rustdoc_types::ItemEnum::Impl(data) = &impl_item.inner else {
+        panic!("original impl declaration expected")
+    };
+    assert!(
+        data.items.is_empty(),
+        "provided defaults must not be reconstructed from Impl.items"
+    );
+    assert!(
+        data.provided_trait_methods
+            .iter()
+            .any(|name| name == "provided")
+    );
+    let links = adjacency(&reference("documented"), "documentation-link");
+    let associated_bounds = adjacency(&reference("Item"), "bound");
+    assert_eq!(
+        associated_bounds["payload"]["graph"]["edges"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1,
+        "associated-type bounds are original declared adjacency: {associated_bounds}"
+    );
+    assert!(
+        associated_bounds["payload"]["graph"]["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|node| node["name"] == "Parent"),
+        "{associated_bounds}"
+    );
+    assert_eq!(
+        links["payload"]["graph"]["edges"].as_array().unwrap().len(),
+        1,
+        "{links}"
+    );
+    assert_eq!(
+        links["payload"]["graph"]["witnesses"][0]["label"],
+        "Subject"
+    );
+    let outer = adjacency(&reference("Outer"), "contains");
+    assert!(
+        !outer["payload"]["graph"]["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|node| node["name"] == "inherited"),
+        "declared membership must not invent Deref callable inheritance: {outer}"
+    );
+    let mut stale: ResultReference = serde_json::from_value(witness["reference"].clone()).unwrap();
+    if let Locator::Api { context_key, .. } = &mut stale.locator {
+        *context_key = Some("changed".into());
+    }
+    assert!(
+        !fixture
+            .command(false)
+            .args([
+                "inspect",
+                "--result",
+                &stale.encode().unwrap(),
+                "--view",
+                "adjacency"
+            ])
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    // Only the selected native world establishes an actual default or Deref call target.
+    fixture.prepare(Some(&artifact.context.target));
+    for (candidate, site) in [
+        ("Operation::provided", "subject.provided()"),
+        ("Inner::inherited", "outer.inherited()"),
+    ] {
+        let mut used = fixture.request(Predicate::Refine {
+            candidates: Box::new(Predicate::Api(ApiQuery {
+                query: candidate.into(),
+                artifact: Some(artifact.path.clone()),
+                ..Default::default()
+            })),
+            filter: Refinement::UsedAt {
+                destination: fixture.source(site),
+            },
+        });
+        used.sources = SourceSelector::default();
+        let answer = fixture.search(&used);
+        assert_eq!(answer["payload"]["summary"]["matches"], 1, "{answer}");
+        assert_eq!(
+            answer["payload"]["results"][0]["refinement"]["truth"], "true",
+            "{answer}"
+        );
+    }
     fixture.stop();
 }
 

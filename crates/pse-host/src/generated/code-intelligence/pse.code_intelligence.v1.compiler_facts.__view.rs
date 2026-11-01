@@ -11,6 +11,17 @@ pub struct CompilerFactsView<'a> {
         'a,
         super::super::__buffa::view::CompilerBodyFactView<'a>,
     >,
+    /// Field 3: `source_files`
+    pub source_files: ::buffa::RepeatedView<
+        'a,
+        super::super::__buffa::view::CompilerSourceFileView<'a>,
+    >,
+    /// Field 4: `cfg`
+    pub cfg: ::buffa::RepeatedView<'a, &'a str>,
+    /// Field 5: `edition`
+    pub edition: ::core::option::Option<&'a str>,
+    /// Field 6: `target`
+    pub target: ::core::option::Option<&'a str>,
     pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
 }
 impl<'a> ::buffa::MessageView<'a> for CompilerFactsView<'a> {
@@ -50,6 +61,20 @@ impl<'a> ::buffa::MessageView<'a> for CompilerFactsView<'a> {
                 )?;
                 view.compiler = ::buffa::types::borrow_str(&mut cur)?;
             }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.edition = Some(::buffa::types::borrow_str(&mut cur)?);
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.target = Some(::buffa::types::borrow_str(&mut cur)?);
+            }
             2u32 => {
                 ::buffa::encoding::check_wire_type(
                     tag,
@@ -69,6 +94,37 @@ impl<'a> ::buffa::MessageView<'a> for CompilerFactsView<'a> {
                             __sub_ctx,
                         )?,
                     );
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<
+                        super::super::__buffa::view::CompilerSourceFileView,
+                    >(),
+                )?;
+                view.source_files
+                    .push(
+                        <super::super::__buffa::view::CompilerSourceFileView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __elem = ::buffa::types::borrow_str(&mut cur)?;
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&__elem),
+                )?;
+                view.cfg.push(__elem);
             }
             _ => {
                 ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
@@ -98,6 +154,14 @@ impl<'a> ::buffa::MessageView<'a> for CompilerFactsView<'a> {
                 .iter()
                 .map(|v| v.to_owned_from_source(__buffa_src))
                 .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            source_files: self
+                .source_files
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            cfg: self.cfg.iter().map(|s| s.to_string()).collect(),
+            edition: self.edition.map(|s| s.to_string()),
+            target: self.target.map(|s| s.to_string()),
             __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
             ..::core::default::Default::default()
         })
@@ -120,6 +184,23 @@ impl<'a> ::buffa::ViewEncode<'a> for CompilerFactsView<'a> {
                 += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
                     + inner_size as u64;
         }
+        for v in &self.source_files {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.cfg {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        if let Some(ref v) = self.edition {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        if let Some(ref v) = self.target {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -141,6 +222,23 @@ impl<'a> ::buffa::ViewEncode<'a> for CompilerFactsView<'a> {
                 buf,
             );
             v.write_to(__cache, buf);
+        }
+        for v in &self.source_files {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        for v in &self.cfg {
+            ::buffa::types::put_string_field(4u32, v, buf);
+        }
+        if let Some(ref v) = self.edition {
+            ::buffa::types::put_string_field(5u32, v, buf);
+        }
+        if let Some(ref v) = self.target {
+            ::buffa::types::put_string_field(6u32, v, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -168,6 +266,18 @@ impl<'__a> ::serde::Serialize for CompilerFactsView<'__a> {
         }
         if !self.bodies.is_empty() {
             __map.serialize_entry("bodies", &*self.bodies)?;
+        }
+        if !self.source_files.is_empty() {
+            __map.serialize_entry("sourceFiles", &*self.source_files)?;
+        }
+        if !self.cfg.is_empty() {
+            __map.serialize_entry("cfg", &*self.cfg)?;
+        }
+        if let ::core::option::Option::Some(__v) = self.edition {
+            __map.serialize_entry("edition", __v)?;
+        }
+        if let ::core::option::Option::Some(__v) = self.target {
+            __map.serialize_entry("target", __v)?;
         }
         __map.end()
     }
@@ -275,6 +385,31 @@ impl CompilerFactsOwnedView {
     > {
         &self.0.reborrow().bodies
     }
+    /// Field 3: `source_files`
+    #[must_use]
+    pub fn source_files(
+        &self,
+    ) -> &::buffa::RepeatedView<
+        '_,
+        super::super::__buffa::view::CompilerSourceFileView<'_>,
+    > {
+        &self.0.reborrow().source_files
+    }
+    /// Field 4: `cfg`
+    #[must_use]
+    pub fn cfg(&self) -> &::buffa::RepeatedView<'_, &'_ str> {
+        &self.0.reborrow().cfg
+    }
+    /// Field 5: `edition`
+    #[must_use]
+    pub fn edition(&self) -> ::core::option::Option<&'_ str> {
+        self.0.reborrow().edition
+    }
+    /// Field 6: `target`
+    #[must_use]
+    pub fn target(&self) -> ::core::option::Option<&'_ str> {
+        self.0.reborrow().target
+    }
 }
 impl ::core::convert::From<::buffa::OwnedView<CompilerFactsView<'static>>>
 for CompilerFactsOwnedView {
@@ -323,6 +458,14 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for CompilerFactsView<'a> {
         match field.number() {
             1u32 => ::buffa_descriptor::reflect::ValueRef::String(self.compiler),
             2u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.bodies),
+            3u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.source_files),
+            4u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.cfg),
+            5u32 => {
+                ::buffa_descriptor::reflect::ValueRef::String(self.edition.unwrap_or(""))
+            }
+            6u32 => {
+                ::buffa_descriptor::reflect::ValueRef::String(self.target.unwrap_or(""))
+            }
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -337,6 +480,10 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for CompilerFactsView<'a> {
         match field.number() {
             1u32 => !self.compiler.is_empty(),
             2u32 => !::buffa::RepeatedView::is_empty(&self.bodies),
+            3u32 => !::buffa::RepeatedView::is_empty(&self.source_files),
+            4u32 => !::buffa::RepeatedView::is_empty(&self.cfg),
+            5u32 => self.edition.is_some(),
+            6u32 => self.target.is_some(),
             _ => false,
         }
     }
@@ -386,6 +533,497 @@ impl<'a> ::buffa_descriptor::reflect::ReflectElement for CompilerFactsView<'a> {
     }
 }
 impl<'a> CompilerFactsView<'a> {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this view's message type, resolved
+    /// once against the package's embedded descriptor pool. An inherent
+    /// associated fn (not a free fn) so sibling views in the same module
+    /// do not collide.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                super::super::__buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated view type is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+/// Original bytes verified against the compiler's pre-normalization source hash.
+/// This record is retained inside the digest-bound facts acquisition, never an ambient read claim.
+#[derive(Clone, Debug, Default)]
+pub struct CompilerSourceFileView<'a> {
+    /// Field 1: `id`
+    pub id: u32,
+    /// Field 2: `local_path`
+    pub local_path: &'a [u8],
+    /// Field 3: `display_name`
+    pub display_name: &'a str,
+    /// Field 4: `original_source`
+    pub original_source: &'a [u8],
+    /// Field 5: `original_sha256`
+    pub original_sha256: &'a str,
+    /// Field 6: `normalized_sha256`
+    pub normalized_sha256: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for CompilerSourceFileView<'a> {
+    type Owned = super::super::CompilerSourceFile;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        let __elem = ::core::cell::Cell::new(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                .with_element_memory(&__elem),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.id = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.local_path = ::buffa::types::borrow_bytes(&mut cur)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.display_name = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.original_source = ::buffa::types::borrow_bytes(&mut cur)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.original_sha256 = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.normalized_sha256 = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::CompilerSourceFile, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::CompilerSourceFile, ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::CompilerSourceFile {
+            id: self.id,
+            local_path: (self.local_path).to_vec(),
+            display_name: self.display_name.to_string(),
+            original_source: (self.original_source).to_vec(),
+            original_sha256: self.original_sha256.to_string(),
+            normalized_sha256: self.normalized_sha256.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for CompilerSourceFileView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.id != 0u32 {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(self.id) as u64;
+        }
+        if !self.local_path.is_empty() {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(&self.local_path) as u64;
+        }
+        if !self.display_name.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.display_name) as u64;
+        }
+        if !self.original_source.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::bytes_encoded_len(&self.original_source) as u64;
+        }
+        if !self.original_sha256.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.original_sha256) as u64;
+        }
+        if !self.normalized_sha256.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.normalized_sha256) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.id != 0u32 {
+            ::buffa::types::put_uint32_field(1u32, self.id, buf);
+        }
+        if !self.local_path.is_empty() {
+            ::buffa::types::put_shared_bytes_field(2u32, &self.local_path, buf);
+        }
+        if !self.display_name.is_empty() {
+            ::buffa::types::put_string_field(3u32, &self.display_name, buf);
+        }
+        if !self.original_source.is_empty() {
+            ::buffa::types::put_shared_bytes_field(4u32, &self.original_source, buf);
+        }
+        if !self.original_sha256.is_empty() {
+            ::buffa::types::put_string_field(5u32, &self.original_sha256, buf);
+        }
+        if !self.normalized_sha256.is_empty() {
+            ::buffa::types::put_string_field(6u32, &self.normalized_sha256, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for CompilerSourceFileView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.id) {
+            __map.serialize_entry("id", &::buffa::json_helpers::ProtoJson(&self.id))?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_bytes(self.local_path) {
+            __map
+                .serialize_entry(
+                    "localPath",
+                    &::buffa::json_helpers::BytesJson(self.local_path),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.display_name) {
+            __map.serialize_entry("displayName", self.display_name)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_bytes(self.original_source) {
+            __map
+                .serialize_entry(
+                    "originalSource",
+                    &::buffa::json_helpers::BytesJson(self.original_source),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.original_sha256) {
+            __map.serialize_entry("originalSha256", self.original_sha256)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.normalized_sha256) {
+            __map.serialize_entry("normalizedSha256", self.normalized_sha256)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for CompilerSourceFileView<'a> {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "CompilerSourceFile";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.CompilerSourceFile";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.CompilerSourceFile";
+}
+::buffa::impl_default_view_instance!(CompilerSourceFileView);
+::buffa::impl_view_reborrow!(CompilerSourceFileView);
+/** Self-contained, `'static` owned view of a `CompilerSourceFile` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`CompilerSourceFileView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`CompilerSourceFileView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct CompilerSourceFileOwnedView(
+    ::buffa::OwnedView<CompilerSourceFileView<'static>>,
+);
+impl CompilerSourceFileOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            CompilerSourceFileOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            CompilerSourceFileOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::CompilerSourceFile,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            CompilerSourceFileOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`CompilerSourceFileView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &CompilerSourceFileView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::CompilerSourceFile {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `id`
+    #[must_use]
+    pub fn id(&self) -> u32 {
+        self.0.reborrow().id
+    }
+    /// Field 2: `local_path`
+    #[must_use]
+    pub fn local_path(&self) -> &'_ [u8] {
+        self.0.reborrow().local_path
+    }
+    /// Field 3: `display_name`
+    #[must_use]
+    pub fn display_name(&self) -> &'_ str {
+        self.0.reborrow().display_name
+    }
+    /// Field 4: `original_source`
+    #[must_use]
+    pub fn original_source(&self) -> &'_ [u8] {
+        self.0.reborrow().original_source
+    }
+    /// Field 5: `original_sha256`
+    #[must_use]
+    pub fn original_sha256(&self) -> &'_ str {
+        self.0.reborrow().original_sha256
+    }
+    /// Field 6: `normalized_sha256`
+    #[must_use]
+    pub fn normalized_sha256(&self) -> &'_ str {
+        self.0.reborrow().normalized_sha256
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<CompilerSourceFileView<'static>>>
+for CompilerSourceFileOwnedView {
+    fn from(inner: ::buffa::OwnedView<CompilerSourceFileView<'static>>) -> Self {
+        CompilerSourceFileOwnedView(inner)
+    }
+}
+impl ::core::convert::From<CompilerSourceFileOwnedView>
+for ::buffa::OwnedView<CompilerSourceFileView<'static>> {
+    fn from(wrapper: CompilerSourceFileOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<CompilerSourceFileView<'static>>>
+for CompilerSourceFileOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<CompilerSourceFileView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::CompilerSourceFile {
+    type View<'a> = CompilerSourceFileView<'a>;
+    type ViewHandle = CompilerSourceFileOwnedView;
+}
+impl ::serde::Serialize for CompilerSourceFileOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+impl<'a> ::buffa_descriptor::reflect::ReflectMessage for CompilerSourceFileView<'a> {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        super::super::__buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        super::super::__buffa::reflect::descriptor_pool()
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::U32(self.id),
+            2u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(self.local_path),
+            3u32 => ::buffa_descriptor::reflect::ValueRef::String(self.display_name),
+            4u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(self.original_source),
+            5u32 => ::buffa_descriptor::reflect::ValueRef::String(self.original_sha256),
+            6u32 => ::buffa_descriptor::reflect::ValueRef::String(self.normalized_sha256),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this view's reflect get()", field
+                    .number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.id != 0,
+            2u32 => !self.local_path.is_empty(),
+            3u32 => !self.display_name.is_empty(),
+            4u32 => !self.original_source.is_empty(),
+            5u32 => !self.original_sha256.is_empty(),
+            6u32 => !self.normalized_sha256.is_empty(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+        let options = ::buffa::DecodeOptions::new()
+            .with_element_memory_limit(
+                bytes
+                    .len()
+                    .saturating_mul(128)
+                    .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+            )
+            .with_unknown_field_limit(
+                bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+            );
+        ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                ::buffa::alloc::sync::Arc::clone(
+                    super::super::__buffa::reflect::descriptor_pool(),
+                ),
+                Self::__buffa_reflect_message_index(),
+                &bytes,
+                &options,
+            )
+            .expect("view re-encodes to bytes decodable against its own descriptor")
+    }
+}
+impl<'a> ::buffa_descriptor::reflect::ReflectElement for CompilerSourceFileView<'a> {
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl<'a> CompilerSourceFileView<'a> {
     #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     /// Memoized `MessageIndex` for this view's message type, resolved
     /// once against the package's embedded descriptor pool. An inherent
@@ -1182,6 +1820,12 @@ pub struct CompilerSourceLocationView<'a> {
     pub end: u32,
     /// Field 4: `macro_expanded`
     pub macro_expanded: bool,
+    /// Field 5: `source_file`
+    pub source_file: ::core::option::Option<u32>,
+    /// Field 6: `original_start`
+    pub original_start: ::core::option::Option<u32>,
+    /// Field 7: `original_end`
+    pub original_end: ::core::option::Option<u32>,
     pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
 }
 impl<'a> ::buffa::MessageView<'a> for CompilerSourceLocationView<'a> {
@@ -1242,6 +1886,27 @@ impl<'a> ::buffa::MessageView<'a> for CompilerSourceLocationView<'a> {
                 )?;
                 view.macro_expanded = ::buffa::types::decode_bool(&mut cur)?;
             }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.source_file = Some(::buffa::types::decode_uint32(&mut cur)?);
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.original_start = Some(::buffa::types::decode_uint32(&mut cur)?);
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.original_end = Some(::buffa::types::decode_uint32(&mut cur)?);
+            }
             _ => {
                 ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
                 let span_len = before_tag.len() - cur.len();
@@ -1274,6 +1939,9 @@ impl<'a> ::buffa::MessageView<'a> for CompilerSourceLocationView<'a> {
             start: self.start,
             end: self.end,
             macro_expanded: self.macro_expanded,
+            source_file: self.source_file,
+            original_start: self.original_start,
+            original_end: self.original_end,
             __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
             ..::core::default::Default::default()
         })
@@ -1297,6 +1965,15 @@ impl<'a> ::buffa::ViewEncode<'a> for CompilerSourceLocationView<'a> {
         if self.macro_expanded {
             size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
         }
+        if let Some(v) = self.source_file {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(v) as u64;
+        }
+        if let Some(v) = self.original_start {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(v) as u64;
+        }
+        if let Some(v) = self.original_end {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(v) as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -1319,6 +1996,15 @@ impl<'a> ::buffa::ViewEncode<'a> for CompilerSourceLocationView<'a> {
         }
         if self.macro_expanded {
             ::buffa::types::put_bool_field(4u32, self.macro_expanded, buf);
+        }
+        if let Some(v) = self.source_file {
+            ::buffa::types::put_uint32_field(5u32, v, buf);
+        }
+        if let Some(v) = self.original_start {
+            ::buffa::types::put_uint32_field(6u32, v, buf);
+        }
+        if let Some(v) = self.original_end {
+            ::buffa::types::put_uint32_field(7u32, v, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -1356,6 +2042,24 @@ impl<'__a> ::serde::Serialize for CompilerSourceLocationView<'__a> {
         }
         if self.macro_expanded {
             __map.serialize_entry("macroExpanded", &self.macro_expanded)?;
+        }
+        if let ::core::option::Option::Some(__v) = self.source_file {
+            __map
+                .serialize_entry("sourceFile", &::buffa::json_helpers::ProtoJson(&__v))?;
+        }
+        if let ::core::option::Option::Some(__v) = self.original_start {
+            __map
+                .serialize_entry(
+                    "originalStart",
+                    &::buffa::json_helpers::ProtoJson(&__v),
+                )?;
+        }
+        if let ::core::option::Option::Some(__v) = self.original_end {
+            __map
+                .serialize_entry(
+                    "originalEnd",
+                    &::buffa::json_helpers::ProtoJson(&__v),
+                )?;
         }
         __map.end()
     }
@@ -1472,6 +2176,21 @@ impl CompilerSourceLocationOwnedView {
     pub fn macro_expanded(&self) -> bool {
         self.0.reborrow().macro_expanded
     }
+    /// Field 5: `source_file`
+    #[must_use]
+    pub fn source_file(&self) -> ::core::option::Option<u32> {
+        self.0.reborrow().source_file
+    }
+    /// Field 6: `original_start`
+    #[must_use]
+    pub fn original_start(&self) -> ::core::option::Option<u32> {
+        self.0.reborrow().original_start
+    }
+    /// Field 7: `original_end`
+    #[must_use]
+    pub fn original_end(&self) -> ::core::option::Option<u32> {
+        self.0.reborrow().original_end
+    }
 }
 impl ::core::convert::From<::buffa::OwnedView<CompilerSourceLocationView<'static>>>
 for CompilerSourceLocationOwnedView {
@@ -1522,6 +2241,19 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for CompilerSourceLocationV
             2u32 => ::buffa_descriptor::reflect::ValueRef::U32(self.start),
             3u32 => ::buffa_descriptor::reflect::ValueRef::U32(self.end),
             4u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.macro_expanded),
+            5u32 => {
+                ::buffa_descriptor::reflect::ValueRef::U32(self.source_file.unwrap_or(0))
+            }
+            6u32 => {
+                ::buffa_descriptor::reflect::ValueRef::U32(
+                    self.original_start.unwrap_or(0),
+                )
+            }
+            7u32 => {
+                ::buffa_descriptor::reflect::ValueRef::U32(
+                    self.original_end.unwrap_or(0),
+                )
+            }
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -1538,6 +2270,9 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for CompilerSourceLocationV
             2u32 => self.start != 0,
             3u32 => self.end != 0,
             4u32 => self.macro_expanded,
+            5u32 => self.source_file.is_some(),
+            6u32 => self.original_start.is_some(),
+            7u32 => self.original_end.is_some(),
             _ => false,
         }
     }

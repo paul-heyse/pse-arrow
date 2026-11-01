@@ -35,6 +35,7 @@ pub mod __buffa {
     /// Register this package's `Any` type entries and extension entries.
     pub fn register_types(reg: &mut ::buffa::type_registry::TypeRegistry) {
         reg.register_json_any(super::__COMPILER_FACTS_JSON_ANY);
+        reg.register_json_any(super::__COMPILER_SOURCE_FILE_JSON_ANY);
         reg.register_json_any(super::__COMPILER_BODY_FACT_JSON_ANY);
         reg.register_json_any(super::__COMPILER_SOURCE_LOCATION_JSON_ANY);
         reg.register_json_any(super::__COMPILER_CAPTURE_FACT_JSON_ANY);
@@ -141,7 +142,14 @@ pub mod __buffa {
         reg.register_json_any(super::__NATIVE_GRAPH_ANSWER_JSON_ANY);
         reg.register_json_any(super::__NATIVE_CONTROL_JSON_ANY);
         reg.register_json_any(super::__NATIVE_EVENT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_COMPATIBILITY_QUERY_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_BODY_OBSERVATION_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_COMPATIBILITY_OBSERVATION_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_ORIGIN_OBSERVATION_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_INVESTIGATION_FACTS_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_VISIBILITY_QUERY_JSON_ANY);
         reg.register_text_any(super::__COMPILER_FACTS_TEXT_ANY);
+        reg.register_text_any(super::__COMPILER_SOURCE_FILE_TEXT_ANY);
         reg.register_text_any(super::__COMPILER_BODY_FACT_TEXT_ANY);
         reg.register_text_any(super::__COMPILER_SOURCE_LOCATION_TEXT_ANY);
         reg.register_text_any(super::__COMPILER_CAPTURE_FACT_TEXT_ANY);
@@ -248,6 +256,12 @@ pub mod __buffa {
         reg.register_text_any(super::__NATIVE_GRAPH_ANSWER_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_CONTROL_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_EVENT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_COMPATIBILITY_QUERY_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_BODY_OBSERVATION_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_COMPATIBILITY_OBSERVATION_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_ORIGIN_OBSERVATION_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_INVESTIGATION_FACTS_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_VISIBILITY_QUERY_TEXT_ANY);
     }
     /// Reflection support: this package's view onto the crate-wide
     /// descriptor pool. In shared-pool mode the bytes and pool live once
@@ -285,6 +299,10 @@ pub use self::__buffa::reflect::FILE_DESCRIPTOR_SET_BYTES;
 pub use self::__buffa::view::CompilerFactsView;
 #[doc(inline)]
 pub use self::__buffa::view::CompilerFactsOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::CompilerSourceFileView;
+#[doc(inline)]
+pub use self::__buffa::view::CompilerSourceFileOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::CompilerBodyFactView;
 #[doc(inline)]
@@ -709,5 +727,29 @@ pub use self::__buffa::view::NativeControlOwnedView;
 pub use self::__buffa::view::NativeEventView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeEventOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCompatibilityQueryView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCompatibilityQueryOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeBodyObservationView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeBodyObservationOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCompatibilityObservationView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCompatibilityObservationOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeOriginObservationView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeOriginObservationOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeInvestigationFactsView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeInvestigationFactsOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeVisibilityQueryView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeVisibilityQueryOwnedView;
 #[doc(inline)]
 pub use self::__buffa::register_types;
