@@ -54,6 +54,8 @@ pub(in crate::cli::investigation) struct Origin {
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub(super) enum EntityView {
     Explain,
+    /// Inspect fallible layout with native type/target context.
+    Layout,
     Symbols,
     Refs,
     Calls,
@@ -77,6 +79,9 @@ pub(in crate::cli::investigation) struct Entity {
     select: Option<usize>,
     #[arg(long)]
     text: Option<String>,
+    /// Passively associate an original type-sizes acquisition; requires --view layout.
+    #[arg(long)]
+    compiler_layout: Option<String>,
 }
 pub(super) fn entity(
     options: Entity,
@@ -89,6 +94,7 @@ pub(super) fn entity(
     };
     let kind = match options.view {
         EntityView::Explain => Kind::Explain,
+        EntityView::Layout => Kind::Layout,
         EntityView::Symbols => Kind::Symbols,
         EntityView::Refs => Kind::Refs,
         EntityView::Calls => Kind::Calls,
@@ -106,7 +112,13 @@ pub(super) fn entity(
         },
         EntityView::Assists => Kind::Assists,
     };
-    crate::cli::code::semantic::query(kind, options.subject, selected, output)
+    crate::cli::code::semantic::query(
+        kind,
+        options.subject,
+        selected,
+        output,
+        options.compiler_layout.as_deref(),
+    )
 }
 
 pub(super) fn outline(

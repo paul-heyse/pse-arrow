@@ -57,6 +57,40 @@ struct Fixture {
     metadata: Metadata,
     context: BuildContext,
 }
+
+#[test]
+fn changed_fingerprint_names_source_membership_and_private_environment_keys() {
+    let fixture = Fixture::new();
+    let before = fixture.fingerprint();
+    let mut after = before.clone();
+    after
+        .files
+        .insert("host/src/lib.rs".into(), "changed-digest".into());
+    after
+        .files
+        .insert("host/src/new.rs".into(), "new-digest".into());
+    after.files.remove(Path::new("Cargo.lock"));
+    after
+        .context
+        .environment
+        .insert("RUSTFLAGS".into(), Some("private-value-digest".into()));
+    let message = before.require_unchanged(&after).unwrap_err().to_string();
+    assert!(
+        message.contains("changed=1") && message.contains("host/src/lib.rs"),
+        "{message}"
+    );
+    assert!(
+        message.contains("added=1") && message.contains("host/src/new.rs"),
+        "{message}"
+    );
+    assert!(
+        message.contains("removed=1") && message.contains("Cargo.lock"),
+        "{message}"
+    );
+    assert!(message.contains("environment.RUSTFLAGS"), "{message}");
+    assert!(!message.contains("private-value-digest"));
+    before.require_unchanged(&before).unwrap();
+}
 impl Fixture {
     fn new() -> Self {
         let directory = tempfile::tempdir().unwrap();

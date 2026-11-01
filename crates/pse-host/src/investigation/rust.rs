@@ -1757,6 +1757,9 @@ pub struct SemanticInspection {
     pub native: crate::semantic::Answer,
     /// Native discovery handles rebound to the consolidated interface.
     pub followups: Vec<SemanticAction>,
+    /// Guarded original compiler-layout association; absent unless explicitly requested.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compiler_layout: Option<crate::semantic::LayoutAssociation>,
 }
 /// One lazy action keeps its original record identity, generation and exact source.
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
@@ -1804,6 +1807,7 @@ pub async fn semantic_view(
         locator: locator.clone(),
         native,
         followups,
+        compiler_layout: None,
     })
 }
 /// Inspect an acquired artifact-local declaration without another search/acquisition.

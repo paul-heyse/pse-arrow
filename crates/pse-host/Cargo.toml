@@ -29,12 +29,19 @@ name = "pse-native-analysis"
 path = "src/bin/pse-native-analysis.rs"
 required-features = ["native-hir"]
 
+[[bin]]
+name = "pse-compiler-analysis"
+path = "src/bin/pse-compiler-analysis.rs"
+required-features = ["compiler-analysis"]
+
 [features]
+compiler-analysis = []
 native-hir = [
   "dep:ra_ap_hir",
   "dep:ra_ap_ide",
   "dep:ra_ap_ide_db",
   "dep:ra_ap_load-cargo",
+  "dep:ra_ap_proc_macro_api",
   "dep:ra_ap_project_model",
   "dep:ra_ap_vfs",
   "dep:native_ra_syntax",
@@ -63,6 +70,7 @@ ra_ap_hir = { workspace = true, optional = true }
 ra_ap_ide = { workspace = true, optional = true }
 ra_ap_ide_db = { workspace = true, optional = true }
 ra_ap_load-cargo = { workspace = true, optional = true }
+ra_ap_proc_macro_api = { workspace = true, optional = true }
 ra_ap_project_model = { workspace = true, optional = true }
 ra_ap_vfs = { workspace = true, optional = true }
 native_ra_syntax = { workspace = true, optional = true }

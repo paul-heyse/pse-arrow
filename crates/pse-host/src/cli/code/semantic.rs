@@ -33,6 +33,9 @@ pub(in crate::cli) enum Session {
         /// Package/input changes require stop and explicit preparation; never checks on save.
         #[arg(long)]
         build_macros: bool,
+        /// Select the analyzer's explicit cfg(test) world; no tests are executed.
+        #[arg(long)]
+        test_context: bool,
     },
     /// Observe the original native service; never prepares or rebuilds it.
     Status,
@@ -111,9 +114,11 @@ fn error(error: semantic::Error) -> HostError {
     HostError::Semantic(Box::new(error))
 }
 #[derive(serde::Serialize, schemars::JsonSchema)]
-#[serde(transparent)]
 pub(in crate::cli) struct AnswerView {
+    #[serde(flatten)]
     value: semantic::Answer,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    compiler_layout: Option<semantic::LayoutAssociation>,
 }
 pub(super) fn session(
     action: Session,
@@ -131,6 +136,7 @@ pub(super) fn session(
             no_default_features,
             target,
             build_macros,
+            test_context,
         } => {
             let configuration = Configuration {
                 backend,
@@ -148,6 +154,7 @@ pub(super) fn session(
                 no_default_features,
                 target,
                 build_macros,
+                test_context,
             }
             .resolve()
             .map_err(error)?;
@@ -394,7 +401,13 @@ pub(in crate::cli) fn query(
     subject: Subject,
     selected: Option<&Path>,
     output: &OutputOptions,
+    compiler_layout: Option<&str>,
 ) -> Result<i32, HostError> {
+    if compiler_layout.is_some() && !matches!(&kind, Kind::Layout) {
+        return Err(HostError::Ownership(
+            "--compiler-layout requires --view layout".into(),
+        ));
+    }
     let root = checkout_root(selected)?;
     let environment = std::env::vars_os().collect();
     let record = semantic::load(&root,&environment).map_err(error)?.ok_or_else(|| HostError::Ownership("semantic preparation required: pse code session prepare; source-only search/inspect remain available".into()))?;
@@ -478,11 +491,25 @@ pub(in crate::cli) fn query(
         }
     };
     let omitted = value.sections.iter().map(|section| section.omitted).sum();
+    let layout_evidence = compiler_layout
+        .map(|selector| {
+            let state = crate::paths::CheckoutState::resolve(&root, &environment)?;
+            crate::compiler_investigation::artifact::observe(&root, &state, selector)
+        })
+        .transpose()?;
+    let compiler_layout = layout_evidence
+        .as_ref()
+        .map(|evidence| semantic::associate_layout(&value, &evidence.payload));
     let mut response = Envelope::response(
         command,
         "selected analyzer evidence; no compiler acceptance or source writes",
         value,
     );
+    if let Some(evidence) = layout_evidence {
+        response.providers.extend(evidence.providers);
+        response.artifacts.extend(evidence.artifacts);
+        response.next.extend(evidence.next);
+    }
     let uri = response.payload.source_uri.clone();
     let offset = response.payload.source_byte_offset;
     response.providers.push(envelope::ProviderContext {
@@ -535,7 +562,10 @@ pub(in crate::cli) fn query(
             .extend(test_routes(&root, &response.payload, &record.configuration));
     }
     Ok(output.emit_page(
-        response.map_payload(|value| AnswerView { value }),
+        response.map_payload(|value| AnswerView {
+            value,
+            compiler_layout,
+        }),
         envelope::DetailView {
             budget: output.presentation.budget,
             omitted_records: omitted,
@@ -550,18 +580,25 @@ pub(in crate::cli) fn edit(
     output: &OutputOptions,
 ) -> Result<i32, HostError> {
     match action {
-        Edit::Rename { subject, name } => query(Kind::Rename { name }, subject, selected, output),
+        Edit::Rename { subject, name } => {
+            query(Kind::Rename { name }, subject, selected, output, None)
+        }
         Edit::FileRename { subject, to } => query(
             Kind::FileRename { destination: to },
             subject,
             selected,
             output,
+            None,
         ),
-        Edit::Assists(subject) => query(Kind::Assists, subject, selected, output),
-        Edit::Assist { subject, select } => {
-            query(Kind::Assist { index: select }, subject, selected, output)
-        }
-        Edit::Ssr { subject, rule } => query(Kind::Ssr { rule }, subject, selected, output),
+        Edit::Assists(subject) => query(Kind::Assists, subject, selected, output, None),
+        Edit::Assist { subject, select } => query(
+            Kind::Assist { index: select },
+            subject,
+            selected,
+            output,
+            None,
+        ),
+        Edit::Ssr { subject, rule } => query(Kind::Ssr { rule }, subject, selected, output, None),
     }
 }
 pub(in crate::cli) fn test_routes(
@@ -569,46 +606,77 @@ pub(in crate::cli) fn test_routes(
     answer: &semantic::Answer,
     configuration: &Configuration,
 ) -> Vec<envelope::NextAction> {
+    if !matches!(
+        answer.source.origin(),
+        crate::source_read::SourceOrigin::Working
+    ) {
+        return Vec::new();
+    }
     let mut next = Vec::new();
     for candidate in &answer.observed.tests {
-        if candidate.runnable_kind.as_deref() != Some("cargo") {
+        if candidate.eligible == Some(false) {
             continue;
         }
-        let arguments = &candidate.cargo_args;
-        let package = arguments
-            .windows(2)
-            .find(|pair| pair[0] == "-p" || pair[0] == "--package")
-            .map(|pair| pair[1].as_str());
-        let test = candidate.executable_args.first().map(String::as_str);
-        let (Some(package), Some(test)) = (package, test) else {
+        let Some(location) = &candidate.location else {
             continue;
         };
-        if test.is_empty()
-            || !test
-                .chars()
-                .all(|ch| ch.is_alphanumeric() || ch == '_' || ch == ':')
-        {
+        let path = match location {
+            semantic::FactLocation::Bytes { path, .. } => Some(path.clone()),
+            semantic::FactLocation::Protocol { uri, .. } => url::Url::parse(uri)
+                .ok()
+                .and_then(|uri| uri.to_file_path().ok()),
+        };
+        let Some(path) = path.and_then(|path| path.canonicalize().ok()) else {
+            continue;
+        };
+        let original = url::Url::parse(&answer.source_uri)
+            .ok()
+            .and_then(|uri| uri.to_file_path().ok());
+        let digest = if original.as_ref() == Some(&path) {
+            Some(answer.source.source_sha256())
+        } else {
+            answer
+                .location_sources
+                .iter()
+                .find(|source| source.path == path)
+                .map(|source| source.source_sha256.as_str())
+        };
+        let Some(digest) = digest else { continue };
+        let Ok(source) =
+            crate::source_read::SourceRequest::Working { path: path.clone() }.acquire()
+        else {
+            continue;
+        };
+        if source.identity().source_sha256() != digest {
             continue;
         }
+        let reference =
+            crate::investigation::ResultReference::new(crate::investigation::Locator::Source {
+                path: path.into(),
+                source: crate::investigation::SourceKind::Working,
+                range: None,
+                guard: Some(crate::investigation::SourceGuard {
+                    root: Some(root.to_path_buf().into()),
+                    sha256: Some(digest.into()),
+                    length: Some(source.text().len() as u64),
+                    modified_nanos: None,
+                    observed: None,
+                    git_blob: None,
+                }),
+            });
+        let Ok(reference) = reference.encode() else {
+            continue;
+        };
+        let Some(root) = root.to_str() else { continue };
         let mut argv = vec![
             "pse".into(),
             "-C".into(),
-            root.to_string_lossy().into(),
-            "tests".into(),
-            "-p".into(),
-            package.into(),
+            root.into(),
+            "inspect".into(),
+            "test-selection".into(),
+            "--from-result".into(),
+            reference,
         ];
-        if arguments.iter().any(|arg| arg == "--lib") {
-            argv.push("--lib".into());
-        } else if let Some(target) = arguments
-            .windows(2)
-            .find(|pair| pair[0] == "--test")
-            .map(|pair| pair[1].as_str())
-        {
-            argv.extend(["--test".into(), target.into()]);
-        } else {
-            continue;
-        }
         if !configuration.features.is_empty() {
             argv.extend(["--features".into(), configuration.features.join(",")]);
         }
@@ -618,8 +686,104 @@ pub(in crate::cli) fn test_routes(
         if let Some(target) = &configuration.target {
             argv.extend(["--target".into(), target.clone()]);
         }
-        argv.extend(["-E".into(), format!("test(={test})")]);
-        next.push(envelope::NextAction::Command{argv,reason:"ask the original test owner to enumerate this semantic candidate; candidate generation is not affected selection or test execution".into()});
+        if candidate.runnable_kind.as_deref() == Some("test")
+            && let Some(test) = &candidate.test_id
+            && !test.is_empty()
+            && test
+                .chars()
+                .all(|ch| ch.is_alphanumeric() || ch == '_' || ch == ':')
+        {
+            argv.extend(["-E".into(), format!("test(={test})")]);
+        }
+        next.push(envelope::NextAction::Command{argv,reason:format!("{} runnable ({}) nominates a guarded containing-package validation candidate through the existing selection owner; relevance is not coverage or execution", candidate.runnable_kind.as_deref().unwrap_or("unclassified"), candidate.relatedness.as_deref().unwrap_or("native relationship"))});
     }
     next
+}
+
+#[cfg(test)]
+mod runnable_route_tests {
+    use super::*;
+    #[test]
+    fn runnable_routes_bind_current_source_and_ignore_analyzer_argv() {
+        let temporary = tempfile::tempdir().unwrap();
+        let path = temporary.path().join("lib.rs");
+        std::fs::write(&path, "#[test] fn selected() {}\n").unwrap();
+        let source = crate::source_read::SourceRequest::Working { path: path.clone() }
+            .acquire()
+            .unwrap();
+        let configuration = Configuration {
+            backend: semantic::Backend::NativeSnapshot,
+            project: temporary.path().to_owned(),
+            features: vec!["chosen".into()],
+            no_default_features: true,
+            target: None,
+            build_macros: false,
+            test_context: false,
+        };
+        let mut answer = semantic::Answer {
+            session: semantic::AnalysisContext {
+                backend: "native-snapshot".into(),
+                configuration: configuration.clone(),
+                position_encoding: "utf-8".into(),
+                backend_status: None,
+                preparation: "restricted".into(),
+            },
+            source: source.identity().clone(),
+            source_uri: url::Url::from_file_path(&path).unwrap().into(),
+            source_byte_offset: 0,
+            availability: semantic::Availability::Available,
+            generation: 1,
+            position: semantic::ProtocolPosition::default(),
+            observed: semantic::ObservedFacts {
+                tests: vec![semantic::TestCandidateFact {
+                    test_id: Some("selected".into()),
+                    cfg: None,
+                    relatedness: Some("native relationship".into()),
+                    eligible: None,
+                    label: Some("display only".into()),
+                    location: Some(semantic::FactLocation::Bytes {
+                        path: path.clone(),
+                        start: 0,
+                        end: 24,
+                    }),
+                    runnable_kind: Some("test".into()),
+                    cargo_args: vec!["rm".into(), "--not-a-selection".into()],
+                    executable_args: vec!["untrusted-argv".into()],
+                    original: serde_json::json!({"snapshot_update":"intent only"}),
+                }],
+                ..Default::default()
+            },
+            omitted_relationships: Default::default(),
+            native_types: None,
+            sections: vec![],
+            location_sources: vec![],
+            proposal: None,
+            limitations: vec![],
+        };
+        let routes = test_routes(temporary.path(), &answer, &configuration);
+        let [envelope::NextAction::Command { argv, .. }] = routes.as_slice() else {
+            panic!("guarded route missing")
+        };
+        assert!(
+            argv.windows(2)
+                .any(|pair| pair == ["inspect", "test-selection"])
+        );
+        assert!(argv.iter().any(|arg| arg == "test(=selected)"));
+        assert!(
+            !argv
+                .iter()
+                .any(|arg| arg == "rm" || arg == "untrusted-argv")
+        );
+        let index = argv.iter().position(|arg| arg == "--from-result").unwrap();
+        let reference = crate::investigation::ResultReference::decode(&argv[index + 1]).unwrap();
+        assert!(matches!(
+            reference.locator,
+            crate::investigation::Locator::Source { guard: Some(_), .. }
+        ));
+        answer.observed.tests[0].eligible = Some(false);
+        assert!(test_routes(temporary.path(), &answer, &configuration).is_empty());
+        answer.observed.tests[0].eligible = None;
+        std::fs::write(path, "changed historical witness\n").unwrap();
+        assert!(test_routes(temporary.path(), &answer, &configuration).is_empty());
+    }
 }

@@ -99,6 +99,9 @@ pub(super) fn run(
     output: &OutputOptions,
     entry: &EntryGuard,
 ) -> Result<i32, HostError> {
+    if args.tool == NativeToolTarget::CompilerAnalysis {
+        return Err(HostError::Ownership("compiler-analysis is a controlled compiler stage; use compiler generate --kind facts with an exact --body selection".into()));
+    }
     let root = checkout_root(selected)?;
     let environment = std::env::vars_os().collect();
     let tool = PreparedNativeTool::open_for(&root, &environment, &args.selection, args.tool)

@@ -22,8 +22,8 @@ use std::{
 };
 pub mod bridge;
 pub mod comparison;
-pub mod query;
 pub mod doctests;
+pub mod query;
 
 /// A version, acquisition or original native input failure.
 #[derive(Debug, thiserror::Error)]
@@ -684,7 +684,12 @@ pub(crate) fn prepare_mode(
         unit_graph,
     } = observed_context(root, store, snapshot, query, target, &environment)?;
     if doctests {
-        context.extraction_flags = vec!["-Z".into(), "unstable-options".into(), "--output-format".into(), "doctest".into()];
+        context.extraction_flags = vec![
+            "-Z".into(),
+            "unstable-options".into(),
+            "--output-format".into(),
+            "doctest".into(),
+        ];
         context.rustdoc_format = doctests::FORMAT_VERSION;
     }
     let directory = store
@@ -780,16 +785,30 @@ pub fn finish(
     let bytes = fs::read(&acquisition.json_output)?;
     let document = decode(&bytes)?;
     if document.target.triple != acquisition.context.target {
-        return Err(invalid("rustdoc output target differs from acquisition context"));
+        return Err(invalid(
+            "rustdoc output target differs from acquisition context",
+        ));
     }
     let path = acquisition.directory.join("document.json");
     write(&path, &bytes)?;
-    write(&acquisition.directory.join("artifact.json"), &serde_json::to_vec(&ArtifactRecord {
-        context_key: acquisition.context.key()?, sha256: probe::digest(&bytes),
-    })?)?;
-    Ok(Artifact { context: acquisition.context.clone(), path, sha256: probe::digest(&bytes), document })
+    write(
+        &acquisition.directory.join("artifact.json"),
+        &serde_json::to_vec(&ArtifactRecord {
+            context_key: acquisition.context.key()?,
+            sha256: probe::digest(&bytes),
+        })?,
+    )?;
+    Ok(Artifact {
+        context: acquisition.context.clone(),
+        path,
+        sha256: probe::digest(&bytes),
+        document,
+    })
 }
-fn validate_acquisition(acquisition: &Acquisition, snapshot: &MetadataSnapshot) -> Result<(), ApiError> {
+fn validate_acquisition(
+    acquisition: &Acquisition,
+    snapshot: &MetadataSnapshot,
+) -> Result<(), ApiError> {
     let store = acquisition
         .directory
         .parent()
@@ -804,8 +823,18 @@ fn validate_acquisition(acquisition: &Acquisition, snapshot: &MetadataSnapshot) 
         Some(&acquisition.context.target),
         &acquisition.environment,
     )?;
-    if acquisition.context.extraction_flags.last().is_some_and(|flag| flag == "doctest") {
-        after.context.extraction_flags = vec!["-Z".into(), "unstable-options".into(), "--output-format".into(), "doctest".into()];
+    if acquisition
+        .context
+        .extraction_flags
+        .last()
+        .is_some_and(|flag| flag == "doctest")
+    {
+        after.context.extraction_flags = vec![
+            "-Z".into(),
+            "unstable-options".into(),
+            "--output-format".into(),
+            "doctest".into(),
+        ];
         after.context.rustdoc_format = doctests::FORMAT_VERSION;
     }
     if after.context != acquisition.context {

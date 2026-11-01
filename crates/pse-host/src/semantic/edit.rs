@@ -24,6 +24,63 @@ enum Change {
     Rename(String, String),
     Delete(String),
 }
+/// Adapt the exact native SourceChange into the existing immutable proposal owner.
+/// No raw analyzer handles cross the helper boundary and no source is mutated.
+#[cfg(feature = "native-hir")]
+pub(super) fn native_proposal(
+    configuration: &Configuration,
+    backend: &str,
+    change: &ra_ap_ide_db::source_change::SourceChange,
+    paths: &BTreeMap<ra_ap_vfs::FileId, PathBuf>,
+    digests: &BTreeMap<PathBuf, String>,
+) -> Result<ChangeProposal> {
+    if !change.file_system_edits.is_empty() {
+        return Err(Error::unsupported(
+            "native filesystem SourceChange needs explicit anchored-path mapping; no file operation was discarded",
+        ));
+    }
+    let mut sources = BTreeMap::new();
+    let mut candidates = Vec::new();
+    let mut placeholders = Vec::new();
+    for (id, (edits, snippet)) in &change.source_file_edits {
+        let path = paths.get(&id).ok_or_else(|| {
+            Error::Unavailable("native edit has no unique original VFS path".into())
+        })?;
+        if !path.starts_with(&configuration.project) {
+            return Err(Error::unsupported(
+                "native edit lies outside the selected project",
+            ));
+        }
+        let source = crate::source_read::SourceRequest::Working { path: path.clone() }.acquire()?;
+        if digests
+            .get(path)
+            .is_none_or(|digest| digest != source.identity().source_sha256())
+        {
+            return Err(Error::Stale);
+        }
+        for edit in edits.iter() {
+            if change.is_snippet
+                || snippet.is_some()
+                || edit.insert.contains("todo!")
+                || edit.insert.contains("unimplemented!")
+            {
+                placeholders.push(UnresolvedPlaceholder { candidate: candidates.len(), description: "Native snippet or nested synthesis hole remains unresolved; import obligations require review.".into() });
+            }
+            candidates.push(EditCandidate::new(
+                source.identity().clone(),
+                usize::from(edit.delete.start())..usize::from(edit.delete.end()),
+                edit.insert.clone(),
+            ));
+        }
+        sources.insert(path.clone(), source);
+    }
+    let selected = (0..candidates.len()).collect();
+    Ok(ChangeProposal::with_file_operations(
+        ProducerContext::Semantic { backend: backend.into(), configuration: configuration.identity()?, synchronized_generation: "1".into() },
+        sources.into_values().collect(), candidates, selected, Vec::new(),
+        vec!["Preview only; native source changes do not establish compiler acceptance or equivalence.".into(), "Native synthesis has bounded fuel and unknown completeness. Required imports and nested alternatives remain review obligations.".into(), format!("Native change annotations: {:?}", change.annotations)], placeholders,
+    )?)
+}
 fn invalid(message: impl Into<String>) -> Error {
     Error::Protocol(message.into())
 }
@@ -324,6 +381,7 @@ mod tests {
             no_default_features: false,
             target: None,
             build_macros: false,
+            test_context: false,
         };
         let proposal = proposal(
             &configuration,

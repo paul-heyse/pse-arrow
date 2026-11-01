@@ -189,6 +189,10 @@ pub struct BuildContext {
     environment: BTreeMap<String, Option<String>>,
 }
 impl BuildContext {
+    /// Exact compiler identity used to construct the retained image.
+    pub fn compiler_identity(&self) -> &str {
+        &self.rustc
+    }
     /// Bind observed tool version output and the selected build profile/features.
     /// Values which may contain private configuration are represented only by digests.
     pub fn new(
@@ -556,9 +560,66 @@ impl SourceFingerprint {
     /// Compare fresh pre/post construction observations, including a newly resolved closure.
     pub fn require_unchanged(&self, after: &Self) -> Result<(), HostError> {
         if self != after {
-            return Err(invalid(
-                "source/build context changed during construction; generation must not publish",
-            ));
+            let changed: Vec<_> = self
+                .files
+                .iter()
+                .filter(|(path, hash)| after.files.get(*path).is_some_and(|next| next != *hash))
+                .map(|(path, _)| path)
+                .collect();
+            let removed: Vec<_> = self
+                .files
+                .keys()
+                .filter(|path| !after.files.contains_key(*path))
+                .collect();
+            let added: Vec<_> = after
+                .files
+                .keys()
+                .filter(|path| !self.files.contains_key(*path))
+                .collect();
+            let paths = |name: &str, paths: &[&PathBuf]| {
+                format!(
+                    "{name}={} {:?}",
+                    paths.len(),
+                    paths.iter().take(16).collect::<Vec<_>>()
+                )
+            };
+            let mut context = Vec::new();
+            for (name, differs) in [
+                ("rustc", self.context.rustc != after.context.rustc),
+                ("cargo", self.context.cargo != after.context.cargo),
+                ("profile", self.context.profile != after.context.profile),
+                ("features", self.context.features != after.context.features),
+                ("version", self.version != after.version),
+                ("package_roots", self.package_roots != after.package_roots),
+                (
+                    "additional_files",
+                    self.additional_files != after.additional_files,
+                ),
+            ] {
+                if differs {
+                    context.push(name.to_owned());
+                }
+            }
+            let variables: BTreeSet<_> = self
+                .context
+                .environment
+                .keys()
+                .chain(after.context.environment.keys())
+                .collect();
+            context.extend(
+                variables
+                    .into_iter()
+                    .filter(|key| {
+                        self.context.environment.get(*key) != after.context.environment.get(*key)
+                    })
+                    .map(|key| format!("environment.{key}")),
+            );
+            return Err(invalid(format!(
+                "source/build context changed during construction; generation must not publish; {}; {}; {}; context={context:?}",
+                paths("changed", &changed),
+                paths("added", &added),
+                paths("removed", &removed),
+            )));
         }
         Ok(())
     }

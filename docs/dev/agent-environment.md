@@ -503,6 +503,22 @@ whole-file SHA on a checked descriptor before returning a bounded range. Digest 
 the complete file and states that cost. Reads never rerun compilation, install components or
 prepare a structured compiler driver. Changed original files refuse their digest guard.
 
+For owned compiler observations, explicitly prepare `pse tools prepare compiler-analysis` with
+the matching pinned rustc-dev component. `compiler generate PACKAGE --kind facts --body FUNCTION
+--fact-focus captures --question QUESTION` selects an exact owning body and its nested bodies;
+the same flags work with `compiler probe NAME`. `captures`, `suspension` and `cleanup` select
+different native query families before extraction. The ordinary host does not link compiler-private
+crates. Native observations remain provisional until full compilation, stream capture and original
+input/runtime checks succeed. No file index is published after a failed or interrupted compilation.
+
+`inspect compiler-facts INVOCATION --fact-focus cleanup --max-bytes 16384` passively reads that
+original index. It retains whole bodies, reports omissions and addresses the full original context
+instead of repeating its entire compiler-unit graph. Capture source types, stored types and saved
+coroutine fields are distinct. Move-path may-initialization belongs to analysis-phase drops; later
+cleanup edges, callee ABI and termination causes belong to their recorded phases. These observations
+are neither general loan facts nor runtime resource-release evidence. Missing acquired families
+require explicit new compilation, and an old fact never silently inherits current source context.
+
 Managed probe runs publish their original checkout/invocation, exact command/cwd and control
 reference before launch while holding the existing probe lease. `probe rm` takes that same lease,
 checks every recorded run against original ledger metadata and requires the original native root
@@ -515,8 +531,8 @@ An authenticated borrowed enclosing owner can keep the probe protected until tha
 Semantic helpers use generated binary gRPC over HTTP/2 on their existing private Unix socket.
 Every initial connection and reconnect authenticates the kernel peer against the original
 managed invocation. The server derives client identity from Unix credentials. A reusable typed
-client shares that connection; it does not prepare another service. Selector version 2 identifies
-this protocol. Older selectors remain readable for original native administration, but queries
+client shares that connection; it does not prepare another service. Selector version 4 identifies
+the current native fact semantics. Selectors 1–3 remain readable for original native administration, but queries
 refuse and require explicit stop/repreparation.
 
 Each admitted operation has a session-retained worker. Losing its handler, response stream or
@@ -529,11 +545,16 @@ Transport loss cannot establish that the caller observed settlement. Typed `obse
 Snapshot HIR uses the pinned analyzer's UTF-8 VFS: source-only raw-path access remains available,
 while unsupported native raw-path queries refuse explicitly.
 
-Start a reusable native analyzer explicitly with `scripts/pse code session prepare --project
-PATH`; project defaults to this checkout. Select features/defaults/platform there. Restricted
+Explicitly prepare the native image with `pse tools prepare native-analysis`, then start a reusable
+snapshot with `pse code session prepare --backend native-snapshot --project PATH`; project defaults
+to this checkout. The LSP backend retains its separately prepared selection. Select features/defaults/platform there. Restricted
 preparation disables automatic compiler checking, build scripts and proc macros. Add
 `--build-macros` only for explicit correctness-admitted `check --workspace --all-targets`
 preparation of those outputs. Queries never enable checking or refresh those compiled inputs.
+Native `--test-context` explicitly selects cfg(test); the ordinary native world excludes test-only
+declarations. Build products, macro server/dylib and compiler identities remain visible. A missing
+or changed required product refuses; cancellation during synchronous expansion can remain pending
+until the native work actually returns or the original session is stopped and drained.
 Source-only `inspect outline`, `inspect declaration`, `search syntax` and `propose syntax` remain useful without a
 session; unavailable typed semantics are not silently replaced with text matching.
 
@@ -544,6 +565,12 @@ their actual negotiated encoding. `--if-source SHA` guards a previously observed
 Returned lazy candidate/hint/assist actions also bind the original generation and native-record
 fingerprint; an array index alone cannot select a changed candidate. Related tests are candidates:
 their next action goes through `pse tests`/`pse test` selection rather than executing analyzer argv.
+Native explain/reference views retain operation roles, implicit targets, adjustments and captures
+with available use causes. `--view layout` separates Sized-proven full extents from unsized prefixes
+and unsupported children. `--compiler-layout INVOCATION` reads original type-size evidence and
+checks recorded source/unit/feature/compiler/target premises; missing cfg/edition/per-type compiler
+identity stays unknown and opaque debug output supplies no numerical ABI equality. Native predicates
+retain holds/not-proven/invalid/unsupported; failure to prove never supplies a negative proof.
 
 `propose rename`, `propose assists`/`propose assist`, `propose file-rename` and scoped `propose ssr` produce the same checked
 proposal used by syntax previews. Inspect exact original/replacement regions, file operations,

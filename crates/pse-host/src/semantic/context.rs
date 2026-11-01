@@ -280,6 +280,13 @@ impl Preparation {
         let target = PathBuf::from(target);
         let build_directory = metadata["build_directory"].as_str().map(PathBuf::from)
             .ok_or_else(|| Error::Unavailable("pinned Cargo metadata omitted build_directory; preparation input discovery is unknown".into()))?;
+        // Cargo can atomically create an absent output root through a sibling
+        // staging directory. Establish precisely its declared output roots before
+        // source fencing, so that output creation never resembles a new source tree.
+        if configuration.build_macros {
+            std::fs::create_dir_all(&target)?;
+            std::fs::create_dir_all(&build_directory)?;
+        }
         let mut fence = Self {
             fd: inotify::init(inotify::CreateFlags::NONBLOCK | inotify::CreateFlags::CLOEXEC)
                 .map_err(std::io::Error::from)?,
@@ -487,6 +494,7 @@ mod tests {
             no_default_features: false,
             target: None,
             build_macros: true,
+            test_context: false,
         };
         let mut fence = Preparation::capture(&metadata, &configuration).unwrap();
         std::fs::write(&source, "fn main() { /* concurrent edit */ }\n").unwrap();
@@ -521,6 +529,7 @@ mod tests {
             no_default_features: false,
             target: None,
             build_macros: true,
+            test_context: false,
         };
         let mut fence = Preparation::capture(&metadata, &configuration).unwrap();
         std::fs::write(target.join("ordinary-output"), "compiler output").unwrap();
@@ -556,6 +565,7 @@ mod tests {
             no_default_features: false,
             target: None,
             build_macros: true,
+            test_context: false,
         };
         let mut fence = Preparation::capture(&metadata, &configuration).unwrap();
         fence.seal().unwrap();
@@ -578,10 +588,38 @@ mod tests {
             no_default_features: false,
             target: None,
             build_macros: true,
+            test_context: false,
         };
         assert!(matches!(
             Preparation::capture(&metadata, &configuration),
             Err(Error::Unavailable(_))
         ));
+    }
+
+    #[test]
+    fn extended_preparation_establishes_exact_output_roots_without_ignoring_source_siblings() {
+        let scratch = tempfile::tempdir().unwrap();
+        let package = scratch.path().join("package");
+        std::fs::create_dir(&package).unwrap();
+        let target = package.join("target");
+        let metadata = json!({"target_directory":target,"build_directory":target,"packages":[{"name":"control","manifest_path":package.join("Cargo.toml")}]});
+        let configuration = Configuration {
+            backend: super::super::Backend::NativeSnapshot,
+            project: package.clone(),
+            features: vec![],
+            no_default_features: false,
+            target: None,
+            build_macros: true,
+            test_context: false,
+        };
+        let mut fence = Preparation::capture(&metadata, &configuration).unwrap();
+        assert!(target.is_dir());
+        std::fs::write(target.join("cargo-product"), "output").unwrap();
+        fence.check().unwrap();
+        std::fs::create_dir(package.join("target-staging-is-still-source")).unwrap();
+        assert!(
+            matches!(fence.check(), Err(Error::Stale)),
+            "an unrelated source sibling must not be excluded by a prefix"
+        );
     }
 }

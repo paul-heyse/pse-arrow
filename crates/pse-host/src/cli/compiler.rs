@@ -17,9 +17,12 @@ pub(super) enum Action {
         /// Original investigation question, retained without inferring an answer.
         #[arg(long)]
         question: String,
-        /// Native MIR body substring; native filter operators and 'all' are refused.
+        /// MIR substring, or exact owning body path for facts (including nested closures/coroutines).
         #[arg(long)]
         body: Option<String>,
+        /// Native query family for typed facts; other artifact kinds require the all default.
+        #[arg(long, value_enum, default_value = "all")]
+        fact_focus: artifact::FactFocus,
         /// Native MIR pass substrings; select before/after artifacts at their actual phase.
         #[arg(long = "pass")]
         passes: Vec<String>,
@@ -43,6 +46,9 @@ pub(super) enum Action {
         question: String,
         #[arg(long)]
         body: Option<String>,
+        /// Native query family for typed facts.
+        #[arg(long, value_enum, default_value = "all")]
+        fact_focus: artifact::FactFocus,
         #[arg(long = "pass")]
         passes: Vec<String>,
     },
@@ -69,6 +75,7 @@ pub(super) fn dispatch(
             kind,
             question,
             body,
+            fact_focus,
             passes,
             bin,
             lib: _,
@@ -105,6 +112,7 @@ pub(super) fn dispatch(
                     body,
                     passes,
                     question,
+                    fact_focus,
                 },
                 &environment,
                 host,
@@ -136,6 +144,7 @@ pub(super) fn dispatch(
             kind,
             question,
             body,
+            fact_focus,
             passes,
         } => {
             let environment = std::env::vars_os().collect();
@@ -155,6 +164,7 @@ pub(super) fn dispatch(
                     question,
                     body,
                     passes,
+                    fact_focus,
                 },
                 &environment,
                 host,

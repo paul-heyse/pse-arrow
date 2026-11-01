@@ -37,6 +37,8 @@ const PROVIDER: &str = "rustc/native-artifact-input/v1";
 pub enum Kind {
     /// Body/pass-filtered MIR before/after files.
     Mir,
+    /// Owned typed capture, suspension and cleanup observations from the pinned compiler.
+    Facts,
     /// Selected unit THIR debug text; native rustc has no body filter for this view.
     Thir,
     /// Selected unit encountered concrete layouts; no cross-target ABI conclusion.
@@ -45,6 +47,37 @@ pub enum Kind {
     MonoItems,
     /// Authored isolated probe evaluation; stdout meaning belongs to its source.
     Evaluate,
+}
+/// A selected compiler question family, applied before expensive native query extraction.
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema, clap::ValueEnum,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum FactFocus {
+    /// Acquire all supported families within the selected owning body.
+    #[default]
+    All,
+    /// Capture places, types, modes and source causes.
+    Captures,
+    /// Saved coroutine fields and their suspension variants.
+    Suspension,
+    /// Analysis initialization and lowered normal/unwind cleanup.
+    Cleanup,
+}
+impl FactFocus {
+    /// Stable literal used by the explicitly selected compiler-stage environment.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Captures => "captures",
+            Self::Suspension => "suspension",
+            Self::Cleanup => "cleanup",
+        }
+    }
+    /// Whether this requested family includes a concrete supported extraction.
+    pub fn includes(self, family: Self) -> bool {
+        self == Self::All || self == family
+    }
 }
 /// Explicit native artifact selection. One package and one lib/bin root are required.
 #[derive(Clone, Debug)]
@@ -65,6 +98,8 @@ pub struct Request {
     pub passes: Vec<String>,
     /// Original question; this is not an asserted inferred answer.
     pub question: String,
+    /// Compiler observation demand; non-fact acquisition accepts only All.
+    pub fact_focus: FactFocus,
 }
 fn token(value: &str) -> bool {
     !value.trim().is_empty() && value.trim() != "all" && !value.contains(['&', '|', '\n', '\r'])
@@ -76,12 +111,20 @@ pub fn flags(
     passes: &[String],
     output: &Path,
 ) -> Result<Vec<OsString>, HostError> {
-    if kind != Kind::Mir && (body.is_some() || !passes.is_empty()) {
+    if kind != Kind::Mir && kind != Kind::Facts && (body.is_some() || !passes.is_empty()) {
         return Err(invalid(
             "body/pass filtering is supported only for MIR; THIR/layout/mono output remains selected-unit scope",
         ));
     }
     Ok(match kind {
+        Kind::Facts => {
+            if body.is_none_or(|body| !token(body)) || !passes.is_empty() {
+                return Err(invalid(
+                    "compiler facts require an exact body path and do not accept textual MIR pass filters",
+                ));
+            }
+            Vec::new()
+        }
         Kind::Mir => {
             let body=body.filter(|body|token(body)).ok_or_else(||invalid("MIR requires a nonempty selected body substring without native filter operators; 'all' is unsupported"))?;
             if passes.iter().any(|pass| !token(pass)) {
@@ -164,6 +207,48 @@ pub struct Context {
     pub output_directory: OsString,
     /// Existing authored probe provenance/resolution when this operation selected that owner.
     pub probe: Option<crate::probe::Probe>,
+    /// Explicitly selected compiler observation image and its dynamically loaded compiler libraries.
+    pub compiler_stage: Option<CompilerStage>,
+    /// Requested compiler families; unrequested fields are not established absent.
+    pub fact_focus: Option<FactFocus>,
+}
+/// Immutable helper selection and observed runtime dependency identities for this acquisition.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct CompilerStage {
+    /// Checkout-bound explicitly prepared helper selection.
+    pub selection: String,
+    /// Helper source association at preparation.
+    pub source_sha256: String,
+    /// Captured executable's content identity.
+    pub executable_sha256: String,
+    /// Exact dynamic compiler/runtime library files read before acquisition.
+    pub runtime_libraries: Vec<ArtifactFile>,
+    /// Observed loader-name resolutions; a retargeted alias is not the recorded image.
+    #[serde(default)]
+    pub runtime_paths: Vec<RuntimePath>,
+}
+/// Native library path and the exact image path it resolved to at admission.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct RuntimePath {
+    /// Original path placed in the toolchain loader search.
+    pub requested: OsString,
+    /// Observed canonical image location.
+    pub resolved: OsString,
+}
+#[derive(Default)]
+struct RuntimeCapture {
+    files: Vec<ArtifactFile>,
+    paths: Vec<RuntimePath>,
+}
+fn verify_runtime_paths(paths: &[RuntimePath]) -> Result<(), HostError> {
+    for path in paths {
+        if Path::new(&path.requested).canonicalize()?.as_os_str() != path.resolved {
+            return Err(invalid(
+                "compiler runtime library path resolves to a different image",
+            ));
+        }
+    }
+    Ok(())
 }
 /// Prepared request; it grants no native execution or completed-artifact claim by itself.
 #[derive(Debug)]
@@ -177,6 +262,7 @@ pub struct Prepared {
     /// Fixed unique original evidence directory.
     pub directory: PathBuf,
     context_sha256: String,
+    compiler_tool: Option<crate::prepared_xtask::PreparedNativeTool>,
 }
 fn private_directory(path: &Path) -> Result<(), HostError> {
     fs::DirBuilder::new()
@@ -230,6 +316,137 @@ fn generation_environment(environment: &mut Environment) {
     environment.insert("SCCACHE_NO_CACHE".into(), "1".into());
     environment.remove(OsStr::new("SCCACHE_RECACHE"));
 }
+struct FactSelection<'a> {
+    root: &'a Path,
+    control_root: &'a Path,
+    source: &'a Path,
+    body: &'a str,
+    focus: FactFocus,
+    directory: &'a Path,
+    output: &'a Path,
+}
+fn prepare_facts(
+    selection: FactSelection<'_>,
+    environment: &mut Environment,
+) -> Result<(crate::prepared_xtask::PreparedNativeTool, RuntimeCapture), HostError> {
+    if environment.contains_key(OsStr::new("RUSTC_WORKSPACE_WRAPPER")) {
+        return Err(invalid(
+            "compiler facts do not replace an existing workspace compiler wrapper",
+        ));
+    }
+    let tool = crate::prepared_xtask::PreparedNativeTool::current_for(
+        selection.control_root,
+        environment,
+        crate::prepared_xtask::NativeToolTarget::CompilerAnalysis,
+    )
+    .map_err(|e| invalid(e.to_string()))?;
+    tool.executable()
+        .verify()
+        .map_err(|e| invalid(e.to_string()))?;
+    // Cargo includes this unique captured wrapper path in the selected crate fingerprint.
+    environment.insert(
+        "RUSTC_WORKSPACE_WRAPPER".into(),
+        selection
+            .directory
+            .join("compiler-wrapper")
+            .into_os_string(),
+    );
+    environment.insert(
+        "PSE_COMPILER_FACTS_OUTPUT".into(),
+        selection.output.join("facts.binpb").into_os_string(),
+    );
+    environment.insert(
+        "PSE_COMPILER_FACTS_ROOT".into(),
+        selection.source.as_os_str().to_owned(),
+    );
+    environment.insert("PSE_COMPILER_FACTS_BODY".into(), selection.body.into());
+    environment.insert(
+        "PSE_COMPILER_FACTS_FOCUS".into(),
+        selection.focus.as_str().into(),
+    );
+    let compiler = environment
+        .get(OsStr::new("RUSTC"))
+        .cloned()
+        .unwrap_or_else(|| "rustc".into());
+    let print = |name: &str| -> Result<PathBuf, HostError> {
+        let result = Command::new(&compiler)
+            .args(["--print", name])
+            .current_dir(selection.root)
+            .env_clear()
+            .envs(&*environment)
+            .output()?;
+        if !result.status.success() {
+            return Err(invalid(format!("selected compiler {name} is unavailable")));
+        }
+        Ok(PathBuf::from(
+            String::from_utf8(result.stdout)
+                .map_err(|e| invalid(e.to_string()))?
+                .trim(),
+        ))
+    };
+    let mut paths = vec![print("sysroot")?.join("lib"), print("target-libdir")?];
+    let mut runtime = RuntimeCapture::default();
+    for directory in &paths {
+        for entry in fs::read_dir(directory)? {
+            let path = entry?.path();
+            if path.extension() == Some(OsStr::new("so"))
+                || path.file_name().is_some_and(|name| {
+                    name.as_encoded_bytes()
+                        .windows(4)
+                        .any(|part| part == b".so.")
+                })
+            {
+                let resolved = path.canonicalize()?;
+                runtime.paths.push(RuntimePath {
+                    requested: path.into_os_string(),
+                    resolved: resolved.as_os_str().to_owned(),
+                });
+                if !runtime
+                    .files
+                    .iter()
+                    .any(|file| file.path == resolved.as_os_str())
+                {
+                    runtime.files.push(file_digest(&resolved)?);
+                }
+            }
+        }
+    }
+    if !runtime.files.iter().any(|library| {
+        Path::new(&library.path)
+            .file_name()
+            .is_some_and(|name| name.as_encoded_bytes().starts_with(b"librustc_driver"))
+    }) {
+        return Err(invalid(
+            "selected compiler has no observable rustc_driver runtime library",
+        ));
+    }
+    if let Some(existing) = environment.get(OsStr::new("LD_LIBRARY_PATH")) {
+        paths.extend(std::env::split_paths(existing));
+    }
+    environment.insert(
+        "LD_LIBRARY_PATH".into(),
+        std::env::join_paths(paths).map_err(|e| invalid(e.to_string()))?,
+    );
+    let version = identity(&compiler, selection.root, environment)?;
+    tool.verify_compiler_stage(&version)
+        .map_err(|e| invalid(e.to_string()))?;
+    Ok((tool, runtime))
+}
+fn stage_record(
+    tool: Option<&crate::prepared_xtask::PreparedNativeTool>,
+    runtime: RuntimeCapture,
+) -> Result<Option<CompilerStage>, HostError> {
+    tool.map(|tool| {
+        Ok::<_, HostError>(CompilerStage {
+            selection: tool.id().into(),
+            source_sha256: tool.source_identity().map_err(|e| invalid(e.to_string()))?,
+            executable_sha256: tool.executable().sha256.clone(),
+            runtime_libraries: runtime.files,
+            runtime_paths: runtime.paths,
+        })
+    })
+    .transpose()
+}
 fn snapshot(source: &Path, target: &Path) -> Result<CapturedInput, HostError> {
     let bytes = fs::read(source)?;
     publish(target, &bytes)?;
@@ -250,6 +467,9 @@ pub fn prepare(
     environment: &Environment,
     host: &PreparedGeneration,
 ) -> Result<Prepared, HostError> {
+    if request.kind != Kind::Facts && request.fact_focus != FactFocus::All {
+        return Err(invalid("--fact-focus requires --kind facts"));
+    }
     if request.question.trim().is_empty() {
         return Err(invalid(
             "native artifact generation requires the selected question",
@@ -311,6 +531,26 @@ pub fn prepare(
     }
     .acquire()
     .map_err(crate::source_command::SourceCommandError::from)?;
+    let (facts_tool, runtime_libraries) = if request.kind == Kind::Facts {
+        let (tool, libraries) = prepare_facts(
+            FactSelection {
+                root,
+                control_root,
+                source: source.identity().path(),
+                body: request
+                    .body
+                    .as_deref()
+                    .ok_or_else(|| invalid("compiler body is absent"))?,
+                focus: request.fact_focus,
+                directory: &directory,
+                output: &output,
+            },
+            &mut environment,
+        )?;
+        (Some(tool), libraries)
+    } else {
+        (None, RuntimeCapture::default())
+    };
     let cargo = correctness::real_cargo_in(&environment)?;
     let rustc_identity = identity(
         environment
@@ -320,6 +560,10 @@ pub fn prepare(
         &environment,
     )?;
     let cargo_identity = identity(&cargo, root, &environment)?;
+    if let Some(tool) = &facts_tool {
+        tool.verify_compiler_stage(&rustc_identity)
+            .map_err(|error| invalid(error.to_string()))?;
+    }
     InvocationStore::new(state.clone()).register()?;
     private_directory(
         directory
@@ -328,6 +572,13 @@ pub fn prepare(
     )?;
     fs::DirBuilder::new().mode(0o700).create(&directory)?;
     private_directory(&output)?;
+    if let Some(tool) = &facts_tool {
+        crate::discovery::capture::executable(
+            &tool.executable().captured,
+            &directory.join("compiler-wrapper"),
+        )
+        .map_err(|e| invalid(e.to_string()))?;
+    }
     let mut inputs = vec![snapshot(
         source.identity().path(),
         &directory.join("source.rs"),
@@ -364,6 +615,8 @@ pub fn prepare(
         environment_sha256: environment_sha(&environment),
         output_directory: output.into_os_string(),
         probe: None,
+        compiler_stage: stage_record(facts_tool.as_ref(), runtime_libraries)?,
+        fact_focus: (request.kind == Kind::Facts).then_some(request.fact_focus),
     };
     let bytes = serde_json::to_vec_pretty(&context).map_err(std::io::Error::other)?;
     publish(&directory.join("context.json"), &bytes)?;
@@ -379,6 +632,7 @@ pub fn prepare(
         command,
         directory,
         context_sha256: digest(&bytes),
+        compiler_tool: facts_tool,
     })
 }
 /// Prepare an existing explicitly authored isolated probe through its original graph/lease owner.
@@ -395,6 +649,8 @@ pub struct ProbeRequest {
     pub body: Option<String>,
     /// Native MIR pass substrings when applicable.
     pub passes: Vec<String>,
+    /// Requested typed compiler families; other artifact kinds require All.
+    pub fact_focus: FactFocus,
 }
 /// Resolve an existing probe and retain its original inputs under the same live-user lease.
 pub fn prepare_probe(
@@ -412,7 +668,11 @@ pub fn prepare_probe(
         question,
         body,
         passes,
+        fact_focus,
     } = request;
+    if kind != Kind::Facts && fact_focus != FactFocus::All {
+        return Err(invalid("--fact-focus requires --kind facts"));
+    }
     if question.trim().is_empty() {
         return Err(invalid("probe evidence requires the selected question"));
     }
@@ -458,6 +718,25 @@ pub fn prepare_probe(
     }
     .acquire()
     .map_err(crate::source_command::SourceCommandError::from)?;
+    let (facts_tool, runtime_libraries) = if kind == Kind::Facts {
+        let (tool, libraries) = prepare_facts(
+            FactSelection {
+                root: &run.probe.directory,
+                control_root,
+                source: source.identity().path(),
+                body: body
+                    .as_deref()
+                    .ok_or_else(|| invalid("compiler body is absent"))?,
+                focus: fact_focus,
+                directory: &directory,
+                output: &output,
+            },
+            &mut run.environment,
+        )?;
+        (Some(tool), libraries)
+    } else {
+        (None, RuntimeCapture::default())
+    };
     InvocationStore::new(state.clone()).register()?;
     private_directory(
         directory
@@ -466,6 +745,13 @@ pub fn prepare_probe(
     )?;
     fs::DirBuilder::new().mode(0o700).create(&directory)?;
     private_directory(&output)?;
+    if let Some(tool) = &facts_tool {
+        crate::discovery::capture::executable(
+            &tool.executable().captured,
+            &directory.join("compiler-wrapper"),
+        )
+        .map_err(|e| invalid(e.to_string()))?;
+    }
     let mut inputs = vec![snapshot(
         source.identity().path(),
         &directory.join("source.rs"),
@@ -508,6 +794,8 @@ pub fn prepare_probe(
         environment_sha256: environment_sha(&run.environment),
         output_directory: output.into_os_string(),
         probe: Some(run.probe.clone()),
+        compiler_stage: stage_record(facts_tool.as_ref(), runtime_libraries)?,
+        fact_focus: (kind == Kind::Facts).then_some(fact_focus),
     };
     let bytes = serde_json::to_vec_pretty(&context).map_err(std::io::Error::other)?;
     publish(&directory.join("context.json"), &bytes)?;
@@ -524,21 +812,51 @@ pub fn prepare_probe(
             command,
             directory,
             context_sha256: digest(&bytes),
+            compiler_tool: facts_tool,
         },
         run,
     ))
 }
 impl Prepared {
-    /// Recheck explicitly retained inputs and native admission immediately before effects.
-    /// This does not promise an atomic filesystem snapshot of all transitive source reads.
-    pub fn verify(&self) -> Result<(), HostError> {
+    fn verify_selected_inputs(&self) -> Result<(), HostError> {
         for input in &self.context.inputs {
             if digest(&fs::read(Path::new(&input.source))?) != input.sha256 {
                 return Err(invalid(
-                    "selected compiler input changed after preparation; resolve a new explicit generation",
+                    "selected compiler input changed during acquisition; original snapshots remain retained without a completed fact claim",
                 ));
             }
         }
+        Ok(())
+    }
+    fn verify_compiler_runtime(&self) -> Result<(), HostError> {
+        if let Some(stage) = &self.context.compiler_stage {
+            verify_runtime_paths(&stage.runtime_paths)?;
+            if file_digest(&self.directory.join("compiler-wrapper"))?.sha256
+                != stage.executable_sha256
+            {
+                return Err(invalid(
+                    "captured compiler wrapper changed during acquisition",
+                ));
+            }
+            for library in &stage.runtime_libraries {
+                if file_digest(Path::new(&library.path))?.sha256 != library.sha256 {
+                    return Err(invalid(
+                        "compiler runtime library changed during acquisition",
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+    /// Recheck explicitly retained inputs and native admission immediately before effects.
+    /// This does not promise an atomic filesystem snapshot of all transitive source reads.
+    pub fn verify(&self) -> Result<(), HostError> {
+        if let Some(tool) = &self.compiler_tool {
+            tool.verify_compiler_stage(&self.context.rustc_identity)
+                .map_err(|e| invalid(e.to_string()))?;
+        }
+        self.verify_compiler_runtime()?;
+        self.verify_selected_inputs()?;
         let current = correctness::resolve_at(
             Path::new(&self.context.cwd),
             &self.environment,
@@ -747,6 +1065,14 @@ pub fn finish(
     prepared: &Prepared,
     store: &InvocationStore,
 ) -> Result<Vec<ArtifactReference>, HostError> {
+    prepared.verify_selected_inputs()?;
+    if prepared.context.kind == Kind::Facts {
+        prepared.verify_compiler_runtime()?;
+        let bytes = crate::test_inventory::read_private(
+            &Path::new(&prepared.context.output_directory).join("facts.binpb"),
+        )?;
+        super::facts::validate_acquisition(&bytes, &prepared.context)?;
+    }
     let mut files = Vec::new();
     let retained = prepared.directory.join("retained");
     private_directory(&retained)?;
@@ -829,6 +1155,72 @@ pub struct Observation {
     /// Distinguish original lack of publication from a subsequently missing retained index.
     pub index_availability: IndexAvailability,
 }
+/// Compact projection of original compiler premises; the full graph remains addressed evidence.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct SelectedContext {
+    /// Original acquisition kind.
+    pub kind: Kind,
+    /// Original question, not an asserted answer.
+    pub question: String,
+    /// Exact selected owning body, where applicable.
+    pub body: Option<String>,
+    /// Original requested fact families.
+    pub fact_focus: Option<FactFocus>,
+    /// Selected native MIR pass filters.
+    pub passes: Vec<String>,
+    /// Exact original selected root units; transitive units stay in full_context.
+    pub roots: Vec<correctness::CompilerUnit>,
+    /// Count of separately addressed transitive/non-root units.
+    pub other_units: usize,
+    /// Original performing command arguments.
+    pub arguments: Vec<OsString>,
+    /// Original selected source identity; no today's-source equality is asserted.
+    pub source: SourceIdentity,
+    /// Original explicitly captured inputs, not every transitive compiler read.
+    pub inputs: Vec<CapturedInput>,
+    /// Exact performing compiler identity.
+    pub rustc_identity: String,
+    /// Exact performing Cargo identity.
+    pub cargo_identity: String,
+    /// Digest-bound full original context, absent without a published file index.
+    pub full_context: Option<ArtifactFile>,
+}
+/// Shape an already verified observation without reconstructing its original serialized identity.
+pub fn selected_context(original: &Observation) -> SelectedContext {
+    let context = &original.context;
+    let roots = context
+        .admitted
+        .units
+        .iter()
+        .filter(|unit| unit.root)
+        .cloned()
+        .collect::<Vec<_>>();
+    let full_context = original.index.as_ref().and_then(|index| {
+        index
+            .files
+            .iter()
+            .find(|file| {
+                file.sha256 == index.context_sha256
+                    && Path::new(&file.path).file_name() == Some(OsStr::new("context.json"))
+            })
+            .cloned()
+    });
+    SelectedContext {
+        kind: context.kind,
+        question: context.question.clone(),
+        body: context.body.clone(),
+        fact_focus: context.fact_focus,
+        passes: context.passes.clone(),
+        other_units: context.admitted.units.len().saturating_sub(roots.len()),
+        roots,
+        arguments: context.admitted.arguments.clone(),
+        source: context.source.clone(),
+        inputs: context.inputs.clone(),
+        rustc_identity: context.rustc_identity.clone(),
+        cargo_identity: context.cargo_identity.clone(),
+        full_context,
+    }
+}
 /// Original publication and current retention are separate observations.
 #[derive(Clone, Copy, Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -866,6 +1258,7 @@ pub fn observe(
     let directory = state.root.join("artifacts/compiler").join(id.as_str());
     let bytes = crate::test_inventory::read_private(&directory.join("context.json"))?;
     let sha = digest(&bytes);
+    let context_sha256 = sha.clone();
     if !original.providers.iter().any(|provider| {
         provider.provider == PROVIDER && provider.analysis_generation.as_deref() == Some(&sha)
     }) {
@@ -892,11 +1285,7 @@ pub fn observe(
             ));
         }
         let index: Index = serde_json::from_slice(&bytes).map_err(std::io::Error::other)?;
-        if index.version != 1
-            || index.invocation != id
-            || index.context_sha256
-                != digest(&serde_json::to_vec_pretty(&context).map_err(std::io::Error::other)?)
-        {
+        if index.version != 1 || index.invocation != id || index.context_sha256 != context_sha256 {
             return Err(invalid(
                 "completed compiler artifact index has changed context",
             ));

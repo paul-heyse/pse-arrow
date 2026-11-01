@@ -12,8 +12,9 @@ answer the question, retaining the repository's environment and validation oblig
 
 The native environment puts the checkout's `scripts/` on `PATH`, so `pse` resolves to
 `scripts/pse`. Without activation, use that explicit launcher. Prepare a missing host with
-`scripts/bootstrap-host`; help and reads do not prepare it. Use `pse commands FAMILY` or
-`pse help COMMAND` for current parser-owned syntax. Do not guess options or response fields.
+`scripts/bootstrap-host`; help and reads do not prepare it. Use `pse COMMAND --help` for concise
+syntax, `pse help COMMAND` for structured parser metadata, or `pse commands FAMILY` for discovery.
+Do not guess options or response fields.
 
 ## Choose by question
 

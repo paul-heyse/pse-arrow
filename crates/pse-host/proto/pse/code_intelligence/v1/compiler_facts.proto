@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+syntax = "proto3";
+package pse.code_intelligence.v1;
+
+// An owned observation from one selected compiler invocation, never a reusable rustc ID.
+message CompilerFacts {
+  string compiler = 1;
+  repeated CompilerBodyFact bodies = 2;
+}
+message CompilerBodyFact {
+  string path = 1;
+  repeated CompilerCaptureFact captures = 2;
+  repeated CompilerSavedField saved_fields = 3;
+  repeated CompilerSuspensionVariant variants = 4;
+  repeated CompilerCleanupFact cleanup = 5;
+  CompilerSourceLocation source = 6;
+  repeated string unavailable = 7;
+  string abi = 8;
+  string panic_strategy = 9;
+  bool coroutine = 10;
+}
+// Compiler-source offsets, not a claim of unique correspondence to current authored source.
+message CompilerSourceLocation {
+  string file = 1;
+  uint32 start = 2;
+  uint32 end = 3;
+  bool macro_expanded = 4;
+}
+message CompilerCaptureFact {
+  enum Mode { UNKNOWN_CAPTURE = 0; SHARED = 1; UNIQUE_SHARED = 2; MUTABLE = 3; MOVED = 4; USED = 5; }
+  string place_display = 1;
+  Mode mode = 2;
+  CompilerSourceLocation source = 3;
+  string source_type_display = 4;
+  optional string stored_type_display = 5;
+}
+message CompilerSavedField {
+  uint32 index = 1;
+  string type_display = 2;
+  string source_display = 3;
+  CompilerSourceLocation source = 4;
+}
+message CompilerSuspensionVariant {
+  uint32 index = 1;
+  repeated uint32 fields = 2;
+  string source_display = 3;
+  CompilerSourceLocation source = 4;
+}
+message CompilerCleanupFact {
+  enum Kind { OTHER_TERMINATOR = 0; DROP = 1; CALL = 2; ASSERT = 3; RETURN = 4; UNWIND_RESUME = 5; UNWIND_TERMINATE = 6; }
+  enum Unwind { NO_UNWIND_EDGE = 0; CONTINUE = 1; UNREACHABLE = 2; CLEANUP = 3; TERMINATE = 4; }
+  string phase = 1;
+  uint32 block = 2;
+  Kind kind = 3;
+  optional uint32 local = 4;
+  string place_display = 5;
+  repeated uint32 normal_successors = 6;
+  Unwind unwind = 7;
+  optional uint32 cleanup_block = 8;
+  string source_display = 9;
+  CompilerSourceLocation source = 10;
+  bool is_cleanup = 11;
+  CompilerInitialization initialization = 12;
+  optional TerminationCause termination_cause = 13;
+  CompilerCallee callee = 14;
+  enum TerminationCause { UNKNOWN_TERMINATION = 0; ABI = 1; IN_CLEANUP = 2; }
+}
+message CompilerCallee {
+  string abi = 1;
+  // A qualified compiler-local declaration display, never a universal symbol ID.
+  optional string declaration_path = 2;
+}
+// Conservative native move-path state immediately before this analysis-phase drop.
+// Both true means a conditional state; both false does not establish reachability.
+message CompilerInitialization {
+  bool may_initialized = 1;
+  bool may_uninitialized = 2;
+}

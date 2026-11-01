@@ -7,7 +7,7 @@
     "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
     "scripts/protobuf-associations.rs": "5b30385260b7c9693affca32df93a5f7a0f6cf1a7093352de9cbcc6124776a9b",
     "xtask/src/codegen/code_intelligence.rs": "c3d884b81a6c42b1e35936a79080931e135445558919018808663d23ee1beb99",
-    "xtask/src/codegen/code_intelligence/associations.rs": "4e7edb6835049e1f1c113d4bbe3b40a17e1c2561050f4abf5738dcb50ee07926"
+    "xtask/src/codegen/code_intelligence/associations.rs": "1c4d513d3ee86358d6f1cc5b1e1aaf71a3410f3d05edfc1dbe392f57a74b30b7"
   },
   "associations": [
     {

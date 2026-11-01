@@ -687,7 +687,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         | "propose file-rename"
         | "propose assists"
         | "propose assist"
-        | "propose ssr" => envelope::schema::<crate::semantic::Answer>(command, view),
+        | "propose ssr" => {
+            envelope::schema::<crate::cli::code::semantic::AnswerView>(command, view)
+        }
         "inspect entity refusal" | "propose entity refusal" => {
             envelope::schema::<crate::semantic::Failure>(command, view)
         }
@@ -697,6 +699,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "inspect changes" => envelope::schema::<changes::Report>(command, view),
         "inspect api" => envelope::schema::<crate::api::query::Report>(command, view),
         "propose syntax" => envelope::schema::<crate::source_query::PreviewReport>(command, view),
+        "propose grammar" => {
+            envelope::schema::<crate::source_proposal::ChangeProposal>(command, view)
+        }
         "inspect owner" => envelope::schema::<OwnerView>(command, view),
         "inspect artifact" => envelope::schema::<crate::artifacts::ArtifactRead>(command, view),
         "inspect compiler-artifact" => {
@@ -704,6 +709,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         }
         "inspect compiler-artifacts" => {
             envelope::schema::<crate::compiler_investigation::artifact::Observation>(command, view)
+        }
+        "inspect compiler-facts" => {
+            envelope::schema::<crate::compiler_investigation::facts::Report>(command, view)
         }
         "inspect test-selection" | "inspect check-selection" => {
             envelope::schema::<crate::test_workflow::BriefExplanation<'static>>(command, view)
@@ -2360,6 +2368,7 @@ mod tests {
                 backend: outline.backend,
                 rust_edition: outline.rust_edition,
                 parse_issues: outline.parse_issues,
+                facts: Vec::new(),
                 selection,
             },
         );

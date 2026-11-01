@@ -55,6 +55,8 @@ pub enum NativeToolTarget {
     Xtask,
     /// Explicitly prepared native HIR/IDE semantic service.
     NativeAnalysis,
+    /// Explicitly prepared, one-shot pinned compiler observation wrapper.
+    CompilerAnalysis,
 }
 struct ToolProfile {
     name: &'static str,
@@ -79,6 +81,13 @@ impl NativeToolTarget {
                 binary: "pse-native-analysis",
                 source: "crates/pse-host/src/bin/pse-native-analysis.rs",
                 features: &["native-hir"],
+            },
+            Self::CompilerAnalysis => ToolProfile {
+                name: "compiler-analysis",
+                package: "pse-host",
+                binary: "pse-compiler-analysis",
+                source: "crates/pse-host/src/bin/pse-compiler-analysis.rs",
+                features: &["compiler-analysis"],
             },
         }
     }
@@ -473,6 +482,18 @@ impl PreparedNativeTool {
     pub fn executable(&self) -> &Executable {
         &self.manifest.executable
     }
+    /// Validate immutable custody, present source association and the exact compiler pin.
+    pub fn verify_compiler_stage(&self, compiler: &str) -> Result<(), PreparedNativeToolError> {
+        if self.target() != NativeToolTarget::CompilerAnalysis
+            || self.manifest.context.compiler_identity() != compiler
+        {
+            return Err(invalid(
+                "compiler observation stage does not match the selected compiler identity",
+            ));
+        }
+        self.verify()?;
+        self.require_current_sources()
+    }
     /// Actual root features from the same compiler-artifact and admission evidence.
     pub fn features(&self) -> &BTreeSet<String> {
         &self.manifest.features
@@ -570,6 +591,16 @@ impl PreparedNativeTool {
         }
         executable.verify()?;
         match self.manifest.target {
+            NativeToolTarget::CompilerAnalysis => {
+                if self.manifest.catalog.is_some()
+                    || self.manifest.owner_schema.is_some()
+                    || self.manifest.protocol.is_some()
+                {
+                    return Err(invalid(
+                        "compiler observations are a one-shot stage, not a passive document/service protocol",
+                    ));
+                }
+            }
             NativeToolTarget::Xtask => {
                 if self.manifest.protocol.is_some() {
                     return Err(invalid(
@@ -632,13 +663,14 @@ impl PreparedNativeTool {
     /// Original native parser export. Missing per-verb metadata remains unavailable in it.
     pub fn catalog(&self) -> Result<Page<Description>, PreparedNativeToolError> {
         self.verify()?;
-        let mut page = catalog_document(&self.evidence(
-            self.manifest.catalog.as_ref().ok_or_else(|| {
-                invalid("this target exposes its fixed semantic protocol, not an xtask catalog")
-            })?,
-            "commands.json",
-            MAX_DOCUMENT,
-        )?)?;
+        let mut page =
+            catalog_document(&self.evidence(
+                self.manifest.catalog.as_ref().ok_or_else(|| {
+                    invalid("this target does not expose an xtask parser catalog")
+                })?,
+                "commands.json",
+                MAX_DOCUMENT,
+            )?)?;
         page.source.generation = Some(self.id().into());
         page.source.freshness = crate::catalog::description::Freshness::RetainedSnapshot;
         page.limitations.push("Captured native parser metadata; current source association and execution readiness are independently checked only before dispatch.".into());
@@ -958,8 +990,12 @@ fn source_for(
 }
 fn source_build_arguments_for(target: NativeToolTarget) -> Vec<String> {
     let profile = target.profile();
-    [
-        "build",
+    let mut arguments: Vec<String> = [
+        if target == NativeToolTarget::CompilerAnalysis {
+            "rustc"
+        } else {
+            "build"
+        },
         "--locked",
         "-p",
         profile.package,
@@ -972,7 +1008,11 @@ fn source_build_arguments_for(target: NativeToolTarget) -> Vec<String> {
     ]
     .into_iter()
     .map(String::from)
-    .collect()
+    .collect();
+    if target == NativeToolTarget::CompilerAnalysis {
+        arguments.extend(["--".into(), "-Cprefer-dynamic".into()]);
+    }
+    arguments
 }
 #[cfg(test)]
 fn source_build_command(
@@ -1101,10 +1141,12 @@ pub fn prepare_for(
         let schema = query(&["owner", "--schema"], "owner-schema.json", "owner-schema")?;
         schema_document(&schema)?;
         (Some(catalog), Some(schema), None)
-    } else {
+    } else if target == NativeToolTarget::NativeAnalysis {
         let protocol = query(&["--protocol"], "protocol.json", "native-semantic-protocol")?;
         protocol_document(&protocol)?;
         (None, None, Some(protocol))
+    } else {
+        (None, None, None)
     };
     let (after, _, admission_after) = source_for(&checkout, &environment, target)?;
     require_same_compiler_context(&build.resolution, &admission_after)?;

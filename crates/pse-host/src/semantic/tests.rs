@@ -37,6 +37,7 @@ fn compact_native_sections_and_workspace_answers_round_trip_without_invented_fac
                     no_default_features: false,
                     target: None,
                     build_macros: false,
+                    test_context: false,
                 },
                 position_encoding: "utf-8".into(),
                 backend_status: Some(json!({"actual_target":"selected-target"})),
@@ -251,6 +252,180 @@ fn checkout() -> PathBuf {
         .unwrap()
         .to_owned()
 }
+
+#[cfg(feature = "native-hir")]
+async fn extended_native_managed_macro_journey() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(project.path().join("src")).unwrap();
+    std::fs::create_dir_all(project.path().join("macros/src")).unwrap();
+    std::fs::write(project.path().join("Cargo.toml"),"[package]\nname='managed-native-macro'\nversion='0.0.0'\nedition='2024'\n[workspace]\n[dependencies]\nmanaged-macro={path='macros'}\n").unwrap();
+    std::fs::write(project.path().join("Cargo.lock"),"version=4\n[[package]]\nname='managed-native-macro'\nversion='0.0.0'\ndependencies=['managed-macro']\n[[package]]\nname='managed-macro'\nversion='0.0.0'\n").unwrap();
+    std::fs::write(project.path().join("macros/Cargo.toml"),"[package]\nname='managed-macro'\nversion='0.0.0'\nedition='2024'\n[lib]\nproc-macro=true\n").unwrap();
+    std::fs::copy(
+        checkout().join("rust-toolchain.toml"),
+        project.path().join("rust-toolchain.toml"),
+    )
+    .unwrap();
+    let flag = project.path().join("target/slow-expansion");
+    let entered = project.path().join("target/expansion-entered");
+    let finished = project.path().join("target/expansion-finished");
+    let macro_source = r#"extern crate proc_macro; #[proc_macro_derive(Slow)] pub fn slow(_:proc_macro::TokenStream)->proc_macro::TokenStream { if std::path::Path::new(__FLAG__).exists() { std::fs::write(__ENTERED__,"entered").unwrap(); std::thread::sleep(std::time::Duration::from_secs(60)); std::fs::write(__FINISHED__,"finished").unwrap(); } "impl Selected {pub fn expanded(){}}".parse().unwrap() }"#
+        .replace("__FLAG__",&format!("{flag:?}"))
+        .replace("__ENTERED__",&format!("{entered:?}"))
+        .replace("__FINISHED__",&format!("{finished:?}"));
+    std::fs::write(project.path().join("macros/src/lib.rs"), macro_source).unwrap();
+    let file = project.path().join("src/lib.rs");
+    let source = "#[derive(managed_macro::Slow)] pub struct Selected; pub fn selected(){Selected::expanded();}";
+    std::fs::write(&file, source).unwrap();
+    let session = Session::new();
+    session.run(&["tools", "prepare", "native-analysis"], 0);
+    session.run(
+        &[
+            "code",
+            "session",
+            "prepare",
+            "--backend",
+            "native-snapshot",
+            "--project",
+            project.path().to_str().unwrap(),
+            "--build-macros",
+        ],
+        0,
+    );
+    session.ready();
+    let other_project = tempfile::tempdir().unwrap();
+    std::fs::create_dir(other_project.path().join("src")).unwrap();
+    std::fs::write(other_project.path().join("Cargo.toml"),"[package]\nname='independent-native-session'\nversion='0.0.0'\nedition='2024'\n[workspace]\n").unwrap();
+    std::fs::write(
+        other_project.path().join("Cargo.lock"),
+        "version=4\n[[package]]\nname='independent-native-session'\nversion='0.0.0'\n",
+    )
+    .unwrap();
+    std::fs::copy(
+        checkout().join("rust-toolchain.toml"),
+        other_project.path().join("rust-toolchain.toml"),
+    )
+    .unwrap();
+    std::fs::write(
+        other_project.path().join("src/lib.rs"),
+        "pub fn untouched()->u32 {7}",
+    )
+    .unwrap();
+    let other = Session::new();
+    other.run(&["tools", "prepare", "native-analysis"], 0);
+    other.run(
+        &[
+            "code",
+            "session",
+            "prepare",
+            "--backend",
+            "native-snapshot",
+            "--project",
+            other_project.path().to_str().unwrap(),
+        ],
+        0,
+    );
+    other.ready();
+    let mut environment: crate::environment::Environment = std::env::vars_os().collect();
+    environment.remove(std::ffi::OsStr::new("RUSTUP_TOOLCHAIN"));
+    environment.insert(
+        "XDG_STATE_HOME".into(),
+        session.state.path().as_os_str().to_owned(),
+    );
+    let record = load(&session.root, &environment).unwrap().unwrap();
+    let connected = Client::connect(&session.root, &environment, &record)
+        .await
+        .unwrap();
+    std::fs::write(flag, "expand slowly").unwrap();
+    let offset = source.find("expanded();").unwrap();
+    let query = Request::Query(Query {
+        kind: Kind::Explain,
+        file,
+        line: 1,
+        column: offset + 1,
+        if_source: Some(crate::source_read::source_digest(source)),
+        if_generation: Some(1),
+        if_candidate: None,
+        limit: 20,
+        end_line: None,
+    });
+    let request = tokio::spawn(async move { connected.request(&query, None).await });
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+    while !entered.exists() {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "actual managed macro never entered; request_finished={}",
+            request.is_finished()
+        );
+        assert!(
+            !request.is_finished(),
+            "macro request returned before actual expansion entry"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    // The original managed owner escalates and proves drain. Query transport
+    // completion or a stop acknowledgement alone cannot establish this outcome.
+    let session = tokio::task::spawn_blocking(move || {
+        session.stop();
+        session
+    })
+    .await
+    .unwrap();
+    assert!(
+        !finished.exists(),
+        "slow macro completed naturally; stop escalation was not exercised"
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_secs(30), request)
+            .await
+            .unwrap()
+            .unwrap()
+            .is_err()
+    );
+    assert_eq!(
+        other.run(&["code", "session", "status"], 0)["payload"]["analyzer"]["context_current"],
+        true
+    );
+    other.run(
+        &[
+            "inspect",
+            "entity",
+            other_project.path().join("src/lib.rs").to_str().unwrap(),
+            "--line",
+            "1",
+            "--column",
+            "8",
+        ],
+        0,
+    );
+    other.stop();
+    drop(session);
+}
+
+#[cfg(feature = "native-hir")]
+#[tokio::test]
+async fn extended_native_managed_macro_entry() {
+    let Some(gate) = std::env::var_os("PSE_NATIVE_MACRO_GATE") else {
+        return;
+    };
+    let gate = PathBuf::from(gate);
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    while !gate.exists() {
+        assert!(tokio::time::Instant::now() < deadline);
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    extended_native_managed_macro_journey().await;
+}
+
+#[cfg(feature = "native-hir")]
+#[tokio::test]
+async fn extended_native_managed_stop_drains_slow_macro_without_stopping_another_session() {
+    independent_cli(
+        "semantic::tests::extended_native_managed_macro_entry",
+        "PSE_NATIVE_MACRO_GATE",
+    )
+    .await;
+}
 fn fixture(root: &Path) {
     std::fs::create_dir_all(root.join("member/src")).unwrap();
     std::fs::create_dir_all(root.join("macros/src")).unwrap();
@@ -288,13 +463,13 @@ fn main() {
 }
 "#).unwrap();
 }
-struct Session {
+pub(crate) struct Session {
     root: PathBuf,
     executable: PathBuf,
     state: tempfile::TempDir,
 }
 impl Session {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let root = checkout();
         let control = crate::generation::prepared(&root)
             .unwrap()
@@ -317,7 +492,7 @@ impl Session {
             .env("XDG_STATE_HOME", self.state.path());
         command
     }
-    fn run(&self, arguments: &[&str], exit: i32) -> Value {
+    pub(crate) fn run(&self, arguments: &[&str], exit: i32) -> Value {
         let output = self.command().args(arguments).output().unwrap();
         let original = if output.status.code() != Some(exit) {
             self.original_failure()
@@ -331,7 +506,12 @@ impl Session {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
-        serde_json::from_slice(&output.stdout).unwrap()
+        serde_json::from_slice(if output.stdout.is_empty() {
+            &output.stderr
+        } else {
+            &output.stdout
+        })
+        .unwrap()
     }
     fn original_failure(&self) -> String {
         use std::io::Read as _;
@@ -364,7 +544,7 @@ impl Session {
             record.invocation
         )
     }
-    fn ready(&self) {
+    pub(crate) fn ready(&self) {
         let deadline = Instant::now() + Duration::from_secs(45);
         loop {
             let status = self.run(&["code", "session", "status"], 0);
@@ -397,7 +577,7 @@ impl Session {
         );
         self.ready();
     }
-    fn stop(&self) {
+    pub(crate) fn stop(&self) {
         assert_eq!(
             self.run(&["code", "session", "stop"], 0)["settlement"],
             "complete"
@@ -704,6 +884,10 @@ fn native_cli_entry() {
 
 #[tokio::test]
 async fn native_cli_reuses_original_session_fences_sources_and_proves_stop() {
+    independent_cli("semantic::tests::native_cli_entry", "PSE_SEMANTIC_CLI_GATE").await;
+}
+
+pub(crate) async fn independent_cli(entry: &str, gate_name: &str) {
     // Like B03's detached-front-end fixture, first place this independent CLI caller
     // in its own ordinary application scope. Product nested-detachment refusal stays intact.
     let scratch = tempfile::tempdir().unwrap();
@@ -713,12 +897,8 @@ async fn native_cli_reuses_original_session_fences_sources_and_proves_stop() {
     let (slice, _, _) = manager.foreground_placement(&current).await.unwrap();
     let mut command = tokio::process::Command::new(std::env::current_exe().unwrap());
     command
-        .args([
-            "--exact",
-            "semantic::tests::native_cli_entry",
-            "--nocapture",
-        ])
-        .env("PSE_SEMANTIC_CLI_GATE", &gate)
+        .args(["--exact", entry, "--nocapture"])
+        .env(gate_name, &gate)
         .kill_on_drop(true);
     for key in [
         "PSE_HOST_ALLOCATION",
@@ -782,7 +962,7 @@ async fn socket_peer_cannot_supply_its_own_pid_or_receive_input_without_original
         stream.read(&mut byte).unwrap()
     });
     let record = SessionRecord {
-        version: 2,
+        version: SESSION_PROTOCOL_VERSION,
         invocation,
         configuration: Configuration {
             backend: Backend::Lsp,
@@ -791,8 +971,20 @@ async fn socket_peer_cannot_supply_its_own_pid_or_receive_input_without_original
             no_default_features: false,
             target: None,
             build_macros: false,
+            test_context: false,
         },
     };
+    for version in 1..SESSION_PROTOCOL_VERSION {
+        let old = SessionRecord {
+            version,
+            ..record.clone()
+        };
+        let refused = Client::connect(&root, &environment, &old).await;
+        assert!(
+            matches!(refused,Err(Error::Unavailable(message)) if message.contains("incompatible protocol")),
+            "old worlds retain administration only"
+        );
+    }
     let refused = client(&root, &environment, &record, &Request::Status {}).await;
     assert!(refused.is_err());
     assert_eq!(

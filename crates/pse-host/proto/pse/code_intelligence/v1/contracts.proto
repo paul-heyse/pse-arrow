@@ -211,6 +211,7 @@ message NativeQuery {
     bytes file_rename = 25;
     google.protobuf.Empty assists = 26;
     uint64 assist = 27;
+    google.protobuf.Empty layout = 28;
   }
 }
 message NativeImportTarget { bytes file = 1; uint64 byte_start = 2; uint64 byte_end = 3; string source_sha256 = 4; }
@@ -233,6 +234,7 @@ message NativeConfiguration {
   bool no_default_features = 4;
   optional string target = 5;
   bool build_macros = 6;
+  bool test_context = 7;
 }
 message NativeAnalysisContext {
   string backend = 1;
@@ -279,6 +281,8 @@ message NativePackageContext {
   repeated string dependency_issues = 11;
   enum Exclusion { SYSROOT = 0; }
   repeated Exclusion dependency_exclusions = 12;
+  optional string edition = 13;
+  repeated string cfg = 14;
 }
 message NativePackageRequest { string package_id = 1 [(buf.validate.field).string.min_len = 1]; }
 message NativePackageContextAnswer { NativeAnalysisContext session = 1; uint64 generation = 2; repeated NativePackageContext packages = 3; }
@@ -292,12 +296,13 @@ message NativeLocation {
 }
 message NativeSymbolFact { string name = 1; optional string kind = 2; optional string container = 3; NativeLocation location = 4; optional string source_sha256 = 5; }
 enum NativeRelation { NATIVE_DEFINITION = 0; NATIVE_TYPE_DEFINITION = 1; NATIVE_REFERENCES = 2; NATIVE_CALLS = 3; NATIVE_IMPLEMENTATIONS = 4; }
-message NativeRelationshipFact { NativeRelation relation = 1; Direction direction = 2; NativeLocation location = 3; optional string name = 4; optional bool read = 5; optional bool write = 6; }
-message NativePredicateFact { Truth truth = 1; }
+message NativeRelationshipFact { NativeRelation relation = 1; Direction direction = 2; NativeLocation location = 3; optional string name = 4; optional bool read = 5; optional bool write = 6; optional bool import = 7; optional bool test = 8; }
+enum NativePredicateOutcome { UNSUPPORTED_PREDICATE = 0; HOLDS = 1; NOT_PROVEN = 2; INVALID_PREDICATE = 3; }
+message NativePredicateFact { reserved 1; reserved "truth"; NativePredicateOutcome outcome = 2; optional string cause = 3; }
 message NativeImportabilityFact { optional bool visibility = 1; optional bool importable = 2; optional string path = 3; repeated string limitations = 4; }
 enum NativeCandidateKind { NATIVE_HINT = 0; NATIVE_COMPLETION = 1; NATIVE_ASSIST = 2; }
 message NativeLazyCandidate { NativeCandidateKind kind = 1; uint64 index = 2; string fingerprint = 3; optional string label = 4; NativeLocation location = 5; }
-message NativeTestCandidate { optional string label = 1; NativeLocation location = 2; optional string runnable_kind = 3; repeated string cargo_args = 4; repeated string executable_args = 5; OriginalEvidence original = 6; }
+message NativeTestCandidate { optional string label = 1; NativeLocation location = 2; optional string runnable_kind = 3; repeated string cargo_args = 4; repeated string executable_args = 5; OriginalEvidence original = 6; optional string cfg = 7; optional string relatedness = 8; optional bool eligible = 9; optional string test_id = 10; }
 message NativeObservedFacts {
   repeated NativeSymbolFact symbols = 1;
   repeated NativeRelationshipFact relationships = 2;
@@ -323,6 +328,14 @@ message NativeSourceIdentity {
 message NativeTypeFact { string display = 1; bool is_reference = 2; bool is_mutable_reference = 3; bool contains_unknown = 4; }
 message NativeTargetFact { string relationship = 1; string name = 2; NativeByteLocation location = 3; string precision = 4; }
 message NativeBoundFact { string parameter = 1; repeated string declared_traits = 2; }
+message NativeAdjustmentFact { string kind = 1; NativeTypeFact source = 2; NativeTypeFact target = 3; }
+message NativeCaptureUseFact { NativeByteLocation location = 1; bool is_ref = 2; }
+message NativeCaptureUsages { repeated NativeCaptureUseFact uses = 1; }
+message NativeCaptureFact { string place = 1; bool has_field_projections = 2; string mode = 3; NativeTypeFact place_type = 4; NativeTypeFact stored_type = 5; NativeCaptureUsages usages = 6; NativeByteLocation local = 7; }
+message NativeLayoutFact { string ty = 1; optional uint64 size = 2; optional uint64 align = 3; optional string error = 4; optional string niches = 5; repeated NativeLayoutFieldFact fields = 6; NativePredicateOutcome sized = 7; optional uint64 prefix_size = 8; optional uint64 prefix_align = 9; }
+message NativeLayoutFieldFact { string name = 1; optional uint64 offset = 2; NativeLayoutFact layout = 3; }
+message NativeCallableCandidateFact { NativeTargetFact target = 1; string signature = 2; NativeTypeFact receiver = 3; NativePredicateOutcome applicability = 4; optional string required_import = 5; repeated string reasons = 6; }
+message NativeTypeContext { bytes crate_root = 1; optional string crate_source_sha256 = 2; repeated string features = 3; repeated string cfg = 4; string edition = 5; optional string target = 6; string compiler_identity = 7; }
 message NativeTypedFacts {
   NativeByteLocation expression = 1;
   NativeTypeFact original = 2;
@@ -331,6 +344,14 @@ message NativeTypedFacts {
   optional bool original_coerces_to_adjusted = 5;
   NativeTargetFact target = 6;
   repeated NativeBoundFact bounds = 7;
+  NativeByteLocation callsite = 8;
+  repeated NativeAdjustmentFact adjustments = 9;
+  repeated NativeCaptureFact captures = 10;
+  optional string callable_kind = 11;
+  NativeLayoutFact layout = 12;
+  repeated NativeCallableCandidateFact callable_candidates = 13;
+  NativeTypeContext context = 14;
+  NativeByteLocation capture_owner = 15;
 }
 message NativeProducerContext { string backend = 1; string configuration = 2; optional string synchronized_generation = 3; }
 message NativeEditCandidate { NativeSourceIdentity source = 1; uint64 start = 2; uint64 end = 3; string replacement = 4; }

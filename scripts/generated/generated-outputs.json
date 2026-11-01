@@ -32,6 +32,10 @@
           "kind": "tree"
         },
         {
+          "path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
           "kind": "file"
         },
@@ -129,6 +133,10 @@
         },
         {
           "path": "crates/pse-codegen/src/codegen/surreal.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
           "kind": "file"
         },
         {

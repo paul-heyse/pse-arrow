@@ -11,6 +11,7 @@ use super::*;
 use protocol::{Association, AssociationManifest};
 use quote::ToTokens as _;
 use std::collections::{BTreeMap, BTreeSet};
+use syn::ext::IdentExt as _;
 use syn::visit::Visit as _;
 
 #[derive(Default)]
@@ -27,13 +28,33 @@ impl<'ast> syn::visit::Visit<'ast> for SelfFields {
     }
 }
 #[derive(Default)]
-struct Accessors(BTreeMap<u32, String>);
+struct Accessors(BTreeMap<u32, String>, BTreeSet<u32>);
+fn field_number(expression: &syn::Expr) -> bool {
+    let syn::Expr::MethodCall(call) = expression else {
+        return false;
+    };
+    matches!(call.receiver.as_ref(), syn::Expr::Path(path) if path.qself.is_none() && path.path.leading_colon.is_none() && path.path.segments.len() == 1 && path.path.segments[0].ident.unraw() == "field" && matches!(path.path.segments[0].arguments, syn::PathArguments::None))
+        && call.method.unraw() == "number"
+        && call.turbofish.is_none()
+        && call.args.is_empty()
+}
+fn literal_number(pattern: &syn::Pat) -> Option<u32> {
+    let syn::Pat::Lit(pattern) = pattern else {
+        return None;
+    };
+    let syn::Lit::Int(number) = &pattern.lit else {
+        return None;
+    };
+    if !matches!(number.suffix(), "" | "u32") {
+        return None;
+    }
+    number.base10_parse().ok()
+}
 impl<'ast> syn::visit::Visit<'ast> for Accessors {
     fn visit_expr_match(&mut self, expression: &'ast syn::ExprMatch) {
-        if expression.expr.to_token_stream().to_string() == "field . number ()" {
+        if field_number(&expression.expr) {
             for arm in &expression.arms {
-                let pattern = arm.pat.to_token_stream().to_string();
-                let Ok(number) = pattern.trim_end_matches("u32").parse::<u32>() else {
+                let Some(number) = literal_number(&arm.pat) else {
                     continue;
                 };
                 let mut members = SelfFields::default();
@@ -42,7 +63,19 @@ impl<'ast> syn::visit::Visit<'ast> for Accessors {
                 if members.0.len() == 1
                     && let Some(member) = members.0.into_iter().next()
                 {
-                    self.0.insert(number, member);
+                    if self.1.contains(&number) {
+                        continue;
+                    }
+                    if self
+                        .0
+                        .get(&number)
+                        .is_some_and(|previous| previous != &member)
+                    {
+                        self.0.remove(&number);
+                        self.1.insert(number);
+                    } else {
+                        self.0.insert(number, member);
+                    }
                 }
             }
         }
@@ -76,20 +109,20 @@ fn implementations(
                     continue;
                 };
                 let rust_type = format!("{module}{}", item.self_ty.to_token_stream());
-                if segment.ident == "MessageName" {
+                if segment.ident.unraw() == "MessageName" {
                     for child in &item.items {
                         if let syn::ImplItem::Const(value) = child
-                            && value.ident == "FULL_NAME"
+                            && value.ident.unraw() == "FULL_NAME"
                             && let syn::Expr::Lit(value) = &value.expr
                             && let syn::Lit::Str(value) = &value.lit
                         {
                             names.insert(rust_type.clone(), value.value());
                         }
                     }
-                } else if segment.ident == "ReflectMessage" {
+                } else if segment.ident.unraw() == "ReflectMessage" {
                     for child in &item.items {
                         if let syn::ImplItem::Fn(function) = child
-                            && function.sig.ident == "get"
+                            && function.sig.ident.unraw() == "get"
                         {
                             let mut visitor = Accessors::default();
                             visitor.visit_block(&function.block);
@@ -263,5 +296,37 @@ mod tests {
         assert_eq!(fields["DifferentRustName"][&7], "r#type");
         assert_eq!(fields["DifferentRustName"][&8], "choice");
         assert!(!fields["DifferentRustName"].contains_key(&1));
+    }
+    #[test]
+    fn typed_accessor_numbers_accept_radices_and_refuse_unproven_routes() {
+        let syntax = syn::parse_file(
+            r#"
+            impl reflect::ReflectMessage for Actual {
+                fn get(&self, field: &F) -> V {
+                    match r#field . r#number () {
+                        0x7_u32 => &self.r#type,
+                        0b1000 => &self.eight,
+                        9usize => &self.wrong_suffix,
+                        NUMBER => &self.nonliteral,
+                        10 if enabled() => &self.guarded,
+                        11 => (&self.one, &self.two),
+                        12 => &self.first,
+                        12u32 => &self.second,
+                        _ => false,
+                    }
+                    match other.number() { 13 => &self.unrelated, _ => false }
+                    match field.number(argument) { 14 => &self.argument, _ => false }
+                }
+            }
+        "#,
+        )
+        .unwrap();
+        let mut names = BTreeMap::new();
+        let mut fields = BTreeMap::new();
+        implementations(&syntax.items, "", &mut names, &mut fields);
+        assert_eq!(
+            fields["Actual"],
+            BTreeMap::from([(7, "r#type".into()), (8, "eight".into())])
+        );
     }
 }

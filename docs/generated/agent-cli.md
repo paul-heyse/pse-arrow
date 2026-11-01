@@ -1197,6 +1197,7 @@ Usage: pse propose [OPTIONS]
        pse propose <COMMAND>
 
 Commands:
+  grammar      Grammar-aware Rust edits at an exact native node, without semantic preparation
   rename       Preview only the selected entity's native semantic rename; no source writes
   file-rename  Preview native file-rename follow-up edits and the exact filesystem operation
   assists      Enumerate native assists without eagerly resolving every edit
@@ -1246,6 +1247,280 @@ Options:
 
       --assists
 
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose grammar`
+
+~~~~text
+Grammar-aware Rust edits at an exact native node, without semantic preparation
+
+Usage: pse propose grammar [OPTIONS] --byte-start <BYTE_START> --byte-end <BYTE_END> <FILE> <COMMAND>
+
+Commands:
+  add-where     Append a written where predicate; necessity and deduplication are not inferred
+  remove-use    Remove the selected grouped import branch, settling empty parents and separators
+  remove-bound  Remove the selected type bound and its separator
+  insert-item   Append one associated item to a selected impl/trait body
+  insert-field  Append one named field to a selected record declaration
+  expression    Construct a binary expression with parenthesized operands and result
+
+Arguments:
+  <FILE>
+          Working Rust source operand
+
+Options:
+      --byte-start <BYTE_START>
+          First byte of the exact syntax node
+
+  -C <checkout>
+
+
+      --byte-end <BYTE_END>
+          First byte after the exact syntax node
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --if-source <IF_SOURCE>
+          Require the original source digest before constructing a preview
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose grammar add-where`
+
+~~~~text
+Append a written where predicate; necessity and deduplication are not inferred
+
+Usage: pse propose grammar --byte-start <BYTE_START> --byte-end <BYTE_END> <FILE> add-where [OPTIONS] --predicate <PREDICATE>
+
+Options:
+  -C <checkout>
+
+
+      --predicate <PREDICATE>
+          Complete Rust where predicate, for example `T: Send`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose grammar remove-use`
+
+~~~~text
+Remove the selected grouped import branch, settling empty parents and separators
+
+Usage: pse propose grammar --byte-start <BYTE_START> --byte-end <BYTE_END> <FILE> remove-use [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose grammar remove-bound`
+
+~~~~text
+Remove the selected type bound and its separator
+
+Usage: pse propose grammar --byte-start <BYTE_START> --byte-end <BYTE_END> <FILE> remove-bound [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose grammar insert-item`
+
+~~~~text
+Append one associated item to a selected impl/trait body
+
+Usage: pse propose grammar --byte-start <BYTE_START> --byte-end <BYTE_END> <FILE> insert-item [OPTIONS] --item <ITEM>
+
+Options:
+  -C <checkout>
+
+
+      --item <ITEM>
+          One complete associated Rust item
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose grammar insert-field`
+
+~~~~text
+Append one named field to a selected record declaration
+
+Usage: pse propose grammar --byte-start <BYTE_START> --byte-end <BYTE_END> <FILE> insert-field [OPTIONS] --field <FIELD>
+
+Options:
+  -C <checkout>
+
+
+      --field <FIELD>
+          One field declaration, for example `pub value: usize`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse propose grammar expression`
+
+~~~~text
+Construct a binary expression with parenthesized operands and result
+
+Usage: pse propose grammar --byte-start <BYTE_START> --byte-end <BYTE_END> <FILE> expression [OPTIONS] --operator <OPERATOR> --rhs <RHS>
+
+Options:
+  -C <checkout>
+
+
+      --operator <OPERATOR>
+          Rust binary operator, such as `+` or `&&`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --rhs <RHS>
+          Right-hand Rust expression
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1729,6 +2004,7 @@ Options:
       --kind <KIND>
           Possible values:
           - mir:        Body/pass-filtered MIR before/after files
+          - facts:      Owned typed capture, suspension and cleanup observations from the pinned compiler
           - thir:       Selected unit THIR debug text; native rustc has no body filter for this view
           - type-sizes: Selected unit encountered concrete layouts; no cross-target ABI conclusion
           - mono-items: Selected unit monomorphization collection, separate from runtime reach
@@ -1750,13 +2026,24 @@ Options:
           Original investigation question, retained without inferring an answer
 
       --body <BODY>
-          Native MIR body substring; native filter operators and 'all' are refused
+          MIR substring, or exact owning body path for facts (including nested closures/coroutines)
 
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --fact-focus <FACT_FOCUS>
+          Native query family for typed facts; other artifact kinds require the all default
+
+          Possible values:
+          - all:        Acquire all supported families within the selected owning body
+          - captures:   Capture places, types, modes and source causes
+          - suspension: Saved coroutine fields and their suspension variants
+          - cleanup:    Analysis initialization and lowered normal/unwind cleanup
+
+          [default: all]
 
       --pass <PASSES>
           Native MIR pass substrings; select before/after artifacts at their actual phase
@@ -1802,6 +2089,7 @@ Options:
       --kind <KIND>
           Possible values:
           - mir:        Body/pass-filtered MIR before/after files
+          - facts:      Owned typed capture, suspension and cleanup observations from the pinned compiler
           - thir:       Selected unit THIR debug text; native rustc has no body filter for this view
           - type-sizes: Selected unit encountered concrete layouts; no cross-target ABI conclusion
           - mono-items: Selected unit monomorphization collection, separate from runtime reach
@@ -1832,6 +2120,17 @@ Options:
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --fact-focus <FACT_FOCUS>
+          Native query family for typed facts
+
+          Possible values:
+          - all:        Acquire all supported families within the selected owning body
+          - captures:   Capture places, types, modes and source causes
+          - suspension: Saved coroutine fields and their suspension variants
+          - cleanup:    Analysis initialization and lowered normal/unwind cleanup
+
+          [default: all]
 
       --pass <PASSES>
 
@@ -2502,8 +2801,9 @@ Usage: pse tools prepare [OPTIONS] <TOOL>
 Arguments:
   <TOOL>
           Possible values:
-          - xtask:           Existing development composition and document owner
-          - native-analysis: Explicitly prepared native HIR/IDE semantic service
+          - xtask:             Existing development composition and document owner
+          - native-analysis:   Explicitly prepared native HIR/IDE semantic service
+          - compiler-analysis: Explicitly prepared, one-shot pinned compiler observation wrapper
 
 Options:
   -C <checkout>
@@ -2545,8 +2845,9 @@ Options:
 
       --tool <TOOL>
           Possible values:
-          - xtask:           Existing development composition and document owner
-          - native-analysis: Explicitly prepared native HIR/IDE semantic service
+          - xtask:             Existing development composition and document owner
+          - native-analysis:   Explicitly prepared native HIR/IDE semantic service
+          - compiler-analysis: Explicitly prepared, one-shot pinned compiler observation wrapper
 
           [default: xtask]
 
@@ -2589,8 +2890,9 @@ Options:
 
       --tool <TOOL>
           Possible values:
-          - xtask:           Existing development composition and document owner
-          - native-analysis: Explicitly prepared native HIR/IDE semantic service
+          - xtask:             Existing development composition and document owner
+          - native-analysis:   Explicitly prepared native HIR/IDE semantic service
+          - compiler-analysis: Explicitly prepared, one-shot pinned compiler observation wrapper
 
           [default: xtask]
 
@@ -2637,8 +2939,9 @@ Options:
 
       --tool <TOOL>
           Possible values:
-          - xtask:           Existing development composition and document owner
-          - native-analysis: Explicitly prepared native HIR/IDE semantic service
+          - xtask:             Existing development composition and document owner
+          - native-analysis:   Explicitly prepared native HIR/IDE semantic service
+          - compiler-analysis: Explicitly prepared, one-shot pinned compiler observation wrapper
 
           [default: xtask]
 
@@ -2687,8 +2990,9 @@ Options:
 
       --tool <TOOL>
           Possible values:
-          - xtask:           Existing development composition and document owner
-          - native-analysis: Explicitly prepared native HIR/IDE semantic service
+          - xtask:             Existing development composition and document owner
+          - native-analysis:   Explicitly prepared native HIR/IDE semantic service
+          - compiler-analysis: Explicitly prepared, one-shot pinned compiler observation wrapper
 
           [default: native-analysis]
 
@@ -3145,7 +3449,7 @@ Options:
 ~~~~text
 Explicitly acquire Rust API artifacts, run compatibility rules or check documentation
 
-Usage: pse api [OPTIONS] <--prepare|--compatibility|--check-docs> <CRATE_QUERY> [PATH]
+Usage: pse api [OPTIONS] <--prepare|--compatibility|--check-docs|--extract-examples> <CRATE_QUERY> [PATH]
 
 Arguments:
   <CRATE_QUERY>
@@ -3220,6 +3524,9 @@ Options:
       --examples
           Expand authored Rust examples and hidden setup; never execute them
 
+      --native-examples <NATIVE_EXAMPLES>
+          Inspect an explicitly acquired doctests.json, preserving native transformations
+
       --declaration
           Expand the original format-qualified rustdoc item, including complex bounds/associated data
 
@@ -3237,6 +3544,9 @@ Options:
 
       --check-docs
           Explicitly check workspace library documentation through native rustdoc
+
+      --extract-examples
+          Explicitly preprocess native doctests to format2; no examples compile or run
 
   -h, --help
           Print help (see a summary with '-h')
@@ -3371,6 +3681,9 @@ Options:
 
       --build-macros
           Explicitly run check --workspace --all-targets for build scripts/proc macros. Package/input changes require stop and explicit preparation; never checks on save
+
+      --test-context
+          Select the analyzer's explicit cfg(test) world; no tests are executed
 
   -h, --help
           Print help (see a summary with '-h')
@@ -4766,6 +5079,7 @@ Commands:
   artifact            Read exact artifact ranges with native validators; this does not decode a protocol
   compiler-artifact   Read an original native compiler artifact after its existing whole-file verification
   compiler-artifacts  Inspect the original compiler-generation context, outcome and checked file index
+  compiler-facts      Explain original typed capture, suspension and cleanup observations without rerunning rustc
   tests               Read an already captured original test population or its original failures
   test-selection      Explain real native test selection; no binary listing or test execution occurs
   check-selection     Explain selected native check declarations or admitted compiler units without compiling
@@ -4826,13 +5140,28 @@ Options:
       --view <VIEW>
           Expand one selected semantic fact through its original native provider
 
-          [possible values: declaration, references, calls, implementations, macro, tests, candidates, hints, hint, candidate, predicate]
+          Possible values:
+          - declaration
+          - layout:          Inspect fallible native layout under the selected semantic world and target
+          - references
+          - calls
+          - implementations
+          - macro
+          - tests
+          - candidates
+          - hints
+          - hint
+          - candidate
+          - predicate
 
       --select <SELECT>
 
 
       --predicate <PREDICATE>
 
+
+      --compiler-layout <COMPILER_LAYOUT>
+          Passively associate an original type-sizes acquisition with --view layout
 
   -h, --help
           Print help (see a summary with '-h')
@@ -5222,14 +5551,32 @@ Options:
           Inclusive final line for selected inlay/SSR range; defaults to the selected line
 
       --view <VIEW>
+          Possible values:
+          - explain
+          - layout:          Inspect fallible layout with native type/target context
+          - symbols
+          - refs
+          - calls
+          - implementations
+          - macro
+          - tests
+          - candidates
+          - candidate
+          - hints
+          - hint
+          - predicate
+          - assists
+
           [default: explain]
-          [possible values: explain, symbols, refs, calls, implementations, macro, tests, candidates, candidate, hints, hint, predicate, assists]
 
       --select <SELECT>
 
 
       --text <TEXT>
 
+
+      --compiler-layout <COMPILER_LAYOUT>
+          Passively associate an original type-sizes acquisition; requires --view layout
 
   -h, --help
           Print help (see a summary with '-h')
@@ -5315,6 +5662,9 @@ Options:
 
       --examples
           Expand authored Rust examples and hidden setup; never execute them
+
+      --native-examples <NATIVE_EXAMPLES>
+          Inspect an explicitly acquired doctests.json, preserving native transformations
 
       --declaration
           Expand the original format-qualified rustdoc item, including complex bounds/associated data
@@ -5418,6 +5768,63 @@ Options:
 
       --if-match <IF_MATCH>
 
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect compiler-facts`
+
+~~~~text
+Explain original typed capture, suspension and cleanup observations without rerunning rustc
+
+Usage: pse inspect compiler-facts [OPTIONS] <INVOCATION>
+
+Arguments:
+  <INVOCATION>
+
+
+Options:
+      --body <BODY>
+          Exact acquired body path; omitted selects all originally acquired bodies
+
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --max-bytes <MAX_BYTES>
+          Whole-body JSON payload budget; provenance is always retained
+
+          [default: 16384]
+
+      --fact-focus <FACT_FOCUS>
+          Select acquired detail before whole-body output budgeting; never acquires missing facts
+
+          Possible values:
+          - all:        Acquire all supported families within the selected owning body
+          - captures:   Capture places, types, modes and source causes
+          - suspension: Saved coroutine fields and their suspension variants
+          - cleanup:    Analysis initialization and lowered normal/unwind cleanup
+
+          [default: all]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')
@@ -6071,13 +6478,8 @@ Options:
   -C <checkout>
 
 
-      --changed
-          Conservatively select changed source owners and reverse dependencies
-
-      --base <BASE>
-          Git base for --changed, including observed index/worktree/untracked changes
-
-          [default: HEAD]
+      --native-world
+          Explain qualified correspondence to the explicitly prepared native world
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -6091,14 +6493,25 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
+      --metadata-original
+          Include the original captured metadata alongside the planned-unit explanation
+
+      --changed
+          Conservatively select changed source owners and reverse dependencies
+
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
 
-  -p, --package <SPEC>
-          Package to process (see `cargo help pkgid`)
+      --base <BASE>
+          Git base for --changed, including observed index/worktree/untracked changes
+
+          [default: HEAD]
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -p, --package <SPEC>
+          Package to process (see `cargo help pkgid`)
 
       --workspace
           Process all packages in the workspace

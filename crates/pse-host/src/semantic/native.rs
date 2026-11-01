@@ -26,6 +26,8 @@ use std::{
 use tokio_util::sync::CancellationToken;
 
 const BACKEND: &str = "ra_ap_hir/0.0.358;ra_ap_ide/0.0.358;immutable_snapshot";
+mod actions;
+mod candidates;
 mod importability;
 
 fn preparation_target(configuration: &Configuration) -> Result<String> {
@@ -121,6 +123,8 @@ struct World {
     files: BTreeMap<PathBuf, ra_ap_vfs::FileId>,
     paths: BTreeMap<ra_ap_vfs::FileId, PathBuf>,
     digests: BTreeMap<PathBuf, String>,
+    // Explicit client custody lasts through lazy expansion and actual query drain.
+    _macro_client: Option<ra_ap_proc_macro_api::ProcMacroClient>,
 }
 /// Native workers clone the immutable database, never share `Semantics` across threads.
 pub(super) struct Engine {
@@ -131,9 +135,23 @@ pub(super) struct Engine {
     packages: Arc<Vec<super::NativePackageContext>>,
     package_issue: Option<String>,
     actual_target: String,
+    build_metadata: Option<String>,
+    environment_sha256: String,
+    compiler_identity: String,
+    prepared_products: Arc<Vec<super::LocationSource>>,
 }
 impl Engine {
+    #[cfg(test)]
     pub(super) fn start(checkout: &Path, configuration: Configuration) -> Result<Self> {
+        let control =
+            crate::generation::prepared(checkout).map_err(|error| Error::Host(Box::new(error)))?;
+        Self::start_with_control(checkout, configuration, control.as_ref())
+    }
+    pub(super) fn start_with_control(
+        checkout: &Path,
+        configuration: Configuration,
+        control: Option<&crate::generation::PreparedGeneration>,
+    ) -> Result<Self> {
         let configuration = configuration.resolve()?;
         if configuration.backend != Backend::NativeSnapshot {
             return Err(Error::Unavailable(
@@ -142,13 +160,40 @@ impl Engine {
         }
         let mut context = Context::capture(checkout, &configuration)?;
         let target = preparation_target(&configuration)?;
+        let compiler = std::process::Command::new("rustc")
+            .arg("-vV")
+            .current_dir(&configuration.project)
+            .output()?;
+        if !compiler.status.success() {
+            return Err(Error::Unavailable(
+                "native compiler identity is unavailable".into(),
+            ));
+        }
+        let compiler_identity =
+            String::from_utf8(compiler.stdout).map_err(super::engine::protocol)?;
         let sysroot_src = installed_sysroot_sources(&configuration)?;
-        let cargo = ra_ap_project_model::CargoConfig {
+        let compiler_root = Path::new(sysroot_src.as_str())
+            .ancestors()
+            .find(|path| path.join("bin/rustc").is_file())
+            .ok_or_else(|| {
+                Error::Unavailable(
+                    "selected rust-src has no matching installed compiler root".into(),
+                )
+            })?
+            .to_owned();
+        // The helper's inherited process environment is immutable for its lifetime.
+        // Retain only its digest, never expose values such as local credentials.
+        let environment_sha256 = crate::source_read::source_digest(&format!(
+            "{:?}",
+            std::env::vars_os().collect::<BTreeMap<_, _>>()
+        ));
+        let mut cargo = ra_ap_project_model::CargoConfig {
             features: ra_ap_project_model::CargoFeatures::Selected {
                 features: configuration.features.clone(),
                 no_default_features: configuration.no_default_features,
             },
             target: Some(target.clone()),
+            set_test: configuration.test_context,
             sysroot: Some(ra_ap_project_model::RustLibSource::Discover),
             // Discover-with-src-override never invokes the library's rustup
             // component-install fallback. Preparation only observes installed inputs.
@@ -156,12 +201,44 @@ impl Engine {
             metadata_extra_args: vec!["--locked".into()],
             ..Default::default()
         };
+        if configuration.build_macros {
+            let control = control.ok_or_else(|| Error::Unavailable("extended native preparation requires the session's original immutable correctness generation".into()))?;
+            let adapter = control
+                .executable(checkout, crate::generation::HostTool::Correctness)
+                .map_err(|error| Error::Host(Box::new(error)))?;
+            let mut command = vec![
+                adapter
+                    .to_str()
+                    .ok_or_else(|| {
+                        Error::Unavailable("native correctness adapter path must be UTF-8".into())
+                    })?
+                    .into(),
+                "check".into(),
+                "--workspace".into(),
+                "--all-targets".into(),
+                "--message-format=json".into(),
+                "--locked".into(),
+                "--target".into(),
+                target.clone(),
+            ];
+            if !configuration.features.is_empty() {
+                command.extend(["--features".into(), configuration.features.join(",")]);
+            }
+            if configuration.no_default_features {
+                command.push("--no-default-features".into());
+            }
+            cargo.run_build_script_command = Some(command);
+        }
         let loading = ra_ap_load_cargo::LoadCargoConfig {
-            load_out_dirs_from_check: false,
-            with_proc_macro_server: ra_ap_load_cargo::ProcMacroServerChoice::None,
+            load_out_dirs_from_check: configuration.build_macros,
+            with_proc_macro_server: if configuration.build_macros {
+                ra_ap_load_cargo::ProcMacroServerChoice::Sysroot
+            } else {
+                ra_ap_load_cargo::ProcMacroServerChoice::None
+            },
             prefill_caches: false,
             num_worker_threads: std::thread::available_parallelism()?.get(),
-            proc_macro_processes: 0,
+            proc_macro_processes: std::thread::available_parallelism()?.get(),
         };
         let native_root =
             ra_ap_vfs::AbsPathBuf::try_from(configuration.project.to_str().ok_or_else(|| {
@@ -170,8 +247,74 @@ impl Engine {
             .map_err(|_| Error::Unavailable("native Cargo project path is not absolute".into()))?;
         let manifest = ra_ap_project_model::ProjectManifest::discover_single(&native_root)
             .map_err(super::engine::protocol)?;
-        let workspace = ra_ap_project_model::ProjectWorkspace::load(manifest, &cargo, &|_| {})
+        let mut workspace = ra_ap_project_model::ProjectWorkspace::load(manifest, &cargo, &|_| {})
             .map_err(super::engine::protocol)?;
+        let mut products = BTreeSet::new();
+        let mut macro_products = Vec::new();
+        products.insert(compiler_root.join("bin/rustc"));
+        for entry in std::fs::read_dir(compiler_root.join("lib"))? {
+            let path = entry?.path();
+            if path.extension().is_some_and(|extension| extension == "so") {
+                products.insert(path);
+            }
+        }
+        let mut build_metadata = None;
+        if configuration.build_macros {
+            if let ra_ap_project_model::ProjectWorkspaceKind::Cargo {
+                error: Some(error), ..
+            } = &workspace.kind
+            {
+                return Err(Error::Unavailable(format!(
+                    "required extended Cargo metadata is incomplete: {error}"
+                )));
+            }
+            let scripts = workspace
+                .run_build_scripts(&cargo, &|_| {})
+                .map_err(|error| {
+                    Error::Unavailable(format!("native build-script preparation: {error:#}"))
+                })?;
+            if let Some(error) = scripts.error() {
+                return Err(Error::Unavailable(format!(
+                    "required native build-script preparation failed: {error}"
+                )));
+            }
+            build_metadata = Some(crate::source_read::source_digest(&format!("{scripts:?}")));
+            workspace.set_build_scripts(scripts);
+            let server = workspace
+                .find_sysroot_proc_macro_srv()
+                .ok_or_else(|| {
+                    Error::Unavailable(
+                        "native proc-macro server missing from selected sysroot".into(),
+                    )
+                })?
+                .map_err(super::engine::protocol)?;
+            products.insert(PathBuf::from(server.as_str()));
+            let mut vfs = ra_ap_vfs::Vfs::default();
+            let (_, macros) = workspace.to_crate_graph(
+                &mut |path| {
+                    let path = ra_ap_vfs::VfsPath::from(path.to_path_buf());
+                    let bytes = std::fs::read(path.as_path()?.as_str()).ok()?;
+                    vfs.set_file_contents(path.clone(), Some(bytes));
+                    vfs.file_id(&path).map(|(id, _)| id)
+                },
+                &cargo.extra_env,
+            );
+            for path in macros.into_values() {
+                let (_, path) = path.map_err(|error| {
+                    Error::Unavailable(format!(
+                        "required native proc-macro product unavailable: {error:?}"
+                    ))
+                })?;
+                let path = PathBuf::from(path.as_str());
+                if !path.is_file() {
+                    return Err(Error::Unavailable(
+                        "required native macro dylib is missing".into(),
+                    ));
+                }
+                macro_products.push(path.clone());
+                products.insert(path);
+            }
+        }
         let mut package_models = Vec::new();
         let package_issue;
         if let ra_ap_project_model::ProjectWorkspaceKind::Cargo { cargo, error, .. } =
@@ -188,6 +331,8 @@ impl Engine {
                     };
                     let manifest = PathBuf::from(package.manifest.as_str());
                     package_models.push(super::NativePackageContext {
+                        edition: None,
+                        cfg: Vec::new(),
                         package_id: package.id.to_string(),
                         source_root: manifest.parent().ok_or(Error::Stale)?.to_owned(),
                         manifest,
@@ -210,17 +355,52 @@ impl Engine {
         } else {
             package_issue = Some("prepared project is not a Cargo workspace".into());
         }
-        let metadata_inputs = package_models
+        let mut metadata_inputs = package_models
             .iter()
             .map(|package| package.manifest.clone())
             .collect::<BTreeSet<_>>();
+        let prepared_products = products
+            .iter()
+            .map(|path| {
+                Ok(super::LocationSource {
+                    path: path.clone(),
+                    source_sha256: super::engine::file_digest(path)?.ok_or_else(|| {
+                        Error::Unavailable("required preparation product disappeared".into())
+                    })?,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        metadata_inputs.extend(products);
         let metadata_hashes = metadata_inputs
             .iter()
             .map(|path| Ok((path.clone(), super::engine::file_digest(path)?)))
             .collect::<Result<BTreeMap<_, _>>>()?;
         context.bind_snapshot_sources(&metadata_inputs)?;
-        let (db, vfs, _) = ra_ap_load_cargo::load_workspace(workspace, &cargo.extra_env, &loading)
-            .map_err(|error| Error::Unavailable(format!("native Cargo/VFS loading: {error:#}")))?;
+        let (db, vfs, macro_client) =
+            ra_ap_load_cargo::load_workspace(workspace, &cargo.extra_env, &loading).map_err(
+                |error| Error::Unavailable(format!("native Cargo/VFS loading: {error:#}")),
+            )?;
+        if configuration.build_macros && macro_client.is_none() {
+            return Err(Error::Unavailable(
+                "required native proc-macro server did not start".into(),
+            ));
+        }
+        if let Some(client) = &macro_client {
+            for path in macro_products {
+                let path =
+                    ra_ap_vfs::AbsPathBuf::try_from(path.to_str().ok_or_else(|| {
+                        Error::Unavailable("macro dylib path is not UTF-8".into())
+                    })?)
+                    .map_err(super::engine::protocol)?;
+                client
+                    .load_dylib(ra_ap_proc_macro_api::MacroDylib::new(path))
+                    .map_err(|error| {
+                        Error::Unavailable(format!(
+                            "required native macro dylib failed to load: {error}"
+                        ))
+                    })?;
+            }
+        }
         let mut files = BTreeMap::new();
         let mut paths = BTreeMap::new();
         let mut digests = BTreeMap::new();
@@ -252,6 +432,14 @@ impl Engine {
                     continue;
                 }
                 let mut package = model.clone();
+                package.edition = Some(krate.edition(&db).to_string());
+                package.cfg = krate
+                    .cfg(&db)
+                    .into_iter()
+                    .map(ToString::to_string)
+                    .collect();
+                package.cfg.sort();
+                package.cfg.dedup();
                 package.features = krate
                     .cfg(&db)
                     .get_cfg_values("feature")
@@ -360,6 +548,7 @@ impl Engine {
                 files,
                 paths,
                 digests,
+                _macro_client: macro_client,
             })),
             context: Arc::new(context),
             configuration,
@@ -367,6 +556,10 @@ impl Engine {
             packages: Arc::new(packages),
             package_issue,
             actual_target: target,
+            build_metadata,
+            environment_sha256,
+            compiler_identity,
+            prepared_products: Arc::new(prepared_products),
         })
     }
     pub(super) fn package_context(&self, package_id: &str) -> Result<super::PackageContextAnswer> {
@@ -394,7 +587,7 @@ impl Engine {
         })
     }
     fn analysis_context(&self) -> AnalysisContext {
-        AnalysisContext {backend:BACKEND.into(),configuration:self.configuration.clone(),position_encoding:"utf-8".into(),backend_status:Some(json!({"quiescent":true,"immutable":true,"actual_target":self.actual_target,"unicode_identifier_version":unicode_ident::UNICODE_VERSION,"unicode_properties_version":unicode_properties::UNICODE_VERSION})),preparation:"explicit immutable Cargo/VFS snapshot; checking/build scripts/proc macros disabled; source/configuration changes require stop and explicit reprepare".into()}
+        AnalysisContext {backend:BACKEND.into(),configuration:self.configuration.clone(),position_encoding:"utf-8".into(),backend_status:Some(json!({"quiescent":true,"immutable":true,"actual_target":self.actual_target,"build_metadata_sha256":self.build_metadata,"prepared_products":self.prepared_products.as_ref(),"environment_sha256":self.environment_sha256,"compiler_identity":self.compiler_identity,"extended_preparation":self.configuration.build_macros,"external_io":"undeclared external macro/build-script reads are not monitored","unicode_identifier_version":unicode_ident::UNICODE_VERSION,"unicode_properties_version":unicode_properties::UNICODE_VERSION})),preparation:if self.configuration.build_macros { "explicit correctness Cargo build-script/proc-macro preparation; generated sources, dylibs and server identities are watched; undeclared external macro I/O is unknown; changes require stop and explicit reprepare" } else { "restricted immutable Cargo/VFS snapshot; build scripts/proc macros disabled; changes require stop and explicit reprepare" }.into()}
     }
     pub(super) fn status(&self) -> Result<super::SessionStatus> {
         let current = self.context.check();
@@ -403,7 +596,7 @@ impl Engine {
             backend: BACKEND.into(),
             position_encoding: "utf-8".into(),
             generation: 1,
-            server_capabilities: json!({"nativeSnapshot":true,"typedFacts":true,"referenceRoles":true,"workspaceSymbolProvider":true,"sourceApplication":false,"procMacros":false}),
+            server_capabilities: json!({"nativeSnapshot":true,"typedFacts":true,"referenceRoles":true,"workspaceSymbolProvider":true,"sourceApplication":false,"procMacros":self.configuration.build_macros}),
             backend_status: self.analysis_context().backend_status,
             active_requests: self.active.load(Ordering::SeqCst),
             context_current: current.is_ok(),
@@ -439,6 +632,7 @@ impl Engine {
         let context = self.context.clone();
         let session = self.analysis_context();
         let active = self.active.clone();
+        let packages = self.packages.clone();
         let task = spawn_cpu(token, move |token| {
             struct Active(Arc<AtomicUsize>);
             impl Drop for Active {
@@ -454,7 +648,13 @@ impl Engine {
             }
             let (db, _cancellation, files, paths, digests) = inputs?;
             let result = native_result(salsa::Cancelled::catch(std::panic::AssertUnwindSafe(
-                || query_world(&db, &files, &paths, &digests, session, query, &token),
+                || {
+                    ra_ap_hir::attach_db_allow_change(&db, || {
+                        query_world(
+                            &db, &files, &paths, &digests, &packages, session, query, &token,
+                        )
+                    })
+                },
             )))??;
             context.check()?;
             if token.is_cancelled() {
@@ -648,11 +848,115 @@ fn type_fact(
         contains_unknown: ty.contains_unknown(),
     }
 }
+fn layout_fact(
+    db: &ra_ap_ide_db::RootDatabase,
+    ty: &ra_ap_hir::Type<'_>,
+    target: ra_ap_hir::DisplayTarget,
+    sized_trait: Option<ra_ap_hir::Trait>,
+    children: bool,
+) -> super::LayoutFact {
+    let layout = ty.layout(db);
+    let sized = match sized_trait {
+        Some(trait_) if !ty.contains_unknown() => {
+            if ty.impls_trait(db, trait_, &[]) {
+                super::PredicateOutcome::Holds
+            } else {
+                super::PredicateOutcome::NotProven
+            }
+        }
+        _ => super::PredicateOutcome::Unsupported,
+    };
+    let full = sized == super::PredicateOutcome::Holds;
+    let mut fact = super::LayoutFact {
+        ty: ty.display(db, target).to_string(),
+        size: full.then(||layout.as_ref().ok().map(ra_ap_hir::Layout::size)).flatten(),
+        align: full.then(||layout.as_ref().ok().map(ra_ap_hir::Layout::align)).flatten(),
+        sized,
+        prefix_size: (!full).then(||layout.as_ref().ok().map(ra_ap_hir::Layout::size)).flatten(),
+        prefix_align: (!full).then(||layout.as_ref().ok().map(ra_ap_hir::Layout::align)).flatten(),
+        error: layout.as_ref().err().map(|error| format!("{error:?}")).or_else(||(!full).then(||"Native Sized obligation is not established; static prefix observations are not full value size/alignment.".into())),
+        niches: full.then(||layout.as_ref().ok().and_then(ra_ap_hir::Layout::niches).map(|niches| niches.to_string())).flatten(),
+        fields: Vec::new(),
+    };
+    if children {
+        fact.fields
+            .extend(ty.fields(db).into_iter().map(|(field, ty)| {
+                super::LayoutFieldFact {
+                    name: field.name(db).display(db, target.edition).to_string(),
+                    offset: layout
+                        .as_ref()
+                        .ok()
+                        .and_then(|layout| layout.field_offset(field)),
+                    layout: Box::new(layout_fact(db, &ty, target, sized_trait, false)),
+                }
+            }));
+        fact.fields.extend(
+            ty.tuple_fields(db)
+                .into_iter()
+                .enumerate()
+                .map(|(index, ty)| super::LayoutFieldFact {
+                    name: index.to_string(),
+                    offset: layout
+                        .as_ref()
+                        .ok()
+                        .and_then(|layout| layout.tuple_field_offset(index)),
+                    layout: Box::new(layout_fact(db, &ty, target, sized_trait, false)),
+                }),
+        );
+        if let Some(ra_ap_hir::Adt::Enum(enumeration)) = ty.as_adt() {
+            let generic = !ra_ap_hir::GenericDef::Adt(enumeration.into())
+                .params(db)
+                .is_empty();
+            for variant in enumeration.variants(db) {
+                let layout = if generic {
+                    None
+                } else {
+                    Some(variant.layout(db))
+                };
+                let fields = variant
+                    .fields(db)
+                    .into_iter()
+                    .map(|field| super::LayoutFieldFact {
+                        name: field.name(db).display(db, target.edition).to_string(),
+                        offset: layout
+                            .as_ref()
+                            .and_then(|layout| layout.as_ref().ok())
+                            .and_then(|layout| layout.field_offset(field)),
+                        layout: Box::new(layout_fact(
+                            db,
+                            &field.ty(db),
+                            target,
+                            sized_trait,
+                            false,
+                        )),
+                    })
+                    .collect();
+                fact.fields.push(super::LayoutFieldFact {
+                    name: format!("variant {}", variant.name(db).display(db, target.edition)),
+                    offset: None,
+                    layout: Box::new(super::LayoutFact {
+                        ty: variant.name(db).display(db, target.edition).to_string(),
+                        size: full.then(||layout.as_ref().and_then(|layout| layout.as_ref().ok()).map(ra_ap_hir::Layout::size)).flatten(),
+                        align: full.then(||layout.as_ref().and_then(|layout| layout.as_ref().ok()).map(ra_ap_hir::Layout::align)).flatten(),
+                        sized,
+                        prefix_size: (!full).then(||layout.as_ref().and_then(|layout| layout.as_ref().ok()).map(ra_ap_hir::Layout::size)).flatten(),
+                        prefix_align: (!full).then(||layout.as_ref().and_then(|layout| layout.as_ref().ok()).map(ra_ap_hir::Layout::align)).flatten(),
+                        error: if generic { Some("public variant layout has no instantiated enum substitution; declaration field observations only".into()) } else { layout.as_ref().and_then(|layout| layout.as_ref().err()).map(|error|format!("{error:?}")).or_else(||(!full).then(||"Native Sized obligation is not established; static prefix is not a complete variant layout.".into())) },
+                        niches: full.then(||layout.as_ref().and_then(|layout| layout.as_ref().ok()).and_then(ra_ap_hir::Layout::niches).map(|niches|niches.to_string())).flatten(),
+                        fields,
+                    }),
+                });
+            }
+        }
+    }
+    fact
+}
 fn query_world(
     db: &ra_ap_ide_db::RootDatabase,
     files: &BTreeMap<PathBuf, ra_ap_vfs::FileId>,
     paths: &BTreeMap<ra_ap_vfs::FileId, PathBuf>,
     digests: &BTreeMap<PathBuf, String>,
+    packages: &[super::NativePackageContext],
     session: AnalysisContext,
     query: Query,
     token: &CancellationToken,
@@ -663,7 +967,7 @@ fn query_world(
     {
         return Err(Error::Stale);
     }
-    if query.if_candidate.is_some() {
+    if query.if_candidate.is_some() && !matches!(query.kind, Kind::Assist { .. }) {
         return Err(Error::InvalidRequest("immutable snapshot does not issue native lazy-action fingerprints; select its supported typed operation without an unrelated candidate handle".into()));
     }
     let file = query.file.canonicalize()?;
@@ -698,8 +1002,11 @@ fn query_world(
     let mut observed = super::ObservedFacts::default();
     let mut omitted_relationships = BTreeMap::new();
     let mut linked_paths = BTreeSet::new();
+    let mut proposal = None;
     match query.kind {
-        Kind::Explain => {
+        Kind::Explain | Kind::Layout | Kind::Candidates => {
+            let want_layout = matches!(query.kind, Kind::Layout);
+            let want_candidates = matches!(query.kind, Kind::Candidates);
             let sema = Semantics::new(db);
             let mut modules = sema.file_to_module_defs(id);
             let module = modules.next().ok_or_else(|| {
@@ -720,7 +1027,57 @@ fn query_world(
                     Error::Unavailable("no native syntax at selected position".into())
                 })?;
             let expression = node.ancestors().find_map(ast::Expr::cast);
+            let candidate_expression = node
+                .ancestors()
+                .find_map(ast::MethodCallExpr::cast)
+                .map(ast::Expr::MethodCallExpr)
+                .or_else(|| expression.clone());
+            let callable_candidates = if want_candidates {
+                candidate_expression
+                    .as_ref()
+                    .map(|expr| candidates::inspect(&sema, expr, paths, query.limit))
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            };
             let display_target = module.krate(db).to_display_target(db);
+            let crate_root = paths.get(&module.krate(db).root_file(db)).cloned();
+            let features = module
+                .krate(db)
+                .cfg(db)
+                .get_cfg_values("feature")
+                .map(|value| value.as_str().to_owned())
+                .collect::<BTreeSet<_>>();
+            let profiles = packages
+                .iter()
+                .filter(|package| {
+                    Some(&package.library_root) == crate_root.as_ref()
+                        && package.features == features
+                })
+                .collect::<Vec<_>>();
+            let type_context = crate_root.map(|crate_root| super::TypeContext {
+                crate_source_sha256: digests.get(&crate_root).cloned(),
+                crate_root,
+                features,
+                cfg: module
+                    .krate(db)
+                    .cfg(db)
+                    .into_iter()
+                    .map(ToString::to_string)
+                    .collect(),
+                edition: module.krate(db).edition(db).to_string(),
+                target: if profiles.len() == 1 {
+                    profiles[0].target.clone()
+                } else {
+                    None
+                },
+                compiler_identity: session
+                    .backend_status
+                    .as_ref()
+                    .and_then(|status| status["compiler_identity"].as_str())
+                    .unwrap_or_default()
+                    .into(),
+            });
             let types = expression.as_ref().and_then(|expr| sema.type_of_expr(expr));
             let original = types
                 .as_ref()
@@ -754,14 +1111,149 @@ fn query_world(
             } else {
                 None
             };
+            let adjustments = expression
+                .as_ref()
+                .and_then(|expr| sema.expr_adjustments(expr))
+                .unwrap_or_default()
+                .into_iter()
+                .map(|adjustment| super::AdjustmentFact {
+                    kind: format!("{:?}", adjustment.kind),
+                    source: type_fact(db, &adjustment.source, display_target),
+                    target: type_fact(db, &adjustment.target, display_target),
+                })
+                .collect();
+            let capture_expression =
+                node.ancestors()
+                    .filter_map(ast::Expr::cast)
+                    .find(|expr| match expr {
+                        ast::Expr::ClosureExpr(_) => true,
+                        ast::Expr::BlockExpr(block) => {
+                            block.async_token().is_some() || block.gen_token().is_some()
+                        }
+                        _ => false,
+                    });
+            let capture_owner = capture_expression
+                .as_ref()
+                .and_then(|expr| sema.original_range_opt(expr.syntax()))
+                .and_then(|mapped| location(paths, mapped.file_id.file_id(db), mapped.range));
+            let closure_ty = capture_expression
+                .as_ref()
+                .and_then(|expr| sema.type_of_expr(expr))
+                .map(|ty| ty.original);
+            let callable_kind = closure_ty.as_ref().and_then(|ty| {
+                ty.as_closure()
+                    .map(|closure| closure.fn_trait(db).to_string())
+                    .or_else(|| ty.as_coroutine().map(|_| "coroutine".into()))
+            });
+            let capture_items = closure_ty
+                .as_ref()
+                .map(|ty| {
+                    if let Some(closure) = ty.as_closure() {
+                        closure.captured_items(db)
+                    } else if let Some(coroutine) = ty.as_coroutine() {
+                        coroutine.captured_items(db)
+                    } else {
+                        Vec::new()
+                    }
+                })
+                .unwrap_or_default();
+            let captures = capture_items
+                .into_iter()
+                .map(|capture| super::CaptureFact {
+                    local: {
+                        let mut sources = capture.local().sources(db).into_iter();
+                        match (sources.next(), sources.next()) {
+                            (Some(source), None) => sema
+                                .source(source)
+                                .and_then(|source| sema.original_range_opt(source.value.syntax()))
+                                .and_then(|mapped| {
+                                    location(paths, mapped.file_id.file_id(db), mapped.range)
+                                }),
+                            _ => None,
+                        }
+                    },
+                    place: capture.display_place_source_code(db, module.krate(db).edition(db)),
+                    has_field_projections: capture.has_field_projections(),
+                    mode: match capture.kind() {
+                        ra_ap_hir::CaptureKind::Move => "move",
+                        ra_ap_hir::CaptureKind::SharedRef => "shared_ref",
+                        ra_ap_hir::CaptureKind::UniqueSharedRef => "unique_shared_ref",
+                        ra_ap_hir::CaptureKind::MutableRef => "mutable_ref",
+                    }
+                    .into(),
+                    place_type: type_fact(db, &capture.ty(db), display_target),
+                    stored_type: type_fact(db, &capture.captured_ty(db), display_target),
+                    usages: Some(
+                        capture
+                            .usages()
+                            .sources(db)
+                            .into_iter()
+                            .map(|usage| {
+                                let root = sema.parse_or_expand(usage.file_id());
+                                let source = usage.source().to_node(&root);
+                                super::CaptureUseFact {
+                                    location: sema.original_range_opt(source.syntax()).and_then(
+                                        |mapped| {
+                                            location(
+                                                paths,
+                                                mapped.file_id.file_id(db),
+                                                mapped.range,
+                                            )
+                                        },
+                                    ),
+                                    is_ref: usage.is_ref(),
+                                }
+                            })
+                            .collect(),
+                    ),
+                })
+                .collect();
+            let layout = if want_layout {
+                types.as_ref().map(|ty| {
+                    layout_fact(
+                        db,
+                        &ty.original,
+                        display_target,
+                        ra_ap_hir::Trait::lang(db, module.krate(db), ra_ap_hir::LangItem::Sized),
+                        true,
+                    )
+                })
+            } else {
+                None
+            };
             let method = node
                 .ancestors()
                 .find_map(ast::MethodCallExpr::cast)
                 .and_then(|call| sema.resolve_method_call(&call));
+            let call = node
+                .ancestors()
+                .find_map(ast::CallExpr::cast)
+                .and_then(|call| call.expr())
+                .and_then(|callee| sema.resolve_expr_as_callable(&callee))
+                .and_then(|callable| match callable.kind() {
+                    ra_ap_hir::CallableKind::Function(function) => Some(function),
+                    _ => None,
+                });
             let implicit_bin = node
                 .ancestors()
                 .find_map(ast::BinExpr::cast)
                 .and_then(|expr| sema.resolve_bin_expr(&expr));
+            let implicit = node.ancestors().find_map(|node| {
+                if let Some(expr) = ast::IndexExpr::cast(node.clone()) {
+                    sema.resolve_index_expr(&expr)
+                        .map(|f| (f, "resolved_index"))
+                } else if let Some(expr) = ast::PrefixExpr::cast(node.clone()) {
+                    sema.resolve_prefix_expr(&expr)
+                        .map(|f| (f, "resolved_prefix"))
+                } else if let Some(expr) = ast::TryExpr::cast(node.clone()) {
+                    sema.resolve_try_expr(&expr).map(|f| (f, "resolved_try"))
+                } else if let Some(expr) = ast::AwaitExpr::cast(node) {
+                    sema.resolve_await_to_poll(&expr)
+                        .map(|f| (f, "resolved_await_poll"))
+                } else {
+                    None
+                }
+            });
             let declaration = node
                 .ancestors()
                 .find_map(ast::Fn::cast)
@@ -773,12 +1265,25 @@ fn query_world(
                 .and_then(|function| sema.to_def(&function));
             let relationship = if method.is_some() {
                 "resolved_method"
+            } else if call.is_some() {
+                "resolved_call"
+            } else if let Some((_, relationship)) = implicit {
+                relationship
             } else if implicit_bin.is_some() {
                 "resolved_operator"
             } else {
                 "selected_function_declaration"
             };
-            let function = method.or(implicit_bin).or(declaration);
+            let function = method
+                .or(call)
+                .or(implicit.map(|(function, _)| function))
+                .or(implicit_bin)
+                .or(declaration);
+            let callsite = node
+                .ancestors()
+                .find_map(ast::Expr::cast)
+                .and_then(|expr| sema.original_range_opt(expr.syntax()))
+                .and_then(|mapped| location(paths, mapped.file_id.file_id(db), mapped.range));
             let mut target = function.map(|function| {
                 let mapped = sema
                     .source(function)
@@ -855,6 +1360,8 @@ fn query_world(
                             name: Some(target.name.clone()),
                             read: None,
                             write: None,
+                            import: None,
+                            test: None,
                         })
                 }));
             sections.push(Section {
@@ -883,6 +1390,7 @@ fn query_world(
                 .and_then(|expr| sema.original_range_opt(expr.syntax()))
                 .and_then(|mapped| location(paths, mapped.file_id.file_id(db), mapped.range));
             facts = Some(TypedFacts {
+                context: type_context,
                 expression,
                 original,
                 adjusted,
@@ -890,6 +1398,56 @@ fn query_world(
                 original_coerces_to_adjusted: coercion,
                 target,
                 bounds,
+                callsite,
+                adjustments,
+                captures,
+                capture_owner,
+                callable_kind,
+                layout,
+                callable_candidates,
+            });
+            if want_candidates {
+                sections.push(Section {category:"native_callable_discovery".into(),evidence:json!({"limit":query.limit,"completeness":"unknown","scope":"native visible receiver methods plus same-crate extension declarations","empty_result":"does not prove impossibility","substitutions":"declaration signatures; not arbitrary instantiated call arguments"}),omitted:0,handles:Vec::new()});
+            }
+        }
+        Kind::Predicate { text } => {
+            let sema = Semantics::new(db);
+            let parsed = sema.parse(ra_ap_hir::EditionedFileId::current_edition(db, id));
+            let node = parsed
+                .syntax()
+                .token_at_offset(position.offset)
+                .right_biased()
+                .and_then(|token| token.parent())
+                .ok_or_else(|| Error::Unavailable("no predicate source context".into()))?;
+            let fragment = native_ra_syntax::SourceFile::parse(
+                &format!("fn __predicate<T>() where {text} {{}}"),
+                native_ra_syntax::Edition::CURRENT,
+            );
+            let evaluation = if !fragment.errors().is_empty() {
+                ra_ap_hir::PredicateEvaluationResult::invalid(format!("{:?}", fragment.errors()))
+            } else if let Some(clause) = fragment
+                .tree()
+                .syntax()
+                .descendants()
+                .find_map(ast::WhereClause::cast)
+            {
+                sema.evaluate_where_clause_at(&node, position.offset, clause)
+            } else {
+                ra_ap_hir::PredicateEvaluationResult::invalid("predicate has no where clause")
+            };
+            let outcome = match evaluation.status {
+                ra_ap_hir::PredicateEvaluationStatus::Holds => super::PredicateOutcome::Holds,
+                ra_ap_hir::PredicateEvaluationStatus::NotProven => {
+                    super::PredicateOutcome::NotProven
+                }
+                ra_ap_hir::PredicateEvaluationStatus::Invalid => super::PredicateOutcome::Invalid,
+                ra_ap_hir::PredicateEvaluationStatus::Unsupported => {
+                    super::PredicateOutcome::Unsupported
+                }
+            };
+            observed.predicate = Some(super::PredicateFact {
+                outcome,
+                cause: Some(evaluation.message),
             });
         }
         Kind::Importable { target } => {
@@ -967,6 +1525,10 @@ fn query_world(
                                     .contains(ra_ap_ide_db::search::ReferenceCategory::READ),
                                 write: category
                                     .contains(ra_ap_ide_db::search::ReferenceCategory::WRITE),
+                                import: category
+                                    .contains(ra_ap_ide_db::search::ReferenceCategory::IMPORT),
+                                test: category
+                                    .contains(ra_ap_ide_db::search::ReferenceCategory::TEST),
                             });
                         }
                     }
@@ -985,11 +1547,100 @@ fn query_world(
                     name: None,
                     read: Some(reference.read),
                     write: Some(reference.write),
+                    import: Some(reference.import),
+                    test: Some(reference.test),
                 }));
             sections.push(Section {
                 category: "native_reference_roles".into(),
                 evidence: serde_json::to_value(&references)?,
                 omitted: total.saturating_sub(references.len()),
+                handles: Vec::new(),
+            });
+        }
+        Kind::Assists | Kind::Assist { .. } => {
+            let analysis = ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
+            let (section, change) = actions::assists(&analysis, position, &query)?;
+            (observed, omitted_relationships) = super::protocol_facts::project(
+                std::slice::from_ref(&section),
+                &super::engine::uri(&file)?,
+            )?;
+            if let Some(change) = change {
+                proposal = Some(super::edit::native_proposal(
+                    &session.configuration,
+                    BACKEND,
+                    &change,
+                    paths,
+                    digests,
+                )?);
+            }
+            sections.push(section);
+        }
+        Kind::Ssr { ref rule } => {
+            let analysis = ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
+            let change = native_result(analysis.structural_search_replace(
+                rule,
+                false,
+                position,
+                Vec::new(),
+            ))?
+            .map_err(super::engine::protocol)?;
+            proposal = Some(super::edit::native_proposal(
+                &session.configuration,
+                BACKEND,
+                &change,
+                paths,
+                digests,
+            )?);
+        }
+        Kind::Tests => {
+            let analysis = ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
+            let related = native_result(analysis.related_tests(position, None))?;
+            let total = related.len();
+            for runnable in related.into_iter().take(query.limit) {
+                let (kind, test_id, cargo_args) = match &runnable.kind {
+                    ra_ap_ide::RunnableKind::Test { test_id } => {
+                        ("test", Some(test_id.to_string()), vec!["test".into()])
+                    }
+                    ra_ap_ide::RunnableKind::TestMod { path } => {
+                        ("test_module", Some(path.clone()), vec!["test".into()])
+                    }
+                    ra_ap_ide::RunnableKind::Bench { test_id } => {
+                        ("bench", Some(test_id.to_string()), vec!["bench".into()])
+                    }
+                    ra_ap_ide::RunnableKind::DocTest { test_id } => (
+                        "doctest",
+                        Some(test_id.to_string()),
+                        vec!["test".into(), "--doc".into()],
+                    ),
+                    ra_ap_ide::RunnableKind::Bin => ("binary", None, Vec::new()),
+                };
+                let original_location = location(
+                    paths,
+                    runnable.nav.file_id,
+                    runnable.nav.focus_range.unwrap_or(runnable.nav.full_range),
+                );
+                linked_paths.extend(
+                    original_location
+                        .as_ref()
+                        .map(|location| location.path.clone()),
+                );
+                observed.tests.push(super::TestCandidateFact {
+                    test_id: test_id.clone(),
+                    cfg: runnable.cfg.as_ref().map(|cfg| format!("{cfg:?}")),
+                    relatedness: Some("native related_tests traversal from selected occurrence; static relevance, not execution coverage".into()),
+                    eligible: None,
+                    label: Some(runnable.nav.name.to_string()),
+                    location: original_location.as_ref().map(fact_location),
+                    runnable_kind: Some(kind.into()),
+                    cargo_args,
+                    executable_args: test_id.into_iter().collect(),
+                    original: json!({"kind":kind,"cfg":runnable.cfg.as_ref().map(|cfg|format!("{cfg:?}")),"native_generation":1,"eligibility":"unknown; cfg/native context is not a rustc test-unit admission"}),
+                });
+            }
+            sections.push(Section {
+                category: "native_related_tests".into(),
+                evidence: serde_json::to_value(&observed.tests)?,
+                omitted: total.saturating_sub(observed.tests.len()),
                 handles: Vec::new(),
             });
         }
@@ -1043,6 +1694,8 @@ fn query_world(
                             name: Some(target.name.clone()),
                             read: None,
                             write: None,
+                            import: None,
+                            test: None,
                         })
                 }));
             sections.push(Section {
@@ -1060,7 +1713,11 @@ fn query_world(
     }
     let available = facts.as_ref().is_some_and(|facts| {
         facts.original.is_some() || facts.target.is_some() || !facts.bounds.is_empty()
-    }) || !references.is_empty()
+    }) || proposal.is_some()
+        || !observed.candidates.is_empty()
+        || observed.predicate.is_some()
+        || !observed.tests.is_empty()
+        || !references.is_empty()
         || !observed.relationships.is_empty()
         || observed
             .importability
@@ -1073,6 +1730,25 @@ fn query_world(
             .and_then(|target| target.location.as_ref())
             .map(|location| location.path.clone()),
     );
+    if let Some(facts) = &facts {
+        linked_paths.extend(
+            facts
+                .capture_owner
+                .as_ref()
+                .map(|location| location.path.clone()),
+        );
+        for capture in &facts.captures {
+            linked_paths.extend(capture.local.as_ref().map(|location| location.path.clone()));
+            for usage in capture.usages.iter().flatten() {
+                linked_paths.extend(
+                    usage
+                        .location
+                        .as_ref()
+                        .map(|location| location.path.clone()),
+                );
+            }
+        }
+    }
     linked_paths.extend(
         references
             .iter()
@@ -1089,8 +1765,8 @@ fn query_world(
                 })
         })
         .collect();
-    Ok(super::Answer {session,source:source.identity().clone(),source_uri:super::engine::uri(&file)?,source_byte_offset:offset,generation:1,native_types:facts,position:serde_json::from_value(utf8_position(source.text(),offset)?)?,observed,omitted_relationships,proposal:None,availability:if available{super::Availability::Available}else{super::Availability::NoMatch},sections,location_sources,limitations:vec![
-        "Immutable explicitly loaded Cargo snapshot; no automatic reloading/checking or proc-macro/build-script execution. Changed inputs require explicit stop/reprepare.".into(),
+    Ok(super::Answer {session,source:source.identity().clone(),source_uri:super::engine::uri(&file)?,source_byte_offset:offset,generation:1,native_types:facts,position:serde_json::from_value(utf8_position(source.text(),offset)?)?,observed,omitted_relationships,proposal,availability:if available{super::Availability::Available}else{super::Availability::NoMatch},sections,location_sources,limitations:vec![
+        "Immutable explicitly loaded Cargo snapshot; no automatic reloading/checking or query-side Cargo preparation. Explicit extended worlds may lazily execute retained proc-macro processes. Changed recorded inputs require stop/reprepare.".into(),
         "Native type display is presentation only. Equality/coercion fields use actual HIR types and unknown components remain unproven; arbitrary blanket-trait applicability and rustc acceptance are not established.".into(),
         "This is the selected analyzer Cargo context, not an admitted exact rustc compiler-unit identity; typed explain refuses inactive or ambiguous native module contexts.".into(),
         "Macro/generated origin can be unavailable/non-unique; no fallback range grants source-edit authority. Reference roles describe static native uses, not runtime reachability.".into(),
@@ -1213,18 +1889,20 @@ mod tests {
             no_default_features: false,
             target: None,
             build_macros: false,
+            test_context: false,
         };
         (root, config, file)
     }
     fn query(file: &Path, needle: &str, kind: Kind) -> Query {
-        let offset = SOURCE.find(needle).unwrap();
-        let prefix = &SOURCE[..offset];
+        let text = std::fs::read_to_string(file).unwrap();
+        let offset = text.find(needle).unwrap();
+        let prefix = &text[..offset];
         Query {
             kind,
             file: file.into(),
             line: prefix.bytes().filter(|byte| *byte == b'\n').count() + 1,
             column: prefix.rsplit('\n').next().unwrap().chars().count() + 1,
-            if_source: Some(crate::source_read::source_digest(SOURCE)),
+            if_source: Some(crate::source_read::source_digest(&text)),
             if_generation: Some(1),
             if_candidate: None,
             limit: 100,
@@ -1727,6 +2405,321 @@ mod tests {
         assert!(!engine.status().unwrap().context_current);
         let mut macros = configuration;
         macros.build_macros = true;
-        assert!(matches!(macros.resolve(), Err(Error::Unavailable(_))));
+        assert!(
+            macros.resolve().is_ok(),
+            "extended preparation is explicitly supported"
+        );
+    }
+
+    #[tokio::test]
+    async fn native_operations_capture_roles_predicates_layout_and_assists_keep_their_meaning() {
+        let (root, mut configuration, file) = fixture();
+        configuration.test_context = true;
+        let additional = r#"
+pub struct Pair { pub left: u32, pub right: u64 }
+impl std::ops::Index<usize> for Pair { type Output=u32; fn index(&self,_:usize)->&u32 { &self.left } }
+enum Nested { Empty, Value(Pair) }
+fn meanings() { let p=Pair{left:1,right:2}; let closure=||p.left; let _=closure(); let _=p[0]; original(); original(); }
+mod references { use crate::original; #[test] fn selected_test(){ original(); } }
+fn chosen_layout(value: Pair) { let _=value; }
+fn enum_layout(value: Nested) { let _=value; }
+fn hole(value: u32) -> u32 { todo!() }
+fn async_capture(p:Pair){ let _future=async {p.left}; }
+fn async_callable(p:Pair){ let _closure=async ||p.right; }
+fn whole_capture(p:Pair){ let _closure=move||p; }
+mod extensions { pub trait Extra { fn extension(&self)->u32; } impl Extra for super::Pair { fn extension(&self)->u32 { 3 } } pub trait Blanket {fn blanket(&self);} impl<T:Clone> Blanket for T {fn blanket(&self){}} }
+fn candidates(value:Pair) { value.extension(); value.blanket(); }
+"#;
+        std::fs::write(&file, format!("{SOURCE}{additional}")).unwrap();
+        let engine = Engine::start(root.path(), configuration).unwrap();
+        let capture = answer(&engine, query(&file, "p.left", Kind::Explain)).await;
+        let captures = capture["native_types"]["captures"].as_array().unwrap();
+        assert!(
+            captures
+                .iter()
+                .any(|capture| capture["has_field_projections"] == true
+                    && capture["place"] == "p.left"),
+            "{capture}"
+        );
+        assert!(
+            captures
+                .iter()
+                .any(|capture| capture["stored_type"]["is_reference"] == true
+                    && capture["place_type"]["is_reference"] == false)
+        );
+        assert!(capture["native_types"]["capture_owner"].is_object());
+        assert!(captures.iter().any(|capture| {
+            capture["local"].is_object()
+                && capture["usages"]
+                    .as_array()
+                    .is_some_and(|uses| uses.iter().any(|usage| usage["location"].is_object()))
+        }));
+        let coroutine = answer(&engine, query(&file, "p.left};", Kind::Explain)).await;
+        assert_eq!(
+            coroutine["native_types"]["callable_kind"], "coroutine",
+            "{coroutine}"
+        );
+        assert!(
+            coroutine["native_types"]["captures"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|capture| capture["has_field_projections"] == true
+                    && capture["usages"]
+                        .as_array()
+                        .is_some_and(|uses| !uses.is_empty())),
+            "{coroutine}"
+        );
+        let async_callable = answer(&engine, query(&file, "p.right;", Kind::Explain)).await;
+        assert!(
+            async_callable["native_types"]["callable_kind"]
+                .as_str()
+                .is_some_and(|kind| kind.starts_with("AsyncFn")),
+            "{async_callable}"
+        );
+        let whole = answer(&engine, query(&file, "move||p", Kind::Explain)).await;
+        assert!(
+            whole["native_types"]["captures"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|capture| capture["has_field_projections"] == false
+                    && capture["mode"] == "move"),
+            "{whole}"
+        );
+        let index = answer(&engine, query(&file, "p[0]", Kind::Explain)).await;
+        assert_eq!(index["native_types"]["target"]["name"], "index", "{index}");
+        assert_eq!(
+            index["native_types"]["target"]["relationship"],
+            "resolved_index"
+        );
+        let refs = answer(&engine, query(&file, "original()->", Kind::Refs)).await;
+        assert!(
+            refs["observed"]["relationships"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|reference| reference["import"] == true),
+            "{refs}"
+        );
+        assert!(
+            refs["observed"]["relationships"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|reference| reference["test"] == true),
+            "{refs}"
+        );
+        let holds = answer(
+            &engine,
+            query(
+                &file,
+                "p.left",
+                Kind::Predicate {
+                    text: "u32: Copy".into(),
+                },
+            ),
+        )
+        .await;
+        assert_eq!(
+            holds["observed"]["predicate"]["outcome"], "holds",
+            "{holds}"
+        );
+        let unproved = answer(
+            &engine,
+            query(
+                &file,
+                "p.left",
+                Kind::Predicate {
+                    text: "Pair: Clone".into(),
+                },
+            ),
+        )
+        .await;
+        assert_eq!(
+            unproved["observed"]["predicate"]["outcome"], "not_proven",
+            "{unproved}"
+        );
+        let layout = answer(&engine, query(&file, "value; }", Kind::Layout)).await;
+        assert!(
+            layout["native_types"]["layout"]["size"].as_u64().is_some(),
+            "{layout}"
+        );
+        assert_eq!(
+            layout["native_types"]["layout"]["fields"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        let extension = answer(&engine, query(&file, "extension();", Kind::Candidates)).await;
+        assert!(
+            extension["sections"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|section| section["category"] == "native_callable_discovery"
+                    && section["evidence"]["completeness"] == "unknown")
+        );
+        assert!(
+            extension["native_types"]["callable_candidates"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|candidate| candidate["target"]["name"] == "extension"
+                    && candidate["required_import"].as_str().is_some()
+                    && candidate["applicability"] == "holds"),
+            "{extension}"
+        );
+        let blanket = answer(&engine, query(&file, "blanket();", Kind::Candidates)).await;
+        assert!(
+            blanket["native_types"]["callable_candidates"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|candidate| candidate["target"]["name"] == "blanket"
+                    && candidate["applicability"] == "not_proven"),
+            "{blanket}"
+        );
+        let assists = answer(&engine, query(&file, "todo!()", Kind::Assists)).await;
+        assert!(
+            assists["observed"]["candidates"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|candidate| candidate["label"]
+                    .as_str()
+                    .is_some_and(|label| label.contains("value"))),
+            "{assists}"
+        );
+        let selected = assists["observed"]["candidates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|candidate| {
+                candidate["label"]
+                    .as_str()
+                    .is_some_and(|label| label.contains("value"))
+            })
+            .unwrap();
+        let mut resolve = query(
+            &file,
+            "todo!()",
+            Kind::Assist {
+                index: selected["index"].as_u64().unwrap() as usize,
+            },
+        );
+        resolve.if_candidate = Some(selected["fingerprint"].as_str().unwrap().into());
+        let resolved = answer(&engine, resolve).await;
+        assert!(resolved["proposal"].is_object(), "{resolved}");
+        assert!(engine.status().unwrap().context_current);
+    }
+
+    #[tokio::test]
+    async fn extended_native_preparation_resolves_generated_and_derive_and_fences_products() {
+        let (root, mut configuration, file) = fixture();
+        std::fs::create_dir_all(root.path().join("macros/src")).unwrap();
+        std::fs::write(root.path().join("Cargo.toml"),"[package]\nname='native-analysis-control'\nversion='0.0.0'\nedition='2024'\n[workspace]\n[dependencies]\nmacro-support={path='macros'}\n").unwrap();
+        std::fs::write(root.path().join("macros/Cargo.toml"),"[package]\nname='macro-support'\nversion='0.0.0'\nedition='2024'\n[lib]\nproc-macro=true\n").unwrap();
+        let flag = root.path().join("target/slow-expansion");
+        let entered = root.path().join("target/expansion-entered");
+        let finished = root.path().join("target/expansion-finished");
+        let macro_source = r#"extern crate proc_macro; use proc_macro::TokenStream; #[proc_macro_derive(Marker)] pub fn marker(_: TokenStream)->TokenStream { if std::path::Path::new(__FLAG__).exists() { std::fs::write(__ENTERED__,"entered").unwrap(); std::thread::sleep(std::time::Duration::from_secs(3)); std::fs::write(__FINISHED__,"finished").unwrap(); } "impl Generated { pub fn from_derive()->u32 { 9 } }".parse().unwrap() }"#
+            .replace("__FLAG__", &format!("{flag:?}"))
+            .replace("__ENTERED__", &format!("{entered:?}"))
+            .replace("__FINISHED__", &format!("{finished:?}"));
+        std::fs::write(root.path().join("macros/src/lib.rs"), macro_source).unwrap();
+        std::fs::write(root.path().join("build.rs"),r#"fn main(){let out=std::env::var("OUT_DIR").unwrap();std::fs::write(std::path::Path::new(&out).join("generated.rs"),"pub fn generated_item()->u32 {7}").unwrap();}"#).unwrap();
+        std::fs::write(root.path().join("Cargo.lock"),"version=4\n[[package]]\nname='native-analysis-control'\nversion='0.0.0'\ndependencies=['macro-support']\n[[package]]\nname='macro-support'\nversion='0.0.0'\n").unwrap();
+        std::fs::write(&file,r#"include!(concat!(env!("OUT_DIR"),"/generated.rs")); #[derive(macro_support::Marker)] pub struct Generated; fn selected(){let _=generated_item();let _=Generated::from_derive();}"#).unwrap();
+        let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        configuration.build_macros = true;
+        let engine = Engine::start(checkout, configuration.clone()).unwrap();
+        std::fs::write(&flag, "run slowly").unwrap();
+        let mut expansion = engine.start_query(
+            query(&file, "from_derive();", Kind::Explain),
+            CancellationToken::new(),
+        );
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
+        while !entered.exists() {
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "actual macro expansion never entered"
+            );
+            tokio::select! { result=expansion.settle()=>panic!("macro request completed before entry: {result:?}"), _=tokio::time::sleep(std::time::Duration::from_millis(10))=>{} }
+        }
+        expansion.cancel();
+        let cancelled =
+            tokio::time::timeout(std::time::Duration::from_secs(30), expansion.settle())
+                .await
+                .unwrap()
+                .unwrap();
+        assert!(matches!(cancelled, Err(Error::Cancelled)), "{cancelled:?}");
+        assert!(
+            finished.exists(),
+            "cancellation must not report CPU settlement before the actual macro returned"
+        );
+        std::fs::remove_file(flag).unwrap();
+        let generated = answer(&engine, query(&file, "generated_item();", Kind::Explain)).await;
+        assert_eq!(
+            generated["native_types"]["target"]["name"], "generated_item",
+            "{generated}"
+        );
+        let derive = answer(&engine, query(&file, "from_derive();", Kind::Explain)).await;
+        assert_eq!(
+            derive["native_types"]["target"]["name"], "from_derive",
+            "{derive}"
+        );
+        assert_eq!(
+            derive["session"]["backend_status"]["extended_preparation"],
+            true
+        );
+        let product = engine
+            .world
+            .lock()
+            .unwrap()
+            .digests
+            .keys()
+            .find(|path| path.file_name().is_some_and(|name| name == "generated.rs"))
+            .unwrap()
+            .clone();
+        std::fs::write(product, "pub fn generated_item()->u32 {8}").unwrap();
+        assert!(matches!(engine.context.check(), Err(Error::Stale)));
+        drop(engine);
+        let engine = Engine::start(checkout, configuration.clone()).unwrap();
+        let dylib = engine
+            .prepared_products
+            .iter()
+            .find(|product| {
+                product
+                    .path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| {
+                        name.starts_with("libmacro_support") && name.ends_with(".so")
+                    })
+            })
+            .expect("original captured proc-macro dylib identity")
+            .path
+            .clone();
+        std::fs::remove_file(dylib).unwrap();
+        assert!(
+            matches!(engine.context.check(), Err(Error::Stale)),
+            "a missing dylib must invalidate the actual prepared world"
+        );
+        drop(engine);
+        std::fs::write(
+            root.path().join("build.rs"),
+            "fn main(){panic!(\"required build failure\");}",
+        )
+        .unwrap();
+        assert!(
+            matches!(Engine::start(checkout,configuration),Err(Error::Unavailable(message)) if message.contains("required native build-script preparation failed")),
+            "failed required build preparation must never publish a usable engine"
+        );
     }
 }

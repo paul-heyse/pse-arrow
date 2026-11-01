@@ -58,6 +58,7 @@ fn configuration_to_pb(value: Configuration) -> pb::NativeConfiguration {
         no_default_features: value.no_default_features,
         target: value.target,
         build_macros: value.build_macros,
+        test_context: value.test_context,
         ..Default::default()
     }
 }
@@ -76,6 +77,7 @@ fn configuration_from_pb(value: pb::NativeConfiguration) -> Result<Configuration
         no_default_features: value.no_default_features,
         target: value.target,
         build_macros: value.build_macros,
+        test_context: value.test_context,
     })
 }
 fn analysis_to_pb(value: AnalysisContext) -> Result<pb::NativeAnalysisContext> {
@@ -163,6 +165,7 @@ pub(super) fn request_to_pb(value: &Request) -> Result<pb::NativeRequest> {
             end_line: value.end_line.map(number),
             kind: Some(match &value.kind {
                 Kind::Explain => K::Explain(Default::default()),
+                Kind::Layout => K::Layout(Default::default()),
                 Kind::Refs => K::Refs(Default::default()),
                 Kind::Calls => K::Calls(Default::default()),
                 Kind::Implementations => K::Implementations(Default::default()),
@@ -223,6 +226,7 @@ pub(super) fn request_from_pb(value: pb::NativeRequest) -> Result<Request> {
             Request::Query(Query {
                 kind: match required(value.kind, "query.kind")? {
                     K::Explain(_) => Kind::Explain,
+                    K::Layout(_) => Kind::Layout,
                     K::Refs(_) => Kind::Refs,
                     K::Calls(_) => Kind::Calls,
                     K::Implementations(_) => Kind::Implementations,
@@ -322,6 +326,8 @@ fn library_from_pb(value: pb::NativeLibraryProfile) -> NativeLibraryProfile {
 }
 fn package_to_pb(value: NativePackageContext) -> pb::NativePackageContext {
     pb::NativePackageContext {
+        edition: value.edition,
+        cfg: value.cfg,
         package_id: value.package_id,
         manifest: path(&value.manifest),
         source_root: path(&value.source_root),
@@ -364,6 +370,8 @@ fn package_from_pb(value: pb::NativePackageContext) -> Result<NativePackageConte
         }
     }
     Ok(NativePackageContext {
+        edition: value.edition,
+        cfg: value.cfg,
         package_id: value.package_id,
         manifest: from_path(value.manifest),
         source_root: from_path(value.source_root),
@@ -541,18 +549,24 @@ fn observed_to_pb(value: ObservedFacts) -> Result<pb::NativeObservedFacts> {
                 name: value.name,
                 read: value.read,
                 write: value.write,
+                import: value.import,
+                test: value.test,
                 ..Default::default()
             })
             .collect(),
         predicate: value
             .predicate
             .map(|value| pb::NativePredicateFact {
-                truth: match value.truth {
-                    FactTruth::Unknown => pb::Truth::Unknown,
-                    FactTruth::True => pb::Truth::True,
-                    FactTruth::False => pb::Truth::False,
+                outcome: match value.outcome {
+                    PredicateOutcome::Holds => pb::NativePredicateOutcome::Holds,
+                    PredicateOutcome::NotProven => pb::NativePredicateOutcome::NotProven,
+                    PredicateOutcome::Invalid => pb::NativePredicateOutcome::InvalidPredicate,
+                    PredicateOutcome::Unsupported => {
+                        pb::NativePredicateOutcome::UnsupportedPredicate
+                    }
                 }
                 .into(),
+                cause: value.cause,
                 ..Default::default()
             })
             .into(),
@@ -588,6 +602,10 @@ fn observed_to_pb(value: ObservedFacts) -> Result<pb::NativeObservedFacts> {
             .into_iter()
             .map(|value| {
                 Ok(pb::NativeTestCandidate {
+                    test_id: value.test_id,
+                    cfg: value.cfg,
+                    relatedness: value.relatedness,
+                    eligible: value.eligible,
                     label: value.label,
                     location: value.location.map(location_to_pb).into(),
                     runnable_kind: value.runnable_kind,
@@ -629,6 +647,8 @@ fn observed_from_pb(mut value: pb::NativeObservedFacts) -> Result<ObservedFacts>
                     name: value.name,
                     read: value.read,
                     write: value.write,
+                    import: value.import,
+                    test: value.test,
                 })
             })
             .collect::<Result<_>>()?,
@@ -637,15 +657,19 @@ fn observed_from_pb(mut value: pb::NativeObservedFacts) -> Result<ObservedFacts>
             .take()
             .map(|value| -> Result<PredicateFact> {
                 Ok(PredicateFact {
-                    truth: match value
-                        .truth
+                    outcome: match value
+                        .outcome
                         .as_known()
-                        .ok_or_else(|| malformed("predicate.truth"))?
+                        .ok_or_else(|| malformed("predicate.outcome"))?
                     {
-                        pb::Truth::Unknown => FactTruth::Unknown,
-                        pb::Truth::True => FactTruth::True,
-                        pb::Truth::False => FactTruth::False,
+                        pb::NativePredicateOutcome::Holds => PredicateOutcome::Holds,
+                        pb::NativePredicateOutcome::NotProven => PredicateOutcome::NotProven,
+                        pb::NativePredicateOutcome::InvalidPredicate => PredicateOutcome::Invalid,
+                        pb::NativePredicateOutcome::UnsupportedPredicate => {
+                            PredicateOutcome::Unsupported
+                        }
                     },
+                    cause: value.cause,
                 })
             })
             .transpose()?,
@@ -681,6 +705,10 @@ fn observed_from_pb(mut value: pb::NativeObservedFacts) -> Result<ObservedFacts>
             .into_iter()
             .map(|mut value| {
                 Ok(TestCandidateFact {
+                    test_id: value.test_id,
+                    cfg: value.cfg,
+                    relatedness: value.relatedness,
+                    eligible: value.eligible,
                     label: value.label,
                     location: value.location.take().map(location_from_pb).transpose()?,
                     runnable_kind: value.runnable_kind,
@@ -1093,8 +1121,174 @@ fn type_from_pb(value: pb::NativeTypeFact) -> TypeFact {
         contains_unknown: value.contains_unknown,
     }
 }
+fn layout_to_pb(value: LayoutFact) -> pb::NativeLayoutFact {
+    pb::NativeLayoutFact {
+        ty: value.ty,
+        size: value.size,
+        align: value.align,
+        sized: outcome_to_pb(value.sized).into(),
+        prefix_size: value.prefix_size,
+        prefix_align: value.prefix_align,
+        error: value.error,
+        niches: value.niches,
+        fields: value
+            .fields
+            .into_iter()
+            .map(|field| pb::NativeLayoutFieldFact {
+                name: field.name,
+                offset: field.offset,
+                layout: layout_to_pb(*field.layout).into(),
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    }
+}
+fn layout_from_pb(value: pb::NativeLayoutFact) -> Result<LayoutFact> {
+    let sized = outcome_from_pb(value.sized)?;
+    if sized != PredicateOutcome::Holds
+        && (value.size.is_some() || value.align.is_some() || value.niches.is_some())
+    {
+        return Err(malformed("layout.full_extent_without_sized_proof"));
+    }
+    Ok(LayoutFact {
+        ty: value.ty,
+        size: value.size,
+        align: value.align,
+        sized,
+        prefix_size: value.prefix_size,
+        prefix_align: value.prefix_align,
+        error: value.error,
+        niches: value.niches,
+        fields: value
+            .fields
+            .into_iter()
+            .map(|mut field| {
+                Ok(LayoutFieldFact {
+                    name: field.name,
+                    offset: field.offset,
+                    layout: Box::new(layout_from_pb(required(
+                        field.layout.take(),
+                        "layout.field",
+                    )?)?),
+                })
+            })
+            .collect::<Result<_>>()?,
+    })
+}
+fn target_to_pb(value: TargetFact) -> pb::NativeTargetFact {
+    pb::NativeTargetFact {
+        relationship: value.relationship,
+        name: value.name,
+        location: value.location.map(native_location_to_pb).into(),
+        precision: value.precision,
+        ..Default::default()
+    }
+}
+fn target_from_pb(mut value: pb::NativeTargetFact) -> Result<TargetFact> {
+    Ok(TargetFact {
+        relationship: value.relationship,
+        name: value.name,
+        location: value
+            .location
+            .take()
+            .map(native_location_from_pb)
+            .transpose()?,
+        precision: value.precision,
+    })
+}
+fn outcome_to_pb(value: PredicateOutcome) -> pb::NativePredicateOutcome {
+    match value {
+        PredicateOutcome::Holds => pb::NativePredicateOutcome::Holds,
+        PredicateOutcome::NotProven => pb::NativePredicateOutcome::NotProven,
+        PredicateOutcome::Invalid => pb::NativePredicateOutcome::InvalidPredicate,
+        PredicateOutcome::Unsupported => pb::NativePredicateOutcome::UnsupportedPredicate,
+    }
+}
+fn outcome_from_pb(
+    value: buffa::EnumValue<pb::NativePredicateOutcome>,
+) -> Result<PredicateOutcome> {
+    Ok(
+        match value
+            .as_known()
+            .ok_or_else(|| malformed("predicate.outcome"))?
+        {
+            pb::NativePredicateOutcome::Holds => PredicateOutcome::Holds,
+            pb::NativePredicateOutcome::NotProven => PredicateOutcome::NotProven,
+            pb::NativePredicateOutcome::InvalidPredicate => PredicateOutcome::Invalid,
+            pb::NativePredicateOutcome::UnsupportedPredicate => PredicateOutcome::Unsupported,
+        },
+    )
+}
 fn typed_to_pb(value: TypedFacts) -> pb::NativeTypedFacts {
     pb::NativeTypedFacts {
+        callable_candidates: value
+            .callable_candidates
+            .into_iter()
+            .map(|c| pb::NativeCallableCandidateFact {
+                target: target_to_pb(c.target).into(),
+                signature: c.signature,
+                receiver: type_to_pb(c.receiver).into(),
+                applicability: outcome_to_pb(c.applicability).into(),
+                required_import: c.required_import,
+                reasons: c.reasons,
+                ..Default::default()
+            })
+            .collect(),
+        context: value
+            .context
+            .map(|c| pb::NativeTypeContext {
+                crate_root: path(&c.crate_root),
+                crate_source_sha256: c.crate_source_sha256,
+                features: c.features.into_iter().collect(),
+                cfg: c.cfg,
+                edition: c.edition,
+                target: c.target,
+                compiler_identity: c.compiler_identity,
+                ..Default::default()
+            })
+            .into(),
+        capture_owner: value.capture_owner.map(native_location_to_pb).into(),
+        callsite: value.callsite.map(native_location_to_pb).into(),
+        callable_kind: value.callable_kind,
+        layout: value.layout.map(layout_to_pb).into(),
+        adjustments: value
+            .adjustments
+            .into_iter()
+            .map(|a| pb::NativeAdjustmentFact {
+                kind: a.kind,
+                source: type_to_pb(a.source).into(),
+                target: type_to_pb(a.target).into(),
+                ..Default::default()
+            })
+            .collect(),
+        captures: value
+            .captures
+            .into_iter()
+            .map(|c| pb::NativeCaptureFact {
+                local: c.local.map(native_location_to_pb).into(),
+                usages: c
+                    .usages
+                    .map(|uses| pb::NativeCaptureUsages {
+                        uses: uses
+                            .into_iter()
+                            .map(|u| pb::NativeCaptureUseFact {
+                                location: u.location.map(native_location_to_pb).into(),
+                                is_ref: u.is_ref,
+                                ..Default::default()
+                            })
+                            .collect(),
+                        ..Default::default()
+                    })
+                    .into(),
+                place: c.place,
+                has_field_projections: c.has_field_projections,
+                mode: c.mode,
+                place_type: type_to_pb(c.place_type).into(),
+                stored_type: type_to_pb(c.stored_type).into(),
+                ..Default::default()
+            })
+            .collect(),
         expression: value.expression.map(native_location_to_pb).into(),
         original: value.original.map(type_to_pb).into(),
         adjusted: value.adjusted.map(type_to_pb).into(),
@@ -1124,6 +1318,88 @@ fn typed_to_pb(value: TypedFacts) -> pb::NativeTypedFacts {
 }
 fn typed_from_pb(mut value: pb::NativeTypedFacts) -> Result<TypedFacts> {
     Ok(TypedFacts {
+        callable_candidates: value
+            .callable_candidates
+            .into_iter()
+            .map(|mut c| {
+                Ok(CallableCandidateFact {
+                    target: target_from_pb(required(c.target.take(), "candidate.target")?)?,
+                    signature: c.signature,
+                    receiver: type_from_pb(required(c.receiver.take(), "candidate.receiver")?),
+                    applicability: outcome_from_pb(c.applicability)?,
+                    required_import: c.required_import,
+                    reasons: c.reasons,
+                })
+            })
+            .collect::<Result<_>>()?,
+        context: value.context.take().map(|c| TypeContext {
+            crate_root: from_path(c.crate_root),
+            crate_source_sha256: c.crate_source_sha256,
+            features: c.features.into_iter().collect(),
+            cfg: c.cfg,
+            edition: c.edition,
+            target: c.target,
+            compiler_identity: c.compiler_identity,
+        }),
+        capture_owner: value
+            .capture_owner
+            .take()
+            .map(native_location_from_pb)
+            .transpose()?,
+        callsite: value
+            .callsite
+            .take()
+            .map(native_location_from_pb)
+            .transpose()?,
+        callable_kind: value.callable_kind,
+        layout: value.layout.take().map(layout_from_pb).transpose()?,
+        adjustments: value
+            .adjustments
+            .into_iter()
+            .map(|mut a| {
+                Ok(AdjustmentFact {
+                    kind: a.kind,
+                    source: type_from_pb(required(a.source.take(), "adjustment.source")?),
+                    target: type_from_pb(required(a.target.take(), "adjustment.target")?),
+                })
+            })
+            .collect::<Result<_>>()?,
+        captures: value
+            .captures
+            .into_iter()
+            .map(|mut c| {
+                Ok(CaptureFact {
+                    local: c.local.take().map(native_location_from_pb).transpose()?,
+                    usages: c
+                        .usages
+                        .take()
+                        .map(|uses| {
+                            uses.uses
+                                .into_iter()
+                                .map(|mut u| {
+                                    Ok(CaptureUseFact {
+                                        location: u
+                                            .location
+                                            .take()
+                                            .map(native_location_from_pb)
+                                            .transpose()?,
+                                        is_ref: u.is_ref,
+                                    })
+                                })
+                                .collect::<Result<_>>()
+                        })
+                        .transpose()?,
+                    place: c.place,
+                    has_field_projections: c.has_field_projections,
+                    mode: c.mode,
+                    place_type: type_from_pb(required(c.place_type.take(), "capture.place_type")?),
+                    stored_type: type_from_pb(required(
+                        c.stored_type.take(),
+                        "capture.stored_type",
+                    )?),
+                })
+            })
+            .collect::<Result<_>>()?,
         expression: value
             .expression
             .take()
@@ -1415,6 +1691,7 @@ mod tests {
                 no_default_features: true,
                 target: Some("selected-target".into()),
                 build_macros: false,
+                test_context: false,
             },
             position_encoding: "utf-8".into(),
             backend_status: Some(json!({"native":"original health"})),
@@ -1548,9 +1825,12 @@ mod tests {
                     name: Some("caller".into()),
                     read: None,
                     write: Some(false),
+                    import: Some(false),
+                    test: Some(true),
                 }],
                 predicate: Some(PredicateFact {
-                    truth: FactTruth::Unknown,
+                    outcome: PredicateOutcome::NotProven,
+                    cause: Some("native proof not established".into()),
                 }),
                 importability: Some(ImportabilityFact {
                     visibility: Some(true),
@@ -1566,6 +1846,10 @@ mod tests {
                     location: Some(location()),
                 }],
                 tests: vec![TestCandidateFact {
+                    test_id: Some("module::test".into()),
+                    cfg: None,
+                    relatedness: None,
+                    eligible: None,
                     label: Some("actual test".into()),
                     location: Some(location()),
                     runnable_kind: Some("cargo".into()),
@@ -1597,8 +1881,8 @@ mod tests {
             answer_from_pb(pb::NativeAnswer::decode_from_slice(&original.encode_to_vec()).unwrap())
                 .unwrap();
         assert_eq!(
-            domain.observed.predicate.as_ref().unwrap().truth,
-            FactTruth::Unknown
+            domain.observed.predicate.as_ref().unwrap().outcome,
+            PredicateOutcome::NotProven
         );
         assert_eq!(
             domain.observed.importability.as_ref().unwrap().importable,
@@ -1614,7 +1898,7 @@ mod tests {
         let mut unknown = original;
         unknown
             .observed
-            .modify(|facts| facts.predicate.modify(|fact| fact.truth = 99.into()));
+            .modify(|facts| facts.predicate.modify(|fact| fact.outcome = 99.into()));
         assert!(answer_from_pb(unknown).is_err());
     }
 
@@ -1804,6 +2088,8 @@ mod tests {
             session: context(),
             generation: 7,
             packages: vec![NativePackageContext {
+                edition: Some("2024".into()),
+                cfg: vec!["feature=\"actual\"".into()],
                 package_id: "path+file:///selected#actual@0.1.0".into(),
                 manifest: raw_path(),
                 source_root: "/selected".into(),
@@ -1923,6 +2209,14 @@ mod tests {
     #[test]
     fn original_and_adjusted_native_types_and_call_targets_have_explicit_wire_fields() {
         let facts = TypedFacts {
+            capture_owner: None,
+            context: None,
+            callable_candidates: Vec::new(),
+            callsite: None,
+            adjustments: Vec::new(),
+            captures: Vec::new(),
+            callable_kind: None,
+            layout: None,
             expression: Some(NativeLocation {
                 path: raw_path(),
                 start: 3,
@@ -1977,5 +2271,34 @@ mod tests {
             raw_path()
         );
         assert_eq!(typed_to_pb(restored), wire);
+    }
+
+    #[test]
+    fn static_prefix_is_never_decoded_as_proven_full_layout() {
+        let prefix = LayoutFact {
+            ty: "[u8]".into(),
+            size: None,
+            align: None,
+            sized: PredicateOutcome::NotProven,
+            prefix_size: Some(0),
+            prefix_align: Some(1),
+            error: Some("full extent not established".into()),
+            niches: None,
+            fields: Vec::new(),
+        };
+        let expected = serde_json::to_value(&prefix).unwrap();
+        assert_eq!(
+            serde_json::to_value(layout_from_pb(layout_to_pb(prefix)).unwrap()).unwrap(),
+            expected
+        );
+        assert!(
+            layout_from_pb(pb::NativeLayoutFact {
+                size: Some(0),
+                align: Some(1),
+                sized: pb::NativePredicateOutcome::NotProven.into(),
+                ..Default::default()
+            })
+            .is_err()
+        );
     }
 }

@@ -12,13 +12,285 @@
       "contract_sections": [
         "blueprint §21.7"
       ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/mod.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.compiler_facts.__view.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.compiler_facts.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__oneof.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__view.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__view_oneof.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.mod.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/services/pse.code_intelligence.v1.contracts.__connect.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/services/pse.code_intelligence.v1.mod.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/validation/mod.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.compiler_facts.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.contracts.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.mod.rs",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/compiler_facts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/descriptor.bin",
+      "source_identity": "sha256:9a133c253a1b9caa6cf8cb098674c1c1684fa00fc5b960ebdf684334e499cebe",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
+      "source_role": "authored_wire_contract",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
       "declaration_key": "pse/code_intelligence/v1/contracts.proto",
       "declaration_kind": "protobuf_file",
       "direction": null,
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/mod.rs",
-      "source_identity": "sha256:7fa2e439c26c90a5fb916aa7230caf613801c9ed98163d3197ef82c698380d8a",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/contracts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.compiler_facts.__view.rs",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/contracts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.compiler_facts.rs",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -34,7 +306,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__oneof.rs",
-      "source_identity": "sha256:7fa2e439c26c90a5fb916aa7230caf613801c9ed98163d3197ef82c698380d8a",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -50,7 +322,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__view.rs",
-      "source_identity": "sha256:7fa2e439c26c90a5fb916aa7230caf613801c9ed98163d3197ef82c698380d8a",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -66,7 +338,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__view_oneof.rs",
-      "source_identity": "sha256:7fa2e439c26c90a5fb916aa7230caf613801c9ed98163d3197ef82c698380d8a",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -82,7 +354,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.rs",
-      "source_identity": "sha256:7fa2e439c26c90a5fb916aa7230caf613801c9ed98163d3197ef82c698380d8a",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -98,7 +370,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.mod.rs",
-      "source_identity": "sha256:7fa2e439c26c90a5fb916aa7230caf613801c9ed98163d3197ef82c698380d8a",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -114,7 +386,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/services/pse.code_intelligence.v1.contracts.__connect.rs",
-      "source_identity": "sha256:7fa2e439c26c90a5fb916aa7230caf613801c9ed98163d3197ef82c698380d8a",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -130,7 +402,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/services/pse.code_intelligence.v1.mod.rs",
-      "source_identity": "sha256:7fa2e439c26c90a5fb916aa7230caf613801c9ed98163d3197ef82c698380d8a",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -146,7 +418,23 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/mod.rs",
-      "source_identity": "sha256:7fa2e439c26c90a5fb916aa7230caf613801c9ed98163d3197ef82c698380d8a",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
+      "source_role": "authored_corpus_contributor",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §21.7"
+      ],
+      "declaration_key": "pse/code_intelligence/v1/contracts.proto",
+      "declaration_kind": "protobuf_file",
+      "direction": null,
+      "generator_path": "xtask/src/codegen/code_intelligence.rs",
+      "generator_symbol": "corpus",
+      "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.compiler_facts.rs",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -162,7 +450,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.contracts.rs",
-      "source_identity": "sha256:7fa2e439c26c90a5fb916aa7230caf613801c9ed98163d3197ef82c698380d8a",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -178,7 +466,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.mod.rs",
-      "source_identity": "sha256:7fa2e439c26c90a5fb916aa7230caf613801c9ed98163d3197ef82c698380d8a",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -194,7 +482,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/descriptor.bin",
-      "source_identity": "sha256:7fa2e439c26c90a5fb916aa7230caf613801c9ed98163d3197ef82c698380d8a",
+      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_wire_contract",
       "source_symbol": null

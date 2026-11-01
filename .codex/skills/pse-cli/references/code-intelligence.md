@@ -1,7 +1,8 @@
 # Code intelligence by question
 
-Use the section that answers the current question. Exact grammar and result schemas come
-from `pse help`, `pse commands` and `pse schema`; detailed preparation examples live in the
+Use the section that answers the current question. `pse COMMAND --help` supplies concise
+syntax; `pse help COMMAND` supplies structured parser metadata. Result schemas come from
+`pse schema`; detailed preparation examples live in the
 [environment guide](../../../../docs/dev/agent-environment.md#focused-command-and-source-context).
 Examples below use operands such as `FILE`, `PACKAGE` and `INVOCATION` to replace deliberately.
 
@@ -75,10 +76,12 @@ written bytes will settle the question. These reads also work outside a pse-arro
 |---|---|
 | Where is a declaration or document section? | `pse inspect outline FILE --budget 20` reads nested Rust declarations or Markdown headings without Cargo, cfg evaluation or macro expansion. Multiple files are supported; use one file for a continuation. |
 | What exactly surrounds this location? | `pse inspect declaration FILE --at-line N --at-column N` returns the enclosing declaration/section. `--range-start` / `--range-end` select a half-open UTF-8 byte range. Line/column coordinates are one-based Unicode scalars. |
+| What does this written literal, documentation or attribute mean? | Outline/declaration facts retain original spelling, interpreted values and escape mappings. Syntax matches carry their enclosing declaration, receiver, ordered arguments and owner-matched documentation/attributes; these remain source facts, without cfg or type inference. |
 | What was staged or committed? | Add `--index` for the raw staged blob or `--revision REF` for a resolved committed blob. This avoids checkout changes and distinguishes Git bytes from current working bytes. |
 | Which written shapes match a refactor? | `pse search syntax 'call($ARG)' --path FILE` returns structural candidates with captures and exact source identity. Rust is the current structural language. |
 | Which matches occur in the intended context? | Native rule requests express ancestor/descendant/sibling/field constraints and repeated captures. Strictness selects matching policy. Syntax previews also retain native `--inside`, `--has`, `--exclude`, `--strictness` and `--capture` input controls. |
 | What would a replacement change? | `propose syntax` uses the same pattern plus `--replacement` and optional `--select` candidate indices. Inspect candidates before selecting edits; selected overlaps and undefined template captures refuse. Neither source nor the Git index changes. |
+| Can a grammar-aware edit handle separators and surrounding syntax? | `propose grammar FILE --byte-start N --byte-end N OPERATION` uses native Rust editing for where predicates, imports, bounds, associated items, match arms and expression precedence. Use its help for operation arguments; an exact source guard and preview remain required before applying edits. |
 | What changed, and which tests might matter? | `pse inspect changes` separates Git layers and declared source/generated owners. `pse inspect affected` supplies conservative test reach. Use these to narrow investigation, then select real tests; reach is not test success. |
 
 For an outline continuation, pass `payload.page.next_cursor` unchanged as `--cursor`; changed
@@ -105,6 +108,9 @@ Select features, default-feature policy and platform during preparation. Restric
 disables automatic compiler checking, build scripts and proc macros. `--build-macros` explicitly
 runs correctness-admitted `check --workspace --all-targets` preparation for those outputs; choose
 it when the needed semantics depend on them. Queries do not enable checking or rebuild inputs.
+Native snapshots use `--backend native-snapshot` and an explicitly prepared
+`pse tools prepare native-analysis` image. Select `--test-context` for native cfg(test) semantics;
+the default native world excludes test-only declarations. This selects a world, not test execution.
 
 Choose one backend during explicit preparation. Native snapshot selection uses the explicitly
 prepared native-analysis helper; consult actual readiness and supported capabilities rather
@@ -123,6 +129,8 @@ proofs while retaining the original use-site and source guards.
 | Question | Selected capability |
 |---|---|
 | What entity/type does this expression name? | `inspect entity --view explain` requests hover, definitions and type resolution. Rendered hover remains rendered evidence when a structured field is unsupported. |
+| Why does this operation capture, borrow or adjust a value? | Native explain/reference facts distinguish operation roles, implicit targets, original/adjusted types and capture/use causes. Keep separate use sites even when they resolve to one declaration. Unavailable native observations stay unavailable. |
+| What layout does the selected target establish? | `inspect entity --view layout` returns fallible full extents only with native Sized evidence; unsized prefixes and unsupported generic/child layouts remain separate. `--compiler-layout INVOCATION` passively associates original type-size evidence through recorded guards; opaque compiler output supplies no numerical ABI equality. |
 | What symbols does the semantic provider see in this file? | `inspect entity --view symbols`; prefer source-only `inspect outline` when written declarations suffice. |
 | Where is this actual entity referenced? | `inspect entity --view refs`, including declarations; use it when text matches would conflate same-spelled names. |
 | What calls this function, and what does it call? | `inspect entity --view calls` supplies one-hop incoming/outgoing calls. Expand only the relevant neighbors; this is not a whole-program runtime trace. |
@@ -131,7 +139,7 @@ proofs while retaining the original use-site and source guards.
 | Which tests are related to this entity? | `inspect entity --view tests` returns candidates with next actions through `pse tests` / `pse test`. It never executes analyzer-supplied argv. |
 | Which APIs fit this editing position? | `inspect entity --view candidates`, then its guarded `inspect entity --view candidate` action for one useful choice. Lazy resolution retains imports, snippets and unresolved editing intent. |
 | What inferred annotations help explain these lines? | `inspect entity --view hints` with a selected line/range, then guarded `inspect entity --view hint` resolution when needed. Avoid fetching the whole file's annotations. |
-| Can the native provider establish a specific trait predicate here? | `inspect entity --view predicate FILE --line N --column N --text TEXT`. Preserve proven, contradictory and not-proven/unavailable outcomes; lack of proof is not a negative fact. |
+| Can the native provider establish a specific trait predicate here? | `inspect entity --view predicate FILE --line N --column N --text TEXT`. Preserve holds, not-proven, invalid and unsupported outcomes. Not-proven remains unknown under conjunction or negation. |
 
 Commands operate on working files, without assuming an editor's unsaved buffers. CLI positions
 are one-based Unicode scalar coordinates, converted to the provider's negotiated encoding.
@@ -169,9 +177,9 @@ with the replaced protocol must be stopped and explicitly prepared again; origin
 status and stop authority remain available.
 
 For component fixtures that deliberately prepare independent persistent semantic sessions,
-use the top-level `cargo t` route in the qualification guide. Wrapping those fixtures in
-`pse test` or `pse-env` creates an enclosing workload whose independent detachment correctly
-refuses. Ordinary correctness tests continue through `pse test`.
+use the existing ordinary-application-scope fixture when selecting them through `pse test`.
+Direct fixtures without that adaptation retain the qualification guide's top-level `cargo t`
+route. Independent detachment directly from an enclosing workload continues to refuse.
 
 ## Locked APIs and dependency context
 
@@ -197,6 +205,10 @@ format-qualified item data when a compact signature omits complex bounds or asso
 A facade can require explicit acquisition of its defining package. A missing artifact is
 unprepared, not an empty API; unresolved references and automatic/blanket impl omissions
 remain visible. Returned APIs do not alone establish ordinary-build applicability.
+Rich contracts retain generic binders, associated constraints, attributes and stability facts.
+`pse api PACKAGE --extract-examples` explicitly obtains rustdoc's transformed doctest inputs;
+`inspect api PACKAGE --native-examples FILE` reads that original format-qualified output.
+Wrappers, hidden setup and not-run modes remain visible; extraction executes no example.
 
 To inspect an upgrade's structural changes, select the original acquired input explicitly:
 
@@ -223,6 +235,10 @@ For dependency questions, distinguish declarations, resolved metadata and compil
 | Why is this package included? | `pse inspect dependency PACKAGE --why` returns shortest metadata inclusion paths. |
 | Which authored feature links request this member? | `inspect dependency --feature-member VALUE` follows exact authored expansion links. Optionality, default requests and target expressions remain distinct from Cargo's resolved feature union. |
 | Which actual target/host/build units does this selection admit? | `pse inspect dependency-units DEPENDENCY ROOT --lib ...` uses the shared check grammar, including multiple roots, features and negative features. This is compiler-unit context, not compilation, provider readiness, a test population or impact proof. |
+
+Add `--native-world` to dependency-unit inspection to compare actual prepared-world roots,
+features, roles, cfg and edition. Ambiguous/missing correspondences remain explicit.
+`--metadata-original` retains the separately captured metadata instead of inferring it from units.
 
 For a concrete unresolved API question, `pse probe new NAME --deps PACKAGE` creates an authored
 isolated workspace seeded with locked dependencies. Edit its source to state the experiment;
@@ -256,6 +272,7 @@ pse compiler generate PACKAGE --kind mir --body FUNCTION --pass ElaborateDrops -
 | Kind | Useful question and evidence limits |
 |---|---|
 | `mir` | Inspect selected before/after MIR for a body/pass, such as remaining drops or lowered control flow. Body/pass selectors are native substrings; unsupported broad filters refuse. |
+| `facts` | Explicit pinned compiler observations for an exact owning body and its nested bodies. `--fact-focus captures`, `suspension` or `cleanup` narrows native extraction before expensive queries. |
 | `thir` | Inspect typed lowering of the selected unit. Native rustc offers no body filter for this view. |
 | `type-sizes` | Inspect encountered concrete layouts under the selected compiler/target; no cross-target ABI guarantee. |
 | `mono-items` | Inspect collected monomorphizations; collection is distinct from runtime reach. |
@@ -274,6 +291,18 @@ for original context, native outcome and file index, then `inspect compiler-arti
 --length 4096` for a bounded range. The reader validates the historical whole-file SHA first,
 scanning the complete file and stating that cost. Changed files refuse. Reads neither rerun
 compilation nor prepare a structured compiler driver.
+
+For typed questions, explicitly prepare `pse tools prepare compiler-analysis`, then use
+`compiler generate PACKAGE --kind facts --body FUNCTION --fact-focus cleanup --question QUESTION`
+or the same selection through `compiler probe NAME`. This optional stage requires the matching
+rustc-dev toolchain and never links compiler-private crates into ordinary host construction.
+`inspect compiler-facts INVOCATION --fact-focus cleanup --max-bytes 16384` reads only successfully
+published original facts. `--body` selects one acquired body; whole bodies stay indivisible.
+Source/stored capture types, conservative saved fields, native may-initialization, phases and
+normal/unwind edges have different meanings. ABI termination differs from a panic during cleanup.
+These facts establish neither general loan/liveness analysis nor actual runtime resource release.
+Missing families require explicit new acquisition; passive reads never regenerate them. Follow
+original artifact actions for full context and byte evidence when the compact answer is insufficient.
 
 Use `probe rm` only when finished with the authored workspace. It takes the same lease,
 authenticates recorded runs and requires original native drain; a terminal row or missing PID

@@ -1176,7 +1176,10 @@ fn entity_conjunction(
                 {
                     return Ok(());
                 }
-                let mut truth = row.refinement.as_ref().map_or(Truth::True, |fact| fact.truth);
+                let mut truth = row
+                    .refinement
+                    .as_ref()
+                    .map_or(Truth::True, |fact| fact.truth);
                 for clause in remaining {
                     truth = truth.and(entity_membership(
                         root,
@@ -1202,8 +1205,16 @@ fn entity_conjunction(
                     }
                     row.reference = Some(ResultReference::new(entity.locator));
                     row.refinement = Some(match row.refinement.take() {
-                        Some(mut fact) => { fact.truth = Truth::True; fact },
-                        None => RefinementFact { truth: Truth::True, diagnostic: None, native: None, evidence: None },
+                        Some(mut fact) => {
+                            fact.truth = Truth::True;
+                            fact
+                        }
+                        None => RefinementFact {
+                            truth: Truth::True,
+                            diagnostic: None,
+                            native: None,
+                            evidence: None,
+                        },
                     });
                     accepted(row, request, &mut summary, emit, &mut counted)?;
                     useful += 1;
@@ -1297,7 +1308,10 @@ fn entity_membership(
             Event::Result(row) => {
                 if let Some(fact) = &row.refinement {
                     match fact.truth {
-                        Truth::Unknown => { index.complete = false; return Ok(()); }
+                        Truth::Unknown => {
+                            index.complete = false;
+                            return Ok(());
+                        }
                         Truth::False => return Ok(()),
                         Truth::True => (),
                     }
@@ -1721,7 +1735,7 @@ mod tests {
     }
     #[test]
     fn unknown_predicate_evidence_is_not_a_negative_or_hover_inference() {
-        use crate::semantic::{PredicateOutcome, PredicateFact};
+        use crate::semantic::{PredicateFact, PredicateOutcome};
         assert_eq!(predicate_truth(None), Truth::Unknown);
         for (native, expected) in [
             (PredicateOutcome::Holds, Truth::True),
@@ -1731,7 +1745,7 @@ mod tests {
         ] {
             let truth = predicate_truth(Some(&PredicateFact {
                 outcome: native,
-                cause:None,
+                cause: None,
             }));
             assert_eq!(truth, expected);
             assert_eq!(truth.negate(), expected.negate());
@@ -2029,11 +2043,14 @@ mod tests {
         crate::semantic::tests::independent_cli(
             "investigation::composition::tests::t03_public_composition_entry",
             "PSE_T03_COMPOSITION_GATE",
-        ).await;
+        )
+        .await;
     }
     #[test]
     fn t03_public_composition_entry() {
-        let Some(gate) = std::env::var_os("PSE_T03_COMPOSITION_GATE") else { return; };
+        let Some(gate) = std::env::var_os("PSE_T03_COMPOSITION_GATE") else {
+            return;
+        };
         let gate = std::path::PathBuf::from(gate);
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
         while !gate.exists() {
@@ -2044,81 +2061,212 @@ mod tests {
         let scratch = tempfile::tempdir().unwrap();
         let project = scratch.path().join("project");
         std::fs::create_dir_all(project.join("src")).unwrap();
-        std::fs::write(project.join("Cargo.toml"), "[package]\nname='composition-control'\nversion='0.0.0'\nedition='2024'\n[workspace]\n").unwrap();
-        std::fs::write(project.join("Cargo.lock"), "version=4\n[[package]]\nname='composition-control'\nversion='0.0.0'\n").unwrap();
-        let checkout = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap();
-        std::fs::copy(checkout.join("rust-toolchain.toml"),project.join("rust-toolchain.toml")).unwrap();
+        std::fs::write(
+            project.join("Cargo.toml"),
+            "[package]\nname='composition-control'\nversion='0.0.0'\nedition='2024'\n[workspace]\n",
+        )
+        .unwrap();
+        std::fs::write(
+            project.join("Cargo.lock"),
+            "version=4\n[[package]]\nname='composition-control'\nversion='0.0.0'\n",
+        )
+        .unwrap();
+        let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        std::fs::copy(
+            checkout.join("rust-toolchain.toml"),
+            project.join("rust-toolchain.toml"),
+        )
+        .unwrap();
         let file = project.join("src/lib.rs");
         let text = "pub struct Token;\npub fn target()->u32 { 1 }\npub fn first()->u32 { target() }\npub fn second()->u32 { target() }\n";
-        std::fs::write(&file,text).unwrap();
+        std::fs::write(&file, text).unwrap();
         let session = Session::new();
-        session.run(&["tools","prepare","native-analysis"],0);
-        session.run(&["code","session","prepare","--backend","native-snapshot","--project",project.to_str().unwrap()],0);
+        session.run(&["tools", "prepare", "native-analysis"], 0);
+        session.run(
+            &[
+                "code",
+                "session",
+                "prepare",
+                "--backend",
+                "native-snapshot",
+                "--project",
+                project.to_str().unwrap(),
+            ],
+            0,
+        );
         struct Stop<'a>(&'a Session, bool);
-        impl Drop for Stop<'_> { fn drop(&mut self) { if self.1 { let _ = std::panic::catch_unwind(||self.0.stop()); } } }
-        let mut stop = Stop(&session,true);
+        impl Drop for Stop<'_> {
+            fn drop(&mut self) {
+                if self.1 {
+                    let _ = std::panic::catch_unwind(|| self.0.stop());
+                }
+            }
+        }
+        let mut stop = Stop(&session, true);
         session.ready();
         let request_file = scratch.path().join("question.json");
         let ask = |request: &Request, exit| {
-            std::fs::write(&request_file,serde_json::to_vec(request).unwrap()).unwrap();
-            session.run(&["search","--request",request_file.to_str().unwrap()],exit)
+            std::fs::write(&request_file, serde_json::to_vec(request).unwrap()).unwrap();
+            session.run(
+                &["search", "--request", request_file.to_str().unwrap()],
+                exit,
+            )
         };
-        let calls = Predicate::Syntax(SyntaxQuery { pattern:Some("target()".into()), ..Default::default() });
-        let target = Predicate::Symbol(SymbolQuery { name:"target".into(),matching:NameMatch::Exact,provider:DiscoveryProvider::Semantic,..Default::default() });
-        let mut request = Request { predicate:Predicate::All { within:MatchScope::Entity,clauses:vec![calls.clone(),target.clone()] }, ..Default::default() };
+        let calls = Predicate::Syntax(SyntaxQuery {
+            pattern: Some("target()".into()),
+            ..Default::default()
+        });
+        let target = Predicate::Symbol(SymbolQuery {
+            name: "target".into(),
+            matching: NameMatch::Exact,
+            provider: DiscoveryProvider::Semantic,
+            ..Default::default()
+        });
+        let mut request = Request {
+            predicate: Predicate::All {
+                within: MatchScope::Entity,
+                clauses: vec![calls.clone(), target.clone()],
+            },
+            ..Default::default()
+        };
         request.sources.paths.push(file.clone());
-        let observed = ask(&request,0);
+        let observed = ask(&request, 0);
         let rows = observed["payload"]["results"].as_array().unwrap();
-        assert_eq!(rows.len(),2,"separate use sites must survive: {observed}");
-        assert_eq!(rows[0]["entity"],rows[1]["entity"]);
-        assert_ne!(rows[0]["candidate_reference"],rows[1]["candidate_reference"]);
-        assert_ne!(rows[0]["reference"],rows[1]["reference"]);
-        assert!(rows.iter().all(|row|row["refinement"]["truth"]=="true" && row["reference"]["locator"]["source_sha256"].is_string()));
+        assert_eq!(rows.len(), 2, "separate use sites must survive: {observed}");
+        assert_eq!(rows[0]["entity"], rows[1]["entity"]);
+        assert_ne!(
+            rows[0]["candidate_reference"],
+            rows[1]["candidate_reference"]
+        );
+        assert_ne!(rows[0]["reference"], rows[1]["reference"]);
+        assert!(rows.iter().all(|row| row["refinement"]["truth"] == "true"
+            && row["reference"]["locator"]["source_sha256"].is_string()));
         let sources = observed["payload"]["sources"].as_array().unwrap();
-        assert!(sources.iter().any(|source|source["native"].is_null()));
-        assert!(sources.iter().any(|source|source["native"]["session_invocation"].is_string() && source["native"]["generation"]==1));
-        let expansion: ResultReference = serde_json::from_value(rows[0]["reference"].clone()).unwrap();
-        let expanded = session.run(&["inspect","--result",&expansion.encode().unwrap()],0);
-        assert_eq!(expanded["payload"]["native"]["generation"],1,"{expanded}");
-        assert!(expanded["payload"]["native"]["native_types"].is_object(),"selected expansion must expose typed native explanation: {expanded}");
+        assert!(sources.iter().any(|source| source["native"].is_null()));
+        assert!(
+            sources
+                .iter()
+                .any(|source| source["native"]["session_invocation"].is_string()
+                    && source["native"]["generation"] == 1)
+        );
+        let expansion: ResultReference =
+            serde_json::from_value(rows[0]["reference"].clone()).unwrap();
+        let expanded = session.run(&["inspect", "--result", &expansion.encode().unwrap()], 0);
+        assert_eq!(expanded["payload"]["native"]["generation"], 1, "{expanded}");
+        assert!(
+            expanded["payload"]["native"]["native_types"].is_object(),
+            "selected expansion must expose typed native explanation: {expanded}"
+        );
         request.answer.kind = AnswerKind::Count;
         request.answer.count_unit = CountUnit::Entities;
-        let counted = ask(&request,0);
-        assert_eq!(counted["payload"]["summary"]["matches"],1,"entity count remains distinct from use sites: {counted}");
+        let counted = ask(&request, 0);
+        assert_eq!(
+            counted["payload"]["summary"]["matches"], 1,
+            "entity count remains distinct from use sites: {counted}"
+        );
         request.answer = AnswerDemand::default();
-        let unproved = Predicate::Refine { candidates:Box::new(calls.clone()),filter:Refinement::NativePredicate {text:"Token: Clone".into()} };
+        let unproved = Predicate::Refine {
+            candidates: Box::new(calls.clone()),
+            filter: Refinement::NativePredicate {
+                text: "Token: Clone".into(),
+            },
+        };
         for (index, predicate) in [
-            Predicate::All { within:MatchScope::Entity,clauses:vec![unproved.clone(),target.clone()] },
-            Predicate::All { within:MatchScope::Entity,clauses:vec![calls.clone(),Predicate::Not {within:MatchScope::Entity,clause:Box::new(unproved)}] },
-        ].into_iter().enumerate() {
+            Predicate::All {
+                within: MatchScope::Entity,
+                clauses: vec![unproved.clone(), target.clone()],
+            },
+            Predicate::All {
+                within: MatchScope::Entity,
+                clauses: vec![
+                    calls.clone(),
+                    Predicate::Not {
+                        within: MatchScope::Entity,
+                        clause: Box::new(unproved),
+                    },
+                ],
+            },
+        ]
+        .into_iter()
+        .enumerate()
+        {
             request.predicate = predicate;
-            let uncertain = ask(&request,1);
-            assert_eq!(uncertain["payload"]["summary"]["matches"],0,"{uncertain}");
+            let uncertain = ask(&request, 1);
+            assert_eq!(uncertain["payload"]["summary"]["matches"], 0, "{uncertain}");
             let rows = uncertain["payload"]["results"].as_array().unwrap();
-            assert_eq!(rows.len(),2,"NotProven cannot become a positive or negative witness: {uncertain}");
-            assert!(rows.iter().all(|row|row["refinement"]["truth"]=="unknown"));
+            assert_eq!(
+                rows.len(),
+                2,
+                "NotProven cannot become a positive or negative witness: {uncertain}"
+            );
+            assert!(
+                rows.iter()
+                    .all(|row| row["refinement"]["truth"] == "unknown")
+            );
             if index == 0 {
-                assert!(rows.iter().all(|row|row["refinement"]["evidence"]["outcome"]=="not_proven"),"native NotProven evidence must survive conjunction: {uncertain}");
+                assert!(
+                    rows.iter()
+                        .all(|row| row["refinement"]["evidence"]["outcome"] == "not_proven"),
+                    "native NotProven evidence must survive conjunction: {uncertain}"
+                );
             }
         }
-        std::fs::write(&file,format!("{text}// changed after publication\n")).unwrap();
-        let stale = session.run(&["inspect","--result",&expansion.encode().unwrap()],125);
-        assert_eq!(stale["outcome"],"boundary_failure","{stale}");
-        assert!(stale["failures"].as_array().unwrap().iter().any(|failure|failure["message"].as_str().is_some_and(|message|message.contains(&crate::semantic::Error::Stale.to_string()))),"original stale cause must remain surfaced: {stale}");
-        session.stop(); stop.1 = false;
-        request.predicate = Predicate::Any {within:MatchScope::File,clauses:vec![calls,target]};
+        std::fs::write(&file, format!("{text}// changed after publication\n")).unwrap();
+        let stale = session.run(&["inspect", "--result", &expansion.encode().unwrap()], 125);
+        assert_eq!(stale["outcome"], "boundary_failure", "{stale}");
+        assert!(
+            stale["failures"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|failure| failure["message"].as_str().is_some_and(
+                    |message| message.contains(&crate::semantic::Error::Stale.to_string())
+                )),
+            "original stale cause must remain surfaced: {stale}"
+        );
+        session.stop();
+        stop.1 = false;
+        request.predicate = Predicate::Any {
+            within: MatchScope::File,
+            clauses: vec![calls, target],
+        };
         request.answer.kind = AnswerKind::Exists;
-        let exists = ask(&request,0);
-        assert_eq!(exists["payload"]["summary"]["matches"],1,"{exists}");
-        assert_eq!(exists["payload"]["summary"]["unknown"],0,"first witness must not enter the unavailable native branch: {exists}");
-        assert_eq!(exists["payload"]["summary"]["failures"],0,"first witness must not attempt the stopped provider: {exists}");
+        let exists = ask(&request, 0);
+        assert_eq!(exists["payload"]["summary"]["matches"], 1, "{exists}");
+        assert_eq!(
+            exists["payload"]["summary"]["unknown"], 0,
+            "first witness must not enter the unavailable native branch: {exists}"
+        );
+        assert_eq!(
+            exists["payload"]["summary"]["failures"], 0,
+            "first witness must not attempt the stopped provider: {exists}"
+        );
         request.answer.kind = AnswerKind::Count;
-        let exhaustive = ask(&request,1);
-        assert_eq!(exhaustive["payload"]["summary"]["matches"],2,"{exhaustive}");
-        assert_eq!(exhaustive["subject_state"],"unknown","{exhaustive}");
-        assert_eq!(exhaustive["payload"]["summary"]["count"],serde_json::json!({"precision":"at_least","value":2}),"global count cannot turn a stopped world into complete absence: {exhaustive}");
-        assert!(exhaustive["payload"]["diagnostics"].as_array().unwrap().iter().any(|diagnostic|diagnostic["phase"]=="delivery" && diagnostic["code"]=="search.composition_failure"),"original transport refusal remains distinct from an unproved predicate: {exhaustive}");
-        assert_eq!(exhaustive["payload"]["summary"]["complete"],false);
+        let exhaustive = ask(&request, 1);
+        assert_eq!(
+            exhaustive["payload"]["summary"]["matches"], 2,
+            "{exhaustive}"
+        );
+        assert_eq!(exhaustive["subject_state"], "unknown", "{exhaustive}");
+        assert_eq!(
+            exhaustive["payload"]["summary"]["count"],
+            serde_json::json!({"precision":"at_least","value":2}),
+            "global count cannot turn a stopped world into complete absence: {exhaustive}"
+        );
+        assert!(
+            exhaustive["payload"]["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|diagnostic| diagnostic["phase"] == "delivery"
+                    && diagnostic["code"] == "search.composition_failure"),
+            "original transport refusal remains distinct from an unproved predicate: {exhaustive}"
+        );
+        assert_eq!(exhaustive["payload"]["summary"]["complete"], false);
     }
     #[test]
     fn consumer_failure_settles_the_real_scoped_producer_and_keeps_the_original_error() {

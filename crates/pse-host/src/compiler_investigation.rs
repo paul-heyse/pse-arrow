@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Original compiler evidence and explicitly selected native artifact investigations.
 pub mod artifact;
+pub(crate) mod facts;
 use crate::{
     HostError,
     artifacts::{self, Content, DescriptorIdentity},

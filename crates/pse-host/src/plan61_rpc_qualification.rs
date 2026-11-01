@@ -54,6 +54,7 @@ impl Fixture {
                 no_default_features: false,
                 target: None,
                 build_macros: false,
+                test_context: false,
             },
             backend: "controlled real CPU operation".into(),
             position_encoding: "utf-8".into(),

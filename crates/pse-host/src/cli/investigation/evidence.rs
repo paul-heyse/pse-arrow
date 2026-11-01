@@ -46,6 +46,12 @@ pub(super) enum Action {
     /// Inspect planned compiler units without building or listing tests.
     DependencyUnits {
         dependency: String,
+        /// Explain qualified correspondence to the explicitly prepared native world.
+        #[arg(long)]
+        native_world: bool,
+        /// Include the original captured metadata alongside the planned-unit explanation.
+        #[arg(long)]
+        metadata_original: bool,
         #[command(flatten)]
         selection: super::super::selection::SelectionArgs,
     },
@@ -97,6 +103,19 @@ pub(super) enum Action {
     },
     /// Inspect the original compiler-generation context, outcome and checked file index.
     CompilerArtifacts { invocation: String },
+    /// Explain original typed capture, suspension and cleanup observations without rerunning rustc.
+    CompilerFacts {
+        invocation: String,
+        /// Exact acquired body path; omitted selects all originally acquired bodies.
+        #[arg(long)]
+        body: Option<String>,
+        /// Whole-body JSON payload budget; provenance is always retained.
+        #[arg(long, default_value = "16384")]
+        max_bytes: NonZeroUsize,
+        /// Select acquired detail before whole-body output budgeting; never acquires missing facts.
+        #[arg(long, value_enum, default_value = "all")]
+        fact_focus: crate::compiler_investigation::artifact::FactFocus,
+    },
     /// Read an already captured original test population or its original failures.
     Tests {
         invocation: String,
@@ -253,10 +272,14 @@ pub(super) fn inspect(
         Action::DependencyUnits {
             dependency,
             selection,
+            native_world,
+            metadata_original,
         } => super::super::dependency::dispatch(
             super::super::dependency::Action::Units {
                 dependency,
                 selection,
+                native_world,
+                metadata_original,
             },
             selected,
             output,
@@ -423,6 +446,32 @@ pub(super) fn inspect(
                 crate::compiler_investigation::artifact::observe(&root, &state, &invocation)?;
             response.command = "inspect compiler-artifacts".into();
             Ok(output.emit(response)?)
+        }
+        Action::CompilerFacts {
+            invocation,
+            body,
+            max_bytes,
+            fact_focus,
+        } => {
+            let state =
+                crate::paths::CheckoutState::resolve(&root, &std::env::vars_os().collect())?;
+            let response = crate::compiler_investigation::facts::observe(
+                &root,
+                &state,
+                &invocation,
+                body.as_deref(),
+                max_bytes,
+                fact_focus,
+            )?;
+            let omitted = response.payload.omitted_bodies;
+            Ok(output.emit_page(
+                response,
+                crate::envelope::DetailView {
+                    omitted_records: omitted,
+                    truncated: omitted > 0,
+                    ..Default::default()
+                },
+            )?)
         }
         Action::Tests {
             invocation,

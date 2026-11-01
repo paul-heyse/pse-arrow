@@ -5,6 +5,8 @@ mod context;
 mod edit;
 mod engine;
 mod facts;
+mod layout;
+pub use layout::{LayoutAssociation, LayoutAssociationState, associate_layout};
 mod protocol_facts;
 pub use facts::*;
 #[cfg(feature = "native-hir")]
@@ -12,7 +14,7 @@ pub mod native;
 pub(crate) mod rpc;
 pub(crate) mod service;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 mod transport;
 mod wire;
 mod workers;
@@ -27,7 +29,7 @@ pub use service::{
 use std::path::PathBuf;
 
 /// Current prepared semantic helper/selector protocol; legacy selectors are administration-only.
-pub const SESSION_PROTOCOL_VERSION: u32 = 2;
+pub const SESSION_PROTOCOL_VERSION: u32 = 4;
 
 /// Explicit context owner; immutable native snapshots are not a second live LSP world.
 #[derive(
@@ -59,12 +61,17 @@ pub struct Configuration {
     pub target: Option<String>,
     /// Explicitly admit native build-script and proc-macro preparation through correctness Cargo.
     pub build_macros: bool,
+    /// Explicitly include native cfg(test) semantics; never compiler-unit equivalence.
+    #[serde(default)]
+    pub test_context: bool,
 }
 impl Configuration {
     /// Validate and canonicalize before preparation; reads do not prepare a session.
     pub fn resolve(mut self) -> Result<Self> {
-        if self.backend == Backend::NativeSnapshot && self.build_macros {
-            return Err(Error::Unavailable("native snapshot macro/build-script preparation is not supported; explicitly select the live LSP backend for its prepared macro context".into()));
+        if self.test_context && self.backend != Backend::NativeSnapshot {
+            return Err(Error::unsupported(
+                "explicit test_context is a native snapshot selection; live LSP retains its separately prepared configuration",
+            ));
         }
         self.project = self.project.canonicalize()?;
         if !self.project.join("Cargo.toml").is_file() {
@@ -131,6 +138,10 @@ pub enum NativeDependencyExclusion {
 /// Actual library crate context captured from the same prepared native database.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct NativePackageContext {
+    /// Edition of the actual loaded crate; absent only for an unmapped model.
+    pub edition: Option<String>,
+    /// Actual native cfg atoms, including key/value pairs.
+    pub cfg: Vec<String>,
     /// Cargo source-qualified package identifier, never a bare crate spelling.
     pub package_id: String,
     /// Original package manifest from the loaded project model.
@@ -238,6 +249,8 @@ pub struct Query {
 pub enum Kind {
     /// Hover plus declaration/type targets.
     Explain,
+    /// Fallible native target-qualified layout with immediate child detail.
+    Layout,
     /// Semantic references, including declarations.
     Refs,
     /// One-hop incoming and outgoing call hierarchy.

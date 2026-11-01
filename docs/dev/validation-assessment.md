@@ -49,8 +49,11 @@ Pure closures need no unrelated scientific root. Plain Cargo commands retain the
 feature spelling alone is not proof. A binary built earlier or an environment marker does not
 prove the current source or compiled feature closure.
 
-Run fixtures that deliberately prepare independent persistent semantic sessions from the
-top-level `cargo t` route, after `scripts/bootstrap-host`. For example, use
+Selected host unit journeys use the shared ordinary-application-scope fixture before preparing
+independent persistent sessions, so they can run through normal `pse test` ownership. That fixture
+retains original stop/drain and does not permit independent detachment directly from a workload.
+For direct fixtures without this adaptation, use the top-level `cargo t` route after
+`scripts/bootstrap-host`. For example, use
 `cargo t -p pse-host --test composed_investigations` or select the native session tests with
 `cargo t -p pse-host --lib --features native-hir -E 'test(semantic::tests::native_snapshot)'`.
 Each fixture explicitly prepares its helper and session, then verifies the original stop/drain.

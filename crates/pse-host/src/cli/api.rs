@@ -219,11 +219,24 @@ fn perform(
     effect: Option<(Operation, &EntryGuard)>,
 ) -> Result<i32, HostError> {
     if let Some(path) = &arguments.native_examples {
-        let page = api::doctests::inspect(&root.join(path), output.presentation.budget.unwrap_or(20)).map_err(error)?;
+        let page =
+            api::doctests::inspect(&root.join(path), output.presentation.budget.unwrap_or(20))
+                .map_err(error)?;
         let omitted = page.omitted_examples;
-        let mut response = Envelope::response("inspect api", "native doctest preprocessing; compilation and execution not run", api::query::Report::NativeExamples { page });
+        let mut response = Envelope::response(
+            "inspect api",
+            "native doctest preprocessing; compilation and execution not run",
+            api::query::Report::NativeExamples { page },
+        );
         response.observation.scope = "addressed_native_doctest_format2_original_evidence".into();
-        return Ok(output.emit_page(response, envelope::DetailView { omitted_records: omitted, truncated: omitted > 0, ..Default::default() })?);
+        return Ok(output.emit_page(
+            response,
+            envelope::DetailView {
+                omitted_records: omitted,
+                truncated: omitted > 0,
+                ..Default::default()
+            },
+        )?);
     }
     let environment = std::env::vars_os().collect();
     let store = CheckoutState::resolve(root, &environment)?.root;
@@ -282,7 +295,11 @@ fn perform(
             provider: format!(
                 "rustdoc-{}/{}; {}",
                 if native_examples { "doctest" } else { "json" },
-                if native_examples { api::doctests::FORMAT_VERSION } else { acquisition.context.rustdoc_format },
+                if native_examples {
+                    api::doctests::FORMAT_VERSION
+                } else {
+                    acquisition.context.rustdoc_format
+                },
                 acquisition
                     .context
                     .rustdoc_identity
@@ -316,7 +333,11 @@ fn perform(
                 detach: false,
                 session: None,
                 resource_class: None,
-                verb: if native_examples { "api extract-examples" } else { "api prepare" },
+                verb: if native_examples {
+                    "api extract-examples"
+                } else {
+                    "api prepare"
+                },
                 tool: None,
                 workflow: None,
             },
@@ -328,11 +349,19 @@ fn perform(
                 if native_examples {
                     use std::io::Read as _;
                     let state = CheckoutState::resolve(root, &acquisition.environment)?;
-                    let invocation = crate::invocation::InvocationStore::new(state).directory(&output.invocation_id)?;
+                    let invocation = crate::invocation::InvocationStore::new(state)
+                        .directory(&output.invocation_id)?;
                     let mut bytes = Vec::new();
-                    invocation.stream(crate::extraction::OutputStream::Stdout)?.read_to_end(&mut bytes)?;
-                    let path = api::doctests::finish(&acquisition, &snapshot, &bytes).map_err(error)?;
-                    return Ok(vec![envelope::ArtifactReference { kind: "native_doctest_format2".into(), location: path.display().to_string(), digest: Some(crate::probe::digest(&bytes)) }]);
+                    invocation
+                        .stream(crate::extraction::OutputStream::Stdout)?
+                        .read_to_end(&mut bytes)?;
+                    let path =
+                        api::doctests::finish(&acquisition, &snapshot, &bytes).map_err(error)?;
+                    return Ok(vec![envelope::ArtifactReference {
+                        kind: "native_doctest_format2".into(),
+                        location: path.display().to_string(),
+                        digest: Some(crate::probe::digest(&bytes)),
+                    }]);
                 }
                 let artifact = api::finish(&acquisition, &snapshot).map_err(error)?;
                 Ok(vec![envelope::ArtifactReference {
@@ -576,9 +605,40 @@ mod tests {
     use clap::Parser as _;
     #[test]
     fn native_example_extraction_and_retained_inspection_have_separate_effect_controls() {
-        assert!(super::super::Cli::try_parse_from(["pse", "api", "dep", "--extract-examples"]).is_ok());
-        assert!(super::super::Cli::try_parse_from(["pse", "inspect", "api", "dep", "--native-examples", "doctests.json"]).is_ok());
-        assert!(super::super::Cli::try_parse_from(["pse", "api", "dep", "--extract-examples", "--prepare"]).is_err());
-        assert!(super::super::Cli::try_parse_from(["pse", "api", "dep", "--prepare", "--native-examples", "doctests.json"]).is_err());
+        assert!(
+            super::super::Cli::try_parse_from(["pse", "api", "dep", "--extract-examples"]).is_ok()
+        );
+        assert!(
+            super::super::Cli::try_parse_from([
+                "pse",
+                "inspect",
+                "api",
+                "dep",
+                "--native-examples",
+                "doctests.json"
+            ])
+            .is_ok()
+        );
+        assert!(
+            super::super::Cli::try_parse_from([
+                "pse",
+                "api",
+                "dep",
+                "--extract-examples",
+                "--prepare"
+            ])
+            .is_err()
+        );
+        assert!(
+            super::super::Cli::try_parse_from([
+                "pse",
+                "api",
+                "dep",
+                "--prepare",
+                "--native-examples",
+                "doctests.json"
+            ])
+            .is_err()
+        );
     }
 }

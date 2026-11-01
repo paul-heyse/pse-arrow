@@ -156,18 +156,14 @@ pub fn explain(
     let effective: Request = figment.extract()?;
     effective.validate()?;
     let mut origins = BTreeMap::new();
-    for key in [
-        "version",
-        "sources.paths",
-        "sources.globs",
-        "predicate.kind",
-        "answer.limit",
-        "answer.order",
-        "presentation.context",
-    ] {
-        if let Some(metadata) = figment.find_metadata(key) {
+    // Extract provenance from the same composed configuration as execution. New nested query
+    // controls must not require a second, manually maintained list of explainable fields.
+    let mut keys = Vec::new();
+    provenance_keys(&serde_json::to_value(&effective)?, "", &mut keys);
+    for key in keys {
+        if let Some(metadata) = figment.find_metadata(&key) {
             origins.insert(
-                key.into(),
+                key,
                 format!(
                     "{}{}",
                     metadata.name,
@@ -188,6 +184,22 @@ pub fn explain(
         origins,
         files,
     })
+}
+
+fn provenance_keys(value: &Value, prefix: &str, keys: &mut Vec<String>) {
+    if let Value::Object(fields) = value {
+        for (name, child) in fields {
+            let path = if prefix.is_empty() {
+                name.clone()
+            } else {
+                format!("{prefix}.{name}")
+            };
+            provenance_keys(child, &path, keys);
+        }
+    } else if !prefix.is_empty() {
+        // Arrays replace as a whole; their contributing provider is the meaningful source.
+        keys.push(prefix.to_owned());
+    }
 }
 
 fn absolute(root: &Path, path: &Path) -> PathBuf {
@@ -435,6 +447,25 @@ mod tests {
             request.predicate,
             super::super::Predicate::Text(_)
         ));
+    }
+    #[test]
+    fn nested_provenance_preserves_explicit_false_and_independent_detail_controls() {
+        let root = tempfile::tempdir().unwrap();
+        let config = root.path().join("query.json");
+        std::fs::write(&config, r#"{"defaults":{"sources":{"include_hidden":true},"predicate":{"kind":"text","patterns":["x"],"literal":true},"presentation":{"context":3}}}"#).unwrap();
+        let resolved = explain(
+            root.path(),
+            Some(&config),
+            None,
+            None,
+            serde_json::json!({"sources":{"include_hidden":false},"predicate":{"literal":false}}),
+        )
+        .unwrap();
+        assert!(!resolved.request.sources.include_hidden);
+        assert!(resolved.origins["sources.include_hidden"].contains("explicit CLI values"));
+        assert!(resolved.origins["predicate.literal"].contains("explicit CLI values"));
+        assert!(resolved.origins["predicate.patterns"].contains("repository defaults"));
+        assert!(resolved.origins["presentation.context"].contains("repository defaults"));
     }
     #[test]
     fn request_relative_paths_and_scopes_resolve_at_their_own_source() {

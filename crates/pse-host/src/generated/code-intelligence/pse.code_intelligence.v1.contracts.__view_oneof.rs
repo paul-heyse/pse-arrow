@@ -277,6 +277,11 @@ pub mod native_query {
             >,
         ),
         Assist(u64),
+        Layout(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
     }
 }
 pub mod native_request {

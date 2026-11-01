@@ -2,9 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Protocol-owner projection. Only this producer interprets original LSP payloads.
 use super::{
-    CandidateKind, FactDirection, FactLocation, FactRelation, FactTruth, LazyCandidateFact,
-    ObservedFacts, PredicateFact, ProtocolRange, RelationshipFact, Result, Section, SymbolFact,
-    TestCandidateFact,
+    CandidateKind, FactDirection, FactLocation, FactRelation, LazyCandidateFact, ObservedFacts,
+    PredicateFact, ProtocolRange, RelationshipFact, Result, Section, SymbolFact, TestCandidateFact,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -150,6 +149,8 @@ fn relation_rows(
                 name: row.get("name").and_then(Value::as_str).map(str::to_owned),
                 read: None,
                 write: None,
+                import: None,
+                test: None,
             });
         }
     }
@@ -206,6 +207,8 @@ pub(super) fn project(
                             name: item.get("name").and_then(Value::as_str).map(str::to_owned),
                             read: None,
                             write: None,
+                            import: None,
+                            test: None,
                         });
                     }
                 }
@@ -218,11 +221,21 @@ pub(super) fn project(
                     .as_bool()
                     .or_else(|| value.get("holds").and_then(Value::as_bool));
                 result.predicate = Some(PredicateFact {
-                    truth: match holds {
-                        Some(true) => FactTruth::True,
-                        Some(false) => FactTruth::False,
-                        None => FactTruth::Unknown,
+                    outcome: match value.get("status").and_then(Value::as_str) {
+                        Some("holds" | "Holds") => super::PredicateOutcome::Holds,
+                        Some("notProven" | "not_proven" | "NotProven") => {
+                            super::PredicateOutcome::NotProven
+                        }
+                        Some("invalid" | "Invalid") => super::PredicateOutcome::Invalid,
+                        Some(_) => super::PredicateOutcome::Unsupported,
+                        _ if holds == Some(true) => super::PredicateOutcome::Holds,
+                        _ if holds == Some(false) => super::PredicateOutcome::NotProven,
+                        _ => super::PredicateOutcome::Unsupported,
                     },
+                    cause: value
+                        .get("message")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned),
                 });
             }
             "completion_candidates" | "assist_candidates" | "selected_inlay_annotations" => {
@@ -262,6 +275,10 @@ pub(super) fn project(
                             .collect()
                     };
                     result.tests.push(TestCandidateFact {
+                        test_id: None,
+                        cfg: None,
+                        relatedness: Some("native related-tests provider".into()),
+                        eligible: None,
                         label: runnable
                             .get("label")
                             .and_then(Value::as_str)
@@ -291,7 +308,7 @@ mod tests {
         let sections = vec![
             Section {
                 category: "predicate_evaluation".into(),
-                evidence: serde_json::json!({"state":"not_proven"}),
+                evidence: serde_json::json!({"status":"not_proven"}),
                 omitted: 0,
                 handles: vec![],
             },
@@ -306,7 +323,10 @@ mod tests {
             },
         ];
         let (facts, _) = project(&sections, "file:///source.rs").unwrap();
-        assert_eq!(facts.predicate.unwrap().truth, FactTruth::Unknown);
+        assert_eq!(
+            facts.predicate.unwrap().outcome,
+            super::super::PredicateOutcome::NotProven
+        );
         assert_eq!(facts.candidates[0].fingerprint, "original");
     }
     #[test]

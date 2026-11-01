@@ -163,7 +163,7 @@ pub fn load(root: &Path, environment: &Environment) -> Result<Option<SessionReco
         Err(error) => return Err(error.into()),
     };
     let record: SessionRecord = serde_json::from_slice(&bytes)?;
-    if record.version != 1 && record.version != super::SESSION_PROTOCOL_VERSION {
+    if !(1..=super::SESSION_PROTOCOL_VERSION).contains(&record.version) {
         return Err(Error::Unavailable(
             "unsupported semantic selector version".into(),
         ));
@@ -274,9 +274,14 @@ pub async fn serve(
             #[cfg(feature = "native-hir")]
             {
                 let root = root.clone();
+                let control = metadata.selection.control.clone();
                 let mut task =
                     crate::source_command::batch::spawn_cpu(stopping.child_token(), move |token| {
-                        let engine = super::native::Engine::start(&root, configuration)?;
+                        let engine = super::native::Engine::start_with_control(
+                            &root,
+                            configuration,
+                            Some(&control),
+                        )?;
                         if token.is_cancelled() {
                             return Err(Error::Cancelled);
                         }
@@ -323,7 +328,7 @@ pub async fn stop(
     environment: &Environment,
     record: &SessionRecord,
 ) -> Result<crate::managed::supervisor::RecordedObservation> {
-    if record.version == 1 {
+    if record.version != super::SESSION_PROTOCOL_VERSION {
         let mut original = host(
             crate::managed::supervisor::recorded(root, &record.invocation, environment).await,
         )?;

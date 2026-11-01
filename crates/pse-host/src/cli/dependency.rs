@@ -39,7 +39,12 @@ pub(super) struct UnitContext {
 }
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-enum JoinState { UniqueCandidate, Ambiguous, NoMatchingProfile, NativeWorldUnavailable }
+enum JoinState {
+    UniqueCandidate,
+    Ambiguous,
+    NoMatchingProfile,
+    NativeWorldUnavailable,
+}
 #[derive(Debug, Serialize, JsonSchema)]
 struct WorldJoin {
     /// Index in this context's dependency_units, not a cross-context unit identity.
@@ -53,8 +58,12 @@ struct WorldJoin {
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(tag = "availability", rename_all = "snake_case")]
 enum NativeWorld {
-    Available { observation: crate::semantic::PackageContextAnswer },
-    Unavailable { reason: String },
+    Available {
+        observation: crate::semantic::PackageContextAnswer,
+    },
+    Unavailable {
+        reason: String,
+    },
     NotRequested,
 }
 fn join_units(units: &[crate::correctness::CompilerUnit], world: &NativeWorld) -> Vec<WorldJoin> {
@@ -81,17 +90,45 @@ mod tests {
     #[test]
     fn compiler_unit_world_join_preserves_host_test_and_profile_ambiguity() {
         let profile = json!({"package_id":"exact-source","manifest":"/workspace/Cargo.toml","source_root":"/workspace","workspace_root":"/workspace","library_root":"/workspace/src/lib.rs","features":["selected"],"target":"target-triple","role":"lib","edition":"2024","cfg":["feature=selected"],"source_hashes":{},"dependencies":[],"dependency_issues":[],"dependency_exclusions":[]});
-        let world = |profiles| NativeWorld::Available { observation: serde_json::from_value(json!({"session":{"backend":"native-snapshot","configuration":{"backend":"native_snapshot","project":"/workspace","features":[],"no_default_features":false,"target":"target-triple","build_macros":false},"position_encoding":"utf-8","backend_status":null,"preparation":"restricted"},"generation":1,"packages":profiles})).unwrap() };
-        let mut unit = crate::correctness::CompilerUnit { package_id:"exact-source".into(),package_name:"dep".into(),target_name:"dep".into(),target_kinds:vec!["lib".into()],source_path:"/workspace/src/lib.rs".into(),features:["selected".into()].into(),platform:Some("target-triple".into()),mode:"check".into(),root:false };
+        let world = |profiles| {
+            NativeWorld::Available { observation: serde_json::from_value(json!({"session":{"backend":"native-snapshot","configuration":{"backend":"native_snapshot","project":"/workspace","features":[],"no_default_features":false,"target":"target-triple","build_macros":false},"position_encoding":"utf-8","backend_status":null,"preparation":"restricted"},"generation":1,"packages":profiles})).unwrap() }
+        };
+        let mut unit = crate::correctness::CompilerUnit {
+            package_id: "exact-source".into(),
+            package_name: "dep".into(),
+            target_name: "dep".into(),
+            target_kinds: vec!["lib".into()],
+            source_path: "/workspace/src/lib.rs".into(),
+            features: ["selected".into()].into(),
+            platform: Some("target-triple".into()),
+            mode: "check".into(),
+            root: false,
+        };
         let one = world(vec![profile.clone()]);
-        assert!(matches!(join_units(&[unit.clone()], &one)[0].state, JoinState::UniqueCandidate));
-        let ambiguous = world(vec![profile.clone(),profile]);
-        assert!(matches!(join_units(&[unit.clone()], &ambiguous)[0].state, JoinState::Ambiguous));
+        assert!(matches!(
+            join_units(&[unit.clone()], &one)[0].state,
+            JoinState::UniqueCandidate
+        ));
+        let ambiguous = world(vec![profile.clone(), profile]);
+        assert!(matches!(
+            join_units(&[unit.clone()], &ambiguous)[0].state,
+            JoinState::Ambiguous
+        ));
         unit.mode = "test".into();
-        assert!(matches!(join_units(&[unit.clone()], &one)[0].state, JoinState::NoMatchingProfile));
-        unit.mode = "build".into(); unit.platform = None;
-        assert!(matches!(join_units(&[unit.clone()], &one)[0].state, JoinState::NoMatchingProfile));
-        assert!(matches!(join_units(&[unit], &NativeWorld::NotRequested)[0].state, JoinState::NativeWorldUnavailable));
+        assert!(matches!(
+            join_units(&[unit.clone()], &one)[0].state,
+            JoinState::NoMatchingProfile
+        ));
+        unit.mode = "build".into();
+        unit.platform = None;
+        assert!(matches!(
+            join_units(&[unit.clone()], &one)[0].state,
+            JoinState::NoMatchingProfile
+        ));
+        assert!(matches!(
+            join_units(&[unit], &NativeWorld::NotRequested)[0].state,
+            JoinState::NativeWorldUnavailable
+        ));
     }
 }
 #[derive(Debug, Serialize, JsonSchema)]
@@ -123,7 +160,10 @@ pub(super) fn dispatch(
     let root = super::checkout_root(selected)?;
     let environment = std::env::vars_os().collect();
     let (snapshot, original) = crate::dependency::capture_original(&root, &environment)?;
-    let original_metadata = metadata_original.then(|| serde_json::from_slice(&original)).transpose().map_err(std::io::Error::other)?;
+    let original_metadata = metadata_original
+        .then(|| serde_json::from_slice(&original))
+        .transpose()
+        .map_err(std::io::Error::other)?;
     let facts = crate::dependency::inspect(&snapshot, &dependency, "locked_offline_metadata");
     let package = match &facts.payload.selected {
         crate::dependency::Selection::Exact { facts } => facts.package.id.clone(),
@@ -141,15 +181,32 @@ pub(super) fn dispatch(
     };
     let world = if native_world {
         match crate::semantic::load(&root, &environment) {
-            Ok(Some(record)) => match super::runtime()?.block_on(crate::semantic::client(&root, &environment, &record,
-                &crate::semantic::Request::PackageContext { package_id: package.clone() })).and_then(crate::semantic::Response::into_package_context) {
+            Ok(Some(record)) => match super::runtime()?
+                .block_on(crate::semantic::client(
+                    &root,
+                    &environment,
+                    &record,
+                    &crate::semantic::Request::PackageContext {
+                        package_id: package.clone(),
+                    },
+                ))
+                .and_then(crate::semantic::Response::into_package_context)
+            {
                 Ok(observation) => NativeWorld::Available { observation },
-                Err(error) => NativeWorld::Unavailable { reason: error.to_string() },
+                Err(error) => NativeWorld::Unavailable {
+                    reason: error.to_string(),
+                },
             },
-            Ok(None) => NativeWorld::Unavailable { reason: "native world is unprepared; explicitly prepare a session".into() },
-            Err(error) => NativeWorld::Unavailable { reason: error.to_string() },
+            Ok(None) => NativeWorld::Unavailable {
+                reason: "native world is unprepared; explicitly prepare a session".into(),
+            },
+            Err(error) => NativeWorld::Unavailable {
+                reason: error.to_string(),
+            },
         }
-    } else { NativeWorld::NotRequested };
+    } else {
+        NativeWorld::NotRequested
+    };
     let admitted = crate::test_workflow::CheckIntent::new(
         snapshot.metadata,
         selection.request(crate::selection::Operation::Check)?,
@@ -162,20 +219,26 @@ pub(super) fn dispatch(
         .admitted()
         .iter()
         .map(|context| {
-            let dependency_units: Vec<_> = context.units.iter().filter(|unit| unit.package_id == package).cloned().collect();
-            let native_joins = join_units(&dependency_units, &world);
-            UnitContext {
-            arguments: context.arguments.clone(),
-            roots: context
+            let dependency_units: Vec<_> = context
                 .units
                 .iter()
-                .filter(|unit| unit.root)
+                .filter(|unit| unit.package_id == package)
                 .cloned()
-                .collect(),
-            dependency_units,
-            examined_units: context.units.len(),
-            native_joins,
-        }})
+                .collect();
+            let native_joins = join_units(&dependency_units, &world);
+            UnitContext {
+                arguments: context.arguments.clone(),
+                roots: context
+                    .units
+                    .iter()
+                    .filter(|unit| unit.root)
+                    .cloned()
+                    .collect(),
+                dependency_units,
+                examined_units: context.units.len(),
+                native_joins,
+            }
+        })
         .collect();
     let mut response = crate::envelope::Envelope::response(
         "inspect dependency-units",

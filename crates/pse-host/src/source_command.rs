@@ -166,9 +166,15 @@ pub fn generated_origin(
                 response.observation.limitations.push(format!("Authored source {} changed during association acquisition; no follow action is offered",association.source));
                 continue;
             }
+            let authored_range =
+                crate::schema::compare::authored_range(root, association, authored.text())?;
+            if association.rust_field.is_some() && authored_range.is_none() {
+                response.observation.limitations.push(format!("Verified field association {} has no usable authenticated descriptor source span; exact authored field navigation remains unavailable", association.declaration));
+                continue;
+            }
             let range = source_read::location(
                 &source_read::line_starts(authored.text()),
-                0..authored.text().len(),
+                authored_range.unwrap_or(0..authored.text().len()),
             );
             let reference =
                 crate::investigation::ResultReference::new(crate::investigation::Locator::Source {
@@ -452,7 +458,14 @@ pub fn show_addressed(
             locator,
             backend: outline.backend,
             rust_edition: outline.rust_edition,
-            facts: outline.facts.into_iter().filter(|fact| fact.range.byte_start >= selection.range.byte_start && fact.range.byte_end <= selection.range.byte_end).collect(),
+            facts: outline
+                .facts
+                .into_iter()
+                .filter(|fact| {
+                    fact.range.byte_start >= selection.range.byte_start
+                        && fact.range.byte_end <= selection.range.byte_end
+                })
+                .collect(),
             parse_issues: outline.parse_issues,
             selection,
         },

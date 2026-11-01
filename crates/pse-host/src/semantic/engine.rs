@@ -667,6 +667,11 @@ impl Engine {
                     limit,
                 ));
             }
+            Kind::Layout => {
+                return Err(Error::unsupported(
+                    "structured layout requires an explicitly selected native snapshot",
+                ));
+            }
             Kind::Predicate { text } => {
                 let mut params = params.clone();
                 params["text"] = json!(text);
@@ -1061,7 +1066,7 @@ fn collect_location_paths(
     }
     Ok(())
 }
-fn section(category: &str, mut evidence: Value, limit: usize) -> Section {
+pub(super) fn section(category: &str, mut evidence: Value, limit: usize) -> Section {
     let records = if evidence.is_array() {
         evidence.as_array_mut()
     } else {
@@ -1104,7 +1109,7 @@ fn section(category: &str, mut evidence: Value, limit: usize) -> Section {
         handles,
     }
 }
-fn check_candidate(query: &Query, candidate: &Value) -> Result<()> {
+pub(super) fn check_candidate(query: &Query, candidate: &Value) -> Result<()> {
     let expected=query.if_candidate.as_ref().ok_or_else(||Error::InvalidRequest("lazy selection requires --if-candidate fingerprint from discovery; an index is not an identity".into()))?;
     if expected != &crate::source_read::source_digest(&serde_json::to_string(candidate)?) {
         return Err(Error::Stale);
@@ -1239,6 +1244,7 @@ mod tests {
             no_default_features: false,
             target: None,
             build_macros: false,
+            test_context: false,
         };
         let checkout = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()

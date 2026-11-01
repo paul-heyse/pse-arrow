@@ -6,8 +6,8 @@ use rustdoc_types::{Crate, Id, Item, ItemEnum, Type};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-mod definitions;
 pub mod contracts;
+mod definitions;
 pub use definitions::QualificationContext;
 /// Revalidate an explicit facade-to-definition qualification against its original
 /// acquired dependency edge and source/build inputs; never select a newer artifact.
@@ -1531,7 +1531,12 @@ pub fn inspect(
                 signature_complete,
                 docs: query.docs.then(|| item.docs.clone()).flatten(),
                 attributes: contracts::project(&item.attrs)?,
-                contract: contracts::contract(definition.as_ref().map_or(&artifact.document, |(artifact, _, _)| &artifact.document), item)?,
+                contract: contracts::contract(
+                    definition
+                        .as_ref()
+                        .map_or(&artifact.document, |(artifact, _, _)| &artifact.document),
+                    item,
+                )?,
                 deprecation: item.deprecation.as_ref().map(|value| Deprecation {
                     since: value.since.clone(),
                     note: value.note.clone(),
@@ -1545,15 +1550,21 @@ pub fn inspect(
                     .reexports
                     .into_iter()
                     .filter_map(|id| artifact.document.index.get(&id))
-                    .map(|reexport| Ok::<_, ApiError>(ReexportSource {
-                        item_id: reexport.id.0,
-                        source: reexport.span.as_ref().map(|span| Location {
-                            filename: span.filename.clone(),
-                            begin: span.begin,
-                            end: span.end,
-                        }),
-                        stability: reexport.stability.as_ref().map(contracts::project).transpose()?,
-                    }))
+                    .map(|reexport| {
+                        Ok::<_, ApiError>(ReexportSource {
+                            item_id: reexport.id.0,
+                            source: reexport.span.as_ref().map(|span| Location {
+                                filename: span.filename.clone(),
+                                begin: span.begin,
+                                end: span.end,
+                            }),
+                            stability: reexport
+                                .stability
+                                .as_ref()
+                                .map(contracts::project)
+                                .transpose()?,
+                        })
+                    })
                     .collect::<Result<Vec<_>, _>>()?,
                 trait_provenance: address.trait_provenance,
                 incomplete_declaration,

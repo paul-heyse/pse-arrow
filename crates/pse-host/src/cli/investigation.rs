@@ -236,11 +236,16 @@ pub(super) struct Inspect {
     pub select: Option<usize>,
     #[arg(long)]
     pub predicate: Option<String>,
+    /// Passively associate an original type-sizes acquisition with --view layout.
+    #[arg(long, requires = "view")]
+    pub compiler_layout: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub(super) enum View {
     Declaration,
+    /// Inspect fallible native layout under the selected semantic world and target.
+    Layout,
     References,
     Calls,
     Implementations,
@@ -824,6 +829,11 @@ pub(super) fn inspect(
     selected: Option<&Path>,
     output: &OutputOptions,
 ) -> Result<i32, HostError> {
+    if options.compiler_layout.is_some() && !matches!(options.view, Some(View::Layout)) {
+        return Err(
+            query::Error::Invalid("--compiler-layout requires --view layout".into()).into(),
+        );
+    }
     if let Some(action) = options.action {
         return evidence::inspect(action, selected, output);
     }
@@ -959,10 +969,12 @@ pub(super) fn inspect(
         )
         .into());
     }
+    let mut compiler_evidence = None;
     let result = if matches!(locator, query::Locator::Semantic { .. }) {
         use crate::semantic::Kind;
         let kind = match options.view.unwrap_or(View::Declaration) {
             View::Declaration => Kind::Explain,
+            View::Layout => Kind::Layout,
             View::References => Kind::Refs,
             View::Calls => Kind::Calls,
             View::Implementations => Kind::Implementations,
@@ -986,9 +998,20 @@ pub(super) fn inspect(
                 })?,
             },
         };
-        Inspection::Semantic(Box::new(
-            super::runtime()?.block_on(query::rust::semantic_view(&root, &locator, kind))?,
-        ))
+        let mut inspected =
+            super::runtime()?.block_on(query::rust::semantic_view(&root, &locator, kind))?;
+        if let Some(selector) = &options.compiler_layout {
+            let state =
+                crate::paths::CheckoutState::resolve(&root, &std::env::vars_os().collect())?;
+            let original =
+                crate::compiler_investigation::artifact::observe(&root, &state, selector)?;
+            inspected.compiler_layout = Some(crate::semantic::associate_layout(
+                &inspected.native,
+                &original.payload,
+            ));
+            compiler_evidence = Some(original);
+        }
+        Inspection::Semantic(Box::new(inspected))
     } else if matches!(locator, query::Locator::Schema { .. }) {
         Inspection::Schema(Box::new(crate::schema::search::inspect(&root, &locator)?))
     } else if matches!(locator, query::Locator::Api { .. }) {
@@ -998,6 +1021,11 @@ pub(super) fn inspect(
     };
     let mut response =
         Envelope::response("inspect", "addressed original source inspection", result);
+    if let Some(original) = compiler_evidence {
+        response.providers.extend(original.providers);
+        response.artifacts.extend(original.artifacts);
+        response.next.extend(original.next);
+    }
     if matches!(options.view, Some(View::Tests))
         && let Inspection::Semantic(answer) = &response.payload
     {

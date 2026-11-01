@@ -554,6 +554,7 @@ pub mod native_query {
         FileRename(::buffa::alloc::vec::Vec<u8>),
         Assists(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
         Assist(u64),
+        Layout(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
     }
     impl ::buffa::Oneof for Kind {}
     impl From<super::super::super::NativeImportTarget> for Kind {
@@ -633,6 +634,9 @@ pub mod native_query {
                 }
                 Self::Assist(v) => {
                     map.serialize_entry("assist", &::buffa::json_helpers::ProtoJson(v))?;
+                }
+                Self::Layout(v) => {
+                    map.serialize_entry("layout", &**v)?;
                 }
             }
             map.end()
