@@ -1,11 +1,11 @@
 ---
 title: "Plan60d: Change and document evidence"
 status: active
-date: 2026-10-31
+date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md
 doc_topics: [current-work, design, documentation, diagnostics]
-review_sources: [docs/functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md]
+review_sources: [docs/functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md, docs/plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md, docs/functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md]
 adrs: []
 ---
 
@@ -14,11 +14,20 @@ adrs: []
 ## Purpose and foundation assessment
 
 **Proposed:** evidence for coherent change planning and code/document association, contributing
-to [O04/O06](60-engineering-code-intelligence.md#opportunity-dispositions). Existing Git
-acquisition/history, lossless syntax, original API comparison, generated-origin and native
-document/lifecycle readers remain the producers. Current
-`xtask/src/documentation/ownership.rs` explicitly disclaims inferring code-path-to-plan bindings;
-new associations must not defeat that distinction by guessing.
+to original [O04/O06](60-engineering-code-intelligence.md#opportunity-dispositions), incorporating
+[improvement I03](../plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md#I03)
+and functional [O03/O04](../functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md#O03).
+The coordinator owns dispositions; this document owns D01–D04 execution state.
+
+Authoring baseline is `ccf1b42da` plus relevant concurrent Plan62 changes. Existing Git/history,
+lossless syntax, API comparison, generated-origin and document/lifecycle readers remain the
+producers. Plan61 supplies typed contracts and original evidence guards. Plan62 supplies rich
+API/native correspondence, explicit native worlds and package/compiler-unit explanations.
+`cli::dependency::{UnitContext,join_units}`, `correctness::{Resolution,CompilerUnit}` and
+`semantic::NativePackageContext` are starting points, not missing resolvers to recreate. Their
+implementation and qualification retain their original owners; this revision grants no new
+Plan62 acceptance. Source `ownership::PlanOwnership` currently has `NotDeclared`; package
+membership and `xtask::documentation::ownership` do not infer code-path-to-plan authority.
 
 The source review O04/O06 and blueprint §21.7 preserve origin and interpretation. Document
 metadata/sections/lifecycle bindings remain canonical through
@@ -29,7 +38,9 @@ system. Current plan/review/ADR status retains its original owner and meaning.
 ## Target design
 
 A proposed change has several views: written source declarations/body differences, acquired
-API differences and selected resolved relationships in explicitly prepared contexts. Align
+API differences, selected package/unit context deltas and resolved relationships in explicitly
+prepared worlds. D01/D04 remain independently useful without a native world; D03 adds semantic
+comparison only where both selected worlds and correspondence are available. Align
 observations with their sources and unknown/unmatched cases instead of rendering one blended
 “semantic change” judgment. Git origins and source digests identify bytes; they do not certify a
 semantic world for historical blobs. Names/ranges nominate cross-revision correspondence, not
@@ -53,7 +64,7 @@ for passive source/API comparison or explicit citation lookup.
 <a id="d01"></a>
 ### D01 — Original source and API change views
 
-Consumes A01 shared evidence and existing source/API comparison producers. Expose declaration,
+Consumes delivered shared evidence and existing source/API comparison producers. Expose declaration,
 body/structural and original API changes as distinct useful facts, with guarded before/after
 inspection. Begin with data already available from Git and acquired artifacts. Preserve source
 revision, actual artifact identity and unmatched/candidate correspondence. Do not require C01's
@@ -70,15 +81,19 @@ independent history/original-artifact inspection.
 <a id="d02"></a>
 ### D02 — Qualified code, contract, plan and library associations
 
-Consumes A01 plus working existing document/lifecycle/generated-origin readers; new B01 facts
-can enrich resolved connections as available, but are not required for explicit citation and
-ownership views. Deliver a change-planning question: show a selected source declaration,
+Consumes the delivered typed evidence and document/lifecycle/generated-origin readers. New A01
+edge projection, B01 native relations and B05 specialized origins enrich only the connections
+that actually consume them; explicit citation and ownership paths do not wait for those producers.
+Deliver a change-planning question: show a selected source declaration,
 authored generator/schema origin where declared, relevant contract sections, plan packages
 and original qualification records, each with its actual connection basis.
 
 Use native metadata/defaults/exceptions, scope-table identities and exact section resolvers;
-retain the original record address instead of copying mutable state. Markdown heading/reference
-parsing can nominate links. No guessed path-to-plan ownership is written back. Distinguish
+retain the original record address instead of copying mutable state. RA syntax
+`HasAttrs::{doc_comments,attrs_with_doc}` and Markdown parsing can nominate authored citations;
+HIR `resolve_doc_path_on` can establish applicable intra-doc symbol links under a selected world.
+Those are distinct from architecture-section citations and declared document ownership. No
+guessed path-to-plan ownership is written back. Distinguish
 generated-source origin from a surrounding file's prose mention. Library documentation remains
 reference material with version/condition limits, not evidence that a capability is integrated.
 
@@ -92,8 +107,12 @@ or manual source-to-plan inventory is part of completion.
 <a id="d03"></a>
 ### D03 — Selected semantic-context comparisons
 
-Consumes D01 and working B01 relations needed by a named change question. Require separately
-and explicitly prepared before/after worlds, including actual Cargo/feature/target premises.
+Consumes D01 and the existing Plan62 qualified world/context and observation producers. New
+A01/B01 edges are prerequisites only when the named comparison consumes those particular new
+relations; comparing already supplied observations does not wait for the whole structural graph.
+Use D04 to expose original package/unit premises alongside a semantic answer where relevant,
+without making D04's entire delivery a prerequisite for every native comparison. Require
+separately and explicitly prepared before/after worlds, including Cargo/feature/target premises.
 Do not prepare every workspace configuration or assign today's world to a historical blob.
 Compare selected observations only after qualifying source/context correspondence; ambiguous
 and missing observations remain unmatched/unknown. Reuse original native owners and A03
@@ -102,9 +121,60 @@ aligned output rather than a second semantic diff engine with invented stable id
 Acceptance includes a cfg-only change that changes a resolved dependency with unchanged local
 spelling, a rename with ambiguous correspondence, a missing world and incomplete macro input.
 The public answer must explain which comparison was made and which contexts were not examined.
-A single-world “no difference” cannot satisfy a two-world request. Migrate duplicate current-world
+A single-world “no difference” cannot satisfy a two-world request. Include same-package host,
+target and test interpretations, changed source membership and macro-generated locations without
+unique correspondence. Migrate duplicate current-world
 assumptions in affected comparison callers/tests as the replacement becomes usable. Explicit
 preparation and source-only fallback remain separate supported choices.
+
+<a id="d04"></a>
+### D04 — Selected package and compiler-unit context deltas
+
+Consumes retained Cargo metadata, original admitted `CompilerUnit` records and existing
+dependency/context explanation owners. Deliver an aligned comparison of two explicitly selected
+feature/root/target contexts: changed inclusion, dependency alias/kind, unit role/features and
+the reason a native profile is matched, ambiguous or absent. This is useful without preparing
+an analyzer, compiling or acquiring fresh metadata. Native cfg/resolution differences are an
+optional D03 enrichment when both original worlds exist.
+
+Keep package identity, unit correspondence and declaration correspondence as separate joins.
+Pair same-package units by qualified target name/kinds/source, host/target and mode; feature
+changes remain differences rather than preventing all pairing. Preserve unmatched units and
+package upgrades/moved roots as candidate correspondence where necessary. Existing `join_units`
+deliberately reports compiler equivalence not established; comparison must not promote its
+package/library/features/target/role association into compiler equivalence.
+
+Use `cargo_metadata::NodeDep::{name,pkg,dep_kinds}` and target records for authored/resolved
+evidence, actual selected units for compilation-selection evidence, and retained original
+`Message` observations only for their recorded build facts. Typed defaults can hide field
+presence or experimental artifact dependencies; retain raw JSON when the question needs that
+fidelity. `Message::parse_stream` can turn malformed/unknown JSON into `TextLine`, not a validated
+typed event. Cached build-script output is not proof of fresh execution. Load each selected
+snapshot once per inquiry and compare demanded projections rather than repeat scalar extraction.
+
+Acceptance covers renamed dependencies, target-specific features, same-package host/target/test
+units, a metadata package absent from selected units, missing/ambiguous native profiles, changed
+source membership, incompatible source premises and an absent before-snapshot. Original records
+remain inspectable even when comparison cannot establish correspondence. Delete duplicated
+manual context joins only after their consumers migrate; preserve the original single-context
+inspection and actual admission owners.
+
+#### Conditional modeled comparisons
+
+The operator retained explicit triggers on 2026-11-01. Guppy `PackageGraph`/`PackageSet` and
+`FeatureGraph` are candidates when an identified repeated set/conditional-edge question cannot
+be served adequately by current owners. `CargoSet::to_summary` and `guppy-summaries::Summary::diff`
+are candidates for a selected modeled host/target counterfactual, not actual selected-unit
+evidence. Verify experimental workspace-unification compatibility, graph-local set identity and
+exact release behavior before adoption. Determinator may nominate changed-path impact only
+when a named consumer warrants its modeled uncertainty; it cannot establish coverage or complete
+affected selection. Existing `petgraph::astar` already supplies inclusion paths.
+
+Record the concrete question, source/pin qualification, retained-owner alternative, selected
+outcome and affected consumer before dependent work. A dormant trigger needs no feasibility
+prototype and does not block D04 or Q01. See dependency-tooling addenda A–E/G and the Cargo
+metadata main/addendum sections for source leads. Their simulated graph and observed build
+meanings remain separate under AP-04/DP-04/DP-09.
 
 ## Package state
 
@@ -113,6 +183,7 @@ preparation and source-only fallback remain separate supported choices.
 | D01 | planned | Source/API comparison owner | Qualified original differences and guarded before/after inspection |
 | D02 | planned | Investigation/document bridge owner | Read-only associations preserving native authority, basis and status |
 | D03 | planned | Native context comparison owner | Public selected-world comparison with cfg and ambiguous mapping acceptance |
+| D04 | planned | Cargo/unit context comparison owner | Aligned original package/unit deltas, qualified correspondence and independently useful passive inspection |
 
 ## Verification and handoff
 
@@ -121,4 +192,7 @@ plus actual public change-planning use in E03. Documentation interpreter tests s
 original declared meaning; a duplicate heuristic expected answer is insufficient. Q01 owns
 assembled/static qualification and architecture publication if new enduring contracts require
 it. No document immutability exception, new lifecycle vocabulary or live plan-status copy is
-authorized by this plan.
+authorized by this plan. Targeted comparison/association tests and their actual public
+consumers accompany D01–D04 implementation. E03 assembles the change/evidence-path journeys;
+Q01 owns the later scope-end checks. Source correspondence and output projections are
+Interface-checked leads from the reviews, not newly Tested behavior from this authoring.

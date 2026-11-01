@@ -1,11 +1,11 @@
 ---
 title: "Plan60e: Validation relevance and workflow adoption"
 status: active
-date: 2026-10-31
+date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md
 doc_topics: [current-work, design, environment, diagnostics, validation]
-review_sources: [docs/functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md]
+review_sources: [docs/functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md, docs/plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md, docs/functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md]
 adrs: []
 ---
 
@@ -20,12 +20,21 @@ all three library-leverage stages, plan preparation/creation/execution and impro
 consumers. Skills retain reasoning, depth and publication discretion; the CLI does not score
 their compliance or automate conclusions.
 
-Current `pse-cli` guidance, saved queries/scopes/JSON/explain, original diagnostic inspection,
-native test inventories/Cargo units, fixture declarations, retained outcomes and current
-test-selection owners already support useful journeys. Use them first. A related test is not
-coverage, a source reference is not an assertion, and an assertion is not proof of oracle
-independence. Test Assessment1.2 informs the evidence distinctions; no new runner or test-control
-framework follows. Blueprint §21.7 and the existing qualification guide retain authority.
+The revised basis includes the improvement review's
+[I07/I08](../plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md#I07) and
+functional review's [O04](../functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md#O04).
+These identifiers are local to those reviews. Authoring baseline is `ccf1b42da` plus relevant
+concurrent Plan62 changes. Plan61 delivers typed evidence/RPC, context guards and compact answers.
+Plan62 source supplies richer source facts, qualified runnables, transformed examples and
+Cargo/native-world evidence, while its assembled journeys and Q01 remain open at the inspected
+checkpoint. Source existence is not new qualification credit.
+
+Current `pse-cli` guidance, saved queries/scopes/JSON/explain, original diagnostics,
+`test_inventory::{TestRow,FailureRow}`, fixture declarations, retained outcomes and selection
+owners already support useful journeys. Native runnables distinguishes discovery, relatedness
+and target eligibility. Consume these producers instead of rebuilding test discovery. Relatedness
+is not coverage, a source reference is not an assertion, and an assertion is not oracle
+independence. Test Assessment1.2, blueprint §21.7 and the qualification guide retain authority.
 
 ## Target interactions
 
@@ -47,7 +56,8 @@ effect of inspection or infer adequacy from filename/relationship matches.
 <a id="e01"></a>
 ### E01 — Guidance using delivered capabilities first
 
-Consumes the delivered Plan59 public surface; can start alongside A01. In `pse-cli`'s focused
+Consumes delivered Plan59/61 interfaces and usable Plan62 consumers with their actual evidence
+limits. It can start alongside A01 and Plan60f, without waiting for new native edges. In `pse-cli`'s focused
 references and materially relevant process-skill references, add concise examples only where
 they teach a decision or remove repeated manual evidence assembly. Cover the requested process
 categories through shared examples rather than duplicate command catalogs in every skill:
@@ -64,24 +74,35 @@ difficult, assess the coordinator's passive-catalog trigger with A02; it is not 
 
 Acceptance: an agent can choose the smaller source-only route, compose a current API question
 and stop/expand based on an explicit unknown. Exercise examples through actual public commands,
-not just help compilation. Delete obsolete advice for superseded manual assembly in the edited
+not just help compilation. Use F01's opaque references/ready actions as available; do not teach
+JSON number round trips that alter guards. Coordinate effective-input/correction examples with
+F02/F03 rather than redefine their interface. Delete obsolete manual-assembly advice in the edited
 references, preserving scope-specific guidance and distinct process roles. Later new-feature
 examples belong with their implementing packages/E03, not speculative working commands here.
 
 <a id="e02"></a>
 ### E02 — Explain test, fixture and setup relevance
 
-Consumes A01, B01's relevant source relationships and original native inventory/Cargo-unit/
-fixture/report owners. Extend existing inspection and test-selection views to connect an
-original failure to its phase, production definition, fixture/setup helper and candidate tests.
-Expose observable assertion structure separately from an inferred contract or proposed check.
-Reuse current conservative affected selection and exact current result-to-package selection;
-do not relabel either as dependency-impact proof.
+Consumes original inventory, compiler-diagnostic, Cargo-unit, fixture, report and selection owners.
+The first source-only view does not depend on new B01 relationships. Consume the A01/B01 relevant
+slice for resolved helper fan-out/ambiguous joins and D02 associations when a document hop is
+requested. Follow original failure → phase → exact test/production source → setup/helper →
+assertion and expected-value derivation → candidate current check. Each hop retains its evidence
+basis and original address; historical/stale correspondence never silently becomes current.
+
+Source/CST inspection can identify selected assertion arguments cheaply. RA CST or syn known-
+macro-body parsing interprets supported forms; inspect an unknown custom macro's definition
+before interpreting its arguments. Native resolved calls/references earn preparation for aliases,
+shared helper fan-out or ambiguity. Expose observable assertions and expected-value derivation
+separately from inferred contracts, assurance judgments or proposed revealing checks. Reuse
+conservative affected selection and exact result-to-package selection without calling them
+complete dependency impact. No new runner, adequacy score or automatic snapshot update is planned.
 
 Acceptance distinguishes a production compiler-selection error from a stripped-PATH fake's
 missing compiler inputs, direct test usage from shared-helper fan-out, and a referenced operation
 from an assertion about its important invariant. Include a test whose expected value shares
-the production calculation: links may be correct while independent assurance remains unknown.
+the production calculation, two tests sharing a faulty comparator and an opaque custom macro:
+links may be correct while independent assurance remains unknown.
 Missing/malformed/partial original reports remain incomplete. Inspecting relevance must not
 execute tests, generate fresh inventories or silently normalize an original failure away.
 Delete replaced heuristic filename/status assembly only where actual consumers migrate; retain
@@ -91,18 +112,24 @@ reconciliation is added.
 <a id="e03"></a>
 ### E03 — Integrate actual engineering journeys and focused adoption
 
-Consumes implemented A02/A03, B02/B03, C01/C02, D02/D03 and E01/E02. Integrate guidance and
-public consumers incrementally as each prerequisite becomes usable, then exercise the assembled
-journeys below. These are acceptance questions, not a compulsory process for future agents.
+Consumes working selected slices of A02/A03, B01/B02/B03/B05, C01/C02, D01/D02/D03/D04,
+E01/E02 and [F01–F03](60f-agent-interaction-and-contract-diagnostics.md#package-state).
+A journey waits for its consumed facts and revealing checks, not unrelated producers or dormant
+investigations. Integrate useful public consumers/guidance incrementally, then exercise all
+selected assembled journeys below. Their completion supplies Q01 evidence; schema agreement
+or a single provider's unit tests do not qualify assembled behavior. These are acceptance
+questions, not a compulsory process for future agents.
 
 | Journey | Useful answer and revealing challenge |
 | --- | --- |
 | Responsibility trace | Follow a selected request/policy type through construction/validation/dispatch and shared consumers; namesakes, callbacks and an out-of-output-scope intermediate challenge the graph |
+| Unusual origin | Explain a format reference or derive implementation and expand original source; escaped braces, custom macros and multiple origins challenge correspondence |
 | Library fit | Query a structured shape, inspect associated APIs/docs/conditions and actual local wrappers; absent defining artifact or existential applicability cannot become a fit verdict |
 | Change footprint | Align source/API observations and selected before/after worlds, then follow relevant original contracts/packages; cfg-only change and historical blobs challenge correspondence |
 | Lifetime investigation | Expand captures/adjustments/await/error observations around cancellation and CPU completion; interior mutation, guard retention and unknown indirect work challenge any broad claim |
 | Contract association | Navigate explicit code/generator/section/plan/library links with their basis/status; a rejected-alternative mention cannot become authority |
 | Original failure to validation | Follow original result/phase into production/helper/setup and candidate tests; preserve weak/shared assertions and incomplete outcomes without automatic execution |
+| Agent handoff and correction | Discover a concise command, inspect schema, explain effective input, follow an opaque reference and correct invalid input; large-integer guards, redacted/truncated violations and non-TTY partial streams challenge the interaction |
 
 Use an unfamiliar subsystem as well as the review's Request/compiler/cancellation examples so
 the interface is not tailored to one fixture. Select modest demand and compact views, inspect
@@ -117,6 +144,11 @@ keep full original evidence reachable. A new command earns its place only when c
 composition/guidance cannot serve a named question. No numerical latency/token/memory benefit
 is asserted here; measurements are needed only for claims of that kind. This package supplies
 actual consumer evidence to Q01, not the final whole-series static qualification itself.
+
+Also exercise D04's passive retained package/unit comparison across host, target and test
+contexts, with a feature/cfg difference and a missing native world. Missing semantic preparation
+must not prevent independently valid retained-unit deltas or silently upgrade them to native
+resolution evidence. This journey consumes D04's working comparison slice, not a new resolver.
 
 ## Package state
 

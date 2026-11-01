@@ -10,7 +10,7 @@ resume stopped work or establish implementation, qualification or measured benef
 | Plan | Work and status owner |
 | --- | --- |
 | [62: Code-intelligence capability expansion](62-code-intelligence-capability-expansion.md) | Proposed native contexts/explanations, source investigations/previews, API/Cargo/validation evidence and selected compiler explanations. The coordinator owns O01–O13 dispositions, dependencies and assembled acceptance; four companions own package state. |
-| [60: Engineering code intelligence](60-engineering-code-intelligence.md) | New proposed extensions on the delivered CLI: [evidence/composition](60a-evidence-contracts-and-query-composition.md), [native relationships/lifetimes](60b-native-relationships-and-lifetime-evidence.md), [API evidence](60c-library-api-and-compatibility-evidence.md), [change/document associations](60d-change-and-document-evidence.md) and [validation/adoption](60e-validation-relevance-and-workflow-adoption.md). The coordinator owns O01–O11 dispositions; companion tables own execution state. |
+| [60: Engineering code intelligence](60-engineering-code-intelligence.md) | Revised proposed consumer scope over Plan61 and ongoing Plan62: [evidence/composition](60a-evidence-contracts-and-query-composition.md), [native relationships/lifetimes](60b-native-relationships-and-lifetime-evidence.md), [API evidence](60c-library-api-and-compatibility-evidence.md), [change/document associations](60d-change-and-document-evidence.md), [validation/adoption](60e-validation-relevance-and-workflow-adoption.md), and [agent interaction/contract diagnostics](60f-agent-interaction-and-contract-diagnostics.md). The coordinator owns original and review-qualified dispositions; companions own execution state. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
 | [53: Test architecture](53-test-architecture-target.md) | Test architecture and existing remaining qualification/decision scope. |
@@ -26,8 +26,9 @@ and the independent plans below retain their own authority.
 
 Plan60's [dependencies and execution route](60-engineering-code-intelligence.md#dependencies-and-execution-route)
 contains the package graph and prerequisite-readiness table. Its initial route is existing-feature
-guidance and shared evidence contracts, then the native relation slice consumed by multi-seed
-questions. Conditional bulk/compiler/index/remote options retain observable triggers and do not
+guidance, agent handoff/correction and the typed native relation slice consumed by multi-seed
+questions. API patterns, retained context deltas and existing-fact consumers retain independent
+routes. Conditional bulk/compiler/index/remote/schema options retain observable triggers and do not
 become compulsory prototypes or adoption gates. Plan60 does not reopen completed Plan59
 scope or confer new implementation acceptance.
 

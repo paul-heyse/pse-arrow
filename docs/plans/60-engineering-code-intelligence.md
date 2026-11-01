@@ -5,7 +5,7 @@ date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/README.md
 doc_topics: [current-work, design, libraries, diagnostics, validation]
-review_sources: [docs/functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md]
+review_sources: [docs/functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md, docs/plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md, docs/functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md]
 adrs: []
 ---
 
@@ -13,29 +13,33 @@ adrs: []
 
 ## Purpose and current baseline
 
-**Proposed:** extend the delivered CLI with compact, challengeable evidence for engineering
-decisions: trace responsibilities and boundaries, compare a change, investigate library fit,
-connect code to original contracts and select revealing validation. The source is the
-[engineering-workflow functional review](../functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md).
-This is a new series; it neither supersedes Plan59 nor reopens its completed packages.
-Plan59 [P01/E01](59-agent-cli.md#current-state-and-next-step) is complete with CLI worktree removal
-explicitly deferred under R-56. Its [P02](59-agent-cli.md#p02) records prior qualification, not acceptance of Plan60.
+**Proposed:** deliver bounded engineering evidence for responsibility paths, library fit,
+change/context comparison, lifetimes, contract association and revealing validation.
+The operator authorized integrating the [improvement review](../plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md)
+and [functional review](../functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md)
+on 2026-11-01, retaining explicit triggers for conditional investigation. Plan60 implementation
+has not started; document publication does not execute this target.
 
-Authoring baseline: review commit `5e96ed601`, following implementation/documentation baseline
-`9d5dcf27c`. Current `investigation::model::Request` already separates selection, predicates,
-demand and presentation. Scoped All/Any/Not, guarded Refine, bounded Related, saved queries,
-directional schemas, grouping, streamed records and final coverage exist. Related currently
-names Definition, References, Calls and Implementations. Native HIR snapshots, live semantic
-operations, acquired API patterns/comparison, source history, original diagnostic reads and
-current test selection are working foundations with different context premises. None is a
-missing feature to recreate.
+Inspected revision: `ccf1b42da` plus concurrent native/API/compiler/proto/generator and
+documentation changes. Plan61's [Outcome](61-code-intelligence-foundations.md#outcome) owns
+assembled typed generation, RPC, validation and schema acceptance. Plan62's
+[remaining-scope checkpoint](62-code-intelligence-capability-expansion.md#remaining-scope-implementation-checkpoint--2026-11-01)
+owns richer source/API/Cargo/native/compiler implementation and pending assembled acceptance.
+Consume those foundations; older open tables do not erase newer implementation, and source
+presence does not confer qualification. Plan59/61 completed scope and independent Plan62 work
+are not reopened.
 
-The governing owner is [blueprint §21.7](../authoritative_design/sections/workflows-and-results.md#section-21-7).
-Core3.4, Efficient Architecture1.0 and the pse-arrow binding shape this plan; Test Assessment1.2
-applies to validation evidence and Process Simulator1.5 limits scientific interpretations.
-This focused foundation assessment uses the source review and current owners, without a new
-diagnostic audit. No code graph establishes scientific validity, solver correctness or runtime
-completion. Capabilities below remain Proposed until exercised through their actual consumers.
+Existing constructors, one query validator, proof/client reuse, guarded references, compact
+answers, API contracts, runnables and qualified contexts are available foundations. Remaining
+work includes structural edges rather than rendered context, multi-seed traversal independent
+of output scope, richer matcher inputs, selected-context deltas and useful evidence paths.
+SearchResult.source_relationship records written source context, not the full native edge
+contract. Reconcile actual consumed prerequisites again at execution; retain original evidence
+conditions and qualification at their owners.
+
+Blueprint §21.7 owns contracts. Core3.4, Efficient Architecture1.0, Test Assessment1.2 and the
+binding shape this plan; Process Simulator1.5 limits scientific interpretation. Code/schema
+graphs cannot establish numerical validity, independent assurance or runtime release.
 
 ## Combined target and responsibility boundaries
 
@@ -58,7 +62,8 @@ The resulting views are question-shaped projections, not new authorities over th
 | [60b: Native relationships and lifetime evidence](60b-native-relationships-and-lifetime-evidence.md) | Resolved structure, bounded captures/effects and explicitly named contextual predicates |
 | [60c: Library API and compatibility evidence](60c-library-api-and-compatibility-evidence.md) | Acquired API adjacency and richer structural signature/generic patterns |
 | [60d: Change and document evidence](60d-change-and-document-evidence.md) | Original source/API/context comparisons and qualified code/document associations |
-| [60e: Validation relevance and workflow adoption](60e-validation-relevance-and-workflow-adoption.md) | Test/setup relevance, targeted skill guidance and actual engineering journeys |
+| [60e: Validation relevance and workflow adoption](60e-validation-relevance-and-workflow-adoption.md) | Test/setup/assertion evidence, guidance and engineering journeys |
+| [60f: Agent interaction and contract diagnostics](60f-agent-interaction-and-contract-diagnostics.md) | Concise discovery, opaque handoff, effective input and structured correction |
 
 One future relation kind should extend the native relation owner and shared representation,
 then become available to existing grouping/inspection. A new API shape should extend the
@@ -87,6 +92,47 @@ opportunity whose other contributors or assembled acceptance remain open.
 | O10 — Bulk views and shared delivery | deferred | [B04](60b-native-relationships-and-lifetime-evidence.md#b04); coordinator for transport | Repeated extraction or one genuinely global question may earn batch evaluation; actual independent/remote consumer separately triggers transport decision |
 | O11 — Rich API shapes/contextual predicates | scheduled | [C02](60c-library-api-and-compatibility-evidence.md#c02), [B03](60b-native-relationships-and-lifetime-evidence.md#b03) | Binder/constraint-aware matching and exact named predicate/context; no generic guarantee inferred from existential applicability |
 
+## Improvement review dispositions
+
+I IDs here are qualified by the improvement review above; this table owns adoption, not
+implementation state. Companion package tables own execution.
+
+| Recommendation | Disposition | Work owner | Required evidence or trigger |
+| --- | --- | --- | --- |
+| I01 — Consumed typed extensions | scheduled | A01/B01 | First structural producer and typed consumer; no rendered-context joins |
+| I02 — Traversal/output separation | scheduled | A02 | Multiple seeds, witnessed parallel edges, excluded intermediate and frontier |
+| I03 — Context correspondence | scheduled | D01/D03/D04 | Original package/unit/world differences with unmatched evidence |
+| I04 — Joined lifetime evidence | scheduled | B02/B03 | Existing observations composed without resource-release claims |
+| I05 — API queries and surface | scheduled | C01/C02 | Defaults, binders, callback/const patterns and applicability distinguished |
+| I06 — Agent interaction | scheduled | F01/F02/F03; A03 | Opaque handoff, concise discovery and actionable structured corrections |
+| I07 — Validation distinctions | scheduled | E02/D02 | Original setup/assertion/status paths; self-derived expected-value control |
+| I08 — Question-led integration | scheduled | E01/E03/Q01 | Actual migrated consumers, deletions and assembled qualification |
+
+## Functional extension dispositions
+
+These O IDs belong to the new functional review, independently of original O01–O11 above.
+Source-qualified review links preserve identity. Scheduled work remains Proposed until exercised.
+
+| Opportunity | Disposition | Work owner | Required evidence or trigger |
+| --- | --- | --- | --- |
+| O01 — Responsibility and unusual origins | scheduled | A01/A02/B01/B05 | Shared-consumer paths and bounded format/derive provenance |
+| O02 — Rich shape and effective API | scheduled | C01/C02/B03 | Qualified default/associated/contextual navigation and richer matcher |
+| O03 — Observed context delta | scheduled | D04/D03 | Retained package/unit comparison; native enrichment requires two worlds |
+| O04 — Contract/validation paths | scheduled | D02/E02/E03 | Explicit basis, original status and assertion structure distinct from judgment |
+| O05 — Agent interaction | scheduled | F01/F02/A03/E01 | Discovery, effective input and copied native opaque address |
+| O06 — Schema-addressed correction | scheduled | F03 | Original paths/rules, redaction/truncation and validator defects |
+| O07 — Mixed source/descriptor input | deferred | 60f schema acquisition owner | Selected external bundle whose descriptor-only imports existing acquisition cannot serve |
+| O08 — Further implicit/phase evidence | deferred | B02 compiler owner | Concrete shim/dependency/phase question unanswered by current artifacts |
+
+O03's modeled counterfactual branch remains deferred to D04 for a named simulation/set-query
+consumer. Reviewed alternatives also retain explicit dispositions: owning/lazy views, custom
+storage and segmented output follow Plan62 T02's actual-binary-consumer triggers; dynamic
+external validation, generated contract references, external JSON contracts and interoperability
+tools follow 60f's separate consumers. StaticIndex/export/index and compatible typed wrappers
+follow B04/Plan62 A05. Stack replacement by Prost/Tonic/reflection/PBJSON/Rust-first alternatives
+is unselected without a concrete advantage and complete migration decision. Merely adopting
+a protocol library does not implement structural composition.
+
 ## Shared decisions and rule routes
 
 Keep one typed request validator, one result identity model and original owner-specific facts.
@@ -109,64 +155,51 @@ architecture amendments in their normal decision route and accepted ADRs immutab
 
 ## Dependencies and execution route
 
-These are package prerequisites, not alphabetical document barriers. Contract publication
-supports producer design; a consumer requires working producer behavior and targeted evidence.
-An agreed schema is not an implemented dependency. Table bindings in `docs/lifecycle.toml`
-derive the same package relationships without becoming another status ledger.
+Dependencies describe consumed capabilities rather than whole-document barriers.
+Plan61's delivered contract is not a new A01 build prerequisite. Plan62 acceptance remains
+required at its owner for behavior claimed as qualified; authoring can use current sources
+without marking that acceptance complete.
 
-```mermaid
-flowchart TD
-  A01[A01 shared evidence contract] --> B01[B01 native structure]
-  A01 --> C01[C01 API adjacency]
-  A01 --> C02[C02 API patterns]
-  A01 --> D01[D01 source/API changes]
-  A01 --> D02[D02 document associations]
-  A01 --> A03[A03 focused answers]
-  B01 --> A02[A02 multi-seed composition]
-  B01 --> B02[B02 lifetime slices]
-  B01 --> B03[B03 contextual predicates]
-  B01 --> D03[D03 semantic-world changes]
-  D01 --> D03
-  B01 --> E02[E02 validation relevance]
-  E01[E01 existing-feature guidance] --> E03[E03 integrated agent journeys]
-  A02 --> E03
-  A03 --> E03
-  B02 --> E03
-  B03 --> E03
-  C01 --> E03
-  C02 --> E03
-  D02 --> E03
-  D03 --> E03
-  E02 --> E03
-  E03 --> Q01[Q01 assembled qualification/publication]
-```
-
-| Work | Required readiness and reason | Available independent work |
+| Work | Required readiness and reason | Independent progress |
 | --- | --- | --- |
-| E01 and A01 | Delivered Plan59 interfaces and source review; no new implementation prerequisite | Existing-feature guidance and shared design can proceed together |
-| B01, C01/C02, D01/D02, A03 | Published A01 semantics for design; implemented shared representations for integration | Native, API, document and source producers can progress independently, coordinating shared files |
-| A02 | Working B01 declaration/containment edges and A01 validation; only consumed relations are needed | Do not wait for lifetime, compatibility, all B01 relations or conditional indexing |
-| B02/B03 | B01 identity/context and relevant native facts; each adds its own revealing checks | Captures and contextual predicates are separate consumers |
-| D03 | D01 original comparison plus B01 relevant observations in two explicitly prepared worlds | Basic D01 comparison needs no second semantic world |
-| E02 | B01 relevant source relations plus existing native test inventory/setup/outcome owners | No new runner, compiler extraction or cross-document join prerequisite |
-| E03 | Working selected A–D consumers and E01/E02; integrate useful examples incrementally | Early guidance/basic comparisons/associations need not wait for final journeys |
-| Q01 | E03 complete and all selected nonconditional packages integrated | One scope-end static/integrated campaign; B04 and other dormant options excluded |
+| A01/B01 early slice and A02 | Agree new endpoint/role/witness and traversal semantics; integrate working constructors, native producer and public consumer together | Do not wait for all relations, lifetime, compiler depth or indexing |
+| C01 | Existing artifact owner; A01 slice for new shared-edge export | Existing artifact inspection independent |
+| C02 | Delivered matcher/request/contract owners | No A01/B01/C01 prerequisite |
+| B02/B03 | Existing qualified native/compiler identities and consumed facts, with their actual acceptance limits | No whole B01 prerequisite |
+| B05 | Working A01 witness and B01 structural slice | B02/B03 and explicit document citations independent |
+| D01/D02 | Existing source/API/document/lifecycle/origin readers | New structural/provenance relations enrich only consumed hops |
+| D04 | Retained package metadata and actual selected-unit owners | No native-world prerequisite |
+| D03 | D01 and explicitly qualified worlds for semantic observations | D04 can enrich; new B01 relations needed only when compared |
+| E02 | Existing original report/setup/source/test-selection owners | Semantic fan-out/document hops consume only their selected slices |
+| F01/F02/F03 | Existing parser/reference/configuration/diagnostic/schema owners; F03 uses F02 correction adapter | No structural graph or analyzer requirement |
+| E01/A03 | Working interfaces for each example/view | Guidance and compact views integrate incrementally |
+| E03/Q01 | Working selected A–F public consumers and revealing evidence | One scope-end assembled/static campaign; dormant options excluded |
 
-Start with E01 plus A01, then deliver a small B01 responsibility trace and A02 consumer while
-API and document work use the same contract. Expand through named engineering questions rather
-than extracting every native fact upfront. Reconcile shared model/CLI/schema editing with one
-integration owner; a package boundary is not automatically an agent assignment or worktree.
+Start with the A01/B01/A02 responsibility slice while F01/F02 and existing guidance proceed.
+Develop API, passive comparisons and explicit associations independently against their
+existing foundations. Integrate selected lifetime, provenance, validation and structured
+correction consumers as ready. A package boundary is not a permanent worker assignment.
+One integration owner coordinates shared proto/model/CLI edits and generation; native handles
+remain owner-confined and request-local reuse must preserve world/use-site premises.
+Update native lifecycle relationships to express these same dependencies without copied status.
 
 ## Conditional investigations
 
 | Option and owner | Observable trigger | Decision evidence and dependent work |
 | --- | --- | --- |
 | Native batch projection — B04 | Repeated extraction, or one global investigation for which batching removes scalar coordination | Compare request-local multi-seed/resident Analysis with exact pinned StaticIndex; preserve selected-crate omissions and owner confinement. Measure only claimed speed benefits |
-| Compiler-private facts — B02 | A concrete decision needs loans, initialization or liveness at a MIR location that existing diagnostics/HIR/probes cannot answer | Exact pinned query timing/component lifecycle and independently checked fact meaning; only that consumer waits |
+| Additional compiler facts — B02 | A concrete loan/liveness/implicit-dependency question remains unanswered by Plan62 facts, original diagnostics and artifacts | Exact pinned query timing/component lifecycle and independently checked fact meaning; only that consumer waits |
 | Persistent index — coordinator/B04 | An identified consumer needs retained cross-request materialization beyond current helper reuse | Explicit authority, freshness/invalidation, schema and resource obligations; bulk export alone is not this trigger |
 | Shared remote delivery — coordinator | An actual independent or remote client needs a shared delivery contract | Compare local complete records with pinned Prost/Tonic, admission/authentication, cancellation/drain and schema evolution; no service merely for sharing a result |
 | Query-name catalog — E01/A02 | Discovering existing shared queries/scopes creates a demonstrated recurring burden | Compare passive discovery with concise documentation; no second registry or DSL |
-| Search-local correction detail — A03 | A concrete invalid query lacks useful location or correction context in existing diagnostics | Extend existing ErrorRecord/TypedDiagnostic only where needed; no parallel error protocol |
+| Additional search-local correction — A03/F02 | Beyond selected F02/F03 corrections, a concrete query lacks useful location or correction context | Extend existing ErrorRecord/TypedDiagnostic only where needed; no parallel error protocol |
+
+New functional O07/O08 and modeled O03 conditions are recorded above and developed at 60f,
+B02 and D04 respectively. Dynamic validation/generated documentation/external JSON/tooling
+conditions are developed at 60f; representation/stack alternatives retain the source-review and
+Plan62 decision evidence. Each deferred option has an owner, observable consumer trigger,
+settling evidence and affected work. On 2026-11-01 the operator reconfirmed retaining triggers,
+not mandatory feasibility or adoption. Dormant branches do not block Q01.
 
 When a trigger fires, record the selected decision and affected prerequisites at these owners.
 Absence of a trigger is a valid deferred disposition; do not invent a prototype to close it.
@@ -179,7 +212,7 @@ response paths once migrated callers and revealing tests pass. Do not remove com
 source-only, original-artifact or explicit probe routes. Package evidence belongs in its
 Outcome, not per-command checkpoint logs.
 
-E03 exercises responsibility tracing, library-fit investigation, change-footprint planning,
+E03 exercises F01–F03 discovery/correction as well as responsibility tracing, library-fit investigation, change-footprint planning,
 lifetime reasoning, cross-document association and original failure-to-validation. Include
 an unfamiliar subsystem and negative witnesses: namesakes, callback references, interior
 mutation, cfg-only change, absent API definition, historical blob and misleading document
@@ -211,7 +244,9 @@ mistake made/corrected and deliberate deviations in the final Outcome.
 
 ## Current checkpoint
 
-Planning documents are authored; implementation has not started under this series. The next
-execution scope is E01 plus A01 and the B01/A02 prerequisite slice they enable. All new
-capability/benefit claims remain Proposed. Existing Plan59 evidence retains its original scope;
-publishing these documents does not implement their target or resume independent Plan58/59 work.
+The 2026-11-01 revision integrates all I01–I08 and new functional O01–O06 into proposed
+scope, with O07/O08 and modeled/alternative branches explicitly conditional. Implementation
+under this series has not started. First work is the A01/B01/A02 slice alongside F01/F02/E01;
+remaining packages use the readiness table above. Refresh Plan62's actual completion/acceptance
+before claiming a consumed foundation qualified. Existing evidence retains its original scope.
+Publication is document acceptance only; no new product Tested/Measured claim follows.

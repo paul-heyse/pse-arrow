@@ -5,7 +5,7 @@ date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md
 doc_topics: [current-work, design, diagnostics, libraries]
-review_sources: [docs/functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md]
+review_sources: [docs/functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md, docs/plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md, docs/functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md]
 adrs: []
 ---
 
@@ -13,7 +13,7 @@ adrs: []
 
 ## Purpose and foundation assessment
 
-**Proposed:** a shared evidence contract and bounded question composition, contributing to
+**Proposed:** consumed extensions to the delivered evidence contract and bounded question composition, contributing to
 [O01/O02/O07/O08](60-engineering-code-intelligence.md#opportunity-dispositions). The
 [coordinator](60-engineering-code-intelligence.md) owns dispositions, cross-package sequencing
 and conditional options. This document owns A01–A03 implementation state.
@@ -25,6 +25,13 @@ and adjusted observations. CLI inspection/render/schema adapters consume those o
 on them; extra result kinds must not invent another entity universe or force every fact into
 an unqualified JSON bag. The source review's O01/O02/O07/O08 explains the functional value and
 limits; blueprint §21.7 remains the contract owner.
+
+Plan61 already supplies authored proto, Buffa/ConnectRPC generation, validators, typed facts,
+direct VTable projection and request-local client/proof reuse. Plan62 supplies richer native/
+source observations, with assembled acceptance still pending at the inspected checkpoint.
+Reuse them. Current destination rows and rendered relationship context are insufficient for
+role-qualified edges. Improvement review I01/I02 and functional review O01 explain this residual.
+The coordinator owns dispositions; blueprint §21.7 remains authoritative.
 
 ## Target design
 
@@ -56,15 +63,15 @@ explain effective query/defaults/overrides before provider effects. Preserve exi
 ErrorRecord/TypedDiagnostic cause/label structure; Thiserror/Miette do not define another wire
 taxonomy. Indicatif remains observed stderr activity, never proof of completion. Mechanism
 references are the review O07/O08/O11 and the local [Serde](../libraries/serde_serde-json.md),
-[Schemars](../libraries/schemars.md), [Clap](../libraries/clap.md) and
-[Figment](../libraries/figment.md) overviews; verify exact pins for new API use.
+[Schemars](../libraries/schemars.md), [Clap](../libraries/cli/clap.md) and
+[Figment](../libraries/cli/figment.md) overviews; verify exact pins for new API use.
 
 ## Work packages
 
 <a id="a01"></a>
-### A01 — Publish and implement the consumed evidence contract
+### A01 — Extend the generated contract with the first consumed edges
 
-Consumes delivered query/result/native facts. First settle relation semantics, contextual
+Consumes delivered Plan61 generation/validation and current query/result/native facts. First settle relation semantics, contextual
 identity, witness/unknown/omission representation and expansion with B01/C01/D02 consumers.
 Assess the concrete change against the existing ADR/schema/publication route before coding;
 do not infer that a new relation name requires a new service or crate. Publish contract meaning
@@ -76,7 +83,12 @@ Acceptance uses public typed JSON and flag/saved-query routes as applicable: equ
 have the same meaning; malformed combinations fail before provider effects. Distinct providers
 cannot join same-spelled or stale entities by display name. Unknown/refused/cancelled and false
 remain distinguishable. Input and output schemas exercise their actual directions. A01 is not
-complete on a schema sketch alone; B01/C01 migrations extend this contract in coherent changes.
+complete on a schema sketch alone. Implement the first B01/A02 consumer together: qualified
+source/destination endpoints, structural role, original occurrence witness, provider/world or
+artifact, and unknown/omission meaning. Reuse existing identities and Buffa constructors/
+ReflectMessage::get/ValueRef; do not decode rendered context or parse type displays for edges.
+Two parameter positions sharing one type remain two witnessed relations. B01/C01 extend this
+slice as needed, without requiring all relation families before any consumer can integrate.
 Delete replaced duplicate field/identity conversions with migrated consumers, without maintaining
 a compatibility API or removing supported original evidence.
 
@@ -84,12 +96,15 @@ a compatibility API or removing supported original evidence.
 ### A02 — Deliver bounded multi-seed responsibility investigations
 
 Consumes implemented A01 and B01's declaration/containment relation slice, not the whole native
-document. Start with existing Related/All/Any/Not and request-local reuse. Demonstrate the
-question “which operations consume these selected request/policy declarations, and where do
-their boundaries cross?” If composition already expresses it adequately, expose examples and
-useful result grouping rather than add syntax. Add seed bindings only when a real consumer
-otherwise repeats returned coordinates across clauses. Keep one validator and saved-query
-representation; no process-specific DSL or mandatory query catalog.
+document. Extend existing Related/All/Any/Not and request-local native reuse. Current traversal
+uses one seed and prunes destinations outside request.sources before enqueueing; independent
+lists do not implement the selected multi-seed question. Define traversal selection separately
+from returned-source selection, preserving compatible source/world qualification and validated
+flag/JSON/saved-query meaning. Preserve which seeds and edges establish shared-neighbor answers.
+Share demand-selected adjacency within the request instead of re-extracting per seed or
+materializing every path. Keep node identity separate from edge/witness deduplication.
+Deliver “which operations consume these request/policy declarations and cross their boundaries?”
+without a process DSL, persistent graph or mandatory index.
 
 Return reusable edges/witnesses, shared neighbors and an explicit bounded frontier. Test a
 cycle, shared neighbor, overlapping seeds, mixed/stale contexts, a limit reached before full
@@ -116,7 +131,11 @@ Rust node taxonomy. The source review O11 identifies public ast-grep0.51 inserti
 with `todo!()`; do not qualify them by documentation alone. This package adds inquiry assistance,
 not an editing subsystem or wholesale pretty-printing of maintained source.
 
-Only a demonstrated missing local correction warrants enriching the existing diagnostic owner.
+Question-specific native query-error locations stay here. The demonstrated invalid-field and
+reference-handoff corrections, parser discovery and validator details belong to F01–F03 in
+[60f](60f-agent-interaction-and-contract-diagnostics.md), using the same envelope and addresses.
+A03 consumes those working controls for its public journeys; it does not duplicate them.
+Only a demonstrated additional missing local correction warrants further enrichment.
 Only demonstrated discovery burden warrants a passive shared-query catalog, coordinated with
 E01. Those triggers remain optional and do not block the base focused views. Migrate consumers
 and remove replaced oversized adapters/duplicated extraction where superseded; do not remove
