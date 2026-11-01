@@ -1858,6 +1858,22 @@ witnesses. Missing or incompletely examined facts stay unknown, including under 
 
 > Decision: ADR-0235 (proposed Plan60a relationship-contract extension).
 
+**Proposed remaining Plan60 extension.** Paired inspection consumes explicitly addressed
+original source/API/context inputs and separately authenticated before/after native sessions.
+Side-local observations and qualified correspondence do not establish universal cross-world
+identity. Retained metadata and admitted-unit evidence keep independent custody and hashes;
+passive comparisons never acquire missing inputs or prepare worlds. Association and relevance
+views use canonical document/lifecycle, inventory/report and source interpreters, preserving
+connection basis, original policy/status and unknown assurance. Source-only inspection remains
+independent of native preparation. Concise parser discovery and native-encoded references share
+the existing parser and address authority. Invalid presentation choices are checked before
+providers where the selected schema establishes their domain. Structured validation correction
+extends the existing diagnostic envelope with origin-owned disclosure/completeness facts;
+unknown peers remain unknown, and ordinary correction never restores redacted selectors from
+raw diagnostics. Native wire changes are authored/generated and fenced by protocol7. Existing
+preparation, cancellation and settlement owners remain authoritative. D–F/E03/Q01 own delivery
+and acceptance; conditional indexing/compiler/schema/remote branches remain dormant.
+
 **Implemented extension (Plan60b/c).** Native compatibility compares guarded operands in one
 snapshot after fallible generic-owner rebasing; possible unification/coercion, existential
 implementation discovery and obligation evaluation retain distinct outcomes. Native origins

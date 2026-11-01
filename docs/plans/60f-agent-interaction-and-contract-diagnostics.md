@@ -31,6 +31,18 @@ Serde/Schemars-owned. No new governing exception, service or dependency is assum
 
 ## F01 — Concise discovery and reliable addressed handoff
 
+### Authorized execution refinement
+
+Execute F01–F03 from `cea33a310`. `commands` becomes concise parser-derived discovery;
+`help` retains full selected metadata. Publish native opaque addresses through common adapters.
+Preflight typed presentation choices before providers where response schemas determine them;
+reuse actual Figment composition and preserve diagnostic metadata. F03 adds optional authored
+Failure validation-disclosure metadata: original/emitted counts only when known, explicit
+defect and whole-record coverage/disclosure facts. Native producers encode upstream once then
+decode actual emitted details; receivers without original metadata retain unknown completeness.
+Raw custody cannot restore selectors/messages removed by RPC publication policy. Protocol7
+fences new wire meanings. No alternate validator/error protocol or dormant-schema prototype.
+
 Consumes delivered parser/catalog/reference owners, independently of new structural edges.
 Provide a concise command-description view and expansion to full argument/schema metadata
 through existing commands. Derive syntax, values and aliases from Clap CommandFactory/public

@@ -115,6 +115,11 @@ no general new CEL engine is selected.
 
 ## Status history
 
+- 2026-11-01 — operator authorized remaining Plan60 D–F/E03/Q01 execution from `cea33a310`:
+  paired and original-evidence inspections, canonical associations/relevance, opaque handoff
+  and origin-qualified structured correction extend the same typed boundary. Protocol7 fences
+  new wire meanings. Formal proposed status and prior review scope are unchanged.
+
 - 2026-10-31 — proposed for operator-authorized A02 implementation; formal status unchanged.
 - 2026-11-01 — recorded operator-authorized B/C realization within the selected boundary; the
   scoped review remains A02-only and formal status remains proposed.

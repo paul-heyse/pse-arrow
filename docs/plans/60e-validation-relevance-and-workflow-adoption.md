@@ -57,6 +57,16 @@ effect of inspection or infer adequacy from filename/relationship matches.
 
 ## Work packages
 
+### Authorized execution refinement
+
+Execute E01–E03 from `cea33a310`. Source/retained `inspect --view relevance` is independent
+of semantic preparation; frozen test/failure addresses bind original inventory/report and
+full identity without reusing population cursors. Assertion operands are positional observations,
+custom/shadowed forms remain qualified, and current-source correspondence does not become
+historical source proof. One shared optional inquiry reference supports the distinct process
+skills. E03 exercises all eight public journeys plus an unfamiliar subsystem and supplies Q01;
+no usage-frequency, assurance score or compulsory future-agent workflow is added.
+
 <a id="e01"></a>
 ### E01 — Guidance using delivered capabilities first
 

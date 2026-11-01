@@ -65,6 +65,17 @@ for passive source/API comparison or explicit citation lookup.
 
 ## Work packages
 
+### Authorized execution refinement
+
+Execute D01–D04 from `cea33a310`, consuming delivered A–C. A focused `inspect comparison`
+accepts guarded before/after references and source/API/context/semantic views; JSON and flags
+share validation. Explicit checkout owners bind semantic/context operands. Context bundles
+retain each original metadata/unit component and digest; missing components remain partial.
+Two independently owned current native sessions supply D03; no session registry, automatic
+checkout or historical-world substitution is selected. Association views use canonical
+captured document/policy interpreters rather than a second status parser. Guppy/modeling and
+other dormant branches retain their existing triggers. Target publication precedes source work.
+
 <a id="d01"></a>
 ### D01 — Original source and API change views
 
