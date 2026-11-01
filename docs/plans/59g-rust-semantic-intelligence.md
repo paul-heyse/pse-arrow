@@ -1,14 +1,21 @@
 ---
 title: "Plan59g: Rust semantic intelligence"
-status: active
+status: complete
 date: 2026-10-29
 doc_role: plan
+doc_retention: while-dependent
+doc_retention_reason: "Retained complete series at maintainer request; Plan58, Plan60, proposed ADRs and qualification references consume its evidence."
+doc_retirement_trigger: owner-release
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, design, libraries, environment, diagnostics]
 review_sources: [docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
 ---
 
 # Rust semantic intelligence
+
+**Complete:** selected delivery is closed; the [final Plan59 conclusion](59-agent-cli.md#current-state-and-next-step)
+records the worktree-removal deferral and qualification limits. Earlier targets and dated
+checkpoints below retain their original context; package tables and Outcomes record delivery.
 
 ## Current extension — 2026-10-31
 

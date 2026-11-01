@@ -1,8 +1,11 @@
 ---
 title: "Plan59e: Environment and adoption"
-status: active
+status: complete
 date: 2026-10-31
 doc_role: plan
+doc_retention: while-dependent
+doc_retention_reason: "Retained complete series at maintainer request; Plan58, Plan60, proposed ADRs and qualification references consume its evidence."
+doc_retirement_trigger: owner-release
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, documentation]
 review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
@@ -12,6 +15,10 @@ review_sources: [docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/func
 
 Part of [Plan59](59-agent-cli.md).
 
+**Complete:** selected delivery is closed; the [final Plan59 conclusion](59-agent-cli.md#current-state-and-next-step)
+records the worktree-removal deferral and qualification limits. Earlier targets and dated
+checkpoints below retain their original context; package tables and Outcomes record delivery.
+
 ## Current extension — delivered search adoption, 2026-10-31
 
 **Implemented and Tested within the native-agent boundary:** [E06](#e06) carries the operator-confirmed [search review](../functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md)
@@ -19,7 +26,7 @@ adoption through actual `search`/`inspect`/`propose` deliveries. The [coordinato
 owns the combined target and [59m](59m-composed-rust-investigations.md) owns assembled migration
 slices. E06 follows useful public delivery rather than advertising planned syntax. Completed
 E03–E05 evidence remains at its original scope; fresh-client search adoption is new acceptance.
-E01 stays in progress with its existing removal safety scope, independent of this extension.
+E01 is complete for creation/listing; CLI removal is explicitly deferred under R-56.
 
 The current target incorporates the [CLI/test/runtime review](../functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md)
 O01/O11. The coordinator owns its dispositions and confirmed rule decisions; historical
@@ -45,8 +52,8 @@ The amendment incorporates [new O07–O08](../functional_reviews/agent-cli-and-s
 [I10](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I10) and the
 incremental adoption of [I06](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I06)
 through [59f](59f-simulation-observability-and-diagnostics.md). The package table and current
-Outcomes below own delivered guidance and worktree construction. The removal proposal remains
-open; earlier paused checkpoints retain their historical scope.
+Outcomes below own delivered guidance and worktree construction. CLI removal is explicitly
+deferred; earlier paused checkpoints retain their historical scope.
 
 The library-integration review's
 [I04](../plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md#I04)
@@ -115,19 +122,20 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 - **Listing and removal.**
   - `pse worktree list` shows each worktree's branch, ahead/behind, dirty state, live runs and
     last activity.
-  - `pse worktree rm` first checks actual live users and referenced artifacts through A04/A05's
+  - **Deferred target (R-56):** `pse worktree rm` would first check actual live users and
+    referenced artifacts through A04/A05's
     invocation and effect-shaped generation-protection contracts, including process-held readers,
     unrecorded adapter/boundary users, retained executable paths, supervisor/finalizer obligations,
     warm runs and fixture owners. It refuses while users, unresolved
     settlement or required artifacts protect the checkout. An explicit stop-and-settle operation
     may precede removal;
-    `--force` never overrides that protection. Once safe, `--force` authorizes loss of dirty or
+    `--force` must never override that protection. Once safe, `--force` would authorize loss of dirty or
     unmerged work only. Run history remains in the store under A04's typed retention rules;
     fixture evidence, scientific data and protected artifacts do not become disposable logs.
   - Automatic host-generation collection is removed under review O11. A05 retains immutable
     generations and atomic selection until explicit administrative cleanup. Worktree removal
     is a separate destructive action: actual users, unresolved settlement and required evidence
-    still refuse removal. Preserve existing unknown claims; neither a missing PID nor a terminal
+    still protect the checkout. Preserve existing unknown claims; neither a missing PID nor a terminal
     row proves safety. Collection-only claims may retire only after A09 distinguishes them from
     actual resource/admission ownership. No current data deletion is authorized.
 
@@ -168,7 +176,7 @@ check. `ast-grep` is installed and configured (`sgconfig.yml`, used by `lint-ast
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [E01](#e01) | in-progress | 59e | `new`/`list` implemented with stage evidence, native-byte paths and passive original users; removal awaits the selected safety scope. Creation recipe retired; direnv behavior unchanged |
+| [E01](#e01) | complete | 59e | `new`/`list` implemented with stage evidence, native-byte paths and passive original users; CLI removal explicitly deferred under R-56, retaining native Git administration. Creation recipe retired; direnv behavior unchanged |
 | [E02](#e02) | superseded | 59e | Generic session brief/status-line target removed by review O01; existing passive status remains |
 | [E03](#e03) | complete | 59e | Native test/runtime/source/product/semantic/API/compiler/worktree guidance and generated reference published; actual implementation and diagnosis use delivered verbs. Deferred commands are not advertised |
 | [E04](#e04) | complete | 59e | Current-work pointer links native status owners; lifecycle validate passed with zero errors |
@@ -285,7 +293,7 @@ combined `--lib --test` invocation was correctly rejected; the accepted command 
 injection are **not_run**. Codex requires native `/hooks` review/trust of the new definition;
 the repository does not bypass that mechanism. The skill and reminder implementation are
 available; automatic discovery and live delivery must be checked in refreshed clients before
-claiming seamless adoption. E01's separate removal decision remains open.
+claiming seamless adoption. E01's then-open removal choice is now settled by the final Outcome below.
 
 **Tested — scope end:** `just ready`, `just turn-end` and `just hygiene` passed against
 the zero error/warning baseline. Hygiene includes both strict workspace/all-targets Clippy
@@ -310,9 +318,9 @@ status` immediately succeeded. Independently compared local configuration bytes/
 prepared executables existed and destination `target/debug` was absent: the matching completed
 host was copied without destination compilation. The clean test checkout was at the same merged
 commit and was removed with native Git after its commands finished. This does not qualify removal
-protection or warm-run completion. `rm` is absent while the maintainer selects whether
-to defer it or establish a checkout-wide cooperative retirement boundary; a passive inventory and
-terminal history are not deletion authority. The remaining removal acceptance below is unchanged.
+protection or warm-run completion. The maintainer selected explicit deferral of `rm` and retained
+native Git administrative removal (R-56). A passive inventory and terminal history are not
+deletion authority. The removal scenarios below are dormant adoption criteria.
 
 **Consumes:**
 - [59a A04](59a-cli-foundation.md#a04) (store, checkout ID) and [A05](59a-cli-foundation.md#a05)
@@ -320,12 +328,12 @@ terminal history are not deletion authority. The remaining removal acceptance be
   A09 publishes the no-collection contract; collection guard/promotion qualification is not a
   worktree-creation prerequisite. Actual checkout users, required artifacts and unresolved
   settlement still protect removal; no automatic generation collection is selected.
-- [59b B03](59b-runs-and-continuity.md#b03) for `--warm`; until it lands, `--warm` is absent.
-- B's independent stop/settlement evidence and C04's actual fixture ownership contract before
+- [59b B03](59b-runs-and-continuity.md#b03) supplies the delivered `--warm` launch.
+- **Deferred removal only:** B's independent stop/settlement evidence and C04's actual fixture ownership contract before
   removal of a checkout with those users. A terminal invocation alone does not clear a fixture's
   retained-state decision.
 
-**Delivers:** `pse worktree new|list|rm` as described.
+**Delivers:** `pse worktree new|list`. Native Git remains the administrative removal route.
 
 **Deletes:**
 - The `just worktree` recipe.
@@ -337,6 +345,9 @@ terminal history are not deletion authority. The remaining removal acceptance be
   with host tools copied rather than rebuilt and `.envrc.local` present with its original mode.
   A failed copy/build/preparation reports the created checkout's partial state and preparation
   remedy without automatic deletion. Help/list/status do not invoke preparation.
+
+**Deferred removal acceptance (R-56; not current delivery or qualification):**
+
 - `pse worktree rm scratch-x` on a clean, merged worktree removes it without prompting, and
   refuses without `--force` when an uncommitted change exists.
 - A clean worktree with a live invocation, warm run, unrecorded adapter using a generation,
@@ -424,23 +435,40 @@ stay valid.
 
 ## Verification and handoff
 
+### Final outcome — 2026-10-31
+
+**Implemented:** E01 and the selected Plan59 scope are complete. Creation/listing retain
+their recorded implementation and tests. The maintainer selected native Git administrative
+removal and explicitly deferred CLI removal under R-56. The complete plan series is retained.
+
+**Mistake corrected:** the handoff described removal refusal as delivered although the parser
+exposes only creation/listing. Current guidance now separates delivered inventory from the
+deferred retirement boundary; historical acceptance receives no additional credit.
+
+**Deliberate deviation:** removal protection and teardown are unavailable in the CLI.
+Future adoption must establish the dormant owner/reader/session/fixture/evidence safety
+criteria above, including settlement and force-refusal semantics. Automatic generation
+collection remains absent. Live client hook injection is still unverified. Prior qualification
+is unchanged; this closeout is documentation-only.
+
 ### Code-intelligence adoption and live users
 
 **E03** adds task routes as G/H/I/J verbs actually ship, including explain/references, candidate
 tests/completion, API/examples, previews and explicit compiler investigations. No hook starts
-analysis, generates rustdoc or compiles automatically. **E01** lists reusable sessions as actual
-checkout users and refuses removal while they, their children or required generations remain
-live/unsettled; explicit stop-and-settle precedes safe removal. Query completion or absence
+analysis, generates rustdoc or compiles automatically. **E01** supplies passive checkout inventory.
+Its deferred removal target must protect reusable sessions, their children and required
+generations while live/unsettled; explicit stop-and-settle would precede safe removal. Query completion or absence
 from scientific run lists is not drain evidence. Each checkout retains independent analysis
 context/build state. E02 adds no hook/status-line prerequisite.
 **E04** links coordinator-owned G–J scope rather than duplicating status. Per-slice actual CLI
 journeys and their distinguishing failure cases precede replaced-caller retirement; scope-end
 static/integrated qualification keeps its existing timing and does not block discrete adoption.
 
-Acceptance adds two checkouts, active-analysis removal refusal and successful removal after
-actual settlement. Codex/editor/MCP/direnv exclusions and ordinary host capacity remain intact.
+Deferred removal acceptance adds two checkouts, active-analysis removal refusal and successful
+removal after actual settlement. Codex/editor/MCP/direnv exclusions and ordinary host capacity remain intact.
 
-- **E01:** targeted `pse-host` tests and one real worktree creation and removal.
+- **E01:** recorded targeted `pse-host` tests and real creation/listing; native Git cleanup of
+  the disposable checkout is not acceptance of CLI removal protection.
 - **E02:** no feature-delivery acceptance; verify retired requirements are absent from current guidance.
 - **E03–E05:** documentation and agent-configuration changes, checked with `just lint-agents` and
   the documentation link check.

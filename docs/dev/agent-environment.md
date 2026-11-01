@@ -242,7 +242,12 @@ preparation, registration and optional `--warm` launch results remain separate. 
 the created checkout present with its recovery route. Review/allow its direnv configuration. Every worktree has its own
 `target/`. Never set `CARGO_TARGET_DIR` or share targets between checkouts (ADR-0122). The
 sccache cache is shared. Remove a worktree only after integrating its changes and preserving
-necessary evidence, using `git worktree remove PATH`.
+necessary evidence and explicitly settling actual users, using `git worktree remove PATH`.
+The supported CLI is `worktree new|list`; `pse worktree rm` is explicitly deferred
+([register R-56](../adr/register.md)). Automated owner-aware removal refusal and teardown are
+unavailable. Administrative removal must preserve readers, children, reusable sessions,
+fixture ownership, required artifacts and unresolved settlement; passive inventory is not
+a checkout-wide admission or retirement boundary.
 
 `worktree list` observes Git paths, direct commit ancestry, dirty paths and recorded native
 invocation users without preparing tools or settling owners. Unknown native facts remain unknown;

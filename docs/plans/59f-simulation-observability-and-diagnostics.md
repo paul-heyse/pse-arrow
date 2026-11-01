@@ -1,15 +1,22 @@
 ---
 title: "Plan59f: Simulation observability and diagnostics"
-status: active
+status: complete
 date: 2026-10-31
 adrs: [ADR-0233]
 review_sources: [docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md]
 doc_role: plan
+doc_retention: while-dependent
+doc_retention_reason: "Retained complete series at maintainer request; Plan58, Plan60, proposed ADRs and qualification references consume its evidence."
+doc_retirement_trigger: owner-release
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [architecture, design, libraries, environment, validation]
 ---
 
 # Simulation observability and diagnostics
+
+**Complete:** selected delivery is closed; the [final Plan59 conclusion](59-agent-cli.md#current-state-and-next-step)
+records the worktree-removal deferral and qualification limits. Earlier targets and dated
+checkpoints below retain their original context; package tables and Outcomes record delivery.
 
 ## Search extension impact assessment — 2026-10-31
 

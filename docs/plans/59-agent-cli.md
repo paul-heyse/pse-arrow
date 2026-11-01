@@ -1,10 +1,13 @@
 ---
 title: "Plan59: Agent-first pse CLI"
-status: active
+status: complete
 date: 2026-10-29
 adrs: [ADR-0233, ADR-0234]
 review_sources: [docs/functional_reviews/rust-centered-search-and-investigation-cli-2026-10-31.md, docs/functional_reviews/cli-test-and-runtime-workflows-2026-10-30.md, docs/functional_reviews/rust-agent-cli-2026-10-29.md, docs/functional_reviews/agent-cli-and-simulation-observability-2026-10-29.md, docs/plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md, docs/functional_reviews/rust-code-intelligence-cli-2026-10-29.md, docs/plan_improvement_reviews/plan59-library-integration-and-target-design-2026-10-30.md]
 doc_role: plan
+doc_retention: while-dependent
+doc_retention_reason: "Retained complete series at maintainer request; Plan58, Plan60, proposed ADRs and qualification references consume its evidence."
+doc_retirement_trigger: owner-release
 doc_owner: docs/plans/59-agent-cli.md
 doc_topics: [current-work, environment, design, libraries]
 ---
@@ -55,9 +58,9 @@ being the easiest path and by being clearly communicated. No hook enforces it. W
   and [Plan59 improvement review](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md),
   published at `e907d8a1f`, inspecting `890aa07f76fac5739cfc9811a47e823c326be663`.
 - Status: **Prior selected deliveries retain their recorded qualification; the search extension
-  is implemented with scope-end qualification below, and E01's removal scope decision remains open.** The current checkpoint and
-  companion Outcomes own evidence, limits and conditional non-adoptions. Prior completion does
-  not qualify the new query, provider and migration packages.
+  is implemented with scope-end qualification below. E01 is complete with CLI removal explicitly deferred.** The current checkpoint and
+  companion Outcomes own evidence, limits and conditional non-adoptions. Search acceptance is
+  established by P02's recorded campaign and affected reruns, separately from earlier deliveries.
 
 **Reading route.**
 1. This coordinator: target, shared decisions, rule changes, dependencies, completion.
@@ -259,7 +262,7 @@ D08 is deferred under RT04; D09 retains its original evidence. No proposal mecha
 
 The adopted targets below are resolved by their companion Outcomes and actual consumers,
 not by authoring this table. Automatic-collection coordination was superseded by RT03;
-unknown historical resources remain protected. E01's additional removal feature remains open
+unknown historical resources remain protected. E01's additional removal feature is explicitly deferred
 and is not advertised. Conditional absent capabilities retain their companion-owned triggers.
 
 | Finding reference | Scenario reference | Disposition | Decision/work owner | Evidence or revisit trigger |
@@ -402,7 +405,7 @@ it cannot claim the deferred capability was delivered.
 | O20 | deferred | B05 | Automatic handoff hooks await a demonstrated context-loss consumer; preserve authored notes and session identity. |
 | O21 | deferred | This coordinator | Adopt soft claims at the first concurrent-edit collision, recorded in the checkout store |
 | O22 | complete | [59e](59e-environment-and-adoption.md) (continuing) | Start route, guides, roles/skills and `next` hints point to `pse` as each verb ships |
-| O23 | in-progress (without direnv) | [59e](59e-environment-and-adoption.md) | Actual `new`/`list` and source-aware tool copy pass; project warming is explicit. Removal awaits the E01 scope choice; no selected deferral is inferred |
+| O23 | resolved | [59e](59e-environment-and-adoption.md) | Actual `new`/`list` and source-aware tool copy pass; project warming is explicit. CLI removal is deferred under R-56; native Git remains the administrative route. Direnv stays separately owned |
 | O24 | complete | [59a](59a-cli-foundation.md) (resolver and store), [59b](59b-runs-and-continuity.md) (runs) | One state resolver; per-run directories replace `/tmp` logs |
 | O25 | superseded | E02 | Mandatory session-start brief/status line removed under runtime O01; useful passive native status remains. |
 
@@ -438,7 +441,7 @@ resolves no finding.
 | [I05](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I05) | resolved | A03; B01/B02; F03 | Typed summaries versus opaque raw records; framed/projection-aware output and independent required result completeness. |
 | [I06](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I06) | resolved | F01–F06 | Prepared product reader, passive local evidence, retained studies and explicit escalation; conditional bridge/backend choices recorded. |
 | [I07](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I07) | complete | C07/C01–C05; A05 | Exact binary/feature/filter and original Cargo provenance, absence controls and both fixture owners are qualified. |
-| [I08](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I08) | in-progress | A04/A05; B03; E01 | Runtime/fixture ownership and partial/successful creation pass; GC-only gates are superseded by RT03. E01 removal remains unavailable pending its scope choice |
+| [I08](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I08) | resolved | A04/A05; B03; E01 | Runtime/fixture ownership and partial/successful creation pass; GC-only gates are superseded by RT03. E01 CLI removal is explicitly deferred under R-56, retaining native Git administration |
 | [I09](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I09) | resolved | A02/A04/A06; D01/D02/D07 | Native parser/owning configuration retained. A separate Figment CLI layer is not adopted without a repeated shared-configuration consumer; no second settings authority |
 | [I10](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I10) | resolved | D02/D04/D06/D07; E03 | API/probe identity and scoped checks remain; Git transaction and handoff portions deferred under RT04/runtime O01. |
 | [I11](../plan_improvement_reviews/plan59-cli-and-observability-2026-10-29.md#I11) | resolved | A02/A03/A06; D07 | Scoped candidate discovery, honest incompleteness and early parsing that cannot consume a child argument tail. |
@@ -598,8 +601,8 @@ universal gates. Revisit the affected edges when a feasibility decision selects 
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| P01 | in-progress | 59 | Selected feature deliveries and qualification below are complete. E01's removal scope choice remains open; no full-series completion is asserted until that choice and its resulting obligations are settled |
-| [P02](#p02) | complete | 59 | Entire selected K–M scope and necessary supporting slices implemented, replaced paths deleted, eight public journeys accepted, integrated coverage and affected corrections qualified below. P01/E01 remains separate |
+| P01 | complete | 59 | Selected deliveries and their recorded qualification are complete. The maintainer selected native Git administration and explicit CLI-removal deferral (R-56), closing E01 and this series |
+| [P02](#p02) | complete | 59 | Entire selected K–M scope and necessary supporting slices implemented, replaced paths deleted, eight public journeys accepted, integrated coverage and affected corrections qualified below. P01/E01 closes separately through the recorded removal deferral |
 
 <a id="p02"></a>
 ### P02 — Qualify the integrated search extension
@@ -616,7 +619,7 @@ assembled checks once implementation is complete, following AGENTS.md and report
 baseline. Focused unit/help/schema passes alone do not establish public usability or native
 lifetime behavior. Quantitative latency/answer-size claims require representative conditions and
 measurements; a mandatory benchmark campaign is not selected. No new scientific qualification
-is claimed. E01's removal decision remains independently owned by P01/59e.
+is claimed. E01's CLI-removal deferral is recorded in R-56; P01 closes the selected scope.
 
 ## Completion and verification
 
@@ -654,6 +657,19 @@ applicable native ownership operations. D08 concurrent Git acceptance is deferre
 
 ## Current state and next step
 
+**Final conclusion — 2026-10-31:** Plan59 is complete for the selected scope. E01 delivers
+`worktree new` and `worktree list`; the maintainer explicitly deferred `pse worktree rm`
+and retained native Git administrative removal. R-56 owns the observable revisit trigger.
+P01 and O23/I08 close through that scope disposition, without claiming automated removal
+protection. P02's original qualification and affected reruns retain their recorded conditions.
+The complete series and companions remain available at the maintainer's request and support
+Plan58, Plan60, proposed ADRs and retained qualification references. Further work follows those
+owners or the recorded deferral triggers. Live UI hook delivery remains unverified; no new
+performance, scientific or deployment qualification follows from this closeout.
+
+The following dated delivery summaries describe their original boundaries; the final
+conclusion above settles their then-open E01/P01 references.
+
 **2026-10-31 search-extension execution:** the maintainer authorized the entire 59k–59m
 scope and its necessary producer/consumer slices. K01/A10 publish the shared interpretation;
 G11/A11 select and publish an explicitly prepared immutable native-analysis snapshot. I06/A12
@@ -685,14 +701,39 @@ continuation rather than relabelling current source as original evidence. Compil
 durable managed-run references, and original compiler files remain readable after safe probe removal.
 Parser-derived references and source-generation declarations have been regenerated.
 
-E01's worktree creation/listing and guidance are delivered; its removal/admission scope decision
-remains with the maintainer. Safe removal would require a checkout-wide admission barrier across
-readers, runs and retained evidence. The pending question selects between that broader implementation
-and retaining native Git administrative removal. No answer, deletion feature or selected deferral is
-implied. All independent work selected for that earlier wave and the qualification below are
-complete. E01 and its resulting obligations remain independently open under P01; new extension
-execution follows the amendment above. No measured performance benefit
-or full scientific qualification is claimed.
+E01's worktree creation/listing and guidance are delivered. The final scope decision above
+retains native Git administrative removal and explicitly defers a CLI retirement/admission
+boundary across readers, runs and retained evidence. All selected implementation and recorded
+qualification are complete. No measured performance benefit or full scientific qualification
+is claimed.
+
+### Final closeout outcome — 2026-10-31
+
+**Implemented:** all fourteen Plan59 documents are marked complete and retained. E01/P01
+and O23/I08 close through the maintainer's explicit CLI-removal deferral, recorded as R-56.
+The index retains the complete series; publication classifies it outside active work.
+Operating guidance and Plan60's baseline reference now state this final disposition.
+
+**Tested**, local Linux, zero error baseline: `target/debug/xtask lifecycle validate` reports
+zero errors across 1,804 scope items; `target/debug/xtask lifecycle scope --path
+'docs/plans/59*' --state open` returns zero open items. `target/debug/xtask lifecycle
+retire-plan --path 'docs/plans/59*'` reports zero errors and surviving references for all
+fourteen retained documents; it authorizes no deletion. `target/debug/xtask register lint`
+passes 29 rows. `scripts/pse docs check docs/plans/59*.md
+docs/plans/60-engineering-code-intelligence.md docs/plans/README.md docs/adr/register.md
+docs/dev/agent-environment.md` passes after the corrections below. `just docs` publishes
+975 chapters; `just ready`, `just turn-end` and `git diff --check` pass. These checks
+establish documentation consistency and publication, without rerunning product qualification.
+
+**Mistakes corrected:** simplifying the index dropped direct companion links required by the
+scoped checker; the completed-series links are restored. That check also exposed missing
+register front matter, now supplied. Its first attempt refused a stale xtask association;
+explicit `scripts/pse tools prepare xtask --format json` refreshed the selection before rerun.
+The failed attempts receive no pass credit.
+
+**Deliberate boundaries:** retain Plan59 and every companion at the maintainer's request;
+preserve original campaign failures, affected reruns and scientific/client limits. CLI removal
+and its safety acceptance remain deferred. Unrelated protobuf research moves are preserved.
 
 ### Search-extension outcome and qualification — 2026-10-31
 
@@ -770,8 +811,8 @@ Cold cancellation tests prove actual request/descendant settlement, not a univer
 precise timing inside one indexing routine. Actual native agent adoption and advice endpoint
 delivery are tested; live Codex/Claude UI hook trust/injection remains unverified. No measured
 speedup, full replacement of specialized tools, scientific/solver/reference qualification or
-other-platform result is claimed. E01/P01 and Plan58 H retain their separate scope. Companion
-plans remain retained because this active coordinator depends on their native status/evidence;
+other-platform result is claimed. E01/P01 close through the final scope disposition; Plan58 H
+retains its separate scope. Companion plans remain retained with this completed coordinator;
 enduring contracts live in blueprint §21.7/§23.2/§24.2 and proposed ADR-0233/0234.
 
 ### Remaining-series outcome and qualification — 2026-10-30

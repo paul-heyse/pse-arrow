@@ -1,3 +1,7 @@
+---
+title: Deferred-decision register
+---
+
 # Deferred-decision register
 
 Every item here was deliberately **deferred with a stated trigger** rather than
@@ -6,7 +10,7 @@ completed work or no longer applicable, it is removed; Git history retains it (A
 Row ids are never reused; a new row takes the next id after the high-water mark below,
 which the lint checks. The register may be empty.
 
-Highest issued row id: R-55.
+Highest issued row id: R-56.
 
 | Column | Meaning |
 |---|---|
@@ -55,3 +59,4 @@ runs `--due` and reports the checks of rows that are due.
 | R-51 | Implemented: physical quantity subjects remain admitted from `pse.physical`; composition of physical inventories across the selected package closure remains deferred (blueprint §8.1, ADR-0135 proposed) | ADR-0127 | a domain package needs a subject-bearing physical type over its own kind, or a supported law needs unit stripping/re-dressing or erasure of reference, subject or coordinate meaning | manual: does the selected scientific closure require an undeclared physical subject or erase physical meaning to compose its laws? | paul-heyse | 2026-09-29 | 2027-03-01 | open |
 | R-52 | SCIP 10's convex nonlinear handler falsely proves the BT_PR liquid tangent-plane problem infeasible, with cuts excluding the true point. The saved historical `bt_pr_liquid_stability` reproducer retains this defect; current `bt_pr_liquid_tpd_reference` checks local stationarity and the original TPD oracle, without claiming global certification (§18.10.1) | ADR-0121 | a SCIP release fixes the convex nonlinear handler on the saved reproducer | manual: run `scip_falsely_proves_the_bt_pr_liquid_tpd_infeasible` (reproducer `tests/fixtures/scip/bt-pr-liquid-tpd.cip`) against the newer SCIP; H10 already turns the false claim into a typed contradiction | paul-heyse | 2026-09-29 | 2027-03-01 | open |
 | R-55 | Production CodeMode, protocol tasks/Docket, Apps/UI and multi-question evidence batching; ordinary typed/native/headless delivery is selected (§24.1) | — | a concrete investigation requires branching, detach/reconnect, operator interaction or several questions on one cut that existing typed/native/headless owners cannot adequately serve; task adoption also requires a compatible actual host | manual: identify the unmet consumer and compare the complete original ownership, provenance, cancellation, retention and host contract before seeking positive adoption; maintained in the capability interface guide | paul-heyse | 2026-10-25 | 2027-03-01 | open |
+| R-56 | Proposed: CLI worktree removal; creation/listing delivered, native Git administrative removal retained ([worktree guide](../dev/agent-environment.md#worktrees), Plan59 E01) | ADR-0233 | a named workflow requires pse-managed removal that native Git administration cannot adequately serve | manual: identify the unmet workflow and assess checkout-wide admission/retirement, actual readers/children/sessions, fixture ownership, retained artifacts and unresolved settlement; force must not override ownership protection | paul-heyse | 2026-10-31 | 2026-12-01 | open |

@@ -18,8 +18,8 @@ decisions: trace responsibilities and boundaries, compare a change, investigate 
 connect code to original contracts and select revealing validation. The source is the
 [engineering-workflow functional review](../functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md).
 This is a new series; it neither supersedes Plan59 nor reopens its completed packages.
-Plan59 [P01/E01](59-agent-cli.md#current-state-and-next-step) retains its separate worktree-removal
-decision. Its [P02](59-agent-cli.md#p02) records prior qualification, not acceptance of Plan60.
+Plan59 [P01/E01](59-agent-cli.md#current-state-and-next-step) is complete with CLI worktree removal
+explicitly deferred under R-56. Its [P02](59-agent-cli.md#p02) records prior qualification, not acceptance of Plan60.
 
 Authoring baseline: review commit `5e96ed601`, following implementation/documentation baseline
 `9d5dcf27c`. Current `investigation::model::Request` already separates selection, predicates,

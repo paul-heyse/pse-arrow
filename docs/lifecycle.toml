@@ -4234,6 +4234,12 @@ from = "docs/plans/59i-compiler-investigations.md::package-state::I05"
 to = "docs/plans/59i-compiler-investigations.md::package-state::I01"
 kind = "depends-on"
 
+# Retained complete Plan59 owns dispositions and evidence; companions own packages.
+[[relationships]]
+from = "docs/plans/59-agent-cli.md::package-state::P01"
+to = "docs/plans/59e-environment-and-adoption.md::package-state::E01"
+kind = "depends-on"
+
 # Plan59 owns the agent-first pse CLI review's O01-O25 dispositions; companions own packages.
 [[scope_tables]]
 path = "docs/plans/59-agent-cli.md"
