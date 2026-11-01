@@ -92,7 +92,7 @@ impl SourceFact {
             .mapping
             .iter()
             .find(|mapping| mapping.interpreted.end == selected.end)?;
-        (first.source.byte_start <= last.source.byte_end).then(|| SourceRange {
+        (first.source.byte_start <= last.source.byte_end).then_some(SourceRange {
             byte_start: first.source.byte_start,
             byte_end: last.source.byte_end,
             line_start: first.source.line_start,

@@ -28,6 +28,61 @@ fn observe(
 }
 
 #[test]
+fn selected_preview_matches_only_its_addressed_node_not_unrelated_occurrences() {
+    struct Counted<'a> {
+        matcher: &'a ast_grep_config::RuleCore,
+        visited: std::cell::Cell<usize>,
+    }
+    impl ast_grep_core::Matcher for Counted<'_> {
+        fn match_node_with_env<'tree, D: ast_grep_core::Doc>(
+            &self,
+            node: ast_grep_core::Node<'tree, D>,
+            environment: &mut Cow<ast_grep_core::meta_var::MetaVarEnv<'tree, D>>,
+        ) -> Option<ast_grep_core::Node<'tree, D>> {
+            self.visited.set(self.visited.get() + 1);
+            ast_grep_core::Matcher::match_node_with_env(self.matcher, node, environment)
+        }
+    }
+    let original = source(&format!(
+        "fn f(){{ {} target(last); }}",
+        "target(other);".repeat(2_000)
+    ));
+    let start = original.text().rfind("target(last)").unwrap();
+    let selected = start..start + "target(last)".len();
+    let prepared = PreparedQuery::new(&query("target($A)"), Some("changed($A)")).unwrap();
+    let counted = Counted {
+        matcher: &prepared.matcher,
+        visited: std::cell::Cell::new(0),
+    };
+    let parsed = ParsedSyntax::new(&original).unwrap();
+    let edit = native::selected_edit(
+        &original,
+        &parsed,
+        selected.clone(),
+        &counted,
+        prepared.template.as_ref().unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        counted.visited.get(),
+        1,
+        "addressed preview must not rescan the 2000 unrelated candidates"
+    );
+    assert_eq!(edit.range(), selected);
+    assert_eq!(edit.replacement(), "changed(last)");
+    assert!(
+        preview_selected(
+            original,
+            start..start + "target".len(),
+            "target($A)",
+            Strictness::Smart,
+            "changed($A)"
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn native_grammar_abi_named_and_sequence_captures_retain_exact_unicode() {
     let original = source("fn α() { target(first, /* retained */ β); }");
     let result = observe(&original, &query("target($A, $$$REST)"), None, usize::MAX).unwrap();

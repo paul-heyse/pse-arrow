@@ -549,24 +549,12 @@ pub fn preview_selected(
         max_records: None,
     };
     let prepared = PreparedQuery::new(&query, Some(replacement))?;
-    let result = analyze(
-        &source,
-        &query,
-        &prepared,
-        usize::MAX,
-        &CancellationToken::new(),
-    )?;
-    let Some(index) = result.matches.iter().position(|candidate| {
-        candidate.locator.range.byte_start == selected.start
-            && candidate.locator.range.byte_end == selected.end
-    }) else {
-        return Err(QueryError::Unavailable(
-            "selected range is not a current candidate of the explicit native pattern".into(),
-        ));
-    };
-    let edit = result.edits.into_iter().nth(index).ok_or_else(|| {
-        QueryError::Unavailable("native pattern supplied no edit for the selected candidate".into())
-    })?;
+    let parsed = ParsedSyntax::new(&source)?;
+    let template = prepared
+        .template
+        .as_ref()
+        .ok_or_else(|| QueryError::Unavailable("selected preview has no native template".into()))?;
+    let edit = native::selected_edit(&source, &parsed, selected, &prepared.matcher, template)?;
     Ok(ChangeProposal::new(ProducerContext::Syntax {backend:"ast-grep-core/0.51.0;tree-sitter-rust/0.24.2".into(),configuration:format!("selected exact range; strictness={strictness:?}; native capture-preserving template")},vec![source],vec![edit],vec![0],vec!["Syntax preview only; no semantic identity, compilation or source/index application established".into()],vec![])?)
 }
 fn envelope<T>(command: &str, payload: T, partial: bool) -> Envelope<T> {

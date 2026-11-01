@@ -322,13 +322,7 @@ pub(super) fn select_rule(
         }
         captures.sort_by(|a, b| a.name.cmp(&b.name));
         if let Some(template) = selection.template {
-            let edit = matched.replace_by(template);
-            edits.push(EditCandidate::new(
-                source.identity().clone(),
-                edit.position..edit.position + edit.deleted_length,
-                String::from_utf8(edit.inserted_text)
-                    .map_err(|error| QueryError::Parse(error.to_string()))?,
-            ));
+            edits.push(template_edit(source, &matched, template)?);
         }
         matches.push(SyntaxMatch {
             index: matches.len(),
@@ -352,6 +346,58 @@ pub(super) fn select_rule(
         total_matches,
         edits,
     })
+}
+
+fn template_edit(
+    source: &SourceText,
+    matched: &ast_grep_core::NodeMatch<'_, StrDoc<RustGrammar>>,
+    template: &TemplateFix,
+) -> Result<EditCandidate, QueryError> {
+    let edit = matched.replace_by(template);
+    Ok(EditCandidate::new(
+        source.identity().clone(),
+        edit.position..edit.position + edit.deleted_length,
+        String::from_utf8(edit.inserted_text)
+            .map_err(|error| QueryError::Parse(error.to_string()))?,
+    ))
+}
+
+/// Revalidate only the addressed native node and equal-extent ancestors, in preorder.
+/// Native tree lookup skips unrelated candidates; template extents remain library-owned.
+pub(super) fn selected_edit<M: ast_grep_core::Matcher>(
+    source: &SourceText,
+    parsed: &ParsedSyntax,
+    selected: std::ops::Range<usize>,
+    matcher: &M,
+    template: &TemplateFix,
+) -> Result<EditCandidate, QueryError> {
+    let unavailable = || {
+        QueryError::Unavailable(
+            "selected range is not a current candidate of the explicit native pattern".into(),
+        )
+    };
+    if selected.start > selected.end || source.text().get(selected.clone()).is_none() {
+        return Err(unavailable());
+    }
+    let root = parsed.tree.root();
+    let Some(inner) = root
+        .get_inner_node()
+        .descendant_for_byte_range(selected.start, selected.end)
+    else {
+        return Err(unavailable());
+    };
+    let candidates = std::iter::successors(Some(inner), |node| node.parent())
+        .take_while(|node| node.byte_range() == selected)
+        .collect::<Vec<_>>();
+    for node in candidates.into_iter().rev() {
+        let Some(matched) = matcher.match_node(parsed.tree.adopt(node)) else {
+            continue;
+        };
+        if matched.range() == selected {
+            return template_edit(source, &matched, template);
+        }
+    }
+    Err(unavailable())
 }
 
 /// Advanced native field/capture extraction; query limits and cancellation stay visible.

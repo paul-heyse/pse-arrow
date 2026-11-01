@@ -416,20 +416,9 @@ fn actual() {
     let bytes = c"\xFF";
     fn nested() { let inner = "owned"; }
 }
-
-#[test]
-fn invalid_literal_interpretations_retain_spelling_without_fabricated_decoded_ranges() {
-    let outline = rust(r#"fn f(){ let invalid = "a\qz"; let valid = "β"; }"#, RustEdition::E2024);
-    let invalid = outline.facts.iter().find(|fact| fact.written == r#""a\qz""#).unwrap();
-    assert!(invalid.interpretation_error.is_some());
-    assert!(invalid.value.is_none() && invalid.mapping.is_empty());
-    let valid = outline.facts.iter().find(|fact| fact.written == "\"β\"").unwrap();
-    assert!(valid.map_interpreted_range(0..1).is_none());
-    assert!(valid.map_interpreted_range(0..2).is_some());
-}
 fn broken(
 "####;
-    let outline = super::rust(source, super::RustEdition::E2024);
+    let outline = rust(source, RustEdition::E2024);
     assert!(!outline.parse_issues.is_empty());
     assert_eq!(
         outline
@@ -444,9 +433,7 @@ fn broken(
         .iter()
         .find(|fact| fact.written == r#""a\n\u{3b2}""#)
         .unwrap();
-    assert!(
-        matches!(&escaped.value, Some(super::InterpretedValue::Text(value)) if value == "a\nβ")
-    );
+    assert!(matches!(&escaped.value, Some(InterpretedValue::Text(value)) if value == "a\nβ"));
     let newline = &escaped.mapping[1];
     assert_eq!(
         escaped.map_interpreted_range(1..2),
@@ -470,7 +457,7 @@ fn broken(
             .any(|fact| fact.written == "r##\"raw\\n\"##")
     );
     assert!(outline.facts.iter().any(
-        |fact| matches!(&fact.value, Some(super::InterpretedValue::Bytes(value)) if value == &[255])
+        |fact| matches!(&fact.value, Some(InterpretedValue::Bytes(value)) if value == &[255])
     ));
     let attribute = outline
         .facts
@@ -486,4 +473,26 @@ fn broken(
         .unwrap();
     let owner = owned.owner.as_ref().unwrap();
     assert!(source[owner.byte_start..owner.byte_end].starts_with("fn nested"));
+}
+
+#[test]
+fn invalid_literal_interpretations_retain_spelling_without_fabricated_decoded_ranges() {
+    let outline = rust(
+        r#"fn f(){ let invalid = "a\qz"; let valid = "β"; }"#,
+        RustEdition::E2024,
+    );
+    let invalid = outline
+        .facts
+        .iter()
+        .find(|fact| fact.written == r#""a\qz""#)
+        .unwrap();
+    assert!(invalid.interpretation_error.is_some());
+    assert!(invalid.value.is_none() && invalid.mapping.is_empty());
+    let valid = outline
+        .facts
+        .iter()
+        .find(|fact| fact.written == "\"β\"")
+        .unwrap();
+    assert!(valid.map_interpreted_range(0..1).is_none());
+    assert!(valid.map_interpreted_range(0..2).is_some());
 }
