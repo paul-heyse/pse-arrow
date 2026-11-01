@@ -9,6 +9,8 @@ checks and independent assessment qualify prepared-world, SSR, layout, indexing 
 limits. Existing parser and schema-origin simplifications accompany the proposed capabilities.
 The CLI remains an interface; Plan60 was excluded. No production or plan changes, newly delivered
 capabilities or measured efficiency benefits follow from this review.
+The new [Plan62 series](../plans/62-code-intelligence-capability-expansion.md) owns scheduled
+dispositions and implementation packages; its publication does not deliver those capabilities.
 
 The [Protobuf foundations review](code-intelligence-protobuf-foundations-2026-10-31.md)
 assesses improvements to existing code intelligence independently of Plan60. Its integrated
