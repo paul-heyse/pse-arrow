@@ -346,3 +346,29 @@ assessment portions are settled; that does not close their enclosing delivery/mi
 The next implementation scope remains T01 and the first A02/T02/T03 slice, using these outcomes
 to avoid redundant synthesis, ambiguous layout projections or premature indexing. Existing
 qualification retains its original limits; Plan62 Q01 has not run or been claimed complete.
+
+### Remaining-scope implementation checkpoint — 2026-11-01
+
+T01's production preparation/compiler-stage target is recorded in proposed ADR-0233 and
+blueprint revision327 (`18164ed4e`); this does not change the ADR's formal acceptance status.
+Typed API contracts, native example acquisition and Cargo/native-world evidence are committed
+as `b3b6bb42f`; interpreted source facts, shared source selection and grammar previews are
+committed as `d2170bc04`. Their dedicated targeted controls passed. B04's exact field origins
+and the shared native/compiler contracts are being integrated with their generated outputs.
+
+The native implementation now includes explicit build-generated/proc-macro preparation,
+separate test-context selection, semantic roles/captures/callable candidates, fallible layout
+and guarded association with original compiler layout evidence. The compiler stage is an
+explicit optional source-built target, with demand-selected capture/suspension/cleanup
+extraction, native move-path initialization observations and success-only artifact publication.
+Compact views address the full original context instead of repeating its transitive unit graph.
+These remain implementation in progress until their actual public journeys pass.
+
+T03 integration corrects use-site collapse and propagation of uncertain candidate/membership
+evidence through conjunction and negation. Dedicated source/API checks and the earlier bounded
+compiler-feature checks do not establish this assembled behavior. Current native journey
+feedback is being resolved; preparation attempts rejected because sources changed during
+construction supply no acceptance credit. The next work is stable-source native/composed and
+compiler acquisition journeys, completion of shared generation and operating guidance, then
+Q01's assembled acceptance and scope-end static checks. No series completion or performance
+benefit is claimed at this checkpoint.
