@@ -9,6 +9,7 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
+| [63: Code-intelligence and CLI robustness](63-code-intelligence-cli-robustness.md) | Proposed source-detail, diagnostic/recovery and native scope/settlement corrections; O01–O08 disposition and assembled acceptance owner. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
 | [53: Test architecture](53-test-architecture-target.md) | Test architecture and existing remaining qualification/decision scope. |

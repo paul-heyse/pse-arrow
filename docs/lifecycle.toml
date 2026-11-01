@@ -6468,3 +6468,150 @@ kind = "depends-on"
 from = "docs/plans/60-engineering-code-intelligence.md::functional-extension-dispositions::O06"
 to = "docs/plans/60f-agent-interaction-and-contract-diagnostics.md::package-state::F03"
 kind = "depends-on"
+
+# Plan63: robustness opportunity ownership and native package state.
+
+[[scope_tables]]
+path = "docs/plans/63-code-intelligence-cli-robustness.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-Z][0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/63a-demand-driven-source-evidence.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-Z][0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/63b-query-diagnostics-and-agent-recovery.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-Z][0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/63c-native-query-scope-and-settlement.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-Z][0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/63-code-intelligence-cli-robustness.md"
+name = "opportunity-dispositions"
+heading = "Opportunity dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required evidence or trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O01"
+to = "docs/plans/63a-demand-driven-source-evidence.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O01"
+to = "docs/plans/63a-demand-driven-source-evidence.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O01"
+to = "docs/plans/63a-demand-driven-source-evidence.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O02"
+to = "docs/plans/63b-query-diagnostics-and-agent-recovery.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O02"
+to = "docs/plans/63b-query-diagnostics-and-agent-recovery.md::package-state::B02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O03"
+to = "docs/plans/63b-query-diagnostics-and-agent-recovery.md::package-state::B03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O04"
+to = "docs/plans/63b-query-diagnostics-and-agent-recovery.md::package-state::B04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O05"
+to = "docs/plans/63c-native-query-scope-and-settlement.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O05"
+to = "docs/plans/63b-query-diagnostics-and-agent-recovery.md::package-state::B03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O06"
+to = "docs/plans/63c-native-query-scope-and-settlement.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O06"
+to = "docs/plans/63c-native-query-scope-and-settlement.md::package-state::C03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O07"
+to = "docs/plans/63c-native-query-scope-and-settlement.md::package-state::C04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O08"
+to = "docs/plans/63a-demand-driven-source-evidence.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O08"
+to = "docs/plans/63b-query-diagnostics-and-agent-recovery.md::package-state::B03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O08"
+to = "docs/plans/63c-native-query-scope-and-settlement.md::package-state::C04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O08"
+to = "docs/plans/63-code-intelligence-cli-robustness.md::package-state::Q01"
+kind = "depends-on"

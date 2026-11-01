@@ -4,7 +4,9 @@ The [code-intelligence and CLI robustness review](code-intelligence-cli-robustne
 reconstructs audit query failures and develops eight connected corrections to existing workflows.
 It reproduces outline amplification, distinguishes request-relative path mistakes from native
 graph incompleteness, and assesses library-backed demand, scope, diagnostics and validation.
-Its recommendations authorize no production changes or new feature scope.
+The proposed [Plan63 series](../plans/63-code-intelligence-cli-robustness.md) owns scheduled
+O01–O08 disposition and acceptance. Its recommendations authorize no production changes or
+new feature scope.
 
 The [Plan60 agent-engineering opportunities](plan60-agent-engineering-opportunities-2026-11-01.md)
 and its plan-improvement companion assess responsibility paths, library-fit shapes, context
