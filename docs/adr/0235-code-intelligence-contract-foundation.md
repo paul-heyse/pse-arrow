@@ -111,7 +111,7 @@ no general new CEL engine is selected.
 - [Plan61b](../plans/61b-typed-investigation-and-agent-answers.md) and
   [Plan61c](../plans/61c-local-rpc-and-native-completion.md) own consumer/transport acceptance.
 - [Scoped review](../design_review/reviews/design_review_code-intelligence-contract-foundation_2026-10-31.md).
-- [Architecture](../authoritative_design/sections/workflows-and-results.md#section-21-7).
+- [Architecture](../authoritative_design/sections/native-host-and-engineering-tools.md#section-21-7).
 
 ## Status history
 

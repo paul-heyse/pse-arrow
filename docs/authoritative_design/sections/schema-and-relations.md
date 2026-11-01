@@ -15,7 +15,7 @@ explains ownership and purpose, not column lists.
 
 ## 4. The semantic schema registry
 
-The registry is the one declaration of every durable relation, field, enumeration,
+The registry is the one declaration of every product relation, field, enumeration,
 extension type, invariant, authoring document shape and native algorithm signature. The
 catalog is assembled in a fixed order by `pse_schema::catalog`, with one module per
 family. `RegistryBuilder::build` resolves cross-references and returns an immutable
@@ -38,6 +38,8 @@ A relation is declared exactly once as a `RelationSpec` over native Arrow fields
 facets in field metadata, so nested children carry the same contract as top-level
 columns. The facets are quantity, enumeration, foreign key, reference, collection,
 tagged alternative, integer range, entity identity, document format and structure name.
+Source syntax adds declared grammar, lexical binder and occurrence contracts; result
+access declares selection roles and ordering without changing the value domain.
 Each relation declares:
 
 - its namespace;
@@ -65,14 +67,16 @@ Other declarations have the same single owner:
 
 - **Enumerations.** Closed dictionaries. The member name is stored, and a member ordinal
   is presentation only. IDAES-derived members carry their upstream name
-  ([§6.14](#section-6-14)). Every vocabulary that decides behaviour and crosses a crate,
-  process, store or language boundary is a registry enumeration, including the backend and
+  ([§6.14](#section-6-14)). Product vocabularies that decide behaviour and cross a crate,
+  process, store or language boundary are registry enumerations, including the backend and
   dynamics settings vocabularies, applicability evidence and the store's lifecycle,
   termination and retention vocabularies. A vocabulary whose source is
   hand-written Rust is declared with that source (`EnumDecl::sourced`: `pse-vocabulary`,
   `pse-diagnostics`, `pse-quantity`), and the generator re-exports that type instead of
   emitting a second one, so each vocabulary has one Rust type and no decision compares its
-  spelling as a string.
+  spelling as a string. New code-intelligence wire meanings in the independent host are
+  proto-owned; existing product meanings remain derived, and deliberate CLI presentation
+  remains Serde/Schemars-owned ([§21.7](native-host-and-engineering-tools.md#section-21-7)).
 - **Entity identities.** `declare_identity` names an entity; a key column carries it
   (`with_identity`), foreign keys inherit it, and each has at most one owning key. Typed ids
   are generated from them ([§5.1](identity-and-publication.md#section-5-1)).
@@ -158,6 +162,8 @@ never patched afterwards, and nested children carry their own metadata.
 | Schema | `pse.contract.checks` | Named relational predicates; canonical native field/structural constraints are generated from their owning declarations |
 | Schema (durable) | `pse.contract.semantic`, `pse.contract.semantic_format`, `pse.contract.execution_encoding` | Complete semantic witness, its interpretation format and the native layout identity ([§20](identity-and-publication.md#section-20)) |
 | Field | `pse.semantic.logical_type`, `.quantity_type`, `.role`, `.fk`, `.enum`, `.identity`, `.document`, `.reference`, `.collection`, `.tagged_alternative`, `.integer_range`, `.key_encoding` | Field facets of [§4.1](#section-4-1) |
+| Field | `pse.semantic.expression.role`, `.expression.ordinal`, `.expression.binder`, `.expression.cases` | Source occurrence role/order, lexical binder scope and annotation-selected syntax contracts |
+| Field | `pse.semantic.result.selection`, `.result.sort` | Declared protected-result access roles and new-batch ordering; these do not change the referenced value domain |
 | Field | `ARROW:extension:name`, `ARROW:extension:metadata` | Extension type and its mandatory metadata ([§4.4](#section-4-4)) |
 
 Generated constructors produce the same key set for the same contract. They reject
@@ -191,10 +197,19 @@ their storage layouts.
 | `pse.expr_dsl` | Explicit expression-text boundary; modeling expressions are fields of the generic declaration IR ([§7](mathematics-and-compilation.md#section-7)) |
 | `pse.target_path` | Authored selector path, resolved to identities before use ([§6.10](#section-6-10)) |
 
-Metadata has exactly three shapes: `{"v":1}`, `{"v":1,"enum_id":…}` and
-`{"v":1,"target_relation_id":…}`. They are written by hand in fixed key order because
-they enter logical hashes (`pse_schema::ext_metadata`). Factories reject any other
-shape, and a new metadata version is how an extension evolves.
+Extension metadata has four declared shapes. Most extensions use `{"v":1}`; enums use
+`{"v":1,"enum_id":…}` and ordinal references use `{"v":1,"target_relation_id":…}`.
+Current `pse.expr_dsl` uses `{"v":2,"grammar":…,"grammar_version":1}`.
+Its closed grammar is `expression`, `equation`, `predicate`,
+`proposition`, `static`, `annotation_arguments` or `annotation_target`; grammar generation
+is separate from extension metadata generation. A source field declares which parser and
+occurrence/binder contract applies, and annotation syntax selects its declared shape and
+argument count. Plain text and typed scientific cells do not acquire expression meaning.
+
+`pse_schema::ext_metadata` writes canonical metadata in fixed key order. Factories reject
+unknown shapes, grammars or generations, including the former version-only expression
+descriptor. A new metadata version is how an extension evolves; schema identity retains
+the declared grammar and source contract.
 
 Native enforcement has two complementary owners:
 
@@ -677,6 +692,9 @@ owning section:
 | Local analysis and uncertainty | `local_validity`, `parametric_sensitivities`, `reduced_hessians`, `parameter_covariances`, `parameter_intervals`, `profile_points`, `response_directions`, `propagated_covariances` | [§15.5.1](numerical-execution.md#section-15-5-1), [§19.4](workflows-and-results.md#section-19-4), [§19.8](workflows-and-results.md#section-19-8) |
 | Capability inventory | `solver_capabilities` | [§18](numerical-execution.md#section-18) |
 | Canonical storage and retention | Registry-owned `canonical_*` source, product, execution, result, analysis and retention rows; original scientific values remain in `runtime.*` IPC blocks | [§20](identity-and-publication.md#section-20) |
+| Project editing and history | `canonical_projects`, branch/draft/version/savepoint/bookmark, ancestry and diagnostic families | [§20.6.7](identity-and-publication.md#section-20-6-7) |
+| Research and engineering context | `canonical_research_*`, `canonical_project_contexts`, context journals and ancestry | [§20.6.7](identity-and-publication.md#section-20-6-7) |
+| Frozen study capture | `canonical_study_capture_*` | [§20.6.3](identity-and-publication.md#section-20-6-3) |
 | Observation | `diagnostics_findings`, `validation_findings`, `cache_statistics`, `cache_entry_statistics`, `execution_statistics` | [§23](operations-and-validation.md#section-23) |
 
 Several facts that could be conflated are kept apart:
@@ -691,6 +709,16 @@ Several facts that could be conflated are kept apart:
 Observation relations are volatile evidence, never model or dependency authority.
 `provenance.derivations` records derivation evidence. `provenance.assertions` holds
 authored expected evidence and is excluded from semantic membership.
+
+Project families organize existing scientific authority: each writable branch names its
+own canonical source problem, while raw draft versions and savepoints may retain unadmitted
+text. Research datasets and calibration selections reference admitted typed attributes and
+their exact context; research publication receipts reference qualified fitted cells and
+source activation without becoming a second measurement payload. Engineering context keeps
+effective intervals and recorded cuts separate from source revision and branch generation.
+Frozen capture families retain the selected cohort inventory and exact source/result
+protections across bounded paging. None of these catalogue relationships grants scientific
+permission or substitutes for the original source, result or artifact owner.
 
 ### 6.14 Scientific vocabularies
 
@@ -731,7 +759,7 @@ guards. Unresolved configuration refuses rather than selecting a default. Finite
 and body construction have explicit resource policies; exhaustion never silently truncates
 a model.
 
-**Structured IR.** `authored.modeling_declarations` version 22 stores every type as a
+**Structured IR.** `authored.modeling_declarations` stores every type as a
 post-order arena (`ModelingTypeArenaNode`): each node's children precede it, and the last
 node is the root. Parameter, argument, binding, return, table key, column and value,
 accumulator and continuous types all use it. The registry enum `ModelingTypeNode` names the
@@ -764,6 +792,18 @@ Tuple/Set/Boolean/Integer values without treating them as physical arithmetic. D
 ordering follows statically named callbacks to their actual attribute owners; a same-named
 attribute on another kind cannot invent a cycle. Dataset bindings may supply inherited
 nonderived attributes, but never override a derived or kind-bound value (ADR-0140).
+
+The current relation is version 26. Beyond the version-22 applicability contracts,
+independent state specifications declare supplied coordinates, reconstructions and transport
+observations; aggregate state ports and indexed connection occurrences retain that shared
+state contract. Inventory, flux and event-transfer expressions declare conservation over
+the original occurrences ([§10](models-and-composition.md#section-10)). Fixture diagnostics use
+the source-owned closed diagnostic vocabulary. Engineering accuracy goals, tagged scales,
+shared rules and inherited-default selectors are authored declarations feeding the numerical
+policy owner ([§16](numerical-execution.md#section-16)). Every source syntax field declares
+its grammar generation, lexical binder scope and occurrence role through the registry
+([§4.4](#section-4-4)); source text is parsed under that contract rather than guessed from
+its field name.
 
 #### 6.15.3 Property demand and method selection
 

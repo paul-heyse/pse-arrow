@@ -29,7 +29,7 @@ have different capabilities. At that baseline the semantic helper used authentic
 a cancellation byte with actual CPU settlement. API qualification binds original artifacts,
 source bytes and Cargo contexts. These are foundations to migrate, not missing capabilities.
 
-The current contract owner is [blueprint §21.7](../authoritative_design/sections/workflows-and-results.md#section-21-7).
+The current contract owner is [blueprint §21.7](../authoritative_design/sections/native-host-and-engineering-tools.md#section-21-7).
 Core3.4, Efficient Architecture1.0 and the binding apply; Test Assessment1.2 informs acceptance.
 Process Simulator1.5 limits interpretation: no schema or source graph proves scientific validity.
 This focused foundation assessment uses current sources and the review, without a new broad

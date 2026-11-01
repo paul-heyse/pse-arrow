@@ -158,7 +158,8 @@ Each analysis is opt-in or bounded, and none replaces the original candidate:
 | Presolve rank diagnostics | pounce-presolve equality-rank pass | No objective-changing remedy |
 | Numerical PSD qualification | Resource-bounded faer eigenanalysis with residual qualification | Explicit opt-in; never repairs the matrix (§18.10) |
 | KKT-point analysis | For an optimizing NLP candidate, through the one NLP runner (Ipopt, POUNCE and SCIP's fixed-assignment re-solve): one active-set KKT system in original coordinates, factored by FERAL with certified inertia and a Hager–Higham condition estimate (`kkt`, `Evidence::local`, [§15.5.1](#section-15-5-1)) | A local verdict on activity, LICQ and curvature (`sufficient`, `negative_curvature`, `singular`, `undecided`); an analysis that cannot run is a typed `Unavailable`; coefficient, cone and root routes have none |
-| Parametric sensitivity and reduced Hessian | On request (`SolveSettings.sensitivity`), read from the same analysis over the model's parametric program with the parameters pinned ([§15.5.1](#section-15-5-1)) | Local and first-order, valid while the active set holds; each quantity is certified or withheld with its reason (`runtime.local_validity`) |
+| Optimizing parametric sensitivity and reduced Hessian | On request (`SolveSettings.sensitivity`), read from the same analysis over the model's parametric program with the parameters pinned ([§15.5.1](#section-15-5-1)) | Local and first-order, valid while the active set holds; each quantity is certified or withheld with its reason (`runtime.local_validity`) |
+| Regular-square Root sensitivity | On request, the qualified original equality operation solves `F_x X_p = -F_p` (§15.5.1) | Physical primal response with rank, backward-error and neighborhood evidence; no optimizing multipliers, reduced Hessian or covariance propagation |
 | Verified infeasibility certificates | Clarabel's rays, and HiGHS's when its diagnostics request them, recovered to original coordinates and verified against the original data (`runtime.infeasibility_certificates`, [§18.10](#section-18-10)) | Only a verified ray at full native accuracy carries the `certificate` assurance; a ray is never a candidate |
 | Sum-of-squares bound | `ModelingPackage::sos_bound`: the moment relaxation of `pounce-convex` over the polynomial projection of the case's factorable program (`execution::sos`, Plan 22 N5), at a stated order | A floating-point SDP value labelled `sos_bound_nonrigorous`: never a certified global bound and never the basis of an objective-bound check; a program that is not an exact polynomial, or whose moment basis exceeds 256 monomials, is refused (`sos_bound_labelled_nonrigorous`, runtime units) |
 | Jacobian conditioning | FERAL sparse LU of a square Jacobian in a stated scaling, with a Hager–Higham 1-norm estimate (`conditioning::jacobian_condition`), reported as the `jacobian.condition_estimate` modeling finding | An estimate and a lower bound; none when the LU is singular |
@@ -242,11 +243,14 @@ coefficient, cone and root runners have no local analysis. *Tested* by
 `interior_point_active_bound_beyond_its_tolerance_is_active` and
 `fixed_assignment_resolve_keeps_local_analysis` (native backend units).
 
-**Parametric sensitivity** (Plan 22 S1). `SolveSettings.sensitivity` requests it as a
+**Optimizing parametric sensitivity** (Plan 22 S1). `SolveSettings.sensitivity` requests it as a
 `SensitivityRequest`: declared parameters of the solved case by identity (at least one, none
 repeated), whether to add the reduced Hessian, and an optional propagation
-([§19.8](workflows-and-results.md#section-19-8)). It is admitted under the `optimize` intent
-only and enters the solver profile identity. The solve keeps the parameters fixed; they are
+([§19.8](workflows-and-results.md#section-19-8)). This KKT route is admitted under the
+`optimize` intent and enters the solver profile identity. A `root` request instead consumes
+the regular-square response described above: physical primal derivatives without optimizing
+multipliers, reduced Hessians or covariance propagation. The solve keeps the parameters fixed;
+they are
 pinned only in the analysis. Preparation builds the view's parametric program once
 (`CasePlan::parametric`: the plan's columns followed by the parameters, at second order,
 cached with the view; `pse.compiler.modeling-parametric.v1`), and after qualification the
@@ -269,8 +273,9 @@ complementarity (presolve is never switched off to recover one), and only when t
 parametric KKT point has independent active gradients, no weakly active constraint and
 second-order sufficiency. Otherwise each requested quantity is withheld.
 `runtime.local_validity` publishes one `LocalValidity` row per requested quantity: whether
-it is certified or the `WithheldReason` (`no_candidate`; `no_local_analysis` on a
-coefficient, cone or root route; `multipliers_unrecovered`, `complementarity_failed`,
+it is certified or the `WithheldReason` (`no_candidate`; `no_local_analysis` for an
+optimizing request on a coefficient or cone route; `multipliers_unrecovered`,
+`complementarity_failed`,
 `not_stationary`, `analysis_unavailable`, `licq_failed`, `weakly_active`,
 `second_order_failed` or `backsolve_failed`; the fitting and propagation reasons of
 [§19.4](workflows-and-results.md#section-19-4) and
@@ -578,9 +583,13 @@ variable/row budgets; stationarity, complementarity, integrality and gaps come f
 policy. Neither the raw maximum nor the raw minimum of differently dimensioned
 tolerances is ever used. `ResolvedAccuracy` is not a user control. The caller's `Controls`
 choose time and iteration limits, threads, history, the Hessian mode (`HessianMode`:
-`exact`, `limited_memory`, or `gauss_newton` for a least-squares fit objective only,
-[§19.4](workflows-and-results.md#section-19-4)), reuse, the start policy and native
-options, and carry no accuracy, so nothing a caller supplies can stand in for the resolved
+`exact`, `limited_memory`, `partitioned`, `finite_difference`, or `gauss_newton` for a
+least-squares fit objective only, [§19.4](workflows-and-results.md#section-19-4)).
+`auto` resolves to an admitted mode before adapter execution. POUNCE supplies the
+library-owned partitioned and finite-difference curvature routes; active-set SQP refuses
+those IPM curvature modes, and other adapters retain their own admitted subset (§18.3).
+The controls also choose reuse, the start policy and native options, and carry no accuracy,
+so nothing a caller supplies can stand in for the resolved
 value. Preparation resolves it once (`PreparedSolve::accuracy`; per block
 for initialization; from the map's own policy for a causal map), and every adapter, runner
 and qualification receives that value. A nested library solve resolves its own from its
@@ -700,8 +709,10 @@ initialization request, in Rust, and every caller reaches it before native work.
 must be `root` or `initialize`. The request carries no explicit presolve policy or numerical
 convexity strategy, since blocks run without either, and it may require neither an explicit
 start nor native reuse. Typed backend settings must belong to every block's route, checked
-by that route's `BackendExecution::admit_settings`. The schedule is serial and finite: one
-thread, at least one stage and at most 4096 stage-block steps. A stage overlay may replace
+by that route's `BackendExecution::admit_settings`. The schedule is finite: at least one
+stage and at most 4096 stage-block steps. The serial path uses one native session; a
+request for multiple block workers or a wider native team uses the dependency-ready path
+under the complete team admission above. A stage overlay may replace
 only declared, finite fixed or parameter inputs, never a solved column, and every block
 boundary value must be present. Admission returns every block's route and the resolved
 numerical policy. Each block attempt keeps its stage, route, boundary, result or typed
@@ -726,14 +737,18 @@ Initialization accuracy comes from the numerical policy, and the schedule is fin
 bounded. `MathService::initialize` admits the whole schedule once and stamps one absolute
 task deadline before queueing. Binding, rebinding, derivative/support preparation and all
 block attempts consume that scope; neither a preparation wait nor a later block renews it.
-The schedule runs as one staged sequence on one native session ([§18.8](#section-18-8)): each stage composes its
+The serial schedule runs as one staged sequence on one native session
+([§18.8](#section-18-8)): each stage composes its
 overlay over the immutable original values, and each block is an ordinary solve step
 (`MathService::prepare_conditional`, run by the shared step executor
 `MathService::execute`) bound to those values. Each block's view is bound once
 (`PreparedBlock::bind`) and rebound to later stages' values
 ([§14.4](mathematics-and-compilation.md#section-14-4)). Blocks run in predecessor order on
 the session's thread, and a block's solved coordinates become its successors' inputs only
-after its candidate is a result. Retained native state serves a later step with the same
+after its candidate is a result. The ready path gives issued blocks private execution owners,
+allows checked provisional values to unlock successors, drains every issued block and performs
+the complete original assessment before accepting the stage. Retained native state serves
+a later step with the same
 backend, coordinates and profile (the same block in a later stage) when that step's
 `ReusePolicy` allows it; the default, `AllowRebuild`, permits compatible neutral reuse
 under the reset/fallback contract in [§17.6](#section-17-6). Explicit `Fresh` rebuilds. A step whose candidate is not a
@@ -748,6 +763,16 @@ assessment and on every exit. The public entry is the package-bound block initia
 (`ModelingPackage::initialize_model`, `workflow/modeling/engines.rs`) runs on the same
 staged-sequence primitive and retains original-specification acceptance
 ([§17.5](#section-17-5)).
+
+**Conditional owner lifetimes** (ADR-0166 and ADR-0186, proposed amendments).
+
+Parallel initialization and block solves retain prepared predecessor/successor maps and compact
+per-request consumed binding bases. Every original authored parameter and explicitly fixed variable
+remains mandatory, even unused. Unread authored free coordinates may be omitted from a private
+conditional binding; public full/effective-frozen validators are unchanged. Solver and assessor share
+leased immutable values. Exclusive bases update changed consumed inputs in place; escaped aliases
+require a fresh leased base. No source map, start or history travels with backend-qualified neutral
+native capacity.
 
 ### 17.4 Flowsheet recycles and dynamic starts
 
@@ -985,15 +1010,16 @@ The compiler's immutable case products are projected into class-specific views
 | Representation | Meaning | Consumed by |
 |---|---|---|
 | `OracleContract` | Content identity, source variables with bounds in native column order, row IDs, available derivative order and admitted smoothness (derivatives and smoothness are separate claims) | All callback adapters |
-| `NlpOracle` | Objective, constraints, gradient, Jacobian and weighted Lagrangian Hessian as separate demands, with sparse patterns, normalization, presolve facts and structural analysis | Ipopt, POUNCE |
-| `NleOracle` | Square residuals with an assembled Jacobian or Jacobian-vector product | KINSOL |
+| `NlpOracle` | Objective, constraints, gradient, Jacobian and weighted Lagrangian Hessian as separate demands, with sparse patterns, normalization, presolve facts and structural analysis | Ipopt, POUNCE; Uno consumes its first-order demands |
+| `NleOracle` | Square residuals with an assembled Jacobian or Jacobian-vector product | KINSOL, explicit PETSc root profiles |
 | KINSOL `Function` | Residual equations, explicit Picard splitting `F(x) = Lx - N(x)` with a declared constant `L`, or a declared causal map with an original residual validator | KINSOL |
 | `CoefficientProblem` | Sparse LP/MILP/QP coefficients with objective sense and constant, the declared registry variable domains (`ModelingVariableDomain`, including `semicontinuous` and `semiinteger`) and consumed parameter assumptions | HiGHS |
-| `ConicProblem` | Cone data in pse-owned sparse-matrix and cone types (`conic::SparseMatrix`, `conic::Cone`): declared by an explicit cone request, or lowered from a `CoefficientProblem` when a linear or convex quadratic program is routed to Clarabel (`ConicProblem::from_coefficients`, [§18.10](#section-18-10)) | Clarabel |
+| `ConicProblem` | Cone data in pse-owned sparse-matrix and cone types (`conic::SparseMatrix`, `conic::Cone`): declared by an explicit cone request, lowered from an admitted coefficient program, or lowered from a compiler-proven recognized cone program (§18.10) | Clarabel, explicit POUNCE-convex |
 | `FactorableProgram` | Library-neutral factorable DAG over original case columns with per-row fidelity, projected under the step's values only for a factorable route ([§7.5](mathematics-and-compilation.md#section-7-5)) | SCIP |
 
-Coefficient views are derived only through admitted affine/degree-two proofs, and cones
-are declared by an explicit request; neither is inferred from NLP rows. All-fixed
+Coefficient views are derived only through admitted affine/degree-two proofs. Nonlinear
+cone recognition requires the compiler's curvature and domain evidence; arbitrary NLP rows
+are never assumed conic. Explicit cone requests retain their own admission. All-fixed
 models are evaluated directly as a constant route, except that the `certify` intent and a
 native constraint form are refused there ([§18.7](#section-18-7)). Dynamic representations are owned
 by [§13](workflows-and-results.md#section-13).
@@ -1060,7 +1086,7 @@ every event. *Tested* by `nested_stage_reports_regime_crossings_per_outer_iterat
 (native runtime units: Ipopt steps from the bound regime towards the other, with no
 crossing in iteration 0 and crossings from iteration 1, and never accepts).
 
-### 18.3 In-process NLP: Ipopt C and POUNCE
+### 18.3 In-process NLP: Ipopt C, POUNCE and Uno
 
 > Decision: [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — Ipopt
 > linear solvers MUMPS+METIS, SPRAL SSIDS and oneMKL Pardiso, typed and explicitly
@@ -1140,6 +1166,14 @@ POUNCE passes the declared FERAL refinement configuration unchanged through inte
 and SQP methods and exact or limited-memory curvature. No adapter silently replaces explicit
 refinement with a method-dependent zero. Effective configuration and performed refinement
 remain observable; numerical stopping and original-space acceptance remain independent.
+
+POUNCE also consumes library-owned partitioned quasi-Newton and finite-difference Hessian
+construction from genuine first-order callbacks. Their typed settings, actual probe work and
+native storage/statistics remain observable. Active-set SQP refuses these IPM curvature modes;
+`auto` must resolve before admission. Gauss–Newton retains its separate least-squares fit
+restriction ([§19.4](workflows-and-results.md#section-19-4)). Ipopt admits
+exact/Gauss–Newton supplied curvature or limited memory,
+and refuses partitioned and finite-difference modes instead of silently substituting one.
 
 **Warm restarts.** A complete primal-dual seed restarts under a typed profile
 (`solve::WarmRestart`, part of both adapters' settings), because with the cold-start pushes
@@ -1227,6 +1261,17 @@ Original complementarity remains mandatory independently of native success or pr
 admission; a failing recovered multiplier grants feasibility at most. HiGHS's QP
 regularization is derived from the requested gap
 ([§18.10](#section-18-10)).
+
+**Uno** (`execution::uno`, feature `uno`; `pse-runtime/solver-uno`) is an explicit-only
+first-order smooth-NLP adapter over the same normalized oracle and original-quality runner.
+Its typed SQP method uses L-BFGS history; SLP requires zero history. Both require one thread,
+the `limited_memory` control and typed settings, with no raw native options, native scaling
+or acceptable-level budget. General bounds and primal-only starts are admitted; dual/working-set
+starts, retained native reuse, optimizing sensitivities and global certification are not claimed.
+Each attempt constructs fresh state and shares the existing HiGHS scheduler owner. Cancellation
+is observed at callbacks and LP/QP boundaries; an indivisible native subproblem retains its
+remaining time limit. Native code 5 remains a numerical failure. These implementation facts do
+not extend the scientific qualification basis beyond §24.2.
 
 ### 18.6 Truthful outcomes
 
@@ -1376,6 +1421,31 @@ unknown observations remain absent and inclusive native/probe counts are not add
 Path events carry actual localization and rank observations; a nondegeneracy conclusion
 requires genuine compatible compiler Second support, separately from First preparation.
 
+#### 18.6.1 Retained surrogate proposals
+
+`pse-runtime::math::surrogate` supplies bounded library-owned proposal generation through
+`prepare_surrogate` and `advance_surrogate`. A retained egobox actor owns its library state,
+evaluator and local pool on one permanent worker. Admission binds the declared finite box,
+initial samples, regression/correlation and tuning settings, RNG seed, work limits and
+source/fidelity correspondence. Workspace, foreign storage, worker stacks and actual CPU width
+are admitted before construction. Submission and later phases retain the original cancellation
+and finite deadline; advancing the actor does not reconstruct it or renew permission.
+
+`prepare_surrogate_phase` binds that actor to the exact original compiled target, physical
+coordinates, source/fidelity identities, service and task scope. The common numerical driver
+can consume the phase as an explicitly supplied proposal mechanism. Statistical infill or
+uncertainty information establishes no deterministic numerical accuracy. Each returned physical
+proposal is independently screened against the original problem; only a permitted original
+correction and its assessment can grant result use. Surrogate advancement, proposal screening
+and original correction retain distinct work and failure observations.
+
+Compact advancement does not copy the actor's full history. An explicit `snapshot` reserves
+its independent copied extent; state, work and proposal observations retain their actual
+availability. Cancellation and failure preserve typed causes, and the owner joins library/pool
+destruction before releasing retained storage. This is an implemented proposal-generation
+capability, not a general surrogate-provider/model format, a certified approximation or a
+global-optimization guarantee.
+
 ### 18.7 Capability, eligibility and selection
 
 > Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
@@ -1498,9 +1568,11 @@ observation before qualification.
 problem adds `linear` or `mixed_linear` when it is affine, and when it is quadratic
 `convex_quadratic` with convexity evidence, `nonconvex_quadratic` without it, or
 `mixed_integer_quadratic` with a discrete column; a discrete problem that is not
-coefficient-eligible is `mixed_integer_nonlinear`. Explicit cones and trajectories are never
-inferred from algebraic facts. The classes are ordered most specific first: `square_root`,
-then the coefficient or discrete class, then `smooth_nlp`. Automatic selection walks them in
+coefficient-eligible is `mixed_integer_nonlinear`. A compiler-proven recognized cone program
+adds `continuous_cone`; an arbitrary nonlinear program does not. Explicit cone documents and
+trajectories retain their separate request owners. The classes are ordered most specific first:
+`square_root` for a Root/initialization request, then the applicable coefficient, discrete or
+recognized `continuous_cone` class for other intents, then `smooth_nlp`. Automatic selection walks them in
 that order and, for the first class that has one, takes the eligible adapter whose record
 lists that class among its `automatic_classes` with the lowest automatic rank (KINSOL,
 HiGHS, Ipopt, POUNCE, Clarabel, then SCIP). A rank orders the owners of one class and never
@@ -1508,15 +1580,18 @@ grants eligibility; Diffsol and IDAS are trajectory adapters that the algebraic 
 assesses. Roots and initialization therefore reach KINSOL, then Ipopt, then POUNCE:
 one-sided bounds stay with KINSOL ([§18.10](#section-18-10)), and roots with two-sided boxes
 route to a constrained NLP adapter rather than dropping bounds. Optimization reaches HiGHS
-for admitted linear, mixed-linear and convex quadratic programs, then Ipopt, then POUNCE.
+for admitted linear, mixed-linear and convex quadratic programs. A recognized continuous
+cone program reaches Clarabel before the general smooth-NLP class; otherwise eligible
+continuous NLP execution prefers Ipopt, then POUNCE.
 SCIP is automatic for mixed-linear, mixed-integer quadratic and nonlinear programs and
 smooth NLP, behind HiGHS, Ipopt and POUNCE, so it is selected automatically for MIQP and
 MINLP, which no other adapter represents, and wherever the others are ineligible, as for
 native constraint forms; a continuous nonconvex QP stays with the local NLP adapters unless
 certification is requested. Clarabel serves `linear`, `convex_quadratic` and
 `continuous_cone` but is automatic only for cones, so an LP or convex QP reaches it only by
-explicit selection, and a cone only through an explicit cone request, since cones are never
-inferred. *Tested* by `problem_classes_follow_facts_and_intent`,
+explicit selection; compiler-recognized continuous cone programs can reach it automatically
+under their proved curvature/domain contract (§18.10). Uno and PETSc remain explicit-only
+and do not alter the automatic preference order. *Tested* by `problem_classes_follow_facts_and_intent`,
 `explicit_only_classes_never_automatic` and `miqp_routes_to_scip` (native backend units).
 
 An explicit selection is never substituted. An unlinked choice fails with `Unavailable`,
@@ -1875,10 +1950,12 @@ the algebraic router never assesses them.
 | Backend | Classes | Bounds | Derivatives | Starts | Threads |
 |---|---|---|---|---|---|
 | Ipopt | Smooth NLP | General | Exact Hessian or limited memory | Primal/dual with a typed restart | Admitted for SPRAL and oneMKL Pardiso; MUMPS serial |
-| POUNCE | Smooth NLP | General | Exact Hessian or limited memory | Primal/dual with a typed restart; working set | Admitted pool |
+| POUNCE | Smooth NLP | General | Exact, limited-memory, partitioned or finite-difference curvature; Gauss–Newton for fits; method admission applies | Primal/dual with a typed restart; working set | Admitted pool |
+| Uno | Smooth NLP, explicit only | General | First order; SQP L-BFGS or SLP, through the limited-memory control | Primal only | Serial |
 | KINSOL | Square root, declared fixed point | One-sided, as shifted signs | Jacobian or JVP | Primal | Serial |
+| PETSc | Square root, explicit only | No finite variable bounds | Jacobian or JVP | Primal | Serial MPIUNI |
 | HiGHS | LP, MILP, convex QP; LP and MILP levels lexicographically in one solve | General, semi domains | Coefficients | Primal/dual, basis, partial MIP start; QP hot start | Admitted |
-| Clarabel | Explicit cones, automatic (SDP with `solver-sdp`, on oneMKL); LP and convex QP by explicit selection, lowered to cone form | General | Coefficients | None | QDLDL serial; MKL Pardiso on admitted MKL threads (`clarabel-pardiso`) |
+| Clarabel | Explicit and compiler-recognized cones, automatic (SDP with `solver-sdp`, on oneMKL); LP and convex QP by explicit selection, lowered to cone form | General | Coefficients | None | QDLDL serial; MKL Pardiso on admitted MKL threads (`clarabel-pardiso`) |
 | POUNCE-convex | LP, convex QP and continuous cones by explicit selection only, lowered to cone form; batches a study's independent points | General | Coefficients | None; independent members start cold | Explicit admitted pool widths; a multi-instance batch factors each member serially |
 | SCIP | LP, MILP, convex and nonconvex QP, MIQP, MINLP, smooth NLP; certifies; all seven native constraint forms | General, semi domains through `semi(indicator)`; finite boxes inside nonlinear terms | Factorable | Primal incumbent | Admitted: deterministic concurrent mode, except with exact solving or reoptimization |
 | Diffsol | ODE, semi-explicit index-1 | None | Forward sensitivities and adjoint gradients (`forward_and_adjoint_sensitivities`) | None | Serial |
@@ -1909,14 +1986,15 @@ Outside the matrix today: global solving where a provider output without a decla
 envelope enters a nonlinear term (no production provider declares one yet); exact rational
 solving of anything but a linear program without native forms, conditional rows or
 auxiliaries; native handlers on any adapter but SCIP; a local analysis, sensitivities or
-covariance read on the coefficient and cone routes themselves (a sensitivity request routes
-automatically to an NLP adapter instead); exact transient Hessians on Diffsol; general or
-higher-index DAE; finite-difference derivatives; GPU and distributed execution. Durable
-multi-process execution through the
+covariance read on the coefficient and cone routes themselves (an optimizing sensitivity
+request routes automatically to an NLP adapter instead); exact transient Hessians on Diffsol;
+general or higher-index DAE; GPU and distributed execution. POUNCE's admitted finite-difference
+Hessian construction (§18.3) does not establish generic finite-difference derivative support.
+Durable multi-process execution through the
 operational store ([ADR-0114](../../adr/0114-typed-operational-store.md),
 [§20.6](identity-and-publication.md#section-20-6)) is implemented: jobs across worker
 processes, studies, durable incumbents and resumption from them. General or higher-index
-DAE, finite-difference derivatives, GPU execution and distributing one solve remain outside
+DAE, generic finite-difference derivative fallback, GPU execution and distributing one solve remain outside
 the target.
 
 ### 18.10 Root, coefficient and cone adapters
@@ -2066,6 +2144,43 @@ for one solve only. An inner unknown's one-sided bound is represented exactly, w
 two-sided interval keeps only its sign information and is rechecked afterwards
 (`Problem::verify`). *Tested* by `inner_session_cache_bounded_by_bytes` (native backend
 units).
+
+**Root primal transformations and linear choices.**
+
+> Decision: ADR-0145 and ADR-0185 (proposed amendments; maintainer-approved Plan46 execution).
+
+Root execution may use exact represented alias/affine primal reductions independently of
+optimizer dual/KKT recovery. Pounce-presolve uses zero coefficient/equality/feasibility
+filters here: tiny nonzero coefficients are not erased. Reduced native permission is separate
+from full original reconstruction, bounds, guards and fresh provider/residual assessment.
+Conditional attempts refresh current local proof values; unsupported reduced bounds retain
+the original Auto route or explicitly refuse a required transform. Structural BTF does not
+establish nonlinear eliminability, uniqueness or a regular condensed sheet.
+
+Root BlockFactor retains its per-block/global RHS and apply candidates; setup failure
+invalidates all prior numeric factors. Its retained Markowitz allowance consumes the supplier's
+checked conservative owner bound for fill, historical memberships, heap growth and temporary
+overlap; local CSC/projection capacities remain caller-owned. This is not measured native fill.
+Whole-Jacobian conditioning keeps its existing opaque allowance until a complete replacement
+preserves supported diagnostic sizes. Structural fill counts alone do not establish faer/KLU
+padding, realloc overlap or complete native-factor storage. KLU and BlockFactor/GMRES remain explicit qualified alternatives;
+small coupling/refresh controls select no universal default. Gilbert–Peierls may reuse its
+actual symbolic phase; value-dependent Markowitz gains no fictional symbolic reuse. PETSc
+ILU/Schwarz remain under their native split/one-thread/gate restrictions. No coupled index-1
+DAE BlockFactor/Schur or threaded unsymmetric factor is newly qualified.
+
+**PETSc** (`execution::petsc`, feature `petsc`; `pse-runtime/solver-petsc`) supplies an
+explicit serial MPIUNI root adapter. Its public direct profile selects Newton trust-region
+correction with typed KSP/preconditioner and trust-radius controls. It consumes the original
+square residual/Jacobian or JVP contract and independently checks original quality. Finite
+variable bounds, raw native options, more than one thread, native scaling and acceptable-level
+budgets refuse before execution. Primal starts are admitted, while each attempt constructs
+fresh scoped SNES state; an explicit retained-state requirement has no implicit fresh fallback.
+Cancellation is observed at residual, Jacobian, nonlinear-convergence and pseudo-time stage
+checkpoints. Separately declared pseudo-transient and nonlinear-Schwarz compositions retain
+their physical mass/block contracts and original correction policy; selecting the direct
+adapter does not infer either composition. Native gates, joins and actual teardown remain
+owned by §18.8. These implementation facts do not enlarge the qualification basis in §24.2.
 
 **HiGHS** (`highs`, HiGHS 1.15) receives a checked native upload whose full readback must
 match the coefficient view before any bound or optimality claim transfers. It supports LP
@@ -2608,27 +2723,3 @@ Production NL/Pyomo routes were removed in favor of native class-specific adapte
 
 Library-owned evaluation programs and provider workers ([§18.2](#section-18-2),
 [§7](mathematics-and-compilation.md#section-7)) replaced generated kernel adapters.
-
-### Root primal transformations and linear choices
-
-> Decision: ADR-0145 and ADR-0185 (proposed amendments; maintainer-approved Plan46 execution).
-
-Root execution may use exact represented alias/affine primal reductions independently of
-optimizer dual/KKT recovery. Pounce-presolve uses zero coefficient/equality/feasibility
-filters here: tiny nonzero coefficients are not erased. Reduced native permission is separate
-from full original reconstruction, bounds, guards and fresh provider/residual assessment.
-Conditional attempts refresh current local proof values; unsupported reduced bounds retain
-the original Auto route or explicitly refuse a required transform. Structural BTF does not
-establish nonlinear eliminability, uniqueness or a regular condensed sheet.
-
-Root BlockFactor retains its per-block/global RHS and apply candidates; setup failure
-invalidates all prior numeric factors. Its retained Markowitz allowance consumes the supplier's
-checked conservative owner bound for fill, historical memberships, heap growth and temporary
-overlap; local CSC/projection capacities remain caller-owned. This is not measured native fill.
-Whole-Jacobian conditioning keeps its existing opaque allowance until a complete replacement
-preserves supported diagnostic sizes. Structural fill counts alone do not establish faer/KLU
-padding, realloc overlap or complete native-factor storage. KLU and BlockFactor/GMRES remain explicit qualified alternatives;
-small coupling/refresh controls select no universal default. Gilbert–Peierls may reuse its
-actual symbolic phase; value-dependent Markowitz gains no fictional symbolic reuse. PETSc
-ILU/Schwarz remain under their native split/one-thread/gate restrictions. No coupled index-1
-DAE BlockFactor/Schur or threaded unsymmetric factor is newly qualified.

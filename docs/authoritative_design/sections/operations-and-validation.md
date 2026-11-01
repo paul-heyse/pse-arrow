@@ -1011,6 +1011,28 @@ The original typed reproducer and `OriginalFailureReproduced` meaning are unchan
 
 ### 24.2 Current qualification basis
 
+#### 24.2.1 Reading the evidence against the current implementation
+
+The implementation is grounded in current source; the records below describe executions at
+their original source revisions and conditions. This documentation reconciliation runs no
+scientific campaign and supplies no new Tested or Measured claim. A retained plan or review
+is evidence to interpret, not a promise of future direction or proof that its targets still apply.
+
+| Current responsibility | Applicable evidence and limits |
+|---|---|
+| Callable Rust scientific application and protected results | Current owners are `pse-runtime::workflow`, `pse-backend-native` and `pse-operations`. Focused native boundary evidence is separated below from older Python/frontend campaigns. |
+| Independent host and engineering tools | Recorded local Linux investigation, contract and native/compiler campaigns support their selected tooling populations; they establish no new scientific or deployment result. |
+| Canonical persistence and recovery | Records identify their original engine, protocol, interpretation and failure model. Historical PostgreSQL/Delta or SDK evidence does not qualify the current native client and store by transfer. |
+| Scientific models, derivatives and numerical results | Analytic/reference/native checks support named cases and profiles. Source presence and adapter inventory do not establish unexercised scientific correctness. |
+| Performance, deployment and portability | Local work counts, elapsed observations and scope-specific deployment checks retain their conditions. No whole-product, statistical speedup, distribution or other-platform claim follows from this summary. |
+
+Use the named original Outcome or receipt when exact commands, inputs and failure/repair
+boundaries matter. Existing test bodies explain what a control checks, not whether it passed
+on the present tree. The chronological records retain historical failures, interrupted selections
+and affected reruns; later records do not silently turn an earlier attempt into a clean pass.
+
+#### 24.2.2 Recorded native engineering-tool evidence
+
 Plan62's extended native worlds, semantic explanations/contextual candidates, guarded source
 previews/origins, API/Cargo/runnable evidence and selected optional compiler facts have local
 Linux qualification. The [Plan62 Outcome](../../plans/62-code-intelligence-capability-expansion.md#outcome)
@@ -1048,6 +1070,8 @@ facts and original-interval-scoped SSR previews; addressed native SSR capture in
 unselected dependency/example acquisition retain their explicit unavailable capabilities and
 revisit decisions.
 
+#### 24.2.3 Native application evidence and qualification limits
+
 The current native source cut implements the first-party callable Rust application and native
 host/developer owners described by ADR-0233. The retired Python product and generated frontend
 outputs supply no current acceptance requirement. Exact package state, commands, failures and
@@ -1073,6 +1097,8 @@ remain unqualified by this publication. No whole B–G closure, full feature pow
 solver-fleet/parity, distribution, other-platform result or measured benefit follows from source
 retirement or the focused checks. Historical frontend evidence below is historical, with no
 transfer of acceptance to deleted or changed paths.
+
+#### 24.2.4 Historical full campaign
 
 The historical full qualification basis is Plan 22's Q1 of 2026-09-29, on the final state of
 the solver, discrete-decision and operational-store work. The retired record states each
@@ -1117,6 +1143,13 @@ of 2026-09-25/26, is historical.
 A retired qualification is not transferred to changed paths. After a change, targeted
 tests show the new behavior; comprehensive qualification runs again only when the
 maintainer requests it.
+
+#### 24.2.5 Historical affected-scope campaigns
+
+The following records describe successive implementation cuts, including paths subsequently
+replaced or retired. Their original chronology is retained for evidence interpretation; an old
+remaining-work statement is not a current roadmap. Current behavioral contracts live in their
+owning sections and are checked against source.
 
 Focused SurrealDB lifecycle/integration acceptance and its exact commands, conditions and
 exclusions belong to the [Plan 37 Outcome](../../plans/37-surrealdb-lifecycle-and-integration.md#outcome-recorded-after-implementation).
@@ -1682,7 +1715,8 @@ Criterion benchmarks live in `benches/` (`pse-benches`):
 `modeling_preparation` (specialization, lowering and derivative programs of the seed
 PC-SAFT state at a stated number of components and of the Peng–Robinson density root
 under inline and nested realizations; nothing is solved, and workloads are registered in
-`.config/preparation-cases.json`).
+`.config/preparation-cases.json`). `document_admission` measures native source-document
+admission separately from mathematical preparation and solving.
 
 | Command | Purpose |
 |---|---|

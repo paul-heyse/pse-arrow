@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 333
+revision: 335
 date: 2026-11-01
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 335 | 2026-11-01 | Reconcile the architecture with current source: native solver/profile and initialization capabilities, retained physical admissions and reuse, identity/name resolution, grammar metadata, result statistics, project/research meanings and dependency boundaries; organize host tools, canonical lifecycles and qualification history. Stable section identities and original evidence conditions are preserved. | Operator-authorized documentation reconciliation within existing decisions; Interface-checked against current source and selected test bodies. No product execution, new scientific qualification, future roadmap or formal ADR acceptance follows. |
 | 333 | 2026-11-01 | Publish remaining Plan60 comparison, association/relevance and correction/handoff target (§21.7). | Operator-approved execution from `cea33a310`; target publication only, formal ADR status unchanged. |
 | 332 | 2026-11-01 | Record Plan60b/c native relationships/comparisons/origins, acquired API adjacency/patterns and guarded lifetime/source realization (§21.7). | Operator-authorized implementation; companion Outcomes own targeted acceptance, E03/Q01 remain separate; ADR-0235 remains proposed. |
 | 331 | 2026-11-01 | Publish Plan60b/c native compatibility/origin, artifact adjacency/pattern and verified compiler-source correspondence extensions (§21.7). | Operator-authorized execution within proposed ADR-0235; target publication before dependent code, acceptance remains with 60b/c. |

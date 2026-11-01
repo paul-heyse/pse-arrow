@@ -34,7 +34,7 @@ native/LSP sessions, API and compiler acquisition, guarded proposals and compose
 operator's twelve modified analyzer overviews and new cargo_metadata overview are research inputs,
 not changes authored by this plan. Existing qualification is not newly certified here.
 
-Current contracts remain in [blueprint §21.7](../authoritative_design/sections/workflows-and-results.md#section-21-7)
+Current contracts remain in [blueprint §21.7](../authoritative_design/sections/native-host-and-engineering-tools.md#section-21-7)
 and §23.2. Core3.4, the selected efficient-architecture heuristics and repository binding shape
 this focused foundation assessment. Scientific validity is outside this extension's claims.
 There is no new broad diagnostic audit. Publication implements no product capability.

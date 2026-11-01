@@ -8,7 +8,7 @@ status: current
 This area decides what makes two things the same, what an immutable model, case, run
 or publication names, and how results become durable without a reader ever observing a
 mixed state. `pse-ids` is the only hasher and owns identity framing; `pse-columnar`
-owns relation canonicalization; `pse-schema` owns semantic contract identity and
+owns columnar admission and buffer custody; `pse-schema` owns semantic contract identity and
 compatibility; `pse-runtime::workflow` owns scientific admission, execution and completion;
 `pse-engine` owns the native provider hierarchy; `pse-operations` owns canonical source
 revisions, execution records, immutable products, result and analysis admission, protected
@@ -43,22 +43,25 @@ versioned projections is [ADR-0089](../../adr/0089-semantic-identity-projections
 | Artifact-local position | integer ordinal or coordinate index | the preparation that built the artifact | only within that artifact |
 | Content hash | `pse.content_hash`, 256-bit BLAKE3 `pse_ids::ContentHash` | a named projection or canonical preimage ([§5.3](#section-5-3)) | identifies one immutable meaning under its projection version |
 
-**Authored entities.** Identity is assigned at creation and stored with the entity; it is
-never computed from the entity's name, so a rename changes a label and nothing else. The
+**Authored entities.** An explicit entity identity is assigned at creation and stored with
+the entity; changing its name does not change that identity. Name-bearing source references
+still need to resolve after the edit. The
 package declares its policy (`IdPolicy`, the `id_policy` of `authored.packages`):
 
 - `explicit` (default): the entity carries a UUIDv7. A missing ID is
-  `authoring.parse.missing_id`; the document editor's `assign_ids`
-  (`pse-runtime::authoring_driver::document`) inserts missing IDs as source edits.
+  `authoring.parse.missing_id`; `pse-authoring::language::assign_ids` inserts missing IDs
+  into source text.
 - `named`: for reference packages whose qualified names are the public contract (units,
   constants and other named physical reference declarations). `pse_ids::named_id` derives the ID from
   package ID and qualified name under the frozen `pse:named:v1` context. A rename is a new
-  entity by construction, so renaming such an entity is refused
-  (`authoring.reference.rename_named`).
+  entity by construction; a supplied identity must match the declared qualified name.
 
-References between entities (template submodels, connections, case targets) are stored
-by identity, so no authored fact depends on a name. Resolution lives in
-`pse-authoring::ids`.
+Authored modeling syntax retains lexical paths in types, expressions, child bindings,
+connection endpoints and case targets. The modeling checker resolves those paths against
+lexical scope, explicit imports and the owning package to declaration identities. Checked
+products retain the resolved meaning and its dependencies; a spelling alone supplies no
+identity or admission. `pse-authoring::ids` owns identity creation/parsing, while
+`pse-modeling` owns modeling name resolution ([§6.15](schema-and-relations.md#section-6-15)).
 
 **Derived entities.** A derived ID is a keyed digest of what the entity was created from:
 `FramedHasher::new(frame)`, under a frame of the catalog ([§5.3](#section-5-3)), over the
@@ -554,14 +557,18 @@ exact completed replay preserves the original receipt and clocks.
 
 **Payload results.** The inline arm retains one immutable complete encoded body, shared member coordinates, exact digest/extent and an exclusive typed locator. Protected descriptor discovery is separate from prepaid body hydration; inline allocation ownership lasts through native query/response drain. Empty demanded relations are explicit close-inventory entries, and empty bodies refuse before effects. The sealed arm uses completed uncompressed IPC files in the selected private state's `payloads/<payload_incarnation>/<database>/` root. Compatible batches share one file only within an attempt, relation, schema and interpretation. Packing targets 16 MiB and has a 32 MiB hard encoded-file bound; demanded acknowledgements and live-prefix boundaries flush immediately rather than waiting for unrelated work. Logical descriptors retain original ordering/coordinates and bind unique file instance, encoding digest, batch index, schema and interpretation. Seed/completion owners retain their exact declared codecs through the same inline/sealed placement owner. File framing/layout/integrity admission precedes decoder allocation; neither file completion nor a submitted write is a catalog acknowledgement. Selected qualified coverage belongs to the Plan39d Outcome (§24.2).
 
-Sparse scalar indexes and dense output descriptors reference the original IPC batch and
-row/field coordinates; they do not replace it with a second scientific payload. Finite
-numeric projections serve predicates and are verified against authoritative values.
-Missingness is not zero, and signed zero and exceptional diagnostic bits retain their
-declared meaning. Dense trajectory groups preserve symbol/sample identity and original
-coordinates; half-open relation row ranges select the recorded stored order. Output indexing currently
-covers solve variables/constraints, fit parameters/observations and simulation sample
-values. Unsupported scientific output fields refuse explicitly.
+Original IPC batches remain the scientific payload. Exact admitted-batch statistics bind
+the payload identity, digest, member index and interpretation; copied statistics cannot
+mint that proof. Protected scalar selection uses those statistics for conservative batch
+pruning and evaluates the same native predicate against the original rows. Missing or
+unsupported statistics remain unknown and cannot exclude a batch. Dense output descriptors
+retain owner, partition and original row/coordinate ranges without creating per-element
+database cells. Missingness is not zero, and signed zero and exceptional diagnostic bits
+retain their declared meaning. Half-open relation row ranges select the recorded stored
+order. Declared scalar access covers solve variables/constraints and fit
+parameters/observations; dense simulation samples retain symbol/sample identity and time
+coordinates ([§19.2](workflows-and-results.md#section-19-2)). Unsupported selected fields
+refuse explicitly.
 
 ### 20.2 Exact coherent publication
 
@@ -962,6 +969,43 @@ qualification or policy. Generated contracts remain declarations, never inferred
 
 ### 20.6 Operational store and durable execution
 
+#### 20.6.1 From immutable source to retained result
+
+The lifecycle crosses several owners; none of their identities substitutes for another:
+
+1. **Select and admit source.** A canonical `Revision` names an immutable stored source
+   selection. Modeling admission checks the package closure and physical context and derives
+   its scientific `SourceRevisionHash` from declaration rows, exact data-document content,
+   physical inventory and resolved names (§5.2–§5.4). Store revision keys retain provenance;
+   consumed semantic premises govern mathematical reuse.
+2. **Prepare the requested operation.** `ModelingPackage::prepare_operation` admits the
+   declared route, bindings and numerical settings through the scientific preparation
+   owners. Prepared bodies/layouts and mutable solver state retain their separate lifetimes
+   (§14). A prepared product alone does not authorize native dispatch.
+3. **Register and claim before effects.** Durable execution records the exact primary and
+   additional source revisions, physical rows, request, selection and deployment observation.
+   `begin_run` and `claim_run` establish the canonical run and fenced attempt before native
+   effects. Renewal and cancellation remain attached through execution and publication.
+4. **Export and seal the actual outcome.** Completion drains progress, exports demanded
+   result tables and seeds, closes the append frontier and reconciles the frozen manifest.
+   Controlled scientific seal records the actual terminal class and completion under current
+   authority (§20.2). A usable native value does not turn a storage failure into a durable
+   success: `DurableRecord` retains the acknowledged selection or the persistence error.
+5. **Read an exact selection.** A `ResultRead` selects the terminal attempt and closed
+   manifest before paging. Full and selected snapshots retain their exact read/file custody,
+   validate original payloads and expose only their frozen universe (§5.4, §20.4). Returned
+   copied arrays own their bytes separately from permission to acquire another page.
+6. **Release each lifetime through its owner.** Cache eviction, reader release, source
+   reclamation, run/study detail retirement and independent artifact obligations remain
+   separate (§20.4). Cancellation records stop intent; performing owners must still join.
+   Stop intent alone does not release history or prove an uncertain external effect absent.
+
+The subsections below give the control, transport and recovery contracts behind this path.
+Explicit ephemeral execution omits canonical execution/result admission; durable failures
+never select it as a fallback.
+
+#### 20.6.2 Authenticated control and cancellation ingress
+
 > Decision: [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed).
 
 **Implemented:** selected constrained DEFINE API ingress authenticates record actors and enforces explicit
@@ -980,6 +1024,7 @@ errors, including refusal of explicit commit after such an error; intentionally 
 responses retain normal transaction semantics. Delivery uncertainty still requires original
 receipt reconciliation and supplies no automatic replay right.
 
+#### 20.6.3 Frozen capture and copy fidelity
 
 > Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),
 > selected Plan56d target; implementation and qualification remain with its owning packages.
@@ -1000,6 +1045,8 @@ entrypoint may write; changed helper paths or bytes require the original operati
 Identical helper selection is idempotent. This is not a universal one-pass or power-loss claim.
 Selected exchange holds compact selection/protection and consumes useful hydrated units through
 one export/count/checksum traversal, with allowance before avoidable copy and final manifest last.
+
+#### 20.6.4 Deployment and allocation ownership
 
 > Decision: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md) (proposed):
 > implemented selected Plan56 RC05 and deployment ownership; qualification remains with Plan56e.
@@ -1026,6 +1073,8 @@ Shared leaf observations report authenticated process facts and explicit uncerta
 admission/resource authority exposes borrowers independently of report/fixture custody. Owners
 retain distinct launcher-liveness and descendant-drain decisions; unknown authority stays
 protective. There is no universal alive predicate or second custody ledger.
+
+#### 20.6.5 Selected project exchange and fresh receiving authority
 
 > Decision: [ADR-0220](../../adr/0220-selected-closure-and-fresh-authority-exchange.md) (proposed; maintainer-authorized Plan51e–51g target).
 
@@ -1068,6 +1117,8 @@ Original history-retirement receipts retain exact revision/generation for lost-r
 after collection. Evidence-index deletion does not release original artifacts; evidence keys
 alone are observational and cannot substitute original artifact intents.
 
+#### 20.6.6 Backup custody and application recovery limits
+
 Backup, restore and derived replacement share the selected service owner’s sole-database
 context check. Backup performs it before freezing admission or creating a destination.
 
@@ -1087,6 +1138,7 @@ A confidentiality selection must cover catalogue/credentials, payloads, sources,
 packs, diagnostics/traces/crash dumps, temporary files, keys and backups, including key recovery.
 Operator commands and recovery limits live in the [substrate guide](../../dev/surreal-substrate.md).
 
+#### 20.6.7 Project editing, research references and historical context
 
 > Decision: [ADR-0216](../../adr/0216-project-and-evidence-foundations.md) (proposed; Plan51a owns implementation and targeted acceptance).
 
@@ -1138,6 +1190,8 @@ malformed or empty text but grants no scientific admission. Research references 
 actual source/result closure through its current owner; no fitted value or result authority is
 minted by a catalogue link. Bulk staging stays outside short metadata transactions.
 
+#### 20.6.8 Performing activities, preparation and publication settlement
+
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
 Generated guarded functions own operator domain mutations and bounded resumable reclamation. Privileged install/restore/activation remains a separate phase; existing generated data can be regenerated, while new data retains protected references, durable receipts and recovery.
@@ -1187,12 +1241,11 @@ Immutable body content, complete interpretation/dependency receipts and store-is
 product associations are distinct from eligible roots. Shared material retains one charged
 owner, full equality and collision checks; exact acknowledgment verifies the original
 association/root. A live preparation engagement owns synchronous once-per-engagement
-settlement, exact protection and already-issued uncertainty through drain. The fresh Plan37
-target (ADR-0182) replaces historical substrate activation/backfill and
-compatibility readers. Install all current consumers together against the generated v5
-contract, regenerate scientific evidence, and retain current scientific source-version
-semantics. This is not permission to reinterpret old substrate payloads or automatically
-resume other plans' qualification campaigns.
+settlement, exact protection and already-issued uncertainty through drain. Current consumers
+use the registry-generated installation contract in §20.5. Fresh design-phase reconstruction
+replaces historical substrate activation/backfill and compatibility readers while preserving
+scientific source-version semantics. It does not reinterpret old substrate payloads or
+automatically resume qualification campaigns.
 
 > Decision: [ADR-0173](../../adr/0173-seal-seed-eligibility-before-discovery.md) (proposed). Seed discovery separates terminal lifecycle from complete-original scientific inventory permission.
 
@@ -1204,6 +1257,8 @@ before its deterministic bounded cutoff. Protected acquisition independently ver
 chosen seed's inventory membership and per-step scientific permission; discovery does not
 confer future storage permission. Old terminal records are never upgraded by inference.
 
+
+#### 20.6.9 Native client, operation clocks and physical transport drain
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). `pse-operations` owns the bounded authenticated gRPC client and typed guarded operations; ADR-0214 selects its persistent MX integration. Native science stays outside database transactions.
 
@@ -1270,6 +1325,8 @@ clock and finite server backstops remain enforced; loss of a submitted DDL respo
 leaves an unknown catalog outcome. Only acknowledged creation admits context selection.
 Atomic schema installation and scientific mutations retain their final transaction fences.
 
+#### 20.6.10 Native service and worker readiness
+
 Disk/service identity, immutable native worker artifacts and invocation/database context have
 separate lifetimes. Compatible worker changes do not stop storage; schema creation is
 explicit and ordinary open refuses an incompatible interpretation. Native callers forward
@@ -1326,6 +1383,8 @@ then restores the write account. Selection and acknowledged reconnect replay can
 implicitly define missing namespaces/databases or enumerate unbounded catalogs.
 Service setup/readmission owns account provisioning; schema installation remains explicit.
 
+#### 20.6.11 Transaction authority and physical lifecycle
+
 **Authority and client.** Short native transactions establish source roots, immutable
 operation identity and current cancellation/generation premises under named conflict guards,
 including absent-name and set premises. Explicit MX serializable snapshot isolation tracks
@@ -1362,6 +1421,8 @@ Problem mutation pacing retains the common creator/reclaimer conflict dependency
 staging and close; run-specific renewal/cancellation and distinct problems remain separate.
 Visible-run sequence publication stays serialized through its commit.
 
+#### 20.6.12 Run completion, recovery, progress and seeds
+
 **Run lifecycle.** Registration and fenced claim precede native effects. Renewal and
 append require the current unexpired generation and open ingestion gate. Closing freezes
 membership; controlled scientific terminal admission compares the frozen manifest and
@@ -1397,6 +1458,8 @@ Failure cancels the scientific run and remains observable; queue liveness alone 
 cause indefinite waiting. Original accepted seeds retain layout/profile/data compatibility,
 permission and lineage, with bounded chunk coverage and accounted decoding. Reuse selects
 the exact compatible scientific occurrence rather than a stage prefix or newest timestamp.
+
+#### 20.6.13 Studies, workers and effect knowledge
 
 > Decision: [ADR-0214](../../adr/0214-surrealmx-canonical-store.md) (proposed;
 > maintainer-selected RC22). A pinned SDK/ABI and content-addressed immutable Surrealism
@@ -1441,6 +1504,8 @@ but lost occurrence retains uncertainty; cancellation alone supplies no absence 
 > insufficient placement refuses rather than shrinking the workload. Backend-specific
 > isolation uses whole operations and explicit partitions where required. Numeric
 > placement and actual readback are L7 prerequisites, not RSS guarantees.
+
+#### 20.6.14 Operational limits and qualification boundaries
 
 **Operational limits.** The target deployment is authenticated loopback gRPC with persistent
 MX1.0, synchronous AOL/EveryAppend, periodic snapshots and finite server/native-worker allocations. Offline backup closes admission and excludes GC before freezing its catalog, drains authenticated file owners and managed work, and copies the stopped database together with its exact required file closure. Acknowledged unpublished/incomplete data and unresolved intents are included; legitimately absent/unsealed staging remains unresolved. Missing required sealed files fail closure. Completion is published last. Restore validates inventory, integrity and interpretation under a fresh root/incarnation/credentials before activation; old-root cleanup still requires authentic drain. This is an offline operator lifecycle.

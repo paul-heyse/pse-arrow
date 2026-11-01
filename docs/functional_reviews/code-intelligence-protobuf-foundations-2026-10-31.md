@@ -127,7 +127,7 @@ the coordinator reconciled their qualifications with the code seams below.
 | `api/bridge.rs` | Original artifact/source/Cargo-feature-target qualification before linking API evidence to native context | A descriptor or type URL does not replace this evidence or confer semantic identity |
 
 Paths above are relative to `crates/pse-host/src/`. The enduring owner is
-[blueprint §21.7](../authoritative_design/sections/workflows-and-results.md#section-21-7).
+[blueprint §21.7](../authoritative_design/sections/native-host-and-engineering-tools.md#section-21-7).
 Native helper isolation keeps its compatible HIR family separate from ordinary source syntax.
 Existing prepared-tool, source, managed-process and completion owners remain relevant whatever
 codec wins. This review establishes concrete improvement surfaces, not a finding that every

@@ -90,14 +90,24 @@ checked contracts. Limits are explicit policy and do not alter the mathematics.
 
 ### 11.2 Worked variant: adding heat input to a unit
 
-A heater binds a control volume's inlet and outlet packages and constrains shaft work to
-zero. Its heat term is already part of the energy accumulator. An adiabatic configuration
-fixes that term to zero; a heated configuration specifies duty or a resulting state through
-case bindings. The equations and physical type of heat remain shared.
+The [`Heater` definition](../../../packages/reference/process/models/units.pse) extends
+`control_volumes.ControlVolume0D`. Its `inlet_pkg` and `outlet_pkg` arguments override the
+inherited `inlet_package` and `outlet_package` parameters, and its `no_work` equation states
+`work==0{W}`. The inherited
+[`ControlVolume0D`](../../../packages/reference/process/models/control-volumes.pse) already
+declares `heat` and `work` as `Transfer<EnergyTransferRate,energy_boundary,Into>` variables
+and contributes each to the energy accumulator with `role directed`.
 
-This change belongs to authored definitions and cases in `packages/reference/process`.
-It introduces no scientific registry family or Rust constructor. Independent checks inspect
-the original signed energy contributions after solving.
+An adiabatic case fixes `root.heat=0{W}`. A duty-specified case changes that binding while
+using the same energy equation: the authored
+[`heater_saponification` fixture](../../../packages/reference/seed-data/models/unit-fixtures.pse)
+fixes `root.heat=1000{W}` and `root.delta_pressure=0{Pa}`, supplies the inlet state, and
+solves the outlet state. It constructs the heater with a supplied inlet package
+(`defined_state=true`) and an outlet package that owns its normalization
+(`defined_state=false`). The heater definition itself needs no extra heat equation.
+
+The change is an authored case specification. Independent checks inspect the original
+signed energy contributions after solving.
 
 ### 11.4 Variants and narrowing
 

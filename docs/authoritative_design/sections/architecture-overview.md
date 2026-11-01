@@ -77,8 +77,8 @@ admitted lifecycle ([§18](numerical-execution.md#section-18)):
 
 | Class | Library |
 |---|---|
-| Nonlinear programs | Ipopt C API (`pse-ipopt-sys`) and POUNCE, sharing one NLP oracle |
-| Square roots and declared fixed-point maps | KINSOL with KLU, dense or Krylov linear solvers |
+| Nonlinear programs | Ipopt C API (`pse-ipopt-sys`) and POUNCE, sharing one NLP oracle; explicit feature-gated Uno for its admitted smooth first-order limited-memory profile |
+| Square roots and declared fixed-point maps | KINSOL with KLU, dense or Krylov linear solvers; explicit feature-gated PETSc SNES for admitted square roots, without finite variable bounds |
 | Matching, Dulmage–Mendelsohn, block triangularization, presolve | pounce-presolve, with independent original-coordinate validation |
 | LP, MILP, certified convex QP, lexicographic LP and MILP objectives, tear selection | HiGHS |
 | Explicit and recognized cones, including SDP; LP and convex QP on explicit selection | Clarabel |
@@ -142,7 +142,7 @@ Limits are recorded in
 | Separate lifecycles | Package revisions, specialized models, case bindings, resolved numerical policy, prepared products, starts, results and publications have distinct ownership. | modeling runtime, `pse-compiler::workspace`, `pse-math::assembly` | [§5](identity-and-publication.md#section-5) |
 | Scientific binding | Entity kinds, sets, tables, interfaces, functions and definitions carry materials, states and property choices; branch-local closures refuse unproved crossings. | authored reference packages and generic modeling mechanisms | [§9](physical-semantics.md#section-9) |
 | Conservation and reactions | Generic accumulators consume signed contributions with explicit roles, transfer identities and closure checks; science chooses subjects and energy conventions. | `pse-modeling` and authored process/reaction definitions | [§10](models-and-composition.md#section-10) |
-| Shared vocabulary | Registry-owned tags projected into `pse-model`, Arrow codecs and native canonical codecs. Every decision vocabulary that crosses a boundary is a registry enumeration with one Rust type: a hand-written source (`pse-vocabulary`, `pse-diagnostics`, `pse-quantity`) is re-exported, never copied. Diagnostics classify the failure kind and keep source identities, stage and observations. | `pse-schema`, `pse-vocabulary`, `pse-model`, `pse-diagnostics` | [§4.1](schema-and-relations.md#section-4-1), [§23](operations-and-validation.md#section-23) |
+| Shared vocabulary | Product-registry tags project into `pse-model`, Arrow codecs and native canonical codecs. Hand-written product sources (`pse-vocabulary`, `pse-diagnostics`, `pse-quantity`) are re-exported, never copied. The independent host authors its code-intelligence wire meanings in proto; those do not extend scientific vocabulary. Diagnostics retain source identities, stage and observations. | `pse-schema`, `pse-vocabulary`, `pse-model`, `pse-diagnostics`; independent `pse-host` contracts | [§4.1](schema-and-relations.md#section-4-1), [§23](operations-and-validation.md#section-23) |
 | Identity projections | Versioned, named projections per scope under one `Frame` catalog. Entity identities are declared in the registry and generated as typed ids. Floating framing preserves signed zero. Semantic contract identity excludes documentation and encoding; a document's identity is framed from its typed value. | `pse-ids`, `pse-model`, `pse-compiler::physical_identity` | [§5](identity-and-publication.md#section-5) |
 | Boundary documents | Rust-owned documents (settings, job payload, termination detail, source manifest, study definition) are typed, versioned serde types; their JSON Schemas are generated. | owning crates; `pse-codegen` | [§21.5](workflows-and-results.md#section-21-5) |
 | Operational state | Registry-generated canonical run/attempt/study facts and exact immutable operation receipts; guarded claims, cancellation and terminal admission through the remote native client. | `pse-operations`, `pse-runtime::workflow` | [§20.6](identity-and-publication.md#section-20-6) |
@@ -168,7 +168,8 @@ Dependencies point from foundations towards orchestration. Crate roles are owned
 |---|---|---|---|
 | Foundations | `pse-diagnostics`, `pse-ids`, `pse-vocabulary`, `pse-quantity`, `pse-columnar` | Diagnostic vocabulary, identity and canonical hashing, the registry's platform vocabularies, physical quantities and functions, owned Arrow buffers | Nothing above this layer |
 | Declaration | `pse-schema`, `pse-model`, `pse-relations` | Registry; generated library-neutral values; typed Arrow views and validators | Foundations |
-| Data | `pse-engine`, `pse-rules`, `pse-operations` | DataFusion admission/inspection and caches; bounded canonical graph/relational operations through the remote SDK | Declaration and foundations; scientific policy remains in Rust |
+| Data | `pse-engine`, `pse-rules`, `pse-operations` | DataFusion admission/inspection and caches; bounded canonical graph/relational operations through the native protocol client | Declaration and foundations; scientific policy remains in Rust |
+| Source admission | `pse-admission` | Native document loading/editing and bound physical inventory admission | Declaration, engine, authoring and modeling owners; no `pse-runtime`, `pse-compiler`, `pse-math`, `pse-operations` or native backend |
 | Mathematics | `pse-kernels`, `pse-math`, `pse-structural`, `pse-authoring`, `pse-modeling`, `pse-compiler`, `pse-backend-native`, `pse-ipopt-sys` | External functions; library mathematics; graph projections; syntax; generic checking and specialization; Salsa preparation; native solver adapters | Foundations, `pse-model`, `pse-buildinfo` |
 | Orchestration | `pse-runtime` | Selected admission, resources, native workflows and canonical retained results | All of the above |
 | Host boundary | `pse-host` | Independent environment, OS process/service ownership and operator effects | `pse-diagnostics`; no product schema, database client, mathematics or Arrow/DataFusion |
@@ -206,7 +207,7 @@ pins live in `Cargo.toml`, rationale in [§3.3](workspace-and-dependencies.md#se
 | pounce-presolve | Matching, DM/BTF, qualified presolve | `pse-structural`, `pse-math`, `pse-backend-native` |
 | petgraph, rustworkx-core | Flowsheet SCCs, deterministic ordering | `pse-structural` |
 | FeOS, num-dual | Independent thermodynamic reference only; absent from production | conformance test feature |
-| Ipopt, POUNCE, KINSOL, HiGHS, Clarabel, SCIP, Diffsol, IDAS | Class-specific native solving ([§0.5](#section-0-5)) | `pse-backend-native` |
+| Ipopt, POUNCE, Uno, KINSOL, PETSc, HiGHS, Clarabel, SCIP, Diffsol, IDAS | Class-specific native solving, with explicit per-adapter profile admission ([§0.5](#section-0-5)) | `pse-backend-native` |
 | tokio | Native async operations and joined jobs | `pse-host`, `pse-operations`, `pse-runtime` |
 | blake3 | Identity hashing, only through `pse-ids` | `pse-ids` |
 

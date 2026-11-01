@@ -143,7 +143,7 @@ between time points or deactivating a model at selected points have no counterpa
 
 ### 13.6 Native integrators and trajectories
 
-> Decision: [ADR-0199](../../adr/0199-consumed-adjoint-parameter-layout.md) (proposed; maintainer-accepted Plan45/RC07 target). First-order adjoint parameter demand has its own unique ordered All/Selected layout, including explicit empty selection, distinct from forward axes, state adjoints and second-order directions. Complete physical inputs and required state adjoints remain full. Dynamic profile identity uses the v11 frame including this selection; historical v10 bytes keep their prior meaning. Admission, Diffsol parameter products, IDAS backward quadratures and returned gradients consume this layout. Initial/direct, tied/scaled, scheduled and anchor mappings preserve physical coordinate identity. Ordinary public adjoints remain full; second-order callers explicitly retain their required first-order coordinates. Plan45d/D01 owns implementation and acceptance.
+> Decision: [ADR-0199](../../adr/0199-consumed-adjoint-parameter-layout.md) (proposed; maintainer-accepted Plan45/RC07 target). First-order adjoint parameter demand has its own unique ordered All/Selected layout, including explicit empty selection, distinct from forward axes, state adjoints and second-order directions. Complete physical inputs and required state adjoints remain full. Dynamic profile identity includes this selection; the current identity/version contract is below. Admission, Diffsol parameter products, IDAS backward quadratures and returned gradients consume this layout. Initial/direct, tied/scaled, scheduled and anchor mappings preserve physical coordinate identity. Ordinary public adjoints remain full; second-order callers explicitly retain their required first-order coordinates. Plan45d/D01 owns implementation and acceptance.
 
 > Decision: ADR-0198 (proposed; accepted Plan44/RC02 target). Combined first-order shooting requests already needing forward responses may consume exact IDAS endpoint quadrature sensitivities in that same selected physical-axis layout. Direct parameter and initial/anchor effects, scheduled offsets/reinitialization, derivative error control and native workspace admission remain explicit. Incomplete work supplies no completed derivative product. All windows preflight the extra native/result workspace and derivative tolerances before selecting this route; otherwise the existing admitted adjoint route remains. There is no post-effect retry after failure or cancellation. Each completed window derivative is reduced before issuing the next window, and only a complete stronger product replaces the same-point cache. Integral-only requests retain adjoints and existing hybrid derivative refusals remain. Implementation and targeted qualification are recorded in Plan44b/B05; selected assembled acceptance is recorded in blueprint §24.2.
 
@@ -153,7 +153,7 @@ Response publication (ADR-0197): `runtime.response_sensitivities.parameter_colum
 
 > Decision: [ADR-0194](../../adr/0194-dynamic-coverage-and-trajectory-effort.md) (proposed; maintainer-authorized Plan43 target).
 
-Dynamic Profile Version2 separates requested output coverage from native advancement.
+Dynamic profiles separate requested output coverage from native advancement.
 Only physical boundaries constrain the native mesh; root-aware interpolation preserves
 transition ordering. The accepted-step allowance applies independently to the complete
 forward trajectory, total forward replay of one derivative operation, and each complete
@@ -161,7 +161,8 @@ backward functional/direction trajectory. Segment resets, checkpoint restores an
 do not renew permission. Covered output consumes no advancement. Failed calls, rejected
 trials and setup work retain separate observations. Actual library-owner guards enforce
 opaque replay; outer cancellation, deadline and scientific WorkLimits remain authoritative.
-Public and nested execution requests use Version2; explicit Version1 execution refuses.
+Current public and nested execution requests use Version3; unsupported older documents
+refuse rather than acquiring a new interpretation.
 IDAS backward integration retains NORMAL scheduling with advancement guards on each
 underlying backward memory. ONE_STEP advances all active backward directions and can lose
 covered interpolants while another direction catches up. The per-memory guards survive
@@ -171,6 +172,19 @@ Plan43d owns the combined implementation, consumer migration and acceptance.
 > Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
 
 **Implemented:** live owner-affine history survives ordinary samples and safe output waits; changed IVP/parameter/mode/event/start resets or rebuilds under each backend contract. Opt-in preterminal output uses one bounded run-owned producer and existing cursor/append/close interfaces. Provisional samples, actual recording ACK and terminal complete/partial/unknown recording remain separate from scientific acceptance. No second full trajectory is retained merely to stream; terminal retention follows admitted demand. State-only restart is not native-history continuation. The single live cursor drains its bounded provisional queue, then reads the run's existing joined-result watch; early asynchronous refusal and cancellation do not need a terminal queue slot. Explicit cursor close detaches without cancelling the run. Full retains requested sample sensitivity products. Compact currently transports physical values only and refuses explicit sensitivity demand before dispatch; it retains coverage, original checks, events, endpoint and required private accuracy samples. Accuracy attempts keep their original locators and selected-attempt identity.
+
+**Live sample capture and publication.**
+
+> Decision: ADR-0180 (proposed amendment; maintainer-approved Plan46 execution).
+
+Native callbacks capture only bounded selected owned output values, mode, time and original sample
+identity. Supervision builds checked Arrow collections under the original scope/lease and retains
+channel envelopes through complete drain even after cursor drop and native completion. Selected
+lineage is prepared outside per-sample encoding; full original lineage maps are not an uncharged
+per-sample operation. Encoding failure or late cancellation cancels/drains the producer and leaves
+recording incomplete. Empty bounded append-queue capacity can be reused, but payloads and authentic
+acknowledgements remain per sample. No cross-sample batching or relaxed visibility is selected;
+Recorded means only the authentic contiguous acknowledged prefix.
 
 > Decision: ADR-0163 (proposed; authorized implementation).
 
@@ -226,8 +240,9 @@ dense allowances are not alternate execution routes (proposed ADR-0203; Plan48e 
 implementation/qualification).
 
 The methods are typed profile fields: `Profile::diffsol` (`DiffsolSettings`: the scheme and
-the Newton linear solver) and `Profile::idas` (`IdasSettings`: the linear solver, the
-sensitivity corrector, the initialization and one sign per state). `Method::Auto` selects
+the Newton linear solver) and `Profile::idas` (`IdasSettings`: the linear solver,
+sensitivity corrector, initialization, native initial-step policy and consistent-initialization
+controls). State signs come from admitted authored bounds. `Method::Auto` selects
 IDAS only when the profile declares recoverable trial failures, because Diffsol cannot
 recover a typed residual trial failure. Before allocation the profile refuses recoverable
 trials on Diffsol; Diffsol-specific controls on IDAS and IDAS-specific controls on Diffsol;
@@ -250,9 +265,11 @@ not a second compiler.
 Profile identity comes from serde, never from a hand-written field list. `profile_json` is
 the complete encoding of the profile plus the resolved method; Diffsol's native option types
 enter through remote serde definitions, so a new field in a pinned option type fails to
-compile rather than escaping identity. `pse.dynamic.profile.v11` frames that encoding, which
-includes the scheduled inputs and the typed sensitivity, with the numerical policy key; the
-IDAS settings (document version 2) no longer carry signs, which come from authored bounds. A
+compile rather than escaping identity. `pse.dynamic.profile.v12` frames that encoding, the
+selected forward and adjoint parameter layouts, resolved method and numerical policy key.
+The current dynamic profile and IDAS settings use document version 3, including the native
+automatic first-step default; IDAS settings do not carry signs, which come from authored bounds.
+Unsupported historical documents refuse without changing their recorded meaning. A
 modeling dynamic simulation's preparation (`pse.modeling.dynamic.v2`) also frames the
 derivative order its functions were prepared at. Fitting's `pse.fit.profile.v3` frames the
 solver profile key, the rank tolerance, the cell cap, the derivative source, each
@@ -737,9 +754,9 @@ bits that preserve signed zero ([§5.3](identity-and-publication.md#section-5-3)
 
 > Decision: [ADR-0180](../../adr/0180-demanded-result-coverage-and-acknowledgments.md) (proposed; maintainer-authorized Plan 36 target).
 
-The selected result target uses explicit full/compact/detail demand and typed original-row
-locators under complete close coverage. P-B4–P-B6 own the coordinated migration; existing
-scalar-cell producers/readers below remain until that migration is verified. Key-only
+Result consumers use explicit full/compact/detail demand and typed original-row locators
+under complete close coverage. Exact batch statistics support conservative pruning without
+replacing the protected original rows or their scientific interpretation. Key-only
 completion properties now have a separate narrow protected read: terminal/source/result
 admission and exact completion coverage/digest remain required, while manifest descriptor
 transport and seed discovery are unnecessary. Every independent property read needs fresh
@@ -767,14 +784,17 @@ format's declared export metadata. Compression and shared dictionary state refus
 selected boundaries. Canonical physical-source IPC objects retain their distinct existing
 3 MiB object bound; it does not enlarge result placement limits.
 
-Derived scalar cells and dense output descriptors reference these original batches and
-row/field coordinates. They are selection indexes, not another scientific representation.
-Readers verify indexes against decoded rows and return the original columns, preserving
-units, basis, quality and missingness. Scalar cells retain exact IEEE bits, including signed
-zero and exceptional observations; finite projections serve predicates and cannot replace
-scientific values or turn a missing value into zero. Scalar indexing currently covers
-supported fields in solve variables/constraints and fit parameters/observations. Dense
-indexing covers simulation sample values. Unsupported fields refuse explicitly.
+Batch statistics bind the exact payload identity/digest, batch ordinal, schema and registry
+interpretation. They conservatively prune candidate batches for scalar predicates; missing
+or unusable statistics remain unknown and cannot exclude a batch. The same native physical
+expression supplies pruning and the residual predicate over protected decoded original rows,
+with residual filtering before a selected result limit. Dense output descriptors retain
+original batch and row/field coordinates for simulation sample selection. They are selection
+metadata, not another scientific representation. Readers verify selected descriptors against
+decoded rows and return the original columns, preserving units, basis, quality and missingness.
+Original scalar values retain exact IEEE bits, including signed zero and exceptional
+observations; finite predicate projections cannot replace scientific values or turn a missing
+value into zero. Unsupported consumer field meanings refuse explicitly.
 
 Dense trajectories are stored by declared `(symbol_id, sample)` keys. Relation ranges use
 this stored order; original sample/time coordinates and every scientific column remain
@@ -785,7 +805,8 @@ missingness. Neither selects another result's values.
 Scalar/dense predicate validation, native lowering and canonical export metadata have one
 execution owner. Comparison-only zero normalization leaves stored bits unchanged. Dense
 indexing partitions original symbol/time columns and reuses accepted-prefix ranges; scalar
-selection slices the requested coordinate window before row-proportional masks. Predicate,
+selection retains the requested stored coordinate window and applies residual masks to admitted
+original rows. Predicate,
 bitmap, index and slice/control work is prepaid separately from shared input backing.
 Selected bounded IPC writers prepay schema/array preparation, sliced offset and bitmap scratch,
 generated validity, footer populations and output-capacity growth. Streaming bodies do not
@@ -1138,6 +1159,16 @@ not public tuning inputs and establish no speed claim.
 
 **Implemented:** fitting co-selects native internals and demanded scientific products. Value-only calls omit unused response Jacobians/sensitivities; exact-context upgrades retain original physical checks. Owner-affine experiment workers retain compiled operations and allocations; every changed trial creates fresh native IVP state. This does not serialize or reuse multistep history across parameter trials. Independent parallel experiments reduce in declared order under existing admitted resources; causal profile chains, covariance withholding, exact/Gauss–Newton distinctions and surrogate RNG/snapshot ownership remain.
 
+**Experiment owner lifetimes** (ADR-0166 and ADR-0186, proposed amendments).
+
+Fitting preconstructs exactly one private worker for each assigned experiment, retains compact lane
+inventories and reduces results in authored order. Production keeps deterministic authored stride.
+A distinct test-only affinity comparison separates expensive transient experiments without worker
+replication; native/provider residency bounds are not execution-time estimates or a production
+assignment. Profile chains retain causal pins; failed lanes do not replay experiments. Forward/
+adjoint selection and checkpoint spacing remain explicit; short comparisons establish no universal
+parameter/objective crossover.
+
 > Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
 
 Steady fitting response and public Root parameter sensitivity consume one qualified regular-square operation. It solves `F_x X_p = -F_p`, consumes complete original equality support and physical feasibility, applies explicit scaling, checks numerical rank and normwise backward error, and returns physical state/parameter coordinates. Guard/selector derivative checks and inactive state bounds qualify the local neighborhood; failure withholds response while retaining the base solution. This response is separate from optimizing KKT analysis and statistical covariance assumptions.
@@ -1169,7 +1200,7 @@ explicitly admits the fitted set with fit lineage; export never installs a bank 
 | Experiment kind | Treatment |
 |---|---|
 | Steady | Experiment-specific unknowns join the NLP after the shared parameters; original constraints remain physical constraints; exact Hessians include the residual second-derivative term |
-| Transient | Integrated inline under the outer job through the shared `IntegratedExperiment` ([§13.6](#section-13-6)): forward sensitivities give the response Jacobian, or in the gradient-only mode adjoint sensitivities give the objective gradient alone; the Hessian is limited memory, Gauss–Newton, or exact from forward-over-adjoint second-order sensitivities on IDAS |
+| Transient | Integrated inline under the outer job through the shared `IntegratedExperiment` ([§13.6](#section-13-6)): forward sensitivities give the response Jacobian, or in the gradient-only mode adjoint sensitivities give the objective gradient alone; admitted NLP curvature may be limited memory, POUNCE partitioned/finite-difference, Gauss–Newton, or exact from forward-over-adjoint second-order sensitivities on IDAS |
 | Mixed | Both kinds in one simultaneous NLP |
 | All fixed | Direct evaluation with truthful physical quality; no native passes |
 
@@ -1248,16 +1279,17 @@ no separate templates; the shared-parameter experiment set is the multi-experime
 
 **Covariance** (Plan 22 S3, `workflow/fitting/covariance.rs`). Every fit with a free
 parameter derives one covariance of its free parameters, published in
-`runtime.parameter_covariances` with its approximation (`CovarianceApproximation`). A fit
-whose requested Hessian mode is `exact` reads the inverse reduced Hessian over its parameter
+`runtime.parameter_covariances` with its approximation (`CovarianceApproximation`).
+A native NLP fit whose requested Hessian mode is `exact` reads the inverse reduced Hessian over its parameter
 columns, `B·K⁻¹·Bᵀ`, from the KKT factor of its own solve
 (`kkt::Analysis::inverse_reduced_hessian`, [§15.5.1](numerical-execution.md#section-15-5-1)),
 certified by the same LICQ, strict-complementarity and second-order verdicts; it is labelled
-`exact`. Under a limited-memory or Gauss–Newton Hessian the covariance is
+`exact`. For residual LM or a native NLP fit using limited-memory, partitioned,
+finite-difference or Gauss–Newton curvature, the covariance is
 `Σ = S·V·diag(s⁻²)·Vᵀ·S` from the singular values `s` and right singular vectors `V` of the
 weighted, parameter-scaled response `R·S·√importance/σ`, with `S` the declared parameter
-scales, never forming `JᵀWJ`; it is labelled `gauss_newton`. The label follows the requested
-Hessian mode. Here `exact` identifies the library-derived curvature used in the local
+scales, never forming `JᵀWJ`; it is labelled `gauss_newton`. The label follows the actual
+residual/native route and admitted Hessian mode. Here `exact` identifies the library-derived curvature used in the local
 statistical approximation; it does not assert an exact sampling distribution or global
 uncertainty law. The declared standard deviations are taken as absolute, so no residual
 variance rescales the covariance. Admission keeps the declared-deviation rule: every
@@ -1691,352 +1723,5 @@ separately from NaN, signed zero and original numeric/IEEE representation, and r
 buffer/chunk allocation owners. Conversion cannot imply an unrequested cast, missingness change or
 scientific permission. No NumPy product adapter is currently selected.
 
-### 21.7 First-party host and future foreign adapters
-
-> Decision: ADR-0233 (proposed Plan62 extension; operator-confirmed preparation/compiler target).
-
-Explicit native preparation supports build-generated inputs and proc macros with qualified
-readiness and retained session/CPU ownership. Build metadata errors and unavailable macro
-dylibs refuse preparation. The selected test context is explicit; it is not inferred from a
-test-looking source location. Retained compiler, macro-server, dylib and generated-input
-identities fence the loaded world. Individual cancellation does not guarantee interruption of
-external macro I/O; original managed whole-session stop owns escalation and descendant settlement.
-
-Native explanations preserve import/read/write/test roles, implicit operations, source versus
-stored capture types and ordered adjustments. Callable discovery keeps declaration signatures
-separate from actual call-site inference. Contextual substitutions, receiver/parameter/result
-types and supported obligations attach by native callable identity; hypothetical calls and
-unsupported lifetime/associated constraints remain unknown. `Holds`, `NotProven`, `Invalid`
-and `Unsupported` are distinct outcomes. Fallible full layouts require a supported Sized proof;
-an unsized prefix is separately labelled. Compiler-layout association checks original premises
-without manufacturing numerical equality or unique type correspondence.
-
-A separately prepared optional compiler-analysis binary within the host isolates compiler-private
-linkage and consumes actual admitted root arguments. The exact pinned compiler copies owned
-phase-qualified capture/suspension/cleanup observations and continues normal compilation.
-Supported function/closure/coroutine bodies use coordinated native query ordering; constant/CTFE
-bodies remain explicitly unavailable. Saved storage does not establish liveness or Send, native
-may-initialization does not establish loans or reachability, and static cleanup edges do not
-establish physical resource release. Actual ABI and unwind-termination cause remain qualified
-compiler observations. Wrapper images, versioned compiler libraries and their loader alias
-resolutions are checked before and after acquisition. Publication requires successful original
-compilation and completed capture/settlement. Passive reads select only acquired fact families,
-keep whole records indivisible, and address original artifacts/context separately. Plan62 owns
-the implementation's qualification; the proposed ADR's formal acceptance is unchanged.
-
-> Decision: [ADR-0235](../../adr/0235-code-intelligence-contract-foundation.md) (proposed;
-> operator-authorized Plan61 foundation and B/C/D realization; the scoped prospective review covers A02).
-
-New code-intelligence wire meanings are authored in proto within the independent host;
-existing product-registry meanings remain derived and deliberate CLI presentation remains
-Serde/Schemars-owned. Explicit xtask generation compiles one schema input, checks required
-constraints and stages messages/views/validators/service bindings before publication. Invalid
-schemas or unsupported required lowering refuse before aggregate writes. Full descriptor
-metadata remains distinct from the stripped runtime pool; HIR/rustdoc/source identities retain
-their original world and artifact qualification. Generated validation must preserve CEL error
-and arithmetic semantics without treating evaluator defects as user violations. No ordinary
-read/launch starts a generator. This target adds no workspace crate or universal service;
-Plan61 retains package acceptance and assembled qualification ownership.
-
-Consumed source/API/native observations have typed fact constructors and explicit provider/world
-guards. Direct VTable projection borrows generated fields without a dynamic-message transcode;
-a reflected shape does not establish applicability or native identity. Ordinary callers can decode
-native type facts without loading HIR libraries. Source selection, predicate truth, answer demand,
-rendering allowance, count precision and stable continuation retain their native owners. Grouped
-questions share request-local preparation, authenticated clients and proofs qualified by their
-original use-site as well as entity/world identity. Original provider documents remain separately
-qualified inspection evidence; decision consumers do not reconstruct facts from category strings.
-
-Offline schema investigations acquire complete immutable descriptor bundles and bind navigation,
-payload interpretation and comparisons to their original byte digests. Conflicting logical files
-and incomplete declared imports refuse before pool construction. Schema addresses describe their
-selected bundle; they are not Rust entities or application truth. Descriptor comments and spans
-remain producer metadata until exact original source and coordinate conventions are verified.
-Source-only actions and native Rust world guards retain their existing owners.
-
-Payload inspection is passive. Original input identity remains separate from decoded projections
-and re-encoding. Generated static reflection and compiled validators serve the exact compiled
-schema world; external dynamic schemas expose constraint metadata without claiming evaluated
-validation. Descriptor-backed text parsing preserves diagnostics and is distinct from semantic
-validation. Contract comparison distinguishes structural observations from native compatibility
-classifications and semantic equivalence. Generated-Rust associations derive from explicit emitted
-trait/accessor evidence qualified by source, generator configuration and output bytes; unresolved
-correspondence stays unresolved. Exact authored byte ranges come from native proto syntax nodes
-matched to compiled declaration identities during generation; passive navigation validates
-recorded ranges against their original bytes instead of interpreting generic descriptor columns.
-Missing, ambiguous or recovered syntax correspondence remains unavailable. These capabilities require no new daemon or mutable
-global pool.
-Generated lint qualification preserves source comments and restricts assertion permissions to
-exact pinned reflection functions and immutable metadata/self-encoding invariants; unknown
-assertion patterns refuse generation. Acquired-input decoding remains fallible.
-
-The explicitly prepared semantic helper serves generated binary gRPC over HTTP/2 on its private
-Unix socket. Every physical client connection, including reconnects, authenticates the kernel peer
-against original managed custody before negotiation. Server request identity comes from Unix
-credentials. Fixed status/package/capability operations are unary; a conversation admits one Start
-and idempotent Cancel controls. Graceful input half-close permits completion. Session-owned workers
-retain admitted native work beyond handler/stream loss, deadline or cancellation and join the actual
-CPU task. Stop closes admission, cancels and drains workers before releasing the provider. Bounded
-output delivery cannot prevent that drain. Terminal distinguishes cancellation request, original
-work outcome and CPU settlement from live-LSP return/detachment; missing delivery establishes no
-client-observed settlement. Schema, constraint, context, validator, provider, transport and settlement
-diagnostics preserve original causes. Neither transport status nor task detachment proves native
-CPU completion. The replaced JSON-line/control-byte protocol has no compatibility listener;
-incompatible prepared selectors retain original native administration and require explicit
-stop/repreparation for queries. The pinned snapshot VFS requires UTF-8 source paths, with explicit
-unsupported refusal outside that scope; source-only raw-path access remains independent.
-
-> Decision: ADR-0233 (proposed; operator-confirmed Plan59 A07 target).
-
-The agent CLI delegates scientific decoding, response schemas and interpretation to an explicitly
-prepared product owner. The host forwards selected bytes and interprets transport metadata without
-importing scientific/Arrow/database policy. CLI invocation, scientific run/attempt, process and
-observation identities remain separate; supplied associations never imply cancellation authority.
-Code intelligence retains provider/configuration/source-generation scope: candidate tests are not
-actual selected tests, static calls are not executed causal edges, and watcher updates do not
-establish an atomic filesystem snapshot. Owned reusable analysis sessions protect tools and original
-children until settlement; canceling a query does not terminate the session, while revision changes
-may cancel old snapshots. Probes, generation, compiler preparation and semantic application remain
-explicit effects, independently usable from passive source reading and existing-work control.
-
-The independent native host owns developer environment selection, authentic OS process/service
-ownership and operator effects, without scientific preparation, Arrow/DataFusion, database clients
-or generated product schemas. Heavy native developer composition stays in xtask. Canonical SurrealDB
-owns persisted execution transitions and schema/write-admission policy; computation and physical
-joins remain Rust/OS effects. Service launch alone does not establish schema readiness; pure local
-science needs no database.
-
-> Decision: ADR-0234 (proposed Plan59 managed-invocation realization; native qualification pending).
-
-Plan59 A09 replaces the earlier proposed universal supervisor topology. Foreground operations
-use native synchronous caller-bound ownership through reap, capture and settlement; generic
-foreground reconnection/crash-finalizer continuity is not promised. Explicit detached operations
-use one transient user service containing the fixed wrapper, payload and ordinary descendants.
-Nested ordinary work inherits aggregate ownership; independent detach requires admitted placement
-and cannot escape finite constraints. Independent nested CLI subtree control is not selected.
-Systemd owns forced termination, Rust owns cooperative joins and required output. Missing original
-evidence remains incomplete; scientific and fixture owners retain their independent authority.
-
-Optional foreign adapters require a named consumer and remain coarse callers of the same native
-operations, documents and protected data services. They acquire no separate scientific, scheduling,
-settlement or schema authority. Native product APIs require no PyO3 implementation, full CLI,
-RMCP endpoint or cdylib. Plan59 separately selects the agent-facing CLI over those native owners.
-Retired producers, callers, configuration and mechanism-only tests leave together; useful scientific
-acceptance stays with native callers. Typed fixtures and native documentation/governance/evidence
-owners replace first-party Python tooling (§24.1). A successful compiler result is not invalidated
-solely by cache-service loss; correctness, real boundary admission and physical release remain.
-Implementation of this cut does not close all Plan58 B–G acceptance or qualify H's assembled and
-durable-deployment campaigns (§24.2).
-
-> Decision: ADR-0233/0234 (proposed Plan59 A08 clarification; operator-confirmed library-integration RC01–RC04).
-
-A09 removes automatic host-generation collection. Immutable completed generations remain
-available until explicitly authorized administrative cleanup. Remove collection-only obligations
-after separating executable authentication, provenance and actual process/resource duties.
-Unknown existing claims/artifacts remain untouched; no retrospective release is inferred.
-Native owners enforce valid terminal facts before presentation. Directional wire schemas and
-common source/range/conflict proposals establish neither scientific validity, semantic name
-resolution nor publication. Source-only readiness has no semantic-session prerequisite;
-semantic operations retain their selected context. A08 publishes a Proposed target, not new
-runtime acceptance; that publication included only minimal J01/J02 prerequisite contracts.
-Subsequent source/query delivery retains its own package-owned acceptance.
-
-> Decision: ADR-0233/0234 (proposed Plan59 A10 search-contract amendment; operator-confirmed S-RC01–S-RC03).
-
-The selected developer-query target has three public passive intents: `search`, direct `inspect`
-and immutable `propose` previews. Useful read/query capabilities move with their callers; replaced
-routes retire after their replacements pass. Explicit preparation, acquisition, probes, test
-construction/execution and control retain their effects and owners. A known file/range/position,
-index/revision, declaration or original-evidence locator requires no preceding search. Source-only
-discovery works without an analyzer; semantic/API consumers state their actual preparation/context.
-
-Flags, typed JSON requests and saved queries share one validated interpretation. Source selection,
-predicate scope, directed relation, requested answer and display controls are distinct. Native
-providers own matching, syntax, semantic/API/compiler facts and bounded relationship expansion.
-Same-node/entity conjunction requires a common candidate/context; file conjunction can use different
-witnesses. Missing or incompletely examined facts stay unknown, including under negation.
-
-> Decision: ADR-0235 (proposed Plan60a relationship-contract extension).
-
-**Proposed remaining Plan60 extension.** Paired inspection consumes explicitly addressed
-original source/API/context inputs and separately authenticated before/after native sessions.
-Side-local observations and qualified correspondence do not establish universal cross-world
-identity. Retained metadata and admitted-unit evidence keep independent custody and hashes;
-passive comparisons never acquire missing inputs or prepare worlds. Association and relevance
-views use canonical document/lifecycle, inventory/report and source interpreters, preserving
-connection basis, original policy/status and unknown assurance. Source-only inspection remains
-independent of native preparation. Concise parser discovery and native-encoded references share
-the existing parser and address authority. Invalid presentation choices are checked before
-providers where the selected schema establishes their domain. Structured validation correction
-extends the existing diagnostic envelope with origin-owned disclosure/completeness facts;
-unknown peers remain unknown, and ordinary correction never restores redacted selectors from
-raw diagnostics. Native wire changes are authored/generated and fenced by protocol7. Existing
-preparation, cancellation and settlement owners remain authoritative. D–F/E03/Q01 own delivery
-and acceptance; conditional indexing/compiler/schema/remote branches remain dormant.
-
-**Implemented extension (Plan60b/c).** Native compatibility compares guarded operands in one
-snapshot after fallible generic-owner rebasing; possible unification/coercion, existential
-implementation discovery and obligation evaluation retain distinct outcomes. Native origins
-distinguish locals, assembly operands, originating ADTs and generated observations. Acquired
-API adjacency binds artifact/context/item addresses and never acquires missing artifacts
-implicitly. Rich patterns share one structural parser/matcher across entry points. Lifetime
-views join native/compiler bodies only with verified original-source and selected-unit
-correspondence; normalized/remapped locations and accompanying runtime evidence alone do not
-prove that join. Existing owners retain preparation, cancellation and actual settlement.
-The existing compiler producer retains checksum-verified original UTF-8 source bytes once per
-file inside its acquired facts artifact; source expansion reads those bytes with bounded
-UTF-8/base64 output. Historical artifacts without that binding remain readable and unjoined.
-Body correspondence checks compiler identity, actual cfg, edition, target, package/role/features,
-crate-root bytes and exact original body bytes. Binary body context uses a unique admitted
-Cargo target mapping and the actual loader target; it does not become a library API profile.
-Pinned native cfg discovery uses optimized settings and adds atomic capability atoms; ordinary
-debug compiler acquisitions can therefore remain unjoined. Those actual differences are retained.
-Supplied work evidence remains explicitly accompanying evidence, without an inferred execution
-link or a zip between native captures and compiler saved fields. Public lifetime cancellation
-retains the original native receive owner through terminal settlement.
-
-Artifact adjacency and native traversal share canonical edge indexes while retaining separate
-domains, qualified nodes and original witnesses. Adjacency reuses artifact-local definition,
-parent and contract lookups within the inquiry; provided defaults, associated bounds, impl
-qualifiers and compiler-resolved documentation links do not establish use-site applicability.
-Pattern input preserves lifetime/type/const argument kinds and higher-ranked scopes; wildcards
-are independent and opaque constant expressions are not evaluated. Native comparison preserves
-exact equality, possible unification and directional possible coercion as separate operations.
-Format/derive observations retain optional/plural mappings and bounded, cancellable projection;
-an originating ADT is not an identity for a generated declaration. The companion Outcomes own
-targeted acceptance; E03/Q01 retain broader process journeys and final qualification.
-
-**Implemented realization (Plan60a).** Related investigations use nonempty guarded seeds and selected
-relations, an independent traversal domain and any/all seed attribution. Output source selection
-does not prune supporting intermediates. One native worker and immutable snapshot serve one
-bounded traversal; request-local adjacency is shared across seeds. Canonical declaration edges
-retain structural roles and original occurrence witnesses, including parallel outer parameter
-and field positions. Native declaration identities keep their original session, configuration
-and generation; unsupported or unmapped facts remain explicit. Depth bounds describe the
-question, while incomplete node/edge/provider examination prevents negative conclusions.
-Settled compact graph answers retain guarded expansion and coverage in every presentation.
-Traversal intersects selection with the active prepared world; inactive files are identified
-as outside that world, while inactive/plural seeds refuse. The subsequent B01 extension adds
-associated/supertrait/impl relationships, supported immediate block-local containment and
-contextual field witnesses. Direct assignments distinguish read/write roles; aliases, borrowing
-and interior mutation remain incomplete. Calls require actual native invocation resolution;
-callback values remain uses and unresolved indirect calls remain unknown.
-Native `NODE_TYPES` inspection and query-byte error locations remain source-only assistance.
-Plan60a owns targeted local Linux implementation evidence; E03/Q01 retain engineering-process
-and assembled/static qualification. No new persistent graph or universal identity follows.
-
-Bounded search defaults to 20 results in fast arrival order. Stable ordering and source/query-guarded
-continuations are explicit; arrival order has no reproducible continuation promise. Counts state
-their unit and exact/at-least/unknown character. A limit can fulfill the requested demand without
-exhaustive examination; deterministic ordering and exact totals can require additional work.
-Native early stop, compatible preparation/parse reuse and cancellation precede unnecessary full
-materialization. Existing native process/CPU completion ownership remains authoritative.
-
-Compact results share verbose source/provider context and carry versioned typed locators usable
-across invocations without a new result service. Normal paths remain readable and native fallback
-bytes preserve unusual names. Source/provider/query premises govern their lifetime. Lightweight
-lexical observations do not imply a full content snapshot; exact-source hydration checks selected
-premises before inspection or preview. Stale selections refuse or require an explicit fresh
-observation. Independent file snapshots never establish an atomic checkout-wide capture.
-
-Typed search records can stream before computation completes: context declarations precede their
-referenced results, complete records remain indivisible, and one terminal summary states coverage
-and actual settlement. Missing terminal delivery remains incomplete. Consumer closure stops new
-admission and settles admitted work, including no-match reads. No automatic detach, full-result
-retention or second task registry follows. Existing non-search envelopes retain their behavior;
-product scientific interpretation stays with its prepared owner. K/L/M and their dependencies own
-implementation and verification of this selected target, separate from formal ADR acceptance.
-
-> Decision: ADR-0233 (proposed Plan59 A11 native-analysis snapshot binding).
-
-Typed native HIR/IDE investigation uses an explicitly prepared immutable snapshot context,
-selected through the existing semantic session owner. It never silently supplies a second
-live database for the same project/context. The separately prepared `pse-native-analysis`
-binary and optional `native-hir` feature isolate its compatible 0.0.358 family from ordinary
-host construction and source-only syntax0.0.360; only plain declared requests/results cross.
-The existing prepared-tool and managed-service owners retain executable authentication,
-original invocation custody, socket-peer checks, cancellation/completion and stop/drain.
-
-Selected native facts include resolved method identity, original/adjusted types, read/write
-reference roles and declared generic constraints. Unsupported fields remain unavailable;
-rendered type names do not prove identity, blanket applicability or rustc acceptance. Native
-snapshots refuse changed source/configuration/preparation premises and require explicit reprepare;
-portable locators bind the original session because generation numbers may repeat across sessions.
-Initial native preparation disables build scripts/proc macros and rejects unsupported requested
-preparation. The live LSP retains its distinct supported context and operations. Native SSR
-capture/range search is not claimed where the selected public API supplies only matched text.
-G11's isolated evidence establishes feasibility; G12 and P02 own production and assembled acceptance.
-
-**Implemented realization (Plan59 K–M).** Working selection uses the native ignore walker and
-grep matcher/searcher pipeline; index/revision selection retains Git object identity. Native
-AST rules, Tree-sitter queries and written declaration discovery share the selected source
-universe. Structured fields use their actual parsers. Managed Git supplies history operations
-whose semantics are not supplied by the embedded Git owner. Source-only questions start no
-analyzer or implicit dependency acquisition. File-level, node-level and entity-level witnesses
-keep their different meanings through composition.
-
-The native snapshot loads installed standard-library sources and the selected Cargo/VFS world
-once during explicit preparation. Each request forks an opt-in cancellation group over shared
-Salsa storage for that immutable input world. IDE and Rayon descendants inherit that group while retaining
-independent local stacks, cancellation suppression and reset. Other request groups and ordinary
-database clones keep their existing behavior. The exact source patches remain with their library
-provenance. Original IDE definition/reference/implementation/symbol operations own navigation;
-native visibility and use-path queries can prove a naming path at an unused destination. This
-does not establish arbitrary trait applicability or compiler acceptance. Cancellation requests
-the actual group and retains the CPU completion owner through settlement.
-
-API refinement preserves the facade's original public route separately from the acquired
-defining declaration. Original compiler units, target, features, build inputs and dependency
-package bytes govern their association with each other and a prepared native world. Registry
-identity alone cannot establish source-byte equivalence. Missing original byte evidence,
-unexpanded external descendants and unsupported contexts remain unknown. Request-owned proof
-contexts reuse acquired graphs/routes and recheck their original evidence at the final barrier.
-Definition artifact/hash/context and original session/source guards survive portable references.
-
-Typed defaults, repository configuration, selected requests and explicit flags have one merge
-owner; implicit parser defaults do not override authored configuration. Producer demand is
-independent of payload allowance, context, field selection and grouping. A bounded queue feeds
-the native nonblocking output owner; consumer closure cancels admission and retains actual CPU
-and child joins. Existence can be proved by one positive alternative while other coverage stays
-unknown. Exact totals and complete absence require their own sufficient examination. The current
-qualification boundary remains in §24.2; these mechanisms confer no new scientific qualification.
-
-Correctness and prepared-tool construction bind checkout-selected actual compiler/rustdoc
-executables before physical Cargo enters dependency directories. Observation, admission and
-execution consume that same selection, with explicit physical selections and compiler wrappers
-preserved. A rustup proxy evaluated later in a registry directory cannot silently select another
-default compiler. Native source-build diagnostics use Cargo's rendered-stderr mode while artifact
-records retain their JSON protocol and original capture owner.
-
-### Conditional and fitting owner lifetimes
-
-> Decision: ADR-0166 and ADR-0186 (proposed amendments; maintainer-approved Plan46 execution).
-
-Parallel initialization and block solves retain prepared predecessor/successor maps and compact
-per-request consumed binding bases. Every original authored parameter and explicitly fixed variable
-remains mandatory, even unused. Unread authored free coordinates may be omitted from a private
-conditional binding; public full/effective-frozen validators are unchanged. Solver and assessor share
-leased immutable values. Exclusive bases update changed consumed inputs in place; escaped aliases
-require a fresh leased base. No source map, start or history travels with backend-qualified neutral
-native capacity.
-
-Fitting preconstructs exactly one private worker for each assigned experiment, retains compact lane
-inventories and reduces results in authored order. Production keeps deterministic authored stride.
-A distinct test-only affinity comparison separates expensive transient experiments without worker
-replication; native/provider residency bounds are not execution-time estimates or a production
-assignment. Profile chains retain causal pins; failed lanes do not replay experiments. Forward/
-adjoint selection and checkpoint spacing remain explicit; short comparisons establish no universal
-parameter/objective crossover.
-
-### Live sample capture and publication
-
-> Decision: ADR-0180 (proposed amendment; maintainer-approved Plan46 execution).
-
-Native callbacks capture only bounded selected owned output values, mode, time and original sample
-identity. Supervision builds checked Arrow collections under the original scope/lease and retains
-channel envelopes through complete drain even after cursor drop and native completion. Selected
-lineage is prepared outside per-sample encoding; full original lineage maps are not an uncharged
-per-sample operation. Encoding failure or late cancellation cancels/drains the producer and leaves
-recording incomplete. Empty bounded append-queue capacity can be reused, but payloads and authentic
-acknowledgements remain per sample. No cross-sample batching or relaxed visibility is selected;
-Recorded means only the authentic contiguous acknowledged prefix.
+The independent host and engineering investigation contracts are owned by
+[§21.7](native-host-and-engineering-tools.md#section-21-7).

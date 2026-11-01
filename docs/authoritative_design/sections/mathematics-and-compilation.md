@@ -27,9 +27,9 @@ and source attribution.
 
 ### 7.1 Design constraints
 
-> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) (proposed) — resolved semantic products and library execution. Current mechanisms are described here; qualification is scoped by §24.2.
 
-An immutable physically resolved semantic product replaces source/name reconstruction before library algebra. Modeling owns symbols, lexical binders, original guards and occurrence mapping; Symbolica/Numerica retain mathematical authority. Demanded product regions use deterministic preflight and lawful local derivative/chain composition across host barriers, preserving original source checks and actual evaluator ownership.
+An immutable physically resolved semantic product supplies library algebra without source/name reconstruction. Modeling owns symbols, lexical binders, original guards and occurrence mapping; Symbolica/Numerica retain mathematical authority. Demanded product regions use deterministic preflight and lawful local derivative/chain composition across host barriers, preserving original source checks and actual evaluator ownership.
 
 Selected-source discovery and checked admission consume the same registry-generated expression
 field visitor and modeling-owned lexical rule (§7.7). Source identity is the declaration, field
@@ -120,11 +120,15 @@ realization contract is proposed [ADR-0100](../../adr/0100-modeling-functions-an
 > closed constraints of the library-neutral factorable program, never as value dependencies
 > (Plan 22 G2, implemented; [§7.5](#section-7-5)).
 
-Every constructor of `BodyBuilder` first asks `pse-quantity` inference for the complete
-result type (kind, basis, reference, scale, shape, canonical unit), including registered
-physical preconditions checked against the actual operands. Only an admitted operation
-produces an atom. A literal is converted to its type's canonical unit before entering the
-atom; bare numbers take the registry's neutral dimensionless type.
+Production lowering consumes the resolved product's retained physical admission for each
+operation: complete operand/result contracts, selected rules and checked preconditions.
+Compiler `typed_math` lowering refuses a demanded operation without its producer-issued admission;
+`BodyBuilder`'s `*_admitted` constructors verify and consume it before constructing library
+atoms. Direct construction entry points such as `binary` and `literal` instead obtain a
+fresh admission from `pse-quantity`. They do not replace the retained-admission path used by
+resolved lowering ([§8.3](physical-semantics.md#section-8-3)). A literal's retained conversion
+plan converts it to canonical coordinates before it enters an atom; bare numbers take the
+registry's neutral dimensionless type.
 
 Domain obligations are `Positive`, `Nonnegative` or `Nonzero`, each tagged with the
 derivative order it protects. An obligation materializes its argument as a barrier stage
@@ -161,7 +165,8 @@ owns the guarded-real interpretation; `guarded_real_policy()` is a compiler cons
 no caller-supplied policy hash can select numerical behavior.
 
 **Source owners:** `crates/pse-math/src/{typed,guarded,execution,factorable,error}.rs`;
-physical inference in `crates/pse-quantity/src/{infer,preconditions}.rs`.
+resolved lowering in `crates/pse-compiler/src/typed_math/direct.rs` and physical admission in
+`crates/pse-quantity/src/{resolved,infer,preconditions}.rs`.
 
 ### 7.4 Normalization and exact literals
 
@@ -267,7 +272,7 @@ The canonical supplier hold owns the remaining version-coupling and revisit cond
 > objectives with priority, weight and degradation tolerances (Plan 22 C3, implemented:
 > members, levels, level-bound rows and the lexicographic engine,
 > [§6.8](schema-and-relations.md#section-6-8)); a native lexicographic structure carries
-> every level's objective (`pse.math.case-structure.v5`).
+> every level's objective (`pse.math.case-structure.v6`).
 >
 > Decision: [ADR-0120](../../adr/0120-provider-envelope-contract.md) — a provider output
 > becomes an auxiliary bounded by its factory's declared and checked output envelope, which
@@ -312,9 +317,11 @@ its value is checked for exact domain membership instead ([§7.6](#section-7-6))
 `integer_bounds_tightened_inward_and_recorded` and `binary_bounds_outside_unit_box_refused`
 (compiler units). `CaseStructure::key` frames each domain by its registry spelling, every
 native constraint form below and the structural requirements a lowering places on the route
-(`pse.math.case-structure.v5`), such as the `l1_exact_penalty` requirement of a penalty
-complementarity ([§19.7](workflows-and-results.md#section-19-7)); no route reads a
-requirement yet.
+(`pse.math.case-structure.v6`), such as the `l1_exact_penalty` requirement of a penalty
+complementarity ([§19.7](workflows-and-results.md#section-19-7)). Routing requires a backend
+and settings that honor every requirement. For `l1_exact_penalty`, POUNCE's default
+settings resolve to its L1 exact-penalty
+method; incompatible explicit settings or backends refuse.
 
 **Native constraint forms.** A constraint form or disjunction realized `native` or
 `indicator` ([§6.8](schema-and-relations.md#section-6-8),
@@ -526,7 +533,7 @@ Semantic specialization is independently usable by topology. Numerical consumers
 
 | Stage | Owner | Consumes | Produces | Effects |
 |---|---|---|---|---|
-| Package admission | runtime modeling admission ([§22](models-and-composition.md#section-22)) | exact package closure, generic declarations, physical inventory and its names | immutable checked revision | source loading and bounded admission |
+| Package admission | `pse-admission` native source/physical admission, `pse-modeling` checking, runtime revision ownership ([§22](models-and-composition.md#section-22)) | exact package closure, generic declarations, physical inventory and its names | immutable checked revision | source loading and bounded admission |
 | Generic specialization | `pse-modeling`, tracked by compiler modeling queries | checked package, root/instance, bindings, analysis and limits | demanded members, equations, named lowerings of constraint forms, complementarity and disjunctions, objective levels with their level bounds, lineage, checks and reports | none |
 | Input publication | `CompilerWorkspace` | checked package/context and lowered case inputs | Salsa input revisions | validated before setters |
 | Body admission | `modeling::executable::grouped::semantic_body` query → `typed_math::Request::admit` | complete normalized body inputs, called functions, providers, physical operations and limits | `AdmittedBody`: `BodySpec`, types, occurrences, `PreparedBody` | optional ownership/retention attachment; transient refusal is not memoized |
@@ -584,7 +591,8 @@ own reviewed contract.
 
 **Source owners:** `crates/pse-relations/src/validate/`,
 `crates/pse-engine/src/validation.rs`, `crates/pse-rules/src/{references,invariants}.rs`,
-`crates/pse-runtime/src/authoring_driver/p1.rs` and `workflow/physical.rs`.
+`crates/pse-admission/src/authoring_driver/p1/`, `crates/pse-admission/src/physical.rs`
+and runtime `workflow/physical.rs`.
 
 ### 14.3 The preparation engine and ownership
 
@@ -605,9 +613,10 @@ boundary's preparation wire is a mechanical projection of the existing binding v
 second mathematical representation or a replacement library codec.
 
 
-> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) (proposed) — compiler annotation/view ownership and resolved execution.
 
-Pure compiler annotation/view products and pure study-start policy have one owner. All relevant runtime consumers migrate before old policy copies retire; values and native effects remain outside tracked queries.
+Compiler annotation/view products and pure study-start policy are consumed by runtime;
+their ownership is described below. Current values and native effects remain outside tracked queries.
 
 > Decision: [ADR-0193](../../adr/0193-demand-products-and-compiled-derivatives.md) (proposed; maintainer-authorized Plan43 target).
 
@@ -721,9 +730,9 @@ changed/unknown actual import/native premises requalify or refuse. Outer checkou
 remains separately timed; no stat-only or process-wide loader proof is introduced.
 
 > Decision: [ADR-0175](../../adr/0175-responsibility-local-admission-and-build-roots.md)
-> (proposed; maintainer-authorized Plan 36 target). Native source admission moves to
-> the lower admission owner with actual bound engine validation; scientific preparation
-> remains Runtime-owned. Plan 36e owns migration and actual dependency qualification.
+> (proposed) — native source admission is owned by `pse-admission`, with actual bound
+> engine validation. Runtime owns scientific preparation orchestration and retained revisions;
+> modeling and compiler products retain their respective pure semantic responsibilities.
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Database structural resolution supplies a semantically sufficient immutable selection to the shared admission/inference/specialization kernel. Protection covers source and interpretation inputs through off-transaction preparation, then retained product roots are admitted atomically before protection ends. Portable descriptions retain admitted mathematical specifications; reconstruction does not replay whole-package semantic compilation.
 
@@ -982,9 +991,9 @@ poisons unfinished pure work instead of letting a later consumer restart it.
 
 #### 14.3.2 Resource ownership and admission limits
 
-> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) (proposed) — finite family capacities and shared-root accounting.
 
-Finite family-specific count capacities, live-root/backdating allowance and actual shared-root accounting replace routine reference-workload generation rotation. Current retained defaults are 131,072 entries/2 GiB known bytes, granular capacity 4,096 and live family capacity 256, subject to finite admitted extent. The known-byte allowance covers the supported reference's original granular inputs, current products and backdating values; it is neither RSS nor per-memo pinning. Immutable physical registries have canonical Salsa ingredient owners charged once, while distinct projected packages, field recipes and typed deltas retain their own extents. Exclusive accounting drains cloned readers before producing an owned observation; publication does not inspect a live borrowed accounting iterator.
+Finite family-specific count capacities, live-root/backdating allowance and shared-root accounting bound retained compiler work. The defaults appear in the table below; exceeding retained entry or known-byte limits still triggers generation rebuilding (§14.4). The known-byte allowance covers the supported reference's original granular inputs, current products and backdating values; it is neither RSS nor per-memo pinning. Immutable physical registries have canonical Salsa ingredient owners charged once, while distinct projected packages, field recipes and typed deltas retain their own extents. Exclusive accounting drains cloned readers before producing an owned observation; publication does not inspect a live borrowed accounting iterator.
 
 Selected static-function package projection is a tracked query of its complete immutable
 parent and normalized projection/read recipe. The producer interns a complete immutable payload;
@@ -1032,13 +1041,13 @@ they protect.
 | Local evaluation (`EvaluationLimits`) | 4,096 derivative components; 1,000,000 scalar operations per demand; 512 MiB numeric worker scratch; 4,096 provider calls |
 | Optimizer (`Optimization`) | cores 1–64 (default 1); Horner iterations up to 1,000 (default 10); common-pair rounds up to 32 (default 1); a fixed Horner-scheme budget of 8,192 variables, an optimizer budget rather than a symbol bound |
 | Case (`CaseLimits`, `AssemblyLimits`) | 100,000 scalars, instances and rows; 8,192 distinct bodies; 1,000,000 slots and contributions; native index within `i32`; 2 GiB complete attempt storage (shared evaluator scratch, cloned instructions/descriptors, occurrence caches and sparse refills) |
-| Workspace (`WorkspaceLimits`) | 4,096 input entries; 2 GiB input extent; 16,384 retained entries and 256 MiB known retained bytes; LRU of 64 values per expensive query |
+| Workspace (`WorkspaceLimits`) | 4,096 input entries; 2 GiB input extent; 131,072 retained entries and 2 GiB known retained bytes; live-root query-family capacity 256; granular declaration query-family capacity 4,096 |
 | Structural matching | 100,000 rows on a 32 MiB stack |
 | Runtime (`MathPolicy`) | 8 GiB artifact retention; 64 MiB foreign allowance per job/program; 8 GiB worker, 4 GiB workspace; 4 jobs; 128 flights |
 
 The compiler carries the declared class-proof and typed assembly allowances through initial,
-value-rebound and derivative-upgraded products. The complete consumed profile uses the v4
-modeling-view identity frame, preserving historical v2/v3 hash bytes. Public preparation
+value-rebound and derivative-upgraded products. The complete consumed profile uses the v6
+modeling-view identity frame, preserving historical frame bytes. Public preparation
 documents require the assembly contribution, native-index and complete worker-byte limits;
 the unchanged defaults are explicit Rust policy rather than a hidden ceiling. Changing only that policy does not
 change an evaluator artifact that does not consume it. Class discovery occurs at its
@@ -1102,7 +1111,7 @@ collocation retains its separate unbounded isolation route and identity.
 
 ### 14.4 Incrementality
 
-> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) (proposed) — resolved product identity and incremental reuse.
 
 Resolved body/derived frames preserve complete physical, binder, membership, guard and provider premises. Existing-symbol observation demand and numerical value rebind are distinct from structural changes; receiver-local permission never follows from semantic equality.
 
@@ -1231,7 +1240,7 @@ retain each selected value independently. Salsa handles remain local.
 structure from values. `PreparedModeling::bound_structure` applies the case's variable
 states, admits discrete domains and tightens their bounds inward, returning the recorded
 tightenings beside the structure ([§7.5](#section-7-5)), and excludes observation rows; it
-reads no value. `PreparedModeling::view_key` (`pse.compiler.modeling-view.v3`) is the
+reads no value. `PreparedModeling::view_key` (`pse.compiler.modeling-view.v6`) is the
 complete identity of the view prepared from that structure: the bound structure key,
 including native constraint forms; every admitted mathematical body; the rules
 of the derived realization parameters; the derivative order; the evaluator profile; and the

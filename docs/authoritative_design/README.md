@@ -14,7 +14,8 @@ current system, why it is shaped that way and its limits:
 | [Physical semantics](sections/physical-semantics.md) | §8 physical typing, §9 authored scientific knowledge and external functions |
 | [Models and composition](sections/models-and-composition.md) | §10 accumulators, §11 definitions, §12 connectivity, §22 authoring |
 | [Numerical execution](sections/numerical-execution.md) | §15 structure, §16 numerical policy, §17 initialization, §18 native solving |
-| [Workflows and results](sections/workflows-and-results.md) | §13 dynamics, §19 cases and fitting, §21 Python boundary |
+| [Workflows and results](sections/workflows-and-results.md) | §13 dynamics, §19 cases and fitting, §21 native application and adapter boundaries |
+| [Native host and engineering tools](sections/native-host-and-engineering-tools.md) | §21.7 independent host, managed work, source/API/compiler investigations and contract transport |
 | [Operations and validation](sections/operations-and-validation.md) | §23 observability and failures, §24 tests and qualification basis |
 | [Design-change workflow](sections/design-change-workflow.md) | §24.4 architecture review and design changes |
 | [Scope and open design](sections/scope-and-open-design.md) | §25 supported scope, §26 risks and open choices, capability coverage, glossary |

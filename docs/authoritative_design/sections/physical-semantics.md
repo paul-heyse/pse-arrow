@@ -6,7 +6,8 @@ status: current
 # Physical semantics, materials and properties
 
 `pse-quantity` owns physical types, exact unit algebra and operation admission.
-The runtime admits and retains the actual physical inventory. `pse-modeling` checks
+`pse-admission` admits the actual physical inventory through bound engine validation;
+runtime retains it as the physical context. `pse-modeling` checks
 scientific declarations as generic entities, functions, interfaces, definitions and tables;
 `pse-compiler` and `pse-math` lower them to library-owned mathematics. Scientific knowledge
 lives in authored bundles, not a material crate or thermodynamic provider factory.
@@ -401,9 +402,9 @@ The physical bundle declares the generic kinds. Its `chemistry` modeling package
 (`packages/reference/physical/models/chemistry.pse`) declares the species, element,
 reaction and phase kinds and the canonical `liquid` and `vapor` phases, and is the single
 phase authority; references name them `chemistry.*`. The kinds live in `pse.physical`
-because the physical inventory, admitted from that package alone (§8), names them: 34
-quantity types take species, element or reaction as their subject, six operations name
-species or element as their result subject, and both finite reductions range over species.
+because the physical inventory, admitted from that package alone (§8), names them:
+quantity types take species, element or reaction as their subject, operations name
+species or element as their result subject, and declared finite reductions range over species.
 Its `kinds` package keeps the mesh and structural kinds (time, length, port set, stage,
 cell, face, node and custom). Seed packages supply chemical entities, attributes,
 composition and coefficient tables. IDs distinguish members independently of
