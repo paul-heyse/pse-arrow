@@ -1,5 +1,15 @@
 # Functional opportunity reviews
 
+The [code-intelligence capability expansion review](code-intelligence-capability-expansion-2026-11-01.md)
+develops thirteen opportunities from end-to-end reading of the expanded analyzer documentation,
+including cargo_metadata, and relevant proto research. It focuses on the intelligence subsystem:
+contextual API selection, reference roles, captures and obligations, structural facts and edit
+previews, richer API contracts, compiler lifetime explanations and composed evidence. Exact-release
+checks and independent assessment qualify prepared-world, SSR, layout, indexing and compiler
+limits. Existing parser and schema-origin simplifications accompany the proposed capabilities.
+The CLI remains an interface; Plan60 was excluded. No production or plan changes, newly delivered
+capabilities or measured efficiency benefits follow from this review.
+
 The [Protobuf foundations review](code-intelligence-protobuf-foundations-2026-10-31.md)
 assesses improvements to existing code intelligence independently of Plan60. Its integrated
 target recommends typed schema-owned evidence, Buffa/ConnectRPC at the local helper boundary,
