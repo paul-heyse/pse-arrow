@@ -1,6 +1,8 @@
 ---
 title: "Plan 62d: Compiler-backed explanations"
-status: proposed
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Companion to retained Plan62; exact-pin compiler qualification and conditional loan decisions support subsequent consumers."
 date: 2026-11-01
 adrs: []
 review_sources: [docs/functional_reviews/code-intelligence-capability-expansion-2026-11-01.md]
@@ -129,10 +131,10 @@ process resource release, executor behavior or a runtime observation.
 
 | Package | Status | Dependencies | Completion boundary |
 | --- | --- | --- | --- |
-| D01 | open | T01 decision route | Selected question set, exact-interface feasibility and placement settled; viable supported scope and unresolved dependent scope recorded. |
-| D02 | open | D01 viable capture/suspension route; T02 first consumed typed slice | Capture/suspension answers consumed through existing investigation surfaces, with phase/context fidelity and revealing targeted tests; replaced interpretation deleted. |
-| D03 | open | D01 viable cleanup route; T02 first consumed typed slice | Drop/unwind answers consumed through existing surfaces with original-artifact expansion and targeted normal/unwind controls; replaced interpretation deleted. |
-| D04 | open | D01; concrete unanswered ownership question after diagnostics/artifact assessment | Conditional trigger evaluated explicitly; either supported extraction and consumers verified, or reasoned deferred/not-needed disposition recorded without claiming delivered borrow-fact functionality. |
+| D01 | complete | T01 decision route | Exact-pin optional producer, explicit preparation, original compiler custody and success-only finalization delivered |
+| D02 | complete | D01 viable capture/suspension route; T02 first consumed typed slice | Selected capture/suspension facts consumed publicly with phase/context, original-source replay and unsupported-body controls |
+| D03 | complete | D01 viable cleanup route; T02 first consumed typed slice | Native MoveData initialization, phase-qualified cleanup/ABI facts and original-artifact expansion exercised |
+| D04 | complete | D01; concrete unanswered ownership question after diagnostics/artifact assessment | Trigger absent for demonstrated questions; loans/Polonius deferred with recorded revisit condition, not delivered borrow facts |
 
 ### D01 — Settle selected questions, exact interfaces and placement
 
@@ -229,12 +231,16 @@ assessment obligation; it cannot be reported as implemented borrow-fact support.
 
 ## Verification and handoff
 
+The investigation record below predates producer integration. Its open/next-step statements
+are historical; the [Outcome](#outcome) owns the delivered boundary and selected typed D03 extension.
+
 ### D01/D04 conditional investigation outcome — 2026-11-01
 
 **Tested, bounded:** selected interface feasibility is established at c1070d693 after explicit
-matching rustc-dev installation. Retained driver/input/negative controls under
-`crates/pse-host/tests/fixtures/plan62/` (see its README)
-reproduce the probe without a new crate or production dependency. An `after_expansion` callback
+matching rustc-dev installation. The original isolated driver/input/negative controls are
+preserved in Git at `83908f17c:crates/pse-host/tests/fixtures/plan62/`; the delivered producer
+and actual pinned regression in `compiler_investigation/artifact/tests.rs` now replace those
+mechanism-only fixtures. An `after_expansion` callback
 queried `tcx.closure_captures`, `closure_kind_origin` and `mir_coroutine_witnesses`. pair.0 was
 ByRef(Immutable), pair.1 ByValue; coroutine fields/variants/source information/conflict matrix
 were returned. This public query works despite private lowering helpers. Select a narrow owned
@@ -293,3 +299,43 @@ owning completion account. Transfer enduring contracts and operating guidance th
 normal owners, including the decision route where required; reconcile the coordinator's
 opportunity dispositions and retire completed material under ADR-0096. No Outcome completion
 claim exists at plan creation.
+
+## Outcome
+
+**Implemented:** the optional `compiler-analysis` feature builds a narrow `pse-compiler-analysis`
+producer isolated from ordinary host linkage. `pse tools prepare compiler-analysis` is explicit;
+the existing `compiler generate` and `compiler probe` owners acquire selected facts. The producer
+copies analysis facts before later consuming compiler queries and continues full compilation.
+Only successful compilation, complete capture and actual settlement publish the final index.
+Unmatched bodies and failed compilation retain evidence without publishing a successful index.
+
+Facts distinguish source/stored capture types, conservative coroutine fields/variants and
+phase-qualified cleanup. D03's operator-selected extension uses native MoveData and
+MaybeInitialized/MaybeUninitialized observations for exact drop places, with normal/unwind edges,
+cleanup status, ABI and termination causes. No textual MIR dataflow reimplementation was added.
+Unsupported CTFE/static body shapes remain explicit unavailable records. Native arguments are
+preserved during delegation; selected driver Unicode limitations refuse without lossy conversion.
+Runtime image hashes include resolved versioned shared libraries and loader aliases. Full original
+context is separately addressed; compact reads preserve whole-body budgets and original focus.
+
+**Tested, pinned nightly2026-09-29/c1070d693 on local Linux, zero-failure target:** the actual
+pinned capture/suspension/cleanup regression and runtime-alias-retarget control passed as part
+of 3/3 component controls (`01a1969d-27c8-73c4-8248-44a282babbe5`). A separate managed public
+acquisition `01a196f2-e1d2-73ab-8820-192fdc7a4084` exercised disjoint captures, scoped versus
+retained Rc across two awaits, conditional initialization, C-unwind calls, ABI/InCleanup causes,
+unsupported CTFE and original runtime images. Unmatched-body `01a196f2-f4dc-75f6-be9e-4abe6462b35f`
+and full-compilation failure `01a196f3-0793-7613-84d1-254957fdbe0c` correctly produced no final
+index. Passive original cleanup replay `01a196f3-1872-7132-b78e-2f1f2d616746` succeeded after
+the current probe source changed. Separate whole-body budget and unacquired-focus refusal
+controls passed. The coordinator [Outcome](62-code-intelligence-capability-expansion.md#outcome)
+owns command details and final optional-feature/static qualification.
+
+A mistake corrected was treating early callback success as sufficient; the integrated owner now
+requires the whole compile to succeed. Compiler query order and runtime alias controls also guard
+the actual copied observations. Deliberate limits retain pin specificity, conservative saved
+storage distinct from liveness/Send, may-initialization distinct from loans/reachability, and
+static unwind edges distinct from physical resource release. D04's loan trigger remains absent;
+there is no general loan database or Polonius integration. Obsolete feasibility driver/input
+fixtures were deleted after the production/component replacement passed. Enduring contracts are
+in blueprint §21.7. No authorized delivery remains here; no cross-platform or performance claim
+follows from these selected compiler questions.

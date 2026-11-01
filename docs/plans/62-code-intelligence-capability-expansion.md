@@ -1,6 +1,8 @@
 ---
 title: "Plan62: Code-intelligence capability expansion"
-status: proposed
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Highest-numbered series; proposed ADR-0233/0235 and subsequent intelligence consumers retain its qualification and conditional decisions."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/README.md
@@ -10,6 +12,10 @@ adrs: [ADR-0233, ADR-0234, ADR-0235]
 ---
 
 # Code-intelligence capability expansion
+
+Selected implementation and conditional assessments are complete. The [Outcome](#outcome)
+records local Linux acceptance, exclusions and retained limits; it does not accept proposed ADRs
+or qualify scientific workflows. Companion tables own their completed package state.
 
 ## Purpose, baseline and ownership
 
@@ -85,19 +91,19 @@ assessment. This table owns disposition; linked package tables own implementatio
 
 | Opportunity | Disposition | Work owner | Required evidence or trigger |
 | --- | --- | --- | --- |
-| O01 | scheduled | [A01](62a-native-context-and-semantic-explanations.md#a01--context-identity-extended-preparation-and-world-comparison) | Multiple interpretations, explicit extended world and truthful preparation coverage |
-| O02 | scheduled | [A02](62a-native-context-and-semantic-explanations.md#a02--role-operation-capture-and-obligation-explanations) | Roles/implicit targets/callsite anchors survive typed consumers |
-| O03 | scheduled | [A02/A03](62a-native-context-and-semantic-explanations.md#a03--contextual-callable-discovery-and-bounded-synthesis), C01 | Capture/obligation and API applicability explanations; bounded synthesis disposition |
-| O04 | scheduled | A04 | Fallible target-qualified layout, existing compiler-artifact composition and explicit recursive-adapter outcome |
-| O05 | scheduled | [D01–D04](62d-compiler-backed-explanations.md#package-state) | Structured selected questions after feasibility; conditional loan facts retain separate disposition |
-| O06 | scheduled | B01/B02 | Literal/doc/attribute facts and demand-aware explained matches |
-| O07 | scheduled | B03 | Grammar-aware and native SSR previews under original source guards |
-| O08 | scheduled | C01/C02 | Rich contracts and original/transformed example distinction |
-| O09 | scheduled | C03 | Authored/resolved package evidence connected to actual compiler worlds |
-| O10 | scheduled | C04 | Context-qualified runnable relevance without claiming execution or coverage |
-| O11 | scheduled | T03 and all contributing packages | Useful compact composed answers with guarded expansion and truthful partiality |
-| O12 | scheduled | A05 | Evaluate a concrete repeated/global retrieval question; implement only selected reuse |
-| O13 | scheduled | T02; B04; all boundary producers | Typed consumed facts, contextual correspondence and exact field-origin navigation |
+| O01 | resolved | [A01](62a-native-context-and-semantic-explanations.md#a01--context-identity-extended-preparation-and-world-comparison) | Extended/test worlds, provenance, failures and real drain exercised; [Outcome](#outcome) |
+| O02 | resolved | [A02](62a-native-context-and-semantic-explanations.md#a02--role-operation-capture-and-obligation-explanations) | Typed roles, implicit operations, captures and callsite anchors exercised |
+| O03 | resolved | [A02/A03](62a-native-context-and-semantic-explanations.md#a03--contextual-callable-discovery-and-bounded-synthesis), C01 | Actual-call inference and qualified candidates delivered; arbitrary-goal synthesis remains conditional |
+| O04 | resolved | A04 | Fallible full/prefix layout and original compiler association exercised; recursive display adapter unselected |
+| O05 | resolved | [D01–D04](62d-compiler-backed-explanations.md#package-state) | Selected typed compiler facts delivered; D04 loan trigger assessed as absent |
+| O06 | resolved | B01/B02 | Interpreted literals/docs/attributes and shared demand-aware source selection exercised |
+| O07 | resolved | B03 | Native grammar/SSR guarded previews exercised, including selected CRLF/Unicode intervals |
+| O08 | resolved | C01/C02 | Rich API contracts and original/native-transformed examples delivered; conditional modes retain triggers |
+| O09 | resolved | C03 | Real Cargo unit/feature contexts exercised; graph replacements unselected |
+| O10 | resolved | C04 | Native runnable/cfg/target/snapshot intent and guarded existing test-selection route exercised |
+| O11 | resolved | T03 and all contributing packages | Distinct use sites, unknown composition, compact evidence and public expansion exercised |
+| O12 | resolved | A05 | Direct scoped query/prepared-world reuse selected; corpus indexing/export await recorded consumers |
+| O13 | resolved | T02; B04; all boundary producers | Typed generated consumers and authenticated exact proto source-byte navigation exercised |
 
 ## Shared packages
 
@@ -239,10 +245,10 @@ is parallel. Preserve workstation capacity settings; no additional CPU partition
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| T01 | open | Coordinator | Required decision routes and shared foundation choices recorded |
-| T02 | open | Coordinator with each producer | All selected fact slices have migrated consumers and generation/negative controls |
-| T03 | open | Coordinator | Delivered composed public questions, expansion and adoption guidance |
-| Q01 | open | Coordinator | Assembled acceptance, applicable static checks and accurate closure/dispositions |
+| T01 | complete | Coordinator | Proposed ADR-0233 preparation/compiler extension and blueprint327 precede implementation; formal acceptance unchanged |
+| T02 | complete | Coordinator with each producer | Selected typed native/wire/public consumers, generation and negative controls migrated; lossy predicate path removed |
+| T03 | complete | Coordinator | Public composition preserves worlds/use sites/unknowns, original context addressing and guarded expansion |
+| Q01 | complete | Coordinator | Local Linux assembled checks and closure recorded in Outcome; copyright-header check excluded at operator direction |
 
 Companion state is linked above and is not duplicated here. Native lifecycle relationships derive
 from these owners; index inclusion is not implementation authorization.
@@ -272,7 +278,10 @@ fallback, parser/borrow-checker reimplementation, unsafe HIR garbage collection 
 build/cache/test controller is selected. Additional worthwhile improvements may enter through a
 coherent target amendment with corresponding consumers, dependencies and evidence.
 
-## Verification and current checkpoint
+## Verification and implementation record
+
+The following investigation and implementation checkpoints retain their original scope. They
+precede production completion; the [Outcome](#outcome) supersedes their next-step statements.
 
 ### Conditional assessment: representation and protocol — 2026-11-01
 
@@ -347,7 +356,7 @@ The next implementation scope remains T01 and the first A02/T02/T03 slice, using
 to avoid redundant synthesis, ambiguous layout projections or premature indexing. Existing
 qualification retains its original limits; Plan62 Q01 has not run or been claimed complete.
 
-### Remaining-scope implementation checkpoint — 2026-11-01
+### Historical remaining-scope implementation checkpoint — 2026-11-01
 
 T01's production preparation/compiler-stage target is recorded in proposed ADR-0233 and
 blueprint revision327 (`18164ed4e`); this does not change the ADR's formal acceptance status.
@@ -372,3 +381,111 @@ construction supply no acceptance credit. The next work is stable-source native/
 compiler acquisition journeys, completion of shared generation and operating guidance, then
 Q01's assembled acceptance and scope-end static checks. No series completion or performance
 benefit is claimed at this checkpoint.
+
+## Outcome
+
+**Implemented, 2026-11-01:** selected T01–T03, A01–A04, B01–B04, C01–C04 and D01–D03 are
+integrated. A05 and D04 complete their conditional assessment with the direct-query and no-loan
+decisions recorded in their companions. O01–O13 have no remaining selected delivery. Commit
+`83908f17c` carries the integrated native/compiler foundation; `7cc70e201` bounds selected-node
+previews; `244e86e9f` completes contextual candidates, runnables, exact origins and final repairs.
+Earlier API/source/composition commits retain their scoped evidence. Enduring contracts are in
+blueprint §21.7, qualification in §24.2, and operating guidance in the `pse-cli` reference.
+ADR-0233/0235 remain proposed; this outcome is not formal decision acceptance.
+
+The result extends existing native sessions, source selection, API/Cargo and compiler owners.
+It does not introduce a second analyzer, semantic protobuf compiler, result service or test
+executor. Native helper protocol4 and generated typed consumers replace the affected lossy
+predicate projection; the old boolean/FactTruth path is removed. Obsolete compiler feasibility
+fixtures are removed after production regression replacement. Buf owns compiled schema identity;
+Syn recognizes generated Rust structure and native proto syntax supplies authenticated original
+byte intervals. All generated changes came through the declared generation route.
+
+### Verification
+
+**Tested, local Linux:** all tests below target zero unexpected failures. Commands use the pinned
+toolchain, locked dependency graph and existing correctness/force-validation owner. Tests retain
+16 physical lanes and builds 32 jobs; no new machine memory cap was introduced. Different
+selections overlap and are not summed into a fictional full-workspace population.
+
+| Command and selected scope | Actual result and original invocation |
+| --- | --- |
+| `pse test pse-host --lib -E 'test(source_read::) \| test(source_query::) \| test(schema::) \| test(api::) \| test(dependency::) \| test(investigation::) \| test(compiler_investigation::facts::) \| test(plan61_rpc_) \| test(code_intelligence_contracts::) \| test(semantic::protocol_facts::) \| test(cli::code::semantic::)'` | Initial 174 passed, 2 failed of176; `01a1969d-85e3-74c7-85c9-e550d5b418a3`. Origin/raw-path and moved-library assumptions were repaired; this original run is not reported green. Includes actual RPC cancellation/output-loss/settlement controls. |
+| `pse test pse-host --lib -E 'test(schema::) \| test(dependency::) \| test(source_command::)'` | Corrected affected population 32/32 passed; `01a196d2-4aff-7189-8d92-5ce40a3b80eb`. |
+| `pse test pse-host --lib --features native-hir -E 'test(native_runnables_public_classify_cfg_targets_and_passive_snapshot_intent) \| test(native_ssr_public_excludes_same_matching_node_outside_selected_original_lines) \| test(native_contextual_candidates_public_preserve_adjustments_substitutions_and_obligations) \| test(native_operations_capture_roles_predicates_layout_and_assists_keep_their_meaning) \| test(semantic::wire::tests::) \| test(runnable_routes_bind_current_source_and_ignore_analyzer_argv)'` | Final 14/14 passed, 762 unselected,27.501s; `01a196e6-0795-7151-87db-f785fcf2c3be`. Helper explicitly prepared for that feature closure; all original sessions drained. |
+| `pse test pse-host --lib -E 'test(actual_pinned_facts_preserve_capture_suspension_cleanup_and_constant_boundaries) \| test(runtime_alias_retarget_refuses_even_when_original_image_digest_is_unchanged) \| test(actual_cargo_contexts_preserve_renames_feature_policy_and_host_target_test_units)'` | 3/3 passed,145.276s; `01a1969d-27c8-73c4-8248-44a282babbe5`. Actual locked Cargo and compiler observations, not only projection fixtures. |
+| `pse test xtask --bin xtask -E 'test(codegen::code_intelligence::associations)'` | 6/6 passed,84 unselected; `01a196c0-2009-73b5-a847-0dc19ba02e6e`. Actual Buf/native syntax controls include source-info removal, nested namesakes, Unicode/display-width cases and LF/CRLF. |
+| Earlier revealing source/API/composition/native populations through `pse test pse-host --lib -E <selected-filterset>` and explicit native preparation | Source31/31, API21/21, composition13/13 and native18/18 passed respectively under `01a1961f-fcf8-721d-a41b-319b3aca8455`, `01a1961f-f54c-70d8-bbdc-2ef3a723203f`, `01a19665-7a4d-75b4-a4ab-15e6e106f62a`, `01a19667-6ee6-76b1-887e-910fbf2aba8a`. These retain their original revision/scope; final changed consumers have the affected controls above. |
+
+The original `pse inspect tests INVOCATION` records retain exact filters, populations and failures.
+Actual public journeys additionally exercised:
+
+- Explicit native tool/world preparation in the real checkout with `--backend native-snapshot
+  --test-context`, direct runnable inspection and consolidated `inspect --source --view tests`
+  at an exact identifier interval. Both returned guarded `inspect test-selection --from-result`
+  actions that succeeded (`01a196ef-81fc-74fb-8842-bba4a7d8babe`,
+  `01a196ef-86ce-75da-b6b4-49a62604bac0`); original stop
+  `01a196ef-88ec-75f6-afa6-16b6b7681dc4` drained the session. An earlier whole-line request
+  correctly refused an ambiguous token witness; it is not counted as a successful answer.
+- `inspect origin` on generated `NativeTestCandidate.snapshot_update` and its guarded authored
+  source expansion passed (`01a196c7-1c0b-778a-9229-7b260d671be7`,
+  `01a196c7-242e-7300-886e-8f51344ebc84`), returning exact field13 bytes.
+- Explicit `pse tools prepare compiler-analysis`, then `pse compiler probe plan62-compiler-facts
+  --kind facts --fact-focus all --body cases --question <selected-question>` acquired original
+  `01a196f2-e1d2-73ab-8820-192fdc7a4084`. `inspect compiler-facts INV --max-bytes 1048576`
+  returned the selected families with explicit partial CTFE coverage. Unmatched body and failed
+  full compilation produced no successful index. A passive original-body cleanup read after
+  source changes passed. Separate `--max-bytes 1` whole-body omission and unacquired-focus
+  refusal controls passed against original capture `01a1964d-022c-724b-9d67-909eee1c74a0`.
+- A04 actual host8/i6864 layout comparison, nested enum and unsized-prefix journey used original
+  compiler artifact `01a19648-70d5-73ff-a928-99d37b990d05`; mismatch and unsupported premises
+  remain explicit. Native and compiler worlds are not declared numerically equivalent.
+
+**Tested, scope-end static/tooling:** `just clippy-default`, `just clippy-no-default`, and
+`just clippy-default --features pse-host/native-hir,pse-host/compiler-analysis` each passed with
+`--keep-going --workspace --all-targets --locked -- -D warnings`: zero warnings/errors.
+Host powerset `scripts/pse-env -- env CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo-bin/cargo-pse-correctness"
+cargo hack --keep-going check -p pse-host --all-targets --feature-powerset --depth 2 --locked`
+passed all 4 combinations. It preceded the last common routing guard; final Clippy configurations
+and the 14 native cases cover that final source. `just audit-shear` passed zero findings after
+removing obsolete fixtures. Normal `just codegen` published all 10 generators successfully;
+`just ready` passed after the exact tree-sitter-proto0.6.0 addition. Final `just governance`
+passed its governance tests, codegen-check and family-check
+(`01a196f7-9b8d-70eb-81e2-c4fedc52202e`).
+
+The scope-end `just hygiene` aggregate initially had 15 passing and 4 failing recipes. Shear and
+both Clippy failures were repaired and their affected recipes rerun successfully. The copyright
+header lint was excluded at the operator's explicit direction; it was not fixed or passed.
+Consequently the full hygiene aggregate is **not** labeled green. The passing aggregate recipes
+included agent/ADR/register checks, Python/type/lint and boundary/solver/family/codegen/rustdoc
+checks. `just turn-end` passed (`01a196fc-bb8f-715a-b65e-2adec44ed00b`), and final `just docs`
+published/indexed 993 chapters successfully. These establish formatting and document usability,
+not additional product qualification.
+
+### Corrections, deliberate choices and limits
+
+A mistake made and corrected was overlapping Cargo drivers in this checkout during final
+qualification. Dirty feature graphs produced native archive failures despite fine-grain locking.
+All owned drivers were stopped and drained, then the affected checks passed under one Cargo
+driver at a time, preserving full compiler/test width. Interrupted runs receive no acceptance
+credit. Native preparation rejected during changed-source construction likewise established no
+successful world; final stable-source native populations and public sessions passed.
+
+Other corrected mistakes were generic/name-based context association, external-project routing
+guarded at only one public entry, root-only library overview discovery, descriptor-column byte
+conversion and logical raw identifiers parsed as written type syntax. The selected consumers
+now share identity/guard owners, exact basename discovery and authenticated native byte ranges.
+
+Deliberate choices retain direct scoped native queries, owned small facts and the existing
+Buffa/ConnectRPC stack. No general synthesis engine, corpus index/SCIP export, loan/Polonius
+database, new graph solver, standalone Markdown/scraped-use acquisition or alternate proto stack
+was selected without its named consumer trigger. Those assessments are complete, not claims of
+delivered conditional features. Undeclared external macro I/O, unsupported native predicates,
+ambiguous contexts and CTFE bodies remain explicit limits. Saved coroutine storage is not dynamic
+liveness/Send, may-initialization is not loans or reachability, and static cleanup is not physical
+resource release. No benchmark gain, universal compiler/protobuf support, remote deployment or
+new scientific/reference qualification is claimed.
+
+The completed highest-numbered series and supporting review remain retained while depended on.
+No Plan60 scope was implemented or credited. Concurrent operator library-document edits were
+preserved. No worktree was needed and no push was performed.

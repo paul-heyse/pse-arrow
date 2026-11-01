@@ -1,6 +1,8 @@
 ---
 title: "Plan62a: Native context and semantic explanations"
-status: proposed
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Companion to retained Plan62; native contracts and conditional decisions support subsequent consumers."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/62-code-intelligence-capability-expansion.md
@@ -158,13 +160,16 @@ type-sitter remain alternatives, not automatic dependencies. Source trees alone 
 
 | Package | Status | Dependencies | Completion boundary |
 | --- | --- | --- | --- |
-| A01 | open | T01; T02 context slice | Explicit extended world, comparison and real preparation/drain tests |
-| A02 | open | T01; T02 role/capture slice | Native explanations consumed through typed public answers |
-| A03 | open | A02; C01 only for API-backed candidates | Contextual applicability explanation and bounded synthesis disposition |
-| A04 | open | A02; T02 layout slice | Qualified layouts and explicit recursive-adapter outcome |
-| A05 | open | A02; T03 repeated-query example | Retrieval decision and any selected implementation/consumer |
+| A01 | complete | T01; T02 context slice | Explicit extended/test worlds, watched declared inputs, retained macro owner and actual drain controls passed |
+| A02 | complete | T01; T02 role/capture slice | Typed roles, implicit operations, captures, adjustments and four-way predicate outcomes consumed publicly |
+| A03 | complete | A02; C01 only for API-backed candidates | Actual callable identity, contextual substitutions/receiver adjustments and bounded obligations delivered; separate arbitrary-goal synthesis deferred |
+| A04 | complete | A02; T02 layout slice | Fallible full/prefix layout, target qualification and original compiler-artifact association exercised; recursive display adapter unselected |
+| A05 | complete | A02; T03 repeated-query example | Direct scoped queries and existing prepared-world reuse selected; index/export/wrapper alternatives retain conditional triggers |
 
 ## Verification and handoff
+
+The investigation record below predates production delivery. Its open/next-step statements are
+historical; the [Outcome](#outcome) records the delivered boundary.
 
 ### Conditional assessment outcomes — 2026-11-01
 
@@ -235,3 +240,36 @@ qualification and applicable static checks; latency/memory improvements remain u
 an explicitly selected comparison establishes them. No serialized native IDs or unsafe type-system
 garbage collection become routine memory controls. Remove replaced consumers/tests together once
 their replacements pass targeted checks. The next work is T01 and the first A02/T02 consumer slice.
+
+## Outcome
+
+**Implemented:** A01–A04 extend the existing immutable native world and typed public consumers.
+Build scripts/proc macros require explicit preparation and retain original CPU/child custody;
+declared generated inputs are watched, while undeclared external macro I/O remains an explicit
+coverage limit. Test context is opt-in. Protocol4 rejects old query protocols before transport
+while retaining original administrative stop/drain. Predicate outcomes preserve Holds,
+NotProven, Invalid and Unsupported; unsized prefix observations cannot masquerade as full layout.
+
+Actual-call discovery preserves declaration signature separately from inferred parameters/result,
+receiver adjustments and impl/method substitutions. It associates context only with the matching
+native callable. Generic trait arguments and unsupported premises remain unsupported rather than
+invented proof. B03 reuses existing native assist output for hole-oriented construction; no
+arbitrary-goal synthesis service or exhaustive synthesis claim was added. A05's direct-query
+decision and named index/export/wrapper revisit triggers above complete its assessment obligation.
+
+**Tested, local Linux, zero-failure target:** `pse test pse-host --lib --features native-hir -E`
+with the native operations/contextual candidates/runnables/SSR/wire/guarded-route selection passed
+14/14 (`01a196e6-0795-7151-87db-f785fcf2c3be`). Earlier actual preparation, changed-input refusal,
+long-macro stop and sibling-session isolation controls passed 18/18
+(`01a19667-6ee6-76b1-887e-910fbf2aba8a`). The cross-target layout journey compared selected
+host8/i6864 layouts, nested enum and unsized-prefix facts with original compiler artifact
+`01a19648-70d5-73ff-a928-99d37b990d05`, including direct/consolidated answers and mismatches.
+The coordinator [Outcome](62-code-intelligence-capability-expansion.md#outcome) owns exact final
+commands, public journeys, failed-attempt corrections, static qualification and exclusions.
+
+A mistake corrected was associating inferred call information too broadly: matching now uses
+native function/type-parameter identities, with unrelated-name controls. Deliberately retained
+limits include conservative obligations, analyzer/compiler correspondence rather than inferred
+numerical equality, no unsafe native-ID persistence and no measured speed claim. Enduring
+contracts are in blueprint §21.7 and the CLI skill reference. No authorized delivery remains here;
+conditional future consumers and formal ADR acceptance remain separate.

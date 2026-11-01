@@ -9,7 +9,6 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
-| [62: Code-intelligence capability expansion](62-code-intelligence-capability-expansion.md) | Proposed native contexts/explanations, source investigations/previews, API/Cargo/validation evidence and selected compiler explanations. The coordinator owns O01–O13 dispositions, dependencies and assembled acceptance; four companions own package state. |
 | [60: Engineering code intelligence](60-engineering-code-intelligence.md) | Revised proposed consumer scope over Plan61 and ongoing Plan62: [evidence/composition](60a-evidence-contracts-and-query-composition.md), [native relationships/lifetimes](60b-native-relationships-and-lifetime-evidence.md), [API evidence](60c-library-api-and-compatibility-evidence.md), [change/document associations](60d-change-and-document-evidence.md), [validation/adoption](60e-validation-relevance-and-workflow-adoption.md), and [agent interaction/contract diagnostics](60f-agent-interaction-and-contract-diagnostics.md). The coordinator owns original and review-qualified dispositions; companions own execution state. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
@@ -18,8 +17,14 @@ resume stopped work or establish implementation, qualification or measured benef
 | [32: Workspace content lifecycle](32-workspace-content-lifecycle.md) | Document metadata, retention and native scope interpretation. |
 | [28: Unified simulation substrate](28-surrealdb-unified-substrate.md#current-checkpoint) | Canonical substrate and its independently authorized remaining work. |
 
+[Plan62: Code-intelligence capability expansion](62-code-intelligence-capability-expansion.md#outcome)
+is complete and retained as the highest-numbered series and support for subsequent intelligence
+consumers and proposed ADR-0233/0235. The coordinator owns O01–O13 dispositions and local Linux
+qualification, including corrected affected reruns and the operator-excluded copyright-header
+check. Its four companions retain completed package state and conditional revisit triggers.
+
 [Plan61: Code-intelligence foundations](61-code-intelligence-foundations.md#outcome) is complete
-and retained as the highest-numbered series and a foundation for Plan60 and proposed ADR-0235.
+and retained as a foundation for Plan60/62 and proposed ADR-0235.
 Its [schema/payload Outcome](61d-schema-payload-and-contract-investigation.md#outcome) and
 coordinator own implementation, assembled acceptance and evidence limits. Formal ADR acceptance
 and the independent plans below retain their own authority.

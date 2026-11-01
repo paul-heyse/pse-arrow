@@ -1695,15 +1695,34 @@ scientific permission. No NumPy product adapter is currently selected.
 
 > Decision: ADR-0233 (proposed Plan62 extension; operator-confirmed preparation/compiler target).
 
-The selected Plan62 target extends explicit native preparation to build-generated inputs and
-proc macros with qualified readiness and retained session/CPU ownership. Individual cancellation
-does not guarantee interruption of external macro I/O; original managed whole-session stop owns
-escalation and descendant settlement. A separately prepared optional compiler-analysis binary
-within the host isolates compiler-private linkage, consumes actual admitted root arguments,
-copies owned phase-qualified capture/suspension/cleanup observations and continues normal
-compilation. Publication requires successful original compilation and completed capture/settlement.
-Original artifacts remain separately inspectable. This paragraph records the target, not delivered
-Plan62 functionality or formal ADR acceptance; its coordinator owns implementation/qualification.
+Explicit native preparation supports build-generated inputs and proc macros with qualified
+readiness and retained session/CPU ownership. Build metadata errors and unavailable macro
+dylibs refuse preparation. The selected test context is explicit; it is not inferred from a
+test-looking source location. Retained compiler, macro-server, dylib and generated-input
+identities fence the loaded world. Individual cancellation does not guarantee interruption of
+external macro I/O; original managed whole-session stop owns escalation and descendant settlement.
+
+Native explanations preserve import/read/write/test roles, implicit operations, source versus
+stored capture types and ordered adjustments. Callable discovery keeps declaration signatures
+separate from actual call-site inference. Contextual substitutions, receiver/parameter/result
+types and supported obligations attach by native callable identity; hypothetical calls and
+unsupported lifetime/associated constraints remain unknown. `Holds`, `NotProven`, `Invalid`
+and `Unsupported` are distinct outcomes. Fallible full layouts require a supported Sized proof;
+an unsized prefix is separately labelled. Compiler-layout association checks original premises
+without manufacturing numerical equality or unique type correspondence.
+
+A separately prepared optional compiler-analysis binary within the host isolates compiler-private
+linkage and consumes actual admitted root arguments. The exact pinned compiler copies owned
+phase-qualified capture/suspension/cleanup observations and continues normal compilation.
+Supported function/closure/coroutine bodies use coordinated native query ordering; constant/CTFE
+bodies remain explicitly unavailable. Saved storage does not establish liveness or Send, native
+may-initialization does not establish loans or reachability, and static cleanup edges do not
+establish physical resource release. Actual ABI and unwind-termination cause remain qualified
+compiler observations. Wrapper images, versioned compiler libraries and their loader alias
+resolutions are checked before and after acquisition. Publication requires successful original
+compilation and completed capture/settlement. Passive reads select only acquired fact families,
+keep whole records indivisible, and address original artifacts/context separately. Plan62 owns
+the implementation's qualification; the proposed ADR's formal acceptance is unchanged.
 
 > Decision: [ADR-0235](../../adr/0235-code-intelligence-contract-foundation.md) (proposed;
 > operator-authorized Plan61 foundation and B/C/D realization; the scoped prospective review covers A02).
@@ -1742,7 +1761,11 @@ validation. Descriptor-backed text parsing preserves diagnostics and is distinct
 validation. Contract comparison distinguishes structural observations from native compatibility
 classifications and semantic equivalence. Generated-Rust associations derive from explicit emitted
 trait/accessor evidence qualified by source, generator configuration and output bytes; unresolved
-correspondence stays unresolved. These capabilities require no new daemon or mutable global pool.
+correspondence stays unresolved. Exact authored byte ranges come from native proto syntax nodes
+matched to compiled declaration identities during generation; passive navigation validates
+recorded ranges against their original bytes instead of interpreting generic descriptor columns.
+Missing, ambiguous or recovered syntax correspondence remains unavailable. These capabilities require no new daemon or mutable
+global pool.
 Generated lint qualification preserves source comments and restricts assertion permissions to
 exact pinned reflection functions and immutable metadata/self-encoding invariants; unknown
 assertion patterns refuse generation. Acquired-input decoding remains fallible.

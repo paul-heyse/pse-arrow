@@ -2,7 +2,7 @@
 title: "Plan61: Code-intelligence foundations"
 status: complete
 doc_retention: while-dependent
-doc_retention_reason: "Highest-numbered plan; Plan60 and proposed ADR-0235 consume its foundation and qualification evidence."
+doc_retention_reason: "Plan60/62 and proposed ADR-0235 consume its foundation and qualification evidence."
 date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/README.md

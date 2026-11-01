@@ -1,6 +1,8 @@
 ---
 title: "Plan62c: API, Cargo and validation evidence"
-status: proposed
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Companion to retained Plan62; API, Cargo and native runnable evidence supports subsequent consumers."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/62-code-intelligence-capability-expansion.md
@@ -44,10 +46,10 @@ shape this target; no scientific acceptance is inferred from code relationships.
 
 | Package | Status | Dependencies | Completion boundary |
 | --- | --- | --- | --- |
-| C01 | open | T01; T02 API slice; A02 for contextual refinement only | Rich structural contracts and context-qualified API refinement consumed publicly |
-| C02 | open | T01; T02 example slice | Authored/native transformed examples separately inspectable without execution claims |
-| C03 | open | T01; T02 package/unit/world slice | Connected explanations using existing package and actual unit owners |
-| C04 | open | A02 for semantic runnables; T02 relevance slice; C02/C03 only for their contributors | Qualified candidate relevance routed through existing validation owners |
+| C01 | complete | T01; T02 API slice; A02 for contextual refinement only | Rich schema61 structural contracts and native contextual refinement consumed publicly |
+| C02 | complete | T01; T02 example slice | Original/native format2 transformed examples separated; unselected scraped/Markdown modes retain triggers |
+| C03 | complete | T01; T02 package/unit/world slice | Real Cargo unit/feature/rename/host-target evidence joined with selected world; existing graph owners retained |
+| C04 | complete | A02 for semantic runnables; T02 relevance slice; C02/C03 only for their contributors | Qualified native runnable candidates use shared guarded current-checkout test-selection owner on both public surfaces |
 
 Dependencies refer to working slices, not whole documents. C01's structural work does not wait
 for A02; C04's ordinary runnables do not wait for native doctest extraction or all C03 comparisons.
@@ -175,6 +177,9 @@ metadata and stale historical witness rejected for current selection. See
 
 ## Verification and handoff
 
+The conditional research record below predates production completion. Its open/next-step
+statements are historical; the [Outcome](#outcome) owns the delivered boundary.
+
 ### Conditional acquisition and graph decisions — 2026-11-01
 
 **Interface-checked:** scraped API-use examples and standalone Markdown have distinct value and
@@ -230,3 +235,38 @@ package-to-unit-to-world and candidate-to-existing-selection journeys plus scope
 No implementation, extraction, semantic service, product test or benchmark was run to author
 this document. All packages are open; benefits remain unmeasured. Actual closure evidence and
 enduring contracts follow their owning coordinator and normal decision routes.
+
+## Outcome
+
+**Implemented:** schema61 contracts retain generics, HRTB/associated bounds, captures, attributes,
+stability and dyn compatibility without flattening them to display strings. Rustdoc format2
+preprocessing retains original examples separately from native transformed units, including
+hidden/wrapper context and explicit not-executed meaning. Actual Cargo plans retain renames,
+default-feature policy, host/target distinctions and metadata-only members; no modeled graph
+substitutes for actual selected compiler units. Library overview discovery now follows exact
+basenames recursively, including moved documentation and ambiguous duplicates without following
+symlinks or guessing matches from text.
+
+Native runnable discovery preserves Test/TestMod/Bench/DocTest/Bin, relatedness, cfg eligibility,
+actual target feature metadata and passive snapshot-update intent. Unavailable eligibility stays
+unknown. Analyzer argv is never execution authority: direct and consolidated consumers route
+only guarded current-checkout source through existing test selection. External-project and stale
+sources do not receive that action. The graph/acquisition alternatives above remain conditional
+with their recorded revisit triggers; they are assessed, not implemented.
+
+**Tested, local Linux, zero-failure target:** API controls passed 21/21
+(`01a1961f-f54c-70d8-bbdc-2ef3a723203f`); actual Cargo/compiler controls passed 3/3
+(`01a1969d-27c8-73c4-8248-44a282babbe5`); final schema/dependency/source-command controls passed
+32/32 (`01a196d2-4aff-7189-8d92-5ce40a3b80eb`). Final native-hir controls passed 14/14,
+including contextual candidates, runnables and route guards. An actual prepared current-checkout
+session routed native runnables through both direct and consolidated public inspection to
+successful guarded test-selection reads and then stopped completely; the coordinator
+[Outcome](62-code-intelligence-capability-expansion.md#outcome) owns original invocations and commands.
+
+A mistake corrected was gating external-project test routing at only one entry point; the common
+route now enforces the same project/source guard for both consumers. The outdated root-only
+overview assumption was removed rather than encoding the user's current directory arrangement.
+Deliberate limits retain unknown target ambiguity, candidate relevance distinct from execution/
+coverage, no claimed native-world/rustc equivalence, and no extra graph or scraper subsystem.
+Enduring contracts are in blueprint §21.7 and the CLI skill reference. No authorized delivery
+remains here; unselected conditional features are not a residual implementation backlog.

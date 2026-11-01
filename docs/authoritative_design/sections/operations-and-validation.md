@@ -1011,6 +1011,21 @@ The original typed reproducer and `OriginalFailureReproduced` meaning are unchan
 
 ### 24.2 Current qualification basis
 
+Plan62's extended native worlds, semantic explanations/contextual candidates, guarded source
+previews/origins, API/Cargo/runnable evidence and selected optional compiler facts have local
+Linux qualification. The [Plan62 Outcome](../../plans/62-code-intelligence-capability-expansion.md#outcome)
+owns actual commands, zero-failure targets and limits: initial 174/176 assembled controls had two
+defects corrected in a 32/32 affected rerun; final native-hir 14/14, generator 6/6 and actual
+compiler/Cargo 3/3 passed. Real current-checkout native test routing passed on both public surfaces,
+generated-field navigation returned authenticated authored bytes, and managed selected compiler
+acquisition/failure/replay controls passed. Workspace keep-going Clippy passed for default,
+no-default and native/compiler features; host powerset passed 4/4; final generation/governance
+passed. The copyright-header lint is operator-excluded, so the full hygiene aggregate is not
+claimed green. Conditional loans/index/export/scraped-example capabilities remain unselected;
+compiler facts are pinned, conservative observations rather than resource-liveness or numerical
+equivalence proofs. Proposed ADR status, scientific/reference, deployment and performance
+qualification remain separate.
+
 Plan61's generated contracts, typed source/API/native observations, authenticated local RPC
 and offline schema/payload/comparison workflows have local Linux qualification. The
 [Plan61 Outcome](../../plans/61-code-intelligence-foundations.md#outcome) owns the selected
@@ -1028,9 +1043,10 @@ native-analysis/API, original-compiler and actual native-agent consumer evidence
 corrections and exclusions; package tables retain their own acceptance. These developer-tooling
 checks establish neither new scientific results nor Plan58 H's deployment/reference/performance
 qualification. Actual native CLI use and the advisory endpoint are distinct from live UI hook
-trust/context injection, which remains unverified. Conditional compiler-private extraction,
-addressed native SSR capture search and unselected dependency/example acquisition retain their
-explicit unavailable capabilities and revisit decisions.
+trust/context injection, which remains unverified. Plan62 adds selected optional compiler-private
+facts and original-interval-scoped SSR previews; addressed native SSR capture inventory and
+unselected dependency/example acquisition retain their explicit unavailable capabilities and
+revisit decisions.
 
 The current native source cut implements the first-party callable Rust application and native
 host/developer owners described by ADR-0233. The retired Python product and generated frontend

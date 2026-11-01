@@ -1,6 +1,8 @@
 ---
 title: "Plan62b: Source investigations and transformations"
-status: proposed
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Companion to retained Plan62; exact origin and guarded transformation evidence supports subsequent consumers."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/62-code-intelligence-capability-expansion.md
@@ -138,12 +140,15 @@ Precisely mapped field/accessor selection reaches the exact authored field.
 
 | Package | Status | Dependencies | Completion boundary |
 | --- | --- | --- | --- |
-| B01 | open | T01; T02 source slice where needed | Interpreted source facts and explained relations used by inspection |
-| B02 | open | T01; existing native selector contracts | Consolidated demand-aware selection with migrated consumers/deletions |
-| B03 | open | B02; T02 proposal slice; selected native world for SSR | Guarded compound/native SSR previews and fidelity controls |
-| B04 | open | T01; existing descriptor/origin contracts | Typed association generator and exact authored field navigation |
+| B01 | complete | T01; T02 source slice where needed | Interpreted literal/doc/attribute facts, exact escape intervals and explained relationships exercised |
+| B02 | complete | T01; existing native selector contracts | One demand-aware selector and migrated consumers; exact/first/inventory and cancellation controls exercised |
+| B03 | complete | B02; T02 proposal slice; selected native world for SSR | Selected-node grammar previews and original-line-scoped native SSR with guards and CRLF/Unicode controls |
+| B04 | complete | T01; existing descriptor/origin contracts | Typed Syn recognition and descriptor-qualified native proto byte ranges; actual public field-to-authored-source expansion passed |
 
 ## Verification and handoff
+
+The annotation assessment below predates implementation. Its open/next-step statements are
+historical; the [Outcome](#outcome) owns the delivered boundary.
 
 ### B04 annotation assessment — 2026-11-01
 
@@ -171,3 +176,35 @@ two outputs of the same recognizer is insufficient. Q01 owns assembled source-to
 generated-field-to-proto journeys plus scope-end static checks. No new feature is implemented,
 tested or measured by publishing this plan. Persistent parsing, whole-grammar typed wrappers,
 embedded-language injection and automatic edit application are not completion prerequisites.
+
+## Outcome
+
+**Implemented:** interpreted source facts and structural relations feed shared demand-aware
+selection. Selected-node templates avoid scanning unrelated siblings; native SSR passes the
+selected original interval to the analyzer and returns the existing guarded proposal. Native
+edits remain previews and do not mutate sources.
+
+B04 uses typed Syn expressions/patterns for generated accessor/tag recognition and
+tree-sitter-proto0.6.0 for authored byte locations. Buf remains the sole semantic compiler and
+descriptor graph. The generator joins descriptor-qualified message path, actual field name and
+tag to native syntax, records its producer/profile and input hashes, and publishes exact ranges
+with normal generation. Runtime origin expansion authenticates those recorded ranges; it does
+not reconstruct columns. Ambiguity, recovery, unknown profiles and unsupported proto2 groups
+remain unavailable. Generated annotations are still unselected for the inspected producers.
+
+**Tested, local Linux, zero-failure target:** source controls passed 31/31
+(`01a1961f-fcf8-721d-a41b-319b3aca8455`), final affected schema/dependency/source-command controls
+32/32 (`01a196d2-4aff-7189-8d92-5ce40a3b80eb`), generator association controls 6/6
+(`01a196c0-2009-73b5-a847-0dc19ba02e6e`), and the final 14-case native population includes
+selected-line SSR with Unicode/CRLF and source-preservation assertions. Actual public origin
+`01a196c7-1c0b-778a-9229-7b260d671be7` expanded `NativeTestCandidate.snapshot_update` to
+`NativeSnapshotUpdate snapshot_update = 13;` through guarded original-source expansion
+`01a196c7-242e-7300-886e-8f51344ebc84`. The coordinator [Outcome](62-code-intelligence-capability-expansion.md#outcome)
+owns commands, generation/static checks and initial failures with corrected reruns.
+
+A mistake corrected was relying on descriptor column conventions for UTF-8 byte correspondence;
+native authored syntax eliminates version-dependent display-width reconstruction. A separate
+raw-identifier join now treats logical outline names as logical names, parsing only the actual
+Syn type where needed. Deliberately unselected are a second protobuf semantic compiler, generator
+annotation acquisition without a producer, whole-grammar wrappers and automatic edit application.
+Enduring contracts are in blueprint §21.7. No authorized delivery remains here.
