@@ -5,6 +5,9 @@ and its development tooling. Start with the [integrated system account](system-a
 and follow its six causes to the primary findings on the topic pages.
 
 ## Scoped Plan59 host-contract refresh — 2026-10-29
+ 
+The newer [Plan61 contract-foundation refresh](plan61-contract-foundation.md) inspects only
+the metadata/generation boundary at `580a5bd4f`; it does not refresh the system account.
 
 The [host-contract refresh](plan59-host-contracts.md) examines source `e1de22a03` plus the
 identified A07 wording corrections for invocation control, diagnostic projection, product

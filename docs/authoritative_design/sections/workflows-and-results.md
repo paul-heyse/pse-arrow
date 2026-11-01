@@ -1693,6 +1693,20 @@ scientific permission. No NumPy product adapter is currently selected.
 
 ### 21.7 First-party host and future foreign adapters
 
+> Decision: [ADR-0235](../../adr/0235-code-intelligence-contract-foundation.md) (proposed;
+> operator-authorized Plan61 A02 foundation, scoped prospective review).
+
+New code-intelligence wire meanings are authored in proto within the independent host;
+existing product-registry meanings remain derived and deliberate CLI presentation remains
+Serde/Schemars-owned. Explicit xtask generation compiles one schema input, checks required
+constraints and stages messages/views/validators/service bindings before publication. Invalid
+schemas or unsupported required lowering refuse before aggregate writes. Full descriptor
+metadata remains distinct from the stripped runtime pool; HIR/rustdoc/source identities retain
+their original world and artifact qualification. Generated validation must preserve CEL error
+and arithmetic semantics without treating evaluator defects as user violations. No ordinary
+read/launch starts a generator. This target adds no workspace crate or universal service;
+Plan61 B/C/D own live consumer migration and original custody/settlement acceptance.
+
 > Decision: ADR-0233 (proposed; operator-confirmed Plan59 A07 target).
 
 The agent CLI delegates scientific decoding, response schemas and interpretation to an explicitly
