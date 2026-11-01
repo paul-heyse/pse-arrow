@@ -1,0 +1,6 @@
+{
+  "git": {
+    "sha1": "fdb4edb90caf84e1dc941c3ca222382bb1344835"
+  },
+  "path_in_vcs": "crates/protoc-gen-protovalidate-buffa"
+}
