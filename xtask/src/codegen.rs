@@ -6,9 +6,9 @@
 #[cfg(feature = "physical-admission")]
 mod physical;
 
+mod code_intelligence;
 mod grpc_wire;
 mod ownership;
-mod plan61;
 mod private_store;
 
 #[cfg(feature = "native-abi")]
@@ -32,14 +32,15 @@ use crate::Target;
 const BINDINGS: &str = provenance::protocol::IPOPT_BINDINGS;
 
 pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
-    if only == Some(Target::Plan61) {
-        let tree = plan61::generate(root)?;
-        validate_tree(&tree)?;
-        return if check {
-            check_tree(root, &tree)
-        } else {
-            write_tree(root, &tree)
-        };
+    if only == Some(Target::CodeIntelligence) {
+        return stage_code_intelligence(root, code_intelligence::generate, |tree| {
+            validate_tree(&tree)?;
+            if check {
+                check_tree(root, &tree)
+            } else {
+                write_tree(root, &tree)
+            }
+        });
     }
     if only.is_none()
         && !(cfg!(feature = "physical-admission")
@@ -55,7 +56,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         Some(Target::Docs) => vec![Language::Markdown],
         Some(Target::Surreal) => vec![Language::Surreal],
         Some(Target::Bindgen) => return native_abi(root, check),
-        Some(Target::Schemas | Target::Physical | Target::Plan61) => Vec::new(),
+        Some(Target::Schemas | Target::Physical | Target::CodeIntelligence) => Vec::new(),
         None => Language::ALL.to_vec(),
     };
     if check {
@@ -64,6 +65,14 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     let source_registry = pse_schema::catalog::assemble()?;
     let registry = &source_registry;
     let mut trees = Vec::new();
+    // Preflight the complete code-intelligence corpus before any aggregate publication.
+    if only.is_none() {
+        stage_code_intelligence(root, code_intelligence::generate, |tree| {
+            validate_tree(&tree)?;
+            trees.push(("code-intelligence".into(), tree));
+            Ok(())
+        })?;
+    }
     for language in languages {
         let tree = language_tree(root, registry, language, only)?;
         let producer = format!("registry-{}", language.as_str());
@@ -93,10 +102,6 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         write_tree(root, tree)?;
     }
     if only.is_none() {
-        let tree = plan61::generate(root)?;
-        validate_tree(&tree)?;
-        write_tree(root, &tree)?;
-        trees.push(("plan61-qualification".into(), tree));
         native_abi(root, check)?;
         let tree = ownership::generate(root, &trees)?;
         validate_tree(&tree)?;
@@ -110,6 +115,17 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         trees.len()
     );
     Ok(())
+}
+
+// Both selected and aggregate routes cross this effect boundary only after successful
+// code-intelligence preparation. Aggregate consumption only stages, before any writers.
+fn stage_code_intelligence<T>(
+    root: &Path,
+    prepare: impl FnOnce(&Path) -> Result<GeneratedTree>,
+    consume: impl FnOnce(GeneratedTree) -> Result<T>,
+) -> Result<T> {
+    let tree = prepare(root)?;
+    consume(tree)
 }
 
 fn language_tree(
@@ -262,10 +278,10 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
         if failures.is_empty() {
             if let Some(tree) = check_result(
                 &mut failures,
-                "plan61 qualification",
-                plan61::generate(root),
+                "code-intelligence",
+                code_intelligence::generate(root),
             ) {
-                trees.push(("plan61-qualification".into(), tree));
+                trees.push(("code-intelligence".into(), tree));
             }
             if let Some(tree) = check_result(
                 &mut failures,

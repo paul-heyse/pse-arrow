@@ -3,7 +3,6 @@ package plan61.qualification.v1;
 import "buf/validate/validate.proto";
 import "google/protobuf/any.proto";
 import "google/protobuf/descriptor.proto";
-import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
 
 extend google.protobuf.MessageOptions { string qualification_note = 50001; }
@@ -22,27 +21,14 @@ message Payload {
   string context = 9;
   optional uint64 measured_count = 10;
 }
-message Request {
-  option (buf.validate.message).cel = { id: "query.limit" message: "a supplied limit must not exceed query length" expression: "!has(this.limit) || this.limit <= size(this.query)" };
-  string query = 1 [(buf.validate.field).string.min_len = 1];
-  optional int64 limit = 2 [(buf.validate.field).int64.gte = 1];
-}
-message CompileDefect {
-  option (buf.validate.message).cel = { id: "broken" message: "invalid rule" expression: "this." };
-}
-message EvaluationDefect {
-  option (buf.validate.message).cel = { id: "broken" message: "cannot evaluate" expression: "this.divisor.not_supported()" };
-  int64 divisor = 1;
-}
 message UnsafeDivision {
   option (buf.validate.message).cel = { id: "unsafe.division" message: "division must be positive" expression: "10 / this.divisor > 0" };
   int64 divisor = 1;
 }
-message Observation { string value = 1; uint64 sequence = 2; }
-message Terminal { bool completed = 1; bool cancelled = 2; }
-message Control { oneof action { Request start = 1; google.protobuf.Empty cancel = 2; } }
-message Event { oneof item { Observation observation = 1; Terminal terminal = 2; } }
-service Investigation {
-  rpc Inspect(Request) returns (Observation);
-  rpc Run(stream Control) returns (stream Event);
+message MaskedAll { option (buf.validate.message).cel = { id: "masked.all" message: "false dominates an element error" expression: "[0, 1].all(x, 10 / x == 0)" }; }
+message MaskedExists { option (buf.validate.message).cel = { id: "masked.exists" message: "true dominates an element error" expression: "[0, 1].exists(x, 10 / x == 10)" }; }
+message ErrorExistsOne { option (buf.validate.message).cel = { id: "error.exists_one" message: "exists_one retains errors" expression: "[0, 1].exists_one(x, 10 / x == 10)" }; }
+message RangeConstructionError {
+  option (buf.validate.message).cel = { id: "error.range" message: "range construction is not masked by a matching element" expression: "[1 / this.denom].exists(x, true)" };
+  int64 denom = 1;
 }

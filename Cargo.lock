@@ -13268,6 +13268,8 @@ dependencies = [
  "arrow-array",
  "arrow-schema",
  "bindgen 0.73.2",
+ "buffa",
+ "buffa-descriptor",
  "bytes",
  "cargo_metadata",
  "chrono",

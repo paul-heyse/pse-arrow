@@ -46,6 +46,7 @@ exclude = [
   "vendor/symbolica",
   "vendor/salsa",
   "vendor/ra-ap-ide-db",
+  "vendor/protoc-gen-protovalidate-buffa",
   "crates/pse-operations-queries",
   "crates/pse-catalog",
 ]

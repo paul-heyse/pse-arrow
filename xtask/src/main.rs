@@ -350,8 +350,8 @@ struct ProducerIdentityArgs {
 /// Committed generators and the contract bootstrap phase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum Target {
-    /// Test-only Plan61 protobuf composition corpus.
-    Plan61,
+    /// Code-intelligence contracts, validation and representation fixtures.
+    CodeIntelligence,
     /// `pse-schema` output: typed relation views.
     Relations,
     /// Rust registry contracts only, before rebuilding the ordinary package loader.

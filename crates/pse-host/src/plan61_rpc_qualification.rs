@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Qualification only: released transport plus real CPU ownership, without a HIR workspace.
-use crate::plan61_qualification::pb::plan61::qualification::v1 as pb;
-use crate::plan61_qualification::services as bindings;
+use crate::code_intelligence_contracts::pb::pse::code_intelligence::v1 as pb;
+use crate::code_intelligence_contracts::services as bindings;
+use buffa::MessageView as _;
 use connectrpc::{ConnectError, ServiceStream};
 use futures_util::StreamExt as _;
 use std::sync::{
@@ -26,7 +27,7 @@ impl bindings::Investigation for Implementation {
             Some(&rustix::process::geteuid().as_raw())
         );
         Ok(connectrpc::Response::new(pb::Observation {
-            value: request.view().query.to_string(),
+            value: request_name(&request.view().to_owned_message().unwrap()).to_owned(),
             sequence: 1,
             ..Default::default()
         }))
@@ -100,7 +101,7 @@ impl Session {
                         let _ = tx.send(Err(error.into_connect_error())).await;
                         return;
                     }
-                    request.query == "slow"
+                    request_name(&request) == "slow"
                 }
                 _ => {
                     let _ = tx
@@ -195,11 +196,33 @@ impl Drop for CancelOnDrop {
 
 fn start() -> pb::Control {
     pb::Control {
-        action: Some(pb::control::Action::Start(Box::new(pb::Request {
-            query: "source declaration".into(),
-            ..Default::default()
-        }))),
+        action: Some(pb::control::Action::Start(Box::new(request(
+            "source declaration",
+        )))),
         ..Default::default()
+    }
+}
+fn request(name: &str) -> pb::Request {
+    pb::Request {
+        predicate: pb::Predicate {
+            question: Some(pb::predicate::Question::Symbol(Box::new(pb::SymbolQuery {
+                name: name.into(),
+                ..Default::default()
+            }))),
+            ..Default::default()
+        }
+        .into(),
+        ..Default::default()
+    }
+}
+fn request_name(request: &pb::Request) -> &str {
+    match request
+        .predicate
+        .as_option()
+        .and_then(|p| p.question.as_ref())
+    {
+        Some(pb::predicate::Question::Symbol(symbol)) => &symbol.name,
+        _ => "",
     }
 }
 fn cancel() -> pb::Control {
@@ -360,13 +383,7 @@ async fn plan61_uds_kernel_authentication_precedes_handshake_on_each_connection(
     for _ in 0..2 {
         let connection = server.connection().await;
         let client = bindings::InvestigationClient::new(connection, config());
-        let result = client
-            .inspect(pb::Request {
-                query: "source declaration".into(),
-                ..Default::default()
-            })
-            .await
-            .unwrap();
+        let result = client.inspect(request("source declaration")).await.unwrap();
         assert_eq!(result.into_owned().value, "source declaration");
     }
     assert_eq!(server.connector.authentications.load(Ordering::SeqCst), 2);
@@ -474,10 +491,7 @@ async fn plan61_slow_output_cannot_hold_session_shutdown_after_cpu_return() {
     let (tx, requests) = controls();
     let _unpolled = session.run(requests);
     tx.send(Ok(pb::Control {
-        action: Some(pb::control::Action::Start(Box::new(pb::Request {
-            query: "slow".into(),
-            ..Default::default()
-        }))),
+        action: Some(pb::control::Action::Start(Box::new(request("slow")))),
         ..Default::default()
     }))
     .await

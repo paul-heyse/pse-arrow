@@ -9,98 +9,132 @@ pub(crate) mod pb;
 #[rustfmt::skip]
 #[allow(unused_qualifications, elided_lifetimes_in_paths, trivial_numeric_casts, unreachable_pub, reason = "Pinned validator generator emits explicit scalar casts and public packaging modules")]
 mod validation;
-#[rustfmt::skip]
-#[allow(unused_qualifications, elided_lifetimes_in_paths, trivial_numeric_casts, dead_code, unreachable_pub, missing_debug_implementations, reason = "Pinned RPC generator emits a complete public client/server surface; this test consumes selected operations")]
-pub(crate) mod services {
-    include!("generated/plan61/services/plan61.qualification.v1.mod.rs");
-}
-
-#[test]
-fn plan61_invalid_validator_rules_are_defects_not_user_violations() {
-    use pb::plan61::qualification::v1::{CompileDefect, EvaluationDefect};
-    use protovalidate_buffa::Validate as _;
-    let invalid_rule = CompileDefect::default().validate().unwrap_err();
-    // This release conflates parse/unsupported-rule defects into runtime_error.
-    // Production admission must preflight rules rather than infer phase from this slot.
-    assert!(invalid_rule.runtime_error.is_some());
-    assert!(invalid_rule.compile_error.is_none());
-    assert!(invalid_rule.violations.is_empty());
-    let failed_evaluation = EvaluationDefect::default().validate().unwrap_err();
-    assert!(failed_evaluation.runtime_error.is_some() || failed_evaluation.compile_error.is_some());
-    assert!(failed_evaluation.violations.is_empty());
-}
-
 #[test]
 fn plan61_generated_validation_checks_owned_and_eager_views() {
+    use crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::{
+        __buffa::view::LocationView, Location,
+    };
     use buffa::{Message as _, MessageView as _};
-    use pb::plan61::qualification::v1::{__buffa::view::RequestView, Request};
     use protovalidate_buffa::Validate as _;
-    let valid = Request {
-        query: "source declaration".into(),
-        limit: Some(5),
+    let valid = Location {
+        path: b"source.rs".to_vec(),
+        byte_start: Some(0),
+        byte_end: Some(5),
         ..Default::default()
     };
     assert!(valid.validate().is_ok());
     let bytes = valid.encode_to_vec();
-    let view = RequestView::decode_view(&bytes).unwrap();
-    assert!(view.validate().is_ok());
-    let invalid = Request {
-        query: String::new(),
-        limit: Some(0),
+    assert!(
+        LocationView::decode_view(&bytes)
+            .unwrap()
+            .validate()
+            .is_ok()
+    );
+    let invalid = Location {
+        byte_start: Some(10),
+        byte_end: Some(5),
         ..Default::default()
     };
     let error = invalid.validate().unwrap_err();
-    assert!(!error.violations.is_empty());
-    assert!(error.compile_error.is_none());
-    assert!(error.runtime_error.is_none());
+    assert!(
+        error
+            .violations
+            .iter()
+            .any(|violation| violation.rule_id == "location.range")
+    );
+    assert!(error.compile_error.is_none() && error.runtime_error.is_none());
     let bytes = invalid.encode_to_vec();
     assert!(
-        RequestView::decode_view(&bytes)
+        LocationView::decode_view(&bytes)
             .unwrap()
             .validate()
             .is_err()
     );
-    let cel_only = Request {
-        query: "x".into(),
-        limit: Some(2),
-        ..Default::default()
-    };
-    let errors = cel_only.validate().unwrap_err();
-    assert!(errors.violations.iter().any(|v| v.rule_id == "query.limit"));
-    assert!(errors.compile_error.is_none() && errors.runtime_error.is_none());
 }
 
 #[test]
 fn plan61_existing_truth_count_and_raw_path_keep_their_meaning() {
-    use crate::investigation::{Count, Truth};
+    use crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::{
+        Count, CountUnit, Location, PredicateFact, Truth, count::Precision,
+    };
+    use crate::investigation::{Count as NativeCount, Truth as NativeTruth};
     use buffa::Message as _;
-    use pb::plan61::qualification::v1::{Payload, Precision};
     use std::os::unix::ffi::{OsStrExt as _, OsStringExt as _};
-    let truth = Truth::Unknown.negate();
-    assert_eq!(truth, Truth::Unknown);
-    let count = Count::AtLeast(u64::MAX);
-    let native = std::path::PathBuf::from(std::ffi::OsString::from_vec(b"source-\xff.rs".to_vec()));
-    let mut message = Payload {
-        path: native.as_os_str().as_bytes().into(),
+    let native_truth = NativeTruth::Unknown.negate();
+    assert_eq!(native_truth, NativeTruth::Unknown);
+    let fact = PredicateFact {
+        truth: Truth::Unknown.into(),
         ..Default::default()
     };
-    if let Count::AtLeast(value) = count {
-        message.measured_count = Some(value);
-        message.precision = Precision::LowerBound.into();
-    }
-    let observed = Payload::decode_from_slice(&message.encode_to_vec()).unwrap();
-    assert_eq!(observed.measured_count, Some(u64::MAX));
-    assert_eq!(observed.precision, Precision::LowerBound);
-    assert_eq!(&observed.path[..], native.as_os_str().as_bytes());
+    assert_eq!(
+        PredicateFact::decode_from_slice(&fact.encode_to_vec())
+            .unwrap()
+            .truth,
+        Truth::Unknown
+    );
+    let native_count = NativeCount::AtLeast(u64::MAX);
+    let NativeCount::AtLeast(value) = native_count else {
+        unreachable!()
+    };
+    let count = Count {
+        precision: Some(Precision::LowerBound(value)),
+        unit: CountUnit::MatchUnit.into(),
+        ..Default::default()
+    };
+    assert_eq!(
+        Count::decode_from_slice(&count.encode_to_vec())
+            .unwrap()
+            .precision,
+        Some(Precision::LowerBound(u64::MAX))
+    );
+    let native = std::path::PathBuf::from(std::ffi::OsString::from_vec(b"source-\xff.rs".to_vec()));
+    let location = Location {
+        path: native.as_os_str().as_bytes().to_vec(),
+        ..Default::default()
+    };
+    assert_eq!(
+        Location::decode_from_slice(&location.encode_to_vec())
+            .unwrap()
+            .path
+            .as_slice(),
+        native.as_os_str().as_bytes()
+    );
 }
 
 #[test]
-fn plan61_known_validator_division_panic_is_not_safe_rule_support() {
+fn plan61_corrected_validator_division_reports_evaluation_error() {
     use pb::plan61::qualification::v1::UnsafeDivision;
     use protovalidate_buffa::Validate as _;
-    // The selected request contract does not admit numeric division. Preserve this
-    // release limitation as a negative qualification rather than assuming CEL parity.
-    assert!(std::panic::catch_unwind(|| UnsafeDivision::default().validate()).is_err());
+    let error = UnsafeDivision::default().validate().unwrap_err();
+    assert!(error.runtime_error.is_some());
+    assert!(error.compile_error.is_none());
+    assert!(error.violations.is_empty());
+}
+
+#[test]
+fn plan61_quantifier_errors_follow_cel_masking_rules() {
+    use pb::plan61::qualification::v1::{
+        ErrorExistsOne, MaskedAll, MaskedExists, RangeConstructionError,
+    };
+    use protovalidate_buffa::Validate as _;
+    let false_result = MaskedAll::default().validate().unwrap_err();
+    assert!(false_result.runtime_error.is_none());
+    assert_eq!(false_result.violations.len(), 1);
+    assert!(MaskedExists::default().validate().is_ok());
+    assert!(
+        ErrorExistsOne::default()
+            .validate()
+            .unwrap_err()
+            .runtime_error
+            .is_some()
+    );
+    assert!(
+        RangeConstructionError::default()
+            .validate()
+            .unwrap_err()
+            .runtime_error
+            .is_some()
+    );
 }
 
 #[test]

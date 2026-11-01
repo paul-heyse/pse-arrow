@@ -18,6 +18,8 @@ pub mod artifacts;
 pub mod boundary;
 pub mod catalog;
 pub mod cli;
+/// Generated wire declarations and validators; provider and settlement authority stays native.
+pub mod code_intelligence_contracts;
 pub mod compiler_investigation;
 pub mod correctness;
 pub mod dependency;

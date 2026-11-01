@@ -19,16 +19,6 @@ pub mod __buffa {
         #[allow(unused_imports)]
         use super::*;
         include!("plan61.qualification.v1.contract.__view.rs");
-        pub mod oneof {
-            #[allow(unused_imports)]
-            use super::*;
-            include!("plan61.qualification.v1.contract.__view_oneof.rs");
-        }
-    }
-    pub mod oneof {
-        #[allow(unused_imports)]
-        use super::*;
-        include!("plan61.qualification.v1.contract.__oneof.rs");
     }
     pub mod ext {
         #[allow(unused_imports)]
@@ -38,24 +28,18 @@ pub mod __buffa {
     /// Register this package's `Any` type entries and extension entries.
     pub fn register_types(reg: &mut ::buffa::type_registry::TypeRegistry) {
         reg.register_json_any(super::__PAYLOAD_JSON_ANY);
-        reg.register_json_any(super::__REQUEST_JSON_ANY);
-        reg.register_json_any(super::__COMPILE_DEFECT_JSON_ANY);
-        reg.register_json_any(super::__EVALUATION_DEFECT_JSON_ANY);
         reg.register_json_any(super::__UNSAFE_DIVISION_JSON_ANY);
-        reg.register_json_any(super::__OBSERVATION_JSON_ANY);
-        reg.register_json_any(super::__TERMINAL_JSON_ANY);
-        reg.register_json_any(super::__CONTROL_JSON_ANY);
-        reg.register_json_any(super::__EVENT_JSON_ANY);
+        reg.register_json_any(super::__MASKED_ALL_JSON_ANY);
+        reg.register_json_any(super::__MASKED_EXISTS_JSON_ANY);
+        reg.register_json_any(super::__ERROR_EXISTS_ONE_JSON_ANY);
+        reg.register_json_any(super::__RANGE_CONSTRUCTION_ERROR_JSON_ANY);
         reg.register_json_ext(super::__buffa::ext::__QUALIFICATION_NOTE_JSON_EXT);
         reg.register_text_any(super::__PAYLOAD_TEXT_ANY);
-        reg.register_text_any(super::__REQUEST_TEXT_ANY);
-        reg.register_text_any(super::__COMPILE_DEFECT_TEXT_ANY);
-        reg.register_text_any(super::__EVALUATION_DEFECT_TEXT_ANY);
         reg.register_text_any(super::__UNSAFE_DIVISION_TEXT_ANY);
-        reg.register_text_any(super::__OBSERVATION_TEXT_ANY);
-        reg.register_text_any(super::__TERMINAL_TEXT_ANY);
-        reg.register_text_any(super::__CONTROL_TEXT_ANY);
-        reg.register_text_any(super::__EVENT_TEXT_ANY);
+        reg.register_text_any(super::__MASKED_ALL_TEXT_ANY);
+        reg.register_text_any(super::__MASKED_EXISTS_TEXT_ANY);
+        reg.register_text_any(super::__ERROR_EXISTS_ONE_TEXT_ANY);
+        reg.register_text_any(super::__RANGE_CONSTRUCTION_ERROR_TEXT_ANY);
     }
     /// Reflection support: this package's view onto the crate-wide
     /// descriptor pool. In shared-pool mode the bytes and pool live once
@@ -94,37 +78,25 @@ pub use self::__buffa::view::PayloadView;
 #[doc(inline)]
 pub use self::__buffa::view::PayloadOwnedView;
 #[doc(inline)]
-pub use self::__buffa::view::RequestView;
-#[doc(inline)]
-pub use self::__buffa::view::RequestOwnedView;
-#[doc(inline)]
-pub use self::__buffa::view::CompileDefectView;
-#[doc(inline)]
-pub use self::__buffa::view::CompileDefectOwnedView;
-#[doc(inline)]
-pub use self::__buffa::view::EvaluationDefectView;
-#[doc(inline)]
-pub use self::__buffa::view::EvaluationDefectOwnedView;
-#[doc(inline)]
 pub use self::__buffa::view::UnsafeDivisionView;
 #[doc(inline)]
 pub use self::__buffa::view::UnsafeDivisionOwnedView;
 #[doc(inline)]
-pub use self::__buffa::view::ObservationView;
+pub use self::__buffa::view::MaskedAllView;
 #[doc(inline)]
-pub use self::__buffa::view::ObservationOwnedView;
+pub use self::__buffa::view::MaskedAllOwnedView;
 #[doc(inline)]
-pub use self::__buffa::view::TerminalView;
+pub use self::__buffa::view::MaskedExistsView;
 #[doc(inline)]
-pub use self::__buffa::view::TerminalOwnedView;
+pub use self::__buffa::view::MaskedExistsOwnedView;
 #[doc(inline)]
-pub use self::__buffa::view::ControlView;
+pub use self::__buffa::view::ErrorExistsOneView;
 #[doc(inline)]
-pub use self::__buffa::view::ControlOwnedView;
+pub use self::__buffa::view::ErrorExistsOneOwnedView;
 #[doc(inline)]
-pub use self::__buffa::view::EventView;
+pub use self::__buffa::view::RangeConstructionErrorView;
 #[doc(inline)]
-pub use self::__buffa::view::EventOwnedView;
+pub use self::__buffa::view::RangeConstructionErrorOwnedView;
 #[doc(inline)]
 pub use self::__buffa::ext::QUALIFICATION_NOTE;
 #[doc(inline)]

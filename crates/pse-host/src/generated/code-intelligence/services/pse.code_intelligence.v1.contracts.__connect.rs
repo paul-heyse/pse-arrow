@@ -1,31 +1,31 @@
 ///Shorthand for `OwnedView<RequestView<'static>>`.
 pub type OwnedRequestView = ::buffa::view::OwnedView<
-    crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::RequestView<
+    crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::RequestView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<ObservationView<'static>>`.
 pub type OwnedObservationView = ::buffa::view::OwnedView<
-    crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::ObservationView<
+    crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::ObservationView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<ControlView<'static>>`.
 pub type OwnedControlView = ::buffa::view::OwnedView<
-    crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::ControlView<
+    crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::ControlView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EventView<'static>>`.
 pub type OwnedEventView = ::buffa::view::OwnedView<
-    crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::EventView<
+    crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::EventView<
         'static,
     >,
 >;
 impl ::connectrpc::Encodable<
-    crate::plan61_qualification::pb::plan61::qualification::v1::Observation,
+    crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Observation,
 >
-for crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::ObservationView<
+for crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::ObservationView<
     '_,
 > {
     fn encode(
@@ -36,10 +36,10 @@ for crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::O
     }
 }
 impl ::connectrpc::Encodable<
-    crate::plan61_qualification::pb::plan61::qualification::v1::Observation,
+    crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Observation,
 >
 for ::buffa::view::OwnedView<
-    crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::ObservationView<
+    crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::ObservationView<
         'static,
     >,
 > {
@@ -65,9 +65,9 @@ for ::buffa::view::OwnedView<
     }
 }
 impl ::connectrpc::Encodable<
-    crate::plan61_qualification::pb::plan61::qualification::v1::Event,
+    crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Event,
 >
-for crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::EventView<
+for crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::EventView<
     '_,
 > {
     fn encode(
@@ -78,10 +78,10 @@ for crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::E
     }
 }
 impl ::connectrpc::Encodable<
-    crate::plan61_qualification::pb::plan61::qualification::v1::Event,
+    crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Event,
 >
 for ::buffa::view::OwnedView<
-    crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::EventView<
+    crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::EventView<
         'static,
     >,
 > {
@@ -107,16 +107,16 @@ for ::buffa::view::OwnedView<
     }
 }
 /// Full service name for this service.
-pub const INVESTIGATION_SERVICE_NAME: &str = "plan61.qualification.v1.Investigation";
+pub const INVESTIGATION_SERVICE_NAME: &str = "pse.code_intelligence.v1.Investigation";
 /// Static [`Spec`](::connectrpc::Spec) for the `Inspect` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
 pub const INVESTIGATION_INSPECT_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/plan61.qualification.v1.Investigation/Inspect",
+        "/pse.code_intelligence.v1.Investigation/Inspect",
         ::connectrpc::StreamType::Unary,
     )
     .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
 /// Static [`Spec`](::connectrpc::Spec) for the `Run` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
 pub const INVESTIGATION_RUN_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/plan61.qualification.v1.Investigation/Run",
+        "/pse.code_intelligence.v1.Investigation/Run",
         ::connectrpc::StreamType::BidiStream,
     )
     .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
@@ -185,12 +185,12 @@ pub trait Investigation: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::plan61_qualification::pb::plan61::qualification::v1::Request,
+            crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Request,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::plan61_qualification::pb::plan61::qualification::v1::Observation,
+                crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Observation,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -204,13 +204,13 @@ pub trait Investigation: Send + Sync + 'static {
         &self,
         ctx: ::connectrpc::RequestContext,
         requests: ::connectrpc::InboundStream<
-            crate::plan61_qualification::pb::plan61::qualification::v1::Control,
+            crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Control,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             ::connectrpc::ServiceStream<
                 impl ::connectrpc::Encodable<
-                    crate::plan61_qualification::pb::plan61::qualification::v1::Event,
+                    crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Event,
                 > + Send + use<Self>,
             >,
         >,
@@ -255,7 +255,7 @@ impl<S: Investigation> InvestigationExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::RequestView<
+                            crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::RequestView<
                                 'static,
                             >,
                         >,
@@ -264,12 +264,12 @@ impl<S: Investigation> InvestigationExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::plan61_qualification::pb::plan61::qualification::v1::Request,
+                                crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Request,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.inspect(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::plan61_qualification::pb::plan61::qualification::v1::Observation,
+                                    crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Observation,
                                 >(format)
                         }
                     })
@@ -279,7 +279,7 @@ impl<S: Investigation> InvestigationExt for S {
             .route_view_bidi_stream::<
                 _,
                 _,
-                crate::plan61_qualification::pb::plan61::qualification::v1::Event,
+                crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Event,
             >(
                 INVESTIGATION_SERVICE_NAME,
                 "Run",
@@ -289,7 +289,7 @@ impl<S: Investigation> InvestigationExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let req = ::connectrpc::dispatcher::codegen::into_stream_messages::<
-                                crate::plan61_qualification::pb::plan61::qualification::v1::Control,
+                                crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Control,
                             >(req);
                             svc.run(ctx, req).await
                         }
@@ -349,7 +349,7 @@ impl<T: Investigation> ::connectrpc::Dispatcher for InvestigationServer<T> {
         &self,
         path: &str,
     ) -> Option<::connectrpc::dispatcher::codegen::MethodDescriptor> {
-        let method = path.strip_prefix("plan61.qualification.v1.Investigation/")?;
+        let method = path.strip_prefix("pse.code_intelligence.v1.Investigation/")?;
         match method {
             "Inspect" => {
                 Some(
@@ -373,7 +373,7 @@ impl<T: Investigation> ::connectrpc::Dispatcher for InvestigationServer<T> {
         request: ::connectrpc::Payload,
         format: ::connectrpc::CodecFormat,
     ) -> ::connectrpc::dispatcher::codegen::UnaryResult {
-        let Some(method) = path.strip_prefix("plan61.qualification.v1.Investigation/")
+        let Some(method) = path.strip_prefix("pse.code_intelligence.v1.Investigation/")
         else {
             return ::connectrpc::dispatcher::codegen::unimplemented_unary(path);
         };
@@ -383,21 +383,21 @@ impl<T: Investigation> ::connectrpc::Dispatcher for InvestigationServer<T> {
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::plan61_qualification::pb::plan61::qualification::v1::Request,
+                        crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Request,
                     >(request.encoded()?, format)?;
-                    let req: crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::RequestView<
+                    let req: crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::RequestView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::plan61_qualification::pb::plan61::qualification::v1::Request,
+                        crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Request,
                     >::from_parts(&req, &body);
                     svc.inspect(ctx, req)
                         .await?
                         .encode::<
-                            crate::plan61_qualification::pb::plan61::qualification::v1::Observation,
+                            crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Observation,
                         >(format)
                 })
             }
@@ -411,7 +411,7 @@ impl<T: Investigation> ::connectrpc::Dispatcher for InvestigationServer<T> {
         request: ::buffa::bytes::Bytes,
         format: ::connectrpc::CodecFormat,
     ) -> ::connectrpc::dispatcher::codegen::StreamingResult {
-        let Some(method) = path.strip_prefix("plan61.qualification.v1.Investigation/")
+        let Some(method) = path.strip_prefix("pse.code_intelligence.v1.Investigation/")
         else {
             return ::connectrpc::dispatcher::codegen::unimplemented_streaming(path);
         };
@@ -427,7 +427,7 @@ impl<T: Investigation> ::connectrpc::Dispatcher for InvestigationServer<T> {
         requests: ::connectrpc::dispatcher::codegen::RequestStream,
         format: ::connectrpc::CodecFormat,
     ) -> ::connectrpc::dispatcher::codegen::UnaryResult {
-        let Some(method) = path.strip_prefix("plan61.qualification.v1.Investigation/")
+        let Some(method) = path.strip_prefix("pse.code_intelligence.v1.Investigation/")
         else {
             return ::connectrpc::dispatcher::codegen::unimplemented_unary(path);
         };
@@ -443,7 +443,7 @@ impl<T: Investigation> ::connectrpc::Dispatcher for InvestigationServer<T> {
         requests: ::connectrpc::dispatcher::codegen::RequestStream,
         format: ::connectrpc::CodecFormat,
     ) -> ::connectrpc::dispatcher::codegen::StreamingResult {
-        let Some(method) = path.strip_prefix("plan61.qualification.v1.Investigation/")
+        let Some(method) = path.strip_prefix("pse.code_intelligence.v1.Investigation/")
         else {
             return ::connectrpc::dispatcher::codegen::unimplemented_streaming(path);
         };
@@ -453,13 +453,13 @@ impl<T: Investigation> ::connectrpc::Dispatcher for InvestigationServer<T> {
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let req_stream = ::connectrpc::dispatcher::codegen::decode_message_request_stream::<
-                        crate::plan61_qualification::pb::plan61::qualification::v1::Control,
+                        crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Control,
                     >(requests, format, ctx.decode_options().clone());
                     let resp = svc.run(ctx, req_stream).await?;
                     Ok(
                         resp
                             .map_body(|s| ::connectrpc::dispatcher::codegen::encode_response_stream::<
-                                crate::plan61_qualification::pb::plan61::qualification::v1::Event,
+                                crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Event,
                                 _,
                                 _,
                             >(s, format)),
@@ -549,14 +549,14 @@ where
     pub fn config_mut(&mut self) -> &mut ::connectrpc::client::ClientConfig {
         &mut self.config
     }
-    /// Call the Inspect RPC. Sends a request to /plan61.qualification.v1.Investigation/Inspect.
+    /// Call the Inspect RPC. Sends a request to /pse.code_intelligence.v1.Investigation/Inspect.
     pub async fn inspect(
         &self,
-        request: crate::plan61_qualification::pb::plan61::qualification::v1::Request,
+        request: crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Request,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::ObservationView<
+                crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::ObservationView<
                     'static,
                 >,
             >,
@@ -569,12 +569,12 @@ where
     /// Call the Inspect RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn inspect_with_options(
         &self,
-        request: crate::plan61_qualification::pb::plan61::qualification::v1::Request,
+        request: crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Request,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::ObservationView<
+                crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::ObservationView<
                     'static,
                 >,
             >,
@@ -590,14 +590,14 @@ where
             )
             .await
     }
-    /// Call the Run RPC. Sends a request to /plan61.qualification.v1.Investigation/Run.
+    /// Call the Run RPC. Sends a request to /pse.code_intelligence.v1.Investigation/Run.
     pub async fn run(
         &self,
     ) -> Result<
         ::connectrpc::client::BidiStream<
             T::ResponseBody,
-            crate::plan61_qualification::pb::plan61::qualification::v1::Control,
-            crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::EventView<
+            crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Control,
+            crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::EventView<
                 'static,
             >,
         >,
@@ -612,8 +612,8 @@ where
     ) -> Result<
         ::connectrpc::client::BidiStream<
             T::ResponseBody,
-            crate::plan61_qualification::pb::plan61::qualification::v1::Control,
-            crate::plan61_qualification::pb::plan61::qualification::v1::__buffa::view::EventView<
+            crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Control,
+            crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::__buffa::view::EventView<
                 'static,
             >,
         >,

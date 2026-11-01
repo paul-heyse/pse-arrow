@@ -137,20 +137,24 @@ fn plan61_descriptor_closure_options_and_service_relationships() {
     assert_eq!(message.field_by_name("count").unwrap().number(), 1);
     assert!(pool.message_by_name("google.protobuf.Any").is_some());
     assert!(pool.message_by_name("google.protobuf.FieldMask").is_some());
-    let service = pool
-        .service_by_name("plan61.qualification.v1.Investigation")
+    let service_pool =
+        DescriptorPool::decode(crate::code_intelligence_contracts::DESCRIPTORS).unwrap();
+    let service = service_pool
+        .service_by_name("pse.code_intelligence.v1.Investigation")
         .unwrap();
     assert!(!service.methods().is_empty());
     for method in service.methods() {
         assert!(
-            pool.message(method.input())
+            service_pool
+                .message(method.input())
                 .full_name()
-                .starts_with("plan61.qualification.v1.")
+                .starts_with("pse.code_intelligence.v1.")
         );
         assert!(
-            pool.message(method.output())
+            service_pool
+                .message(method.output())
                 .full_name()
-                .starts_with("plan61.qualification.v1.")
+                .starts_with("pse.code_intelligence.v1.")
         );
     }
     let file = pool.file_containing_symbol(PAYLOAD).unwrap();

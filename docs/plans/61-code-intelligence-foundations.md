@@ -6,7 +6,7 @@ doc_role: plan
 doc_owner: docs/plans/README.md
 doc_topics: [current-work, design, libraries, diagnostics, validation]
 review_sources: [docs/functional_reviews/code-intelligence-protobuf-foundations-2026-10-31.md]
-adrs: []
+adrs: [ADR-0235]
 ---
 
 # Code-intelligence foundations
@@ -188,9 +188,17 @@ owns commands, evidence limits and the retained stack decision. [61c](61c-local-
 and [61d](61d-schema-payload-and-contract-investigation.md#investigation-findings--2026-10-31)
 retain transport/custody and descriptor/payload qualifications.
 
-Next is A02's governing decision/review readiness and production generation, including CEL
-preflight and safer generator lowering where required, followed by the small B01/D01 production
-reflection consumer. Malformed-CEL error classification and arithmetic panics are concrete
-qualification limits, not supported validation behavior. Full production consumers, original
-managed-custody/reconnect integration, hard cutover and Q01 assembled qualification remain open.
-No measured benefit or whole-product qualification follows from this test-only foundation.
+A02 is complete: ADR-0235 and the scoped review establish the production declaration route;
+host-local typed contracts, shared-input generation, full descriptors/origins and maintained
+CEL preflight/lowering are implemented. The [61a Outcome](61a-contracts-generation-and-validation.md#outcome)
+owns the current commands and limits: 22 host tests, six generator tests, 146 vendor library
+tests plus one CLI test, selected comparison and full normal generation passed. The earlier
+panic/misclassification observations remain A01 history, not current supported behavior.
+Unsupported dynamic numeric representations and oneof/WKT CEL emission refuse explicitly;
+no blanket CEL conformance is claimed.
+
+Next working scope is B01's real local typed-fact/projection consumer and C01's authenticated
+hosting/session ownership; D01 follows B01's projection slice. Full producer/caller migration,
+original managed-custody/reconnect integration, hard cutover and Q01 assembled qualification
+remain open. ADR-0235 remains proposed pending its governing PR. No measured benefit or
+whole-product qualification follows from the completed contract foundation.

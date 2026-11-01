@@ -904,767 +904,6 @@ pub const __PAYLOAD_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::ty
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
-pub struct Request {
-    /// Field 1: `query`
-    #[serde(
-        rename = "query",
-        with = "::buffa::json_helpers::proto_string",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
-    )]
-    pub query: ::buffa::alloc::string::String,
-    /// Field 2: `limit`
-    #[serde(
-        rename = "limit",
-        with = "::buffa::json_helpers::opt_int64",
-        skip_serializing_if = "::core::option::Option::is_none"
-    )]
-    pub limit: ::core::option::Option<i64>,
-    #[serde(skip)]
-    #[doc(hidden)]
-    pub __buffa_unknown_fields: ::buffa::UnknownFields,
-}
-impl ::core::fmt::Debug for Request {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-        f.debug_struct("Request")
-            .field("query", &self.query)
-            .field("limit", &self.limit)
-            .finish()
-    }
-}
-impl Request {
-    /// Protobuf type URL for this message, for use with `Any::pack` and
-    /// `Any::unpack_if`.
-    ///
-    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
-    pub const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.Request";
-}
-impl Request {
-    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
-    #[inline]
-    ///Sets [`Self::limit`] to `Some(value)`, consuming and returning `self`.
-    pub fn with_limit(mut self, value: i64) -> Self {
-        self.limit = Some(value);
-        self
-    }
-}
-::buffa::impl_default_instance!(Request);
-impl ::buffa_descriptor::reflect::ReflectMessage for Request {
-    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
-        __buffa::reflect::descriptor_pool()
-            .message(Self::__buffa_reflect_message_index())
-    }
-    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
-        __buffa::reflect::descriptor_pool()
-    }
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn get(
-        &self,
-        field: &::buffa_descriptor::FieldDescriptor,
-    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        match field.number() {
-            1u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.query),
-            2u32 => ::buffa_descriptor::reflect::ValueRef::I64(self.limit.unwrap_or(0)),
-            _ => {
-                ::core::debug_assert!(
-                    false,
-                    "field number {} is not a member of this message's reflect get()",
-                    field.number(),
-                );
-                ::buffa_descriptor::reflect::ValueRef::Bool(false)
-            }
-        }
-    }
-    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
-        match field.number() {
-            1u32 => !self.query.is_empty(),
-            2u32 => self.limit.is_some(),
-            _ => false,
-        }
-    }
-    fn for_each_set(
-        &self,
-        f: &mut dyn ::core::ops::FnMut(
-            &::buffa_descriptor::FieldDescriptor,
-            ::buffa_descriptor::reflect::ValueRef<'_>,
-        ),
-    ) {
-        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
-        for fd in md.fields() {
-            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
-                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
-            }
-        }
-    }
-    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
-        ::buffa_descriptor::reflect::DynamicMessage::from_message(
-            self,
-            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
-            Self::__buffa_reflect_message_index(),
-        )
-    }
-}
-impl ::buffa_descriptor::reflect::ReflectElement for Request {
-    #[inline]
-    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        ::buffa_descriptor::reflect::ValueRef::Message(
-            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
-        )
-    }
-}
-impl Request {
-    /// Memoized `MessageIndex` for this message type, resolved once
-    /// against the package's embedded descriptor pool.
-    #[doc(hidden)]
-    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
-        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
-        *IDX
-            .get_or_init(|| {
-                __buffa::reflect::descriptor_pool()
-                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
-                    .expect(
-                        "generated message is registered in the embedded descriptor pool",
-                    )
-            })
-    }
-}
-impl ::buffa_descriptor::reflect::Reflectable for Request {
-    /// Vtable-mode reflective handle: borrows `self` directly. No
-    /// encode/decode round-trip and no allocation — the reflective
-    /// accessors read this message's fields in place.
-    #[inline]
-    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
-        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
-    }
-}
-impl ::buffa::MessageName for Request {
-    const PACKAGE: &'static str = "plan61.qualification.v1";
-    const NAME: &'static str = "Request";
-    const FULL_NAME: &'static str = "plan61.qualification.v1.Request";
-    const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.Request";
-}
-impl ::buffa::Message for Request {
-    /// Returns the total encoded size in bytes.
-    ///
-    /// Accumulates in `u64` (which cannot overflow for in-memory
-    /// data) and saturates to `u32` at return, so a message whose
-    /// encoded size exceeds the 2 GiB protobuf limit yields a value
-    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
-    /// points reject, never a silently wrapped size.
-    #[allow(clippy::let_and_return)]
-    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        let mut size = 0u64;
-        if !self.query.is_empty() {
-            size += 1u64 + ::buffa::types::string_encoded_len(&self.query) as u64;
-        }
-        if let Some(v) = self.limit {
-            size += 1u64 + ::buffa::types::int64_encoded_len(v) as u64;
-        }
-        size += self.__buffa_unknown_fields.encoded_len() as u64;
-        ::buffa::saturate_size(size)
-    }
-    fn write_to(
-        &self,
-        _cache: &mut ::buffa::SizeCache,
-        buf: &mut impl ::buffa::EncodeSink,
-    ) {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        if !self.query.is_empty() {
-            ::buffa::types::put_string_field(1u32, &self.query, buf);
-        }
-        if let Some(v) = self.limit {
-            ::buffa::types::put_int64_field(2u32, v, buf);
-        }
-        self.__buffa_unknown_fields.write_to(buf);
-    }
-    fn merge_field(
-        &mut self,
-        tag: ::buffa::encoding::Tag,
-        buf: &mut impl ::buffa::bytes::Buf,
-        ctx: ::buffa::DecodeContext<'_>,
-    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
-        #[allow(unused_imports)]
-        use ::buffa::bytes::Buf as _;
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        match tag.field_number() {
-            1u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::types::merge_string(&mut self.query, buf)?;
-            }
-            2u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::Varint,
-                )?;
-                self.limit = ::core::option::Option::Some(
-                    ::buffa::types::decode_int64(buf)?,
-                );
-            }
-            _ => {
-                self.__buffa_unknown_fields
-                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-    fn clear(&mut self) {
-        self.query.clear();
-        self.limit = ::core::option::Option::None;
-        self.__buffa_unknown_fields.clear();
-    }
-}
-impl ::buffa::ExtensionSet for Request {
-    const PROTO_FQN: &'static str = "plan61.qualification.v1.Request";
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
-        &mut self.__buffa_unknown_fields
-    }
-}
-impl ::buffa::text::TextFormat for Request {
-    fn encode_text(
-        &self,
-        enc: &mut ::buffa::text::TextEncoder<'_>,
-    ) -> ::core::fmt::Result {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        if !self.query.is_empty() {
-            enc.write_field_name("query")?;
-            enc.write_string(&self.query)?;
-        }
-        if let ::core::option::Option::Some(ref __v) = self.limit {
-            enc.write_field_name("limit")?;
-            enc.write_i64(*__v)?;
-        }
-        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
-        ::core::result::Result::Ok(())
-    }
-    fn merge_text(
-        &mut self,
-        dec: &mut ::buffa::text::TextDecoder<'_>,
-    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
-            match __name {
-                "query" => self.query = dec.read_string()?.into_owned(),
-                "limit" => self.limit = ::core::option::Option::Some(dec.read_i64()?),
-                _ => dec.skip_value()?,
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-}
-impl ::buffa::json_helpers::ProtoElemJson for Request {
-    fn serialize_proto_json<S: ::serde::Serializer>(
-        v: &Self,
-        s: S,
-    ) -> ::core::result::Result<S::Ok, S::Error> {
-        ::serde::Serialize::serialize(v, s)
-    }
-    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
-        d: D,
-    ) -> ::core::result::Result<Self, D::Error> {
-        <Self as ::serde::Deserialize>::deserialize(d)
-    }
-}
-#[doc(hidden)]
-pub const __REQUEST_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.Request",
-    to_json: ::buffa::type_registry::any_to_json::<Request>,
-    from_json: ::buffa::type_registry::any_from_json::<Request>,
-    is_wkt: false,
-};
-#[doc(hidden)]
-pub const __REQUEST_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.Request",
-    text_encode: ::buffa::type_registry::any_encode_text::<Request>,
-    text_merge: ::buffa::type_registry::any_merge_text::<Request>,
-};
-#[derive(Clone, PartialEq, Default)]
-#[derive(::serde::Serialize, ::serde::Deserialize)]
-#[serde(default)]
-pub struct CompileDefect {
-    #[serde(skip)]
-    #[doc(hidden)]
-    pub __buffa_unknown_fields: ::buffa::UnknownFields,
-}
-impl ::core::fmt::Debug for CompileDefect {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-        f.debug_struct("CompileDefect").finish()
-    }
-}
-impl CompileDefect {
-    /// Protobuf type URL for this message, for use with `Any::pack` and
-    /// `Any::unpack_if`.
-    ///
-    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
-    pub const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.CompileDefect";
-}
-::buffa::impl_default_instance!(CompileDefect);
-impl ::buffa_descriptor::reflect::ReflectMessage for CompileDefect {
-    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
-        __buffa::reflect::descriptor_pool()
-            .message(Self::__buffa_reflect_message_index())
-    }
-    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
-        __buffa::reflect::descriptor_pool()
-    }
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn get(
-        &self,
-        field: &::buffa_descriptor::FieldDescriptor,
-    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        match field.number() {
-            _ => {
-                ::core::debug_assert!(
-                    false,
-                    "field number {} is not a member of this message's reflect get()",
-                    field.number(),
-                );
-                ::buffa_descriptor::reflect::ValueRef::Bool(false)
-            }
-        }
-    }
-    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
-        match field.number() {
-            _ => false,
-        }
-    }
-    fn for_each_set(
-        &self,
-        f: &mut dyn ::core::ops::FnMut(
-            &::buffa_descriptor::FieldDescriptor,
-            ::buffa_descriptor::reflect::ValueRef<'_>,
-        ),
-    ) {
-        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
-        for fd in md.fields() {
-            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
-                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
-            }
-        }
-    }
-    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
-        ::buffa_descriptor::reflect::DynamicMessage::from_message(
-            self,
-            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
-            Self::__buffa_reflect_message_index(),
-        )
-    }
-}
-impl ::buffa_descriptor::reflect::ReflectElement for CompileDefect {
-    #[inline]
-    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        ::buffa_descriptor::reflect::ValueRef::Message(
-            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
-        )
-    }
-}
-impl CompileDefect {
-    /// Memoized `MessageIndex` for this message type, resolved once
-    /// against the package's embedded descriptor pool.
-    #[doc(hidden)]
-    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
-        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
-        *IDX
-            .get_or_init(|| {
-                __buffa::reflect::descriptor_pool()
-                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
-                    .expect(
-                        "generated message is registered in the embedded descriptor pool",
-                    )
-            })
-    }
-}
-impl ::buffa_descriptor::reflect::Reflectable for CompileDefect {
-    /// Vtable-mode reflective handle: borrows `self` directly. No
-    /// encode/decode round-trip and no allocation — the reflective
-    /// accessors read this message's fields in place.
-    #[inline]
-    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
-        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
-    }
-}
-impl ::buffa::MessageName for CompileDefect {
-    const PACKAGE: &'static str = "plan61.qualification.v1";
-    const NAME: &'static str = "CompileDefect";
-    const FULL_NAME: &'static str = "plan61.qualification.v1.CompileDefect";
-    const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.CompileDefect";
-}
-impl ::buffa::Message for CompileDefect {
-    /// Returns the total encoded size in bytes.
-    ///
-    /// Accumulates in `u64` (which cannot overflow for in-memory
-    /// data) and saturates to `u32` at return, so a message whose
-    /// encoded size exceeds the 2 GiB protobuf limit yields a value
-    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
-    /// points reject, never a silently wrapped size.
-    #[allow(clippy::let_and_return)]
-    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        let mut size = 0u64;
-        size += self.__buffa_unknown_fields.encoded_len() as u64;
-        ::buffa::saturate_size(size)
-    }
-    fn write_to(
-        &self,
-        _cache: &mut ::buffa::SizeCache,
-        buf: &mut impl ::buffa::EncodeSink,
-    ) {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        self.__buffa_unknown_fields.write_to(buf);
-    }
-    fn merge_field(
-        &mut self,
-        tag: ::buffa::encoding::Tag,
-        buf: &mut impl ::buffa::bytes::Buf,
-        ctx: ::buffa::DecodeContext<'_>,
-    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
-        #[allow(unused_imports)]
-        use ::buffa::bytes::Buf as _;
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        match tag.field_number() {
-            _ => {
-                self.__buffa_unknown_fields
-                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-    fn clear(&mut self) {
-        self.__buffa_unknown_fields.clear();
-    }
-}
-impl ::buffa::ExtensionSet for CompileDefect {
-    const PROTO_FQN: &'static str = "plan61.qualification.v1.CompileDefect";
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
-        &mut self.__buffa_unknown_fields
-    }
-}
-impl ::buffa::text::TextFormat for CompileDefect {
-    fn encode_text(
-        &self,
-        enc: &mut ::buffa::text::TextEncoder<'_>,
-    ) -> ::core::fmt::Result {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
-        ::core::result::Result::Ok(())
-    }
-    fn merge_text(
-        &mut self,
-        dec: &mut ::buffa::text::TextDecoder<'_>,
-    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
-            match __name {
-                _ => dec.skip_value()?,
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-}
-impl ::buffa::json_helpers::ProtoElemJson for CompileDefect {
-    fn serialize_proto_json<S: ::serde::Serializer>(
-        v: &Self,
-        s: S,
-    ) -> ::core::result::Result<S::Ok, S::Error> {
-        ::serde::Serialize::serialize(v, s)
-    }
-    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
-        d: D,
-    ) -> ::core::result::Result<Self, D::Error> {
-        <Self as ::serde::Deserialize>::deserialize(d)
-    }
-}
-#[doc(hidden)]
-pub const __COMPILE_DEFECT_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.CompileDefect",
-    to_json: ::buffa::type_registry::any_to_json::<CompileDefect>,
-    from_json: ::buffa::type_registry::any_from_json::<CompileDefect>,
-    is_wkt: false,
-};
-#[doc(hidden)]
-pub const __COMPILE_DEFECT_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.CompileDefect",
-    text_encode: ::buffa::type_registry::any_encode_text::<CompileDefect>,
-    text_merge: ::buffa::type_registry::any_merge_text::<CompileDefect>,
-};
-#[derive(Clone, PartialEq, Default)]
-#[derive(::serde::Serialize, ::serde::Deserialize)]
-#[serde(default)]
-pub struct EvaluationDefect {
-    /// Field 1: `divisor`
-    #[serde(
-        rename = "divisor",
-        with = "::buffa::json_helpers::int64",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_i64"
-    )]
-    pub divisor: i64,
-    #[serde(skip)]
-    #[doc(hidden)]
-    pub __buffa_unknown_fields: ::buffa::UnknownFields,
-}
-impl ::core::fmt::Debug for EvaluationDefect {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-        f.debug_struct("EvaluationDefect").field("divisor", &self.divisor).finish()
-    }
-}
-impl EvaluationDefect {
-    /// Protobuf type URL for this message, for use with `Any::pack` and
-    /// `Any::unpack_if`.
-    ///
-    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
-    pub const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.EvaluationDefect";
-}
-::buffa::impl_default_instance!(EvaluationDefect);
-impl ::buffa_descriptor::reflect::ReflectMessage for EvaluationDefect {
-    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
-        __buffa::reflect::descriptor_pool()
-            .message(Self::__buffa_reflect_message_index())
-    }
-    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
-        __buffa::reflect::descriptor_pool()
-    }
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn get(
-        &self,
-        field: &::buffa_descriptor::FieldDescriptor,
-    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        match field.number() {
-            1u32 => ::buffa_descriptor::reflect::ValueRef::I64(self.divisor),
-            _ => {
-                ::core::debug_assert!(
-                    false,
-                    "field number {} is not a member of this message's reflect get()",
-                    field.number(),
-                );
-                ::buffa_descriptor::reflect::ValueRef::Bool(false)
-            }
-        }
-    }
-    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
-        match field.number() {
-            1u32 => self.divisor != 0,
-            _ => false,
-        }
-    }
-    fn for_each_set(
-        &self,
-        f: &mut dyn ::core::ops::FnMut(
-            &::buffa_descriptor::FieldDescriptor,
-            ::buffa_descriptor::reflect::ValueRef<'_>,
-        ),
-    ) {
-        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
-        for fd in md.fields() {
-            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
-                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
-            }
-        }
-    }
-    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
-        ::buffa_descriptor::reflect::DynamicMessage::from_message(
-            self,
-            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
-            Self::__buffa_reflect_message_index(),
-        )
-    }
-}
-impl ::buffa_descriptor::reflect::ReflectElement for EvaluationDefect {
-    #[inline]
-    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        ::buffa_descriptor::reflect::ValueRef::Message(
-            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
-        )
-    }
-}
-impl EvaluationDefect {
-    /// Memoized `MessageIndex` for this message type, resolved once
-    /// against the package's embedded descriptor pool.
-    #[doc(hidden)]
-    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
-        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
-        *IDX
-            .get_or_init(|| {
-                __buffa::reflect::descriptor_pool()
-                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
-                    .expect(
-                        "generated message is registered in the embedded descriptor pool",
-                    )
-            })
-    }
-}
-impl ::buffa_descriptor::reflect::Reflectable for EvaluationDefect {
-    /// Vtable-mode reflective handle: borrows `self` directly. No
-    /// encode/decode round-trip and no allocation — the reflective
-    /// accessors read this message's fields in place.
-    #[inline]
-    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
-        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
-    }
-}
-impl ::buffa::MessageName for EvaluationDefect {
-    const PACKAGE: &'static str = "plan61.qualification.v1";
-    const NAME: &'static str = "EvaluationDefect";
-    const FULL_NAME: &'static str = "plan61.qualification.v1.EvaluationDefect";
-    const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.EvaluationDefect";
-}
-impl ::buffa::Message for EvaluationDefect {
-    /// Returns the total encoded size in bytes.
-    ///
-    /// Accumulates in `u64` (which cannot overflow for in-memory
-    /// data) and saturates to `u32` at return, so a message whose
-    /// encoded size exceeds the 2 GiB protobuf limit yields a value
-    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
-    /// points reject, never a silently wrapped size.
-    #[allow(clippy::let_and_return)]
-    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        let mut size = 0u64;
-        if self.divisor != 0i64 {
-            size += 1u64 + ::buffa::types::int64_encoded_len(self.divisor) as u64;
-        }
-        size += self.__buffa_unknown_fields.encoded_len() as u64;
-        ::buffa::saturate_size(size)
-    }
-    fn write_to(
-        &self,
-        _cache: &mut ::buffa::SizeCache,
-        buf: &mut impl ::buffa::EncodeSink,
-    ) {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        if self.divisor != 0i64 {
-            ::buffa::types::put_int64_field(1u32, self.divisor, buf);
-        }
-        self.__buffa_unknown_fields.write_to(buf);
-    }
-    fn merge_field(
-        &mut self,
-        tag: ::buffa::encoding::Tag,
-        buf: &mut impl ::buffa::bytes::Buf,
-        ctx: ::buffa::DecodeContext<'_>,
-    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
-        #[allow(unused_imports)]
-        use ::buffa::bytes::Buf as _;
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        match tag.field_number() {
-            1u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::Varint,
-                )?;
-                self.divisor = ::buffa::types::decode_int64(buf)?;
-            }
-            _ => {
-                self.__buffa_unknown_fields
-                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-    fn clear(&mut self) {
-        self.divisor = 0i64;
-        self.__buffa_unknown_fields.clear();
-    }
-}
-impl ::buffa::ExtensionSet for EvaluationDefect {
-    const PROTO_FQN: &'static str = "plan61.qualification.v1.EvaluationDefect";
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
-        &mut self.__buffa_unknown_fields
-    }
-}
-impl ::buffa::text::TextFormat for EvaluationDefect {
-    fn encode_text(
-        &self,
-        enc: &mut ::buffa::text::TextEncoder<'_>,
-    ) -> ::core::fmt::Result {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        if self.divisor != 0i64 {
-            enc.write_field_name("divisor")?;
-            enc.write_i64(self.divisor)?;
-        }
-        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
-        ::core::result::Result::Ok(())
-    }
-    fn merge_text(
-        &mut self,
-        dec: &mut ::buffa::text::TextDecoder<'_>,
-    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
-            match __name {
-                "divisor" => self.divisor = dec.read_i64()?,
-                _ => dec.skip_value()?,
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-}
-impl ::buffa::json_helpers::ProtoElemJson for EvaluationDefect {
-    fn serialize_proto_json<S: ::serde::Serializer>(
-        v: &Self,
-        s: S,
-    ) -> ::core::result::Result<S::Ok, S::Error> {
-        ::serde::Serialize::serialize(v, s)
-    }
-    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
-        d: D,
-    ) -> ::core::result::Result<Self, D::Error> {
-        <Self as ::serde::Deserialize>::deserialize(d)
-    }
-}
-#[doc(hidden)]
-pub const __EVALUATION_DEFECT_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.EvaluationDefect",
-    to_json: ::buffa::type_registry::any_to_json::<EvaluationDefect>,
-    from_json: ::buffa::type_registry::any_from_json::<EvaluationDefect>,
-    is_wkt: false,
-};
-#[doc(hidden)]
-pub const __EVALUATION_DEFECT_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.EvaluationDefect",
-    text_encode: ::buffa::type_registry::any_encode_text::<EvaluationDefect>,
-    text_merge: ::buffa::type_registry::any_merge_text::<EvaluationDefect>,
-};
-#[derive(Clone, PartialEq, Default)]
-#[derive(::serde::Serialize, ::serde::Deserialize)]
-#[serde(default)]
 pub struct UnsafeDivision {
     /// Field 1: `divisor`
     #[serde(
@@ -1914,42 +1153,25 @@ pub const __UNSAFE_DIVISION_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::b
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
-pub struct Observation {
-    /// Field 1: `value`
-    #[serde(
-        rename = "value",
-        with = "::buffa::json_helpers::proto_string",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
-    )]
-    pub value: ::buffa::alloc::string::String,
-    /// Field 2: `sequence`
-    #[serde(
-        rename = "sequence",
-        with = "::buffa::json_helpers::uint64",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
-    )]
-    pub sequence: u64,
+pub struct MaskedAll {
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
 }
-impl ::core::fmt::Debug for Observation {
+impl ::core::fmt::Debug for MaskedAll {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-        f.debug_struct("Observation")
-            .field("value", &self.value)
-            .field("sequence", &self.sequence)
-            .finish()
+        f.debug_struct("MaskedAll").finish()
     }
 }
-impl Observation {
+impl MaskedAll {
     /// Protobuf type URL for this message, for use with `Any::pack` and
     /// `Any::unpack_if`.
     ///
     /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
-    pub const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.Observation";
+    pub const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.MaskedAll";
 }
-::buffa::impl_default_instance!(Observation);
-impl ::buffa_descriptor::reflect::ReflectMessage for Observation {
+::buffa::impl_default_instance!(MaskedAll);
+impl ::buffa_descriptor::reflect::ReflectMessage for MaskedAll {
     fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
         __buffa::reflect::descriptor_pool()
             .message(Self::__buffa_reflect_message_index())
@@ -1967,8 +1189,6 @@ impl ::buffa_descriptor::reflect::ReflectMessage for Observation {
         #[allow(unused_imports)]
         use ::buffa::Enumeration as _;
         match field.number() {
-            1u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.value),
-            2u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.sequence),
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -1981,8 +1201,6 @@ impl ::buffa_descriptor::reflect::ReflectMessage for Observation {
     }
     fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
         match field.number() {
-            1u32 => !self.value.is_empty(),
-            2u32 => self.sequence != 0,
             _ => false,
         }
     }
@@ -2008,7 +1226,7 @@ impl ::buffa_descriptor::reflect::ReflectMessage for Observation {
         )
     }
 }
-impl ::buffa_descriptor::reflect::ReflectElement for Observation {
+impl ::buffa_descriptor::reflect::ReflectElement for MaskedAll {
     #[inline]
     fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
         ::buffa_descriptor::reflect::ValueRef::Message(
@@ -2016,7 +1234,7 @@ impl ::buffa_descriptor::reflect::ReflectElement for Observation {
         )
     }
 }
-impl Observation {
+impl MaskedAll {
     /// Memoized `MessageIndex` for this message type, resolved once
     /// against the package's embedded descriptor pool.
     #[doc(hidden)]
@@ -2032,7 +1250,7 @@ impl Observation {
             })
     }
 }
-impl ::buffa_descriptor::reflect::Reflectable for Observation {
+impl ::buffa_descriptor::reflect::Reflectable for MaskedAll {
     /// Vtable-mode reflective handle: borrows `self` directly. No
     /// encode/decode round-trip and no allocation — the reflective
     /// accessors read this message's fields in place.
@@ -2041,13 +1259,13 @@ impl ::buffa_descriptor::reflect::Reflectable for Observation {
         ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
     }
 }
-impl ::buffa::MessageName for Observation {
+impl ::buffa::MessageName for MaskedAll {
     const PACKAGE: &'static str = "plan61.qualification.v1";
-    const NAME: &'static str = "Observation";
-    const FULL_NAME: &'static str = "plan61.qualification.v1.Observation";
-    const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.Observation";
+    const NAME: &'static str = "MaskedAll";
+    const FULL_NAME: &'static str = "plan61.qualification.v1.MaskedAll";
+    const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.MaskedAll";
 }
-impl ::buffa::Message for Observation {
+impl ::buffa::Message for MaskedAll {
     /// Returns the total encoded size in bytes.
     ///
     /// Accumulates in `u64` (which cannot overflow for in-memory
@@ -2060,12 +1278,6 @@ impl ::buffa::Message for Observation {
         #[allow(unused_imports)]
         use ::buffa::Enumeration as _;
         let mut size = 0u64;
-        if !self.value.is_empty() {
-            size += 1u64 + ::buffa::types::string_encoded_len(&self.value) as u64;
-        }
-        if self.sequence != 0u64 {
-            size += 1u64 + ::buffa::types::uint64_encoded_len(self.sequence) as u64;
-        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -2076,12 +1288,6 @@ impl ::buffa::Message for Observation {
     ) {
         #[allow(unused_imports)]
         use ::buffa::Enumeration as _;
-        if !self.value.is_empty() {
-            ::buffa::types::put_string_field(1u32, &self.value, buf);
-        }
-        if self.sequence != 0u64 {
-            ::buffa::types::put_uint64_field(2u32, self.sequence, buf);
-        }
         self.__buffa_unknown_fields.write_to(buf);
     }
     fn merge_field(
@@ -2095,20 +1301,6 @@ impl ::buffa::Message for Observation {
         #[allow(unused_imports)]
         use ::buffa::Enumeration as _;
         match tag.field_number() {
-            1u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::types::merge_string(&mut self.value, buf)?;
-            }
-            2u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::Varint,
-                )?;
-                self.sequence = ::buffa::types::decode_uint64(buf)?;
-            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -2117,13 +1309,11 @@ impl ::buffa::Message for Observation {
         ::core::result::Result::Ok(())
     }
     fn clear(&mut self) {
-        self.value.clear();
-        self.sequence = 0u64;
         self.__buffa_unknown_fields.clear();
     }
 }
-impl ::buffa::ExtensionSet for Observation {
-    const PROTO_FQN: &'static str = "plan61.qualification.v1.Observation";
+impl ::buffa::ExtensionSet for MaskedAll {
+    const PROTO_FQN: &'static str = "plan61.qualification.v1.MaskedAll";
     fn unknown_fields(&self) -> &::buffa::UnknownFields {
         &self.__buffa_unknown_fields
     }
@@ -2131,21 +1321,13 @@ impl ::buffa::ExtensionSet for Observation {
         &mut self.__buffa_unknown_fields
     }
 }
-impl ::buffa::text::TextFormat for Observation {
+impl ::buffa::text::TextFormat for MaskedAll {
     fn encode_text(
         &self,
         enc: &mut ::buffa::text::TextEncoder<'_>,
     ) -> ::core::fmt::Result {
         #[allow(unused_imports)]
         use ::buffa::Enumeration as _;
-        if !self.value.is_empty() {
-            enc.write_field_name("value")?;
-            enc.write_string(&self.value)?;
-        }
-        if self.sequence != 0u64 {
-            enc.write_field_name("sequence")?;
-            enc.write_u64(self.sequence)?;
-        }
         enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
         ::core::result::Result::Ok(())
     }
@@ -2157,15 +1339,13 @@ impl ::buffa::text::TextFormat for Observation {
         use ::buffa::Enumeration as _;
         while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
             match __name {
-                "value" => self.value = dec.read_string()?.into_owned(),
-                "sequence" => self.sequence = dec.read_u64()?,
                 _ => dec.skip_value()?,
             }
         }
         ::core::result::Result::Ok(())
     }
 }
-impl ::buffa::json_helpers::ProtoElemJson for Observation {
+impl ::buffa::json_helpers::ProtoElemJson for MaskedAll {
     fn serialize_proto_json<S: ::serde::Serializer>(
         v: &Self,
         s: S,
@@ -2179,57 +1359,40 @@ impl ::buffa::json_helpers::ProtoElemJson for Observation {
     }
 }
 #[doc(hidden)]
-pub const __OBSERVATION_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.Observation",
-    to_json: ::buffa::type_registry::any_to_json::<Observation>,
-    from_json: ::buffa::type_registry::any_from_json::<Observation>,
+pub const __MASKED_ALL_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/plan61.qualification.v1.MaskedAll",
+    to_json: ::buffa::type_registry::any_to_json::<MaskedAll>,
+    from_json: ::buffa::type_registry::any_from_json::<MaskedAll>,
     is_wkt: false,
 };
 #[doc(hidden)]
-pub const __OBSERVATION_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.Observation",
-    text_encode: ::buffa::type_registry::any_encode_text::<Observation>,
-    text_merge: ::buffa::type_registry::any_merge_text::<Observation>,
+pub const __MASKED_ALL_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/plan61.qualification.v1.MaskedAll",
+    text_encode: ::buffa::type_registry::any_encode_text::<MaskedAll>,
+    text_merge: ::buffa::type_registry::any_merge_text::<MaskedAll>,
 };
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
-pub struct Terminal {
-    /// Field 1: `completed`
-    #[serde(
-        rename = "completed",
-        with = "::buffa::json_helpers::proto_bool",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
-    )]
-    pub completed: bool,
-    /// Field 2: `cancelled`
-    #[serde(
-        rename = "cancelled",
-        with = "::buffa::json_helpers::proto_bool",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
-    )]
-    pub cancelled: bool,
+pub struct MaskedExists {
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
 }
-impl ::core::fmt::Debug for Terminal {
+impl ::core::fmt::Debug for MaskedExists {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-        f.debug_struct("Terminal")
-            .field("completed", &self.completed)
-            .field("cancelled", &self.cancelled)
-            .finish()
+        f.debug_struct("MaskedExists").finish()
     }
 }
-impl Terminal {
+impl MaskedExists {
     /// Protobuf type URL for this message, for use with `Any::pack` and
     /// `Any::unpack_if`.
     ///
     /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
-    pub const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.Terminal";
+    pub const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.MaskedExists";
 }
-::buffa::impl_default_instance!(Terminal);
-impl ::buffa_descriptor::reflect::ReflectMessage for Terminal {
+::buffa::impl_default_instance!(MaskedExists);
+impl ::buffa_descriptor::reflect::ReflectMessage for MaskedExists {
     fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
         __buffa::reflect::descriptor_pool()
             .message(Self::__buffa_reflect_message_index())
@@ -2247,8 +1410,6 @@ impl ::buffa_descriptor::reflect::ReflectMessage for Terminal {
         #[allow(unused_imports)]
         use ::buffa::Enumeration as _;
         match field.number() {
-            1u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.completed),
-            2u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.cancelled),
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -2261,8 +1422,6 @@ impl ::buffa_descriptor::reflect::ReflectMessage for Terminal {
     }
     fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
         match field.number() {
-            1u32 => self.completed,
-            2u32 => self.cancelled,
             _ => false,
         }
     }
@@ -2288,7 +1447,7 @@ impl ::buffa_descriptor::reflect::ReflectMessage for Terminal {
         )
     }
 }
-impl ::buffa_descriptor::reflect::ReflectElement for Terminal {
+impl ::buffa_descriptor::reflect::ReflectElement for MaskedExists {
     #[inline]
     fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
         ::buffa_descriptor::reflect::ValueRef::Message(
@@ -2296,7 +1455,7 @@ impl ::buffa_descriptor::reflect::ReflectElement for Terminal {
         )
     }
 }
-impl Terminal {
+impl MaskedExists {
     /// Memoized `MessageIndex` for this message type, resolved once
     /// against the package's embedded descriptor pool.
     #[doc(hidden)]
@@ -2312,7 +1471,7 @@ impl Terminal {
             })
     }
 }
-impl ::buffa_descriptor::reflect::Reflectable for Terminal {
+impl ::buffa_descriptor::reflect::Reflectable for MaskedExists {
     /// Vtable-mode reflective handle: borrows `self` directly. No
     /// encode/decode round-trip and no allocation — the reflective
     /// accessors read this message's fields in place.
@@ -2321,13 +1480,13 @@ impl ::buffa_descriptor::reflect::Reflectable for Terminal {
         ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
     }
 }
-impl ::buffa::MessageName for Terminal {
+impl ::buffa::MessageName for MaskedExists {
     const PACKAGE: &'static str = "plan61.qualification.v1";
-    const NAME: &'static str = "Terminal";
-    const FULL_NAME: &'static str = "plan61.qualification.v1.Terminal";
-    const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.Terminal";
+    const NAME: &'static str = "MaskedExists";
+    const FULL_NAME: &'static str = "plan61.qualification.v1.MaskedExists";
+    const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.MaskedExists";
 }
-impl ::buffa::Message for Terminal {
+impl ::buffa::Message for MaskedExists {
     /// Returns the total encoded size in bytes.
     ///
     /// Accumulates in `u64` (which cannot overflow for in-memory
@@ -2340,11 +1499,459 @@ impl ::buffa::Message for Terminal {
         #[allow(unused_imports)]
         use ::buffa::Enumeration as _;
         let mut size = 0u64;
-        if self.completed {
-            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
         }
-        if self.cancelled {
-            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for MaskedExists {
+    const PROTO_FQN: &'static str = "plan61.qualification.v1.MaskedExists";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for MaskedExists {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for MaskedExists {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __MASKED_EXISTS_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/plan61.qualification.v1.MaskedExists",
+    to_json: ::buffa::type_registry::any_to_json::<MaskedExists>,
+    from_json: ::buffa::type_registry::any_from_json::<MaskedExists>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __MASKED_EXISTS_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/plan61.qualification.v1.MaskedExists",
+    text_encode: ::buffa::type_registry::any_encode_text::<MaskedExists>,
+    text_merge: ::buffa::type_registry::any_merge_text::<MaskedExists>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct ErrorExistsOne {
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for ErrorExistsOne {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("ErrorExistsOne").finish()
+    }
+}
+impl ErrorExistsOne {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.ErrorExistsOne";
+}
+::buffa::impl_default_instance!(ErrorExistsOne);
+impl ::buffa_descriptor::reflect::ReflectMessage for ErrorExistsOne {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for ErrorExistsOne {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl ErrorExistsOne {
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for ErrorExistsOne {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for ErrorExistsOne {
+    const PACKAGE: &'static str = "plan61.qualification.v1";
+    const NAME: &'static str = "ErrorExistsOne";
+    const FULL_NAME: &'static str = "plan61.qualification.v1.ErrorExistsOne";
+    const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.ErrorExistsOne";
+}
+impl ::buffa::Message for ErrorExistsOne {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for ErrorExistsOne {
+    const PROTO_FQN: &'static str = "plan61.qualification.v1.ErrorExistsOne";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for ErrorExistsOne {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for ErrorExistsOne {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __ERROR_EXISTS_ONE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/plan61.qualification.v1.ErrorExistsOne",
+    to_json: ::buffa::type_registry::any_to_json::<ErrorExistsOne>,
+    from_json: ::buffa::type_registry::any_from_json::<ErrorExistsOne>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __ERROR_EXISTS_ONE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/plan61.qualification.v1.ErrorExistsOne",
+    text_encode: ::buffa::type_registry::any_encode_text::<ErrorExistsOne>,
+    text_merge: ::buffa::type_registry::any_merge_text::<ErrorExistsOne>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct RangeConstructionError {
+    /// Field 1: `denom`
+    #[serde(
+        rename = "denom",
+        with = "::buffa::json_helpers::int64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_i64"
+    )]
+    pub denom: i64,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for RangeConstructionError {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("RangeConstructionError").field("denom", &self.denom).finish()
+    }
+}
+impl RangeConstructionError {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.RangeConstructionError";
+}
+::buffa::impl_default_instance!(RangeConstructionError);
+impl ::buffa_descriptor::reflect::ReflectMessage for RangeConstructionError {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::I64(self.denom),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.denom != 0,
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for RangeConstructionError {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl RangeConstructionError {
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for RangeConstructionError {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for RangeConstructionError {
+    const PACKAGE: &'static str = "plan61.qualification.v1";
+    const NAME: &'static str = "RangeConstructionError";
+    const FULL_NAME: &'static str = "plan61.qualification.v1.RangeConstructionError";
+    const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.RangeConstructionError";
+}
+impl ::buffa::Message for RangeConstructionError {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.denom != 0i64 {
+            size += 1u64 + ::buffa::types::int64_encoded_len(self.denom) as u64;
         }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
@@ -2356,11 +1963,8 @@ impl ::buffa::Message for Terminal {
     ) {
         #[allow(unused_imports)]
         use ::buffa::Enumeration as _;
-        if self.completed {
-            ::buffa::types::put_bool_field(1u32, self.completed, buf);
-        }
-        if self.cancelled {
-            ::buffa::types::put_bool_field(2u32, self.cancelled, buf);
+        if self.denom != 0i64 {
+            ::buffa::types::put_int64_field(1u32, self.denom, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -2380,14 +1984,7 @@ impl ::buffa::Message for Terminal {
                     tag,
                     ::buffa::encoding::WireType::Varint,
                 )?;
-                self.completed = ::buffa::types::decode_bool(buf)?;
-            }
-            2u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::Varint,
-                )?;
-                self.cancelled = ::buffa::types::decode_bool(buf)?;
+                self.denom = ::buffa::types::decode_int64(buf)?;
             }
             _ => {
                 self.__buffa_unknown_fields
@@ -2397,13 +1994,12 @@ impl ::buffa::Message for Terminal {
         ::core::result::Result::Ok(())
     }
     fn clear(&mut self) {
-        self.completed = false;
-        self.cancelled = false;
+        self.denom = 0i64;
         self.__buffa_unknown_fields.clear();
     }
 }
-impl ::buffa::ExtensionSet for Terminal {
-    const PROTO_FQN: &'static str = "plan61.qualification.v1.Terminal";
+impl ::buffa::ExtensionSet for RangeConstructionError {
+    const PROTO_FQN: &'static str = "plan61.qualification.v1.RangeConstructionError";
     fn unknown_fields(&self) -> &::buffa::UnknownFields {
         &self.__buffa_unknown_fields
     }
@@ -2411,20 +2007,16 @@ impl ::buffa::ExtensionSet for Terminal {
         &mut self.__buffa_unknown_fields
     }
 }
-impl ::buffa::text::TextFormat for Terminal {
+impl ::buffa::text::TextFormat for RangeConstructionError {
     fn encode_text(
         &self,
         enc: &mut ::buffa::text::TextEncoder<'_>,
     ) -> ::core::fmt::Result {
         #[allow(unused_imports)]
         use ::buffa::Enumeration as _;
-        if self.completed {
-            enc.write_field_name("completed")?;
-            enc.write_bool(self.completed)?;
-        }
-        if self.cancelled {
-            enc.write_field_name("cancelled")?;
-            enc.write_bool(self.cancelled)?;
+        if self.denom != 0i64 {
+            enc.write_field_name("denom")?;
+            enc.write_i64(self.denom)?;
         }
         enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
         ::core::result::Result::Ok(())
@@ -2437,15 +2029,14 @@ impl ::buffa::text::TextFormat for Terminal {
         use ::buffa::Enumeration as _;
         while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
             match __name {
-                "completed" => self.completed = dec.read_bool()?,
-                "cancelled" => self.cancelled = dec.read_bool()?,
+                "denom" => self.denom = dec.read_i64()?,
                 _ => dec.skip_value()?,
             }
         }
         ::core::result::Result::Ok(())
     }
 }
-impl ::buffa::json_helpers::ProtoElemJson for Terminal {
+impl ::buffa::json_helpers::ProtoElemJson for RangeConstructionError {
     fn serialize_proto_json<S: ::serde::Serializer>(
         v: &Self,
         s: S,
@@ -2459,993 +2050,15 @@ impl ::buffa::json_helpers::ProtoElemJson for Terminal {
     }
 }
 #[doc(hidden)]
-pub const __TERMINAL_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.Terminal",
-    to_json: ::buffa::type_registry::any_to_json::<Terminal>,
-    from_json: ::buffa::type_registry::any_from_json::<Terminal>,
+pub const __RANGE_CONSTRUCTION_ERROR_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/plan61.qualification.v1.RangeConstructionError",
+    to_json: ::buffa::type_registry::any_to_json::<RangeConstructionError>,
+    from_json: ::buffa::type_registry::any_from_json::<RangeConstructionError>,
     is_wkt: false,
 };
 #[doc(hidden)]
-pub const __TERMINAL_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.Terminal",
-    text_encode: ::buffa::type_registry::any_encode_text::<Terminal>,
-    text_merge: ::buffa::type_registry::any_merge_text::<Terminal>,
+pub const __RANGE_CONSTRUCTION_ERROR_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/plan61.qualification.v1.RangeConstructionError",
+    text_encode: ::buffa::type_registry::any_encode_text::<RangeConstructionError>,
+    text_merge: ::buffa::type_registry::any_merge_text::<RangeConstructionError>,
 };
-#[derive(Clone, PartialEq, Default)]
-#[derive(::serde::Serialize)]
-#[serde(default)]
-pub struct Control {
-    #[serde(flatten)]
-    pub action: ::core::option::Option<__buffa::oneof::control::Action>,
-    #[serde(skip)]
-    #[doc(hidden)]
-    pub __buffa_unknown_fields: ::buffa::UnknownFields,
-}
-impl ::core::fmt::Debug for Control {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-        f.debug_struct("Control").field("action", &self.action).finish()
-    }
-}
-impl Control {
-    /// Protobuf type URL for this message, for use with `Any::pack` and
-    /// `Any::unpack_if`.
-    ///
-    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
-    pub const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.Control";
-}
-::buffa::impl_default_instance!(Control);
-impl ::buffa_descriptor::reflect::ReflectMessage for Control {
-    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
-        __buffa::reflect::descriptor_pool()
-            .message(Self::__buffa_reflect_message_index())
-    }
-    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
-        __buffa::reflect::descriptor_pool()
-    }
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn get(
-        &self,
-        field: &::buffa_descriptor::FieldDescriptor,
-    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        match field.number() {
-            1u32 => {
-                match &self.action {
-                    ::core::option::Option::Some(
-                        __buffa::oneof::control::Action::Start(v),
-                    ) => {
-                        ::buffa_descriptor::reflect::ValueRef::Message(
-                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
-                        )
-                    }
-                    _ => {
-                        ::buffa_descriptor::reflect::ValueRef::Message(
-                            ::buffa_descriptor::reflect::Reflectable::reflect(
-                                <Request as ::buffa::DefaultInstance>::default_instance(),
-                            ),
-                        )
-                    }
-                }
-            }
-            2u32 => {
-                match &self.action {
-                    ::core::option::Option::Some(
-                        __buffa::oneof::control::Action::Cancel(v),
-                    ) => {
-                        ::buffa_descriptor::reflect::ValueRef::Message(
-                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
-                        )
-                    }
-                    _ => {
-                        ::buffa_descriptor::reflect::ValueRef::Message(
-                            ::buffa_descriptor::reflect::Reflectable::reflect(
-                                <::buffa_types::google::protobuf::Empty as ::buffa::DefaultInstance>::default_instance(),
-                            ),
-                        )
-                    }
-                }
-            }
-            _ => {
-                ::core::debug_assert!(
-                    false,
-                    "field number {} is not a member of this message's reflect get()",
-                    field.number(),
-                );
-                ::buffa_descriptor::reflect::ValueRef::Bool(false)
-            }
-        }
-    }
-    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
-        match field.number() {
-            1u32 => {
-                ::core::matches!(
-                    & self.action,
-                    ::core::option::Option::Some(__buffa::oneof::control::Action::Start(_))
-                )
-            }
-            2u32 => {
-                ::core::matches!(
-                    & self.action,
-                    ::core::option::Option::Some(__buffa::oneof::control::Action::Cancel(_))
-                )
-            }
-            _ => false,
-        }
-    }
-    fn for_each_set(
-        &self,
-        f: &mut dyn ::core::ops::FnMut(
-            &::buffa_descriptor::FieldDescriptor,
-            ::buffa_descriptor::reflect::ValueRef<'_>,
-        ),
-    ) {
-        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
-        for fd in md.fields() {
-            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
-                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
-            }
-        }
-    }
-    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
-        ::buffa_descriptor::reflect::DynamicMessage::from_message(
-            self,
-            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
-            Self::__buffa_reflect_message_index(),
-        )
-    }
-}
-impl ::buffa_descriptor::reflect::ReflectElement for Control {
-    #[inline]
-    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        ::buffa_descriptor::reflect::ValueRef::Message(
-            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
-        )
-    }
-}
-impl Control {
-    /// Memoized `MessageIndex` for this message type, resolved once
-    /// against the package's embedded descriptor pool.
-    #[doc(hidden)]
-    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
-        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
-        *IDX
-            .get_or_init(|| {
-                __buffa::reflect::descriptor_pool()
-                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
-                    .expect(
-                        "generated message is registered in the embedded descriptor pool",
-                    )
-            })
-    }
-}
-impl ::buffa_descriptor::reflect::Reflectable for Control {
-    /// Vtable-mode reflective handle: borrows `self` directly. No
-    /// encode/decode round-trip and no allocation — the reflective
-    /// accessors read this message's fields in place.
-    #[inline]
-    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
-        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
-    }
-}
-impl ::buffa::MessageName for Control {
-    const PACKAGE: &'static str = "plan61.qualification.v1";
-    const NAME: &'static str = "Control";
-    const FULL_NAME: &'static str = "plan61.qualification.v1.Control";
-    const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.Control";
-}
-impl ::buffa::Message for Control {
-    /// Returns the total encoded size in bytes.
-    ///
-    /// Accumulates in `u64` (which cannot overflow for in-memory
-    /// data) and saturates to `u32` at return, so a message whose
-    /// encoded size exceeds the 2 GiB protobuf limit yields a value
-    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
-    /// points reject, never a silently wrapped size.
-    #[allow(clippy::let_and_return)]
-    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        let mut size = 0u64;
-        if let ::core::option::Option::Some(ref v) = self.action {
-            match v {
-                __buffa::oneof::control::Action::Start(x) => {
-                    let __slot = __cache.reserve();
-                    let inner = x.compute_size(__cache);
-                    __cache.set(__slot, inner);
-                    size
-                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
-                            + inner as u64;
-                }
-                __buffa::oneof::control::Action::Cancel(x) => {
-                    let __slot = __cache.reserve();
-                    let inner = x.compute_size(__cache);
-                    __cache.set(__slot, inner);
-                    size
-                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
-                            + inner as u64;
-                }
-            }
-        }
-        size += self.__buffa_unknown_fields.encoded_len() as u64;
-        ::buffa::saturate_size(size)
-    }
-    fn write_to(
-        &self,
-        __cache: &mut ::buffa::SizeCache,
-        buf: &mut impl ::buffa::EncodeSink,
-    ) {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        if let ::core::option::Option::Some(ref v) = self.action {
-            match v {
-                __buffa::oneof::control::Action::Start(x) => {
-                    ::buffa::types::put_len_delimited_header(
-                        1u32,
-                        u64::from(__cache.consume_next()),
-                        buf,
-                    );
-                    x.write_to(__cache, buf);
-                }
-                __buffa::oneof::control::Action::Cancel(x) => {
-                    ::buffa::types::put_len_delimited_header(
-                        2u32,
-                        u64::from(__cache.consume_next()),
-                        buf,
-                    );
-                    x.write_to(__cache, buf);
-                }
-            }
-        }
-        self.__buffa_unknown_fields.write_to(buf);
-    }
-    fn merge_field(
-        &mut self,
-        tag: ::buffa::encoding::Tag,
-        buf: &mut impl ::buffa::bytes::Buf,
-        ctx: ::buffa::DecodeContext<'_>,
-    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
-        #[allow(unused_imports)]
-        use ::buffa::bytes::Buf as _;
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        match tag.field_number() {
-            1u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                if let ::core::option::Option::Some(
-                    __buffa::oneof::control::Action::Start(ref mut existing),
-                ) = self.action
-                {
-                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
-                } else {
-                    let mut val = ::core::default::Default::default();
-                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
-                    self.action = ::core::option::Option::Some(
-                        __buffa::oneof::control::Action::Start(
-                            ::buffa::alloc::boxed::Box::new(val),
-                        ),
-                    );
-                }
-            }
-            2u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                if let ::core::option::Option::Some(
-                    __buffa::oneof::control::Action::Cancel(ref mut existing),
-                ) = self.action
-                {
-                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
-                } else {
-                    let mut val = ::core::default::Default::default();
-                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
-                    self.action = ::core::option::Option::Some(
-                        __buffa::oneof::control::Action::Cancel(
-                            ::buffa::alloc::boxed::Box::new(val),
-                        ),
-                    );
-                }
-            }
-            _ => {
-                self.__buffa_unknown_fields
-                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-    fn clear(&mut self) {
-        self.action = ::core::option::Option::None;
-        self.__buffa_unknown_fields.clear();
-    }
-}
-impl ::buffa::ExtensionSet for Control {
-    const PROTO_FQN: &'static str = "plan61.qualification.v1.Control";
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
-        &mut self.__buffa_unknown_fields
-    }
-}
-impl ::buffa::text::TextFormat for Control {
-    fn encode_text(
-        &self,
-        enc: &mut ::buffa::text::TextEncoder<'_>,
-    ) -> ::core::fmt::Result {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        if let ::core::option::Option::Some(ref __v) = self.action {
-            match __v {
-                __buffa::oneof::control::Action::Start(__v) => {
-                    enc.write_field_name("start")?;
-                    enc.write_message(&**__v)?;
-                }
-                __buffa::oneof::control::Action::Cancel(__v) => {
-                    enc.write_field_name("cancel")?;
-                    enc.write_message(&**__v)?;
-                }
-            }
-        }
-        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
-        ::core::result::Result::Ok(())
-    }
-    fn merge_text(
-        &mut self,
-        dec: &mut ::buffa::text::TextDecoder<'_>,
-    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
-            match __name {
-                "start" => {
-                    if let ::core::option::Option::Some(
-                        __buffa::oneof::control::Action::Start(ref mut __existing),
-                    ) = self.action
-                    {
-                        dec.merge_message(&mut **__existing)?;
-                    } else {
-                        let mut __m = ::core::default::Default::default();
-                        dec.merge_message(&mut __m)?;
-                        self.action = ::core::option::Option::Some(
-                            __buffa::oneof::control::Action::Start(
-                                ::buffa::alloc::boxed::Box::new(__m),
-                            ),
-                        );
-                    }
-                }
-                "cancel" => {
-                    if let ::core::option::Option::Some(
-                        __buffa::oneof::control::Action::Cancel(ref mut __existing),
-                    ) = self.action
-                    {
-                        dec.merge_message(&mut **__existing)?;
-                    } else {
-                        let mut __m = ::core::default::Default::default();
-                        dec.merge_message(&mut __m)?;
-                        self.action = ::core::option::Option::Some(
-                            __buffa::oneof::control::Action::Cancel(
-                                ::buffa::alloc::boxed::Box::new(__m),
-                            ),
-                        );
-                    }
-                }
-                _ => dec.skip_value()?,
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-}
-impl<'de> ::serde::Deserialize<'de> for Control {
-    fn deserialize<D: ::serde::Deserializer<'de>>(
-        d: D,
-    ) -> ::core::result::Result<Self, D::Error> {
-        struct _V;
-        impl<'de> ::serde::de::Visitor<'de> for _V {
-            type Value = Control;
-            fn expecting(
-                &self,
-                f: &mut ::core::fmt::Formatter<'_>,
-            ) -> ::core::fmt::Result {
-                f.write_str("struct Control")
-            }
-            #[allow(clippy::field_reassign_with_default)]
-            fn visit_map<A: ::serde::de::MapAccess<'de>>(
-                self,
-                mut map: A,
-            ) -> ::core::result::Result<Control, A::Error> {
-                let mut __oneof_action: ::core::option::Option<
-                    __buffa::oneof::control::Action,
-                > = None;
-                while let Some(key) = map.next_key::<::buffa::alloc::string::String>()? {
-                    match key.as_str() {
-                        "start" => {
-                            let v: ::core::option::Option<Request> = map
-                                .next_value_seed(
-                                    ::buffa::json_helpers::NullableDeserializeSeed(
-                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
-                                            Request,
-                                        >::new(),
-                                    ),
-                                )?;
-                            if let Some(v) = v {
-                                if __oneof_action.is_some() {
-                                    return Err(
-                                        ::serde::de::Error::custom(
-                                            "multiple oneof fields set for 'action'",
-                                        ),
-                                    );
-                                }
-                                __oneof_action = Some(
-                                    __buffa::oneof::control::Action::Start(
-                                        ::buffa::alloc::boxed::Box::new(v),
-                                    ),
-                                );
-                            }
-                        }
-                        "cancel" => {
-                            let v: ::core::option::Option<
-                                ::buffa_types::google::protobuf::Empty,
-                            > = map
-                                .next_value_seed(
-                                    ::buffa::json_helpers::NullableDeserializeSeed(
-                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
-                                            ::buffa_types::google::protobuf::Empty,
-                                        >::new(),
-                                    ),
-                                )?;
-                            if let Some(v) = v {
-                                if __oneof_action.is_some() {
-                                    return Err(
-                                        ::serde::de::Error::custom(
-                                            "multiple oneof fields set for 'action'",
-                                        ),
-                                    );
-                                }
-                                __oneof_action = Some(
-                                    __buffa::oneof::control::Action::Cancel(
-                                        ::buffa::alloc::boxed::Box::new(v),
-                                    ),
-                                );
-                            }
-                        }
-                        _ => {
-                            map.next_value::<::serde::de::IgnoredAny>()?;
-                        }
-                    }
-                }
-                let mut __r = <Control as ::core::default::Default>::default();
-                __r.action = __oneof_action;
-                Ok(__r)
-            }
-        }
-        d.deserialize_map(_V)
-    }
-}
-impl ::buffa::json_helpers::ProtoElemJson for Control {
-    fn serialize_proto_json<S: ::serde::Serializer>(
-        v: &Self,
-        s: S,
-    ) -> ::core::result::Result<S::Ok, S::Error> {
-        ::serde::Serialize::serialize(v, s)
-    }
-    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
-        d: D,
-    ) -> ::core::result::Result<Self, D::Error> {
-        <Self as ::serde::Deserialize>::deserialize(d)
-    }
-}
-#[doc(hidden)]
-pub const __CONTROL_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.Control",
-    to_json: ::buffa::type_registry::any_to_json::<Control>,
-    from_json: ::buffa::type_registry::any_from_json::<Control>,
-    is_wkt: false,
-};
-#[doc(hidden)]
-pub const __CONTROL_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.Control",
-    text_encode: ::buffa::type_registry::any_encode_text::<Control>,
-    text_merge: ::buffa::type_registry::any_merge_text::<Control>,
-};
-pub mod control {
-    #[allow(unused_imports)]
-    use super::*;
-    #[doc(inline)]
-    pub use super::__buffa::oneof::control::Action;
-    #[doc(inline)]
-    pub use super::__buffa::view::oneof::control::Action as ActionView;
-}
-#[derive(Clone, PartialEq, Default)]
-#[derive(::serde::Serialize)]
-#[serde(default)]
-pub struct Event {
-    #[serde(flatten)]
-    pub item: ::core::option::Option<__buffa::oneof::event::Item>,
-    #[serde(skip)]
-    #[doc(hidden)]
-    pub __buffa_unknown_fields: ::buffa::UnknownFields,
-}
-impl ::core::fmt::Debug for Event {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-        f.debug_struct("Event").field("item", &self.item).finish()
-    }
-}
-impl Event {
-    /// Protobuf type URL for this message, for use with `Any::pack` and
-    /// `Any::unpack_if`.
-    ///
-    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
-    pub const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.Event";
-}
-::buffa::impl_default_instance!(Event);
-impl ::buffa_descriptor::reflect::ReflectMessage for Event {
-    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
-        __buffa::reflect::descriptor_pool()
-            .message(Self::__buffa_reflect_message_index())
-    }
-    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
-        __buffa::reflect::descriptor_pool()
-    }
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn get(
-        &self,
-        field: &::buffa_descriptor::FieldDescriptor,
-    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        match field.number() {
-            1u32 => {
-                match &self.item {
-                    ::core::option::Option::Some(
-                        __buffa::oneof::event::Item::Observation(v),
-                    ) => {
-                        ::buffa_descriptor::reflect::ValueRef::Message(
-                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
-                        )
-                    }
-                    _ => {
-                        ::buffa_descriptor::reflect::ValueRef::Message(
-                            ::buffa_descriptor::reflect::Reflectable::reflect(
-                                <Observation as ::buffa::DefaultInstance>::default_instance(),
-                            ),
-                        )
-                    }
-                }
-            }
-            2u32 => {
-                match &self.item {
-                    ::core::option::Option::Some(
-                        __buffa::oneof::event::Item::Terminal(v),
-                    ) => {
-                        ::buffa_descriptor::reflect::ValueRef::Message(
-                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
-                        )
-                    }
-                    _ => {
-                        ::buffa_descriptor::reflect::ValueRef::Message(
-                            ::buffa_descriptor::reflect::Reflectable::reflect(
-                                <Terminal as ::buffa::DefaultInstance>::default_instance(),
-                            ),
-                        )
-                    }
-                }
-            }
-            _ => {
-                ::core::debug_assert!(
-                    false,
-                    "field number {} is not a member of this message's reflect get()",
-                    field.number(),
-                );
-                ::buffa_descriptor::reflect::ValueRef::Bool(false)
-            }
-        }
-    }
-    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
-        match field.number() {
-            1u32 => {
-                ::core::matches!(
-                    & self.item,
-                    ::core::option::Option::Some(__buffa::oneof::event::Item::Observation(_))
-                )
-            }
-            2u32 => {
-                ::core::matches!(
-                    & self.item,
-                    ::core::option::Option::Some(__buffa::oneof::event::Item::Terminal(_))
-                )
-            }
-            _ => false,
-        }
-    }
-    fn for_each_set(
-        &self,
-        f: &mut dyn ::core::ops::FnMut(
-            &::buffa_descriptor::FieldDescriptor,
-            ::buffa_descriptor::reflect::ValueRef<'_>,
-        ),
-    ) {
-        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
-        for fd in md.fields() {
-            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
-                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
-            }
-        }
-    }
-    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
-        ::buffa_descriptor::reflect::DynamicMessage::from_message(
-            self,
-            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
-            Self::__buffa_reflect_message_index(),
-        )
-    }
-}
-impl ::buffa_descriptor::reflect::ReflectElement for Event {
-    #[inline]
-    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        ::buffa_descriptor::reflect::ValueRef::Message(
-            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
-        )
-    }
-}
-impl Event {
-    /// Memoized `MessageIndex` for this message type, resolved once
-    /// against the package's embedded descriptor pool.
-    #[doc(hidden)]
-    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
-        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
-        *IDX
-            .get_or_init(|| {
-                __buffa::reflect::descriptor_pool()
-                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
-                    .expect(
-                        "generated message is registered in the embedded descriptor pool",
-                    )
-            })
-    }
-}
-impl ::buffa_descriptor::reflect::Reflectable for Event {
-    /// Vtable-mode reflective handle: borrows `self` directly. No
-    /// encode/decode round-trip and no allocation — the reflective
-    /// accessors read this message's fields in place.
-    #[inline]
-    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
-        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
-    }
-}
-impl ::buffa::MessageName for Event {
-    const PACKAGE: &'static str = "plan61.qualification.v1";
-    const NAME: &'static str = "Event";
-    const FULL_NAME: &'static str = "plan61.qualification.v1.Event";
-    const TYPE_URL: &'static str = "type.googleapis.com/plan61.qualification.v1.Event";
-}
-impl ::buffa::Message for Event {
-    /// Returns the total encoded size in bytes.
-    ///
-    /// Accumulates in `u64` (which cannot overflow for in-memory
-    /// data) and saturates to `u32` at return, so a message whose
-    /// encoded size exceeds the 2 GiB protobuf limit yields a value
-    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
-    /// points reject, never a silently wrapped size.
-    #[allow(clippy::let_and_return)]
-    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        let mut size = 0u64;
-        if let ::core::option::Option::Some(ref v) = self.item {
-            match v {
-                __buffa::oneof::event::Item::Observation(x) => {
-                    let __slot = __cache.reserve();
-                    let inner = x.compute_size(__cache);
-                    __cache.set(__slot, inner);
-                    size
-                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
-                            + inner as u64;
-                }
-                __buffa::oneof::event::Item::Terminal(x) => {
-                    let __slot = __cache.reserve();
-                    let inner = x.compute_size(__cache);
-                    __cache.set(__slot, inner);
-                    size
-                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
-                            + inner as u64;
-                }
-            }
-        }
-        size += self.__buffa_unknown_fields.encoded_len() as u64;
-        ::buffa::saturate_size(size)
-    }
-    fn write_to(
-        &self,
-        __cache: &mut ::buffa::SizeCache,
-        buf: &mut impl ::buffa::EncodeSink,
-    ) {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        if let ::core::option::Option::Some(ref v) = self.item {
-            match v {
-                __buffa::oneof::event::Item::Observation(x) => {
-                    ::buffa::types::put_len_delimited_header(
-                        1u32,
-                        u64::from(__cache.consume_next()),
-                        buf,
-                    );
-                    x.write_to(__cache, buf);
-                }
-                __buffa::oneof::event::Item::Terminal(x) => {
-                    ::buffa::types::put_len_delimited_header(
-                        2u32,
-                        u64::from(__cache.consume_next()),
-                        buf,
-                    );
-                    x.write_to(__cache, buf);
-                }
-            }
-        }
-        self.__buffa_unknown_fields.write_to(buf);
-    }
-    fn merge_field(
-        &mut self,
-        tag: ::buffa::encoding::Tag,
-        buf: &mut impl ::buffa::bytes::Buf,
-        ctx: ::buffa::DecodeContext<'_>,
-    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
-        #[allow(unused_imports)]
-        use ::buffa::bytes::Buf as _;
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        match tag.field_number() {
-            1u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                if let ::core::option::Option::Some(
-                    __buffa::oneof::event::Item::Observation(ref mut existing),
-                ) = self.item
-                {
-                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
-                } else {
-                    let mut val = ::core::default::Default::default();
-                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
-                    self.item = ::core::option::Option::Some(
-                        __buffa::oneof::event::Item::Observation(
-                            ::buffa::alloc::boxed::Box::new(val),
-                        ),
-                    );
-                }
-            }
-            2u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                if let ::core::option::Option::Some(
-                    __buffa::oneof::event::Item::Terminal(ref mut existing),
-                ) = self.item
-                {
-                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
-                } else {
-                    let mut val = ::core::default::Default::default();
-                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
-                    self.item = ::core::option::Option::Some(
-                        __buffa::oneof::event::Item::Terminal(
-                            ::buffa::alloc::boxed::Box::new(val),
-                        ),
-                    );
-                }
-            }
-            _ => {
-                self.__buffa_unknown_fields
-                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-    fn clear(&mut self) {
-        self.item = ::core::option::Option::None;
-        self.__buffa_unknown_fields.clear();
-    }
-}
-impl ::buffa::ExtensionSet for Event {
-    const PROTO_FQN: &'static str = "plan61.qualification.v1.Event";
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
-        &mut self.__buffa_unknown_fields
-    }
-}
-impl ::buffa::text::TextFormat for Event {
-    fn encode_text(
-        &self,
-        enc: &mut ::buffa::text::TextEncoder<'_>,
-    ) -> ::core::fmt::Result {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        if let ::core::option::Option::Some(ref __v) = self.item {
-            match __v {
-                __buffa::oneof::event::Item::Observation(__v) => {
-                    enc.write_field_name("observation")?;
-                    enc.write_message(&**__v)?;
-                }
-                __buffa::oneof::event::Item::Terminal(__v) => {
-                    enc.write_field_name("terminal")?;
-                    enc.write_message(&**__v)?;
-                }
-            }
-        }
-        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
-        ::core::result::Result::Ok(())
-    }
-    fn merge_text(
-        &mut self,
-        dec: &mut ::buffa::text::TextDecoder<'_>,
-    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
-        #[allow(unused_imports)]
-        use ::buffa::Enumeration as _;
-        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
-            match __name {
-                "observation" => {
-                    if let ::core::option::Option::Some(
-                        __buffa::oneof::event::Item::Observation(ref mut __existing),
-                    ) = self.item
-                    {
-                        dec.merge_message(&mut **__existing)?;
-                    } else {
-                        let mut __m = ::core::default::Default::default();
-                        dec.merge_message(&mut __m)?;
-                        self.item = ::core::option::Option::Some(
-                            __buffa::oneof::event::Item::Observation(
-                                ::buffa::alloc::boxed::Box::new(__m),
-                            ),
-                        );
-                    }
-                }
-                "terminal" => {
-                    if let ::core::option::Option::Some(
-                        __buffa::oneof::event::Item::Terminal(ref mut __existing),
-                    ) = self.item
-                    {
-                        dec.merge_message(&mut **__existing)?;
-                    } else {
-                        let mut __m = ::core::default::Default::default();
-                        dec.merge_message(&mut __m)?;
-                        self.item = ::core::option::Option::Some(
-                            __buffa::oneof::event::Item::Terminal(
-                                ::buffa::alloc::boxed::Box::new(__m),
-                            ),
-                        );
-                    }
-                }
-                _ => dec.skip_value()?,
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-}
-impl<'de> ::serde::Deserialize<'de> for Event {
-    fn deserialize<D: ::serde::Deserializer<'de>>(
-        d: D,
-    ) -> ::core::result::Result<Self, D::Error> {
-        struct _V;
-        impl<'de> ::serde::de::Visitor<'de> for _V {
-            type Value = Event;
-            fn expecting(
-                &self,
-                f: &mut ::core::fmt::Formatter<'_>,
-            ) -> ::core::fmt::Result {
-                f.write_str("struct Event")
-            }
-            #[allow(clippy::field_reassign_with_default)]
-            fn visit_map<A: ::serde::de::MapAccess<'de>>(
-                self,
-                mut map: A,
-            ) -> ::core::result::Result<Event, A::Error> {
-                let mut __oneof_item: ::core::option::Option<
-                    __buffa::oneof::event::Item,
-                > = None;
-                while let Some(key) = map.next_key::<::buffa::alloc::string::String>()? {
-                    match key.as_str() {
-                        "observation" => {
-                            let v: ::core::option::Option<Observation> = map
-                                .next_value_seed(
-                                    ::buffa::json_helpers::NullableDeserializeSeed(
-                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
-                                            Observation,
-                                        >::new(),
-                                    ),
-                                )?;
-                            if let Some(v) = v {
-                                if __oneof_item.is_some() {
-                                    return Err(
-                                        ::serde::de::Error::custom(
-                                            "multiple oneof fields set for 'item'",
-                                        ),
-                                    );
-                                }
-                                __oneof_item = Some(
-                                    __buffa::oneof::event::Item::Observation(
-                                        ::buffa::alloc::boxed::Box::new(v),
-                                    ),
-                                );
-                            }
-                        }
-                        "terminal" => {
-                            let v: ::core::option::Option<Terminal> = map
-                                .next_value_seed(
-                                    ::buffa::json_helpers::NullableDeserializeSeed(
-                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
-                                            Terminal,
-                                        >::new(),
-                                    ),
-                                )?;
-                            if let Some(v) = v {
-                                if __oneof_item.is_some() {
-                                    return Err(
-                                        ::serde::de::Error::custom(
-                                            "multiple oneof fields set for 'item'",
-                                        ),
-                                    );
-                                }
-                                __oneof_item = Some(
-                                    __buffa::oneof::event::Item::Terminal(
-                                        ::buffa::alloc::boxed::Box::new(v),
-                                    ),
-                                );
-                            }
-                        }
-                        _ => {
-                            map.next_value::<::serde::de::IgnoredAny>()?;
-                        }
-                    }
-                }
-                let mut __r = <Event as ::core::default::Default>::default();
-                __r.item = __oneof_item;
-                Ok(__r)
-            }
-        }
-        d.deserialize_map(_V)
-    }
-}
-impl ::buffa::json_helpers::ProtoElemJson for Event {
-    fn serialize_proto_json<S: ::serde::Serializer>(
-        v: &Self,
-        s: S,
-    ) -> ::core::result::Result<S::Ok, S::Error> {
-        ::serde::Serialize::serialize(v, s)
-    }
-    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
-        d: D,
-    ) -> ::core::result::Result<Self, D::Error> {
-        <Self as ::serde::Deserialize>::deserialize(d)
-    }
-}
-#[doc(hidden)]
-pub const __EVENT_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.Event",
-    to_json: ::buffa::type_registry::any_to_json::<Event>,
-    from_json: ::buffa::type_registry::any_from_json::<Event>,
-    is_wkt: false,
-};
-#[doc(hidden)]
-pub const __EVENT_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
-    type_url: "type.googleapis.com/plan61.qualification.v1.Event",
-    text_encode: ::buffa::type_registry::any_encode_text::<Event>,
-    text_merge: ::buffa::type_registry::any_merge_text::<Event>,
-};
-pub mod event {
-    #[allow(unused_imports)]
-    use super::*;
-    #[doc(inline)]
-    pub use super::__buffa::oneof::event::Item;
-    #[doc(inline)]
-    pub use super::__buffa::view::oneof::event::Item as ItemView;
-}

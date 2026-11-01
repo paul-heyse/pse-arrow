@@ -1,12 +1,13 @@
 ---
 title: "Plan61a: Contracts, generation and validation"
-status: active
+status: complete
+doc_retention: while-dependent
 date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/61-code-intelligence-foundations.md
 doc_topics: [current-work, design, libraries, validation]
 review_sources: [docs/functional_reviews/code-intelligence-protobuf-foundations-2026-10-31.md]
-adrs: []
+adrs: [ADR-0235]
 ---
 
 # Contracts, generation and validation
@@ -146,6 +147,43 @@ move with their packages; remove superseded declarations/generators as soon as r
 
 ### Qualification realization — 2026-10-31
 
+#### A02 execution checkpoint
+
+ADR-0235, blueprint revision 323 and the
+[scoped prospective review](../design_review/reviews/design_review_code-intelligence-contract-foundation_2026-10-31.md)
+publish the governing route at Accept-scoped target strength; the ADR remains proposed.
+The implementation replaces the toy protocol with host-local production contracts and uses
+the stable `codegen --only code-intelligence` route. A maintained local generator correction
+reuses its parser/schema/lowering pipeline; no upstream contact or fork publication is authorized.
+
+Selected supported numeric lowering must preserve exact scalar comparison and typed errors.
+Heterogeneous numeric branches/collections requiring a dynamic representation are explicitly
+unsupported rather than implicitly rounded to f64; this is a capability limit, not invalid CEL.
+A concrete consumer requiring that representation must compare a supported dynamic/library
+route before broadening the compiler. The CEL Rust evaluator shares some upstream precision
+issues and is not an independent oracle for integer/float boundary cases; those need explicit
+specification expectations. Full CEL conformance is not claimed.
+
+The following A01 preparation details describe the original qualification baseline. Production
+generation must use the corrected local generator and its positive preflight protocol admission;
+the unpatched registry 0.7.2 binary does not satisfy A02 readiness.
+
+Current corrected-tool preparation, after preparing the companion message/packaging/service
+generators, is:
+
+```bash
+scripts/pse-env -- cargo install --path vendor/protoc-gen-protovalidate-buffa --locked --force --root .local/plan61-tools --target-dir target/plan61-tools-build
+scripts/pse-env -- cargo xtask codegen --only code-intelligence
+scripts/pse-env -- cargo xtask codegen --only code-intelligence --check
+```
+
+The maintained source and archive provenance are in the vendor README. Production admission
+requires both the local vendored installation identity and `pse-cel-preflight-v1`; a same-version
+registry plugin that ignores CLI arguments is rejected. The full descriptor is derived from the
+same Buf image as code generation. Captured authored-file population/bytes and Buf configuration/
+lock premises are verified before publication, so origin hashes cannot describe a different
+concurrent source revision.
+
 The foundation is test-only: host dev dependencies select Buffa, buffa-types and
 buffa-descriptor 0.9.2, ConnectRPC 0.9.1 and protovalidate-buffa 0.7.2. The lockfile
 records their resolved companions. No new production wire consumer has moved.
@@ -188,7 +226,7 @@ contact is part of the present qualification result.
 | --- | --- | --- | --- |
 | A00 | complete | Contract/decision integration owner | Qualification placement and production decision/review route published above; no ADR acceptance inferred |
 | A01 | complete | Generated-contract integration owner | Representative exact-family owned/view/VTable/validation/generated-RPC composition tested; CEL defect limits and production obligations recorded |
-| A02 | planned | Explicit codegen/validation owner | Working generated foundation, complete descriptors, constraints and revealing checks |
+| A02 | complete | Explicit codegen/validation owner | Production contracts, full descriptors/origins, shared-input publication and corrected CEL preflight validated; downstream migration remains with B/C/D |
 
 **Proposed verification:** targeted generator, validator and schema tests; regeneration belongs
 to declaration changes. Q01 owns assembled/static qualification. A01's successful small example
@@ -223,3 +261,62 @@ validation subset and local transport. No broad alternative prototype, productio
 migration, generator fork or blanket CEL support is claimed. A02/B/C/D and Q01 retain their
 remaining obligations; the test fixtures do not authorize production use before the governing
 decision/review route is satisfied.
+
+## Outcome
+
+**Implemented:** A02 now supplies production host-local proto contracts, generated owned/eager
+views, validators and service bindings. Request predicates and count precision use typed
+alternatives; answer demand has one limit owner. Full descriptor imports/options/source metadata
+remain available independently of the stripped runtime pool. Generated Rust origin relations
+identify declared corpus contributors, not exact Rust declarations or semantic identity.
+
+**Implemented:** one compiled Buf image per corpus feeds descriptor export, descriptor-bound
+CEL preflight and every plugin. The shared selected/aggregate staging boundary completes before
+publication. Captured source/configuration premises are rechecked; stale, changed or added inputs
+cannot publish mismatched origin metadata. The old Plan61 generator target and toy service are
+retired; the useful all-field representation fixture remains test-only.
+
+**Tested:** the following scoped commands passed against a zero-failure target:
+
+| Command | Mode, scope and result |
+| --- | --- |
+| `scripts/pse test pse-host --lib -E 'test(plan61_)'` | Default nextest, production bindings: 22 passed, zero failed, 672 outside selection; zero compile warnings |
+| `scripts/pse-env -- cargo test --manifest-path vendor/protoc-gen-protovalidate-buffa/Cargo.toml --target-dir target/plan61-tools-build --lib` | Pinned nightly, test profile: 146 passed, zero failed/warnings; includes 24 emitted-Rust execution goldens |
+| `scripts/pse-env -- cargo test --manifest-path vendor/protoc-gen-protovalidate-buffa/Cargo.toml --target-dir target/plan61-tools-build --bin protoc-gen-protovalidate-buffa` | Same toolchain/profile: one CLI target-admission test passed, zero failed/warnings |
+| `just ready` | Skills synchronization and doctor passed |
+| `scripts/pse test xtask --bin xtask -E 'test(plan61_)'` | Default nextest: six passed, zero failed, 77 outside selection; includes snapshot mutations and publication-stage fault cases |
+| `scripts/pse check pse-host --all-targets` | Scoped correctness route passed, zero warnings; xtask all-target compilation also passed |
+| `scripts/pse-env -- cargo xtask codegen --only code-intelligence --check` | Selected production/fixture generation and source-relationship comparison passed |
+| `just codegen` | Full normal publication passed, including generated ownership map and Ipopt bindings; this is generation, not assembled product qualification |
+| `just turn-end` | ADR index and formatting passed |
+
+The maintained generator corrects checked arithmetic/conversions, exact mixed scalar comparison,
+logical/quantifier error masking and strict admission. Unsupported oneof/WKT field CEL and
+heterogeneous numeric branch/list representations refuse explicitly. This is selected typed
+lowering support, not general CEL conformance. No production panic-catching or default dynamic
+transcoding bridge was introduced.
+
+**Review:** the prospective review accepts the scoped target; independent implementation review
+found no remaining material issue after correction. Publication fault evidence is shared-stage
+fault injection plus source-verified aggregate ordering, with actual CEL/descriptor diagnostics
+checked separately. It is not an end-to-end failing real-Buf/whole-aggregate campaign.
+
+| Scoped review finding | Disposition | Evidence and limit |
+| --- | --- | --- |
+| F01 — scoped declaration authority | resolved | Production typed alternatives and owned/view/native-fact tests; live B/C/D migration remains separate |
+| F02 — preflight before aggregate writes | resolved | Shared publication stage fault tests preserve current/stale outputs; aggregate placement verified by source, not a real-plugin aggregate failure campaign |
+| F03 — supported validation semantics | resolved | Corrected compiler admission, 146 vendor library tests, one CLI test, 24 emitted-Rust goldens and host owned/view/quantifier tests; unsupported dynamic representations remain explicit |
+
+**Mistakes corrected:** an early production schema preserved toy query/limit duplication;
+typed questions and a single answer-demand limit replaced it. Review identified mixed numeric
+precision loss, masked range errors, incomplete emitter coverage, same-version unpatched-tool
+admission and source-hash races. Corrected lowering, positive protocol admission and captured
+input guards address those cases. An initially selected library test filter did not exercise
+the xtask binary tests; the final verification uses the actual binary target.
+
+**Deliberate deviations and remaining work:** keep a local corrected third-party generator,
+with archive provenance and tests, instead of an unverified version bump or new CEL engine.
+No upstream contact/push occurred. ADR-0235 remains proposed; its formal status belongs to its
+decision PR. B/C/D own actual evidence producers, callers, full managed custody/reconnect and
+hard cutover. Q01 owns assembled qualification and series-end hygiene. No scientific or
+measured-performance claim follows from this foundation.

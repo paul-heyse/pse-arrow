@@ -49,6 +49,11 @@ doctest = false
 workspace = true
 
 [dependencies]
+buffa.workspace = true
+buffa-descriptor.workspace = true
+buffa-types.workspace = true
+connectrpc = { workspace = true, features = ["client"] }
+protovalidate-buffa.workspace = true
 ra_ap_hir = { workspace = true, optional = true }
 ra_ap_ide = { workspace = true, optional = true }
 ra_ap_ide_db = { workspace = true, optional = true }
@@ -118,11 +123,6 @@ zip.workspace = true
 base64.workspace = true
 
 [dev-dependencies]
-buffa.workspace = true
-buffa-descriptor.workspace = true
-buffa-types.workspace = true
-connectrpc = { workspace = true, features = ["client"] }
-protovalidate-buffa.workspace = true
 hyper.workspace = true
 hyper-util = { workspace = true, features = ["server-auto", "service"] }
 http.workspace = true

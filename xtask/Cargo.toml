@@ -100,6 +100,8 @@ product-schemas = [
 package-fixtures = ["physical-admission", "product-schemas", "dep:parquet"]
 
 [dependencies]
+buffa.workspace = true
+buffa-descriptor.workspace = true
 bytes.workspace = true
 globset.workspace = true
 percent-encoding.workspace = true

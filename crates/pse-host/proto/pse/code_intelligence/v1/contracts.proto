@@ -1,0 +1,151 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+syntax = "proto3";
+package pse.code_intelligence.v1;
+import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
+
+// Wire identities retain their native source and provider-world premises.
+message ContextGuard {
+  bytes source_digest = 1;
+  string provider = 2;
+  optional uint64 generation = 3;
+  string cargo_world = 4;
+  string artifact_identity = 5;
+}
+message SourceSelector {
+  enum Origin { WORKING = 0; INDEX = 1; REVISION = 2; }
+  Origin origin = 1;
+  optional string revision = 2;
+  repeated bytes paths = 3;
+  repeated string packages = 4;
+  repeated string include_globs = 5;
+  repeated string exclude_globs = 6;
+  bool include_hidden = 7;
+  bool include_ignored = 8;
+  bool include_generated = 9;
+  bool include_dependencies = 10;
+  optional bool tracked = 11;
+  bool changed = 12;
+  repeated string types = 13;
+}
+message Predicate {
+  oneof question {
+    option (buf.validate.oneof).required = true;
+    google.protobuf.Empty files = 1;
+    TextQuery text = 2;
+    SyntaxQuery syntax = 3;
+    SymbolQuery symbol = 4;
+    ApiQuery api = 5;
+    StructuredQuery structured = 6;
+    HistoryQuery history = 7;
+    BooleanGroup all = 8;
+    BooleanGroup any = 9;
+    Negation not = 10;
+    Related related = 11;
+    Refine refine = 12;
+  }
+}
+enum MatchScope { LINE = 0; FILE = 1; NODE = 2; ENTITY = 3; }
+message BooleanGroup { MatchScope within = 1; repeated Predicate clauses = 2 [(buf.validate.field).repeated.min_items = 1]; }
+message Negation { MatchScope within = 1; Predicate clause = 2 [(buf.validate.field).required = true]; }
+message TextQuery {
+  enum Case { SENSITIVE = 0; SMART = 1; INSENSITIVE = 2; }
+  enum BinaryPolicy { SKIP = 0; TEXT = 1; }
+  repeated string patterns = 1 [(buf.validate.field).repeated.min_items = 1];
+  bool literal = 2; Case case = 3; bool word = 4; bool whole_line = 5;
+  bool multiline = 6; bool invert = 7; optional string encoding = 8; BinaryPolicy binary = 9;
+}
+message SyntaxQuery {
+  oneof matcher { option (buf.validate.oneof).required = true; string pattern = 1; bytes native_rule = 2; string tree_sitter = 3; }
+  repeated string capture = 4; optional string strictness = 5;
+}
+enum DiscoveryProvider { SOURCE = 0; SEMANTIC = 1; ACQUIRED_API = 2; }
+enum NameMatch { CONTAINS = 0; EXACT_NAME = 1; PREFIX = 2; FUZZY = 3; }
+message SymbolQuery {
+  string name = 1 [(buf.validate.field).string.min_len = 1]; repeated string kinds = 2;
+  optional string module = 3; optional string visibility = 4; DiscoveryProvider provider = 5;
+  optional bytes artifact = 6; optional string dependency = 7; NameMatch matching = 8;
+  optional string signature = 9;
+}
+message ApiQuery { string query = 1; optional string dependency = 2; optional bytes artifact = 3; optional string input = 4; optional string output = 5; optional string bound = 6; }
+message StructuredQuery { string pointer = 1; optional bytes native_equality_value = 2; optional string format = 3; }
+message HistoryQuery {
+  enum Operation { LOG = 0; BLAME = 1; PICKAXE = 2; PICKAXE_LINES = 3; }
+  Operation operation = 1; optional string query = 2; optional string revision = 3;
+}
+// Original versioned address bytes are interpreted and guarded by their native owner.
+message GuardedReference { bytes address = 1 [(buf.validate.field).bytes.min_len = 1]; ContextGuard guard = 2; }
+enum Relationship { DEFINITION = 0; REFERENCES = 1; CALLS = 2; IMPLEMENTATIONS = 3; }
+enum Direction { OUTGOING = 0; INCOMING = 1; }
+message Related {
+  GuardedReference seed = 1 [(buf.validate.field).required = true];
+  Relationship relation = 2; Direction direction = 3;
+  uint64 depth = 4 [(buf.validate.field).uint64.gte = 1];
+  uint64 max_nodes = 5 [(buf.validate.field).uint64.gte = 1];
+}
+message Refinement {
+  oneof filter { option (buf.validate.oneof).required = true; GuardedReference resolves_to = 1; string native_predicate = 2 [(buf.validate.field).string.min_len = 1]; GuardedReference used_at = 3; GuardedReference importable_at = 4; }
+}
+message Refine { Predicate candidates = 1 [(buf.validate.field).required = true]; Refinement filter = 2 [(buf.validate.field).required = true]; }
+message AnswerDemand {
+  enum Kind { MATCHES = 0; EXISTS = 1; COUNT = 2; FILES = 3; }
+  enum Order { ARRIVAL = 0; STABLE = 1; }
+  Kind kind = 1;
+  optional uint64 limit = 2 [(buf.validate.field).uint64.gte = 1];
+  Order order = 3;
+  optional bytes continuation = 4;
+  CountUnit count_unit = 5;
+}
+enum CountUnit { MATCH_UNIT = 0; LINE_UNIT = 1; FILE_UNIT = 2; ENTITY_UNIT = 3; }
+message Request {
+  reserved 1, 2;
+  SourceSelector sources = 3;
+  Predicate predicate = 4 [(buf.validate.field).required = true];
+  AnswerDemand answer = 5;
+  ContextGuard guard = 6;
+}
+enum Truth { TRUTH_UNKNOWN = 0; TRUTH_TRUE = 1; TRUTH_FALSE = 2; }
+message Count {
+  oneof precision { option (buf.validate.oneof).required = true; google.protobuf.Empty unknown = 1; uint64 exact = 2; uint64 lower_bound = 3; }
+  CountUnit unit = 4;
+}
+message Location {
+  option (buf.validate.message).cel = { id: "location.range" message: "an end requires an ordered start" expression: "!has(this.byte_end) || (has(this.byte_start) && this.byte_start <= this.byte_end)" };
+  bytes path = 1;
+  optional uint64 byte_start = 2;
+  optional uint64 byte_end = 3;
+  ContextGuard guard = 4;
+}
+message OriginalEvidence { bytes data = 1; string media_type = 2; string provider = 3; }
+message SourceFact { string name = 1; string kind = 2; Location location = 3; }
+message PredicateFact { Truth truth = 1; repeated Location witnesses = 2; }
+message Failure {
+  enum Phase { UNAVAILABLE = 0; UNSUPPORTED = 1; STALE = 2; CANCELLED = 3; SCHEMA = 4; VALIDATOR = 5; PROVIDER = 6; TRANSPORT = 7; }
+  Phase phase = 1;
+  string code = 2;
+  string message = 3;
+  optional int32 backend_code = 4;
+  OriginalEvidence original = 5;
+}
+message Observation {
+  // Human summary is not parsed to reconstruct the consumed typed fact.
+  string value = 1;
+  uint64 sequence = 2;
+  ContextGuard context = 3;
+  oneof fact { SourceFact source = 4; PredicateFact predicate = 5; Count count = 6; Failure failure = 7; }
+  OriginalEvidence original = 8;
+}
+message Terminal {
+  bool completed = 1;
+  bool cancelled = 2;
+  Count count = 3;
+  bool demand_satisfied = 4;
+  bool universe_examined = 5;
+}
+message Control { oneof action { Request start = 1; google.protobuf.Empty cancel = 2; } }
+message Event { oneof item { Observation observation = 1; Terminal terminal = 2; } }
+service Investigation {
+  rpc Inspect(Request) returns (Observation);
+  rpc Run(stream Control) returns (stream Event);
+}
