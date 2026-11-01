@@ -442,7 +442,7 @@ impl Session {
             ],
             0,
         );
-        answer["payload"]["observed"]["relationships"]
+        answer["payload"]["sections"]
             .as_array()
             .unwrap()
             .iter()
@@ -525,7 +525,7 @@ fn native_journey() {
         0,
     );
     assert!(
-        answer["payload"]["sections"]
+        answer["payload"]["observed"]["relationships"]
             .as_array()
             .unwrap()
             .iter()
