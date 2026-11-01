@@ -1,5 +1,11 @@
 # Functional opportunity reviews
 
+The [Plan60 agent-engineering opportunities](plan60-agent-engineering-opportunities-2026-11-01.md)
+and its plan-improvement companion assess responsibility paths, library-fit shapes, context
+deltas, evidence associations, agent discovery and schema-addressed corrections. Conditional
+external-schema and compiler-depth opportunities retain explicit consumer triggers. These
+recommendations do not revise Plan60 or confer Plan62 completion credit.
+
 The [code-intelligence capability expansion review](code-intelligence-capability-expansion-2026-11-01.md)
 develops thirteen opportunities from end-to-end reading of the expanded analyzer documentation,
 including cargo_metadata, and relevant proto research. It focuses on the intelligence subsystem:

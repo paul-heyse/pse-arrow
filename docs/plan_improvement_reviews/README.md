@@ -1,5 +1,11 @@
 # Plan improvement reviews
 
+The [Plan60 engineering-intelligence review](plan60-engineering-intelligence-2026-11-01.md)
+reconciles the remaining consumer work with Plan61 and ongoing Plan62 foundations. Eight
+proposed amendments address typed relationships, traversal scope, context comparison, lifetime
+and API evidence, agent recovery and validation relevance. Its linked functional companion
+assesses additional capabilities. Plan updates remain a separate operator step.
+
 The [Plan59 library integration and target-design review](plan59-library-integration-and-target-design-2026-10-30.md)
 reassesses the paused implemented foundations and remaining A–I scope. Sixteen proposed
 amendments address library delegation, enforced domain/wire contracts, invocation and stream
