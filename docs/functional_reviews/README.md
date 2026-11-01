@@ -1,10 +1,11 @@
 # Functional opportunity reviews
 
 The [Protobuf foundations review](code-intelligence-protobuf-foundations-2026-10-31.md)
-assesses improvements to existing code intelligence independently of Plan60. This first
-milestone supplies opportunities, competing runtime/toolchain options, installed-tool roles
-and prioritized documentation briefs. It stops at the documentation handoff; no runtime stack,
-production change or performance benefit is established.
+assesses improvements to existing code intelligence independently of Plan60. Its integrated
+target recommends typed schema-owned evidence, Buffa/ConnectRPC at the local helper boundary,
+selected compiled validation and descriptor-backed investigation. Thirteen opportunities,
+hard-cutover scope, independent alternative judgments and exact-release limits are recorded.
+The recommendation changes no production code and establishes no measured performance benefit.
 
 The [engineering-workflow code-intelligence review](engineering-workflow-code-intelligence-2026-10-31.md)
 assesses improvements supporting audits, design and functional reviews, library leverage and
