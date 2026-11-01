@@ -97,6 +97,8 @@ pub mod __buffa {
         reg.register_json_any(super::__NATIVE_IMPORTABILITY_FACT_JSON_ANY);
         reg.register_json_any(super::__NATIVE_LAZY_CANDIDATE_JSON_ANY);
         reg.register_json_any(super::__NATIVE_TEST_CANDIDATE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_RUNNABLE_TARGET_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_SNAPSHOT_UPDATE_JSON_ANY);
         reg.register_json_any(super::__NATIVE_OBSERVED_FACTS_JSON_ANY);
         reg.register_json_any(super::__NATIVE_OMITTED_RELATIONSHIP_JSON_ANY);
         reg.register_json_any(super::__NATIVE_SECTION_JSON_ANY);
@@ -112,6 +114,11 @@ pub mod __buffa {
         reg.register_json_any(super::__NATIVE_LAYOUT_FACT_JSON_ANY);
         reg.register_json_any(super::__NATIVE_LAYOUT_FIELD_FACT_JSON_ANY);
         reg.register_json_any(super::__NATIVE_CALLABLE_CANDIDATE_FACT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_CALLABLE_CONTEXT_FACT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_CALLABLE_SUBSTITUTIONS_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_CALLABLE_SUBSTITUTION_FACT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_RECEIVER_ADJUSTMENTS_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_CALLABLE_OBLIGATION_FACT_JSON_ANY);
         reg.register_json_any(super::__NATIVE_TYPE_CONTEXT_JSON_ANY);
         reg.register_json_any(super::__NATIVE_TYPED_FACTS_JSON_ANY);
         reg.register_json_any(super::__NATIVE_PRODUCER_CONTEXT_JSON_ANY);
@@ -188,6 +195,8 @@ pub mod __buffa {
         reg.register_text_any(super::__NATIVE_IMPORTABILITY_FACT_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_LAZY_CANDIDATE_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_TEST_CANDIDATE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_RUNNABLE_TARGET_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_SNAPSHOT_UPDATE_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_OBSERVED_FACTS_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_OMITTED_RELATIONSHIP_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_SECTION_TEXT_ANY);
@@ -203,6 +212,11 @@ pub mod __buffa {
         reg.register_text_any(super::__NATIVE_LAYOUT_FACT_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_LAYOUT_FIELD_FACT_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_CALLABLE_CANDIDATE_FACT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_CALLABLE_CONTEXT_FACT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_CALLABLE_SUBSTITUTIONS_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_CALLABLE_SUBSTITUTION_FACT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_RECEIVER_ADJUSTMENTS_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_CALLABLE_OBLIGATION_FACT_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_TYPE_CONTEXT_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_TYPED_FACTS_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_PRODUCER_CONTEXT_TEXT_ANY);
@@ -502,6 +516,14 @@ pub use self::__buffa::view::NativeTestCandidateView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeTestCandidateOwnedView;
 #[doc(inline)]
+pub use self::__buffa::view::NativeRunnableTargetView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeRunnableTargetOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSnapshotUpdateView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSnapshotUpdateOwnedView;
+#[doc(inline)]
 pub use self::__buffa::view::NativeObservedFactsView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeObservedFactsOwnedView;
@@ -561,6 +583,26 @@ pub use self::__buffa::view::NativeLayoutFieldFactOwnedView;
 pub use self::__buffa::view::NativeCallableCandidateFactView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeCallableCandidateFactOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCallableContextFactView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCallableContextFactOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCallableSubstitutionsView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCallableSubstitutionsOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCallableSubstitutionFactView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCallableSubstitutionFactOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeReceiverAdjustmentsView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeReceiverAdjustmentsOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCallableObligationFactView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCallableObligationFactOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeTypeContextView;
 #[doc(inline)]

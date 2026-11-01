@@ -59,7 +59,7 @@ struct WorldJoin {
 #[serde(tag = "availability", rename_all = "snake_case")]
 enum NativeWorld {
     Available {
-        observation: crate::semantic::PackageContextAnswer,
+        observation: Box<crate::semantic::PackageContextAnswer>,
     },
     Unavailable {
         reason: String,
@@ -192,7 +192,9 @@ pub(super) fn dispatch(
                 ))
                 .and_then(crate::semantic::Response::into_package_context)
             {
-                Ok(observation) => NativeWorld::Available { observation },
+                Ok(observation) => NativeWorld::Available {
+                    observation: Box::new(observation),
+                },
                 Err(error) => NativeWorld::Unavailable {
                     reason: error.to_string(),
                 },

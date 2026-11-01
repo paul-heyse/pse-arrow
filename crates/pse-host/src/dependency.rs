@@ -206,11 +206,19 @@ pub fn inspect_details(
             })
             .collect()
     };
+    let mut overview_errors = Vec::new();
     let selected = match candidates.as_slice() {
         [] => Selection::NoMatch,
-        [package] => Selection::Exact {
-            facts: Box::new(facts(metadata, package)),
-        },
+        [package] => {
+            let (overviews, errors) = overview_candidates(
+                metadata.workspace_root.join("docs/libraries").as_std_path(),
+                package.name.as_str(),
+            );
+            overview_errors = errors;
+            Selection::Exact {
+                facts: Box::new(facts(metadata, package, overviews)),
+            }
+        }
         _ => Selection::Ambiguous {
             candidates: candidates.into_iter().map(PackageIdentity::from).collect(),
         },
@@ -269,7 +277,7 @@ pub fn inspect_details(
     response.observation.limitations.extend([
         "metadata features aggregate package contexts; selected compiler host/target units require correctness admission".into(),
         "metadata graph is not ordinary-build API availability, compilation success or source freshness proof".into(),
-        "overview candidates match exact filenames; combined library documents may not appear".into(),
+        "overview candidates match exact regular-file basenames recursively under docs/libraries without following symlinks; combined library documents may not appear, and multiple matches remain candidates".into(),
         "incoming authored requests join only when alias, version, native kind/target and explicit source/path agree; unmatched request details remain unknown".into(),
     ]);
     if why {
@@ -278,7 +286,51 @@ pub fn inspect_details(
     if feature_member.is_some() {
         response.observation.limitations.push("feature member lookup reports exact authored links across the inspected metadata; it does not resolve or activate an expression and does not simulate feature configurations".into());
     }
+    if !overview_errors.is_empty() {
+        response.observation.completeness = crate::envelope::Completeness::Partial;
+        response.observation.limitations.extend(
+            overview_errors
+                .into_iter()
+                .map(|error| format!("library overview discovery incomplete: {error}")),
+        );
+    }
     response
+}
+fn overview_candidates(root: &Path, name: &str) -> (Vec<PathBuf>, Vec<String>) {
+    match std::fs::symlink_metadata(root) {
+        Ok(metadata) if metadata.is_dir() => {}
+        Ok(_) => return (Vec::new(), Vec::new()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return (Vec::new(), Vec::new());
+        }
+        Err(error) => return (Vec::new(), vec![error.to_string()]),
+    }
+    let filename = format!("{name}.md");
+    let mut candidates = Vec::new();
+    let mut errors = Vec::new();
+    for entry in ignore::WalkBuilder::new(root)
+        .hidden(false)
+        .ignore(false)
+        .git_ignore(false)
+        .git_global(false)
+        .git_exclude(false)
+        .follow_links(false)
+        .build()
+    {
+        match entry {
+            Ok(entry)
+                if entry.file_name() == filename.as_str()
+                    && entry.file_type().is_some_and(|kind| kind.is_file()) =>
+            {
+                candidates.push(entry.into_path())
+            }
+            Ok(_) => {}
+            Err(error) => errors.push(error.to_string()),
+        }
+    }
+    candidates.sort();
+    candidates.dedup();
+    (candidates, errors)
 }
 fn inclusion_paths(metadata: &Metadata, selected: &str) -> Option<Vec<InclusionPath>> {
     use petgraph::{algo::astar, graphmap::DiGraphMap};
@@ -310,7 +362,11 @@ fn inclusion_paths(metadata: &Metadata, selected: &str) -> Option<Vec<InclusionP
             .collect(),
     )
 }
-fn facts(metadata: &Metadata, package: &Package) -> PackageFacts {
+fn facts(
+    metadata: &Metadata,
+    package: &Package,
+    overview_candidates: Vec<PathBuf>,
+) -> PackageFacts {
     let node = metadata
         .resolve
         .as_ref()
@@ -390,10 +446,6 @@ fn facts(metadata: &Metadata, package: &Package) -> PackageFacts {
         .and_then(|pins| pins.get(package.name.as_str()))
         .and_then(serde_json::Value::as_str)
         .map(str::to_owned);
-    let overview = metadata
-        .workspace_root
-        .join("docs/libraries")
-        .join(format!("{}.md", package.name));
     PackageFacts {
         package: package.into(),
         targets: package
@@ -423,11 +475,7 @@ fn facts(metadata: &Metadata, package: &Package) -> PackageFacts {
             .collect(),
         workspace_uses,
         pin_reason,
-        overview_candidates: if overview.is_file() {
-            vec![overview.as_std_path().to_owned()]
-        } else {
-            Vec::new()
-        },
+        overview_candidates,
     }
 }
 

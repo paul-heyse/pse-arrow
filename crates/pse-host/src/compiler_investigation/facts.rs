@@ -345,6 +345,11 @@ pub(crate) fn observe(
             "requested fact family was not acquired; select a compatible original acquisition or explicitly generate new evidence",
         ));
     }
+    let focus = if focus == artifact::FactFocus::All {
+        acquired
+    } else {
+        focus
+    };
     if body.is_some_and(|selected| !facts.bodies.iter().any(|body| body.path == selected)) {
         return Err(invalid(
             "requested body is not in the original acquired body population",
@@ -392,6 +397,17 @@ pub(crate) fn observe(
         },
     );
     response.providers = original.providers;
+    for provider in &mut response.providers {
+        // Original context bytes remain separately addressed. Repeating its transitive
+        // compiler-unit graph in an opaque provider string defeats the selected projection.
+        provider.context = Some(
+            serde_json::json!({
+                "original_invocation": response.payload.original_invocation,
+                "context": response.payload.context.full_context,
+            })
+            .to_string(),
+        );
+    }
     response.artifacts = original.artifacts;
     response.next = original.next;
     response.observation.scope = "original_selected_compiler_bodies".into();

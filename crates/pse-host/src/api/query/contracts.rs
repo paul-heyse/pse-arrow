@@ -42,25 +42,26 @@ pub enum ParameterKind {
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Predicate {
-    BoundPredicate {
+    #[serde(rename = "bound_predicate")]
+    Bound {
         #[serde(rename = "type")]
         type_: Type,
         bounds: Vec<Bound>,
         generic_params: Vec<Parameter>,
     },
-    LifetimePredicate {
+    #[serde(rename = "lifetime_predicate")]
+    Lifetime {
         lifetime: String,
         outlives: Vec<String>,
     },
-    EqPredicate {
-        lhs: Type,
-        rhs: Term,
-    },
+    #[serde(rename = "eq_predicate")]
+    Equality { lhs: Type, rhs: Term },
 }
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Bound {
-    TraitBound {
+    #[serde(rename = "trait_bound")]
+    Trait {
         #[serde(rename = "trait")]
         trait_: Path,
         generic_params: Vec<Parameter>,
@@ -490,10 +491,10 @@ mod tests {
             StabilityLevel::Unstable
         ));
         let generics = facts.generics.unwrap();
-        let Predicate::BoundPredicate { bounds, .. } = &generics.where_predicates[0] else {
+        let Predicate::Bound { bounds, .. } = &generics.where_predicates[0] else {
             panic!("missing predicate")
         };
-        let Bound::TraitBound {
+        let Bound::Trait {
             trait_,
             generic_params,
             ..

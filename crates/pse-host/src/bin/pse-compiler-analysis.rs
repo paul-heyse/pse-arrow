@@ -348,17 +348,23 @@ fn cleanup<'tcx>(
         });
     }
 }
-fn main() -> ExitCode {
+fn main() -> std::io::Result<ExitCode> {
     let mut incoming = std::env::args_os();
     incoming.next();
     // Only Cargo's workspace-wrapper protocol is supported. Never delegate to ourselves.
     let Some(compiler) = incoming.next() else {
-        eprintln!("compiler observation wrapper requires the original compiler executable");
-        return ExitCode::from(125);
+        writeln!(
+            std::io::stderr().lock(),
+            "compiler observation wrapper requires the original compiler executable"
+        )?;
+        return Ok(ExitCode::from(125));
     };
     if compiler.as_encoded_bytes().starts_with(b"-") {
-        eprintln!("compiler observation wrapper requires Cargo's compiler executable argument");
-        return ExitCode::from(125);
+        writeln!(
+            std::io::stderr().lock(),
+            "compiler observation wrapper requires Cargo's compiler executable argument"
+        )?;
+        return Ok(ExitCode::from(125));
     }
     let args = std::iter::once(compiler)
         .chain(incoming)
@@ -371,39 +377,42 @@ fn main() -> ExitCode {
             .any(|arg| std::fs::canonicalize(arg).ok().as_ref() == Some(root))
     });
     if !matches_root {
-        return std::process::Command::new(&args[0])
+        return Ok(std::process::Command::new(&args[0])
             .args(&args[1..])
             .status()
             .map(|status| ExitCode::from(status.code().unwrap_or(125) as u8))
-            .unwrap_or(ExitCode::from(125));
+            .unwrap_or(ExitCode::from(125)));
     }
     let Ok(args) = args
         .into_iter()
         .map(std::ffi::OsString::into_string)
         .collect::<Result<Vec<_>, _>>()
     else {
-        eprintln!(
+        writeln!(
+            std::io::stderr().lock(),
             "selected rustc driver argument interface requires Unicode; native bytes were not converted lossily"
-        );
-        return ExitCode::from(125);
+        )?;
+        return Ok(ExitCode::from(125));
     };
     let Some(output) = std::env::var_os("PSE_COMPILER_FACTS_OUTPUT") else {
-        return ExitCode::from(125);
+        return Ok(ExitCode::from(125));
     };
     let Ok(selector) = std::env::var("PSE_COMPILER_FACTS_BODY") else {
-        return ExitCode::from(125);
+        return Ok(ExitCode::from(125));
     };
     let focus = match std::env::var("PSE_COMPILER_FACTS_FOCUS").as_deref() {
         Ok("all") => FactFocus::All,
         Ok("captures") => FactFocus::Captures,
         Ok("suspension") => FactFocus::Suspension,
         Ok("cleanup") => FactFocus::Cleanup,
-        _ => return ExitCode::from(125),
+        _ => return Ok(ExitCode::from(125)),
     };
     let mut callback = Observe {
         selector,
         output: output.into(),
         focus,
     };
-    rustc_driver::catch_with_exit_code(|| rustc_driver::run_compiler(&args, &mut callback))
+    Ok(rustc_driver::catch_with_exit_code(|| {
+        rustc_driver::run_compiler(&args, &mut callback)
+    }))
 }

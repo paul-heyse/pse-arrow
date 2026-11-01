@@ -30844,6 +30844,31 @@ pub struct NativeTestCandidate {
         skip_serializing_if = "::core::option::Option::is_none"
     )]
     pub test_id: ::core::option::Option<::buffa::alloc::string::String>,
+    /// Field 11: `cfg_eligible`
+    #[serde(
+        rename = "cfgEligible",
+        alias = "cfg_eligible",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub cfg_eligible: ::core::option::Option<bool>,
+    /// Field 12: `cargo_targets`
+    #[serde(
+        rename = "cargoTargets",
+        alias = "cargo_targets",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub cargo_targets: ::buffa::alloc::vec::Vec<NativeRunnableTarget>,
+    /// Field 13: `snapshot_update`
+    #[serde(
+        rename = "snapshotUpdate",
+        alias = "snapshot_update",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub snapshot_update: ::buffa::MessageField<
+        NativeSnapshotUpdate,
+        ::buffa::Inline<NativeSnapshotUpdate>,
+    >,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -30861,6 +30886,9 @@ impl ::core::fmt::Debug for NativeTestCandidate {
             .field("relatedness", &self.relatedness)
             .field("eligible", &self.eligible)
             .field("test_id", &self.test_id)
+            .field("cfg_eligible", &self.cfg_eligible)
+            .field("cargo_targets", &self.cargo_targets)
+            .field("snapshot_update", &self.snapshot_update)
             .finish()
     }
 }
@@ -30926,6 +30954,13 @@ impl NativeTestCandidate {
         self.test_id = Some(value.into());
         self
     }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::cfg_eligible`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_cfg_eligible(mut self, value: bool) -> Self {
+        self.cfg_eligible = Some(value);
+        self
+    }
 }
 ::buffa::impl_default_instance!(NativeTestCandidate);
 impl ::buffa_descriptor::reflect::ReflectMessage for NativeTestCandidate {
@@ -30988,6 +31023,19 @@ impl ::buffa_descriptor::reflect::ReflectMessage for NativeTestCandidate {
                     self.test_id.as_deref().unwrap_or(""),
                 )
             }
+            11u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Bool(
+                    self.cfg_eligible.unwrap_or(false),
+                )
+            }
+            12u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.cargo_targets),
+            13u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(
+                        &*self.snapshot_update,
+                    ),
+                )
+            }
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -31010,6 +31058,9 @@ impl ::buffa_descriptor::reflect::ReflectMessage for NativeTestCandidate {
             8u32 => self.relatedness.is_some(),
             9u32 => self.eligible.is_some(),
             10u32 => self.test_id.is_some(),
+            11u32 => self.cfg_eligible.is_some(),
+            12u32 => !self.cargo_targets.is_empty(),
+            13u32 => self.snapshot_update.is_set(),
             _ => false,
         }
     }
@@ -31128,6 +31179,25 @@ impl ::buffa::Message for NativeTestCandidate {
         if let Some(ref v) = self.test_id {
             size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
         }
+        if self.cfg_eligible.is_some() {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        for v in &self.cargo_targets {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.snapshot_update.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.snapshot_update.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -31177,6 +31247,25 @@ impl ::buffa::Message for NativeTestCandidate {
         }
         if let Some(ref v) = self.test_id {
             ::buffa::types::put_string_field(10u32, v, buf);
+        }
+        if let Some(v) = self.cfg_eligible {
+            ::buffa::types::put_bool_field(11u32, v, buf);
+        }
+        for v in &self.cargo_targets {
+            ::buffa::types::put_len_delimited_header(
+                12u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        if self.snapshot_update.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                13u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.snapshot_update.write_to(__cache, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -31298,6 +31387,38 @@ impl ::buffa::Message for NativeTestCandidate {
                     buf,
                 )?;
             }
+            11u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.cfg_eligible = ::core::option::Option::Some(
+                    ::buffa::types::decode_bool(buf)?,
+                );
+            }
+            12u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.cargo_targets.push(elem);
+            }
+            13u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.snapshot_update.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -31316,6 +31437,9 @@ impl ::buffa::Message for NativeTestCandidate {
         self.relatedness = ::core::option::Option::None;
         self.eligible = ::core::option::Option::None;
         self.test_id = ::core::option::Option::None;
+        self.cfg_eligible = ::core::option::Option::None;
+        self.cargo_targets.clear();
+        self.snapshot_update = ::buffa::MessageField::none();
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -31367,6 +31491,14 @@ impl ::buffa::text::TextFormat for NativeTestCandidate {
             enc.write_field_name("test_id")?;
             enc.write_string(__v)?;
         }
+        if let ::core::option::Option::Some(ref __v) = self.cfg_eligible {
+            enc.write_field_name("cfg_eligible")?;
+            enc.write_bool(*__v)?;
+        }
+        if self.snapshot_update.is_set() {
+            enc.write_field_name("snapshot_update")?;
+            enc.write_message(&*self.snapshot_update)?;
+        }
         for __v in &self.cargo_args {
             enc.write_field_name("cargo_args")?;
             enc.write_string(__v)?;
@@ -31374,6 +31506,10 @@ impl ::buffa::text::TextFormat for NativeTestCandidate {
         for __v in &self.executable_args {
             enc.write_field_name("executable_args")?;
             enc.write_string(__v)?;
+        }
+        for __v in &self.cargo_targets {
+            enc.write_field_name("cargo_targets")?;
+            enc.write_message(__v)?;
         }
         enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
         ::core::result::Result::Ok(())
@@ -31416,6 +31552,12 @@ impl ::buffa::text::TextFormat for NativeTestCandidate {
                         dec.read_string()?.into_owned(),
                     );
                 }
+                "cfg_eligible" => {
+                    self.cfg_eligible = ::core::option::Option::Some(dec.read_bool()?);
+                }
+                "snapshot_update" => {
+                    dec.merge_message(self.snapshot_update.get_or_insert_default())?
+                }
                 "cargo_args" => {
                     dec.read_repeated_into(
                         &mut self.cargo_args,
@@ -31426,6 +31568,16 @@ impl ::buffa::text::TextFormat for NativeTestCandidate {
                     dec.read_repeated_into(
                         &mut self.executable_args,
                         |__d| ::core::result::Result::Ok(__d.read_string()?.into_owned()),
+                    )?
+                }
+                "cargo_targets" => {
+                    dec.read_repeated_into(
+                        &mut self.cargo_targets,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
                     )?
                 }
                 _ => dec.skip_value()?,
@@ -31459,6 +31611,800 @@ pub const __NATIVE_TEST_CANDIDATE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry
     type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeTestCandidate",
     text_encode: ::buffa::type_registry::any_encode_text::<NativeTestCandidate>,
     text_merge: ::buffa::type_registry::any_merge_text::<NativeTestCandidate>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeRunnableTarget {
+    /// Field 1: `package_id`
+    #[serde(
+        rename = "packageId",
+        alias = "package_id",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub package_id: ::buffa::alloc::string::String,
+    /// Field 2: `manifest`
+    #[serde(
+        rename = "manifest",
+        with = "::buffa::json_helpers::bytes",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_bytes"
+    )]
+    pub manifest: ::buffa::alloc::vec::Vec<u8>,
+    /// Field 3: `root`
+    #[serde(
+        rename = "root",
+        with = "::buffa::json_helpers::bytes",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_bytes"
+    )]
+    pub root: ::buffa::alloc::vec::Vec<u8>,
+    /// Field 4: `name`
+    #[serde(
+        rename = "name",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub name: ::buffa::alloc::string::String,
+    /// Field 5: `kind`
+    #[serde(
+        rename = "kind",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub kind: ::buffa::alloc::string::String,
+    /// Field 6: `required_features`
+    #[serde(
+        rename = "requiredFeatures",
+        alias = "required_features",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub required_features: ::buffa::alloc::vec::Vec<::buffa::alloc::string::String>,
+    /// Field 7: `active_features`
+    #[serde(
+        rename = "activeFeatures",
+        alias = "active_features",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub active_features: ::buffa::alloc::vec::Vec<::buffa::alloc::string::String>,
+    /// Field 8: `required_features_satisfied`
+    #[serde(
+        rename = "requiredFeaturesSatisfied",
+        alias = "required_features_satisfied",
+        with = "::buffa::json_helpers::proto_bool",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
+    )]
+    pub required_features_satisfied: bool,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeRunnableTarget {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeRunnableTarget")
+            .field("package_id", &self.package_id)
+            .field("manifest", &self.manifest)
+            .field("root", &self.root)
+            .field("name", &self.name)
+            .field("kind", &self.kind)
+            .field("required_features", &self.required_features)
+            .field("active_features", &self.active_features)
+            .field("required_features_satisfied", &self.required_features_satisfied)
+            .finish()
+    }
+}
+impl NativeRunnableTarget {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeRunnableTarget";
+}
+::buffa::impl_default_instance!(NativeRunnableTarget);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeRunnableTarget {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.package_id),
+            2u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.manifest[..]),
+            3u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.root[..]),
+            4u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.name),
+            5u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.kind),
+            6u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.required_features),
+            7u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.active_features),
+            8u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Bool(
+                    self.required_features_satisfied,
+                )
+            }
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => !self.package_id.is_empty(),
+            2u32 => !self.manifest.is_empty(),
+            3u32 => !self.root.is_empty(),
+            4u32 => !self.name.is_empty(),
+            5u32 => !self.kind.is_empty(),
+            6u32 => !self.required_features.is_empty(),
+            7u32 => !self.active_features.is_empty(),
+            8u32 => self.required_features_satisfied,
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeRunnableTarget {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeRunnableTarget {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeRunnableTarget {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeRunnableTarget {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeRunnableTarget";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeRunnableTarget";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeRunnableTarget";
+}
+impl ::buffa::Message for NativeRunnableTarget {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.package_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.package_id) as u64;
+        }
+        if !self.manifest.is_empty() {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(&self.manifest) as u64;
+        }
+        if !self.root.is_empty() {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(&self.root) as u64;
+        }
+        if !self.name.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.name) as u64;
+        }
+        if !self.kind.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.kind) as u64;
+        }
+        for v in &self.required_features {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        for v in &self.active_features {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        if self.required_features_satisfied {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if !self.package_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.package_id, buf);
+        }
+        if !self.manifest.is_empty() {
+            ::buffa::types::put_shared_bytes_field(2u32, &self.manifest, buf);
+        }
+        if !self.root.is_empty() {
+            ::buffa::types::put_shared_bytes_field(3u32, &self.root, buf);
+        }
+        if !self.name.is_empty() {
+            ::buffa::types::put_string_field(4u32, &self.name, buf);
+        }
+        if !self.kind.is_empty() {
+            ::buffa::types::put_string_field(5u32, &self.kind, buf);
+        }
+        for v in &self.required_features {
+            ::buffa::types::put_string_field(6u32, v, buf);
+        }
+        for v in &self.active_features {
+            ::buffa::types::put_string_field(7u32, v, buf);
+        }
+        if self.required_features_satisfied {
+            ::buffa::types::put_bool_field(8u32, self.required_features_satisfied, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.package_id, buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_bytes(&mut self.manifest, buf)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_bytes(&mut self.root, buf)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.name, buf)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.kind, buf)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __elem = ::buffa::types::decode_string(buf)?;
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&__elem),
+                )?;
+                self.required_features.push(__elem);
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __elem = ::buffa::types::decode_string(buf)?;
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&__elem),
+                )?;
+                self.active_features.push(__elem);
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.required_features_satisfied = ::buffa::types::decode_bool(buf)?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.package_id.clear();
+        self.manifest.clear();
+        self.root.clear();
+        self.name.clear();
+        self.kind.clear();
+        self.required_features.clear();
+        self.active_features.clear();
+        self.required_features_satisfied = false;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeRunnableTarget {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeRunnableTarget";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeRunnableTarget {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if !self.package_id.is_empty() {
+            enc.write_field_name("package_id")?;
+            enc.write_string(&self.package_id)?;
+        }
+        if !self.manifest.is_empty() {
+            enc.write_field_name("manifest")?;
+            enc.write_bytes(&self.manifest)?;
+        }
+        if !self.root.is_empty() {
+            enc.write_field_name("root")?;
+            enc.write_bytes(&self.root)?;
+        }
+        if !self.name.is_empty() {
+            enc.write_field_name("name")?;
+            enc.write_string(&self.name)?;
+        }
+        if !self.kind.is_empty() {
+            enc.write_field_name("kind")?;
+            enc.write_string(&self.kind)?;
+        }
+        if self.required_features_satisfied {
+            enc.write_field_name("required_features_satisfied")?;
+            enc.write_bool(self.required_features_satisfied)?;
+        }
+        for __v in &self.required_features {
+            enc.write_field_name("required_features")?;
+            enc.write_string(__v)?;
+        }
+        for __v in &self.active_features {
+            enc.write_field_name("active_features")?;
+            enc.write_string(__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "package_id" => self.package_id = dec.read_string()?.into_owned(),
+                "manifest" => self.manifest = dec.read_bytes()?,
+                "root" => self.root = dec.read_bytes()?,
+                "name" => self.name = dec.read_string()?.into_owned(),
+                "kind" => self.kind = dec.read_string()?.into_owned(),
+                "required_features_satisfied" => {
+                    self.required_features_satisfied = dec.read_bool()?;
+                }
+                "required_features" => {
+                    dec.read_repeated_into(
+                        &mut self.required_features,
+                        |__d| ::core::result::Result::Ok(__d.read_string()?.into_owned()),
+                    )?
+                }
+                "active_features" => {
+                    dec.read_repeated_into(
+                        &mut self.active_features,
+                        |__d| ::core::result::Result::Ok(__d.read_string()?.into_owned()),
+                    )?
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeRunnableTarget {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_RUNNABLE_TARGET_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeRunnableTarget",
+    to_json: ::buffa::type_registry::any_to_json::<NativeRunnableTarget>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeRunnableTarget>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_RUNNABLE_TARGET_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeRunnableTarget",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeRunnableTarget>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeRunnableTarget>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeSnapshotUpdate {
+    /// Field 1: `expect_test`
+    #[serde(
+        rename = "expectTest",
+        alias = "expect_test",
+        with = "::buffa::json_helpers::proto_bool",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
+    )]
+    pub expect_test: bool,
+    /// Field 2: `insta`
+    #[serde(
+        rename = "insta",
+        with = "::buffa::json_helpers::proto_bool",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
+    )]
+    pub insta: bool,
+    /// Field 3: `snapbox`
+    #[serde(
+        rename = "snapbox",
+        with = "::buffa::json_helpers::proto_bool",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
+    )]
+    pub snapbox: bool,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeSnapshotUpdate {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeSnapshotUpdate")
+            .field("expect_test", &self.expect_test)
+            .field("insta", &self.insta)
+            .field("snapbox", &self.snapbox)
+            .finish()
+    }
+}
+impl NativeSnapshotUpdate {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeSnapshotUpdate";
+}
+::buffa::impl_default_instance!(NativeSnapshotUpdate);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeSnapshotUpdate {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.expect_test),
+            2u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.insta),
+            3u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.snapbox),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.expect_test,
+            2u32 => self.insta,
+            3u32 => self.snapbox,
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeSnapshotUpdate {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeSnapshotUpdate {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeSnapshotUpdate {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeSnapshotUpdate {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeSnapshotUpdate";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeSnapshotUpdate";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeSnapshotUpdate";
+}
+impl ::buffa::Message for NativeSnapshotUpdate {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.expect_test {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        if self.insta {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        if self.snapbox {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.expect_test {
+            ::buffa::types::put_bool_field(1u32, self.expect_test, buf);
+        }
+        if self.insta {
+            ::buffa::types::put_bool_field(2u32, self.insta, buf);
+        }
+        if self.snapbox {
+            ::buffa::types::put_bool_field(3u32, self.snapbox, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.expect_test = ::buffa::types::decode_bool(buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.insta = ::buffa::types::decode_bool(buf)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.snapbox = ::buffa::types::decode_bool(buf)?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.expect_test = false;
+        self.insta = false;
+        self.snapbox = false;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeSnapshotUpdate {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeSnapshotUpdate";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeSnapshotUpdate {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.expect_test {
+            enc.write_field_name("expect_test")?;
+            enc.write_bool(self.expect_test)?;
+        }
+        if self.insta {
+            enc.write_field_name("insta")?;
+            enc.write_bool(self.insta)?;
+        }
+        if self.snapbox {
+            enc.write_field_name("snapbox")?;
+            enc.write_bool(self.snapbox)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "expect_test" => self.expect_test = dec.read_bool()?,
+                "insta" => self.insta = dec.read_bool()?,
+                "snapbox" => self.snapbox = dec.read_bool()?,
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeSnapshotUpdate {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_SNAPSHOT_UPDATE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeSnapshotUpdate",
+    to_json: ::buffa::type_registry::any_to_json::<NativeSnapshotUpdate>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeSnapshotUpdate>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_SNAPSHOT_UPDATE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeSnapshotUpdate",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeSnapshotUpdate>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeSnapshotUpdate>,
 };
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
@@ -37057,6 +38003,29 @@ pub struct NativeCallableCandidateFact {
         deserialize_with = "::buffa::json_helpers::null_as_default"
     )]
     pub reasons: ::buffa::alloc::vec::Vec<::buffa::alloc::string::String>,
+    /// Field 7: `context`
+    #[serde(
+        rename = "context",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub context: ::buffa::MessageField<
+        NativeCallableContextFact,
+        ::buffa::Inline<NativeCallableContextFact>,
+    >,
+    /// Field 8: `obligations`
+    #[serde(
+        rename = "obligations",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub obligations: ::buffa::alloc::vec::Vec<NativeCallableObligationFact>,
+    /// Field 9: `limitations`
+    #[serde(
+        rename = "limitations",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub limitations: ::buffa::alloc::vec::Vec<::buffa::alloc::string::String>,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -37070,6 +38039,9 @@ impl ::core::fmt::Debug for NativeCallableCandidateFact {
             .field("applicability", &self.applicability)
             .field("required_import", &self.required_import)
             .field("reasons", &self.reasons)
+            .field("context", &self.context)
+            .field("obligations", &self.obligations)
+            .field("limitations", &self.limitations)
             .finish()
     }
 }
@@ -37133,6 +38105,13 @@ impl ::buffa_descriptor::reflect::ReflectMessage for NativeCallableCandidateFact
                 )
             }
             6u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.reasons),
+            7u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.context),
+                )
+            }
+            8u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.obligations),
+            9u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.limitations),
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -37151,6 +38130,9 @@ impl ::buffa_descriptor::reflect::ReflectMessage for NativeCallableCandidateFact
             4u32 => self.applicability.to_i32() != 0,
             5u32 => self.required_import.is_some(),
             6u32 => !self.reasons.is_empty(),
+            7u32 => self.context.is_set(),
+            8u32 => !self.obligations.is_empty(),
+            9u32 => !self.limitations.is_empty(),
             _ => false,
         }
     }
@@ -37260,6 +38242,25 @@ impl ::buffa::Message for NativeCallableCandidateFact {
         for v in &self.reasons {
             size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
         }
+        if self.context.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.context.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.obligations {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.limitations {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -37300,6 +38301,25 @@ impl ::buffa::Message for NativeCallableCandidateFact {
         }
         for v in &self.reasons {
             ::buffa::types::put_string_field(6u32, v, buf);
+        }
+        if self.context.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                7u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.context.write_to(__cache, buf);
+        }
+        for v in &self.obligations {
+            ::buffa::types::put_len_delimited_header(
+                8u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        for v in &self.limitations {
+            ::buffa::types::put_string_field(9u32, v, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -37375,6 +38395,40 @@ impl ::buffa::Message for NativeCallableCandidateFact {
                 )?;
                 self.reasons.push(__elem);
             }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.context.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.obligations.push(elem);
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __elem = ::buffa::types::decode_string(buf)?;
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&__elem),
+                )?;
+                self.limitations.push(__elem);
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -37389,6 +38443,9 @@ impl ::buffa::Message for NativeCallableCandidateFact {
         self.applicability = ::buffa::EnumValue::from(0);
         self.required_import = ::core::option::Option::None;
         self.reasons.clear();
+        self.context = ::buffa::MessageField::none();
+        self.obligations.clear();
+        self.limitations.clear();
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -37431,8 +38488,20 @@ impl ::buffa::text::TextFormat for NativeCallableCandidateFact {
             enc.write_field_name("required_import")?;
             enc.write_string(__v)?;
         }
+        if self.context.is_set() {
+            enc.write_field_name("context")?;
+            enc.write_message(&*self.context)?;
+        }
         for __v in &self.reasons {
             enc.write_field_name("reasons")?;
+            enc.write_string(__v)?;
+        }
+        for __v in &self.obligations {
+            enc.write_field_name("obligations")?;
+            enc.write_message(__v)?;
+        }
+        for __v in &self.limitations {
+            enc.write_field_name("limitations")?;
             enc.write_string(__v)?;
         }
         enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
@@ -37459,9 +38528,26 @@ impl ::buffa::text::TextFormat for NativeCallableCandidateFact {
                         dec.read_string()?.into_owned(),
                     );
                 }
+                "context" => dec.merge_message(self.context.get_or_insert_default())?,
                 "reasons" => {
                     dec.read_repeated_into(
                         &mut self.reasons,
+                        |__d| ::core::result::Result::Ok(__d.read_string()?.into_owned()),
+                    )?
+                }
+                "obligations" => {
+                    dec.read_repeated_into(
+                        &mut self.obligations,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                "limitations" => {
+                    dec.read_repeated_into(
+                        &mut self.limitations,
                         |__d| ::core::result::Result::Ok(__d.read_string()?.into_owned()),
                     )?
                 }
@@ -37496,6 +38582,2081 @@ pub const __NATIVE_CALLABLE_CANDIDATE_FACT_TEXT_ANY: ::buffa::type_registry::Tex
     type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeCallableCandidateFact",
     text_encode: ::buffa::type_registry::any_encode_text::<NativeCallableCandidateFact>,
     text_merge: ::buffa::type_registry::any_merge_text::<NativeCallableCandidateFact>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeCallableContextFact {
+    /// Field 1: `callsite`
+    #[serde(
+        rename = "callsite",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub callsite: ::buffa::MessageField<
+        NativeByteLocation,
+        ::buffa::Inline<NativeByteLocation>,
+    >,
+    /// Field 2: `callable_target`
+    #[serde(
+        rename = "callableTarget",
+        alias = "callable_target",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub callable_target: ::buffa::MessageField<
+        NativeTargetFact,
+        ::buffa::Inline<NativeTargetFact>,
+    >,
+    /// Field 3: `substitution_owner`
+    #[serde(
+        rename = "substitutionOwner",
+        alias = "substitution_owner",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub substitution_owner: ::buffa::MessageField<
+        NativeTargetFact,
+        ::buffa::Inline<NativeTargetFact>,
+    >,
+    /// Field 4: `receiver_parameter`
+    #[serde(
+        rename = "receiverParameter",
+        alias = "receiver_parameter",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub receiver_parameter: ::buffa::MessageField<
+        NativeTypeFact,
+        ::buffa::Inline<NativeTypeFact>,
+    >,
+    /// Field 5: `parameters`
+    #[serde(
+        rename = "parameters",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub parameters: ::buffa::alloc::vec::Vec<NativeTypeFact>,
+    /// Field 6: `result`
+    #[serde(
+        rename = "result",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub result: ::buffa::MessageField<NativeTypeFact, ::buffa::Inline<NativeTypeFact>>,
+    /// Field 7: `adjusted_result`
+    #[serde(
+        rename = "adjustedResult",
+        alias = "adjusted_result",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub adjusted_result: ::buffa::MessageField<
+        NativeTypeFact,
+        ::buffa::Inline<NativeTypeFact>,
+    >,
+    /// Field 8: `result_coerces_to_adjusted`
+    #[serde(
+        rename = "resultCoercesToAdjusted",
+        alias = "result_coerces_to_adjusted",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub result_coerces_to_adjusted: ::core::option::Option<bool>,
+    /// Field 9: `substitutions`
+    #[serde(
+        rename = "substitutions",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub substitutions: ::buffa::MessageField<
+        NativeCallableSubstitutions,
+        ::buffa::Inline<NativeCallableSubstitutions>,
+    >,
+    /// Field 10: `receiver_adjustments`
+    #[serde(
+        rename = "receiverAdjustments",
+        alias = "receiver_adjustments",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub receiver_adjustments: ::buffa::MessageField<
+        NativeReceiverAdjustments,
+        ::buffa::Inline<NativeReceiverAdjustments>,
+    >,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeCallableContextFact {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeCallableContextFact")
+            .field("callsite", &self.callsite)
+            .field("callable_target", &self.callable_target)
+            .field("substitution_owner", &self.substitution_owner)
+            .field("receiver_parameter", &self.receiver_parameter)
+            .field("parameters", &self.parameters)
+            .field("result", &self.result)
+            .field("adjusted_result", &self.adjusted_result)
+            .field("result_coerces_to_adjusted", &self.result_coerces_to_adjusted)
+            .field("substitutions", &self.substitutions)
+            .field("receiver_adjustments", &self.receiver_adjustments)
+            .finish()
+    }
+}
+impl NativeCallableContextFact {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeCallableContextFact";
+}
+impl NativeCallableContextFact {
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::result_coerces_to_adjusted`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_result_coerces_to_adjusted(mut self, value: bool) -> Self {
+        self.result_coerces_to_adjusted = Some(value);
+        self
+    }
+}
+::buffa::impl_default_instance!(NativeCallableContextFact);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeCallableContextFact {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.callsite),
+                )
+            }
+            2u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(
+                        &*self.callable_target,
+                    ),
+                )
+            }
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(
+                        &*self.substitution_owner,
+                    ),
+                )
+            }
+            4u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(
+                        &*self.receiver_parameter,
+                    ),
+                )
+            }
+            5u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.parameters),
+            6u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.result),
+                )
+            }
+            7u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(
+                        &*self.adjusted_result,
+                    ),
+                )
+            }
+            8u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Bool(
+                    self.result_coerces_to_adjusted.unwrap_or(false),
+                )
+            }
+            9u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(
+                        &*self.substitutions,
+                    ),
+                )
+            }
+            10u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(
+                        &*self.receiver_adjustments,
+                    ),
+                )
+            }
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.callsite.is_set(),
+            2u32 => self.callable_target.is_set(),
+            3u32 => self.substitution_owner.is_set(),
+            4u32 => self.receiver_parameter.is_set(),
+            5u32 => !self.parameters.is_empty(),
+            6u32 => self.result.is_set(),
+            7u32 => self.adjusted_result.is_set(),
+            8u32 => self.result_coerces_to_adjusted.is_some(),
+            9u32 => self.substitutions.is_set(),
+            10u32 => self.receiver_adjustments.is_set(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeCallableContextFact {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeCallableContextFact {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeCallableContextFact {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeCallableContextFact {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeCallableContextFact";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeCallableContextFact";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeCallableContextFact";
+}
+impl ::buffa::Message for NativeCallableContextFact {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.callsite.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.callsite.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.callable_target.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.callable_target.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.substitution_owner.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.substitution_owner.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.receiver_parameter.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.receiver_parameter.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.parameters {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.result.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.result.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.adjusted_result.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.adjusted_result.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.result_coerces_to_adjusted.is_some() {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        if self.substitutions.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.substitutions.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.receiver_adjustments.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.receiver_adjustments.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.callsite.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.callsite.write_to(__cache, buf);
+        }
+        if self.callable_target.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                2u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.callable_target.write_to(__cache, buf);
+        }
+        if self.substitution_owner.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.substitution_owner.write_to(__cache, buf);
+        }
+        if self.receiver_parameter.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                4u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.receiver_parameter.write_to(__cache, buf);
+        }
+        for v in &self.parameters {
+            ::buffa::types::put_len_delimited_header(
+                5u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        if self.result.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                6u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.result.write_to(__cache, buf);
+        }
+        if self.adjusted_result.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                7u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.adjusted_result.write_to(__cache, buf);
+        }
+        if let Some(v) = self.result_coerces_to_adjusted {
+            ::buffa::types::put_bool_field(8u32, v, buf);
+        }
+        if self.substitutions.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                9u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.substitutions.write_to(__cache, buf);
+        }
+        if self.receiver_adjustments.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                10u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.receiver_adjustments.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.callsite.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.callable_target.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.substitution_owner.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.receiver_parameter.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.parameters.push(elem);
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.result.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.adjusted_result.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.result_coerces_to_adjusted = ::core::option::Option::Some(
+                    ::buffa::types::decode_bool(buf)?,
+                );
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.substitutions.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.receiver_adjustments.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.callsite = ::buffa::MessageField::none();
+        self.callable_target = ::buffa::MessageField::none();
+        self.substitution_owner = ::buffa::MessageField::none();
+        self.receiver_parameter = ::buffa::MessageField::none();
+        self.parameters.clear();
+        self.result = ::buffa::MessageField::none();
+        self.adjusted_result = ::buffa::MessageField::none();
+        self.result_coerces_to_adjusted = ::core::option::Option::None;
+        self.substitutions = ::buffa::MessageField::none();
+        self.receiver_adjustments = ::buffa::MessageField::none();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeCallableContextFact {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeCallableContextFact";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeCallableContextFact {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.callsite.is_set() {
+            enc.write_field_name("callsite")?;
+            enc.write_message(&*self.callsite)?;
+        }
+        if self.callable_target.is_set() {
+            enc.write_field_name("callable_target")?;
+            enc.write_message(&*self.callable_target)?;
+        }
+        if self.substitution_owner.is_set() {
+            enc.write_field_name("substitution_owner")?;
+            enc.write_message(&*self.substitution_owner)?;
+        }
+        if self.receiver_parameter.is_set() {
+            enc.write_field_name("receiver_parameter")?;
+            enc.write_message(&*self.receiver_parameter)?;
+        }
+        if self.result.is_set() {
+            enc.write_field_name("result")?;
+            enc.write_message(&*self.result)?;
+        }
+        if self.adjusted_result.is_set() {
+            enc.write_field_name("adjusted_result")?;
+            enc.write_message(&*self.adjusted_result)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.result_coerces_to_adjusted {
+            enc.write_field_name("result_coerces_to_adjusted")?;
+            enc.write_bool(*__v)?;
+        }
+        if self.substitutions.is_set() {
+            enc.write_field_name("substitutions")?;
+            enc.write_message(&*self.substitutions)?;
+        }
+        if self.receiver_adjustments.is_set() {
+            enc.write_field_name("receiver_adjustments")?;
+            enc.write_message(&*self.receiver_adjustments)?;
+        }
+        for __v in &self.parameters {
+            enc.write_field_name("parameters")?;
+            enc.write_message(__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "callsite" => dec.merge_message(self.callsite.get_or_insert_default())?,
+                "callable_target" => {
+                    dec.merge_message(self.callable_target.get_or_insert_default())?
+                }
+                "substitution_owner" => {
+                    dec.merge_message(self.substitution_owner.get_or_insert_default())?
+                }
+                "receiver_parameter" => {
+                    dec.merge_message(self.receiver_parameter.get_or_insert_default())?
+                }
+                "result" => dec.merge_message(self.result.get_or_insert_default())?,
+                "adjusted_result" => {
+                    dec.merge_message(self.adjusted_result.get_or_insert_default())?
+                }
+                "result_coerces_to_adjusted" => {
+                    self.result_coerces_to_adjusted = ::core::option::Option::Some(
+                        dec.read_bool()?,
+                    );
+                }
+                "substitutions" => {
+                    dec.merge_message(self.substitutions.get_or_insert_default())?
+                }
+                "receiver_adjustments" => {
+                    dec.merge_message(self.receiver_adjustments.get_or_insert_default())?
+                }
+                "parameters" => {
+                    dec.read_repeated_into(
+                        &mut self.parameters,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeCallableContextFact {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_CALLABLE_CONTEXT_FACT_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeCallableContextFact",
+    to_json: ::buffa::type_registry::any_to_json::<NativeCallableContextFact>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeCallableContextFact>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_CALLABLE_CONTEXT_FACT_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeCallableContextFact",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeCallableContextFact>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeCallableContextFact>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeCallableSubstitutions {
+    /// Field 1: `arguments`
+    #[serde(
+        rename = "arguments",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub arguments: ::buffa::alloc::vec::Vec<NativeCallableSubstitutionFact>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeCallableSubstitutions {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeCallableSubstitutions")
+            .field("arguments", &self.arguments)
+            .finish()
+    }
+}
+impl NativeCallableSubstitutions {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeCallableSubstitutions";
+}
+::buffa::impl_default_instance!(NativeCallableSubstitutions);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeCallableSubstitutions {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.arguments),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => !self.arguments.is_empty(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeCallableSubstitutions {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeCallableSubstitutions {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeCallableSubstitutions {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeCallableSubstitutions {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeCallableSubstitutions";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeCallableSubstitutions";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeCallableSubstitutions";
+}
+impl ::buffa::Message for NativeCallableSubstitutions {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        for v in &self.arguments {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        for v in &self.arguments {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.arguments.push(elem);
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.arguments.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeCallableSubstitutions {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeCallableSubstitutions";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeCallableSubstitutions {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        for __v in &self.arguments {
+            enc.write_field_name("arguments")?;
+            enc.write_message(__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "arguments" => {
+                    dec.read_repeated_into(
+                        &mut self.arguments,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeCallableSubstitutions {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_CALLABLE_SUBSTITUTIONS_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeCallableSubstitutions",
+    to_json: ::buffa::type_registry::any_to_json::<NativeCallableSubstitutions>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeCallableSubstitutions>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_CALLABLE_SUBSTITUTIONS_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeCallableSubstitutions",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeCallableSubstitutions>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeCallableSubstitutions>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeCallableSubstitutionFact {
+    /// Field 1: `parameter_index`
+    #[serde(
+        rename = "parameterIndex",
+        alias = "parameter_index",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub parameter_index: u64,
+    /// Field 2: `parameter`
+    #[serde(
+        rename = "parameter",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub parameter: ::core::option::Option<::buffa::alloc::string::String>,
+    /// Field 3: `argument`
+    #[serde(
+        rename = "argument",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub argument: ::buffa::MessageField<NativeTypeFact, ::buffa::Inline<NativeTypeFact>>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeCallableSubstitutionFact {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeCallableSubstitutionFact")
+            .field("parameter_index", &self.parameter_index)
+            .field("parameter", &self.parameter)
+            .field("argument", &self.argument)
+            .finish()
+    }
+}
+impl NativeCallableSubstitutionFact {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeCallableSubstitutionFact";
+}
+impl NativeCallableSubstitutionFact {
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::parameter`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_parameter(
+        mut self,
+        value: impl Into<::buffa::alloc::string::String>,
+    ) -> Self {
+        self.parameter = Some(value.into());
+        self
+    }
+}
+::buffa::impl_default_instance!(NativeCallableSubstitutionFact);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeCallableSubstitutionFact {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.parameter_index),
+            2u32 => {
+                ::buffa_descriptor::reflect::ValueRef::String(
+                    self.parameter.as_deref().unwrap_or(""),
+                )
+            }
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.argument),
+                )
+            }
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.parameter_index != 0,
+            2u32 => self.parameter.is_some(),
+            3u32 => self.argument.is_set(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeCallableSubstitutionFact {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeCallableSubstitutionFact {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeCallableSubstitutionFact {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeCallableSubstitutionFact {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeCallableSubstitutionFact";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeCallableSubstitutionFact";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeCallableSubstitutionFact";
+}
+impl ::buffa::Message for NativeCallableSubstitutionFact {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.parameter_index != 0u64 {
+            size
+                += 1u64
+                    + ::buffa::types::uint64_encoded_len(self.parameter_index) as u64;
+        }
+        if let Some(ref v) = self.parameter {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        if self.argument.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.argument.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.parameter_index != 0u64 {
+            ::buffa::types::put_uint64_field(1u32, self.parameter_index, buf);
+        }
+        if let Some(ref v) = self.parameter {
+            ::buffa::types::put_string_field(2u32, v, buf);
+        }
+        if self.argument.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.argument.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.parameter_index = ::buffa::types::decode_uint64(buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(
+                    self
+                        .parameter
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.argument.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.parameter_index = 0u64;
+        self.parameter = ::core::option::Option::None;
+        self.argument = ::buffa::MessageField::none();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeCallableSubstitutionFact {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeCallableSubstitutionFact";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeCallableSubstitutionFact {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.parameter_index != 0u64 {
+            enc.write_field_name("parameter_index")?;
+            enc.write_u64(self.parameter_index)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.parameter {
+            enc.write_field_name("parameter")?;
+            enc.write_string(__v)?;
+        }
+        if self.argument.is_set() {
+            enc.write_field_name("argument")?;
+            enc.write_message(&*self.argument)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "parameter_index" => self.parameter_index = dec.read_u64()?,
+                "parameter" => {
+                    self.parameter = ::core::option::Option::Some(
+                        dec.read_string()?.into_owned(),
+                    );
+                }
+                "argument" => dec.merge_message(self.argument.get_or_insert_default())?,
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeCallableSubstitutionFact {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_CALLABLE_SUBSTITUTION_FACT_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeCallableSubstitutionFact",
+    to_json: ::buffa::type_registry::any_to_json::<NativeCallableSubstitutionFact>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeCallableSubstitutionFact>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_CALLABLE_SUBSTITUTION_FACT_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeCallableSubstitutionFact",
+    text_encode: ::buffa::type_registry::any_encode_text::<
+        NativeCallableSubstitutionFact,
+    >,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeCallableSubstitutionFact>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeReceiverAdjustments {
+    /// Field 1: `steps`
+    #[serde(
+        rename = "steps",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub steps: ::buffa::alloc::vec::Vec<NativeAdjustmentFact>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeReceiverAdjustments {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeReceiverAdjustments").field("steps", &self.steps).finish()
+    }
+}
+impl NativeReceiverAdjustments {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeReceiverAdjustments";
+}
+::buffa::impl_default_instance!(NativeReceiverAdjustments);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeReceiverAdjustments {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.steps),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => !self.steps.is_empty(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeReceiverAdjustments {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeReceiverAdjustments {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeReceiverAdjustments {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeReceiverAdjustments {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeReceiverAdjustments";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeReceiverAdjustments";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeReceiverAdjustments";
+}
+impl ::buffa::Message for NativeReceiverAdjustments {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        for v in &self.steps {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        for v in &self.steps {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.steps.push(elem);
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.steps.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeReceiverAdjustments {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeReceiverAdjustments";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeReceiverAdjustments {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        for __v in &self.steps {
+            enc.write_field_name("steps")?;
+            enc.write_message(__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "steps" => {
+                    dec.read_repeated_into(
+                        &mut self.steps,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeReceiverAdjustments {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_RECEIVER_ADJUSTMENTS_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeReceiverAdjustments",
+    to_json: ::buffa::type_registry::any_to_json::<NativeReceiverAdjustments>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeReceiverAdjustments>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_RECEIVER_ADJUSTMENTS_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeReceiverAdjustments",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeReceiverAdjustments>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeReceiverAdjustments>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeCallableObligationFact {
+    /// Field 1: `declared_trait`
+    #[serde(
+        rename = "declaredTrait",
+        alias = "declared_trait",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub declared_trait: ::buffa::MessageField<
+        NativeTargetFact,
+        ::buffa::Inline<NativeTargetFact>,
+    >,
+    /// Field 2: `parameter`
+    #[serde(
+        rename = "parameter",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub parameter: ::buffa::alloc::string::String,
+    /// Field 3: `subject`
+    #[serde(
+        rename = "subject",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub subject: ::buffa::MessageField<NativeTypeFact, ::buffa::Inline<NativeTypeFact>>,
+    /// Field 4: `outcome`
+    #[serde(
+        rename = "outcome",
+        with = "::buffa::json_helpers::proto_enum",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_default_enum_value"
+    )]
+    pub outcome: ::buffa::EnumValue<NativePredicateOutcome>,
+    /// Field 5: `reason`
+    #[serde(
+        rename = "reason",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub reason: ::buffa::alloc::string::String,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeCallableObligationFact {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeCallableObligationFact")
+            .field("declared_trait", &self.declared_trait)
+            .field("parameter", &self.parameter)
+            .field("subject", &self.subject)
+            .field("outcome", &self.outcome)
+            .field("reason", &self.reason)
+            .finish()
+    }
+}
+impl NativeCallableObligationFact {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeCallableObligationFact";
+}
+::buffa::impl_default_instance!(NativeCallableObligationFact);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeCallableObligationFact {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(
+                        &*self.declared_trait,
+                    ),
+                )
+            }
+            2u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.parameter),
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.subject),
+                )
+            }
+            4u32 => {
+                ::buffa_descriptor::reflect::ValueRef::EnumNumber(self.outcome.to_i32())
+            }
+            5u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.reason),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.declared_trait.is_set(),
+            2u32 => !self.parameter.is_empty(),
+            3u32 => self.subject.is_set(),
+            4u32 => self.outcome.to_i32() != 0,
+            5u32 => !self.reason.is_empty(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeCallableObligationFact {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeCallableObligationFact {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeCallableObligationFact {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeCallableObligationFact {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeCallableObligationFact";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeCallableObligationFact";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeCallableObligationFact";
+}
+impl ::buffa::Message for NativeCallableObligationFact {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.declared_trait.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.declared_trait.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if !self.parameter.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.parameter) as u64;
+        }
+        if self.subject.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.subject.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        {
+            let val = self.outcome.to_i32();
+            if val != 0 {
+                size += 1u64 + ::buffa::types::int32_encoded_len(val) as u64;
+            }
+        }
+        if !self.reason.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.reason) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.declared_trait.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.declared_trait.write_to(__cache, buf);
+        }
+        if !self.parameter.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.parameter, buf);
+        }
+        if self.subject.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.subject.write_to(__cache, buf);
+        }
+        {
+            let val = self.outcome.to_i32();
+            if val != 0 {
+                ::buffa::types::put_int32_field(4u32, val, buf);
+            }
+        }
+        if !self.reason.is_empty() {
+            ::buffa::types::put_string_field(5u32, &self.reason, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.declared_trait.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.parameter, buf)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.subject.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.outcome = ::buffa::EnumValue::from(
+                    ::buffa::types::decode_int32(buf)?,
+                );
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.reason, buf)?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.declared_trait = ::buffa::MessageField::none();
+        self.parameter.clear();
+        self.subject = ::buffa::MessageField::none();
+        self.outcome = ::buffa::EnumValue::from(0);
+        self.reason.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeCallableObligationFact {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeCallableObligationFact";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeCallableObligationFact {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.declared_trait.is_set() {
+            enc.write_field_name("declared_trait")?;
+            enc.write_message(&*self.declared_trait)?;
+        }
+        if !self.parameter.is_empty() {
+            enc.write_field_name("parameter")?;
+            enc.write_string(&self.parameter)?;
+        }
+        if self.subject.is_set() {
+            enc.write_field_name("subject")?;
+            enc.write_message(&*self.subject)?;
+        }
+        if self.outcome.to_i32() != 0 {
+            enc.write_field_name("outcome")?;
+            match &self.outcome {
+                ::buffa::EnumValue::Known(__e) => enc.write_enum_name(__e.proto_name())?,
+                ::buffa::EnumValue::Unknown(__n) => enc.write_enum_number(*__n)?,
+            }
+        }
+        if !self.reason.is_empty() {
+            enc.write_field_name("reason")?;
+            enc.write_string(&self.reason)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "declared_trait" => {
+                    dec.merge_message(self.declared_trait.get_or_insert_default())?
+                }
+                "parameter" => self.parameter = dec.read_string()?.into_owned(),
+                "subject" => dec.merge_message(self.subject.get_or_insert_default())?,
+                "outcome" => {
+                    self.outcome = dec
+                        .read_enum_by_name::<NativePredicateOutcome>()
+                        .map(::buffa::EnumValue::from)?;
+                }
+                "reason" => self.reason = dec.read_string()?.into_owned(),
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeCallableObligationFact {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_CALLABLE_OBLIGATION_FACT_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeCallableObligationFact",
+    to_json: ::buffa::type_registry::any_to_json::<NativeCallableObligationFact>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeCallableObligationFact>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_CALLABLE_OBLIGATION_FACT_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeCallableObligationFact",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeCallableObligationFact>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeCallableObligationFact>,
 };
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]

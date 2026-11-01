@@ -173,6 +173,12 @@ pub struct TestCandidateFact {
     pub relatedness: Option<String>,
     /// Eligibility only when the selected native world establishes it.
     pub eligible: Option<bool>,
+    /// Native cfg evaluation only; separate from target-feature or compiler-unit eligibility.
+    pub cfg_eligible: Option<bool>,
+    /// Captured Cargo target premises; plural correspondence stays explicit.
+    pub cargo_targets: Vec<RunnableTargetFact>,
+    /// Native snapshot-update intent only, never authorization or update environment.
+    pub snapshot_update: Option<SnapshotUpdateFact>,
     /// Native display label.
     pub label: Option<String>,
     /// Selected native source location.
@@ -185,6 +191,36 @@ pub struct TestCandidateFact {
     pub executable_args: Vec<String>,
     /// Original native record, for qualified inspection only.
     pub original: serde_json::Value,
+}
+/// Small captured Cargo target observation from the prepared native project model.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct RunnableTargetFact {
+    /// Actual metadata package identity.
+    pub package_id: String,
+    /// Original manifest path.
+    pub manifest: PathBuf,
+    /// Actual target source root.
+    pub root: PathBuf,
+    /// Actual Cargo target name.
+    pub name: String,
+    /// Native Cargo target category, independent of discovered runnable kind.
+    pub kind: String,
+    /// Original target required-feature names.
+    pub required_features: Vec<String>,
+    /// Effective features in the captured Cargo model, not reconstructed activation.
+    pub active_features: std::collections::BTreeSet<String>,
+    /// Captured metadata feature eligibility, not compilation or execution.
+    pub required_features_satisfied: bool,
+}
+/// Actual native macro-use metadata; false means the native scan found no such use.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct SnapshotUpdateFact {
+    /// Native expect_test macro-use intent.
+    pub expect_test: bool,
+    /// Native insta macro-use intent.
+    pub insta: bool,
+    /// Native snapbox macro-use intent.
+    pub snapbox: bool,
 }
 /// Shared consumed observations; original evidence remains separately qualified.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
@@ -331,8 +367,65 @@ pub struct CallableCandidateFact {
     pub applicability: PredicateOutcome,
     /// Native use path of an extension trait absent from the current scope.
     pub required_import: Option<String>,
+    /// Actual authored-call inference only when native declaration identity matches.
+    pub context: Option<CallableContextFact>,
+    /// Declared native trait requirements and separately observed contextual proofs.
+    pub obligations: Vec<CallableObligationFact>,
+    /// Unsupported residual questions, separate from a failed native proof.
+    pub limitations: Vec<String>,
     /// Which native operation supplied the candidate and what remains unproved.
     pub reasons: Vec<String>,
+}
+
+/// A substituted native call; declaration signatures remain independently available.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct CallableContextFact {
+    /// Exact occurrence, independent of the method's declaration.
+    pub callsite: Option<NativeLocation>,
+    /// Native callable declaration (which may be the trait declaration).
+    pub callable_target: TargetFact,
+    /// Actual implementation target owning the generic argument order and names.
+    pub substitution_owner: TargetFact,
+    /// Native instantiated self parameter, including its reference/borrow type.
+    pub receiver_parameter: Option<TypeFact>,
+    /// Native instantiated parameters, excluding self.
+    pub parameters: Vec<TypeFact>,
+    /// Native instantiated return type before contextual coercion.
+    pub result: TypeFact,
+    /// Native call result after a contextual adjustment, when supplied.
+    pub adjusted_result: Option<TypeFact>,
+    /// Actual native coercion observation; unknown components remain absent.
+    pub result_coerces_to_adjusted: Option<bool>,
+    /// Original native type argument order; absent means substitution observation unavailable.
+    pub substitutions: Option<Vec<CallableSubstitutionFact>>,
+    /// Actual ordered receiver steps; absent means the library supplied no sequence.
+    pub receiver_adjustments: Option<Vec<AdjustmentFact>>,
+}
+
+/// A native generic argument, scoped by the enclosing substitution owner.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct CallableSubstitutionFact {
+    /// Original native type-parameter index; no display-name join establishes identity.
+    pub parameter_index: usize,
+    /// Native parameter name when the public interface supplies it.
+    pub parameter: Option<String>,
+    /// Actual inferred type argument, with unknown components retained.
+    pub argument: TypeFact,
+}
+
+/// A declared requirement and its optional actual contextual subject.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct CallableObligationFact {
+    /// Source-qualified native trait declaration; its name is presentation only.
+    pub declared_trait: TargetFact,
+    /// Native declaring parameter name, or Self for a receiver requirement.
+    pub parameter: String,
+    /// Actual subject only where native substitution or a whole-self binding supplies it.
+    pub subject: Option<TypeFact>,
+    /// Holds is positive native evidence; failed proof stays NotProven.
+    pub outcome: PredicateOutcome,
+    /// Native observation origin and unsupported residuals.
+    pub reason: String,
 }
 
 /// A native adjustment's source and destination types in order.

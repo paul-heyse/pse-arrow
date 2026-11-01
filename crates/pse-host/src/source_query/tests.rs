@@ -37,7 +37,7 @@ fn selected_preview_matches_only_its_addressed_node_not_unrelated_occurrences() 
         fn match_node_with_env<'tree, D: ast_grep_core::Doc>(
             &self,
             node: ast_grep_core::Node<'tree, D>,
-            environment: &mut Cow<ast_grep_core::meta_var::MetaVarEnv<'tree, D>>,
+            environment: &mut Cow<'_, ast_grep_core::meta_var::MetaVarEnv<'tree, D>>,
         ) -> Option<ast_grep_core::Node<'tree, D>> {
             self.visited.set(self.visited.get() + 1);
             ast_grep_core::Matcher::match_node_with_env(self.matcher, node, environment)

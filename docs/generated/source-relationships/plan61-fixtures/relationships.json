@@ -18,7 +18,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/plan61/mod.rs",
-      "source_identity": "sha256:b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
+      "source_identity": "sha256:b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
       "source_path": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -34,7 +34,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__ext.rs",
-      "source_identity": "sha256:b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
+      "source_identity": "sha256:b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
       "source_path": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -50,7 +50,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "source_identity": "sha256:b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
+      "source_identity": "sha256:b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
       "source_path": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -66,7 +66,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "source_identity": "sha256:b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
+      "source_identity": "sha256:b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
       "source_path": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -82,7 +82,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.mod.rs",
-      "source_identity": "sha256:b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
+      "source_identity": "sha256:b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
       "source_path": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -98,7 +98,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/plan61/validation/mod.rs",
-      "source_identity": "sha256:b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
+      "source_identity": "sha256:b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
       "source_path": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -114,7 +114,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/plan61/validation/plan61.qualification.v1.contract.rs",
-      "source_identity": "sha256:b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
+      "source_identity": "sha256:b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
       "source_path": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -130,7 +130,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/plan61/validation/plan61.qualification.v1.mod.rs",
-      "source_identity": "sha256:b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
+      "source_identity": "sha256:b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
       "source_path": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -146,7 +146,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/plan61/descriptor.bin",
-      "source_identity": "sha256:b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
+      "source_identity": "sha256:b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
       "source_path": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_role": "authored_wire_contract",
       "source_symbol": null

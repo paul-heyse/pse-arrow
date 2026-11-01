@@ -606,6 +606,31 @@ fn observed_to_pb(value: ObservedFacts) -> Result<pb::NativeObservedFacts> {
                     cfg: value.cfg,
                     relatedness: value.relatedness,
                     eligible: value.eligible,
+                    cfg_eligible: value.cfg_eligible,
+                    cargo_targets: value
+                        .cargo_targets
+                        .into_iter()
+                        .map(|target| pb::NativeRunnableTarget {
+                            package_id: target.package_id,
+                            manifest: path(&target.manifest),
+                            root: path(&target.root),
+                            name: target.name,
+                            kind: target.kind,
+                            required_features: target.required_features,
+                            active_features: target.active_features.into_iter().collect(),
+                            required_features_satisfied: target.required_features_satisfied,
+                            ..Default::default()
+                        })
+                        .collect(),
+                    snapshot_update: value
+                        .snapshot_update
+                        .map(|intent| pb::NativeSnapshotUpdate {
+                            expect_test: intent.expect_test,
+                            insta: intent.insta,
+                            snapbox: intent.snapbox,
+                            ..Default::default()
+                        })
+                        .into(),
                     label: value.label,
                     location: value.location.map(location_to_pb).into(),
                     runnable_kind: value.runnable_kind,
@@ -709,6 +734,28 @@ fn observed_from_pb(mut value: pb::NativeObservedFacts) -> Result<ObservedFacts>
                     cfg: value.cfg,
                     relatedness: value.relatedness,
                     eligible: value.eligible,
+                    cfg_eligible: value.cfg_eligible,
+                    cargo_targets: value
+                        .cargo_targets
+                        .into_iter()
+                        .map(|target| RunnableTargetFact {
+                            package_id: target.package_id,
+                            manifest: from_path(target.manifest),
+                            root: from_path(target.root),
+                            name: target.name,
+                            kind: target.kind,
+                            required_features: target.required_features,
+                            active_features: target.active_features.into_iter().collect(),
+                            required_features_satisfied: target.required_features_satisfied,
+                        })
+                        .collect(),
+                    snapshot_update: value.snapshot_update.take().map(|intent| {
+                        SnapshotUpdateFact {
+                            expect_test: intent.expect_test,
+                            insta: intent.insta,
+                            snapbox: intent.snapbox,
+                        }
+                    }),
                     label: value.label,
                     location: value.location.take().map(location_from_pb).transpose()?,
                     runnable_kind: value.runnable_kind,
@@ -1220,6 +1267,105 @@ fn outcome_from_pb(
         },
     )
 }
+fn callable_context_to_pb(c: CallableContextFact) -> pb::NativeCallableContextFact {
+    pb::NativeCallableContextFact {
+        callsite: c.callsite.map(native_location_to_pb).into(),
+        callable_target: target_to_pb(c.callable_target).into(),
+        substitution_owner: target_to_pb(c.substitution_owner).into(),
+        receiver_parameter: c.receiver_parameter.map(type_to_pb).into(),
+        parameters: c.parameters.into_iter().map(type_to_pb).collect(),
+        result: type_to_pb(c.result).into(),
+        adjusted_result: c.adjusted_result.map(type_to_pb).into(),
+        result_coerces_to_adjusted: c.result_coerces_to_adjusted,
+        substitutions: c
+            .substitutions
+            .map(|arguments| pb::NativeCallableSubstitutions {
+                arguments: arguments
+                    .into_iter()
+                    .map(|s| pb::NativeCallableSubstitutionFact {
+                        parameter_index: number(s.parameter_index),
+                        parameter: s.parameter,
+                        argument: type_to_pb(s.argument).into(),
+                        ..Default::default()
+                    })
+                    .collect(),
+                ..Default::default()
+            })
+            .into(),
+        receiver_adjustments: c
+            .receiver_adjustments
+            .map(|steps| pb::NativeReceiverAdjustments {
+                steps: steps
+                    .into_iter()
+                    .map(|s| pb::NativeAdjustmentFact {
+                        kind: s.kind,
+                        source: type_to_pb(s.source).into(),
+                        target: type_to_pb(s.target).into(),
+                        ..Default::default()
+                    })
+                    .collect(),
+                ..Default::default()
+            })
+            .into(),
+        ..Default::default()
+    }
+}
+fn callable_context_from_pb(mut c: pb::NativeCallableContextFact) -> Result<CallableContextFact> {
+    Ok(CallableContextFact {
+        callsite: c.callsite.take().map(native_location_from_pb).transpose()?,
+        callable_target: target_from_pb(required(
+            c.callable_target.take(),
+            "callable_context.callable_target",
+        )?)?,
+        substitution_owner: target_from_pb(required(
+            c.substitution_owner.take(),
+            "callable_context.substitution_owner",
+        )?)?,
+        receiver_parameter: c.receiver_parameter.take().map(type_from_pb),
+        parameters: c.parameters.into_iter().map(type_from_pb).collect(),
+        result: type_from_pb(required(c.result.take(), "callable_context.result")?),
+        adjusted_result: c.adjusted_result.take().map(type_from_pb),
+        result_coerces_to_adjusted: c.result_coerces_to_adjusted,
+        substitutions: c
+            .substitutions
+            .take()
+            .map(|s| {
+                s.arguments
+                    .into_iter()
+                    .map(|mut s| {
+                        Ok(CallableSubstitutionFact {
+                            parameter_index: size(
+                                s.parameter_index,
+                                "substitution.parameter_index",
+                            )?,
+                            parameter: s.parameter,
+                            argument: type_from_pb(required(
+                                s.argument.take(),
+                                "substitution.argument",
+                            )?),
+                        })
+                    })
+                    .collect::<Result<_>>()
+            })
+            .transpose()?,
+        receiver_adjustments: c
+            .receiver_adjustments
+            .take()
+            .map(|s| {
+                s.steps
+                    .into_iter()
+                    .map(|mut s| {
+                        Ok(AdjustmentFact {
+                            kind: s.kind,
+                            source: type_from_pb(required(s.source.take(), "adjustment.source")?),
+                            target: type_from_pb(required(s.target.take(), "adjustment.target")?),
+                        })
+                    })
+                    .collect::<Result<_>>()
+            })
+            .transpose()?,
+    })
+}
 fn typed_to_pb(value: TypedFacts) -> pb::NativeTypedFacts {
     pb::NativeTypedFacts {
         callable_candidates: value
@@ -1231,6 +1377,20 @@ fn typed_to_pb(value: TypedFacts) -> pb::NativeTypedFacts {
                 receiver: type_to_pb(c.receiver).into(),
                 applicability: outcome_to_pb(c.applicability).into(),
                 required_import: c.required_import,
+                context: c.context.map(callable_context_to_pb).into(),
+                obligations: c
+                    .obligations
+                    .into_iter()
+                    .map(|o| pb::NativeCallableObligationFact {
+                        declared_trait: target_to_pb(o.declared_trait).into(),
+                        parameter: o.parameter,
+                        subject: o.subject.map(type_to_pb).into(),
+                        outcome: outcome_to_pb(o.outcome).into(),
+                        reason: o.reason,
+                        ..Default::default()
+                    })
+                    .collect(),
+                limitations: c.limitations,
                 reasons: c.reasons,
                 ..Default::default()
             })
@@ -1328,6 +1488,24 @@ fn typed_from_pb(mut value: pb::NativeTypedFacts) -> Result<TypedFacts> {
                     receiver: type_from_pb(required(c.receiver.take(), "candidate.receiver")?),
                     applicability: outcome_from_pb(c.applicability)?,
                     required_import: c.required_import,
+                    context: c.context.take().map(callable_context_from_pb).transpose()?,
+                    obligations: c
+                        .obligations
+                        .into_iter()
+                        .map(|mut o| {
+                            Ok(CallableObligationFact {
+                                declared_trait: target_from_pb(required(
+                                    o.declared_trait.take(),
+                                    "obligation.declared_trait",
+                                )?)?,
+                                parameter: o.parameter,
+                                subject: o.subject.take().map(type_from_pb),
+                                outcome: outcome_from_pb(o.outcome)?,
+                                reason: o.reason,
+                            })
+                        })
+                        .collect::<Result<_>>()?,
+                    limitations: c.limitations,
                     reasons: c.reasons,
                 })
             })
@@ -1846,6 +2024,9 @@ mod tests {
                     location: Some(location()),
                 }],
                 tests: vec![TestCandidateFact {
+                    cfg_eligible: None,
+                    cargo_targets: Vec::new(),
+                    snapshot_update: None,
                     test_id: Some("module::test".into()),
                     cfg: None,
                     relatedness: None,

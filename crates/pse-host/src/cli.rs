@@ -687,9 +687,7 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         | "propose file-rename"
         | "propose assists"
         | "propose assist"
-        | "propose ssr" => {
-            envelope::schema::<crate::cli::code::semantic::AnswerView>(command, view)
-        }
+        | "propose ssr" => envelope::schema::<code::semantic::AnswerView>(command, view),
         "inspect entity refusal" | "propose entity refusal" => {
             envelope::schema::<crate::semantic::Failure>(command, view)
         }

@@ -275,6 +275,9 @@ pub(super) fn project(
                             .collect()
                     };
                     result.tests.push(TestCandidateFact {
+                        cfg_eligible: None,
+                        cargo_targets: Vec::new(),
+                        snapshot_update: None,
                         test_id: None,
                         cfg: None,
                         relatedness: Some("native related-tests provider".into()),

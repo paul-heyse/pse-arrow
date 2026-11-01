@@ -426,6 +426,739 @@ async fn extended_native_managed_stop_drains_slow_macro_without_stopping_another
     )
     .await;
 }
+
+#[cfg(feature = "native-hir")]
+fn contextual_candidates_public_journey() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::create_dir(project.path().join("src")).unwrap();
+    std::fs::write(project.path().join("Cargo.toml"),"[package]\nname='contextual-candidate-control'\nversion='0.0.0'\nedition='2024'\n[workspace]\n").unwrap();
+    std::fs::write(
+        project.path().join("Cargo.lock"),
+        "version=4\n[[package]]\nname='contextual-candidate-control'\nversion='0.0.0'\n",
+    )
+    .unwrap();
+    std::fs::copy(
+        checkout().join("rust-toolchain.toml"),
+        project.path().join("rust-toolchain.toml"),
+    )
+    .unwrap();
+    let file = project.path().join("src/lib.rs");
+    let source = r#"pub struct Pair;
+pub struct Container<T>(T);
+impl<T> Container<T> { pub fn choose<U:Clone>(&self,value:U)->U {value} pub fn make<U:Default>(&self)->U {U::default()} }
+mod extension { pub trait Extra {fn extra(&self)->u32;} impl Extra for super::Pair {fn extra(&self)->u32{1}} pub trait Blanket {fn blanket(&self);} impl<T:Clone> Blanket for T {fn blanket(&self){}} }
+mod first {pub trait Same {fn same(&self)->u32;} impl Same for super::Pair {fn same(&self)->u32{1}}}
+mod second {pub trait Same {fn same(&self)->u32;} impl Same for super::Pair {fn same(&self)->u32{2}}}
+fn selected(text:String,mut values:Vec<u32>,typed:Container<u32>,p:Pair) {
+    let _: &str = text.trim();
+    values.push(7u32);
+    let _: Option<&u32> = values.first();
+    let _:u64 = typed.choose(9u64);
+    let _:&str = typed.choose("nine");
+    let _:u64 = typed.make();
+    let _ = &typed;
+    p.extra(); p.blanket(); p.same();
+}
+"#;
+    std::fs::write(&file, source).unwrap();
+    let session = Session::new();
+    session.run(&["tools", "prepare", "native-analysis"], 0);
+    session.run(
+        &[
+            "code",
+            "session",
+            "prepare",
+            "--backend",
+            "native-snapshot",
+            "--project",
+            project.path().to_str().unwrap(),
+        ],
+        0,
+    );
+    session.ready();
+    let inspect = |needle: &str| {
+        let offset = source.find(needle).unwrap();
+        let line = (source[..offset].bytes().filter(|b| *b == b'\n').count() + 1).to_string();
+        let column = (source[..offset]
+            .rsplit('\n')
+            .next()
+            .unwrap()
+            .chars()
+            .count()
+            + 1)
+        .to_string();
+        session.run(
+            &[
+                "inspect",
+                "entity",
+                file.to_str().unwrap(),
+                "--line",
+                &line,
+                "--column",
+                &column,
+                "--view",
+                "candidates",
+            ],
+            0,
+        )["payload"]
+            .clone()
+    };
+    let contextual = |answer: &Value, name: &str| {
+        answer["native_types"]["callable_candidates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|candidate| {
+                candidate["target"]["name"] == name && candidate["context"].is_object()
+            })
+            .unwrap_or_else(|| panic!("missing native contextual {name}: {answer}"))
+            .clone()
+    };
+    let trim = contextual(&inspect("trim();"), "trim");
+    assert_eq!(trim["receiver"]["display"], "String", "{trim}");
+    assert_eq!(
+        trim["context"]["receiver_parameter"]["display"], "&str",
+        "{trim}"
+    );
+    let steps = trim["context"]["receiver_adjustments"].as_array().unwrap();
+    assert!(
+        steps.iter().any(|step| step["source"]["display"]
+            .as_str()
+            .is_some_and(|ty| ty.contains("String"))
+            && step["target"]["display"] == "str"),
+        "{trim}"
+    );
+    assert_eq!(steps.last().unwrap()["target"]["display"], "&str", "{trim}");
+    let push = contextual(&inspect("push(7u32)"), "push");
+    assert_eq!(push["context"]["parameters"][0]["display"], "u32", "{push}");
+    assert_eq!(push["context"]["result"]["display"], "()", "{push}");
+    assert!(
+        push["context"]["substitutions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["parameter"] == "T" && s["argument"]["display"] == "u32"),
+        "{push}"
+    );
+    let first = contextual(&inspect("first();"), "first");
+    assert!(
+        first["context"]["result"]["display"]
+            .as_str()
+            .unwrap()
+            .contains("u32"),
+        "{first}"
+    );
+    let choose = contextual(&inspect("choose(9u64)"), "choose");
+    for (parameter, argument) in [("T", "u32"), ("U", "u64")] {
+        assert!(
+            choose["context"]["substitutions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|s| s["parameter"] == parameter && s["argument"]["display"] == argument),
+            "{choose}"
+        );
+    }
+    assert_eq!(
+        choose["context"]["parameters"][0]["display"], "u64",
+        "{choose}"
+    );
+    assert_eq!(choose["context"]["result"]["display"], "u64", "{choose}");
+    assert!(
+        choose["obligations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|obligation| obligation["parameter"] == "U"
+                && obligation["declared_trait"]["name"] == "Clone"
+                && obligation["subject"]["display"] == "u64"
+                && obligation["outcome"] == "holds"),
+        "{choose}"
+    );
+    let second_choose = contextual(&inspect("choose(\"nine\")"), "choose");
+    assert_eq!(
+        second_choose["context"]["result"]["display"], "&str",
+        "{second_choose}"
+    );
+    assert_ne!(
+        choose["context"]["callsite"],
+        second_choose["context"]["callsite"]
+    );
+    assert_eq!(
+        choose["context"]["substitution_owner"],
+        second_choose["context"]["substitution_owner"]
+    );
+    let make = contextual(&inspect("make();"), "make");
+    assert_eq!(make["context"]["result"]["display"], "u64", "{make}");
+    assert!(
+        make["context"]["parameters"].as_array().unwrap().is_empty(),
+        "{make}"
+    );
+    assert!(
+        make["context"]["substitutions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["parameter"] == "U" && s["argument"]["display"] == "u64"),
+        "{make}"
+    );
+    let unresolved = inspect("typed;");
+    assert!(
+        unresolved["native_types"]["callable_candidates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate["target"]["name"] == "choose"
+                && candidate["context"].is_null()
+                && candidate["obligations"].as_array().unwrap().iter().any(
+                    |bound| bound["declared_trait"]["name"] == "Clone"
+                        && bound["subject"].is_null()
+                        && bound["outcome"] == "unsupported"
+                )),
+        "{unresolved}"
+    );
+    let extension = inspect("extra();");
+    assert!(
+        extension["native_types"]["callable_candidates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate["required_import"].as_str().is_some()
+                && candidate["applicability"] == "holds"
+                && candidate["context"].is_null()),
+        "{extension}"
+    );
+    let blanket = inspect("blanket();");
+    assert!(
+        blanket["native_types"]["callable_candidates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate["applicability"] == "not_proven"
+                && candidate["obligations"].as_array().unwrap().iter().any(
+                    |obligation| obligation["declared_trait"]["name"] == "Clone"
+                        && obligation["subject"]["display"] == "Pair"
+                        && obligation["outcome"] == "not_proven"
+                )),
+        "{blanket}"
+    );
+    let same = inspect("same();");
+    let alternatives = same["native_types"]["callable_candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|candidate| candidate["target"]["name"] == "same")
+        .collect::<Vec<_>>();
+    assert_eq!(alternatives.len(), 2, "{same}");
+    assert_ne!(
+        alternatives[0]["target"]["location"],
+        alternatives[1]["target"]["location"]
+    );
+    assert!(
+        alternatives
+            .iter()
+            .all(|candidate| candidate["context"].is_null()
+                && candidate["required_import"].as_str().is_some()
+                && !candidate["limitations"].as_array().unwrap().is_empty()),
+        "{same}"
+    );
+    let offset = source.find("choose(9u64)").unwrap();
+    let addressed = session.run(
+        &[
+            "inspect",
+            "--source",
+            file.to_str().unwrap(),
+            "--range-start",
+            &offset.to_string(),
+            "--range-end",
+            &(offset + 6).to_string(),
+            "--view",
+            "candidates",
+        ],
+        0,
+    );
+    let addressed = contextual(&addressed["payload"]["native"], "choose");
+    assert_eq!(
+        choose["context"]["substitutions"],
+        addressed["context"]["substitutions"]
+    );
+    session.stop();
+}
+
+#[cfg(feature = "native-hir")]
+#[tokio::test]
+async fn contextual_candidates_public_entry() {
+    let Some(gate) = std::env::var_os("PSE_CONTEXTUAL_CANDIDATE_GATE") else {
+        return;
+    };
+    let gate = PathBuf::from(gate);
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    while !gate.exists() {
+        assert!(tokio::time::Instant::now() < deadline);
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    contextual_candidates_public_journey();
+}
+
+#[cfg(feature = "native-hir")]
+#[tokio::test]
+async fn native_contextual_candidates_public_preserve_adjustments_substitutions_and_obligations() {
+    independent_cli(
+        "semantic::tests::contextual_candidates_public_entry",
+        "PSE_CONTEXTUAL_CANDIDATE_GATE",
+    )
+    .await;
+}
+#[cfg(feature = "native-hir")]
+fn native_ssr_selected_lines_public_journey() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::create_dir(project.path().join("src")).unwrap();
+    std::fs::write(project.path().join("Cargo.toml"),"[package]\nname='native-ssr-selection-control'\nversion='0.0.0'\nedition='2024'\n[workspace]\n").unwrap();
+    std::fs::write(
+        project.path().join("Cargo.lock"),
+        "version=4\n[[package]]\nname='native-ssr-selection-control'\nversion='0.0.0'\n",
+    )
+    .unwrap();
+    std::fs::copy(
+        checkout().join("rust-toolchain.toml"),
+        project.path().join("rust-toolchain.toml"),
+    )
+    .unwrap();
+    let file = project.path().join("src/lib.rs");
+    let source = "pub fn selected()->u32 {\r\n    let α = 1 + 2;\r\n    let value = 1 + 2;\r\n    α + value\r\n}\r\npub fn outside()->u32 {1 + 2}\r\n";
+    std::fs::write(&file, source).unwrap();
+    let session = Session::new();
+    session.run(&["tools", "prepare", "native-analysis"], 0);
+    session.run(
+        &[
+            "code",
+            "session",
+            "prepare",
+            "--backend",
+            "native-snapshot",
+            "--project",
+            project.path().to_str().unwrap(),
+        ],
+        0,
+    );
+    session.ready();
+    let preview = session.run(
+        &[
+            "propose",
+            "ssr",
+            file.to_str().unwrap(),
+            "--line",
+            "2",
+            "--column",
+            "5",
+            "--end-line",
+            "3",
+            "--rule",
+            "1 + 2 ==>> 3u32",
+        ],
+        0,
+    );
+    let candidates = preview["payload"]["proposal"]["candidates"]
+        .as_array()
+        .unwrap();
+    assert_eq!(candidates.len(), 2, "{preview}");
+    let outside = source.find("pub fn outside").unwrap();
+    for candidate in candidates {
+        let start = candidate["range"]["start"].as_u64().unwrap() as usize;
+        let end = candidate["range"]["end"].as_u64().unwrap() as usize;
+        assert!(
+            end < outside,
+            "matching node outside selected original lines must be excluded: {preview}"
+        );
+        assert_eq!(&source[start..end], "1 + 2", "{preview}");
+        assert_eq!(candidate["replacement"], "3u32", "{preview}");
+    }
+    assert_eq!(
+        preview["payload"]["proposal"]["selected"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2,
+        "{preview}"
+    );
+    let one_line = session.run(
+        &[
+            "propose",
+            "ssr",
+            file.to_str().unwrap(),
+            "--line",
+            "3",
+            "--column",
+            "5",
+            "--rule",
+            "1 + 2 ==>> 4u32",
+        ],
+        0,
+    );
+    assert_eq!(
+        one_line["payload"]["proposal"]["candidates"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1,
+        "omitted end-line selects only the requested original line: {one_line}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        source,
+        "native SSR remains preview-only"
+    );
+    session.stop();
+}
+
+#[cfg(feature = "native-hir")]
+#[tokio::test]
+async fn native_ssr_selected_lines_public_entry() {
+    let Some(gate) = std::env::var_os("PSE_NATIVE_SSR_SELECTION_GATE") else {
+        return;
+    };
+    let gate = PathBuf::from(gate);
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    while !gate.exists() {
+        assert!(tokio::time::Instant::now() < deadline);
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    native_ssr_selected_lines_public_journey();
+}
+
+#[cfg(feature = "native-hir")]
+#[tokio::test]
+async fn native_ssr_public_excludes_same_matching_node_outside_selected_original_lines() {
+    independent_cli(
+        "semantic::tests::native_ssr_selected_lines_public_entry",
+        "PSE_NATIVE_SSR_SELECTION_GATE",
+    )
+    .await;
+}
+
+#[cfg(feature = "native-hir")]
+fn native_runnable_discovery_public_journey() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::create_dir(project.path().join("src")).unwrap();
+    std::fs::write(project.path().join("Cargo.toml"),"[package]\nname='native-runnable-control'\nversion='0.0.0'\nedition='2024'\n[workspace]\n[features]\ngated=[]\n[dependencies]\nexpect-test={path='expect-test'}\ninsta={path='insta'}\nsnapbox={path='snapbox'}\n[[bin]]\nname='gated-binary'\npath='src/gated.rs'\nrequired-features=['gated']\n").unwrap();
+    std::fs::write(project.path().join("Cargo.lock"),"version=4\n[[package]]\nname='native-runnable-control'\nversion='0.0.0'\ndependencies=['expect-test','insta','snapbox']\n[[package]]\nname='expect-test'\nversion='0.0.0'\n[[package]]\nname='insta'\nversion='0.0.0'\n[[package]]\nname='snapbox'\nversion='0.0.0'\n").unwrap();
+    for (package, macro_name) in [
+        ("expect-test", "expect"),
+        ("insta", "assert_snapshot"),
+        ("snapbox", "str"),
+    ] {
+        let root = project.path().join(package);
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            format!("[package]\nname='{package}'\nversion='0.0.0'\nedition='2024'\n"),
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("src/lib.rs"),
+            format!("#[macro_export] macro_rules! {macro_name} {{ ($($tokens:tt)*) => {{}}; }}\n"),
+        )
+        .unwrap();
+    }
+    std::fs::copy(
+        checkout().join("rust-toolchain.toml"),
+        project.path().join("rust-toolchain.toml"),
+    )
+    .unwrap();
+    let file = project.path().join("src/lib.rs");
+    let source = r#"#![feature(test)]
+extern crate test;
+pub fn target()->u32 {7}
+/// ```
+/// assert_eq!(2 + 2, 4);
+/// ```
+pub fn documented() {}
+#[bench] fn benchmark(b:&mut test::Bencher) { b.iter(||target()); }
+#[cfg(feature="gated")] #[test] fn inactive_test() {target();}
+#[cfg(test)] mod tests {
+    #[test] fn related() {super::target();}
+    #[test] fn passive_snapshot() {expect_test::expect!["expected"]; insta::assert_snapshot!("value"); snapbox::str!["expected"];}
+}
+"#;
+    std::fs::write(&file, source).unwrap();
+    let main = project.path().join("src/main.rs");
+    std::fs::write(&main, "fn main(){std::hint::black_box(7);}\n").unwrap();
+    let gated = project.path().join("src/gated.rs");
+    std::fs::write(&gated, "fn main(){}\n").unwrap();
+    let session = Session::new();
+    session.run(&["tools", "prepare", "native-analysis"], 0);
+    let prepare = |test_context: bool| {
+        let mut args = vec![
+            "code",
+            "session",
+            "prepare",
+            "--backend",
+            "native-snapshot",
+            "--project",
+            project.path().to_str().unwrap(),
+        ];
+        if test_context {
+            args.push("--test-context");
+        }
+        session.run(&args, 0);
+        session.ready();
+    };
+    prepare(true);
+    let answer = session.run(
+        &[
+            "inspect",
+            "entity",
+            file.to_str().unwrap(),
+            "--line",
+            "3",
+            "--column",
+            "8",
+            "--view",
+            "tests",
+            "--budget",
+            "100",
+        ],
+        0,
+    );
+    let tests = answer["payload"]["observed"]["tests"].as_array().unwrap();
+    for kind in ["test", "test_module", "bench", "doctest"] {
+        assert!(
+            tests
+                .iter()
+                .any(|candidate| candidate["runnable_kind"] == kind),
+            "missing actual native {kind}: {answer}"
+        );
+    }
+    assert!(
+        tests.iter().any(|candidate| candidate["test_id"]
+            .as_str()
+            .is_some_and(|id| id.ends_with("tests::related"))
+            && candidate["relatedness"]
+                .as_str()
+                .unwrap()
+                .contains("related_tests")),
+        "{answer}"
+    );
+    assert!(
+        tests
+            .iter()
+            .any(|candidate| candidate["runnable_kind"] == "doctest"
+                && candidate["relatedness"]
+                    .as_str()
+                    .unwrap()
+                    .contains("file runnable discovery")),
+        "{answer}"
+    );
+    let snapshot = tests
+        .iter()
+        .find(|candidate| {
+            candidate["test_id"]
+                .as_str()
+                .is_some_and(|id| id.ends_with("tests::passive_snapshot"))
+        })
+        .unwrap();
+    for field in ["expect_test", "insta", "snapbox"] {
+        assert_eq!(snapshot["snapshot_update"][field], true, "{snapshot}");
+    }
+    assert!(
+        tests.iter().all(
+            |candidate| candidate["cargo_args"].as_array().unwrap().is_empty()
+                && candidate["executable_args"].as_array().unwrap().is_empty()
+        ),
+        "HIR has no exported argv; no reconstruction: {answer}"
+    );
+    assert!(
+        !tests.iter().any(|candidate| candidate["test_id"]
+            .as_str()
+            .is_some_and(|id| id.ends_with("inactive_test"))),
+        "inactive native HIR test must not be nominated: {answer}"
+    );
+    assert!(
+        answer["payload"]["sections"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|section| section["category"] == "native_runnable_discovery"
+                && section["evidence"]["inactive_regions"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|region| region["cfg_eligible"] == false)),
+        "inactive native cfg observation is retained: {answer}"
+    );
+    let binary = session.run(
+        &[
+            "inspect",
+            "entity",
+            main.to_str().unwrap(),
+            "--line",
+            "1",
+            "--column",
+            "5",
+            "--view",
+            "tests",
+        ],
+        0,
+    );
+    assert!(
+        binary["payload"]["observed"]["tests"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate["runnable_kind"] == "binary"
+                && candidate["cargo_targets"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|target| target["kind"] == "binary"
+                        && target["required_features_satisfied"] == true)),
+        "{binary}"
+    );
+    let gated_answer = session.run(
+        &[
+            "inspect",
+            "entity",
+            gated.to_str().unwrap(),
+            "--line",
+            "1",
+            "--column",
+            "5",
+            "--view",
+            "tests",
+        ],
+        0,
+    );
+    assert!(
+        gated_answer["payload"]["observed"]["tests"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate["runnable_kind"] == "binary"
+                && candidate["eligible"] == false
+                && candidate["cargo_targets"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|target| target["required_features"][0] == "gated"
+                        && target["required_features_satisfied"] == false)),
+        "{gated_answer}"
+    );
+    assert!(
+        !gated_answer["next"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|next| next["argv"]
+                .as_array()
+                .is_some_and(|argv| argv.iter().any(|arg| arg == "test-selection"))),
+        "ineligible native target must not route to current selection: {gated_answer}"
+    );
+    assert!(
+        !answer["next"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|next| next["argv"]
+                .as_array()
+                .is_some_and(|argv| argv.iter().any(|arg| arg == "test-selection"))),
+        "an external native project cannot nominate the current checkout's test selection: {answer}"
+    );
+    let offset = source.find("target()->").unwrap();
+    let addressed = session.run(
+        &[
+            "inspect",
+            "--source",
+            file.to_str().unwrap(),
+            "--range-start",
+            &offset.to_string(),
+            "--range-end",
+            &(offset + 6).to_string(),
+            "--view",
+            "tests",
+            "--budget",
+            "100",
+        ],
+        0,
+    );
+    assert!(
+        addressed["payload"]["native"]["observed"]["tests"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate["test_id"] == "tests::related"),
+        "consolidated public inspection retains actual native relevance: {addressed}"
+    );
+    assert!(
+        !addressed["next"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|next| next["argv"]
+                .as_array()
+                .is_some_and(|argv| argv.iter().any(|arg| arg == "test-selection"))),
+        "consolidated external-project inspection shares the checkout selection boundary: {addressed}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        source,
+        "snapshot intent is passive"
+    );
+    session.stop();
+    prepare(false);
+    let ordinary = session.run(
+        &[
+            "inspect",
+            "entity",
+            file.to_str().unwrap(),
+            "--line",
+            "3",
+            "--column",
+            "8",
+            "--view",
+            "tests",
+        ],
+        0,
+    );
+    assert!(
+        ordinary["payload"]["observed"]["tests"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|candidate| matches!(
+                candidate["runnable_kind"].as_str(),
+                Some("test" | "test_module" | "bench")
+            ))
+            .all(|candidate| candidate["eligible"] != true),
+        "ordinary selected world does not admit test-profile candidates: {ordinary}"
+    );
+    session.stop();
+}
+
+#[cfg(feature = "native-hir")]
+#[tokio::test]
+async fn native_runnable_discovery_public_entry() {
+    let Some(gate) = std::env::var_os("PSE_NATIVE_RUNNABLE_GATE") else {
+        return;
+    };
+    let gate = PathBuf::from(gate);
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    while !gate.exists() {
+        assert!(tokio::time::Instant::now() < deadline);
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    native_runnable_discovery_public_journey();
+}
+
+#[cfg(feature = "native-hir")]
+#[tokio::test]
+async fn native_runnables_public_classify_cfg_targets_and_passive_snapshot_intent() {
+    independent_cli(
+        "semantic::tests::native_runnable_discovery_public_entry",
+        "PSE_NATIVE_RUNNABLE_GATE",
+    )
+    .await;
+}
+
 fn fixture(root: &Path) {
     std::fs::create_dir_all(root.join("member/src")).unwrap();
     std::fs::create_dir_all(root.join("macros/src")).unwrap();

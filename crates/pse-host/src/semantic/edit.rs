@@ -43,7 +43,7 @@ pub(super) fn native_proposal(
     let mut candidates = Vec::new();
     let mut placeholders = Vec::new();
     for (id, (edits, snippet)) in &change.source_file_edits {
-        let path = paths.get(&id).ok_or_else(|| {
+        let path = paths.get(id).ok_or_else(|| {
             Error::Unavailable("native edit has no unique original VFS path".into())
         })?;
         if !path.starts_with(&configuration.project) {

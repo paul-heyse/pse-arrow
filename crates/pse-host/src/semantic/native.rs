@@ -29,6 +29,7 @@ const BACKEND: &str = "ra_ap_hir/0.0.358;ra_ap_ide/0.0.358;immutable_snapshot";
 mod actions;
 mod candidates;
 mod importability;
+mod runnables;
 
 fn preparation_target(configuration: &Configuration) -> Result<String> {
     let explicit_target =
@@ -126,6 +127,15 @@ struct World {
     // Explicit client custody lasts through lazy expansion and actual query drain.
     _macro_client: Option<ra_ap_proc_macro_api::ProcMacroClient>,
 }
+/// Borrowed query inputs from the original worker snapshot and prepared Cargo context.
+struct QuerySnapshot<'a> {
+    db: &'a ra_ap_ide_db::RootDatabase,
+    files: &'a BTreeMap<PathBuf, ra_ap_vfs::FileId>,
+    paths: &'a BTreeMap<ra_ap_vfs::FileId, PathBuf>,
+    digests: &'a BTreeMap<PathBuf, String>,
+    packages: &'a [super::NativePackageContext],
+    runnable_targets: &'a [super::RunnableTargetFact],
+}
 /// Native workers clone the immutable database, never share `Semantics` across threads.
 pub(super) struct Engine {
     world: Arc<Mutex<World>>,
@@ -133,6 +143,7 @@ pub(super) struct Engine {
     configuration: Configuration,
     active: Arc<AtomicUsize>,
     packages: Arc<Vec<super::NativePackageContext>>,
+    runnable_targets: Arc<Vec<super::RunnableTargetFact>>,
     package_issue: Option<String>,
     actual_target: String,
     build_metadata: Option<String>,
@@ -316,6 +327,7 @@ impl Engine {
             }
         }
         let mut package_models = Vec::new();
+        let mut runnable_targets = Vec::new();
         let package_issue;
         if let ra_ap_project_model::ProjectWorkspaceKind::Cargo { cargo, error, .. } =
             &workspace.kind
@@ -325,6 +337,33 @@ impl Engine {
                 let package = &cargo[package];
                 for target_id in &package.targets {
                     let library = &cargo[*target_id];
+                    runnable_targets.push(super::RunnableTargetFact {
+                        package_id: package.id.to_string(),
+                        manifest: PathBuf::from(package.manifest.as_str()),
+                        root: PathBuf::from(library.root.as_str()),
+                        name: library.name.clone(),
+                        kind: match library.kind {
+                            ra_ap_project_model::TargetKind::Bin => "binary",
+                            ra_ap_project_model::TargetKind::Lib {
+                                is_proc_macro: false,
+                            } => "library",
+                            ra_ap_project_model::TargetKind::Lib {
+                                is_proc_macro: true,
+                            } => "proc_macro",
+                            ra_ap_project_model::TargetKind::Example => "example",
+                            ra_ap_project_model::TargetKind::Test => "test",
+                            ra_ap_project_model::TargetKind::Bench => "bench",
+                            ra_ap_project_model::TargetKind::BuildScript => "build_script",
+                            ra_ap_project_model::TargetKind::Other => "other",
+                        }
+                        .into(),
+                        required_features: library.required_features.clone(),
+                        active_features: package.active_features.iter().cloned().collect(),
+                        required_features_satisfied: library
+                            .required_features
+                            .iter()
+                            .all(|feature| package.active_features.contains(feature)),
+                    });
                     let ra_ap_project_model::TargetKind::Lib { is_proc_macro } = library.kind
                     else {
                         continue;
@@ -554,6 +593,7 @@ impl Engine {
             configuration,
             active: Arc::new(AtomicUsize::new(0)),
             packages: Arc::new(packages),
+            runnable_targets: Arc::new(runnable_targets),
             package_issue,
             actual_target: target,
             build_metadata,
@@ -633,6 +673,7 @@ impl Engine {
         let session = self.analysis_context();
         let active = self.active.clone();
         let packages = self.packages.clone();
+        let runnable_targets = self.runnable_targets.clone();
         let task = spawn_cpu(token, move |token| {
             struct Active(Arc<AtomicUsize>);
             impl Drop for Active {
@@ -651,7 +692,17 @@ impl Engine {
                 || {
                     ra_ap_hir::attach_db_allow_change(&db, || {
                         query_world(
-                            &db, &files, &paths, &digests, &packages, session, query, &token,
+                            QuerySnapshot {
+                                db: &db,
+                                files: &files,
+                                paths: &paths,
+                                digests: &digests,
+                                packages: &packages,
+                                runnable_targets: &runnable_targets,
+                            },
+                            session,
+                            query,
+                            &token,
                         )
                     })
                 },
@@ -952,15 +1003,19 @@ fn layout_fact(
     fact
 }
 fn query_world(
-    db: &ra_ap_ide_db::RootDatabase,
-    files: &BTreeMap<PathBuf, ra_ap_vfs::FileId>,
-    paths: &BTreeMap<ra_ap_vfs::FileId, PathBuf>,
-    digests: &BTreeMap<PathBuf, String>,
-    packages: &[super::NativePackageContext],
+    snapshot: QuerySnapshot<'_>,
     session: AnalysisContext,
     query: Query,
     token: &CancellationToken,
 ) -> Result<super::Answer> {
+    let QuerySnapshot {
+        db,
+        files,
+        paths,
+        digests,
+        packages,
+        runnable_targets,
+    } = snapshot;
     if query
         .if_generation
         .is_some_and(|generation| generation != 1)
@@ -1407,7 +1462,7 @@ fn query_world(
                 callable_candidates,
             });
             if want_candidates {
-                sections.push(Section {category:"native_callable_discovery".into(),evidence:json!({"limit":query.limit,"completeness":"unknown","scope":"native visible receiver methods plus same-crate extension declarations","empty_result":"does not prove impossibility","substitutions":"declaration signatures; not arbitrary instantiated call arguments"}),omitted:0,handles:Vec::new()});
+                sections.push(Section {category:"native_callable_discovery".into(),evidence:json!({"limit":query.limit,"completeness":"unknown","scope":"native visible receiver methods plus same-crate extension declarations","empty_result":"does not prove impossibility","substitutions":"matching authored calls retain native instantiated receiver/parameters/result and actual generic type arguments; unresolved alternatives remain unavailable"}),omitted:0,handles:Vec::new()});
             }
         }
         Kind::Predicate { text } => {
@@ -1576,12 +1631,48 @@ fn query_world(
             sections.push(section);
         }
         Kind::Ssr { ref rule } => {
+            let end_line = query.end_line.unwrap_or(query.line);
+            if end_line < query.line {
+                return Err(Error::Source(
+                    crate::source_read::SourceReadError::InvalidRange,
+                ));
+            }
+            let last_line = source
+                .text()
+                .split('\n')
+                .nth(end_line - 1)
+                .ok_or(Error::Source(
+                    crate::source_read::SourceReadError::InvalidRange,
+                ))?;
+            let start = crate::source_read::byte_offset(source.text(), query.line, 1)?;
+            let end = crate::source_read::byte_offset(
+                source.text(),
+                end_line,
+                last_line
+                    .strip_suffix('\r')
+                    .unwrap_or(last_line)
+                    .chars()
+                    .count()
+                    + 1,
+            )?;
+            let range = native_ra_syntax::TextRange::new(
+                native_ra_syntax::TextSize::from(u32::try_from(start).map_err(|_| {
+                    Error::Unavailable(
+                        "selection start exceeds native text-size representation".into(),
+                    )
+                })?),
+                native_ra_syntax::TextSize::from(u32::try_from(end).map_err(|_| {
+                    Error::Unavailable(
+                        "selection end exceeds native text-size representation".into(),
+                    )
+                })?),
+            );
             let analysis = ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
             let change = native_result(analysis.structural_search_replace(
                 rule,
                 false,
                 position,
-                Vec::new(),
+                vec![ra_ap_ide::FileRange { file_id: id, range }],
             ))?
             .map_err(super::engine::protocol)?;
             proposal = Some(super::edit::native_proposal(
@@ -1593,56 +1684,20 @@ fn query_world(
             )?);
         }
         Kind::Tests => {
-            let analysis = ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
-            let related = native_result(analysis.related_tests(position, None))?;
-            let total = related.len();
-            for runnable in related.into_iter().take(query.limit) {
-                let (kind, test_id, cargo_args) = match &runnable.kind {
-                    ra_ap_ide::RunnableKind::Test { test_id } => {
-                        ("test", Some(test_id.to_string()), vec!["test".into()])
-                    }
-                    ra_ap_ide::RunnableKind::TestMod { path } => {
-                        ("test_module", Some(path.clone()), vec!["test".into()])
-                    }
-                    ra_ap_ide::RunnableKind::Bench { test_id } => {
-                        ("bench", Some(test_id.to_string()), vec!["bench".into()])
-                    }
-                    ra_ap_ide::RunnableKind::DocTest { test_id } => (
-                        "doctest",
-                        Some(test_id.to_string()),
-                        vec!["test".into(), "--doc".into()],
-                    ),
-                    ra_ap_ide::RunnableKind::Bin => ("binary", None, Vec::new()),
-                };
-                let original_location = location(
-                    paths,
-                    runnable.nav.file_id,
-                    runnable.nav.focus_range.unwrap_or(runnable.nav.full_range),
-                );
+            let (tests, coverage) =
+                runnables::inspect(db, paths, position, runnable_targets, query.limit)?;
+            observed.tests = tests;
+            sections.extend(coverage);
+            for test in &observed.tests {
+                if let Some(super::FactLocation::Bytes { path, .. }) = &test.location {
+                    linked_paths.insert(path.clone());
+                }
                 linked_paths.extend(
-                    original_location
-                        .as_ref()
-                        .map(|location| location.path.clone()),
+                    test.cargo_targets
+                        .iter()
+                        .flat_map(|target| [target.root.clone(), target.manifest.clone()]),
                 );
-                observed.tests.push(super::TestCandidateFact {
-                    test_id: test_id.clone(),
-                    cfg: runnable.cfg.as_ref().map(|cfg| format!("{cfg:?}")),
-                    relatedness: Some("native related_tests traversal from selected occurrence; static relevance, not execution coverage".into()),
-                    eligible: None,
-                    label: Some(runnable.nav.name.to_string()),
-                    location: original_location.as_ref().map(fact_location),
-                    runnable_kind: Some(kind.into()),
-                    cargo_args,
-                    executable_args: test_id.into_iter().collect(),
-                    original: json!({"kind":kind,"cfg":runnable.cfg.as_ref().map(|cfg|format!("{cfg:?}")),"native_generation":1,"eligibility":"unknown; cfg/native context is not a rustc test-unit admission"}),
-                });
             }
-            sections.push(Section {
-                category: "native_related_tests".into(),
-                evidence: serde_json::to_value(&observed.tests)?,
-                omitted: total.saturating_sub(observed.tests.len()),
-                handles: Vec::new(),
-            });
         }
         Kind::Implementations => {
             let analysis = ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
@@ -1731,6 +1786,46 @@ fn query_world(
             .map(|location| location.path.clone()),
     );
     if let Some(facts) = &facts {
+        for candidate in &facts.callable_candidates {
+            linked_paths.extend(
+                candidate
+                    .target
+                    .location
+                    .as_ref()
+                    .map(|location| location.path.clone()),
+            );
+            if let Some(context) = &candidate.context {
+                linked_paths.extend(
+                    context
+                        .callsite
+                        .as_ref()
+                        .map(|location| location.path.clone()),
+                );
+                linked_paths.extend(
+                    context
+                        .callable_target
+                        .location
+                        .as_ref()
+                        .map(|location| location.path.clone()),
+                );
+                linked_paths.extend(
+                    context
+                        .substitution_owner
+                        .location
+                        .as_ref()
+                        .map(|location| location.path.clone()),
+                );
+            }
+            for obligation in &candidate.obligations {
+                linked_paths.extend(
+                    obligation
+                        .declared_trait
+                        .location
+                        .as_ref()
+                        .map(|location| location.path.clone()),
+                );
+            }
+        }
         linked_paths.extend(
             facts
                 .capture_owner

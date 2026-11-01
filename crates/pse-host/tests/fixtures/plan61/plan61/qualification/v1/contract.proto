@@ -15,7 +15,7 @@ message Payload {
   Truth truth = 3;
   google.protobuf.Any detail = 4;
   google.protobuf.FieldMask mask = 5;
-  /* π */ string label = 6;
+	/* π */	string label = 6;
   Precision precision = 7;
   bytes source_guard = 8;
   string context = 9;

@@ -571,7 +571,9 @@ pub fn origin_associations(
     let Some(enclosing) = enclosing else {
         return Ok(Vec::new());
     };
-    let written_type = enclosing.path.join("::");
+    let Some(written_type) = generated_declaration_path(enclosing) else {
+        return Ok(Vec::new());
+    };
     let field = selected_rust_field(source.text(), selected);
     candidates.retain(|association| {
         association.rust_type == written_type
@@ -583,6 +585,28 @@ pub fn origin_associations(
             }
     });
     Ok(candidates)
+}
+
+fn generated_declaration_path(entry: &crate::source_read::Entry) -> Option<String> {
+    use syn::ext::IdentExt as _;
+    // Named declarations and their enclosing module names are already logical
+    // identifiers from the native syntax tree, including raw keyword names.
+    if entry.kind == "STRUCT" {
+        return Some(entry.path.join("::"));
+    }
+    let (self_type, modules) = entry.path.split_last()?;
+    let path = syn::parse_str::<syn::TypePath>(self_type).ok()?;
+    if path.qself.is_some() || path.path.leading_colon.is_some() {
+        return None;
+    }
+    let mut names = modules.to_vec();
+    names.extend(
+        path.path
+            .segments
+            .iter()
+            .map(|segment| segment.ident.unraw().to_string()),
+    );
+    Some(names.join("::"))
 }
 
 fn selected_rust_field(source: &str, selected: std::ops::Range<usize>) -> Option<String> {
@@ -632,7 +656,7 @@ fn selected_rust_field(source: &str, selected: std::ops::Range<usize>) -> Option
     (members.len() == 1).then(|| members.pop_first()).flatten()
 }
 
-/// Resolve a verified producer association's exact authored descriptor span in original bytes.
+/// Resolve a verified producer association's exact authored syntax interval in original bytes.
 /// # Errors
 /// A present descriptor or association manifest is malformed.
 pub fn authored_range(
@@ -641,6 +665,16 @@ pub fn authored_range(
     source: &str,
 ) -> Result<Option<std::ops::Range<usize>>, SchemaError> {
     if association.state != "verified" || hash(source.as_bytes()) != association.source_sha256 {
+        return Ok(None);
+    }
+    let Some(recorded) = &association.source_range else {
+        return Ok(None);
+    };
+    if recorded.producer != association_protocol::SOURCE_RANGE_PRODUCER
+        || recorded.profile != association_protocol::SOURCE_RANGE_PROFILE
+        || recorded.start >= recorded.end
+        || source.get(recorded.start..recorded.end).is_none()
+    {
         return Ok(None);
     }
     for descriptor in [
@@ -652,41 +686,21 @@ pub fn authored_range(
             continue;
         }
         let bundle = Bundle::load(&path)?;
-        if !associations(root, &bundle)?.iter().any(|candidate| {
+        let verified = associations(root, &bundle)?.into_iter().find(|candidate| {
             candidate.state == "verified"
                 && candidate.declaration == association.declaration
                 && candidate.source == association.source
+                && candidate.source_sha256 == association.source_sha256
                 && candidate.output == association.output
                 && candidate.output_sha256 == association.output_sha256
+                && candidate.rust_type == association.rust_type
                 && candidate.rust_field == association.rust_field
-        }) {
-            continue;
+                && candidate.source_range == association.source_range
+        });
+        if verified.is_some() {
+            bundle.declaration(&association.declaration)?;
+            return Ok(Some(recorded.start..recorded.end));
         }
-        let declaration = bundle.declaration(&association.declaration)?;
-        let Some(info) = &declaration.source_info else {
-            return Ok(None);
-        };
-        let (line_start, column_start, line_end, column_end) = match info.span.as_slice() {
-            [line, start, end] => (*line, *start, *line, *end),
-            [start_line, start, end_line, end] => (*start_line, *start, *end_line, *end),
-            _ => return Ok(None),
-        };
-        let lines = crate::source_read::line_starts(source);
-        let offset = |line: i32, column: i32| -> Option<usize> {
-            let line = usize::try_from(line).ok()?;
-            let column = usize::try_from(column).ok()?;
-            let start = *lines.get(line)?;
-            let end = lines.get(line + 1).map_or(source.len(), |end| end - 1);
-            let offset = start.checked_add(column)?;
-            (offset <= end && source.is_char_boundary(offset)).then_some(offset)
-        };
-        let Some(start) = offset(line_start, column_start) else {
-            return Ok(None);
-        };
-        let Some(end) = offset(line_end, column_end) else {
-            return Ok(None);
-        };
-        return Ok((start <= end && source.get(start..end).is_some()).then_some(start..end));
     }
     Ok(None)
 }
@@ -788,6 +802,8 @@ mod tests {
             declaration: "plan61.qualification.v1.Payload".into(),
             source: "source.proto".into(),
             source_sha256: hash(b"authored"),
+            source_range: None,
+            source_range_unavailable: None,
             output: "generated.rs".into(),
             output_sha256: hash(b"emitted"),
             rust_type: "ExplicitRustType".into(),
@@ -832,106 +848,149 @@ mod tests {
     }
     #[test]
     fn schema_origin_uses_actual_enclosing_type_and_exact_generated_bytes() {
-        let directory = tempfile::tempdir().unwrap();
-        let root = directory.path();
-        let selected = bundle(&original());
-        let output = "crates/pse-host/src/generated/code-intelligence/example.rs";
-        let text = "pub struct ActualRust { pub field: i32 }\npub struct Namesake { pub field: i32 }\nimpl ActualRust { fn accessor(&self) -> i32 { self.field } }\n";
-        let authored =
-            include_str!("../../tests/fixtures/plan61/plan61/qualification/v1/contract.proto");
-        let generated = root.join(output);
-        std::fs::create_dir_all(generated.parent().unwrap()).unwrap();
-        std::fs::write(&generated, text).unwrap();
-        std::fs::write(
-            generated.parent().unwrap().join("descriptor.bin"),
-            &selected.original,
-        )
-        .unwrap();
-        std::fs::write(root.join("original.proto"), authored).unwrap();
-        let manifest = AssociationManifest {
-            descriptor_sha256: selected.digest,
-            inputs: BTreeMap::new(),
-            associations: vec![
-                Association {
-                    declaration: "plan61.qualification.v1.Payload".into(),
-                    source: "original.proto".into(),
-                    source_sha256: hash(authored.as_bytes()),
-                    output: output.into(),
-                    output_sha256: hash(text.as_bytes()),
-                    rust_type: "ActualRust".into(),
-                    rust_field: None,
-                    state: String::new(),
-                },
-                Association {
-                    declaration: "plan61.qualification.v1.Payload#6".into(),
-                    source: "original.proto".into(),
-                    source_sha256: hash(authored.as_bytes()),
-                    output: output.into(),
-                    output_sha256: hash(text.as_bytes()),
-                    rust_type: "ActualRust".into(),
-                    rust_field: Some("field".into()),
-                    state: String::new(),
-                },
-            ],
-        };
-        let path = root.join("docs/generated/source-relationships/code-intelligence");
-        std::fs::create_dir_all(&path).unwrap();
-        std::fs::write(
-            path.join("associations.json"),
-            serde_json::to_vec(&manifest).unwrap(),
-        )
-        .unwrap();
-        let source = crate::source_read::SourceText::new(generated.clone(), text.into()).unwrap();
-        assert_eq!(origin_associations(root, &source, 4..10).unwrap().len(), 1);
-        let field = text.find("field").unwrap();
-        let origins = origin_associations(root, &source, field..field + 5).unwrap();
-        assert_eq!(origins.len(), 1);
-        assert_eq!(origins[0].declaration, "plan61.qualification.v1.Payload#6");
-        let span = authored_range(root, &origins[0], authored)
-            .unwrap()
-            .unwrap();
-        assert_eq!(&authored[span], "string label = 6;");
-        let accessor = text.find("accessor").unwrap();
-        let origins = origin_associations(root, &source, accessor..accessor + 8).unwrap();
-        assert_eq!(origins[0].declaration, "plan61.qualification.v1.Payload#6");
-        let wrong = text.find("Namesake").unwrap();
-        assert!(
-            origin_associations(root, &source, wrong..wrong + 1)
-                .unwrap()
-                .is_empty()
-        );
-        for origin in [
-            crate::source_read::SourceOrigin::Index {
-                git_dir: crate::repository::GitName::Utf8(".git".into()),
-                index_path: crate::repository::GitName::Utf8(".git/index".into()),
-                blob: "original-blob".into(),
-            },
-            crate::source_read::SourceOrigin::Blob {
-                git_dir: crate::repository::GitName::Utf8(".git".into()),
-                revision: "original-revision".into(),
-                blob: "original-blob".into(),
-            },
+        for (text, rust_type) in [
+            (
+                "pub struct ActualRust { pub field: i32 }\npub struct Namesake { pub field: i32 }\nimpl ActualRust { fn accessor(&self) -> i32 { self.field } }\n",
+                "ActualRust",
+            ),
+            (
+                "pub mod r#type { pub struct r#match { pub field: i32 } pub struct Namesake { pub field: i32 } impl r#match { fn accessor(&self) -> i32 { self.field } } }\n",
+                "type::match",
+            ),
+            (
+                "pub mod r#type { pub struct r#async<'a> { pub field: &'a i32 } pub struct Namesake { pub field: i32 } impl<'a> r#async<'a> { fn accessor(&self) -> i32 { self.field } } }\n",
+                "type::async",
+            ),
         ] {
-            let identity = crate::source_read::SourceIdentity::from_parts(
-                std::path::PathBuf::from(output),
-                hash(text.as_bytes()),
-                origin,
+            let selected_type = text.find("struct ").unwrap() + "struct ".len();
+            let directory = tempfile::tempdir().unwrap();
+            let root = directory.path();
+            let selected = bundle(&original());
+            let output = "crates/pse-host/src/generated/code-intelligence/example.rs";
+            let authored =
+                include_str!("../../tests/fixtures/plan61/plan61/qualification/v1/contract.proto");
+            let generated = root.join(output);
+            std::fs::create_dir_all(generated.parent().unwrap()).unwrap();
+            std::fs::write(&generated, text).unwrap();
+            std::fs::write(
+                generated.parent().unwrap().join("descriptor.bin"),
+                &selected.original,
             )
             .unwrap();
-            let historical =
-                crate::source_read::SourceText::from_identity(identity, text.into()).unwrap();
+            std::fs::write(root.join("original.proto"), authored).unwrap();
+            let manifest = AssociationManifest {
+                descriptor_sha256: selected.digest,
+                inputs: BTreeMap::new(),
+                associations: vec![
+                    Association {
+                        declaration: "plan61.qualification.v1.Payload".into(),
+                        source: "original.proto".into(),
+                        source_sha256: hash(authored.as_bytes()),
+                        source_range: None,
+                        source_range_unavailable: None,
+                        output: output.into(),
+                        output_sha256: hash(text.as_bytes()),
+                        rust_type: rust_type.into(),
+                        rust_field: None,
+                        state: String::new(),
+                    },
+                    Association {
+                        declaration: "plan61.qualification.v1.Payload#6".into(),
+                        source: "original.proto".into(),
+                        source_sha256: hash(authored.as_bytes()),
+                        source_range: Some(association_protocol::SourceByteRange {
+                            start: authored.find("string label = 6;").unwrap(),
+                            end: authored.find("string label = 6;").unwrap()
+                                + "string label = 6;".len(),
+                            producer: association_protocol::SOURCE_RANGE_PRODUCER.into(),
+                            profile: association_protocol::SOURCE_RANGE_PROFILE.into(),
+                        }),
+                        source_range_unavailable: None,
+                        output: output.into(),
+                        output_sha256: hash(text.as_bytes()),
+                        rust_type: rust_type.into(),
+                        rust_field: Some("field".into()),
+                        state: String::new(),
+                    },
+                ],
+            };
+            let path = root.join("docs/generated/source-relationships/code-intelligence");
+            std::fs::create_dir_all(&path).unwrap();
+            std::fs::write(
+                path.join("associations.json"),
+                serde_json::to_vec(&manifest).unwrap(),
+            )
+            .unwrap();
+            let source =
+                crate::source_read::SourceText::new(generated.clone(), text.into()).unwrap();
+            assert_eq!(
+                origin_associations(root, &source, selected_type..selected_type + 1)
+                    .unwrap()
+                    .len(),
+                1
+            );
+            let field = text.find("field").unwrap();
+            let origins = origin_associations(root, &source, field..field + 5).unwrap();
+            assert_eq!(origins.len(), 1);
+            assert_eq!(origins[0].declaration, "plan61.qualification.v1.Payload#6");
+            let span = authored_range(root, &origins[0], authored)
+                .unwrap()
+                .unwrap();
+            assert_eq!(&authored[span], "string label = 6;");
+            let mut tampered = origins[0].clone();
+            tampered.source_range.as_mut().unwrap().start += 1;
+            assert!(authored_range(root, &tampered, authored).unwrap().is_none());
+            tampered = origins[0].clone();
+            tampered.source_range.as_mut().unwrap().profile = "unknown-profile".into();
+            assert!(authored_range(root, &tampered, authored).unwrap().is_none());
+            tampered = origins[0].clone();
+            tampered.source_range.as_mut().unwrap().producer = "buf/unknown".into();
+            assert!(authored_range(root, &tampered, authored).unwrap().is_none());
+            tampered.source_range = None;
+            assert!(authored_range(root, &tampered, authored).unwrap().is_none());
+            let accessor = text.find("accessor").unwrap();
+            let origins = origin_associations(root, &source, accessor..accessor + 8).unwrap();
+            assert_eq!(origins[0].declaration, "plan61.qualification.v1.Payload#6");
+            let wrong = text.find("Namesake").unwrap();
             assert!(
-                origin_associations(root, &historical, 4..10)
+                origin_associations(root, &source, wrong..wrong + 1)
+                    .unwrap()
+                    .is_empty()
+            );
+            for origin in [
+                crate::source_read::SourceOrigin::Index {
+                    git_dir: crate::repository::GitName::Utf8(".git".into()),
+                    index_path: crate::repository::GitName::Utf8(".git/index".into()),
+                    blob: "original-blob".into(),
+                },
+                crate::source_read::SourceOrigin::Blob {
+                    git_dir: crate::repository::GitName::Utf8(".git".into()),
+                    revision: "original-revision".into(),
+                    blob: "original-blob".into(),
+                },
+            ] {
+                let identity = crate::source_read::SourceIdentity::from_parts(
+                    std::path::PathBuf::from(output),
+                    hash(text.as_bytes()),
+                    origin,
+                )
+                .unwrap();
+                let historical =
+                    crate::source_read::SourceText::from_identity(identity, text.into()).unwrap();
+                assert!(
+                    origin_associations(root, &historical, selected_type..selected_type + 1)
+                        .unwrap()
+                        .is_empty()
+                );
+            }
+            let changed =
+                crate::source_read::SourceText::new(generated, format!("{text}// changed"))
+                    .unwrap();
+            assert!(
+                origin_associations(root, &changed, selected_type..selected_type + 1)
                     .unwrap()
                     .is_empty()
             );
         }
-        let changed =
-            crate::source_read::SourceText::new(generated, format!("{text}// changed")).unwrap();
-        assert!(
-            origin_associations(root, &changed, 4..10)
-                .unwrap()
-                .is_empty()
-        );
     }
 }

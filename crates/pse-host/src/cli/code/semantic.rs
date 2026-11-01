@@ -556,11 +556,9 @@ pub(in crate::cli) fn query(
         reason: "inspect actual session context, negotiated capabilities and pending backend state"
             .into(),
     });
-    if record.configuration.project == root {
-        response
-            .next
-            .extend(test_routes(&root, &response.payload, &record.configuration));
-    }
+    response
+        .next
+        .extend(test_routes(&root, &response.payload, &record.configuration));
     Ok(output.emit_page(
         response.map_payload(|value| AnswerView {
             value,
@@ -606,10 +604,12 @@ pub(in crate::cli) fn test_routes(
     answer: &semantic::Answer,
     configuration: &Configuration,
 ) -> Vec<envelope::NextAction> {
-    if !matches!(
-        answer.source.origin(),
-        crate::source_read::SourceOrigin::Working
-    ) {
+    if configuration.project != root
+        || !matches!(
+            answer.source.origin(),
+            crate::source_read::SourceOrigin::Working
+        )
+    {
         return Vec::new();
     }
     let mut next = Vec::new();
@@ -740,6 +740,9 @@ mod runnable_route_tests {
                     cfg: None,
                     relatedness: Some("native relationship".into()),
                     eligible: None,
+                    cfg_eligible: None,
+                    cargo_targets: Vec::new(),
+                    snapshot_update: None,
                     label: Some("display only".into()),
                     location: Some(semantic::FactLocation::Bytes {
                         path: path.clone(),
@@ -780,6 +783,9 @@ mod runnable_route_tests {
             reference.locator,
             crate::investigation::Locator::Source { guard: Some(_), .. }
         ));
+        let mut external = configuration.clone();
+        external.project = temporary.path().join("external-project");
+        assert!(test_routes(temporary.path(), &answer, &external).is_empty());
         answer.observed.tests[0].eligible = Some(false);
         assert!(test_routes(temporary.path(), &answer, &configuration).is_empty());
         answer.observed.tests[0].eligible = None;

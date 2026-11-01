@@ -3,6 +3,7 @@
 //! Demand-driven native callable candidates and same-crate extension-import obligations.
 use super::*;
 use ra_ap_hir::{AsAssocItem as _, HasVisibility as _};
+mod contextual;
 
 pub(super) fn inspect(
     sema: &Semantics<'_, ra_ap_ide_db::RootDatabase>,
@@ -68,13 +69,35 @@ pub(super) fn inspect(
         let mapped = sema
             .source(function)
             .and_then(|source| sema.original_range_opt(source.value.syntax()));
+        let (context, mut obligations) =
+            contextual::call(sema, expression, function, paths, target);
+        if context.is_none() {
+            obligations.extend(contextual::declaration_bounds(
+                sema, function, paths, target,
+            ));
+        }
+        if let Some(trait_) = trait_ {
+            obligations.push(contextual::obligation(sema, trait_, "Self".into(), Some(&ty), paths, target, "Native receiver trait implementation observation; imports remain a separate obligation."));
+            if context.is_none() {
+                obligations.extend(contextual::extension_bounds(
+                    sema, trait_, &ty, paths, target,
+                ));
+            }
+        }
+        let mut limitations = vec!["Native type-argument projection does not expose lifetime/const substitutions or every associated-type predicate.".into()];
+        if context.is_none() {
+            limitations.push("No matching resolved authored call supplies instantiated parameters/result or receiver adjustments for this alternative; hypothetical-call substitution remains unavailable.".into());
+        }
         candidates.push(super::super::CallableCandidateFact {
             target: TargetFact { relationship: "callable_candidate".into(), name: function.name(db).as_str().into(), location: mapped.and_then(|mapped|location(paths,mapped.file_id.file_id(db),mapped.range)), precision: if mapped.is_some(){"native_original_range"}else{"unavailable_or_non_unique_macro_origin"}.into() },
             signature: function.ty(db).display(db,target).to_string(),
             receiver: type_fact(db,&ty,target),
             applicability,
             required_import,
-            reasons: vec![origin.into(), if missing_import { "Extension trait is absent from native visible-trait scope; importing it is a separate obligation." } else { "Candidate is in the selected native method scope." }.into(), "Declaration signature retains generic parameters; candidate discovery is not a fully substituted call or compiler acceptance proof. Native receiver adjustments are reported separately for a resolved call.".into()],
+            context,
+            obligations,
+            limitations,
+            reasons: vec![origin.into(), if missing_import { "Extension trait is absent from native visible-trait scope; importing it is a separate obligation." } else { "Candidate is in the selected native method scope." }.into(), "Declaration signature and actual contextual-call inference are separate observations; neither establishes rustc acceptance.".into()],
         });
     };
     ty.iterate_method_candidates(db, &scope, None, |function| {

@@ -258,7 +258,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/mod.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -274,7 +274,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.compiler_facts.__view.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -290,7 +290,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.compiler_facts.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -306,7 +306,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__oneof.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -322,7 +322,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__view.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -338,7 +338,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__view_oneof.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -354,7 +354,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -370,7 +370,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.mod.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -386,7 +386,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/services/pse.code_intelligence.v1.contracts.__connect.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -402,7 +402,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/services/pse.code_intelligence.v1.mod.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -418,7 +418,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/mod.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -434,7 +434,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.compiler_facts.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -450,7 +450,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.contracts.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -466,7 +466,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.mod.rs",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_corpus_contributor",
       "source_symbol": null
@@ -482,7 +482,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence.rs",
       "generator_symbol": "corpus",
       "output_path": "crates/pse-host/src/generated/code-intelligence/descriptor.bin",
-      "source_identity": "sha256:973d387a5de3d4326c7c8836d2f5248abbade5edde072d7b7348c4c68681785d",
+      "source_identity": "sha256:ad046ed628aa729d6427ae7ea1924f993ad41796191b5e1962483b483aa9a670",
       "source_path": "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto",
       "source_role": "authored_wire_contract",
       "source_symbol": null

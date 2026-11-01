@@ -162,6 +162,8 @@ syn.workspace = true
 # Print generated Rust through the library without a rustfmt subprocess.
 quote.workspace = true
 prettyplease.workspace = true
+tree-sitter.workspace = true
+tree-sitter-proto.workspace = true
 miette.workspace = true
 
 [dev-dependencies]
