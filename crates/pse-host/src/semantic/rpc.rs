@@ -192,7 +192,7 @@ impl Client {
         environment: &Environment,
         record: &super::SessionRecord,
     ) -> Result<Self> {
-        if record.version != 2 {
+        if record.version != super::SESSION_PROTOCOL_VERSION {
             return Err(Error::Unavailable("prepared semantic helper uses an incompatible protocol; stop it and explicitly prepare a new session".into()));
         }
         let connector = AuthenticatedConnector {

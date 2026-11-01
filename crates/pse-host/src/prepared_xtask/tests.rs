@@ -530,8 +530,14 @@ fn missing_native_analysis_does_not_repair_or_redirect_the_xtask_selection() {
 #[test]
 fn native_analysis_protocol_has_real_schema_documents_and_no_phantom_catalog() {
     let schema = schemars::schema_for!(crate::semantic::Request).to_value();
-    let protocol = json!({"version":1,"tool":"native-analysis","request_schema":schema,"configuration_schema":schema,"response_schema":schema,"backend":"ra_ap_hir/0.0.358 immutable_snapshot"});
+    let protocol = json!({"version":crate::semantic::SESSION_PROTOCOL_VERSION,"tool":"native-analysis","request_schema":schema,"configuration_schema":schema,"response_schema":schema,"backend":"ra_ap_hir/0.0.358 immutable_snapshot","request_control":{"protocol":"grpc","service":crate::code_intelligence_contracts::services::NATIVE_SEMANTIC_SERVICE_NAME,"terminal_after_cpu_settlement":true}});
     assert!(protocol_document(&serde_json::to_vec(&protocol).unwrap()).is_ok());
+    let mut legacy = protocol.clone();
+    legacy["version"] = json!(1);
+    assert!(protocol_document(&serde_json::to_vec(&legacy).unwrap()).is_err());
+    let mut wrong_service = protocol.clone();
+    wrong_service["request_control"]["service"] = json!("pse.unrelated.Service");
+    assert!(protocol_document(&serde_json::to_vec(&wrong_service).unwrap()).is_err());
     let mut malformed = protocol.clone();
     malformed["tool"] = json!("xtask");
     assert!(protocol_document(&serde_json::to_vec(&malformed).unwrap()).is_err());

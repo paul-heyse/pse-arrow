@@ -26,6 +26,9 @@ pub use service::{
 };
 use std::path::PathBuf;
 
+/// Current prepared semantic helper/selector protocol; legacy selectors are administration-only.
+pub const SESSION_PROTOCOL_VERSION: u32 = 2;
+
 /// Explicit context owner; immutable native snapshots are not a second live LSP world.
 #[derive(
     Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema, clap::ValueEnum,

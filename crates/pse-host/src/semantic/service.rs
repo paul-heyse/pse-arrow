@@ -58,7 +58,7 @@ impl ServiceEngine {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SessionRecord {
-    /// Selector format, distinct from native protocol versions.
+    /// Prepared helper/selector protocol; older selectors retain administration only.
     pub version: u32,
     /// Original managed service invocation, never an arbitrary PID/unit name.
     pub invocation: CliInvocationId,
@@ -163,7 +163,7 @@ pub fn load(root: &Path, environment: &Environment) -> Result<Option<SessionReco
         Err(error) => return Err(error.into()),
     };
     let record: SessionRecord = serde_json::from_slice(&bytes)?;
-    if !matches!(record.version, 1 | 2) {
+    if record.version != 1 && record.version != super::SESSION_PROTOCOL_VERSION {
         return Err(Error::Unavailable(
             "unsupported semantic selector version".into(),
         ));

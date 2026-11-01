@@ -197,7 +197,7 @@ pub(super) fn session(
                 )
             })?;
             let record = SessionRecord {
-                version: 2,
+                version: semantic::SESSION_PROTOCOL_VERSION,
                 invocation: output.invocation_id.clone(),
                 configuration,
             };

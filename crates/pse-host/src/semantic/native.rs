@@ -1143,7 +1143,7 @@ pub fn entry() -> std::process::ExitCode {
                 .into_root_schema_for::<super::Answer>();
             serde_json::to_writer(
                 std::io::stdout().lock(),
-                &json!({"version":2,"tool":"native-analysis","backend":BACKEND,"request_schema":request,"configuration_schema":configuration,"response_schema":response,"native_payload_schema":native,"request_control":{"protocol":"grpc","service":"pse.code_intelligence.v1.NativeSemantic","terminal_after_cpu_settlement":true}}),
+                &json!({"version":super::SESSION_PROTOCOL_VERSION,"tool":"native-analysis","backend":BACKEND,"request_schema":request,"configuration_schema":configuration,"response_schema":response,"native_payload_schema":native,"request_control":{"protocol":"grpc","service":crate::code_intelligence_contracts::services::NATIVE_SEMANTIC_SERVICE_NAME,"terminal_after_cpu_settlement":true}}),
             )?;
             std::io::stdout().write_all(b"\n")?;
             return Ok(());
@@ -1657,7 +1657,7 @@ mod tests {
                     && symbol["location"]["uri"]
                         .as_str()
                         .is_some_and(|uri| uri.contains("rust/library"))),
-            "explicit dependency discovery must include the same world's installed standard library: {libraries}"
+            "explicit dependency discovery must include the same world's installed standard library: {libraries:?}"
         );
         let qualified = engine
             .start_symbols(

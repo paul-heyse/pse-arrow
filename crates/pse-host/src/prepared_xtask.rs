@@ -751,11 +751,29 @@ fn schema_document(bytes: &[u8]) -> Result<serde_json::Value, PreparedNativeTool
 }
 fn protocol_document(bytes: &[u8]) -> Result<serde_json::Value, PreparedNativeToolError> {
     let value: serde_json::Value = serde_json::from_slice(bytes)?;
-    if value.get("version").and_then(serde_json::Value::as_u64) != Some(1)
+    if value.get("version").and_then(serde_json::Value::as_u64)
+        != Some(u64::from(crate::semantic::SESSION_PROTOCOL_VERSION))
         || value.get("tool").and_then(serde_json::Value::as_str) != Some("native-analysis")
     {
         return Err(invalid(
             "native semantic protocol belongs to another target or version",
+        ));
+    }
+    if value
+        .pointer("/request_control/protocol")
+        .and_then(serde_json::Value::as_str)
+        != Some("grpc")
+        || value
+            .pointer("/request_control/service")
+            .and_then(serde_json::Value::as_str)
+            != Some(crate::code_intelligence_contracts::services::NATIVE_SEMANTIC_SERVICE_NAME)
+        || value
+            .pointer("/request_control/terminal_after_cpu_settlement")
+            .and_then(serde_json::Value::as_bool)
+            != Some(true)
+    {
+        return Err(invalid(
+            "native semantic protocol omits its generated RPC/settlement contract",
         ));
     }
     for name in ["request_schema", "configuration_schema", "response_schema"] {
