@@ -263,8 +263,10 @@ mod tests {
             from_pb(bad).is_err(),
             "unknown target kind cannot become declaration"
         );
-        let mut bad = pb::NativeInvestigationFacts::default();
-        bad.compatibility = Some(pb::NativeCompatibilityObservation::default()).into();
+        let bad = pb::NativeInvestigationFacts {
+            compatibility: Some(pb::NativeCompatibilityObservation::default()).into(),
+            ..Default::default()
+        };
         assert!(
             from_pb(bad).is_err(),
             "comparisons require both original operands"

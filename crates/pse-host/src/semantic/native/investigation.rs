@@ -88,35 +88,35 @@ fn operand<'db>(
 ) -> Result<(ra_ap_hir::Type<'db>, NativeLocation)> {
     let node = node_at(s, sema, p)?;
     for n in node.ancestors() {
-        if let Some(expr) = ast::Expr::cast(n.clone()) {
-            if let Some(t) = sema.type_of_expr(&expr) {
-                return Ok((
-                    t.original,
-                    mapped(sema, expr.syntax(), s.paths).ok_or_else(|| {
-                        Error::Unavailable("type operand has no unique original mapping".into())
-                    })?,
-                ));
-            }
+        if let Some(expr) = ast::Expr::cast(n.clone())
+            && let Some(t) = sema.type_of_expr(&expr)
+        {
+            return Ok((
+                t.original,
+                mapped(sema, expr.syntax(), s.paths).ok_or_else(|| {
+                    Error::Unavailable("type operand has no unique original mapping".into())
+                })?,
+            ));
         }
-        if let Some(ty) = ast::Type::cast(n.clone()) {
-            if let Some(t) = sema.resolve_type(&ty) {
-                return Ok((
-                    t,
-                    mapped(sema, ty.syntax(), s.paths).ok_or_else(|| {
-                        Error::Unavailable("type operand has no unique original mapping".into())
-                    })?,
-                ));
-            }
+        if let Some(ty) = ast::Type::cast(n.clone())
+            && let Some(t) = sema.resolve_type(&ty)
+        {
+            return Ok((
+                t,
+                mapped(sema, ty.syntax(), s.paths).ok_or_else(|| {
+                    Error::Unavailable("type operand has no unique original mapping".into())
+                })?,
+            ));
         }
-        if let Some(adt) = ast::Adt::cast(n.clone()) {
-            if let Some(a) = sema.to_adt_def(&adt) {
-                return Ok((
-                    a.ty(s.db),
-                    mapped(sema, adt.syntax(), s.paths).ok_or_else(|| {
-                        Error::Unavailable("type declaration has no original mapping".into())
-                    })?,
-                ));
-            }
+        if let Some(adt) = ast::Adt::cast(n.clone())
+            && let Some(a) = sema.to_adt_def(&adt)
+        {
+            return Ok((
+                a.ty(s.db),
+                mapped(sema, adt.syntax(), s.paths).ok_or_else(|| {
+                    Error::Unavailable("type declaration has no original mapping".into())
+                })?,
+            ));
         }
     }
     Err(Error::Unavailable(

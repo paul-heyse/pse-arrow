@@ -362,9 +362,7 @@ fn static_preview<T: buffa::Message + DeserializeOwned + ReflectMessage + Valida
         Err(error) => Validation {
             state: if error.compile_error.is_some() {
                 "compile_error"
-            } else if error.runtime_error.is_some() {
-                "evaluation_error"
-            } else if error.violations.is_empty() {
+            } else if error.runtime_error.is_some() || error.violations.is_empty() {
                 "evaluation_error"
             } else {
                 "violations"

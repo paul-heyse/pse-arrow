@@ -95,10 +95,10 @@ pub async fn inspect(
             let range = containing.map_or(selected_range, |entry| entry.range.byte_start..entry.range.byte_end);
             let structure = crate::source_query::validation_structure(&text, range, budget);
             report.complete = structure.omitted == 0 && structure.parse_issues.is_empty();
-            if let Some(address) = source.reference.as_ref() {
-                if matches!(address.locator, Locator::Source { source: SourceKind::Working, .. }) {
-                    report.actions.push(crate::envelope::NextAction::Command { argv: vec!["pse".into(), "inspect".into(), "test-selection".into(), "--from-result".into(), address.encode()?], reason: "validate the current source witness and ask the existing owner for containing-package test candidates; no listing or execution".into() });
-                }
+            if let Some(address) = source.reference.as_ref()
+                && matches!(address.locator, Locator::Source { source: SourceKind::Working, .. })
+            {
+                report.actions.push(crate::envelope::NextAction::Command { argv: vec!["pse".into(), "inspect".into(), "test-selection".into(), "--from-result".into(), address.encode()?], reason: "validate the current source witness and ask the existing owner for containing-package test candidates; no listing or execution".into() });
             }
             if semantic {
                 let native = investigation::rust::source_inquiry(root, locator, token).await;
@@ -159,6 +159,112 @@ pub(crate) fn native_incompleteness(answer: &crate::semantic::Answer) -> Vec<Str
         );
     }
     limitations
+}
+
+/// Validate source guards before parsing; native locations retain their original byte witness.
+pub(crate) async fn source_witness(
+    root: &Path,
+    locator: &Locator,
+    token: &CancellationToken,
+) -> Result<(std::path::PathBuf, Locator, SourceText), HostError> {
+    let mut source_root = root.to_path_buf();
+    let source = match locator {
+        Locator::Source { .. } => locator.clone(),
+        Locator::Semantic {
+            line,
+            generation,
+            source_sha256,
+            session_invocation,
+            ..
+        } => {
+            if generation.is_none() || source_sha256.is_none() || session_invocation.is_none() {
+                return Err(investigation::Error::Unavailable(
+                    "native source witness requires original session, generation and source guards"
+                        .into(),
+                )
+                .into());
+            }
+            // The original selected native owner validates session, project/configuration,
+            // generation and bytes before any source-only projection is constructed.
+            let answer = investigation::rust::semantic_operation_cancellable(
+                root,
+                locator,
+                crate::semantic::Kind::Explain,
+                token,
+            )
+            .await?;
+            source_root = answer.session.configuration.project.canonicalize()?;
+            let start = answer.source_byte_offset;
+            Locator::Source {
+                path: answer.source.path().to_path_buf().into(),
+                source: SourceKind::Working,
+                range: Some(investigation::MatchRange {
+                    byte_start: start,
+                    byte_end: start,
+                    line_start: *line,
+                    line_end: *line,
+                }),
+                guard: Some(SourceGuard {
+                    sha256: Some(answer.source.source_sha256().into()),
+                    root: Some(source_root.clone().into()),
+                    ..Default::default()
+                }),
+            }
+        }
+        _ => {
+            return Err(
+                investigation::Error::Invalid("expected source/native witness".into()).into(),
+            );
+        }
+    };
+    let row = investigation::providers::inspect(&source_root, &source)?;
+    let guarded = row
+        .reference
+        .ok_or_else(|| {
+            investigation::Error::Invalid("source reader did not retain original reference".into())
+        })?
+        .locator;
+    let Locator::Source {
+        path, source: kind, ..
+    } = &guarded
+    else {
+        return Err(investigation::Error::Invalid(
+            "source reader returned another evidence kind".into(),
+        )
+        .into());
+    };
+    let request = match kind {
+        SourceKind::Working => SourceRequest::Working {
+            path: source_root.join(path.to_path_buf()),
+        },
+        SourceKind::Index => SourceRequest::Index {
+            repository: source_root.clone(),
+            path: path.to_path_buf(),
+        },
+        SourceKind::Revision { revision } => SourceRequest::Blob {
+            repository: source_root.clone(),
+            path: path.to_path_buf(),
+            revision: revision.clone(),
+        },
+    };
+    let text = request
+        .acquire()
+        .map_err(crate::source_command::SourceCommandError::from)?;
+    // The acquire follows the guarded read, so revalidate its full identity before use.
+    if let Locator::Source {
+        guard: Some(guard), ..
+    } = &guarded
+        && guard
+            .sha256
+            .as_deref()
+            .is_some_and(|sha| sha != text.identity().source_sha256())
+    {
+        return Err(investigation::Error::Stale(
+            "source changed while acquiring validation facts".into(),
+        )
+        .into());
+    }
+    Ok((source_root, guarded, text))
 }
 
 #[cfg(test)]
@@ -262,112 +368,4 @@ mod tests {
         std::fs::write(&report_path, b"changed original").unwrap();
         assert!(crate::test_inventory::frozen(&store, &reference).is_err());
     }
-}
-
-/// Validate source guards before parsing; native locations retain their original byte witness.
-pub(crate) async fn source_witness(
-    root: &Path,
-    locator: &Locator,
-    token: &CancellationToken,
-) -> Result<(std::path::PathBuf, Locator, SourceText), HostError> {
-    let mut source_root = root.to_path_buf();
-    let source = match locator {
-        Locator::Source { .. } => locator.clone(),
-        Locator::Semantic {
-            line,
-            generation,
-            source_sha256,
-            session_invocation,
-            ..
-        } => {
-            if generation.is_none() || source_sha256.is_none() || session_invocation.is_none() {
-                return Err(investigation::Error::Unavailable(
-                    "native source witness requires original session, generation and source guards"
-                        .into(),
-                )
-                .into());
-            }
-            // The original selected native owner validates session, project/configuration,
-            // generation and bytes before any source-only projection is constructed.
-            let answer = investigation::rust::semantic_operation_cancellable(
-                root,
-                locator,
-                crate::semantic::Kind::Explain,
-                token,
-            )
-            .await?;
-            source_root = answer.session.configuration.project.canonicalize()?;
-            let start = answer.source_byte_offset;
-            Locator::Source {
-                path: answer.source.path().to_path_buf().into(),
-                source: SourceKind::Working,
-                range: Some(investigation::MatchRange {
-                    byte_start: start,
-                    byte_end: start,
-                    line_start: *line,
-                    line_end: *line,
-                }),
-                guard: Some(SourceGuard {
-                    sha256: Some(answer.source.source_sha256().into()),
-                    root: Some(source_root.clone().into()),
-                    ..Default::default()
-                }),
-            }
-        }
-        _ => {
-            return Err(
-                investigation::Error::Invalid("expected source/native witness".into()).into(),
-            );
-        }
-    };
-    let row = investigation::providers::inspect(&source_root, &source)?;
-    let guarded = row
-        .reference
-        .ok_or_else(|| {
-            investigation::Error::Invalid("source reader did not retain original reference".into())
-        })?
-        .locator;
-    let Locator::Source {
-        path, source: kind, ..
-    } = &guarded
-    else {
-        return Err(investigation::Error::Invalid(
-            "source reader returned another evidence kind".into(),
-        )
-        .into());
-    };
-    let request = match kind {
-        SourceKind::Working => SourceRequest::Working {
-            path: source_root.join(path.to_path_buf()),
-        },
-        SourceKind::Index => SourceRequest::Index {
-            repository: source_root.clone(),
-            path: path.to_path_buf(),
-        },
-        SourceKind::Revision { revision } => SourceRequest::Blob {
-            repository: source_root.clone(),
-            path: path.to_path_buf(),
-            revision: revision.clone(),
-        },
-    };
-    let text = request
-        .acquire()
-        .map_err(crate::source_command::SourceCommandError::from)?;
-    // The acquire follows the guarded read, so revalidate its full identity before use.
-    if let Locator::Source {
-        guard: Some(guard), ..
-    } = &guarded
-    {
-        if guard
-            .sha256
-            .as_deref()
-            .is_some_and(|sha| sha != text.identity().source_sha256())
-        {
-            return Err(investigation::Error::Stale(
-                "source changed while acquiring validation facts".into(),
-            )
-            .into());
-        }
-    }
-    Ok((source_root, guarded, text))
 }

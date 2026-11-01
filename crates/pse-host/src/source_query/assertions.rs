@@ -158,58 +158,57 @@ pub fn validation_structure(
                 {
                     observation.interpretation =
                         "local_macro_with_same_name; assertion semantics unknown".into();
-                } else if let Some(tt) = mac.token_tree() {
-                    if let (Some(left), Some(right)) =
+                } else if let Some(tt) = mac.token_tree()
+                    && let (Some(left), Some(right)) =
                         (tt.left_delimiter_token(), tt.right_delimiter_token())
-                    {
-                        let start = usize::from(left.text_range().end());
-                        let end = usize::from(right.text_range().start());
-                        // Parse a known expression-list grammar through the library; preserve offsets
-                        // into the original token tree rather than pretty-printing its tokens.
-                        let prefix = "__pse(";
-                        let parsed = ast::Expr::parse(
-                            &format!("{prefix}{})", &source.text()[start..end]),
-                            ra_ap_syntax::Edition::Edition2024,
-                        );
-                        if parsed.errors().is_empty() {
-                            if let Some(call) = ast::CallExpr::cast(parsed.syntax_node()) {
-                                let args: Vec<_> = call
-                                    .arg_list()
-                                    .into_iter()
-                                    .flat_map(|args| args.args())
+                {
+                    let start = usize::from(left.text_range().end());
+                    let end = usize::from(right.text_range().start());
+                    // Parse a known expression-list grammar through the library; preserve offsets
+                    // into the original token tree rather than pretty-printing its tokens.
+                    let prefix = "__pse(";
+                    let parsed = ast::Expr::parse(
+                        &format!("{prefix}{})", &source.text()[start..end]),
+                        ra_ap_syntax::Edition::Edition2024,
+                    );
+                    if parsed.errors().is_empty() {
+                        if let Some(call) = ast::CallExpr::cast(parsed.syntax_node()) {
+                            let args: Vec<_> = call
+                                .arg_list()
+                                .into_iter()
+                                .flat_map(|args| args.args())
+                                .collect();
+                            if args.len() >= count {
+                                observation.operands = args
+                                    .iter()
+                                    .take(count)
+                                    .map(|expr| {
+                                        let range = expr.syntax().text_range();
+                                        let from =
+                                            start + usize::from(range.start()) - prefix.len();
+                                        let to = start + usize::from(range.end()) - prefix.len();
+                                        CapturedNode {
+                                            locator: SourceLocator {
+                                                source: source.identity().clone(),
+                                                range: crate::source_read::location(
+                                                    &lines,
+                                                    from..to,
+                                                ),
+                                            },
+                                            text: source.text()[from..to].into(),
+                                        }
+                                    })
                                     .collect();
-                                if args.len() >= count {
-                                    observation.operands = args
-                                        .iter()
-                                        .take(count)
-                                        .map(|expr| {
-                                            let range = expr.syntax().text_range();
-                                            let from =
-                                                start + usize::from(range.start()) - prefix.len();
-                                            let to =
-                                                start + usize::from(range.end()) - prefix.len();
-                                            CapturedNode {
-                                                locator: SourceLocator {
-                                                    source: source.identity().clone(),
-                                                    range: crate::source_read::location(
-                                                        &lines,
-                                                        from..to,
-                                                    ),
-                                                },
-                                                text: source.text()[from..to].into(),
-                                            }
-                                        })
-                                        .collect();
-                                    observation.interpretation = "supported_written_assertion_form; positional_operands_only".into();
-                                } else {
-                                    observation.interpretation =
-                                        "malformed_supported_assertion_form".into();
-                                }
+                                observation.interpretation =
+                                    "supported_written_assertion_form; positional_operands_only"
+                                        .into();
+                            } else {
+                                observation.interpretation =
+                                    "malformed_supported_assertion_form".into();
                             }
-                        } else {
-                            observation.interpretation =
-                                "malformed_supported_assertion_form".into();
                         }
+                    } else {
+                        observation.interpretation = "malformed_supported_assertion_form".into();
                     }
                 }
             }

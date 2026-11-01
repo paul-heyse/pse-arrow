@@ -9,6 +9,12 @@ use crate::{
 use ra_ap_hir::{HasSource, ModuleDef};
 use std::collections::{HashSet, VecDeque};
 
+/// One native witness occurrence before source mapping and declared-type projection.
+struct Occurrence {
+    location: Option<NativeLocation>,
+    role: GraphRole,
+}
+
 struct Catalog<'a> {
     snapshot: QuerySnapshot<'a>,
     nodes: Vec<GraphNode>,
@@ -286,17 +292,16 @@ impl<'a> Catalog<'a> {
         source: usize,
         ty: &ra_ap_hir::Type<'a>,
         relation: Relationship,
-        witness: Option<NativeLocation>,
-        role: GraphRole,
+        occurrence: Occurrence,
         display: ra_ap_hir::DisplayTarget,
     ) {
         let mut nominal = Vec::new();
         let mut seen = HashSet::new();
         ty.walk(self.snapshot.db, |ty| {
-            if let Some(adt) = ty.as_adt() {
-                if seen.insert(adt) {
-                    nominal.push(adt);
-                }
+            if let Some(adt) = ty.as_adt()
+                && seen.insert(adt)
+            {
+                nominal.push(adt);
             }
         });
         let declared = ty.display(self.snapshot.db, display).to_string();
@@ -306,8 +311,8 @@ impl<'a> Catalog<'a> {
                     source,
                     target,
                     relation,
-                    witness.clone(),
-                    role.clone(),
+                    occurrence.location.clone(),
+                    occurrence.role.clone(),
                     Some(declared.clone()),
                 );
             }
@@ -327,25 +332,25 @@ impl<'a> Catalog<'a> {
     ) {
         for (index, field) in fields.into_iter().enumerate() {
             let witness = self.source(sema, field);
-            if selected.contains(&Relationship::Contains) {
-                if let Some(field_location) = witness.clone() {
-                    let name = field
-                        .name(self.snapshot.db)
-                        .display(self.snapshot.db, display.edition)
-                        .to_string();
-                    if let (Some(container), Some(target)) = (
+            if selected.contains(&Relationship::Contains)
+                && let Some(field_location) = witness.clone()
+            {
+                let name = field
+                    .name(self.snapshot.db)
+                    .display(self.snapshot.db, display.edition)
+                    .to_string();
+                if let (Some(container), Some(target)) = (
+                    container,
+                    self.node(field_location.clone(), Some(name), true),
+                ) {
+                    self.edge(
                         container,
-                        self.node(field_location.clone(), Some(name), true),
-                    ) {
-                        self.edge(
-                            container,
-                            target,
-                            Relationship::Contains,
-                            Some(field_location),
-                            GraphRole::Containment,
-                            None,
-                        );
-                    }
+                        target,
+                        Relationship::Contains,
+                        Some(field_location),
+                        GraphRole::Containment,
+                        None,
+                    );
                 }
             }
             if selected.contains(&Relationship::FieldType) {
@@ -360,8 +365,10 @@ impl<'a> Catalog<'a> {
                     source,
                     &field.ty(self.snapshot.db),
                     Relationship::FieldType,
-                    witness,
-                    GraphRole::Field { index, name },
+                    Occurrence {
+                        location: witness,
+                        role: GraphRole::Field { index, name },
+                    },
                     display,
                 );
             }
@@ -469,19 +476,18 @@ impl<'a> Catalog<'a> {
                 let impl_source = self.source(&sema, impl_);
                 let impl_node = impl_source.and_then(|location| self.node(location, None, true));
                 if let Some(source) = impl_node {
-                    if selected.contains(&Relationship::ImplTrait) {
-                        if let Some(trait_) = impl_.trait_(self.snapshot.db) {
-                            if let Some(target) = self.definition(&sema, ModuleDef::Trait(trait_)) {
-                                self.edge(
-                                    source,
-                                    target,
-                                    Relationship::ImplTrait,
-                                    self.source(&sema, impl_),
-                                    GraphRole::Navigation,
-                                    None,
-                                );
-                            }
-                        }
+                    if selected.contains(&Relationship::ImplTrait)
+                        && let Some(trait_) = impl_.trait_(self.snapshot.db)
+                        && let Some(target) = self.definition(&sema, ModuleDef::Trait(trait_))
+                    {
+                        self.edge(
+                            source,
+                            target,
+                            Relationship::ImplTrait,
+                            self.source(&sema, impl_),
+                            GraphRole::Navigation,
+                            None,
+                        );
                     }
                     if selected.contains(&Relationship::ImplSelfType) {
                         self.dependencies(
@@ -489,25 +495,27 @@ impl<'a> Catalog<'a> {
                             source,
                             &impl_.self_ty(self.snapshot.db),
                             Relationship::ImplSelfType,
-                            self.source(&sema, impl_),
-                            GraphRole::Navigation,
+                            Occurrence {
+                                location: self.source(&sema, impl_),
+                                role: GraphRole::Navigation,
+                            },
                             module
                                 .krate(self.snapshot.db)
                                 .to_display_target(self.snapshot.db),
                         );
                     }
                 }
-                if selected.contains(&Relationship::Contains) {
-                    if let (Some(parent), Some(target)) = (parent, impl_node) {
-                        self.edge(
-                            parent,
-                            target,
-                            Relationship::Contains,
-                            Some(self.nodes[target].location.clone()),
-                            GraphRole::Containment,
-                            None,
-                        );
-                    }
+                if selected.contains(&Relationship::Contains)
+                    && let (Some(parent), Some(target)) = (parent, impl_node)
+                {
+                    self.edge(
+                        parent,
+                        target,
+                        Relationship::Contains,
+                        Some(self.nodes[target].location.clone()),
+                        GraphRole::Containment,
+                        None,
+                    );
                 }
                 declarations.extend(impl_.items(self.snapshot.db).into_iter().map(|item| {
                     (
@@ -530,17 +538,17 @@ impl<'a> Catalog<'a> {
                 if !domain.contains(&self.nodes[source].location.path) {
                     continue;
                 }
-                if selected.contains(&Relationship::Contains) {
-                    if let Some(parent) = container {
-                        self.edge(
-                            parent,
-                            source,
-                            Relationship::Contains,
-                            Some(self.nodes[source].location.clone()),
-                            GraphRole::Containment,
-                            None,
-                        );
-                    }
+                if selected.contains(&Relationship::Contains)
+                    && let Some(parent) = container
+                {
+                    self.edge(
+                        parent,
+                        source,
+                        Relationship::Contains,
+                        Some(self.nodes[source].location.clone()),
+                        GraphRole::Containment,
+                        None,
+                    );
                 }
                 let display = declaration
                     .module(self.snapshot.db)
@@ -557,9 +565,11 @@ impl<'a> Catalog<'a> {
                                     source,
                                     parameter.ty(),
                                     Relationship::ParameterType,
-                                    self.source(&sema, parameter.clone()),
-                                    GraphRole::Parameter {
-                                        index: parameter.index(),
+                                    Occurrence {
+                                        location: self.source(&sema, parameter.clone()),
+                                        role: GraphRole::Parameter {
+                                            index: parameter.index(),
+                                        },
                                     },
                                     display,
                                 );
@@ -582,9 +592,11 @@ impl<'a> Catalog<'a> {
                                 source,
                                 &function.ret_type(self.snapshot.db),
                                 Relationship::ReturnType,
-                                witness.clone(),
-                                GraphRole::Return {
-                                    async_output: false,
+                                Occurrence {
+                                    location: witness.clone(),
+                                    role: GraphRole::Return {
+                                        async_output: false,
+                                    },
                                 },
                                 display,
                             );
@@ -594,8 +606,10 @@ impl<'a> Catalog<'a> {
                                     source,
                                     &output,
                                     Relationship::ReturnType,
-                                    witness,
-                                    GraphRole::Return { async_output: true },
+                                    Occurrence {
+                                        location: witness,
+                                        role: GraphRole::Return { async_output: true },
+                                    },
                                     display,
                                 );
                             }
@@ -620,17 +634,17 @@ impl<'a> Catalog<'a> {
                     ModuleDef::Adt(ra_ap_hir::Adt::Enum(value)) => {
                         for variant in value.variants(self.snapshot.db) {
                             let container = self.definition(&sema, ModuleDef::EnumVariant(variant));
-                            if let Some(target) = container {
-                                if selected.contains(&Relationship::Contains) {
-                                    self.edge(
-                                        source,
-                                        target,
-                                        Relationship::Contains,
-                                        self.source(&sema, variant),
-                                        GraphRole::Containment,
-                                        None,
-                                    );
-                                }
+                            if let Some(target) = container
+                                && selected.contains(&Relationship::Contains)
+                            {
+                                self.edge(
+                                    source,
+                                    target,
+                                    Relationship::Contains,
+                                    self.source(&sema, variant),
+                                    GraphRole::Containment,
+                                    None,
+                                );
                             }
                             self.fields(
                                 &sema,
@@ -996,13 +1010,12 @@ impl<'a> Catalog<'a> {
             if ast::FieldExpr::can_cast(node.kind()) {
                 read = Some(true);
                 write = Some(false);
-                if let Some(binary) = node.parent().and_then(ast::BinExpr::cast) {
-                    if binary.lhs().is_some_and(|lhs| lhs.syntax() == &node) {
-                        if let Some(ast::BinaryOp::Assignment { op }) = binary.op_kind() {
-                            read = Some(op.is_some());
-                            write = Some(true);
-                        }
-                    }
+                if let Some(binary) = node.parent().and_then(ast::BinExpr::cast)
+                    && binary.lhs().is_some_and(|lhs| lhs.syntax() == &node)
+                    && let Some(ast::BinaryOp::Assignment { op }) = binary.op_kind()
+                {
+                    read = Some(op.is_some());
+                    write = Some(true);
                 }
                 if node.parent().is_some_and(|parent| {
                     ast::RefExpr::can_cast(parent.kind())

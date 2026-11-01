@@ -500,9 +500,14 @@ mod command_catalog_tests {
             Cmd::Owner {
                 query: xtask::documentation::ownership::Query {
                     path: None,
-                    schema: true
+                    schema: true,
+                    associations: false,
+                    revision: None,
+                    index: false,
+                    if_source: None,
+                    citations,
                 }
-            }
+            } if citations.is_empty()
         ));
         assert!(matches!(
             Cli::try_parse_from(["xtask", "owner", "docs/README.md"])
@@ -511,9 +516,14 @@ mod command_catalog_tests {
             Cmd::Owner {
                 query: xtask::documentation::ownership::Query {
                     path: Some(_),
-                    schema: false
+                    schema: false,
+                    associations: false,
+                    revision: None,
+                    index: false,
+                    if_source: None,
+                    citations,
                 }
-            }
+            } if citations.is_empty()
         ));
         assert!(Cli::try_parse_from(["xtask", "owner"]).is_err());
         assert!(Cli::try_parse_from(["xtask", "owner", "docs/README.md", "--schema"]).is_err());

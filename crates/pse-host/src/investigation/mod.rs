@@ -128,7 +128,7 @@ impl Error {
     pub fn native_refusal(&self) -> Option<crate::semantic::Failure> {
         match self {
             Self::Semantic(error) => match error.as_ref() {
-                crate::semantic::Error::Refusal(failure) => Some(failure.clone()),
+                crate::semantic::Error::Refusal(failure) => Some(failure.as_ref().clone()),
                 crate::semantic::Error::CancelledObserved { .. } => {
                     Some(crate::semantic::Failure::from_error(error))
                 }

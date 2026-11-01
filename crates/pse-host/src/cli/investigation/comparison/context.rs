@@ -598,10 +598,21 @@ fn unit_pairs(
             .1
             .push(i);
     }
-    groups.into_values().map(|(before,after)|{
-        let mut differences=Vec::new();let correspondence=if before.is_empty()||after.is_empty(){"unmatched"}else if before.len()!=1||after.len()!=1{"ambiguous"}else if a_units[before[0]].package_id!=b_units[after[0]].package_id{"candidate_package_upgrade_or_moved_root"}else{"qualified_candidate"};
-        if let ([i],[j])=(before.as_slice(),after.as_slice()){let old=&a_units[*i];let new=&b_units[*j];if old.features!=new.features{differences.push("unit_features".into());}if old.root!=new.root{differences.push("root_selection".into());}if old.package_id!=new.package_id{differences.push("source_qualified_package_identity".into());}if old.source_path!=new.source_path{differences.push("source_path".into());}}
-        Alignment{before,after,correspondence:correspondence.into(),basis:"target name/kinds, package source correspondence, relative source, host/target platform and compiler mode; features remain differences".into(),differences}
+    groups.into_values().map(|(before, after)| {
+        let mut differences = Vec::new();
+        let correspondence = if before.is_empty() || after.is_empty() { "unmatched" }
+            else if before.len() != 1 || after.len() != 1 { "ambiguous" }
+            else if a_units[before[0]].package_id != b_units[after[0]].package_id { "candidate_package_upgrade_or_moved_root" }
+            else { "qualified_candidate" };
+        if let ([i], [j]) = (before.as_slice(), after.as_slice()) {
+            let old = &a_units[*i];
+            let new = &b_units[*j];
+            if old.features != new.features { differences.push("unit_features".into()); }
+            if old.root != new.root { differences.push("root_selection".into()); }
+            if old.package_id != new.package_id { differences.push("source_qualified_package_identity".into()); }
+            if old.source_path != new.source_path { differences.push("source_path".into()); }
+        }
+        Alignment { before, after, correspondence: correspondence.into(), basis: "target name/kinds, package source correspondence, relative source, host/target platform and compiler mode; features remain differences".into(), differences }
     }).collect()
 }
 pub(super) async fn inspect(
@@ -690,7 +701,7 @@ mod tests {
         let mut unrelated = profile.clone();
         unrelated.package_id = "unrelated".into();
         let (projected, joins, omitted) = profile_projection(
-            &[unit.clone()],
+            std::slice::from_ref(&unit),
             Observation::Available {
                 value: vec![unrelated, profile.clone()],
             },
@@ -742,7 +753,12 @@ mod tests {
         let mut changed = unit.clone();
         changed.features = ["after".into()].into();
         assert_eq!(unit_key(&unit, None), unit_key(&changed, None));
-        let paired = unit_pairs(&[unit.clone()], &[], &[changed.clone()], &[]);
+        let paired = unit_pairs(
+            std::slice::from_ref(&unit),
+            &[],
+            std::slice::from_ref(&changed),
+            &[],
+        );
         assert_eq!(paired[0].differences, ["unit_features"]);
         assert_eq!(paired[0].correspondence, "qualified_candidate");
         changed.platform = None;

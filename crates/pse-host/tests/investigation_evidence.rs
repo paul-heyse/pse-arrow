@@ -20,6 +20,7 @@ fn value(output: Output) -> Value {
     assert!(output.status.success(), "{output:?}");
     serde_json::from_slice(&output.stdout).unwrap()
 }
+#[cfg(test)]
 fn qualified_value(output: Output) -> Value {
     assert!(matches!(output.status.code(), Some(0 | 1)), "{output:?}");
     let response: Value = serde_json::from_slice(&output.stdout).unwrap();

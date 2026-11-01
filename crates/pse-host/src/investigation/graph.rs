@@ -152,7 +152,7 @@ pub fn walk<E>(
             frontier.insert(node);
             continue;
         }
-        if !cache.contains_key(&node) {
+        if let std::collections::btree_map::Entry::Vacant(entry) = cache.entry(node) {
             let observed = adjacency(node)?;
             if !observed.complete {
                 result.complete = false;
@@ -182,7 +182,7 @@ pub fn walk<E>(
                 edges.insert(edge.clone());
                 admitted.push(edge);
             }
-            cache.insert(node, admitted);
+            entry.insert(admitted);
         }
         for edge in &cache[&node] {
             let next = match intent.direction {

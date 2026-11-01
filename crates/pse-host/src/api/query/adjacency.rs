@@ -315,68 +315,64 @@ pub fn inspect(
             children.extend(v.items.iter().copied());
             if relations.contains(&Relation::ProvidedDefault)
                 && !v.provided_trait_methods.is_empty()
+                && let Some(trait_) = &v.trait_
             {
-                if let Some(trait_) = &v.trait_ {
-                    if let Some(trait_item) = artifact.document.index.get(&trait_.id) {
-                        if let ItemEnum::Trait(data) = &trait_item.inner {
-                            for id in &data.items {
-                                if let Some(default) = artifact.document.index.get(id) {
-                                    if matches!(&default.inner, ItemEnum::Function(_))
+                if let Some(trait_item) = artifact.document.index.get(&trait_.id) {
+                    if let ItemEnum::Trait(data) = &trait_item.inner {
+                        for id in &data.items {
+                            if let Some(default) = artifact.document.index.get(id)
+                                && matches!(&default.inner, ItemEnum::Function(_))
+                                && default
+                                    .name
+                                    .as_ref()
+                                    .is_some_and(|name| v.provided_trait_methods.contains(name))
+                                && !catalog.edge(
+                                    artifact,
+                                    item,
+                                    *id,
+                                    Relation::ProvidedDefault,
+                                    default.name.clone(),
+                                )?
+                            {
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    match catalog.definitions.resolve(artifact, trait_.id) {
+                        Ok((definition, trait_id, _)) => {
+                            if let Some(rustdoc_types::Item {
+                                inner: ItemEnum::Trait(data),
+                                ..
+                            }) = definition.document.index.get(&trait_id)
+                            {
+                                for id in &data.items {
+                                    if let Some(default) = definition.document.index.get(id)
+                                        && matches!(&default.inner, ItemEnum::Function(_))
                                         && default.name.as_ref().is_some_and(|name| {
                                             v.provided_trait_methods.contains(name)
                                         })
-                                    {
-                                        if !catalog.edge(
+                                        && !catalog.cross_edge(
                                             artifact,
                                             item,
+                                            &definition,
                                             *id,
                                             Relation::ProvidedDefault,
                                             default.name.clone(),
-                                        )? {
-                                            break;
-                                        }
+                                        )?
+                                    {
+                                        break;
                                     }
                                 }
+                            } else {
+                                catalog.unknown(
+                                    "acquired default owner is not a complete trait".into(),
+                                );
                             }
                         }
-                    } else {
-                        match catalog.definitions.resolve(artifact, trait_.id) {
-                            Ok((definition, trait_id, _)) => {
-                                if let Some(rustdoc_types::Item {
-                                    inner: ItemEnum::Trait(data),
-                                    ..
-                                }) = definition.document.index.get(&trait_id)
-                                {
-                                    for id in &data.items {
-                                        if let Some(default) = definition.document.index.get(id) {
-                                            if matches!(&default.inner, ItemEnum::Function(_))
-                                                && default.name.as_ref().is_some_and(|name| {
-                                                    v.provided_trait_methods.contains(name)
-                                                })
-                                            {
-                                                if !catalog.cross_edge(
-                                                    artifact,
-                                                    item,
-                                                    &definition,
-                                                    *id,
-                                                    Relation::ProvidedDefault,
-                                                    default.name.clone(),
-                                                )? {
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    catalog.unknown(
-                                        "acquired default owner is not a complete trait".into(),
-                                    );
-                                }
-                            }
-                            Err(error) => catalog.unknown(format!(
-                                "provided defaults require a qualified acquired trait: {error}"
-                            )),
-                        }
+                        Err(error) => catalog.unknown(format!(
+                            "provided defaults require a qualified acquired trait: {error}"
+                        )),
                     }
                 }
             }
@@ -441,10 +437,10 @@ pub fn inspect(
     }
     if relations.contains(&Relation::Bound) {
         for bound in bounds {
-            if let rustdoc_types::GenericBound::TraitBound { trait_, .. } = bound {
-                if !catalog.edge(artifact, item, trait_.id, Relation::Bound, None)? {
-                    break;
-                }
+            if let rustdoc_types::GenericBound::TraitBound { trait_, .. } = bound
+                && !catalog.edge(artifact, item, trait_.id, Relation::Bound, None)?
+            {
+                break;
             }
         }
     }
@@ -461,52 +457,50 @@ pub fn inspect(
             }
         }
     }
-    if relations.contains(&Relation::Reexport) {
-        if let ItemEnum::Use(v) = &original.inner {
-            if let Some(target) = v.id {
-                if artifact.document.index.contains_key(&target) {
-                    catalog.edge(
-                        artifact,
-                        item,
-                        target,
-                        Relation::Reexport,
-                        Some(v.source.clone()),
-                    )?;
-                } else {
-                    match catalog.definitions.resolve(artifact, item) {
-                        Ok((definition, target, proof)) => {
-                            let witness_index = catalog.graph.witnesses.len();
-                            catalog.cross_edge(
-                                artifact,
-                                item,
-                                &definition,
-                                target,
-                                Relation::Reexport,
-                                Some(v.source.clone()),
-                            )?;
-                            if let Some(witness) = catalog.graph.witnesses.get_mut(witness_index) {
-                                if let Locator::Api { definition, .. } =
-                                    &mut witness.reference.locator
-                                {
-                                    *definition = Some(proof);
-                                }
-                            }
-                        }
-                        Err(error) => {
-                            catalog.edge(
-                                artifact,
-                                item,
-                                target,
-                                Relation::Reexport,
-                                Some(v.source.clone()),
-                            )?;
-                            catalog.unknown(error.to_string());
+    if relations.contains(&Relation::Reexport)
+        && let ItemEnum::Use(v) = &original.inner
+    {
+        if let Some(target) = v.id {
+            if artifact.document.index.contains_key(&target) {
+                catalog.edge(
+                    artifact,
+                    item,
+                    target,
+                    Relation::Reexport,
+                    Some(v.source.clone()),
+                )?;
+            } else {
+                match catalog.definitions.resolve(artifact, item) {
+                    Ok((definition, target, proof)) => {
+                        let witness_index = catalog.graph.witnesses.len();
+                        catalog.cross_edge(
+                            artifact,
+                            item,
+                            &definition,
+                            target,
+                            Relation::Reexport,
+                            Some(v.source.clone()),
+                        )?;
+                        if let Some(witness) = catalog.graph.witnesses.get_mut(witness_index)
+                            && let Locator::Api { definition, .. } = &mut witness.reference.locator
+                        {
+                            *definition = Some(proof);
                         }
                     }
+                    Err(error) => {
+                        catalog.edge(
+                            artifact,
+                            item,
+                            target,
+                            Relation::Reexport,
+                            Some(v.source.clone()),
+                        )?;
+                        catalog.unknown(error.to_string());
+                    }
                 }
-            } else {
-                catalog.unknown("reexport has no resolved target".into());
             }
+        } else {
+            catalog.unknown("reexport has no resolved target".into());
         }
     }
     catalog.definitions.verify_unchanged()?;

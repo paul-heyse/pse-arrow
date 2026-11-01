@@ -724,9 +724,9 @@ mod tests {
             compiler: "pinned".into(),
             source_files: vec![pb::CompilerSourceFile {
                 id: 7,
-                local_path: b"/fixture/lib.rs".to_vec().into(),
+                local_path: b"/fixture/lib.rs".to_vec(),
                 display_name: "remapped/lib.rs".into(),
-                original_source: original.as_bytes().to_vec().into(),
+                original_source: original.as_bytes().to_vec(),
                 original_sha256: super::super::digest(original.as_bytes()),
                 normalized_sha256: super::super::digest(
                     "pub fn target(){let text=\"é\";}\n".as_bytes(),

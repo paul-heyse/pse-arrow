@@ -1852,10 +1852,12 @@ pub(super) fn failure_from_pb(mut value: pb::Failure) -> Result<Failure> {
             .take()
             .map(disclosure_from_pb)
             .transpose()?
-            .map(|disclosure| crate::envelope::ValidationCorrection {
-                disclosure,
-                violations: Vec::new(),
-                diagnostics: Vec::new(),
+            .map(|disclosure| {
+                Box::new(crate::envelope::ValidationCorrection {
+                    disclosure,
+                    violations: Vec::new(),
+                    diagnostics: Vec::new(),
+                })
             }),
         observed_cancellation: value
             .observed_cancellation
@@ -1997,7 +1999,7 @@ fn cancellation_to_pb(value: CancellationObservation) -> Result<pb::NativeCancel
             }
             OriginalOutcome::Failed(value) => {
                 pb::native_cancellation_observation::OriginalOutcome::Failed(Box::new(
-                    failure_to_pb(value)?,
+                    failure_to_pb(*value)?,
                 ))
             }
         }),
@@ -2025,7 +2027,7 @@ fn cancellation_from_pb(
                 OriginalOutcome::Succeeded
             }
             pb::native_cancellation_observation::OriginalOutcome::Failed(value) => {
-                OriginalOutcome::Failed(failure_from_pb(*value)?)
+                OriginalOutcome::Failed(Box::new(failure_from_pb(*value)?))
             }
         },
     })
@@ -2403,7 +2405,7 @@ mod tests {
             ] {
                 for original in [
                     OriginalOutcome::Succeeded,
-                    OriginalOutcome::Failed(Failure {
+                    OriginalOutcome::Failed(Box::new(Failure {
                         state: FailureState::Stale,
                         phase: FailurePhase::Context,
                         message: "original changed source".into(),
@@ -2411,7 +2413,7 @@ mod tests {
                         backend_data: Some(json!({"original":"native-data"})),
                         observed_cancellation: None,
                         validation: None,
-                    }),
+                    })),
                 ] {
                     let failure = Failure {
                         state: FailureState::Cancelled,

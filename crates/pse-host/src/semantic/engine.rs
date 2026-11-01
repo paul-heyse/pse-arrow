@@ -44,7 +44,7 @@ pub(super) async fn request<R: Request>(server: &ServerHandle, params: Value) ->
         .await
         .map_err(|error| match error {
             lspf::ClientError::Cancelled => Error::Cancelled,
-            lspf::ClientError::Remote(error) => Error::Refusal(super::Failure {
+            lspf::ClientError::Remote(error) => Error::Refusal(Box::new(super::Failure {
                 phase: super::FailurePhase::Provider,
                 observed_cancellation: None,
                 validation: None,
@@ -58,7 +58,7 @@ pub(super) async fn request<R: Request>(server: &ServerHandle, params: Value) ->
                 message: error.message,
                 backend_code: Some(error.code),
                 backend_data: error.data,
-            }),
+            })),
             error => protocol(error),
         })?;
     Ok(serde_json::to_value(answer)?)

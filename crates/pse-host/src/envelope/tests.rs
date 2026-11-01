@@ -566,6 +566,10 @@ fn ordinary_causes_and_diagnostic_delegation_survive_as_independent_relationship
     assert_eq!(delegated.labels[0].byte_offset, 4);
 }
 #[test]
+#[allow(
+    clippy::disallowed_types,
+    reason = "Exercises third-party Report diagnostic delegation only; production boundaries retain concrete errors"
+)]
 fn diagnostic_report_wrapping_preserves_rich_metadata_before_envelope_capture() {
     let error = Parent {
         src: miette::NamedSource::new("模型.rs", "abc\né 🦀".to_owned()),

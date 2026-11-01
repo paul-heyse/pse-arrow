@@ -1746,8 +1746,9 @@ mod tests {
                 observed_cancellation: None,
                 validation: None,
             };
-            let error =
-                Error::Semantic(Box::new(crate::semantic::Error::Refusal(original.clone())));
+            let error = Error::Semantic(Box::new(crate::semantic::Error::Refusal(Box::new(
+                original.clone(),
+            ))));
             assert_eq!(error.disposition(), disposition);
             let mut summary = Summary::default();
             let mut records = Vec::new();
@@ -1770,7 +1771,7 @@ mod tests {
                 assert_eq!(summary.unknown, 1);
             }
         }
-        let error = Error::Semantic(Box::new(crate::semantic::Error::Refusal(
+        let error = Error::Semantic(Box::new(crate::semantic::Error::Refusal(Box::new(
             crate::semantic::Failure {
                 state: crate::semantic::FailureState::Unavailable,
                 phase: crate::semantic::FailurePhase::Context,
@@ -1780,7 +1781,7 @@ mod tests {
                 observed_cancellation: None,
                 validation: None,
             },
-        )));
+        ))));
         let row: SearchResult = serde_json::from_value(
             serde_json::json!({"source":"candidate","kind":"api","range":null,"reference":null}),
         )
@@ -1814,9 +1815,9 @@ mod tests {
         use crate::semantic::{OriginalOutcome, Settlement};
         for original in [
             OriginalOutcome::Succeeded,
-            OriginalOutcome::Failed(crate::semantic::Failure::from_error(
+            OriginalOutcome::Failed(Box::new(crate::semantic::Failure::from_error(
                 &crate::semantic::Error::Stale,
-            )),
+            ))),
         ] {
             let error = Error::from(crate::semantic::Error::CancelledObserved {
                 completion: Settlement::CpuSettled,

@@ -3034,10 +3034,7 @@ mod tests {
                 .settle()
                 .await
                 .unwrap(),
-            Err(Error::Refusal(super::super::Failure {
-                state: super::super::FailureState::Unsupported,
-                ..
-            }))
+            Err(Error::Refusal(failure)) if matches!(failure.state, super::super::FailureState::Unsupported)
         ));
         let mut wrong_generation = query(&file, "a.same", Kind::Explain);
         wrong_generation.if_generation = Some(2);

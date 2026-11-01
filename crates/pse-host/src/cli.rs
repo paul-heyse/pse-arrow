@@ -79,7 +79,7 @@ enum Command {
     /// Find source, text, Rust entities and relationships through one typed query.
     Search(investigation::Search),
     /// Inspect a known source or an addressed search result without preparation.
-    Inspect(investigation::Inspect),
+    Inspect(Box<investigation::Inspect>),
     /// Construct a checked change preview from an exact guarded result.
     Propose(investigation::Propose),
     /// Explicitly generate selected native compiler evidence or run authored compiler probes.
@@ -831,7 +831,7 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
     };
     match command {
         Command::Search(options) => investigation::search(options, selected, presentation),
-        Command::Inspect(options) => investigation::inspect(options, selected, presentation),
+        Command::Inspect(options) => investigation::inspect(*options, selected, presentation),
         Command::Propose(options) => investigation::propose(options, selected, presentation),
         Command::Fixture {
             action: FixtureAction::Prepare { fixture },

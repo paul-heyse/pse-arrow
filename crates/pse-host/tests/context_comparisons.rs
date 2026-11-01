@@ -36,6 +36,7 @@ fn digest(bytes: &[u8]) -> String {
         .map(|byte| format!("{byte:02x}"))
         .collect()
 }
+#[cfg(test)]
 impl Fixture {
     fn new(command: &str, admitted: bool) -> Self {
         let scratch = tempfile::tempdir().unwrap();

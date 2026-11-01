@@ -218,10 +218,10 @@ fn rust_documentation(
             .min_by_key(|entry| entry.range.byte_end - entry.range.byte_start)
     });
     let mut attributes = Vec::new();
-    if selected.is_none() {
-        if let Some(file) = ast::SourceFile::cast(syntax.clone()) {
-            attributes.extend(file.attrs_with_doc());
-        }
+    if selected.is_none()
+        && let Some(file) = ast::SourceFile::cast(syntax.clone())
+    {
+        attributes.extend(file.attrs_with_doc());
     }
     for item in syntax.descendants().filter_map(ast::Item::cast) {
         let range = item.syntax().text_range();
@@ -245,7 +245,7 @@ fn rust_documentation(
                 Some(ast::Meta::KeyValueMeta(meta))
                     if meta
                         .path()
-                        .is_some_and(|path| path.syntax().text().to_string() == "doc") =>
+                        .is_some_and(|path| path.syntax().text() == "doc") =>
                 {
                     if let Some(ast::Expr::Literal(literal)) = meta.expr() {
                         Some(literal.syntax().text_range())

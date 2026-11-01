@@ -3,6 +3,7 @@
 //! Public discovery and correction refuse invalid demand before provider admission.
 use serde_json::Value;
 use std::{path::Path, process::Command};
+#[cfg(test)]
 fn pse(root: &Path) -> Command {
     let mut command = Command::new(
         std::env::var_os("CARGO_BIN_EXE_pse").expect("native test runner supplies pse"),

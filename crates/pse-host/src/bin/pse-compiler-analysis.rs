@@ -246,41 +246,35 @@ fn source(
         return None;
     }
     let key = lo.sf.start_pos.0;
-    if !sources.borrow().contains_key(&key) {
-        if let rustc_span::FileName::Real(name) = &lo.sf.name {
-            if let Some(path) = name.local_path() {
-                let Ok(path) = path.canonicalize() else {
-                    return Some(pb::CompilerSourceLocation {
-                        file: lo.sf.name.prefer_remapped_unconditionally().to_string(),
-                        start: lo.pos.0,
-                        end: hi.pos.0,
-                        macro_expanded: span.from_expansion(),
-                        ..Default::default()
-                    });
-                };
-                if let Ok(original) = std::fs::read_to_string(&path) {
-                    if lo.sf.src_hash.matches(&original) {
-                        if let Some(normalized) = &lo.sf.src {
-                            sources.borrow_mut().insert(
-                                key,
-                                pb::CompilerSourceFile {
-                                    id: key,
-                                    local_path: path.as_os_str().as_bytes().to_vec().into(),
-                                    display_name: lo
-                                        .sf
-                                        .name
-                                        .prefer_remapped_unconditionally()
-                                        .to_string(),
-                                    original_sha256: source_sha256(original.as_bytes()),
-                                    normalized_sha256: source_sha256(normalized.as_bytes()),
-                                    original_source: original.into_bytes().into(),
-                                    ..Default::default()
-                                },
-                            );
-                        }
-                    }
-                }
-            }
+    if !sources.borrow().contains_key(&key)
+        && let rustc_span::FileName::Real(name) = &lo.sf.name
+        && let Some(path) = name.local_path()
+    {
+        let Ok(path) = path.canonicalize() else {
+            return Some(pb::CompilerSourceLocation {
+                file: lo.sf.name.prefer_remapped_unconditionally().to_string(),
+                start: lo.pos.0,
+                end: hi.pos.0,
+                macro_expanded: span.from_expansion(),
+                ..Default::default()
+            });
+        };
+        if let Ok(original) = std::fs::read_to_string(&path)
+            && lo.sf.src_hash.matches(&original)
+            && let Some(normalized) = &lo.sf.src
+        {
+            sources.borrow_mut().insert(
+                key,
+                pb::CompilerSourceFile {
+                    id: key,
+                    local_path: path.as_os_str().as_bytes().to_vec(),
+                    display_name: lo.sf.name.prefer_remapped_unconditionally().to_string(),
+                    original_sha256: source_sha256(original.as_bytes()),
+                    normalized_sha256: source_sha256(normalized.as_bytes()),
+                    original_source: original.into_bytes(),
+                    ..Default::default()
+                },
+            );
         }
     }
     let bound = sources.borrow().contains_key(&key);
@@ -416,7 +410,7 @@ fn cleanup<'tcx>(
             unwind: unwind.into(),
             cleanup_block,
             source_display: format!("{:?}", term.source_info.span),
-            source: source(tcx, term.source_info.span, &sources).into(),
+            source: source(tcx, term.source_info.span, sources).into(),
             is_cleanup: data.is_cleanup,
             initialization: initialization.into(),
             termination_cause,

@@ -542,7 +542,7 @@ pub struct Failure {
     pub observed_cancellation: Option<Box<CancellationObservation>>,
     /// Schema-addressed correction derived from canonical details and origin disclosure.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub validation: Option<crate::envelope::ValidationCorrection>,
+    pub validation: Option<Box<crate::envelope::ValidationCorrection>>,
 }
 /// Distinguish explicit preparation, unsupported capability, cancellation and revision invalidation.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
@@ -582,7 +582,7 @@ impl Failure {
     /// Preserve selected typed error categories at the serialization boundary.
     pub fn from_error(error: &Error) -> Self {
         if let Error::Refusal(failure) = error {
-            return failure.clone();
+            return failure.as_ref().clone();
         }
         let state = match error {
             Error::Stale => FailureState::Stale,
@@ -639,7 +639,7 @@ pub enum OriginalOutcome {
     /// Original work completed successfully before cancellation settled.
     Succeeded,
     /// Original failure, including its typed native category.
-    Failed(Failure),
+    Failed(Box<Failure>),
 }
 /// Cancellation delivery observed with the original native settlement and outcome.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -687,7 +687,7 @@ pub enum Error {
     Transport(String),
     /// An original native refusal retains structured machine meaning across clients.
     #[error(transparent)]
-    Refusal(Failure),
+    Refusal(Box<Failure>),
     /// Client request cancellation never implies session cancellation.
     #[error("semantic request canceled; inspect session status for original session availability")]
     Cancelled,
@@ -720,7 +720,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 impl Error {
     /// Unsupported producer operation, distinct from missing explicit preparation.
     pub(super) fn unsupported(message: impl Into<String>) -> Self {
-        Self::Refusal(Failure {
+        Self::Refusal(Box::new(Failure {
             state: FailureState::Unsupported,
             phase: FailurePhase::Provider,
             message: message.into(),
@@ -728,7 +728,7 @@ impl Error {
             backend_data: None,
             observed_cancellation: None,
             validation: None,
-        })
+        }))
     }
 }
 
@@ -748,7 +748,7 @@ mod failure_tests {
         };
         let failure = Failure::from_error(&Error::CancelledObserved {
             completion: Settlement::CpuSettled,
-            original: OriginalOutcome::Failed(original),
+            original: OriginalOutcome::Failed(Box::new(original)),
         });
         assert!(matches!(failure.state, FailureState::Cancelled));
         assert!(matches!(failure.phase, FailurePhase::Settlement));

@@ -100,7 +100,7 @@ pub(crate) fn transport_error(error: ConnectError) -> Error {
                 {
                     return wire::failure_from_pb(failure).map_or_else(
                         |error| error,
-                        |failure| Error::Refusal(retain_rpc_details(failure, &error)),
+                        |failure| Error::Refusal(Box::new(retain_rpc_details(failure, &error))),
                     );
                 }
             }
@@ -108,10 +108,10 @@ pub(crate) fn transport_error(error: ConnectError) -> Error {
         }
     }
     if error.code == connectrpc::ErrorCode::InvalidArgument {
-        Error::Refusal(retain_rpc_details(
+        Error::Refusal(Box::new(retain_rpc_details(
             super::Failure::from_error(&Error::InvalidRequest(error.to_string())),
             &error,
-        ))
+        )))
     } else {
         Error::Transport(format!("local semantic RPC: {error}"))
     }
@@ -157,10 +157,10 @@ fn validation_error(
                 ValidationCoverage::Truncated
             };
         }
-        failure.validation = Some(ValidationCorrection {
+        failure.validation = Some(Box::new(ValidationCorrection {
             disclosure,
             ..projection
-        });
+        }));
     }
     match wire::failure_to_pb(failure) {
         Ok(failure) => transport.with_detail(connectrpc::ErrorDetail::from_message(
@@ -172,7 +172,8 @@ fn validation_error(
 }
 fn retain_rpc_details(mut failure: super::Failure, error: &ConnectError) -> super::Failure {
     let disclosure = failure.validation.take().map(|value| value.disclosure);
-    failure.validation = crate::envelope::ValidationCorrection::rpc(&error.details, disclosure);
+    failure.validation =
+        crate::envelope::ValidationCorrection::rpc(&error.details, disclosure).map(Box::new);
     let originals = error
         .details
         .iter()
@@ -285,7 +286,7 @@ impl Client {
                     Response::PackageContext(wire::package_answer_from_pb(*answer)?),
                 ),
                 Some(pb::native_package_reply::Result::Failure(failure)) => {
-                    Err(Error::Refusal(wire::failure_from_pb(*failure)?))
+                    Err(Error::Refusal(Box::new(wire::failure_from_pb(*failure)?)))
                 }
                 None => Err(Error::Protocol("package reply has no outcome".into())),
             },
@@ -410,7 +411,7 @@ pub(crate) fn finish_run(
     let original = match terminal.original_outcome {
         Some(pb::terminal::OriginalOutcome::Succeeded(_)) => super::OriginalOutcome::Succeeded,
         Some(pb::terminal::OriginalOutcome::Failed(failure)) => {
-            super::OriginalOutcome::Failed(wire::failure_from_pb(*failure)?)
+            super::OriginalOutcome::Failed(Box::new(wire::failure_from_pb(*failure)?))
         }
         None => return Err(Error::Schema("Terminal omitted original outcome".into())),
     };
@@ -654,9 +655,9 @@ fn response_from_event(event: pb::NativeEvent) -> Result<Option<Result<Response>
         Some(pb::native_event::Item::Graph(answer)) => {
             Some(wire::graph_answer_from_pb(*answer).map(Response::Graph))
         }
-        Some(pb::native_event::Item::Failure(failure)) => {
-            Some(Err(Error::Refusal(wire::failure_from_pb(*failure)?)))
-        }
+        Some(pb::native_event::Item::Failure(failure)) => Some(Err(Error::Refusal(Box::new(
+            wire::failure_from_pb(*failure)?,
+        )))),
         Some(pb::native_event::Item::Terminal(_)) => None,
         None => return Err(Error::Protocol("semantic event has no item".into())),
     })
@@ -1062,7 +1063,7 @@ mod correction_tests {
         let Error::Refusal(failure) = transport_error(transport) else {
             panic!("missing typed refusal")
         };
-        failure
+        *failure
     }
     #[test]
     fn native_origin_reports_exact_whole_violation_truncation_without_text_parsing() {

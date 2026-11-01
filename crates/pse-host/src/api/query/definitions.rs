@@ -81,14 +81,14 @@ impl QualificationContext {
             if facade.document.index.contains_key(id) {
                 continue;
             }
-            if let Some(external) = facade.document.external_crates.get(&summary.crate_id) {
-                if let Some(names) = original_crate_bindings.get(&external.name) {
-                    if names.len() == 1 {
-                        surfaces.entry(*id).or_insert_with(|| {
-                            (names.first().unwrap().clone(), summary.path.clone())
-                        });
-                    }
-                }
+            if let Some(external) = facade.document.external_crates.get(&summary.crate_id)
+                && let Some(names) = original_crate_bindings.get(&external.name)
+                && names.len() == 1
+                && let Some(name) = names.first()
+            {
+                surfaces
+                    .entry(*id)
+                    .or_insert_with(|| (name.clone(), summary.path.clone()));
             }
         }
         let inputs = facade

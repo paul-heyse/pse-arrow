@@ -323,9 +323,9 @@ pub(super) enum Preview {
 )]
 pub(super) enum EntityInspection {
     /// Original selected native observations.
-    Native(crate::cli::code::semantic::AnswerView),
+    Native(Box<crate::cli::code::semantic::AnswerView>),
     /// Independently qualified compiler/native/work sections.
-    Lifetime(query::lifetime::Report),
+    Lifetime(Box<query::lifetime::Report>),
 }
 
 /// Keep native receive ownership through cancellation and its settled terminal response.
@@ -1310,7 +1310,9 @@ pub(super) fn inspect(
         use crate::semantic::Kind;
         let kind = match options.view.unwrap_or(View::Declaration) {
             View::Associations | View::Relevance => {
-                return Err(query::Error::Invalid("evidence view was not dispatched".into()).into());
+                return Err(
+                    query::Error::Invalid("evidence view was not dispatched".into()).into(),
+                );
             }
             View::Adjacency => {
                 return Err(query::Error::Invalid(

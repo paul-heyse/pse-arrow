@@ -296,6 +296,7 @@ impl Fixture {
 
 /// Match the library public-journey route: establish a real independent caller scope,
 /// then release its entry gate. Nested production detachment remains refused.
+#[cfg(test)]
 async fn independent_cli(entry: &str, gate_name: &str) {
     use std::time::{Duration, Instant};
     let scratch = tempfile::tempdir().unwrap();

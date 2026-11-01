@@ -112,12 +112,11 @@ impl Request {
                 source_sha256,
                 ..
             } = &reference.locator
+                && (session_invocation.is_none() || generation.is_none() || source_sha256.is_none())
             {
-                if session_invocation.is_none() || generation.is_none() || source_sha256.is_none() {
-                    return Err(invalid(
-                        "semantic comparison requires original session, generation and exact source guards",
-                    ));
-                }
+                return Err(invalid(
+                    "semantic comparison requires original session, generation and exact source guards",
+                ));
             }
             if matches!(
                 &reference.locator,
@@ -206,7 +205,7 @@ pub(in crate::cli) enum Observation<T> {
         value: T,
     },
     Unavailable {
-        diagnostic: crate::envelope::ErrorRecord,
+        diagnostic: Box<crate::envelope::ErrorRecord>,
     },
 }
 impl<T> Observation<T> {
@@ -214,10 +213,10 @@ impl<T> Observation<T> {
         match result {
             Ok(value) => Self::Available { value },
             Err(error) => Self::Unavailable {
-                diagnostic: crate::envelope::ErrorRecord::from_typed(
+                diagnostic: Box::new(crate::envelope::ErrorRecord::from_typed(
                     &error,
                     &crate::envelope::RedactionPolicy::from_environment(),
-                ),
+                )),
             },
         }
     }
@@ -233,21 +232,21 @@ impl<T> Observation<T> {
 pub(in crate::cli) enum Report {
     Source {
         request: Request,
-        comparison: source::Comparison,
+        comparison: Box<source::Comparison>,
     },
     Api {
         request: Request,
-        before: Observation<crate::api::comparison::Side>,
-        after: Observation<crate::api::comparison::Side>,
-        comparison: Observation<crate::api::comparison::Page>,
+        before: Observation<Box<crate::api::comparison::Side>>,
+        after: Observation<Box<crate::api::comparison::Side>>,
+        comparison: Observation<Box<crate::api::comparison::Page>>,
     },
     Context {
         request: Request,
-        comparison: context::Comparison,
+        comparison: Box<context::Comparison>,
     },
     Semantic {
         request: Request,
-        comparison: semantic::Comparison,
+        comparison: Box<semantic::Comparison>,
     },
 }
 fn side_root(selected: &Path, explicit: Option<&PathBuf>, reference: &ResultReference) -> PathBuf {
@@ -311,7 +310,7 @@ pub(in crate::cli) fn dispatch(
             let comparison = source::inspect(&request, &before_root, &after_root);
             Report::Source {
                 request,
-                comparison,
+                comparison: Box::new(comparison),
             }
         }
         View::Api => {
@@ -330,9 +329,9 @@ pub(in crate::cli) fn dispatch(
             };
             Report::Api {
                 request,
-                before: Observation::from_result(before.and_then(|a| api_side(&a))),
-                after: Observation::from_result(after.and_then(|a| api_side(&a))),
-                comparison: Observation::from_result(comparison),
+                before: Observation::from_result(before.and_then(|a| api_side(&a)).map(Box::new)),
+                after: Observation::from_result(after.and_then(|a| api_side(&a)).map(Box::new)),
+                comparison: Observation::from_result(comparison.map(Box::new)),
             }
         }
         View::Context => {
@@ -342,7 +341,7 @@ pub(in crate::cli) fn dispatch(
             })?;
             Report::Context {
                 request,
-                comparison,
+                comparison: Box::new(comparison),
             }
         }
         View::Semantic => {
@@ -352,7 +351,7 @@ pub(in crate::cli) fn dispatch(
             })?;
             Report::Semantic {
                 request,
-                comparison,
+                comparison: Box::new(comparison),
             }
         }
     };
